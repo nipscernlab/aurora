@@ -1,0 +1,10 @@
+{
+  "processors": [
+    {
+      "name": "proc_fft",
+      "clk": 200,
+      "numClocks": 20000
+    }
+  ],
+  "iverilogFlags": []
+}

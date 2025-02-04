@@ -1,0 +1,220 @@
+
+  .editor-terminal-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  .terminal-container {
+    background-color: #1e1e1e;
+    color: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .terminal-tabs {
+    display: flex;
+    background-color: #333;
+    border-bottom: 2px solid #444;
+  }
+
+  .terminal-content {
+    flex: 1;
+    padding: 15px;
+    font-family: monospace;
+    overflow-y: auto;
+    transition: opacity 0.3s ease;
+    display: none;
+  }
+  
+  .terminal-content.active {
+    display: block;
+  }
+
+  .hidden {
+    display: none;
+  }
+  
+  #terminal-tcmm {
+    background-color: #57002b56;
+  }
+  
+  #terminal-tasm {
+    background-color: #470e00;
+  }
+
+  #terminal-tcmd {
+    background-color: #000;
+  }
+  
+  .terminal-header {
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .terminal-container {
+    height: 200px; /* Altura inicial do terminal */
+    min-height: 35px;
+    background-color: #1e1e1e;
+    color: #fff;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transition: height 0.2s ease; /* Adiciona uma transição suave ao redimensionar */
+    overflow-y: auto; /* Para rolagem quando o terminal é muito pequeno */
+  }
+
+  
+  .editor-terminal-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .terminal-tabs .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    background: #333;
+    color: #fff;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    transition: background 0.3s ease;
+  }
+  
+  .terminal-tabs .tab.active {
+    /* background: #444; */
+    font-weight: bold;
+  }
+  
+
+  /*TESTE*/
+
+  /* Style for the timestamp in each log entry */
+/* Estilo do timestamp */
+.timestamp {
+    font-size: 0.85rem;
+    color: #888; /* Cor de texto mais suave */
+    margin-bottom: 5px;
+    font-family: 'Courier New', monospace;
+  }
+  
+  /* Estilo para as entradas de log */
+  .log-entry {
+    margin-bottom: 10px; /* Menor espaçamento entre logs */
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: #2c2c2c; /* Cor de fundo escura mas mais suave */
+    color: #f1f1f1;
+    font-family: 'Courier New', monospace;
+    transition: background-color 0.3s ease;
+  }
+  
+  /* Estilos para diferentes tipos de mensagem 
+  .log-entry.success {
+    background-color: #4CAF50;
+  }
+  
+  .log-entry.error {
+    background-color: #F44336; 
+  }*/
+  
+  .log-entry.info {
+    background-color: #005aa3; /* Azul suave para informação */
+  }
+  
+  .log-entry.command {
+    background-color: #333; /* Cor neutra para comandos */
+  }
+  
+  /* Para destacar mensagens de "Atenção na linha" */
+  .log-entry.highlight-line .log-message {
+    color: #FF5722; /* Laranja claro, menos agressivo que o vermelho */
+    font-weight: bold;
+  }
+  
+  /* Estilo do conteúdo do terminal */
+  .terminal-body {
+    padding: 15px;
+    overflow-y: auto;
+    height: 100%;
+  }
+  
+  /* Cabeçalho do terminal */
+  .terminal-header {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f1f1f1;
+    margin-bottom: 10px;
+  }
+  
+  /* Adiciona um pouco de espaçamento entre os logs */
+  .terminal-body .log-entry {
+    margin-top: 8px;
+  }
+  
+  /* Estilo para o terminal */
+  .terminal-content {
+    background-color: #1e1e1e; /* Cor de fundo escura para o terminal */
+    color: white;
+    border-radius: 8px;
+  }
+  
+  /* Corrige o comportamento do scroll dentro do terminal */
+  .terminal-body {
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  #terminal {
+    width: 100%;
+    height: 400px;
+    background-color: black;
+    color: white;
+    font-family: monospace;
+    padding: 10px;
+    overflow-y: scroll;
+}
+
+/* Estilos para o botão Clear Terminal */
+#clear-terminal {
+  position: fixed;
+  right: 20px; /* Distância da direita da tela */
+  background-color: #f44336; /* Cor de fundo vermelha */
+  border-radius: 50%; /* Deixa o botão redondo */
+  width: 25px; /* Tamanho do botão */
+  height: 25px; /* Tamanho do botão */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombras suaves */
+  transition: transform 0.3s ease; /* Transição suave para o efeito de hover */
+  margin-top: 4px;
+  z-index: 100; /* Garante que o botão ficará acima de outros elementos */
+}
+
+#clear-terminal i {
+  font-size: 20px; /* Tamanho do ícone */
+  color: white; /* Cor do ícone */
+  display: contents;
+}
+
+/* Efeito de hover - aumenta suavemente o botão */
+#clear-terminal:hover {
+  transform: scale(1.2); /* Aumenta o tamanho do botão */
+  cursor: pointer; /* Muda o cursor para indicar que é clicável */
+}
+
+/* Efeito de hover no ícone */
+#clear-terminal:hover i {
+  transform: scale(1.1); /* Aumenta suavemente o ícone */
+}
+
+/*TERMINAL VERILATOR*/
+.verilator {
+
+  color: aqua;
+}

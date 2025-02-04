@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect x="64" y="64" width="384" height="448" rx="32" ry="32" fill="url(#gradient)" />
+  <!-- Folded Corner -->
+  <polygon points="384,64 448,64 448,128 384,128" fill="#ffd700" />
+  <!-- Gradient -->
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#003f88" />
+      <stop offset="100%" stop-color="#0077ff" />
+    </linearGradient>
+  </defs>
+  <!-- Text -->
+  <text x="50%" y="60%" fill="#ffd700" font-size="180" font-family="Arial, sans-serif" text-anchor="middle" dominant-baseline="central" font-weight="bold">
+    C+-
+  </text>
+</svg>

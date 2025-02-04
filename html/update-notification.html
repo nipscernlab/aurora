@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Available</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+    .notification-container {
+      background-color: #fff;
+      padding: 20px;
+      width: 400px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .notification-header {
+      font-size: 18px;
+      color: #333;
+      font-weight: bold;
+    }
+    .notification-message {
+      margin: 10px 0 20px;
+      color: #555;
+    }
+    .notification-alert {
+      border-top: 3px solid #ff5555;
+      padding-top: 10px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .notification-buttons {
+      display: flex;
+      justify-content: space-around;
+    }
+    .notification-buttons button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      background-color: #007bff;
+      color: #fff;
+    }
+    .notification-buttons button.cancel {
+      background-color: #aaa;
+    }
+    .progress-bar {
+      margin-top: 20px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+      height: 10px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .progress-bar div {
+      height: 100%;
+      width: 0;
+      background-color: #007bff;
+      transition: width 0.3s;
+    }
+    .success-message {
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="notification-container">
+    <div class="notification-header">Update Available</div>
+    <div class="notification-alert">New version available. Do you want to download it now?</div>
+    <div class="notification-buttons">
+      <button onclick="handleUserResponse(true)">Yes</button>
+      <button class="cancel" onclick="handleUserResponse(false)">No</button>
+    </div>
+    <div id="progress-section" style="display: none;">
+      <div class="notification-message">Downloading update...</div>
+      <div class="progress-bar"><div id="progress-bar-fill"></div></div>
+    </div>
+    <div id="success-message" class="success-message" style="display: none;">
+      Update downloaded successfully. Restart to install.
+    </div>
+    <div class="notification-buttons" id="reload-section" style="display: none;">
+      <button onclick="handleInstall()">Restart Now</button>
+      <button class="cancel" onclick="closeNotification()">Later</button>
+    </div>
+  </div>
+  <script src="/js/renderer.js"></script>
+</body>
+</html>

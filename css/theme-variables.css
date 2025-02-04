@@ -1,0 +1,59 @@
+/* theme-variables.css */
+:root {
+    /* Dark theme (default) */
+    --bg-primary: #1a1b26;
+    --bg-secondary: #1f2937;
+    --bg-tertiary: #24283b;
+    --bg-hover: #292e42;
+    --bg-active: #364156;
+    
+    --accent-primary: #7aa2f7;
+    --accent-secondary: #5973c0;
+    --accent-hover: #89b4f7;
+    
+    --text-primary: #c0caf5;
+    --text-secondary: #9aa5ce;
+    --text-muted: #565f89;
+    
+    --border-primary: #29324d;
+    --border-secondary: #1f2937;
+    
+    --icon-primary: #7aa2f7;
+    --icon-secondary: #9aa5ce;
+    
+    --error: #f7768e;
+    --warning: #e0af68;
+    --success: #9ece6a;
+    --info: #7dcfff;
+    
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  
+    /* Font families */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  
+  /* Light theme */
+  body.theme-light {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --bg-hover: #e2e8f0;
+    --bg-active: #cbd5e1;
+    
+    --accent-primary: #3b82f6;
+    --accent-secondary: #2563eb;
+    --accent-hover: #60a5fa;
+    
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    
+    --border-primary: #e2e8f0;
+    --border-secondary: #cbd5e1;
+    
+    --icon-primary: #3b82f6;
+    --icon-secondary: #64748b;
+  }

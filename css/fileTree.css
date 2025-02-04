@@ -1,0 +1,58 @@
+@keyframes refresh-fade {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  #refresh-button {
+    transition: transform 0.3s ease;
+  }
+
+  #refresh-button.spinning {
+    transform: rotate(180deg);
+  }
+
+  .file-tree-item {
+    width: 100%;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+
+  .file-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .folder-toggle {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    transition: transform 0.2s;
+  }
+
+  .folder-content {
+    width: 100%;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .file-item-icon {
+    margin-right: 8px;
+  }
+
+  .file-item span {
+    margin-left: 4px;
+  }
+
+
+#open-folder-button:hover {
+    color: var(--accent-color);
+}

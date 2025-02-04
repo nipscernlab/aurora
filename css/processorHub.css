@@ -1,0 +1,104 @@
+.processor-hub-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--background-darker, #1e1e1e);
+    border: 1px solid var(--border-color, #404040);
+    border-radius: 12px;
+    padding: 24px;
+    width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    z-index: 1001;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .processor-hub-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  .processor-hub-modal h2 {
+    margin: 0 0 20px 0;
+    color: var(--text-color, #ffffff);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .processor-hub-form {
+    display: grid;
+    gap: 16px;
+  }
+
+  .form-group {
+    display: grid;
+    gap: 8px;
+  }
+
+  .form-group label {
+    color: var(--text-color, #ffffff);
+    font-size: 14px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #404040);
+    background: var(--background-darker, #2d2d2d);
+    color: var(--text-color, #ffffff);
+    font-size: 14px;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--accent-color, #007acc);
+  }
+
+  .button-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .processor-hub-modal button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .cancel-button {
+    background: var(--background-darker, #2d2d2d);
+    color: var(--text-color, #ffffff);
+  }
+
+  .generate-button {
+    background: var(--accent-color, #007acc);
+    color: white;
+  }
+
+  .generate-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .generate-button:not(:disabled):hover {
+    background: var(--accent-color-hover, #0098ff);
+  }
+
+  .cancel-button:hover {
+    background: var(--background-lighter, #3d3d3d);
+  }

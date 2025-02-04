@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURORA IDE</title>
+  <link rel="stylesheet" href="node_modules/monaco-editor/min/vs/editor/editor.main.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=inventory_2" />
+  <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/file-icon-vectors@1.0.0/dist/file-icon-vectors.min.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=folder_zip" />
+
+  <link rel="stylesheet" href="./css/info.css">
+  <link rel="stylesheet" href="./css/sidebar.css">
+  <link rel="stylesheet" href="./css/modal.css">
+  <link rel="stylesheet" href="./css/styles.css">
+
+  <link rel="stylesheet" href="./css/report.css">
+  <link rel="stylesheet" href="./css/processorHub.css">
+  <link rel="stylesheet" href="./css/rainbow.css">
+
+   <link rel="stylesheet" href="./css/ia.css">
+  <!--<link rel="stylesheet" href="./css/terminal2.css"> --> 
+  <link rel="stylesheet" href="./css/tabs.css">
+
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/editor.css">
+  <link rel="stylesheet" href="./css/terminal.css">
+  <link rel="stylesheet" href="./css/ai-assistant.css">
+  <link rel="stylesheet" href="./css/theme-variables.css">
+ 
+  <link rel="stylesheet" href="./css/toolbar.css">
+  <link rel="stylesheet" href="./css/fileTree.css">
+
+  <link rel="stylesheet" href="./css/blockView.css">
+  <link rel="stylesheet" href="./css/simulationModal.css">
+
+  <!-- --> <link rel="stylesheet" href="./css/modalConfig.css">
+</head>
+
+<body class="theme-dark">
+  <div class="toolbar">
+    <!-- Botões à esquerda -->
+    <div class="toolbar-left">
+      <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
+        <i class="fa-solid fa-compass"></i>
+      </button>
+      <button id="newProjectBtn" title="New Project" class="toolbar-button">
+        <i class="fas fa-folder-plus"></i>
+        <span>New Project</span>
+      </button>
+      <button id="backupFolderBtn" class="toolbar-button">
+        <i class="fa-solid fa-file-zipper"></i>
+        <span>Backup</span>
+      </button>
+      <button id="openProjectBtn" class="toolbar-button">
+        <i class="fa-solid fa-box-open"></i>
+        <span>Open Project</span>
+      </button>
+      <button id="saveFileBtn" class="toolbar-button">
+        <i class="fas fa-save"></i>
+        <span>Save</span>
+      </button>
+    </div>
+
+    <!-- Botões no centro -->
+    <div class="toolbar-center">
+      <button id="cmmcomp" class="toolbar-button" title="Compile CMM">
+        <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
+        <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
+      </button>
+      <button id="asmcomp" class="toolbar-button" title="Compile ASM">
+        <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+      </button>
+      <button id="vericomp" class="toolbar-button" title="Compile Verilog">
+        <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+      </button>
+      <button id="wavecomp" class="toolbar-button" title="Open Wave">
+        <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+      </button>
+
+    </div>
+    <button id="allcomp" class="toolbar-button" title="Compile All">
+      <i class="fa-solid fa-layer-group" style="color: aqua;"></i>
+    </button>
+
+    <!-- Botões à direita -->
+    <div class="toolbar-right">
+      <button id="themeToggle" class="toolbar-button">
+        <i class="fas fa-sun" title="Theme Toggle"></i>
+      </button>
+      <button id="settings" class="toolbar-button">
+        <i class="fa-solid fa-gear" title="Processor Configuration"></i>
+      </button>
+    </div>
+  </div>
+  <div id="processor-visualization"></div>
+
+<!-- Sidebar -->
+<div id="sidebar" class="sidebar">
+  <ul class="sidebar-menu">
+    <li title="Browse the web">
+      <i class="fas fa-globe"></i>
+    </li>
+    <li title="Search for information">
+      <i class="fas fa-search"></i>
+    </li>
+    <li title="View the Abstract Syntax Tree (AST)">
+      <i class="fa-solid fa-code-branch"></i>
+    </li>
+    <li title="Report a bug">
+      <i class="fas fa-bug"></i>
+    </li>
+    <li title="Open GitHub Desktop">
+      <i class="fab fa-github"></i>
+    </li>
+    <li title="Keyboard shortcuts">
+      <i class="fas fa-keyboard"></i>
+    </li>
+    <li title="Project information">
+      <i class="fas fa-info-circle"></i>
+    </li>
+    <li title="Shut down the application">
+      <i class="fas fa-power-off"></i>
+    </li>
+  </ul>
+</div>
+
+<!-- Modal de Configurações -->
+<div id="modalConfig" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Configuration</h2>
+      <button id="closeModal" aria-label="Close Modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <section id="processors">
+        <h3>Processors</h3>
+        <button id="addProcessor" aria-label="Add Processor">
+          <i class="fa-solid fa-plus"></i> Add Processor
+        </button>
+        <div id="processorList">
+          <!-- Processor items will be dynamically added here -->
+        </div>
+      </section>
+      
+      <section id="iverilogSettings">
+        <h3>Iverilog Settings</h3>
+        <div class="form-group">
+          <label for="iverilogFlags">Compilation Flags</label>
+          <input 
+            type="text" 
+            id="iverilogFlags" 
+            name="iverilogFlags"
+            placeholder="e.g., -Wall; -v; -s" 
+            aria-describedby="iverilogFlagsHelp"
+          >
+          <small id="iverilogFlagsHelp" class="form-help">
+            Specify additional flags for Iverilog compilation
+          </small>
+        </div>
+      </section>
+    </div>
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button id="clearAll" aria-label="Clear All Settings" class="btn-secondary">
+          <i class="fa-solid fa-trash-can"></i> Clear
+        </button>
+        <div class="footer-primary-actions">
+          <button id="cancelConfig" aria-label="Cancel Changes" class="btn-secondary">
+            Cancel
+          </button>
+          <button id="saveConfig" aria-label="Save Settings" class="btn-primary">
+            <i class="fa-solid fa-save"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <!-- Adicionar um botão de Bug Report -->
+<button id="open-bug-report">
+  <i class="fa-solid fa-bug"></i>
+</button>
+
+<!-- Janela Modal para o Bug Report -->
+<div id="bug-report-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2><i class="fa-solid fa-bug"></i>Bug Report</h2>
+    <form id="bug-report-form" action="https://formspree.io/f/xgvebqla" method="POST">
+      <label for="bug-title">Título</label>
+      <input type="text" id="bug-title" name="bug-title" placeholder="Digite o título do bug" required />
+
+      <label for="bug-body">Descrição</label>
+      <textarea id="bug-body" name="bug-body" placeholder="Descreva o problema e elogie o programador!" required></textarea>
+
+      <label>Severidade</label>
+      <div class="severity-options">
+        <label>
+          <input type="radio" name="severity" value="low" required />
+          <span class="severity-dot low"></span> Baixa
+        </label>
+        <label>
+          <input type="radio" name="severity" value="medium" required />
+          <span class="severity-dot medium"></span> Média
+        </label>
+        <label>
+          <input type="radio" name="severity" value="high" required />
+          <span class="severity-dot high"></span> Alta
+        </label>
+      </div>
+      <button type="submit">Enviar</button>
+      <button type="button" id="close-bug-report">Cancelar</button>
+    </form>
+  </div>
+</div>
+
+  <!-- Modal Overlay -->
+<div id="newProjectModal" class="modal-overlay hidden">
+  <div class="modal-content">
+    <h2><i class="fa-solid fa-diagram-project"></i> Create New Project</h2>
+    <div class="input-group">
+      <label for="projectNameInput">Project Name:</label>
+      <input type="text" id="projectNameInput" placeholder="Enter project name" />
+    </div>
+    <div class="input-group">
+      <label for="projectLocationInput">Project Location:</label>
+      <input type="text" id="projectLocationInput" placeholder="Select project location" readonly />
+      <button id="browseBtn" class="btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
+    </div>
+    <div class="modal-actions">
+      <button id="generateProjectBtn" class="btn-generate"><i class="fa-solid fa-plus"></i> Generate</button>
+      <button id="cancelProjectBtn" class="btn-cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>
+    </div>
+  </div>
+</div>
+  
+
+  <div class="main-container">
+    <!-- File Tree Section -->
+    <div class="file-tree-container">
+      <div class="file-tree-header">
+        <span>EXPLORER</span>
+        <span id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><br>
+        <span id="current-spf-name">No project open</span>
+                <span id="open-folder-button" style="cursor: pointer;">
+                    <i class="fa-solid fa-folder-open"></i>
+                </span>
+      </div>
+
+      <div id="file-tree" class="file-tree"></div>
+      <div class="resizer-vertical"></div>
+    </div>
+
+    <!-- Editor and Terminal Section -->
+    <div class="editor-terminal-container">
+      <div class="editor-container">
+        <div id="tabs-container" class="tabs-container">
+          <!-- Tabs will be dynamically inserted here -->
+        </div>
+        <div id="monaco-editor" class="monaco-editor"></div>
+      </div>
+      <div class="resizer-horizontal"></div>
+      <div id="terminal-container" class="terminal-container">
+        <div class="terminal-tabs">
+          <button id="clear-terminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
+
+          <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue;"></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
+          <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
+          <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
+          <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
+          <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button>
+
+        </div>
+        <div class="terminal-content" id="terminal-tcmm">
+          <div class="terminal-header">TCMM Terminal</div>
+          <div class="terminal-body">Bem-vindo ao Terminal TCMM!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-tasm">
+          <div class="terminal-header">TASM Terminal</div>
+          <div class="terminal-body">Bem-vindo ao Terminal TASM!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-tveri">
+          <div class="terminal-header">TVERI Terminal</div>
+          <div class="terminal-body">Bem-vindo ao Terminal TVERI!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-twave">
+          <div class="terminal-header">TWAVE Terminal</div>
+          <div class="terminal-body">Bem-vindo ao Terminal TWAVE!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-tcmd">
+          <div class="terminal-header">CMD Terminal</div>
+          <div class="terminal-body">
+            <div id="terminal-container"></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
+<!-- Info Box Structure -->
+<div id="infoBox" class="info-box hidden">
+  <div class="info-box-header">
+    <h3>Keyboard Shortcuts</h3>
+    <i class="fas fa-times info-box-close" title="Close"></i>
+  </div>
+  <div class="info-box-content">
+    <section>
+      <h4><i class="fas fa-file"></i> File Operations</h4>
+      <ul>
+        <li><strong>Ctrl + N</strong> - New File</li>
+        <li><strong>Ctrl + O</strong> - Open File</li>
+        <li><strong>Ctrl + S</strong> - Save File</li>
+        <li><strong>Ctrl + Shift + S</strong> - Save As</li>
+        <li><strong>Ctrl + W</strong> - Close Tab</li>
+      </ul>
+    </section>
+    <hr />
+    <section>
+      <h4><i class="fas fa-edit"></i> Editing</h4>
+      <ul>
+        <li><strong>Ctrl + Z</strong> - Undo</li>
+        <li><strong>Ctrl + Y</strong> - Redo</li>
+        <li><strong>Ctrl + C</strong> - Copy</li>
+        <li><strong>Ctrl + V</strong> - Paste</li>
+        <li><strong>Ctrl + X</strong> - Cut</li>
+      </ul>
+    </section>
+    <hr />
+    <section>
+      <h4><i class="fas fa-terminal"></i> Terminal</h4>
+      <ul>
+        <li><strong>Ctrl + K</strong> - Clear Terminal</li>
+        <li><strong>Ctrl + T</strong> - New Terminal Tab</li>
+        <li><strong>Ctrl + Scroll</strong> - Zoom In/Out</li>
+      </ul>
+    </section>
+  </div>
+</div>
+  <div class="status-bar">
+    <div class="status-item">Ready</div>
+    <div class="status-item" id="editorStatus">Line 1, Column 1</div>
+  </div>
+  <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="node_modules/sortablejs/Sortable.min.js"></script>
+  <script>
+    require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
+  </script>
+  <script src="./js/renderer.js"></script>
+  <script src="./js/sidebar.js"></script>
+  <script src="./js/modal.js"></script>
+  <script src="./js/terminal.js"></script>
+  <script src="./js/buttons.js" ></script>
+  <script src="./js/report.js" type="module"></script>
+  <script src="./js/index.js" type="module"></script>
+  <script src="./js/resize.js" type="module"></script>
+  <script src="./js/fileTree.js" type="module"></script>
+  <script src="./js/blockView.js" type="module"></script>
+  <script src="./js/modalConfig.js" type="module"></script>
+  <script src="./js/simulationModal.js" type="module"></script>
+  <!--
+  <script src="./js/breadCrumb.js" type="module"></script>
+  <script src="./js/compiler.js" type="module"></script>
+  <script src="./js/tabManager.js" type="module"></script> 
+  -->
+
+</body>
+</html>

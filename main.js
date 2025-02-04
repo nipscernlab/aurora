@@ -303,7 +303,6 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
 
     // Captura a saída em tempo real
     process.stdout.on('data', (data) => {
-      // Você pode enviar atualizações em tempo real, se necessário
       console.log(data);
     });
 
@@ -313,11 +312,9 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
   });
 });
 
-
-// Add these IPC handlers
 ipcMain.handle('get-current-folder', async () => {
   // Return the current working directory or stored folder path
-  return process.cwd(); // or wherever you store the current folder path
+  return process.cwd(); 
 });
 
 ipcMain.handle('open-in-explorer', async (event, folderPath) => {
@@ -456,7 +453,7 @@ ipcMain.handle('move-files-to-hardware-folder', async (event, inputDir, hardware
     }
 
     // Definir as extensões dos arquivos de saída que você deseja mover
-    const validExtensions = ['.mif', '.v']; // Adicione aqui outras extensões de arquivos gerados que você deseja mover
+    const validExtensions = ['.mif', '.v'];
 
     // Filtra os arquivos que possuem as extensões válidas
     const movePromises = compiledFiles
@@ -492,7 +489,6 @@ ipcMain.handle('move-files-to-hardware-folder', async (event, inputDir, hardware
 });
 
 
-// Add these handlers in main.js
 ipcMain.handle('dialog:showOpen', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -567,12 +563,11 @@ class ProjectFile {
     };
   }
 }
-// main.js - Adicione esta função
+
 function updateProjectState(window, projectPath, spfPath) {
   window.webContents.send('project:stateChange', { projectPath, spfPath });
 }
 
-// Modifique o handler project:createStructure no main.js
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
   try {
     await fse.mkdir(projectPath, { recursive: true });
@@ -586,7 +581,6 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
       path: path.join(projectPath, file.name)
     }));
 
-    // Atualize o estado do projeto em todas as janelas
     updateProjectState(BrowserWindow.getFocusedWindow(), projectPath, spfPath);
 
     return { 
@@ -602,8 +596,6 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
   }
 });
 
-// Modified project:open handler
-// Modified project:open handler
 ipcMain.handle('project:open', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
@@ -666,7 +658,6 @@ ipcMain.handle('project:open', async (_, spfPath) => {
   }
 });
 
-// In main.js
 ipcMain.handle('isDirectory', async (_, path) => {
   try {
     const stats = await fse.stat(path);

@@ -15,7 +15,6 @@ const fileOperations = {
   openExternalLink: (url) => shell.openExternal(url),
   openGitHubDesktop: () => {
       try {
-          // Adjust the path as needed for your system
           exec('github-desktop.exe', (error) => {
               if (error) {
                   console.error('Failed to open GitHub Desktop:', error);

@@ -198,7 +198,6 @@ class EditorManager {
   static editorContainer = null;
 
   static initialize() {
-    // Get or create the container for all editor instances
     this.editorContainer = document.getElementById('monaco-editor');
     if (!this.editorContainer) {
       console.error('Editor container not found');
@@ -561,10 +560,7 @@ static restoreEditorState(filePath) {
     });
   }
   
-
-
-// Modify your existing activateTab method
-static activateTab(filePath) {
+  static activateTab(filePath) {
   // Save the state of the current tab before switching
   if (this.activeTab) {
       this.saveEditorState(this.activeTab);
@@ -577,7 +573,7 @@ static activateTab(filePath) {
   if (activeTab) {
       activeTab.classList.add('active');
       this.activeTab = filePath;
-      window.activeTab = this.activeTab;  // Salve no objeto global window
+      window.activeTab = this.activeTab;
 
       // Update editor content
       this.updateEditorContent(filePath);
@@ -688,7 +684,6 @@ function initTabs() {
   editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
 }
 
-// Add this to your window.onload or initialization code
 window.addEventListener('load', () => {
   initTabs();
 });
@@ -698,8 +693,6 @@ window.onload = () => {
     EditorManager.initialize();
   });
 };
-
-// Update keyboard shortcuts initialization
 
   // Add save button click handler
   document.getElementById('saveFileBtn').addEventListener('click', () => {
@@ -785,9 +778,6 @@ async function refreshFileTree() {
   }
 }
 
-
-
-// Add this CSS for the refresh animation
 const style = document.createElement('style');
 style.textContent = `
   @keyframes refresh-fade {
@@ -1008,8 +998,6 @@ async function setupFileWatcher() {
   }
 }
 
-
-// File handling
 // Single openFile function
 async function openFile(filePath) {
   if (!TabManager.tabs.has(filePath)) {
@@ -1160,7 +1148,7 @@ window.electronAPI.onProjectStateChange((event, { projectPath, spfPath }) => {
   });
 });
 
-// Função para criar processador (no modal.js ou onde estiver a lógica do processador)
+// Função para criar processador
 async function createProcessor(formData) {
   try {
     // Garantir que temos o caminho do projeto
@@ -1224,7 +1212,6 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
   }
 });
 
-// Add this button to your HTML
 const projectInfoButton = document.createElement('button');
 projectInfoButton.className = 'toolbar-button';
 projectInfoButton.innerHTML = `
@@ -1232,11 +1219,8 @@ projectInfoButton.innerHTML = `
   <span>Project Info</span>
 `;
 
-
-// Add it next to your openProjectBtn
 document.getElementById('openProjectBtn').insertAdjacentElement('afterend', projectInfoButton);
 
-// Add click handler for the info button
 // Update project info button handler
 projectInfoButton.addEventListener('click', async () => {
   try {
@@ -1245,9 +1229,7 @@ projectInfoButton.addEventListener('click', async () => {
       return;
     }
 
-    // Ensure we're using the .spf file path
     if (!currentSpfPath.endsWith('.spf')) {
-      // If we somehow have the project directory, construct the .spf path
       const projectName = path.basename(currentProjectPath);
       currentSpfPath = path.join(currentProjectPath, `${projectName}.spf`);
     }
@@ -1398,7 +1380,6 @@ function updateFileTree(files) {
 
 //PROCESSADOR HUB ==========================================================================================================================================================
 
-// Add the button to the toolbar (add this where other toolbar buttons are defined)
 const processorHubButton = document.createElement('button');
 processorHubButton.className = 'toolbar-button';
 processorHubButton.innerHTML = '<i class="fas fa-microchip"></i> Processor Hub';
@@ -1406,13 +1387,10 @@ processorHubButton.title = 'Create New Processor Project';
 processorHubButton.disabled = true; // Disabled by default
 document.querySelector('.toolbar').appendChild(processorHubButton);
 
-// Add this function to enable/disable the processor hub button
 function updateProcessorHubButton(enabled) {
   processorHubButton.disabled = !enabled;
 }
 
-
-// Add the modal HTML function
 function createProcessorHubModal() {
     const modal = document.createElement('div');
     modal.innerHTML = `
@@ -1476,7 +1454,6 @@ function createProcessorHubModal() {
     return modal;
 }
 
-// Add the event handlers
 processorHubButton.addEventListener('click', () => {
     const modal = createProcessorHubModal();
     document.body.appendChild(modal);
@@ -1529,9 +1506,6 @@ processorHubButton.addEventListener('click', () => {
     });
 
     // Handle form submission
-    // Modify the form submission handler in the processor hub
-// Modify the form submission handler in the processor hub
-// Update the form submission handler in the processor hub
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -1614,8 +1588,6 @@ form.addEventListener('submit', async (e) => {
 
 // BUTTONS ==============================================================================================================================================================
 
-
-// Modificar o HTML do Explorer
 const explorerHeader = document.querySelector('.explorer-header') || document.createElement('div');
 explorerHeader.className = 'explorer-header';
 explorerHeader.innerHTML = `

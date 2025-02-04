@@ -74,8 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-
-
 // Evento de compilação do CMM
 document.getElementById('cmmcomp').addEventListener('click', async () => {
   if (!this.activeTab || compiling) return; // Verifica se há um arquivo ativo e se não está compilando

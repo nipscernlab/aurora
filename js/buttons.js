@@ -21,8 +21,7 @@ function showInfoBox() {
     const infoBox = document.getElementById('infoBox');
     infoBox.classList.add('visible');
     infoBox.classList.remove('hidden');
-  
-    // Reposition the info box in the center
+    
     const infoBoxHeight = infoBox.offsetHeight;
     const viewportHeight = window.innerHeight;
     if (infoBoxHeight > viewportHeight * 0.8) {

@@ -361,7 +361,7 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
     const processorPath = path.join(formData.projectLocation, formData.processorName);
     const softwarePath = path.join(processorPath, 'Software');
     const hardwarePath = path.join(processorPath, 'Hardware');
-    const tempPath = path.join(processorPath, '.temp');
+    const SimulationPath = path.join(processorPath, 'Simulation');
 
     // Check if processor folder already exists
     try {
@@ -373,6 +373,7 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
         await fse.mkdir(processorPath, { recursive: true });
         await fse.mkdir(softwarePath, { recursive: true });
         await fse.mkdir(hardwarePath, { recursive: true });
+        await fse.mkdir(SimulationPath, { recursive: true });
 
         // Create the CMM file content
         const cmmContent = `#PRNAME ${formData.processorName}

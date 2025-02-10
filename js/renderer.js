@@ -363,48 +363,116 @@ class TabManager {
   static editorStates = new Map();
   static unsavedChanges = new Set(); // Track files with unsaved changes
 
-// Rename saveFile to saveCurrentFile for consistency
-static async saveCurrentFile() {
-  const currentPath = this.activeTab;
-  if (!currentPath) return;
+   // New method to make tabs sortable
+   static initSortableTabs() {
+    const tabContainer = document.getElementById('tabs-container');
+    if (!tabContainer) return;
 
-  try {
-    const content = editor.getValue();
-    await window.electronAPI.writeFile(currentPath, content);
-    this.markFileAsSaved(currentPath);
-    //writeToTerminal(`File saved: ${currentPath}`, 'success');
-  } catch (error) {
-    console.error('Error saving file:', error);
-    //writeToTerminal(`Error saving file: ${error.message}`, 'error');
+    let draggedTab = null;
+
+    tabContainer.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('tab')) {
+        draggedTab = e.target;
+        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+        e.target.classList.add('dragging');
+      }
+    });
+
+    tabContainer.addEventListener('dragend', (e) => {
+      if (draggedTab) {
+        draggedTab.classList.remove('dragging');
+        draggedTab = null;
+      }
+    });
+
+    tabContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const afterElement = this.getDragAfterElement(tabContainer, e.clientY);
+      
+      if (afterElement == null) {
+        tabContainer.appendChild(draggedTab);
+      } else {
+        tabContainer.insertBefore(draggedTab, afterElement);
+      }
+    });
   }
-}
 
-// Add these methods to mark files as modified/saved
-static markFileAsModified(filePath) {
-  if (!filePath) return;
-  
-  this.unsavedChanges.add(filePath);
-  const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-  if (tab) {
-    const closeButton = tab.querySelector('.close-tab');
-    closeButton.innerHTML = '•';
-    closeButton.style.color = '#ffd700'; // Gold color for unsaved changes
-    closeButton.style.fontSize = '20px';
+  // Helper method to determine insertion point
+  static getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.tab:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
   }
-}
 
-static markFileAsSaved(filePath) {
+  // Method to get current tab order
+  static getTabOrder() {
+    const tabContainer = document.getElementById('tabs-container');
+    return Array.from(tabContainer.querySelectorAll('.tab'))
+      .map(tab => tab.getAttribute('data-path'));
+  }
+
+  // Optional: Save tab order to localStorage
+  static saveTabOrder() {
+    const tabOrder = this.getTabOrder();
+    localStorage.setItem('editorTabOrder', JSON.stringify(tabOrder));
+  }
+
+  // Optional: Restore tab order from localStorage
+  static restoreTabOrder() {
+    const savedOrder = localStorage.getItem('editorTabOrder');
+    if (savedOrder) {
+      const tabContainer = document.getElementById('tabs-container');
+      const tabOrder = JSON.parse(savedOrder);
+      
+      tabOrder.forEach(filePath => {
+        const tab = tabContainer.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+        if (tab) {
+          tabContainer.appendChild(tab);
+        }
+      });
+    }
+  }
+  // Improved method to mark files as modified
+  static markFileAsModified(filePath) {
+    if (!filePath) return;
+    
+    this.unsavedChanges.add(filePath);
+    const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+    if (tab) {
+      const closeButton = tab.querySelector('.close-tab');
+      if (closeButton) {
+        closeButton.innerHTML = '•';
+        closeButton.style.color = '#ffd700'; // Gold color for unsaved changes
+        closeButton.style.fontSize = '20px';
+      }
+    }
+  }
+
+ // Improved method to mark files as saved
+ static markFileAsSaved(filePath) {
   if (!filePath) return;
   
   this.unsavedChanges.delete(filePath);
   const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
   if (tab) {
     const closeButton = tab.querySelector('.close-tab');
-    closeButton.innerHTML = '×';
-    closeButton.style.color = ''; // Reset to default color
-    closeButton.style.fontSize = ''; // Reset to default size
+    if (closeButton) {
+      closeButton.innerHTML = '×';
+      closeButton.style.color = ''; // Reset to default color
+      closeButton.style.fontSize = ''; // Reset to default size
+    }
   }
 }
+
 
   // Add this method to save editor state
   static saveEditorState(filePath) {
@@ -441,85 +509,86 @@ static restoreEditorState(filePath) {
     }
 }
 
-  static getFileIcon(filename) {
-    const extension = filename.split('.').pop().toLowerCase();
-    const iconMap = {
-      'js': 'fab fa-js',
-      'jsx': 'fab fa-react',
-      'ts': 'fab fa-js',
-      'tsx': 'fab fa-react',
-      'html': 'fab fa-html5',
-      'css': 'fab fa-css3',
-      'json': 'fas fa-code',
-      'md': 'fab fa-markdown',
-      'py': 'fab fa-python',
-      'c': 'fas fa-code',
-      'cpp': 'fas fa-code',
-      'h': 'fas fa-code',
-      'hpp': 'fas fa-code'
-    };
-    return iconMap[extension] || 'fas fa-file';
-  }
+ // Utility method to get file icon
+ static getFileIcon(filename) {
+  const extension = filename.split('.').pop().toLowerCase();
+  const iconMap = {
+    'js': 'fab fa-js',
+    'jsx': 'fab fa-react',
+    'ts': 'fab fa-js',
+    'tsx': 'fab fa-react',
+    'html': 'fab fa-html5',
+    'css': 'fab fa-css3',
+    'json': 'fas fa-code',
+    'md': 'fab fa-markdown',
+    'py': 'fab fa-python',
+    'c': 'fas fa-code',
+    'cpp': 'fas fa-code',
+    'h': 'fas fa-code',
+    'hpp': 'fas fa-code'
+  };
+  return iconMap[extension] || 'fas fa-file';
+}
 
-  static addTab(filePath, content) {
-    // Ensure EditorManager is initialized
-    if (!EditorManager.editorContainer) {
-      EditorManager.initialize();
-    }
 
-    // Check if tab already exists
-    if (this.tabs.has(filePath)) {
-      this.activateTab(filePath);
-      return;
-    }
-
-    // Create tab element
-    const tabContainer = document.querySelector('#tabs-container');
-    if (!tabContainer) {
-      console.error('Tabs container not found');
-      return;
-    }
-
-    const tab = document.createElement('div');
-    tab.classList.add('tab');
-    tab.setAttribute('data-path', filePath);
-    tab.setAttribute('draggable', 'true');
-    tab.setAttribute('title', filePath);
-
-    tab.innerHTML = `
-      <i class="${this.getFileIcon(filePath.split('\\').pop())}"></i>
-      <span class="tab-name">${filePath.split('\\').pop()}</span>
-      <button class="close-tab" title="Close">×</button>
-    `;
-
-    // Add event listeners
-    tab.addEventListener('click', () => this.activateTab(filePath));
-    const closeBtn = tab.querySelector('.close-tab');
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.closeTab(filePath);
-    });
-
-    // Add to container
-    tabContainer.appendChild(tab);
-    this.tabs.set(filePath, content);
-
-    try {
-      // Create editor and set content
-      const editor = EditorManager.createEditorInstance(filePath);
-      editor.setValue(content);
-
-      // Setup change listener
-      editor.onDidChangeModelContent(() => {
-        this.markFileAsModified(filePath);
+    // Improved tab addition method
+    static addTab(filePath, content) {
+      // Check if tab already exists
+      if (this.tabs.has(filePath)) {
+        this.activateTab(filePath);
+        return;
+      }
+  
+      // Create tab element
+      const tabContainer = document.querySelector('#tabs-container');
+      if (!tabContainer) {
+        console.error('Tabs container not found');
+        return;
+      }
+  
+      const tab = document.createElement('div');
+      tab.classList.add('tab');
+      tab.setAttribute('data-path', filePath);
+      tab.setAttribute('draggable', 'true');
+      tab.setAttribute('title', filePath);
+  
+      tab.innerHTML = `
+        <i class="${this.getFileIcon(filePath.split('\\').pop())}"></i>
+        <span class="tab-name">${filePath.split('\\').pop()}</span>
+        <button class="close-tab" title="Close">×</button>
+      `;
+  
+      // Add event listeners
+      tab.addEventListener('click', () => this.activateTab(filePath));
+      const closeBtn = tab.querySelector('.close-tab');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeTab(filePath);
       });
+  
+      // Add to container
+      tabContainer.appendChild(tab);
+  
+      // Store original content
+      this.tabs.set(filePath, content);
+  
+      try {
+        // Create editor and set content
+        const editor = EditorManager.createEditorInstance(filePath);
+        editor.setValue(content);
+  
+        // Setup change listener
+        this.setupContentChangeListener(filePath, editor);
+  
+        this.activateTab(filePath);
+      } catch (error) {
+        console.error('Error creating editor:', error);
+        this.closeTab(filePath);
+      }
 
-      this.activateTab(filePath);
-    } catch (error) {
-      console.error('Error creating editor:', error);
-      this.closeTab(filePath);
+      this.initSortableTabs();
+
     }
-  }
 
   static addDragListeners(tab) {
     tab.addEventListener('dragstart', (e) => {
@@ -560,40 +629,62 @@ static restoreEditorState(filePath) {
     });
   }
   
+  // Improved tab activation
   static activateTab(filePath) {
-  // Save the state of the current tab before switching
-  if (this.activeTab) {
-      this.saveEditorState(this.activeTab);
-  }
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
 
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach(tab => tab.classList.remove('active'));
-
-  const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-  if (activeTab) {
+    const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+    if (activeTab) {
       activeTab.classList.add('active');
       this.activeTab = filePath;
-      window.activeTab = this.activeTab;
 
-      // Update editor content
-      this.updateEditorContent(filePath);
-      
-      // Restore the state of the new tab
-      this.restoreEditorState(filePath);
+      // Activate corresponding editor
+      const editor = EditorManager.setActiveEditor(filePath);
+    }
   }
-}
 
 
+  // Comprehensive save method
+  static async saveCurrentFile() {
+    const currentPath = this.activeTab;
+    if (!currentPath) return;
+
+    try {
+      const currentEditor = EditorManager.getEditorForFile(currentPath);
+      if (!currentEditor) return;
+
+      const content = currentEditor.getValue();
+      await window.electronAPI.writeFile(currentPath, content);
+      this.markFileAsSaved(currentPath);
+      
+      // Update the content in tabs map to reflect saved content
+      this.tabs.set(currentPath, content);
+    } catch (error) {
+      console.error('Error saving file:', error);
+      // Optional: Show error dialog to user
+    }
+  }
+
+   // Add listener for content changes
+   static setupContentChangeListener(filePath, editor) {
+    editor.onDidChangeModelContent(() => {
+      const currentContent = editor.getValue();
+      const originalContent = this.tabs.get(filePath);
+      
+      if (currentContent !== originalContent) {
+        this.markFileAsModified(filePath);
+      } else {
+        this.markFileAsSaved(filePath);
+      }
+    });
+  }
+  
+  // Improved tab closing with unsaved changes handling
   static async closeTab(filePath) {
     if (this.unsavedChanges.has(filePath)) {
-      const result = await showConfirmDialog(
-        'Unsaved Changes',
-        'This file has unsaved changes. Do you want to save before closing?'
-      );
-      
-      if (result) {
-        await this.saveCurrentFile();
-      }
+      const result = await this.handleUnsavedChanges(filePath);
+      if (!result) return; // User canceled
     }
 
     const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
@@ -601,8 +692,10 @@ static restoreEditorState(filePath) {
 
     // Remove the tab element
     tab.remove();
-    this.editorStates.delete(filePath);
     
+    // Close the editor
+    EditorManager.closeEditor(filePath);
+
     // Remove from our tabs map
     this.tabs.delete(filePath);
     this.unsavedChanges.delete(filePath);
@@ -611,16 +704,39 @@ static restoreEditorState(filePath) {
     if (this.activeTab === filePath) {
       const remainingTabs = Array.from(this.tabs.keys());
       if (remainingTabs.length > 0) {
-          this.activateTab(remainingTabs[0]);
+        this.activateTab(remainingTabs[0]);
       } else {
-          this.activeTab = null;
-          if (editor) {
-              editor.getModel()?.dispose();
-              editor.setModel(monaco.editor.createModel('', 'plaintext'));
-          }
+        this.activeTab = null;
+        // Reset editor to empty state
+        const mainEditor = EditorManager.activeEditor;
+        if (mainEditor) {
+          mainEditor.setValue('');
+          mainEditor.updateOptions({ language: 'plaintext' });
+        }
       }
+    }
   }
-}
+
+  // Handling unsaved changes with dialog
+  static async handleUnsavedChanges(filePath) {
+    const fileName = filePath.split('\\').pop();
+    const dialogResult = await showConfirmDialog(
+      'Unsaved Changes',
+      `Do you want to save the changes you made to ${fileName}?`,
+      ['Save', "Don/'t Save", 'Cancel']
+    );
+
+    switch (dialogResult) {
+      case 'Save':
+        await this.saveCurrentFile();
+        return true;
+      case "Don't Save":
+        this.unsavedChanges.delete(filePath);
+        return true;
+      case 'Cancel':
+        return false;
+    }
+  }
 
 // Add this method to save the current file
 static async saveFile(filePath = null) {
@@ -670,8 +786,46 @@ static async saveFile(filePath = null) {
         console.error(`No content found for ${filePath}`);
     }
 }
+  // Initialize on script load
+  static initialize() {
+    this.initSortableTabs();
+    this.restoreTabOrder();
+
+    // Add event listener to save tab order when tabs change
+    const tabContainer = document.getElementById('tabs-container');
+    if (tabContainer) {
+      const observer = new MutationObserver(() => {
+        this.saveTabOrder();
+      });
+      
+      observer.observe(tabContainer, { 
+        childList: true, 
+        subtree: true 
+      });
+    }
+  }
 
 }
+
+// Call initialization when the script loads
+TabManager.initialize();
+
+// Add CSS for drag and drop
+const tabDragStyles = document.createElement('style');
+tabDragStyles.textContent = `
+  .tab.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+  }
+
+  .tab {
+    cursor: grab;
+    user-select: none;
+    transition: opacity 0.2s ease;
+  }
+`;
+document.head.appendChild(tabDragStyles);
+
 
 // Initialize tab container
 function initTabs() {
@@ -686,6 +840,7 @@ function initTabs() {
 
 window.addEventListener('load', () => {
   initTabs();
+  
 });
 
 window.onload = () => {
@@ -699,13 +854,158 @@ window.onload = () => {
     TabManager.saveCurrentFile();
   });
 
-  // Add keyboard shortcut for save (Ctrl+Shift+S)
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
-      e.preventDefault();
-      TabManager.saveCurrentFile();
+// Setup global save shortcut
+document.addEventListener('keydown', async (e) => {
+  // Ctrl+S (or Cmd+S on Mac)
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    await TabManager.saveCurrentFile();
+  }
+});
+
+class EditorBackgroundManager {
+  static initialize() {
+    // Create a container for the background
+    this.backgroundContainer = document.createElement('div');
+    this.backgroundContainer.id = 'editor-background-container';
+    this.backgroundContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.7;
+      display: none;
+    `;
+
+    // Create SVG element
+    this.svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this.svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    this.svgElement.setAttribute('viewBox', '0 0 1920 1080');
+    this.svgElement.style.cssText = `
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    `;
+
+    // Load SVG content
+    this.loadSVG();
+
+    // Add to editor container
+    const monacoContainer = document.getElementById('monaco-editor');
+    if (monacoContainer) {
+      monacoContainer.style.position = 'relative';
+      monacoContainer.appendChild(this.backgroundContainer);
+      this.backgroundContainer.appendChild(this.svgElement);
     }
-  });
+
+    // Listen for theme changes
+    this.setupThemeListener();
+  }
+
+  static async loadSVG() {
+    try {
+      const response = await fetch('./assets/icons/aurora_borealis-2.svg');
+      const svgText = await response.text();
+      this.svgElement.innerHTML = svgText;
+      this.adjustSVGColors();
+    } catch (error) {
+      console.error('Error loading SVG:', error);
+    }
+  }
+
+  static adjustSVGColors() {
+    // Determine current theme
+    const isDarkMode = document.body.classList.contains('dark-theme');
+    
+    // Get theme-specific background colors
+    const backgroundColor = isDarkMode 
+      ? 'rgb(30, 30, 40)' // Dark theme background 
+      : 'rgb(240, 240, 250)'; // Light theme background
+
+    // Modify SVG colors based on theme
+    const paths = this.svgElement.querySelectorAll('path');
+    paths.forEach(path => {
+      // Adjust opacity and blend with background
+      path.style.opacity = isDarkMode ? '0.6' : '0.4';
+      
+      // Optional: Adjust SVG colors to match theme
+      if (isDarkMode) {
+        path.style.fill = this.blendColors(path.style.fill || '', backgroundColor, 0.7);
+      } else {
+        path.style.fill = this.blendColors(path.style.fill || '', backgroundColor, 0.5);
+      }
+    });
+  }
+
+  static blendColors(color1, color2, amount) {
+    // Simple color blending function
+    const parseColor = (color) => {
+      const m = color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+      return m ? m.slice(1).map(Number) : [0, 0, 0];
+    };
+
+    const c1 = parseColor(color1);
+    const c2 = parseColor(color2);
+
+    const blended = c1.map((channel, i) => 
+      Math.round(channel * (1 - amount) + c2[i] * amount)
+    );
+
+    return `rgb(${blended.join(',')})`;
+  }
+
+  static setupThemeListener() {
+    // Create a MutationObserver to watch for theme changes
+    const observer = new MutationObserver(() => {
+      this.adjustSVGColors();
+    });
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+
+  static updateBackgroundVisibility() {
+    // Check if there are any open tabs
+    const tabContainer = document.getElementById('tabs-container');
+    const hasOpenTabs = tabContainer && tabContainer.children.length > 0;
+
+    if (this.backgroundContainer) {
+      if (!hasOpenTabs) {
+        this.backgroundContainer.style.display = 'block';
+      } else {
+        this.backgroundContainer.style.display = 'none';
+      }
+    }
+  }
+
+  // Modify TabManager to update background visibility
+  static patchTabManager() {
+    const originalAddTab = TabManager.addTab;
+    TabManager.addTab = function(...args) {
+      const result = originalAddTab.apply(this, args);
+      EditorBackgroundManager.updateBackgroundVisibility();
+      return result;
+    };
+
+    const originalCloseTab = TabManager.closeTab;
+    TabManager.closeTab = function(...args) {
+      const result = originalCloseTab.apply(this, args);
+      EditorBackgroundManager.updateBackgroundVisibility();
+      return result;
+    };
+  }
+}
+
+// Initialize on script load
+window.addEventListener('load', () => {
+  EditorBackgroundManager.initialize();
+  EditorBackgroundManager.patchTabManager();
+});
 
 //FILETREE ============================================================================================================================================================
 // Gerenciador de estado para a file tree
@@ -998,18 +1298,23 @@ async function setupFileWatcher() {
   }
 }
 
-// Single openFile function
+// Modify the openFile function to work with the new TabManager
 async function openFile(filePath) {
-  if (!TabManager.tabs.has(filePath)) {
-      try {
-          const content = await window.electronAPI.readFile(filePath);
-          await TabManager.addTab(filePath, content);
-      } catch (error) {
-          console.error('Error opening file:', error);
-          alert(`Failed to open ${filePath}`);
-      }
-  } else {
-      TabManager.activateTab(filePath); // Ativar a aba se já estiver aberta
+  try {
+    // Check if file is already open
+    if (TabManager.tabs.has(filePath)) {
+      TabManager.activateTab(filePath);
+      return;
+    }
+
+    // Read file content
+    const content = await window.electronAPI.readFile(filePath);
+    
+    // Add tab and open file
+    TabManager.addTab(filePath, content);
+  } catch (error) {
+    console.error('Error opening file:', error);
+    // Optional: Show error dialog to user
   }
 }
 
@@ -1676,8 +1981,8 @@ function initAIAssistant() {
     // Create webview element
     const webview = document.createElement('webview');
     webview.style.width = '100%';
-    webview.style.height = '100%';
-    webview.src = 'https://chat.openai.com'; // Default to ChatGPT
+    webview.style.height = '100%';                                                       
+    webview.src = 'https://chatgpt.com/?model=auto'; // Default to ChatGPT
     webview.nodeintegration = 'false';
     webviewContainer.appendChild(webview);
 
@@ -1695,7 +2000,7 @@ function initAIAssistant() {
     providerSelect.addEventListener('change', (e) => {
         currentProvider = e.target.value;
         const url = currentProvider === 'chatgpt' ?
-            'https://chat.openai.com' :
+            'https://chatgpt.com/?model=auto' :
             'https://claude.ai';
         webview.src = url;
     });
@@ -1834,80 +2139,6 @@ function getProcessorName() {
     return processorNameInput ? processorNameInput.value : 'procTest_00';
 }
 
-// Function to generate test bench content
-function generateTestBenchContent(processorName) {
-    return `module ${processorName}_tb();
-reg clk, rst;
-initial begin
-        $dumpfile("${processorName}_wave.vcd");
-        $dumpvars(0, ${processorName}_tb);
-        clk = 0;
-        rst = 1;
-    #20 rst = 0;
-    #27000;
-    $display("Fim");
-    $finish;
-end
-always #10 clk = ~clk;
-wire signed [22:0] ${processorName}_io_out;
-wire ${processorName}_req_in;
-wire [1:0] ${processorName}_out_en;
-${processorName} ${processorName}(.clk(clk), .rst(rst),
-          .io_in(16'd0), .io_out(${processorName}_io_out),
-          .req_in(${processorName}_req_in), .out_en(${processorName}_out_en),
-          .itr(1'b0));
-endmodule`;
-}
-
-async function createTestBenchFile() {
-  if (!TabManager.activeTab) return;
-
-  const processorName = getProcessorName();
-  const content = generateTestBenchContent(processorName);
-  
-  // Get the complete path of the current .cmm file
-  const currentPath = TabManager.activeTab;
-  console.log("Current .cmm file path:", currentPath);
-  
-  // Split the path and remove the filename
-  const pathParts = currentPath.split('\\');
-  pathParts.pop(); // Remove the filename (e.g., procTest_00.cmm)
-  pathParts.pop(); // Remove the Software folder (e.g., procTest_00_S)
-  
-  // Construct the hardware path by going up another directory and appending the correct structure
-  pathParts.pop(); // Go up one more directory (e.g., remove Software)
-  const hardwarePath = `${pathParts.join('\\')}\\Hardware`;
-  const testBenchPath = `${hardwarePath}\\${processorName}_tb.v`;
-
-  console.log('Base directory:', pathParts.join('\\'));
-  console.log('Hardware path:', hardwarePath);
-  console.log('Creating test bench file at:', testBenchPath);
-
-  try {
-      // Ensure the hardware directory exists
-      await window.electronAPI.createDirectory(hardwarePath);
-      
-      // Write the test bench file
-      await window.electronAPI.writeFile(testBenchPath, content);
-      
-      console.log('Test bench file created successfully at:', testBenchPath);
-      
-       // Chamar função do terminal.js para executar os comandos do Icarus
-       document.dispatchEvent(
-        new CustomEvent('vericomp', {
-            detail: {
-                processorName,
-                hardwarePath,
-            },
-        })
-    );
-
-  } catch (error) {
-      console.error('Error creating test bench file:', error);
-      console.error('Attempted path was:', testBenchPath);
-  }
-}
-
 // Update button state based on active tab
 function updateCompileButtonState() {
     const isCmmFile = isActiveCmmFile();
@@ -1921,13 +2152,6 @@ function updateCompileButtonState() {
     }
 }
 
-// Event listeners
-compileButton.addEventListener('click', async (e) => {
-    e.preventDefault();
-    if (isActiveCmmFile()) {
-        await createTestBenchFile();
-    }
-});
 
 // Observe tab changes
 const observer = new MutationObserver((mutations) => {
@@ -2046,11 +2270,13 @@ class CompilationModule {
     
     try {
       const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
       const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      
+      const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
+
       const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
-      const cmd = `"${asmCompPath}" "${asmPath}" "${hardwarePath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks}`;
+      const cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0`;
       
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
       
@@ -2070,8 +2296,8 @@ class CompilationModule {
       }
 
       // Copia o testbench
-      const testbenchSource = await window.electronAPI.joinPath(hardwarePath, `${name}_tb.v`);
-      const testbenchDestination = await window.electronAPI.joinPath(tempPath, `${name}_tb.v`);
+      const testbenchSource = await window.electronAPI.joinPath(tempPath, `${name}_tb.v`);
+      const testbenchDestination = await window.electronAPI.joinPath(simulationPath, `${name}_tb.v`);
       await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
       
       this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.');
@@ -2092,6 +2318,7 @@ class CompilationModule {
         const hdlPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'HDL');
         const tempPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
         
         this.terminalManager.appendToTerminal('tveri', 'Copying required files...');
         
@@ -2114,7 +2341,7 @@ class CompilationModule {
         let tbFile;
         if (simConfig.standardSimulation) {
             const expectedFileName = `${name}_tb.v`;
-            const files = await window.electronAPI.readDir(hardwarePath);
+            const files = await window.electronAPI.readDir(simulationPath);
             tbFile = files.find(f => f === expectedFileName);
             if (!tbFile) {
                 const fullPath = await window.electronAPI.joinPath(hardwarePath, expectedFileName);
@@ -2133,7 +2360,7 @@ class CompilationModule {
         
         const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
         
-        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(hardwarePath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, 'mem_data_sim.v')}" "${await window.electronAPI.joinPath(tempPath, 'pc_sim.v')}" ${verilogFilesString}`;
+        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `mem_data_${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `pc_${name}.v`)}" ${verilogFilesString}`;
         console.log('Icarus Verilog Command:', cmd);
 
         this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);

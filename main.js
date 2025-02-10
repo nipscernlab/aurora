@@ -69,35 +69,59 @@ function createMainWindow() {
   });
 }
 
-function createUpdateWindow() {
-  const updateWindow = new BrowserWindow({
-    width: 450,
-    height: 600,
-    resizable: false,
-    modal: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'update-preload.js')
-    }
+// Função para verificar atualizações
+function checkForUpdates() {
+  // Inicia a verificação
+  autoUpdater.checkForUpdates();
+
+  // Quando encontrar uma atualização
+  autoUpdater.on('update-available', async (info) => {
+      // Mostra diálogo perguntando se quer baixar
+      const downloadDialog = await dialog.showMessageBox({
+          type: 'info',
+          title: 'Atualização Disponível',
+          message: `Uma nova versão está disponível!\n\nVersão atual: ${app.getVersion()}\nNova versão: ${info.version}`,
+          buttons: ['Baixar', 'Depois'],
+          defaultId: 0,
+          cancelId: 1
+      });
+
+      // Se o usuário escolher baixar (botão 0)
+      if (downloadDialog.response === 0) {
+          autoUpdater.downloadUpdate();
+      }
   });
 
-  updateWindow.loadFile(path.join(__dirname, 'update-modal.html'));
+  // Quando o download terminar
+  autoUpdater.on('update-downloaded', async () => {
+      // Mostra diálogo perguntando se quer instalar
+      const installDialog = await dialog.showMessageBox({
+          type: 'info',
+          title: 'Instalar Atualização',
+          message: 'A atualização foi baixada. Instalar agora?',
+          buttons: ['Sim', 'Depois'],
+          defaultId: 0,
+          cancelId: 1
+      });
+
+      // Se o usuário escolher instalar (botão 0)
+      if (installDialog.response === 0) {
+          autoUpdater.quitAndInstall(false, true);
+      }
+  });
+
+  // Tratamento de erros
+  autoUpdater.on('error', (err) => {
+      dialog.showErrorBox(
+          'Erro na Atualização',
+          'Ocorreu um erro ao verificar/baixar a atualização: ' + err.message
+      );
+  });
 }
-
-// Modify the update available handler to show the update window
-autoUpdater.on('update-available', (info) => {
-  createUpdateWindow();
-  mainWindow.webContents.send('update-available', {
-    currentVersion: app.getVersion(),
-    newVersion: info.version
-  });
-});
 
 app.whenReady().then(() => {
   createSplashScreen(); // Exibir a splash screen
-  autoUpdater.checkForUpdates(); // Explicitly check for updates
-});
+setTimeout(checkForUpdates, 5000)});
 
 
 app.on('window-all-closed', () => {
@@ -219,58 +243,7 @@ ipcMain.handle('refreshFolder', async (event, projectPath) => {
 });
 
 
-// Update autoUpdater configuration
-autoUpdater.autoDownload = false;
 
-// Modify the update event handlers
-autoUpdater.on('update-available', (info) => {
-  // Send update information to renderer process
-  mainWindow.webContents.send('update-available', {
-    currentVersion: app.getVersion(),
-    newVersion: info.version
-  });
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  // Send download progress to renderer process
-  mainWindow.webContents.send('update-download-progress', {
-    percent: progressObj.percent,
-    transferred: progressObj.transferred,
-    total: progressObj.total
-  });
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  // Send update downloaded notification to renderer
-  mainWindow.webContents.send('update-downloaded', {
-    version: info.version
-  });
-});
-
-autoUpdater.on('error', (error) => {
-  console.error('Update error:', error);
-  dialog.showErrorBox('Update Error', `An error occurred during update: ${error.message}`);
-});
-
-// IPC handlers for update actions
-ipcMain.on('start-download', () => {
-  autoUpdater.downloadUpdate();
-});
-
-ipcMain.on('install-update', () => {
-  autoUpdater.quitAndInstall();
-});
-
-// Evento para tratar erros de atualização
-autoUpdater.on('error', (error) => {
-  dialog.showErrorBox('Erro de atualização', `Erro ao atualizar o aplicativo: ${error}`);
-});
-
-autoUpdater.setFeedURL({
-  provider: 'github',
-  repo: 'Aurora',
-  owner: 'Chrysthofer'
-});
 ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDir, outputPath }) => {
   return new Promise((resolve, reject) => {
     const compilerPath = path.join(__dirname, compiler);

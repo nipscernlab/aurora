@@ -3,7 +3,7 @@
     "productName": "Aurora IDE",
     "description": "Aurora IDE",
     "author": "NIPSCERN",
-    "version": "2.10.0",
+    "version": "2.9.0",
     "win": {
         "icon": "./assets/icons/aurora_borealis-2.ico"
     },
@@ -14,31 +14,42 @@
         "build": "electron-builder"
     },
     "build": {
-        "appId": "com.nipscern.auroraide",
-        "productName": "Aurora IDE",
-        "publish": [
-            {
-                "provider": "github",
-                "owner": "Chrysthofer",
-                "repo": "Aurora"
-            }
-        ],
-        "fileAssociations": [
-            {
-                "ext": "spf",
-                "name": "Sapho Project File",
-                "description": "Sapho Project File",
-                "role": "Editor"
-            }
-        ],
-        "win": {
-            "target": "nsis",
-            "icon": "./assets/icons/aurora_borealis-2.ico",
-            "artifactName": "AuroraIDE-Setup-2.10.0.${ext}"
-        },
-        "directories": {
-            "buildResources": "build"
+    "appId": "com.nipscern.auroraide",
+    "productName": "Aurora IDE",
+    "publish": [
+        {
+            "provider": "github",
+            "owner": "nipscernlab",
+            "repo": "Aurora",
+            "releaseType": "release"
         }
+    ],
+    "fileAssociations": [
+        {
+            "ext": "spf",
+            "name": "Sapho Project File",
+            "description": "Sapho Project File",
+            "role": "Editor"
+        }
+    ],
+    "win": {
+        "target": "nsis",
+        "icon": "./assets/icons/aurora_borealis-2.ico",
+        "artifactName": "AuroraIDE-Setup-2.9.0.${ext}"
+    },
+    "nsis": {
+        "include": "build/installer.nsh"
+    },
+    "extraResources": [
+        {
+            "from": "saphoComponents",
+            "to": "saphoComponents_tmp"
+        }
+    ],
+    "directories": {
+        "buildResources": "build"
+    }
+
     },
     "keywords": [
         "Aurora"

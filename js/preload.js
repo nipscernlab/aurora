@@ -49,6 +49,18 @@ const projectOperations = {
   getProjectName: () => ipcRenderer.invoke("getProjectName"),
   createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
 
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', (event, versions) => callback(versions));
+  },
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on('download-progress', (event, progress) => callback(progress));
+  },
+  onUpdateDownloaded: (callback) => {
+    ipcRenderer.on('update-downloaded', () => callback());
+  },
+  startDownload: () => ipcRenderer.invoke('start-download'),
+  installUpdate: () => ipcRenderer.invoke('install-update')
+
 };
 
 const dialogOperations = {

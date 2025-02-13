@@ -66,17 +66,7 @@ npm start
 ## Project Structure
 
 ```
-Project_Name.spf/
-├── Processors/
-│   └── ProcessorName/
-│       ├── Hardware/
-│       ├── Software/
-│       └── Simulation/
-├── Implementations/
-│   ├── FFT/
-│   └── DTW/
-└── Backup/
-    └── [Compressed project backups]
+A lot of files!
 ```
 
 ## Usage Guide
@@ -131,7 +121,7 @@ Use the integrated bug reporting feature in Aurora IDE or create an issue on Git
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Working on it!
 
 ## Acknowledgments
 

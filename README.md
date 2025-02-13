@@ -98,7 +98,7 @@ A lot of files!
 
 For questions and support, contact us at:
 - Website: [nipscern.com](https://nipscern.com)
-- Email: nipscern@contac.com
+- Email: contact@nipscern.com
 
 ## Contributing
 

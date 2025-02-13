@@ -21,47 +21,47 @@ class SimulationModal {
 
   createModal(resolve) {
     const modalHtml = `
-      <div class="modal-overlay">
-        <div class="modal-content">
-          <h2 class="modal-title">Simulation Config</h2>
-          
-          <div class="modal-section">
-            <h3 class="section-title">Testbench Files</h3>
-            <div class="checkbox-list">
-              ${this.tbFiles.map(file => `
-                <label class="checkbox-item">
-                  <input type="checkbox" name="tb" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
-                  <span>${file}</span>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="modal-section">
-            <h3 class="section-title">GTKWave Files</h3>
-            <div class="checkbox-list">
-              ${this.gtkwFiles.map(file => `
-                <label class="checkbox-item">
-                  <input type="checkbox" name="gtkw" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
-                  <span>${file}</span>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="modal-section">
-            <label class="checkbox-item">
-              <input type="checkbox" name="standard" ${this.selectedTb || this.selectedGtkw ? 'disabled' : ''}>
-              <span>Standard Simulation</span>
-            </label>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-cancel">Cancel</button>
-            <button class="btn btn-save" disabled>Save</button>
+      <div class="modal-content">
+        <h2 class="modal-title">Simulation Config</h2>
+        
+        <div class="modal-section">
+          <h3 class="section-title">Testbench Files</h3>
+          <div class="checkbox-list">
+            ${this.tbFiles.map(file => `
+              <label class="checkbox-item">
+                <input type="checkbox" name="tb" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
+                <span>${file}</span>
+              </label>
+            `).join('')}
           </div>
         </div>
+
+        <div class="modal-section">
+          <h3 class="section-title">GTKWave Files</h3>
+          <div class="checkbox-list">
+            ${this.gtkwFiles.map(file => `
+              <label class="checkbox-item">
+                <input type="checkbox" name="gtkw" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
+                <span>${file}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <label class="standard-simulation">
+            <input type="checkbox" name="standard" ${this.selectedTb || this.selectedGtkw ? 'disabled' : ''}>
+            <i class="fas fa-cogs"></i>
+            <span>Standard Simulation</span>
+          </label>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-cancel">Cancel</button>
+          <button class="btn btn-save" disabled>Save</button>
+        </div>
       </div>
+    </div>
     `;
 
     this.modal = document.createElement('div');

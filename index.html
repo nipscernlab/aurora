@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./css/sidebar.css">
   <link rel="stylesheet" href="./css/modal.css">
   <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/infoAurora.css">
 
   <link rel="stylesheet" href="./css/report.css">
   <link rel="stylesheet" href="./css/processorHub.css">
@@ -94,9 +95,21 @@
       <button id="settings" class="toolbar-button">
         <i class="fa-solid fa-gear" title="Processor Configuration"></i>
       </button>
+      <button id="info-aurora" class="toolbar-button">
+        <i class="fa-solid fa-circle-info" title="Info Aurora"></i>
+      </button>
     </div>
   </div>
   <div id="processor-visualization"></div>
+
+<!-- Modal -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>App Information</h2>
+      <p><strong>App Version:</strong> <span id="app-version"></span></p>
+  </div>
+</div>
 
 <!-- Sidebar -->
 <div id="sidebar" class="sidebar">
@@ -361,6 +374,8 @@
   <script src="./js/fileTree.js" type="module"></script>
   <script src="./js/modalConfig.js" type="module"></script>
   <script src="./js/simulationModal.js" type="module"></script>
+  <script src="./js/infoAurora.js"></script>
+
   <!--
   <script src="./js/index.js" type="module"></script>
   <script src="./js/blockView.js" type="module"></script>

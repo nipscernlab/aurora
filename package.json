@@ -3,7 +3,7 @@
     "productName": "Aurora IDE",
     "description": "Aurora IDE",
     "author": "NIPSCERN",
-    "version": "2.9.0",
+    "version": "2.7.0",
     "win": {
         "icon": "./assets/icons/aurora_borealis-2.ico"
     },
@@ -14,42 +14,41 @@
         "build": "electron-builder"
     },
     "build": {
-    "appId": "com.nipscern.auroraide",
-    "productName": "Aurora IDE",
-    "publish": [
-        {
-            "provider": "github",
-            "owner": "nipscernlab",
-            "repo": "Aurora",
-            "releaseType": "release"
+        "appId": "com.nipscern.auroraide",
+        "productName": "Aurora IDE",
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "nipscernlab",
+                "repo": "Aurora",
+                "releaseType": "release"
+            }
+        ],
+        "fileAssociations": [
+            {
+                "ext": "spf",
+                "name": "Sapho Project File",
+                "description": "Sapho Project File",
+                "role": "Editor"
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "./assets/icons/aurora_borealis-2.ico",
+            "artifactName": "AuroraIDE-Setup-2.7.0.${ext}"
+        },
+        "nsis": {
+            "include": "build/installer.nsh"
+        },
+        "extraResources": [
+            {
+                "from": "saphoComponents",
+                "to": "saphoComponents_tmp"
+            }
+        ],
+        "directories": {
+            "buildResources": "build"
         }
-    ],
-    "fileAssociations": [
-        {
-            "ext": "spf",
-            "name": "Sapho Project File",
-            "description": "Sapho Project File",
-            "role": "Editor"
-        }
-    ],
-    "win": {
-        "target": "nsis",
-        "icon": "./assets/icons/aurora_borealis-2.ico",
-        "artifactName": "AuroraIDE-Setup-2.9.0.${ext}"
-    },
-    "nsis": {
-        "include": "build/installer.nsh"
-    },
-    "extraResources": [
-        {
-            "from": "saphoComponents",
-            "to": "saphoComponents_tmp"
-        }
-    ],
-    "directories": {
-        "buildResources": "build"
-    }
-
     },
     "keywords": [
         "Aurora"
@@ -66,6 +65,7 @@
         "chokidar": "^4.0.3",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.0.0",
+        "electron-log": "^5.3.0",
         "electron-store": "^10.0.0",
         "electron-updater": "^6.3.9",
         "fs-extra": "^11.3.0",

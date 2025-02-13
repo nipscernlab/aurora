@@ -46,20 +46,13 @@ const projectOperations = {
   showSaveDialog: () => ipcRenderer.invoke('dialog:showSave'),
   createProcessor: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   onProjectStateChange: (callback) => ipcRenderer.on('project:stateChange', callback),
+  onProjectCreated: (callback) => ipcRenderer.on('project:created', callback),
+  onProcessorHubStateChange: (callback) => ipcRenderer.on('project:processorHubState', callback),
+  onProcessorHubState: (callback) => ipcRenderer.on('project:processorHubState', callback),
   getProjectName: () => ipcRenderer.invoke("getProjectName"),
   createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
-
-  onUpdateAvailable: (callback) => {
-    ipcRenderer.on('update-available', (event, versions) => callback(versions));
-  },
-  onDownloadProgress: (callback) => {
-    ipcRenderer.on('download-progress', (event, progress) => callback(progress));
-  },
-  onUpdateDownloaded: (callback) => {
-    ipcRenderer.on('update-downloaded', () => callback());
-  },
-  startDownload: () => ipcRenderer.invoke('start-download'),
-  installUpdate: () => ipcRenderer.invoke('install-update')
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
 
 };
 
@@ -116,17 +109,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (data) => ipcRenderer.send('save-config', data),
   loadConfig: () => ipcRenderer.invoke('load-config'),
   
-  // Update Operations
+  // Update Operations 
+  /*
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
   startDownload: () => ipcRenderer.send('start-download'),
-  installUpdate: () => ipcRenderer.send('install-update'),
+  installUpdate: () => ipcRenderer.send('install-update'),*/
   
   // File Parsing
   parseCMMFile: (filePath) => ipcRenderer.invoke('parse-cmm-file', filePath),
   
   // Event Listeners
+  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
   onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'), // Expondo o método para o renderer

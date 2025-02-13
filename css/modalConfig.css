@@ -128,7 +128,7 @@ input {
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     color: var(--text-primary);
-    width: 100%;
+    /*width: 100%;*/
     transition: border-color 0.2s ease;
 }
 

@@ -42,6 +42,7 @@ async function loadConfiguration() {
                 });
 
                 processorsDiv.insertBefore(processorItem, addProcessorButton);
+                
             });
         }
 

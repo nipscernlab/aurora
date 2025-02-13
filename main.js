@@ -4,131 +4,106 @@ const { exec } = require('child_process');
 const path = require('path');
 const fse = require('fs-extra'); // fs-extra makes it easier to copy directories
 const fs = require('fs').promises;
-const { spawn } = require('child_process'); // Importa spawn corretamente
+const { spawn } = require('child_process'); // Importa spawn corretamente 
 
-(async () => {
-  const StoreModule = await import('electron-store');
-  const Store = StoreModule.default;
-  store = new Store(); // Garantir que store seja acessível globalmente
-})();
+let mainWindow, splashWindow;
 
-let mainWindow; // Variável para a janela principal
-let splashWindow; // Variável para a splash screen
+function createMainWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(__dirname, 'js', 'preload.js'),
+    },
+    backgroundColor: '#1e1e1e',
+    show: false,
+  });
+
+  mainWindow.loadFile('index.html');
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+}
 
 function createSplashScreen() {
-  // Criar a janela da splash screen com a imagem SVG
   splashWindow = new BrowserWindow({
     width: 400,
     height: 500,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
-    frame: false, // Sem borda
-    transparent: true, // Janela transparente
-    alwaysOnTop: true, // Sempre acima
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    webPreferences: { contextIsolation: true },
   });
 
-  splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html')); // Carregar o arquivo HTML da splash screen
-
-  // Fechar a splash screen após 2 segundos
+  splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html'));
   setTimeout(() => {
-    splashWindow.close(); // Fechar a splash screen
-    createMainWindow(); // Criar e mostrar a janela principal
-  }, 2000); // 2000 milissegundos (2 segundos)
+    splashWindow.close();
+    createMainWindow();
+    setTimeout(checkForUpdates, 4000);
+  }, 4000);
 }
 
-function createMainWindow() {
-  // Criar a janela principal
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    //autoHideMenuBar: true,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
-    webPreferences: {
-      webviewTag: true,
-      nodeIntegration: false,
-      contextIsolation: true,
-      enableRemoteModule: true,
-      preload: path.join(__dirname, 'js', 'preload.js'),
-    },
-    backgroundColor: '#1e1e1e',
-    show: false, // Janela principal começa oculta
-  });
-  //Menu.setApplicationMenu(null);
-
-  mainWindow.loadFile('index.html'); // Carregar o arquivo da janela principal
-  // App quit handler
-  ipcMain.on('app-quit', () => {
-    app.quit();
-  });
-  // Quando a janela principal estiver pronta para ser exibida
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show(); // Mostrar a janela principal
-  });
-}
-
-// Função para verificar atualizações
 function checkForUpdates() {
-  // Inicia a verificação
-  autoUpdater.checkForUpdates();
+  autoUpdater.checkForUpdatesAndNotify();
 
-  // Quando encontrar uma atualização
   autoUpdater.on('update-available', async (info) => {
-      // Mostra diálogo perguntando se quer baixar
-      const downloadDialog = await dialog.showMessageBox({
-          type: 'info',
-          title: 'Atualização Disponível',
-          message: `Uma nova versão está disponível!\n\nVersão atual: ${app.getVersion()}\nNova versão: ${info.version}`,
-          buttons: ['Baixar', 'Depois'],
-          defaultId: 0,
-          cancelId: 1
-      });
-
-      // Se o usuário escolher baixar (botão 0)
-      if (downloadDialog.response === 0) {
-          autoUpdater.downloadUpdate();
-      }
+    console.log(`Nova versão disponível: ${info.version}, versão atual: ${app.getVersion()}`);
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Atualização Disponível',
+      message: `Versão Atual: ${app.getVersion()}\nNova Versão: ${info.version}\nDeseja baixar agora?`,
+      buttons: ['Sim', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      console.log('Iniciando o download da atualização...');
+      autoUpdater.downloadUpdate();
+    }
   });
 
-  // Quando o download terminar
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(`Progresso do download: ${Math.round(progress.percent)}%`);
+  });
+
   autoUpdater.on('update-downloaded', async () => {
-      // Mostra diálogo perguntando se quer instalar
-      const installDialog = await dialog.showMessageBox({
-          type: 'info',
-          title: 'Instalar Atualização',
-          message: 'A atualização foi baixada. Instalar agora?',
-          buttons: ['Sim', 'Depois'],
-          defaultId: 0,
-          cancelId: 1
-      });
-
-      // Se o usuário escolher instalar (botão 0)
-      if (installDialog.response === 0) {
-          autoUpdater.quitAndInstall(false, true);
-      }
+    console.log('Download concluído. Perguntando ao usuário sobre a instalação.');
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Instalar Atualização',
+      message: 'A atualização foi baixada. Instalar agora?',
+      buttons: ['Sim', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      console.log('Fechando o aplicativo e instalando a atualização.');
+      autoUpdater.quitAndInstall(true, true);
+      installExecutables();
+    }
   });
+  
 
-  // Tratamento de erros
   autoUpdater.on('error', (err) => {
-      dialog.showErrorBox(
-          'Erro na Atualização',
-          'Ocorreu um erro ao verificar/baixar a atualização: ' + err.message
-      );
+    console.error('Erro na atualização:', err);
   });
 }
 
-app.whenReady().then(() => {
-  createSplashScreen(); // Exibir a splash screen
-setTimeout(checkForUpdates, 5000)});
+function clearCache() {
+  const cachePath = app.getPath('userData');
+  fs.removeSync(path.join(cachePath, 'Cache'));
+  fs.removeSync(path.join(cachePath, 'GPUCache'));
+}
 
+app.whenReady().then(createSplashScreen);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
+
 
 ipcMain.handle('open-folder', async () => {
   try {
@@ -151,8 +126,6 @@ ipcMain.handle('open-folder', async () => {
     throw error; // Lança o erro para o renderer.js
   }
 });
-
-
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
@@ -526,7 +499,8 @@ class ProjectFile {
     
     this.structure = {
       basePath: projectPath,
-      processors: [] // Will store processor names and configs
+      processors: [],
+      folders: []
     };
   }
 
@@ -555,7 +529,27 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
       path: path.join(projectPath, file.name)
     }));
 
-    updateProjectState(BrowserWindow.getFocusedWindow(), projectPath, spfPath);
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    updateProjectState(focusedWindow, projectPath, spfPath);
+
+    // Enviar um evento específico para habilitar o Processor Hub
+    focusedWindow.webContents.send('project:processorHubState', { enabled: true });
+
+    // Enviar evento para carregar o projeto automaticamente
+    focusedWindow.webContents.send('project:created', {
+      projectData: projectFile.toJSON(),
+      files: fileList,
+      spfPath,
+      projectPath
+    });
+
+    // Simular a abertura do projeto após a criação
+    focusedWindow.webContents.send('project:open', {
+      projectData: projectFile.toJSON(),
+      files: fileList,
+      spfPath,
+      projectPath
+    });
 
     return { 
       success: true, 
@@ -574,29 +568,21 @@ ipcMain.handle('project:open', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
 
-    // Read and parse SPF file
     const spfContent = await fse.readFile(spfPath, 'utf8');
     const projectData = JSON.parse(spfContent);
     
-    // Update last opened timestamp
     projectData.metadata.lastOpened = new Date().toISOString();
 
-    // Check if the stored base path exists
     const oldBasePath = projectData.structure.basePath;
     const basePathExists = await fse.pathExists(oldBasePath);
 
     if (!basePathExists) {
-      // If the old path doesn't exist, update to the new path (directory of the .spf file)
       const newBasePath = path.dirname(spfPath);
-      
-      // Update metadata and structure with new path
       projectData.metadata.projectPath = newBasePath;
       projectData.structure.basePath = newBasePath;
-
       console.log(`Updating project path from ${oldBasePath} to ${newBasePath}`);
     }
 
-    // Verify processors if they exist
     if (projectData.structure.processors) {
       projectData.structure.processors = await Promise.all(
         projectData.structure.processors.map(async processor => {
@@ -606,20 +592,27 @@ ipcMain.handle('project:open', async (_, spfPath) => {
         })
       );
     } else {
-      // Initialize processors array if it doesn't exist
       projectData.structure.processors = [];
     }
 
-    // Update SPF file with the corrected paths
+    if (!projectData.structure.folders) {
+      projectData.structure.folders = [];
+    }
+
     await fse.writeFile(spfPath, JSON.stringify(projectData, null, 2));
 
-    // Scan directory for file tree
     const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
     const fileList = files.map(file => ({
       name: file.name,
       isDirectory: file.isDirectory(),
       path: path.join(projectData.structure.basePath, file.name)
     }));
+
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
+    
+    // Enviar evento para habilitar o Processor Hub
+    focusedWindow.webContents.send('project:processorHubState', { enabled: true });
 
     return {
       projectData,
@@ -913,30 +906,41 @@ ipcMain.on('refresh-file-tree', (event) => {
   event.sender.send('trigger-refresh-file-tree');
 });
 
-ipcMain.handle('load-config', async (event) => {
+// Use app.getPath('userData') para garantir que o caminho seja correto após o empacotamento
+const configDir = path.join(app.getPath('userData'), 'saphoComponents', 'Scripts');
+const configFilePath = path.join(configDir, 'processorConfig.json');
+
+// Função para garantir que o diretório exista antes de ler ou escrever o arquivo
+async function ensureConfigDir() {
   try {
-    const filePath = path.join(__dirname, 'saphoComponents/Scripts/processorConfig.json');
-    const fileContent = await fs.readFile(filePath, 'utf-8');
+    await fs.mkdir(configDir, { recursive: true });
+  } catch (error) {
+    console.error('Falha ao criar diretório de configuração:', error);
+  }
+}
+
+// Lendo a configuração
+ipcMain.handle('load-config', async () => {
+  await ensureConfigDir();
+  try {
+    const fileContent = await fs.readFile(configFilePath, 'utf-8');
     return JSON.parse(fileContent);
   } catch (error) {
-    console.error('Failed to read configuration file:', error);
-    // Return an empty configuration if file doesn't exist or can't be read
+    console.error('Falha ao ler o arquivo de configuração:', error);
     return { processors: [], iverilogFlags: [] };
   }
 });
 
-ipcMain.on('save-config', (event, data) => {
-  const filePath = path.join(__dirname, 'saphoComponents/Scripts/processorConfig.json');
-  fs.writeFile(filePath, JSON.stringify(data, null, 2), (err) => {
-    if (err) {
-      console.error('Failed to save the file:', err);
-    } else {
-      console.log('File saved to:', filePath);
-    }
-  });
+// Salvando a configuração
+ipcMain.on('save-config', async (event, data) => {
+  await ensureConfigDir();
+  try {
+    await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
+    console.log('Configuração salva em:', configFilePath);
+  } catch (error) {
+    console.error('Falha ao salvar o arquivo:', error);
+  }
 });
-
-
 // Adicione junto aos outros handlers no main.js
 ipcMain.handle('join-path', (event, ...paths) => {
   return path.join(...paths);
@@ -1048,3 +1052,30 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
     });
   });
 });
+
+
+function installExecutables() {
+  const iverilogPath = path.join(__dirname, 'saphoComponents', 'Packages', 'iverilog-v1.exe');
+  const sevenZipPath = path.join(__dirname, 'saphoComponents', 'Packages', '7z-v1.exe');
+
+  console.log("Iniciando instalação do Icarus Verilog...");
+
+  execFile(iverilogPath, [], (error, stdout, stderr) => {
+      if (error) {
+          console.error(`Erro ao instalar Icarus Verilog: ${error.message}`);
+          return;
+      }
+      console.log(`Icarus Verilog instalado com sucesso: ${stdout}`);
+
+      console.log("Iniciando instalação do 7-Zip...");
+      
+      execFile(sevenZipPath, [], (error, stdout, stderr) => {
+          if (error) {
+              console.error(`Erro ao instalar 7-Zip: ${error.message}`);
+              return;
+          }
+          console.log(`7-Zip instalado com sucesso: ${stdout}`);
+      });
+  });
+}
+

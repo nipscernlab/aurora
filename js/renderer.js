@@ -2127,6 +2127,8 @@ document.getElementById('clear-terminal').addEventListener('click', () => {
 // VERILOG ========================================================================================================================================================
 // Get the compile button
 const compileButton = document.getElementById('vericomp');
+const compileButtoncmm = document.getElementById('cmmcomp');
+const compileButtonasm = document.getElementById('asmcomp');
 
 // Function to check if current tab is a .cmm file
 function isActiveCmmFile() {
@@ -2143,12 +2145,16 @@ function getProcessorName() {
 function updateCompileButtonState() {
     const isCmmFile = isActiveCmmFile();
     compileButton.disabled = !isCmmFile;
-    if (isCmmFile) {
+    if (false) {
         compileButton.style.opacity = "1";
         compileButton.style.cursor = "pointer";
     } else {
         compileButton.style.opacity = "0.5";
         compileButton.style.cursor = "not-allowed";
+        compileButtoncmm.style.opacity = "0.5";
+        compileButtoncmm.style.cursor = "not-allowed";
+        compileButtonasm.style.opacity = "0.5";
+        compileButtonasm.style.cursor = "not-allowed";
     }
 }
 
@@ -2204,12 +2210,18 @@ class CompilationModule {
     this.terminalManager = new TerminalManager();
 
   }
+  
 
-  async loadConfig() {
-    const configPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts', 'processorConfig.json');
-    const data = await window.electronAPI.readFile(configPath);
-    this.config = JSON.parse(data);
+async loadConfig() {
+  try {
+    const config = await window.electronAPI.loadConfig();
+    this.config = config;
+    console.log("Config carregada:", config);
+  } catch (error) {
+    console.error("Falha ao carregar a configuração:", error);
   }
+}
+
 
   async ensureDirectories(name) {
     const tempDir = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
@@ -2226,9 +2238,9 @@ class CompilationModule {
       const asmPath = await window.electronAPI.joinPath(softwarePath, `${name}.asm`);
       const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      
       const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
-      const cmd = `"${cmmCompPath}" "${cmmPath}" "${asmPath}" "${macrosPath}" "${tempPath}"`;
+
+      const cmd = `"${cmmCompPath}" "${cmmPath}" "${asmPath}" "${macrosPath}" "${tempPath}" ${name}`;
       
       this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
       
@@ -2306,8 +2318,6 @@ class CompilationModule {
       throw error;
     }
   }
-  
-  
 
   async iverilogCompilation(processor, simConfig) {
     const { name } = processor;
@@ -2315,8 +2325,9 @@ class CompilationModule {
     
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const hdlPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'HDL');
-        const tempPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'Temp', name);
+        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+        const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+        const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
         const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
         
@@ -2361,6 +2372,7 @@ class CompilationModule {
         const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
         
         const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `mem_data_${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `pc_${name}.v`)}" ${verilogFilesString}`;
+        
         console.log('Icarus Verilog Command:', cmd);
 
         this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
@@ -2380,7 +2392,7 @@ class CompilationModule {
         
         // Executar vvp
         this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation...');
-        const vvpCmd = `cd "${tempPath}" && vvp ${name}`;
+        const vvpCmd = `cd "${tempPath}" && vvp ${name} -fst`;
         this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
         
         const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -2417,12 +2429,13 @@ async runGtkWave(processor, simConfig) {
     
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const tempPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'Temp', name);
+        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+        const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
         
         // Copiar executáveis
         this.terminalManager.appendToTerminal('twave', 'Copying GTKWave executables...');
-        const binPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'bin');
+        const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
         const executables = ['comp2gtkw.exe', 'f2i_gtkw.exe', 'float2gtkw.exe'];
         
         for (const exe of executables) {
@@ -2435,7 +2448,8 @@ async runGtkWave(processor, simConfig) {
         
         let cmd;
         if (simConfig.standardSimulation) {
-            const scriptsPath = await window.electronAPI.joinPath(appPath, 'saphoComponents', 'Scripts', 'gtkwave_init.tcl');
+            const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtkwave_init.tcl');
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             const tempNamePath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             
@@ -2506,6 +2520,8 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     console.log('All compilations completed successfully');
   }
 });
+
+
 
 
 //TERMINAL =============================================================================================================================================================

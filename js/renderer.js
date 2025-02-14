@@ -1846,6 +1846,18 @@ form.addEventListener('submit', async (e) => {
       const result = await window.electronAPI.createProcessorProject(formData);
 
       if (result && result.success) {
+
+        const processorType = formData.pointType === 'floating' ? 'float' : 'int';
+        // Defina os caminhos
+        const appPath = await window.electronAPI.getAppPath();
+        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+        const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', formData.processorName);
+        const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
+        const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+
+        // Chame a função para criar o arquivo
+        await window.electronAPI.createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
+
           // Close modal
           modal.remove();
 
@@ -2449,15 +2461,15 @@ async runGtkWave(processor, simConfig) {
         let cmd;
         if (simConfig.standardSimulation) {
             const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
-            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtkwave_init.tcl');
+            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtk_proc_init.tcl');
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             const tempNamePath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             
-            cmd = `cd /d "${tempNamePath}" && gtkwave "${vcdPath}" --script="${scriptsPath}"`;
+            cmd = `cd /d "${tempNamePath}" && gtkwave --dark "${vcdPath}" --script="${scriptsPath}"`;
         } else {
             const gtkwPath = await window.electronAPI.joinPath(hardwarePath, simConfig.selectedGtkw);
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
-            cmd = `gtkwave "${vcdPath}" "${gtkwPath}"`;
+            cmd = `gtkwave --dark "${vcdPath}" "${gtkwPath}"`;
         }
         
         this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${cmd}`);

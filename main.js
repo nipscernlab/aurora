@@ -1079,3 +1079,24 @@ function installExecutables() {
   });
 }
 
+// Função para criar o tcl_infox.txt
+async function createTclInfoFile(tclInfoPath, processorType, tempPath, binPath) {
+  try {
+      // Certifique-se de que a pasta Temp existe antes de criar o arquivo
+      await fs.mkdir(path.dirname(tclInfoPath), { recursive: true });
+
+      // Conteúdo do arquivo
+      const content = `${processorType}\n${tempPath}\n${binPath}`;
+
+      // Cria o arquivo tcl_infox.txt
+      await fs.writeFile(tclInfoPath, content, 'utf8');
+      console.log(`Arquivo ${tclInfoPath} criado com sucesso.`);
+  } catch (error) {
+      console.error('Erro ao criar tcl_infox.txt:', error);
+  }
+}
+
+// Expor a função para o Renderer usar
+ipcMain.handle('createTclInfoFile', async (event, tclInfoPath, processorType, tempPath, binPath) => {
+  await createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
+});

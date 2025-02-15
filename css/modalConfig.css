@@ -200,3 +200,49 @@ input:focus {
     border-bottom: 1px solid var(--border-primary);
     padding-bottom: 5px;
   }
+
+
+  /* Adicione estes estilos ao seu CSS existente */
+
+.modal-content--small {
+    max-width: 400px;
+  }
+  
+  .footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .footer-danger-zone {
+    display: flex;
+    align-items: center;
+  }
+  
+  .btn-danger {
+    background-color: var(--error);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s ease;
+  }
+  
+  .btn-danger:hover {
+    opacity: 0.9;
+  }
+  
+  #confirmDeleteModal .modal-content {
+    border-top: 4px solid var(--error);
+  }
+  
+  #confirmDeleteModal .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }

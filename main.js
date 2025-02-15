@@ -533,6 +533,7 @@ function updateProjectState(window, projectPath, spfPath) {
 }
 
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
+  updatePathInElectron();
   try {
     await fse.mkdir(projectPath, { recursive: true });
     const projectFile = new ProjectFile(projectPath);
@@ -1100,4 +1101,16 @@ ipcMain.handle('get-app-info', () => {
     nodeVersion: process.versions.node,
     osInfo: `${os.type()} ${os.release()} (${os.arch()})`
   };
+});
+
+
+// Handler para deletar pasta
+ipcMain.handle('delete-folder', async (_, folderPath) => {
+  try {
+    await fs.rm(folderPath, { recursive: true, force: true });
+    return true;
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+    throw error;
+  }
 });

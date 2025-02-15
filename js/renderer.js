@@ -2946,3 +2946,40 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+
+// No seu renderer.js
+
+// Elementos do modal de confirmação
+const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+const confirmDeleteBtn = document.getElementById('confirmDelete');
+const cancelDeleteBtn = document.getElementById('cancelDelete');
+const deleteTempBtn = document.getElementById('deleteTempFolder');
+
+// Handler para o botão de deletar
+deleteTempBtn.addEventListener('click', () => {
+  confirmDeleteModal.classList.add('show');
+});
+
+// Handler para cancelar a deleção
+cancelDeleteBtn.addEventListener('click', () => {
+  confirmDeleteModal.classList.remove('show');
+});
+
+// Handler para confirmar a deleção
+confirmDeleteBtn.addEventListener('click', async () => {
+  try {
+    const basePath = await window.electronAPI.getBasePath(); // Assumindo que você tem uma função para pegar o basePath
+    const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
+    await window.electronAPI.deleteFolder(tempPath);
+    
+    // Fechar o modal de confirmação
+    confirmDeleteModal.classList.remove('show');
+    
+    // Opcional: Mostrar mensagem de sucesso
+    // Você pode usar sua própria função de notificação aqui
+  } catch (error) {
+    console.error('Error deleting temp folder:', error);
+    // Opcional: Mostrar mensagem de erro
+  }
+});

@@ -52,6 +52,7 @@ const projectOperations = {
   getProjectName: () => ipcRenderer.invoke("getProjectName"),
   createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   joinPath: (...args) => require('path').join(...args),
     createTclInfoFile: (tclInfoPath, processorType, tempPath, binPath) => ipcRenderer.invoke('createTclInfoFile', tclInfoPath, processorType, tempPath, binPath)
   

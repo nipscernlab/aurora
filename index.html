@@ -102,12 +102,37 @@
   </div>
   <div id="processor-visualization"></div>
 
-<!-- Modal -->
-<div id="modal" class="modal">
-  <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>App Information</h2>
-      <p><strong>App Version:</strong> <span id="app-version"></span></p>
+<!-- Modal com classes específicas -->
+<div id="aurora-info-modal" class="aurora-modal aurora-modal--hidden">
+  <div class="aurora-modal__overlay">
+    <div class="aurora-modal__content">
+      <div class="aurora-modal__header">
+        <h2 class="aurora-modal__title">Informações do Sistema</h2>
+        <button class="aurora-modal__close">&times;</button>
+      </div>
+      <div class="aurora-modal__body">
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Versão da Aurora:</span>
+          <span id="aurora-app-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Electron:</span>
+          <span id="aurora-electron-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Chrome:</span>
+          <span id="aurora-chrome-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Node.js:</span>
+          <span id="aurora-node-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Sistema Operacional:</span>
+          <span id="aurora-os-info" class="aurora-info-item__value"></span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -374,7 +399,7 @@
   <script src="./js/fileTree.js" type="module"></script>
   <script src="./js/modalConfig.js" type="module"></script>
   <script src="./js/simulationModal.js" type="module"></script>
-  <script src="./js/infoAurora.js"></script>
+  <script src="./js/infoAurora.js" type="module"></script>
 
   <!--
   <script src="./js/index.js" type="module"></script>

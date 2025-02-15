@@ -4,9 +4,24 @@ const { exec } = require('child_process');
 const path = require('path');
 const fse = require('fs-extra'); // fs-extra makes it easier to copy directories
 const fs = require('fs').promises;
+const os = require('os');
 const { spawn } = require('child_process'); // Importa spawn corretamente 
 
 let mainWindow, splashWindow;
+
+function updatePathInElectron() {
+  console.log("Atualizando o PATH no Electron...");
+  exec('powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'Machine\')"', (error, stdout) => {
+      if (!error) {
+          process.env.PATH = stdout.trim();
+          console.log("PATH atualizado no Electron:", process.env.PATH);
+      } else {
+          console.error("Erro ao atualizar o PATH:", error);
+      }
+  });
+}
+
+updatePathInElectron();
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -23,6 +38,7 @@ function createMainWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => {
+    updatePathInElectron();
     mainWindow.show();
   });
 }
@@ -42,7 +58,7 @@ function createSplashScreen() {
   setTimeout(() => {
     splashWindow.close();
     createMainWindow();
-    setTimeout(checkForUpdates, 4000);
+    setTimeout(checkForUpdates, 2000);
   }, 4000);
 }
 
@@ -1021,9 +1037,8 @@ ipcMain.handle('directory-exists', async (event, dirPath) => {
 });
 
 //ZIP
-
-// Caminho para o 7-Zip
-const sevenZipPath = `"C:\\Program Files\\7-Zip\\7z.exe"`;
+// Caminho do 7-Zip já garantido no PATH, não há necessidade de verificação
+const sevenZipPath = "7z";
 
 // Manipulador para criar backup com 7z
 ipcMain.handle("create-backup", async (_, folderPath) => {
@@ -1037,8 +1052,8 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
   // Define o caminho onde o backup será salvo (dentro da própria pasta do projeto)
   const zipFilePath = path.join(folderPath, zipFileName);
 
-  // Comando atualizado com o caminho completo do arquivo
-  const command = `${sevenZipPath} a "${zipFilePath}" "${folderPath}"`;
+  // Comando com 7-Zip, usando diretamente o comando '7z' já presente no PATH
+  const command = `"${sevenZipPath}" a "${zipFilePath}" "${folderPath}"`;
 
   return new Promise((resolve) => {
     exec(command, (error, stdout, stderr) => {
@@ -1053,31 +1068,6 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
   });
 });
 
-
-function installExecutables() {
-  const iverilogPath = path.join(__dirname, 'saphoComponents', 'Packages', 'iverilog-v1.exe');
-  const sevenZipPath = path.join(__dirname, 'saphoComponents', 'Packages', '7z-v1.exe');
-
-  console.log("Iniciando instalação do Icarus Verilog...");
-
-  execFile(iverilogPath, [], (error, stdout, stderr) => {
-      if (error) {
-          console.error(`Erro ao instalar Icarus Verilog: ${error.message}`);
-          return;
-      }
-      console.log(`Icarus Verilog instalado com sucesso: ${stdout}`);
-
-      console.log("Iniciando instalação do 7-Zip...");
-      
-      execFile(sevenZipPath, [], (error, stdout, stderr) => {
-          if (error) {
-              console.error(`Erro ao instalar 7-Zip: ${error.message}`);
-              return;
-          }
-          console.log(`7-Zip instalado com sucesso: ${stdout}`);
-      });
-  });
-}
 
 // Função para criar o tcl_infox.txt
 async function createTclInfoFile(tclInfoPath, processorType, tempPath, binPath) {
@@ -1099,4 +1089,15 @@ async function createTclInfoFile(tclInfoPath, processorType, tempPath, binPath) 
 // Expor a função para o Renderer usar
 ipcMain.handle('createTclInfoFile', async (event, tclInfoPath, processorType, tempPath, binPath) => {
   await createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
+});
+
+// Handler para obter informações do app
+ipcMain.handle('get-app-info', () => {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+    osInfo: `${os.type()} ${os.release()} (${os.arch()})`
+  };
 });

@@ -23,14 +23,99 @@ function updatePathInElectron() {
 
 updatePathInElectron();
 
+// Primeiro, vamos criar uma função para gerenciar a janela de progresso
+let progressWindow = null;
+
+function createProgressWindow() {
+  progressWindow = new BrowserWindow({
+    width: 400,
+    height: 150,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(__dirname, 'js', 'preload.js')
+    },
+  });
+
+  progressWindow.loadFile(path.join(__dirname, 'html', 'progress.html'));
+}
+
+// Modifique a função checkForUpdates
+function checkForUpdates() {
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', async (info) => {
+    console.log(`Nova versão disponível: ${info.version}, versão atual: ${app.getVersion()}`);
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Atualização Disponível',
+      message: `Versão Atual: ${app.getVersion()}\nNova Versão: ${info.version}\nDeseja baixar agora?`,
+      buttons: ['Sim', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      console.log('Iniciando o download da atualização...');
+      createProgressWindow();
+      autoUpdater.downloadUpdate();
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    const percent = Math.round(progress.percent);
+    const transferred = (progress.transferred / 1048576).toFixed(2); // Converter para MB
+    const total = (progress.total / 1048576).toFixed(2); // Converter para MB
+    
+    if (progressWindow) {
+      progressWindow.webContents.send('update-progress', {
+        percent,
+        transferred,
+        total,
+        speed: (progress.bytesPerSecond / 1048576).toFixed(2) // Velocidade em MB/s
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', async () => {
+    if (progressWindow) {
+      progressWindow.close();
+      progressWindow = null;
+    }
+
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Instalar Atualização',
+      message: 'A atualização foi baixada. Instalar agora?',
+      buttons: ['Sim', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      autoUpdater.quitAndInstall(true, true);
+      installExecutables();
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Erro na atualização:', err);
+    if (progressWindow) {
+      progressWindow.close();
+      progressWindow = null;
+    }
+  });
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    //autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
+      nodeIntegration: true,
       preload: path.join(__dirname, 'js', 'preload.js'),
     },
     backgroundColor: '#1e1e1e',

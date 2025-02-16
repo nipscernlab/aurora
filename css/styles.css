@@ -239,8 +239,8 @@
 
 #cmmcomp, #asmcomp {
   padding: 8px;
-  background: transparent;
-  color: inherit;
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -380,4 +380,29 @@
 .assistant-message {
   background: var(--background-lighter, #3d3d3d);
   margin-right: 20px;
+}
+
+/* Menu Lateral para News */
+.news-sidebar {
+  position: fixed;
+  top: 0;
+  right: -350px;
+  width: 350px;
+  height: 100%;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  transition: right 0.3s ease;
+  z-index: 999;
+  border-left: 1px solid var(--border-primary);
+  overflow-y: auto;
+}
+
+.news-sidebar.active {
+  right: 0;
+}
+
+.news-webview {
+  width: 100%;
+  height: 100%;
+  border: none;
 }

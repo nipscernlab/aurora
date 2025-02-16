@@ -1,54 +1,12 @@
-/* Estilo do botão de Bug Report */
-#open-bug-report {
-  position: fixed;
-  bottom: 30px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  background-color: #0078d7;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  z-index: 101;
-}
 
-#open-bug-report:hover {
-  background-color: #005a9e;
-  transform: scale(1.1);
-}
+
 
 /* Ícone no botão */
 #open-bug-report i {
   font-size: 20px;
 }
 
-/* Tooltip ao passar o mouse */
-#open-bug-report::after {
-  content: "Bug Report";
-  position: absolute;
-  bottom: 60px;
-  right: 0;
-  background-color: #333;
-  color: #fff;
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 14px;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
 
-}
-
-#bug-body{
-    height: 250px;
-}
 
 #open-bug-report:hover::after {
   opacity: 1;
@@ -75,20 +33,20 @@
 }
 
 .modal-content {
-  background: #2c2c2c;
+  background: var(--bg-primary);
   padding: 30px;
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
   animation: slideDown 0.3s ease;
 }
 
 .modal-content h2 {
   margin-top: 0;
   font-size: 24px;
-  color: #00aaff;
-  border-bottom: 2px solid #0078d7;
+  color: var(--accent-primary);
+  border-bottom: 2px solid var(--accent-primary);
   padding-bottom: 10px;
 }
 
@@ -104,7 +62,7 @@
   width: 100%;
   padding: 12px;
   margin-bottom: 15px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-primary);
   border-radius: 8px;
   font-size: 16px;
   box-sizing: border-box;
@@ -114,15 +72,15 @@
 .modal-content input:focus,
 .modal-content textarea:focus,
 .modal-content select:focus {
-  border-color: #0078d7;
+  border-color: var(--accent-primary);
   outline: none;
 }
 
 .modal-content button {
   margin-right: 10px;
   padding: 10px 20px;
-  background-color: #0078d7;
-  color: white;
+  background-color: var(--accent-primary);
+  color: var(--text-primary);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -131,81 +89,71 @@
 }
 
 .modal-content button:hover {
-  background-color: #005a9e;
+  background-color: var(--accent-hover);
 }
 
 /* Personalização da Severidade com bolinhas */
 .modal-content textarea {
-    resize: none;
-  }
-  
-  .severity-options {
-    display: flex;
-    flex-direction: row; 
-    gap: 20px; 
-  }
-  
-  .severity-options label {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    padding: 5px 10px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-  }
-  
-  .severity-options label:hover {
-    background-color: #444;
-    transform: scale(1.05); 
-  }
-  
-  .severity-options input {
-    display: none;
-  }
-  
-  .severity-options .severity-dot {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 8px;
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .severity-options .severity-dot.low {
-    background-color: #4caf50; 
-  }
-  
-  .severity-options .severity-dot.medium {
-    background-color: #ff9800;
-  }
-  
-  .severity-options .severity-dot.high {
-    background-color: #f44336; 
-  }
-  
-  /* Destacar a seleção com borda */
-  .severity-options input:checked + .severity-dot {
-    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
-  }
-  
-  /* Botões */
-.modal-content button {
-    margin-right: 10px;
-    margin-top: -12px;
-    padding: 10px 20px;
-    background-color: #0078d7;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-  }
-  
-  .modal-content button:hover {
-    background-color: #005a9e;
-  }
+  resize: none;
+  height: 150px;
+}
+
+.severity-options {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+}
+
+.severity-options label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.severity-options label:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.05);
+}
+
+.severity-options input {
+  display: none;
+}
+
+.severity-options .severity-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  transition: box-shadow 0.3s ease;
+}
+
+.severity-options .severity-dot.low {
+  background-color: var(--success);
+}
+
+.severity-options .severity-dot.medium {
+  background-color: var(--warning);
+}
+
+.severity-options .severity-dot.high {
+  background-color: var(--error);
+}
+
+/* Destacar a seleção com borda */
+.severity-options input:checked + .severity-dot {
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Botões */
+
+
+.modal-content button:hover {
+  background-color: var(--accent-hover);
+}
 
 /* Animações */
 @keyframes fadeIn {

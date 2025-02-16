@@ -156,6 +156,10 @@
     <li title="Open GitHub Desktop">
       <i class="fab fa-github"></i>
     </li>
+    <li title="News and Updates">
+      <i class="fas fa-newspaper"></i>
+    </li>
+    <i class="fa-solid fa-bell"></i>
     <li title="Keyboard shortcuts">
       <i class="fas fa-keyboard"></i>
     </li>
@@ -222,10 +226,6 @@
 </div>
 
 
-  <!-- Adicionar um botão de Bug Report -->
-<button id="open-bug-report">
-  <i class="fa-solid fa-bug"></i>
-</button>
 
 <!-- Janela Modal para o Bug Report -->
 <div id="bug-report-modal" class="modal hidden">
@@ -318,13 +318,14 @@
       <div id="terminal-container" class="terminal-container">
         <div class="terminal-tabs">
           <button id="clear-terminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
-
+          
           <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue;"></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
           <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
           <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button>
-
+          <!-- Adicionar um botão de Bug Report -->
+          <button id="open-bug-report" > <i class="fa-solid fa-bug"></i></button>
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>

@@ -386,6 +386,17 @@ class TabManager {
   static editorStates = new Map();
   static unsavedChanges = new Set(); // Track files with unsaved changes
 
+  // Add this method to close all tabs
+static async closeAllTabs() {
+  // Create a copy of the tabs keys to avoid modification during iteration
+  const openTabs = Array.from(this.tabs.keys());
+  
+  // Close each tab
+  for (const filePath of openTabs) {
+    await this.closeTab(filePath);
+  }
+}
+
    // New method to make tabs sortable
    static initSortableTabs() {
     const tabContainer = document.getElementById('tabs-container');
@@ -400,6 +411,8 @@ class TabManager {
         e.target.classList.add('dragging');
       }
     });
+
+    
 
     tabContainer.addEventListener('dragend', (e) => {
       if (draggedTab) {
@@ -420,6 +433,77 @@ class TabManager {
     });
   }
   
+  static updateContextPath(filePath) {
+    const contextContainer = document.getElementById('context-path');
+    if (!contextContainer) return;
+
+    if (!filePath) {
+      contextContainer.className = 'context-path-container empty';
+      contextContainer.innerHTML = '';
+      return;
+    }
+
+    // Remover a classe empty e adicionar o conteúdo
+    contextContainer.className = 'context-path-container';
+
+    // Separar o caminho em segmentos
+    const segments = filePath.split(/[\\/]/);
+    const fileName = segments.pop();
+
+    // Criar o HTML para o caminho com ícone mais apropriado
+    let html = '<i class="fas fa-folder-open"></i>';
+    
+    if (segments.length > 0) {
+      html += segments.map(segment => 
+        `<span class="context-path-segment">${segment}</span>`
+      ).join('<span class="context-path-separator">/</span>');
+      
+      html += '<span class="context-path-separator">/</span>';
+    }
+
+    // Adicionar ícone específico para o tipo de arquivo
+    const fileIcon = TabManager.getFileIcon(fileName);
+    html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
+    html += `<span class="context-path-filename">${fileName}</span>`;
+    
+    contextContainer.innerHTML = html;
+  }
+
+  static highlightFileInTree(filePath) {
+    // Remove highlight from all items
+    document.querySelectorAll('.file-tree-item').forEach(item => {
+      item.classList.remove('active');
+    });
+
+    if (!filePath) return;
+
+    // Find and highlight the corresponding file tree item
+    const fileItem = document.querySelector(`.file-tree-item[data-path="${CSS.escape(filePath)}"]`);
+    if (fileItem) {
+      fileItem.classList.add('active');
+      
+      // Ensure the highlighted item is visible by expanding parent folders
+      let parent = fileItem.parentElement;
+      while (parent) {
+        if (parent.classList.contains('folder-content')) {
+          parent.style.display = 'block';
+          const folderItem = parent.previousElementSibling;
+          if (folderItem) {
+            folderItem.querySelector('.folder-icon')?.classList.add('expanded');
+            const folderPath = folderItem.getAttribute('data-path');
+            if (folderPath) {
+              FileTreeState.expandedFolders.add(folderPath);
+            }
+          }
+        }
+        parent = parent.parentElement;
+      }
+      
+      // Scroll the file item into view
+      fileItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
 
   // Helper method to determine insertion point
   static getDragAfterElement(container, y) {
@@ -653,20 +737,26 @@ static restoreEditorState(filePath) {
     });
   }
   
-  // Improved tab activation
-  static activateTab(filePath) {
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
+// Modify the activateTab method to include highlighting
+static activateTab(filePath) {
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => tab.classList.remove('active'));
 
-    const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-    if (activeTab) {
-      activeTab.classList.add('active');
-      this.activeTab = filePath;
+  const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+    this.activeTab = filePath;
 
-      // Activate corresponding editor
-      const editor = EditorManager.setActiveEditor(filePath);
-    }
+    // Atualizar o caminho de contexto
+    this.updateContextPath(filePath);
+
+    // Highlight the file in the tree
+    this.highlightFileInTree(filePath);
+
+    // Activate corresponding editor
+    const editor = EditorManager.setActiveEditor(filePath);
   }
+}
 
 
   // Comprehensive save method
@@ -726,11 +816,15 @@ static restoreEditorState(filePath) {
 
     // If we're closing the active tab
     if (this.activeTab === filePath) {
+      
+      this.highlightFileInTree(null);
       const remainingTabs = Array.from(this.tabs.keys());
       if (remainingTabs.length > 0) {
         this.activateTab(remainingTabs[0]);
       } else {
         this.activeTab = null;
+        this.updateContextPath(null);
+
         // Reset editor to empty state
         const mainEditor = EditorManager.activeEditor;
         if (mainEditor) {
@@ -851,6 +945,87 @@ tabDragStyles.textContent = `
 document.head.appendChild(tabDragStyles);
 
 
+// Atualizar o CSS para usar as variáveis de tema
+const contextPathStyles = document.createElement('style');
+contextPathStyles.textContent = `
+  .context-path-container {
+    padding: 6px 12px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+  }
+
+  .context-path-container i {
+    font-size: 0.9em;
+    color: var(--icon-secondary);
+  }
+
+  .context-path-segment {
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+  }
+
+  .context-path-segment:hover {
+    color: var(--text-primary);
+  }
+
+  .context-path-separator {
+    color: var(--text-muted);
+    margin: 0 2px;
+    user-select: none;
+  }
+
+  .context-path-filename {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Esconder o container quando não há arquivos abertos */
+  .context-path-container.empty {
+    display: none;
+  }
+
+  /* Adicionar uma sutil animação de fade quando muda o arquivo */
+  .context-path-container:not(.empty) {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+document.head.appendChild(contextPathStyles);
+
+// Atualizar a função de inicialização do contexto
+function initContextPath() {
+  const editorContainer = document.getElementById('monaco-editor').parentElement;
+  const contextContainer = document.createElement('div');
+  contextContainer.id = 'context-path';
+  contextContainer.className = 'context-path-container empty';
+  
+  // Inserir após o container de tabs
+  const tabsContainer = document.getElementById('editor-tabs');
+  if (tabsContainer) {
+    tabsContainer.after(contextContainer);
+  }
+}
+
+
 // Initialize tab container
 function initTabs() {
   
@@ -860,6 +1035,17 @@ function initTabs() {
 
   tabsContainer.id = 'editor-tabs';
   editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
+
+  
+  if (!document.getElementById('editor-tabs')) {
+    const tabsContainer = document.createElement('div');
+    tabsContainer.id = 'editor-tabs';
+    editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
+  }
+  
+  if (!document.getElementById('context-path')) {
+    initContextPath();
+  }
 }
 
 window.addEventListener('load', () => {
@@ -905,6 +1091,20 @@ const FileTreeState = {
     }
   }
 };
+
+// Add this CSS to style the highlighted file
+const highlightStyles = document.createElement('style');
+highlightStyles.textContent = `
+  .file-tree-item.active {
+    background-color: rgba(30, 144, 255, 0.2);
+    border-radius: 4px;
+  }
+  
+  .file-tree-item.active span {
+    font-weight: 600;
+  }
+`;
+document.head.appendChild(highlightStyles);
 
 // Atualizar a função refreshFileTree
 async function refreshFileTree() {
@@ -1086,6 +1286,19 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
       itemWrapper.appendChild(childContainer);
     } else {
       icon.className = TabManager.getFileIcon(file.name);
+      // Adicionar o data-path ao wrapper do item
+      itemWrapper.setAttribute('data-path', file.path);
+      
+      // Modificar o evento de clique para abrir o arquivo e destacá-lo
+      item.addEventListener('click', async () => {
+        try {
+          const content = await window.electronAPI.readFile(file.path);
+          TabManager.addTab(file.path, content);
+          // O highlight será feito automaticamente pelo TabManager.activateTab
+        } catch (error) {
+          console.error('Error opening file:', error);
+        }
+      });
       item.addEventListener('click', () => openFile(file.path));
       itemWrapper.appendChild(item);
     }
@@ -1349,23 +1562,26 @@ function updateProjectNameUI(projectData) {
   }
 }
 
-// Atualizar ao abrir um projeto existente
+// Modified event listener for opening a project
 document.getElementById('openProjectBtn').addEventListener('click', async () => {
   try {
     const result = await window.electronAPI.showOpenDialog();
     
     if (!result.canceled && result.filePaths.length > 0) {
+      // Close all open tabs before loading the new project
+      await TabManager.closeAllTabs();
+      
       currentProjectPath = result.filePaths[0];
       currentSpfPath = `${currentProjectPath}.spf`;
-
+      
       await loadProject(currentProjectPath);
       
       // Atualiza o nome do projeto na interface
-      const projectName = path.basename(projectPath);
+      const projectName = path.basename(currentProjectPath);
       updateProjectNameUI({
-          metadata: {
-              projectName: projectName
-          }
+        metadata: {
+          projectName: projectName
+        }
       });
     }
   } catch (error) {
@@ -1501,6 +1717,7 @@ async function loadProject(spfPath) {
     // Store both paths
     currentProjectPath = result.projectData.structure.basePath;
     currentSpfPath = spfPath; // This is the actual .spf file path
+    await TabManager.closeAllTabs();
 
     updateProjectNameUI(result.projectData);
 
@@ -2036,7 +2253,7 @@ function getProcessorName() {
 function updateCompileButtonState() {
     const isCmmFile = isActiveCmmFile();
     compileButton.disabled = !isCmmFile;
-    if (false) {
+    if (true) {
         compileButton.style.opacity = "1";
         compileButton.style.cursor = "pointer";
     } else {
@@ -2414,6 +2631,118 @@ document.getElementById('allcomp').addEventListener('click', async () => {
 
 
 
+// Gerenciador para as compilações individuais
+class CompilationButtonManager {
+  constructor() {
+    this.compiler = null;
+    this.initializeCompiler();
+    this.setupEventListeners();
+  }
+
+  initializeCompiler() {
+    if (!currentProjectPath) {
+      console.error('No project opened');
+      return;
+    }
+    this.compiler = new CompilationModule(currentProjectPath);
+  }
+
+  async setupEventListeners() {
+    // CMM Compilation
+    document.getElementById('cmmcomp').addEventListener('click', async () => {
+      try {
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        const processor = this.compiler.config.processors[0]; // Assumindo primeiro processador
+        await this.compiler.ensureDirectories(processor.name);
+        const asmPath = await this.compiler.cmmCompilation(processor);
+        
+        // Atualiza a file tree após a compilação
+        await refreshFileTree();
+      } catch (error) {
+        console.error('CMM compilation error:', error);
+      }
+    });
+
+    // ASM Compilation
+    document.getElementById('asmcomp').addEventListener('click', async () => {
+      try {
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        const processor = this.compiler.config.processors[0];
+        
+        // Encontrar o arquivo .asm mais recente
+        const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
+        const files = await window.electronAPI.readDir(softwarePath);
+        const asmFile = files.find(file => file.endsWith('.asm'));
+        
+        if (!asmFile) {
+          throw new Error('No .asm file found. Please compile CMM first.');
+        }
+
+        const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
+        await this.compiler.asmCompilation(processor, asmPath);
+        
+        // Atualiza a file tree após a compilação
+        await refreshFileTree();
+      } catch (error) {
+        console.error('ASM compilation error:', error);
+      }
+    });
+
+    // Verilog Compilation
+    document.getElementById('vericomp').addEventListener('click', async () => {
+      try {
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        const processor = this.compiler.config.processors[0];
+        
+        // Mostrar modal de configuração
+        const simConfig = await this.compiler.showSimulationConfig(processor);
+        if (!simConfig) {
+          console.log('Verilog compilation cancelled by user');
+          return;
+        }
+
+        await this.compiler.iverilogCompilation(processor, simConfig);
+        
+        // Atualiza a file tree após a compilação
+        await refreshFileTree();
+      } catch (error) {
+        console.error('Verilog compilation error:', error);
+      }
+    });
+
+    // GTKWave
+    document.getElementById('wavecomp').addEventListener('click', async () => {
+      try {
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        const processor = this.compiler.config.processors[0];
+        
+        // Mostrar modal de configuração se necessário
+        const simConfig = await this.compiler.showSimulationConfig(processor);
+        if (!simConfig) {
+          console.log('GTKWave cancelled by user');
+          return;
+        }
+
+        await this.compiler.runGtkWave(processor, simConfig);
+      } catch (error) {
+        console.error('GTKWave error:', error);
+      }
+    });
+  }
+}
+
+// Inicializa o gerenciador quando a janela carregar
+window.addEventListener('load', () => {
+  const compilationManager = new CompilationButtonManager();
+});
 
 //TERMINAL =============================================================================================================================================================
 class TerminalManager {
@@ -2620,10 +2949,11 @@ document.getElementById("backupFolderBtn").addEventListener("click", async () =>
     console.log('AQUIII1', currentProjectPath);
     return;
   }
-console.log('AQUIII2', currentProjectPath);
   const result = await window.electronAPI.createBackup(currentProjectPath);
 
   alert(result.message); // Exibe o resultado do backup
+
+  refreshFileTree(); // Atualiza a árvore de arquivos
 });
 
 
@@ -2862,3 +3192,40 @@ confirmDeleteBtn.addEventListener('click', async () => {
     // Opcional: Mostrar mensagem de erro
   }
 });
+
+
+// Selecionando o ícone de jornal
+const newsIcon = document.querySelector('.fa-newspaper');
+
+// Função para abrir o menu lateral
+function openNewsSidebar() {
+    // Verifica se o menu já existe
+    let newsSidebar = document.querySelector('.news-sidebar');
+    if (!newsSidebar) {
+        // Cria o container do menu lateral
+        newsSidebar = document.createElement('div');
+        newsSidebar.classList.add('news-sidebar');
+        newsSidebar.innerHTML = `
+    <webview src="../html/news.html" class="news-webview" nodeintegration></webview>
+`;
+        document.body.appendChild(newsSidebar);
+
+        // Animação para aparecer o menu lateral
+        setTimeout(() => {
+            newsSidebar.classList.add('active');
+        }, 10);
+
+        // Fecha o menu ao clicar fora dele
+        window.addEventListener('click', (event) => {
+            if (!newsSidebar.contains(event.target) && !newsIcon.contains(event.target)) {
+                newsSidebar.classList.remove('active');
+                setTimeout(() => {
+                    newsSidebar.remove();
+                }, 300);
+            }
+        });
+    }
+}
+
+// Evento de clique no ícone de jornal
+newsIcon.addEventListener('click', openNewsSidebar);

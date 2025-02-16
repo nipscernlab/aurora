@@ -10,6 +10,7 @@
   transition: height 0.4s ease;
   font-size: 14px;
   line-height: 1.5;
+  z-index: 2;
 }
 
 /* Terminal Tabs */

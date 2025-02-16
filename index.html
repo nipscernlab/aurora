@@ -16,6 +16,8 @@
   <link rel="stylesheet" href="./css/modal.css">
   <link rel="stylesheet" href="./css/styles.css">
   <link rel="stylesheet" href="./css/infoAurora.css">
+  <link rel="stylesheet" href="./css/breadCrumb.css">
+
 
   <link rel="stylesheet" href="./css/report.css">
   <link rel="stylesheet" href="./css/processorHub.css">
@@ -300,7 +302,17 @@
         <div id="tabs-container" class="tabs-container">
           <!-- Tabs will be dynamically inserted here -->
         </div>
-        <div id="monaco-editor" class="monaco-editor"></div>
+        <div id="monaco-editor" class="monaco-editor">
+
+          <div id="editor-overlay" class="visible">
+            <div class="overlay-content">
+              <img src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
+              <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
+              <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+            </div>
+          </div>
+        </div>
+        
       </div>
       <div class="resizer-horizontal"></div>
       <div id="terminal-container" class="terminal-container">

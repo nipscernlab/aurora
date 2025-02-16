@@ -59,7 +59,7 @@ function createSplashScreen() {
     splashWindow.close();
     createMainWindow();
     setTimeout(checkForUpdates, 2000);
-  }, 4000);
+  }, 2000);
 }
 
 function checkForUpdates() {
@@ -535,10 +535,23 @@ function updateProjectState(window, projectPath, spfPath) {
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
   updatePathInElectron();
   try {
+    // 1. Criar a estrutura do projeto
     await fse.mkdir(projectPath, { recursive: true });
     const projectFile = new ProjectFile(projectPath);
     await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
 
+    // 2. Aguardar um pouco para garantir que o sistema de arquivos sincronizou
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // 3. Verificar se os arquivos existem
+    const projectExists = await fse.pathExists(projectPath);
+    const spfExists = await fse.pathExists(spfPath);
+
+    if (!projectExists || !spfExists) {
+      throw new Error('Failed to create project structure or .spf file');
+    }
+
+    // 4. Ler os arquivos para confirmar que estão acessíveis
     const files = await fse.readdir(projectPath, { withFileTypes: true });
     const fileList = files.map(file => ({
       name: file.name,
@@ -547,25 +560,11 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
     }));
 
     const focusedWindow = BrowserWindow.getFocusedWindow();
-    updateProjectState(focusedWindow, projectPath, spfPath);
 
-    // Enviar um evento específico para habilitar o Processor Hub
-    focusedWindow.webContents.send('project:processorHubState', { enabled: true });
-
-    // Enviar evento para carregar o projeto automaticamente
-    focusedWindow.webContents.send('project:created', {
-      projectData: projectFile.toJSON(),
-      files: fileList,
-      spfPath,
-      projectPath
-    });
-
-    // Simular a abertura do projeto após a criação
-    focusedWindow.webContents.send('project:open', {
-      projectData: projectFile.toJSON(),
-      files: fileList,
-      spfPath,
-      projectPath
+    // 5. Opcional: Enviar um evento simulando a resposta do showOpenDialog
+    focusedWindow.webContents.send('simulateOpenProject', {
+      canceled: false,
+      filePaths: [projectPath]
     });
 
     return { 
@@ -584,6 +583,19 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
 ipcMain.handle('project:open', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
+
+    // Se o arquivo não existir, tenta corrigir o caminho:
+    if (!(await fse.pathExists(spfPath))) {
+      // Supondo que o nome do projeto seja igual ao nome do arquivo (sem a extensão)
+      const projectName = path.basename(spfPath, '.spf');
+      // Monta o caminho esperado: pasta do projeto + nome do projeto + ".spf"
+      const correctedSpfPath = path.join(path.dirname(spfPath), projectName, `${projectName}.spf`);
+      console.log(`SPF file not found at ${spfPath}. Trying corrected path: ${correctedSpfPath}`);
+      spfPath = correctedSpfPath;
+      if (!(await fse.pathExists(spfPath))) {
+        throw new Error(`SPF file not found at both original and corrected paths.`);
+      }
+    }
 
     const spfContent = await fse.readFile(spfPath, 'utf8');
     const projectData = JSON.parse(spfContent);

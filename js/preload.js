@@ -55,6 +55,7 @@ const projectOperations = {
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   joinPath: (...args) => require('path').join(...args),
   deleteFolder: (path) => ipcRenderer.invoke('delete-folder', path),
+  onSimulateOpenProject: (callback) => ipcRenderer.on('simulateOpenProject', (_, result) => callback(result)),
   createTclInfoFile: (tclInfoPath, processorType, tempPath, binPath) => ipcRenderer.invoke('createTclInfoFile', tclInfoPath, processorType, tempPath, binPath)
   
 

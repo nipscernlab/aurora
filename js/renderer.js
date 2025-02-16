@@ -210,12 +210,25 @@ class EditorManager {
     this.editorContainer.style.width = '100%';
   }
 
+  static updateOverlayVisibility() {
+    const overlay = document.getElementById('editor-overlay');
+    if (this.editors.size === 0) {
+      overlay.classList.add('visible');  // Aplica o fade-in e baixa o ícone
+      this.toggleEditorReadOnly(true);   // Desativa o Monaco Editor
+    } else {
+      overlay.classList.remove('visible'); // Aplica o fade-out
+      this.toggleEditorReadOnly(false);    // Ativa o Monaco Editor
+    }
+  }
+  
+
+  
   static createEditorInstance(filePath) {
     if (!this.editorContainer) {
       this.initialize();
     }
-
-    // Create a new div for this editor instance
+  
+    // Cria um novo div para a instância do editor
     const editorDiv = document.createElement('div');
     editorDiv.className = 'editor-instance';
     editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
@@ -225,10 +238,10 @@ class EditorManager {
     editorDiv.style.right = '0';
     editorDiv.style.bottom = '0';
     editorDiv.style.display = 'none';
-    
+  
     this.editorContainer.appendChild(editorDiv);
-
-    // Create new Monaco editor instance
+  
+    // Cria uma nova instância do Monaco Editor
     const editor = monaco.editor.create(editorDiv, {
       theme: 'vs-dark',
       language: this.getLanguageFromPath(filePath),
@@ -241,26 +254,28 @@ class EditorManager {
       mouseWheelZoom: true,
       padding: { top: 10 }
     });
-
-    // Add cursor position listener
-    editor.onDidChangeCursorPosition((e) => {
-      if (editor === this.activeEditor) {
-        const position = editor.getPosition();
-        const statusElement = document.getElementById('editorStatus');
-        if (statusElement) {
-          statusElement.textContent = `Line ${position.lineNumber}, Column ${position.column}`;
-        }
-      }
-    });
-
-    // Store the editor instance and its container
+  
     this.editors.set(filePath, {
       editor: editor,
       container: editorDiv
     });
-
+  
+    // Atualiza a visibilidade do ícone
+    this.updateOverlayVisibility();
+  
     return editor;
   }
+  
+
+  static toggleEditorReadOnly(isReadOnly) {
+  this.editors.forEach(({ editor }) => {
+    editor.updateOptions({ readOnly: isReadOnly });
+    if (isReadOnly) {
+      editor.blur(); // Remove o foco para evitar digitação acidental
+    }
+  });
+}
+
 
   static getLanguageFromPath(filePath) {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -286,26 +301,30 @@ class EditorManager {
   }
 
   static setActiveEditor(filePath) {
-    // Hide all editors
+    // Esconde todos os editores
     this.editors.forEach(({editor, container}) => {
       container.style.display = 'none';
     });
-
-    // Get or create editor for this file
+  
+    // Obtém ou cria um editor para este arquivo
     let editorData = this.editors.get(filePath);
     if (!editorData) {
-      const newEditor = this.createEditorInstance(filePath);
+      this.createEditorInstance(filePath);
       editorData = this.editors.get(filePath);
     }
-
-    // Show and focus the active editor
+  
+    // Ativa o editor
     editorData.container.style.display = 'block';
     this.activeEditor = editorData.editor;
     this.activeEditor.focus();
     this.activeEditor.layout();
-
+  
+    // Atualiza a visibilidade do ícone
+    this.updateOverlayVisibility();
+  
     return this.activeEditor;
   }
+  
 
   static getEditorForFile(filePath) {
     const editorData = this.editors.get(filePath);
@@ -316,10 +335,14 @@ class EditorManager {
     const editorData = this.editors.get(filePath);
     if (editorData) {
       editorData.editor.dispose();
-      editorData.container.remove();
+      this.editorContainer.removeChild(editorData.container);
       this.editors.delete(filePath);
     }
+  
+    // Se todos os arquivos foram fechados, exibe o ícone
+    this.updateOverlayVisibility();
   }
+  
 }
 
 async function initMonaco() {
@@ -396,6 +419,7 @@ class TabManager {
       }
     });
   }
+  
 
   // Helper method to determine insertion point
   static getDragAfterElement(container, y) {
@@ -863,150 +887,6 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-class EditorBackgroundManager {
-  static initialize() {
-    // Create a container for the background
-    this.backgroundContainer = document.createElement('div');
-    this.backgroundContainer.id = 'editor-background-container';
-    this.backgroundContainer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 0;
-      opacity: 0.7;
-      display: none;
-    `;
-
-    // Create SVG element
-    this.svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    this.svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    this.svgElement.setAttribute('viewBox', '0 0 1920 1080');
-    this.svgElement.style.cssText = `
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    `;
-
-    // Load SVG content
-    this.loadSVG();
-
-    // Add to editor container
-    const monacoContainer = document.getElementById('monaco-editor');
-    if (monacoContainer) {
-      monacoContainer.style.position = 'relative';
-      monacoContainer.appendChild(this.backgroundContainer);
-      this.backgroundContainer.appendChild(this.svgElement);
-    }
-
-    // Listen for theme changes
-    this.setupThemeListener();
-  }
-
-  static async loadSVG() {
-    try {
-      const response = await fetch('./assets/icons/aurora_borealis-2.svg');
-      const svgText = await response.text();
-      this.svgElement.innerHTML = svgText;
-      this.adjustSVGColors();
-    } catch (error) {
-      console.error('Error loading SVG:', error);
-    }
-  }
-
-  static adjustSVGColors() {
-    // Determine current theme
-    const isDarkMode = document.body.classList.contains('dark-theme');
-    
-    // Get theme-specific background colors
-    const backgroundColor = isDarkMode 
-      ? 'rgb(30, 30, 40)' // Dark theme background 
-      : 'rgb(240, 240, 250)'; // Light theme background
-
-    // Modify SVG colors based on theme
-    const paths = this.svgElement.querySelectorAll('path');
-    paths.forEach(path => {
-      // Adjust opacity and blend with background
-      path.style.opacity = isDarkMode ? '0.6' : '0.4';
-      
-      // Optional: Adjust SVG colors to match theme
-      if (isDarkMode) {
-        path.style.fill = this.blendColors(path.style.fill || '', backgroundColor, 0.7);
-      } else {
-        path.style.fill = this.blendColors(path.style.fill || '', backgroundColor, 0.5);
-      }
-    });
-  }
-
-  static blendColors(color1, color2, amount) {
-    // Simple color blending function
-    const parseColor = (color) => {
-      const m = color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
-      return m ? m.slice(1).map(Number) : [0, 0, 0];
-    };
-
-    const c1 = parseColor(color1);
-    const c2 = parseColor(color2);
-
-    const blended = c1.map((channel, i) => 
-      Math.round(channel * (1 - amount) + c2[i] * amount)
-    );
-
-    return `rgb(${blended.join(',')})`;
-  }
-
-  static setupThemeListener() {
-    // Create a MutationObserver to watch for theme changes
-    const observer = new MutationObserver(() => {
-      this.adjustSVGColors();
-    });
-
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-  }
-
-  static updateBackgroundVisibility() {
-    // Check if there are any open tabs
-    const tabContainer = document.getElementById('tabs-container');
-    const hasOpenTabs = tabContainer && tabContainer.children.length > 0;
-
-    if (this.backgroundContainer) {
-      if (!hasOpenTabs) {
-        this.backgroundContainer.style.display = 'block';
-      } else {
-        this.backgroundContainer.style.display = 'none';
-      }
-    }
-  }
-
-  // Modify TabManager to update background visibility
-  static patchTabManager() {
-    const originalAddTab = TabManager.addTab;
-    TabManager.addTab = function(...args) {
-      const result = originalAddTab.apply(this, args);
-      EditorBackgroundManager.updateBackgroundVisibility();
-      return result;
-    };
-
-    const originalCloseTab = TabManager.closeTab;
-    TabManager.closeTab = function(...args) {
-      const result = originalCloseTab.apply(this, args);
-      EditorBackgroundManager.updateBackgroundVisibility();
-      return result;
-    };
-  }
-}
-
-// Initialize on script load
-window.addEventListener('load', () => {
-  EditorBackgroundManager.initialize();
-  EditorBackgroundManager.patchTabManager();
-});
-
 //FILETREE ============================================================================================================================================================
 // Gerenciador de estado para a file tree
 const FileTreeState = {
@@ -1052,6 +932,7 @@ async function refreshFileTree() {
     if (refreshButton) {
       refreshButton.style.pointerEvents = 'none'; // Desabilitar cliques durante refresh
       refreshButton.classList.add('spinning');
+      
     }
 
     const result = await window.electronAPI.refreshFolder(currentProjectPath);
@@ -1409,36 +1290,6 @@ window.electronAPI.onProjectStateChange((event, { projectPath, spfPath }) => {
   console.log('Project state updated:', { currentProjectPath, currentSpfPath });
 });
 
-// Função para criar novo projeto (no renderer.js)
-async function createNewProject(projectName, projectLocation) {
-  try {
-    const projectPath = path.join(projectLocation, projectName);
-    const spfPath = path.join(projectPath, `${projectName}.spf`);
-
-    const result = await window.electronAPI.createProject(projectPath, spfPath);
-    
-    if (result.success) {
-      currentProjectPath = projectPath;
-      currentSpfPath = spfPath;
-
-      updateProjectNameUI(result.projectData);
-
-      console.log('Project created successfully');
-      
-      updateFileTree(result.files);
-      updateProjectInfo(result.projectData.metadata);
-      
-      // Atualiza o nome do projeto na interface
-      updateProjectNameUI(currentSpfPath);
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Error creating project:', error);
-    throw error;
-  }
-}
-
 // Adicionar listener para mudanças no estado do projeto
 window.electronAPI.onProjectStateChange((event, { projectPath, spfPath }) => {
   currentProjectPath = projectPath;
@@ -1510,7 +1361,12 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
       await loadProject(currentProjectPath);
       
       // Atualiza o nome do projeto na interface
-      updateProjectNameUI(currentSpfPath);
+      const projectName = path.basename(projectPath);
+      updateProjectNameUI({
+          metadata: {
+              projectName: projectName
+          }
+      });
     }
   } catch (error) {
     console.error('Error opening project:', error);
@@ -1525,6 +1381,26 @@ projectInfoButton.innerHTML = `
 `;
 
 document.getElementById('openProjectBtn').insertAdjacentElement('afterend', projectInfoButton);
+
+// Adicione este listener para simular o clique no openProjectBtn
+window.electronAPI.onSimulateOpenProject(async (result) => {
+  try {
+    // Simular EXATAMENTE o comportamento do openProjectBtn
+    if (!result.canceled && result.filePaths.length > 0) {
+      currentProjectPath = result.filePaths[0];
+      currentSpfPath = `${currentProjectPath}.spf`;
+
+      // Usar a mesma chamada que o botão usa
+      await loadProject(currentSpfPath);
+      
+      // Atualiza o nome do projeto na interface
+      updateProjectNameUI(currentSpfPath);
+    }
+  } catch (error) {
+    console.error('Error opening project:', error);
+    showErrorDialog('Error Opening Project', error.message);
+  }
+});
 
 // Update project info button handler
 projectInfoButton.addEventListener('click', async () => {
@@ -1635,7 +1511,6 @@ async function loadProject(spfPath) {
     // Enable the processor hub button
     updateProcessorHubButton(true);
     refreshFileTree();
-
     
     // Check if folders exist
     const missingFolders = result.projectData.structure.folders.filter(folder => !folder.exists);
@@ -1661,14 +1536,18 @@ async function loadProject(spfPath) {
       updateFileTree(result.files);
     }
 
-    // Update UI with project info
-    updateProjectInfo(result.projectData.metadata);
-
   } catch (error) {
     //console.error('Error loading project:', error);
     showErrorDialog('Failed to load project', error.message);
   }
 }
+
+function showErrorDialog(title, message) {
+  // Você pode usar um alert simples ou implementar um modal customizado
+  alert(`${title}: ${message}`);
+}
+
+
 
 // Function to update file tree
 function updateFileTree(files) {

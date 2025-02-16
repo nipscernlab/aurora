@@ -30,130 +30,14 @@ class SimulationModal {
   }
 
   createModal(resolve) {
-    const modalHtml = `
-      <div class="modal-overlay">
-        <div class="modal-content">
-          <h2 class="modal-title">Simulation Config</h2>
-          
-          <div class="modal-section">
-            <h3 class="section-title">Testbench Files</h3>
-            <div class="checkbox-list">
-              ${this.tbFiles.map(file => `
-                <label class="checkbox-item">
-                  <input type="checkbox" name="tb" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
-                  <span>${file}</span>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="modal-section">
-            <h3 class="section-title">GTKWave Files</h3>
-            <div class="checkbox-list">
-              ${this.gtkwFiles.map(file => `
-                <label class="checkbox-item">
-                  <input type="checkbox" name="gtkw" value="${file}" ${this.standardSimulation ? 'disabled' : ''}>
-                  <span>${file}</span>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="modal-section">
-            <label class="checkbox-item">
-              <input type="checkbox" name="standard" ${this.selectedTb || this.selectedGtkw ? 'disabled' : ''}>
-              <span>Standard Simulation</span>
-            </label>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn-cancel">Cancel</button>
-            <button class="btn-save" disabled>Save</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    this.modal = document.createElement('div');
-    this.modal.innerHTML = modalHtml;
-    document.body.appendChild(this.modal);
-
-    this.setupEventListeners(resolve);
-  }
-
-  setupEventListeners(resolve) {
-    const tbCheckboxes = this.modal.querySelectorAll('input[name="tb"]');
-    const gtkwCheckboxes = this.modal.querySelectorAll('input[name="gtkw"]');
-    const standardCheckbox = this.modal.querySelector('input[name="standard"]');
-    const saveButton = this.modal.querySelector('.btn-save');
-    const cancelButton = this.modal.querySelector('.btn-cancel');
-
-    // Handle testbench selection
-    tbCheckboxes.forEach(cb => {
-      cb.addEventListener('change', (e) => {
-        tbCheckboxes.forEach(other => {
-          if (other !== e.target) other.checked = false;
-        });
-        this.selectedTb = e.target.checked ? e.target.value : '';
-        this.updateSaveButton(saveButton);
-        standardCheckbox.disabled = this.selectedTb || this.selectedGtkw;
-      });
-    });
-
-    // Handle gtkw selection
-    gtkwCheckboxes.forEach(cb => {
-      cb.addEventListener('change', (e) => {
-        gtkwCheckboxes.forEach(other => {
-          if (other !== e.target) other.checked = false;
-        });
-        this.selectedGtkw = e.target.checked ? e.target.value : '';
-        this.updateSaveButton(saveButton);
-        standardCheckbox.disabled = this.selectedTb || this.selectedGtkw;
-      });
-    });
-
-    // Handle standard simulation
-    standardCheckbox.addEventListener('change', (e) => {
-      this.standardSimulation = e.target.checked;
-      tbCheckboxes.forEach(cb => {
-        cb.disabled = this.standardSimulation;
-        cb.checked = false;
-      });
-      gtkwCheckboxes.forEach(cb => {
-        cb.disabled = this.standardSimulation;
-        cb.checked = false;
-      });
-      this.selectedTb = '';
-      this.selectedGtkw = '';
-      this.updateSaveButton(saveButton);
-    });
-
-    // Handle save
-    saveButton.addEventListener('click', () => {
-      const result = {
-        standardSimulation: this.standardSimulation,
-        selectedTb: this.selectedTb,
-        selectedGtkw: this.selectedGtkw
-      };
-      this.closeModal();
-      resolve(result);
-    });
-
-    // Handle cancel
-    cancelButton.addEventListener('click', () => {
-      this.closeModal();
-      resolve(null);
+    // Como a compilação será sempre padrão, resolvemos imediatamente
+    resolve({
+      standardSimulation: true,
+      selectedTb: '',    // ou outro valor padrão, se necessário
+      selectedGtkw: ''   // ou outro valor padrão, se necessário
     });
   }
 
-  updateSaveButton(saveButton) {
-    const isValid = this.standardSimulation || (this.selectedTb && this.selectedGtkw);
-    saveButton.disabled = !isValid;
-  }
-
-  closeModal() {
-    document.body.removeChild(this.modal);
-  }
 }
 
 // SHOW DIALOG =====================================================================================================================
@@ -1717,10 +1601,9 @@ async function loadProject(spfPath) {
     // Store both paths
     currentProjectPath = result.projectData.structure.basePath;
     currentSpfPath = spfPath; // This is the actual .spf file path
-    await TabManager.closeAllTabs();
 
     updateProjectNameUI(result.projectData);
-
+    await TabManager.closeAllTabs();
     
     console.log('Current SPF path:', currentSpfPath);
     console.log('Current project path:', currentProjectPath);
@@ -1744,6 +1627,7 @@ async function loadProject(spfPath) {
         );
         // Update file tree with recreated structure
         updateFileTree(newResult.files);
+        await TabManager.closeAllTabs();
       } else {
         // Update file tree with current structure
         updateFileTree(result.files);
@@ -1942,18 +1826,6 @@ form.addEventListener('submit', async (e) => {
       const result = await window.electronAPI.createProcessorProject(formData);
 
       if (result && result.success) {
-
-        const processorType = formData.pointType === 'floating' ? 'float' : 'int';
-        // Defina os caminhos
-        const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
-        const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', formData.processorName);
-        const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
-        const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-
-        // Chame a função para criar o arquivo
-        await window.electronAPI.createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
-
           // Close modal
           modal.remove();
 
@@ -2251,8 +2123,7 @@ function getProcessorName() {
 
 // Update button state based on active tab
 function updateCompileButtonState() {
-    const isCmmFile = isActiveCmmFile();
-    compileButton.disabled = !isCmmFile;
+
     if (true) {
         compileButton.style.opacity = "1";
         compileButton.style.cursor = "pointer";

@@ -56,10 +56,12 @@ const projectOperations = {
   joinPath: (...args) => require('path').join(...args),
   deleteFolder: (path) => ipcRenderer.invoke('delete-folder', path),
   onSimulateOpenProject: (callback) => ipcRenderer.on('simulateOpenProject', (_, result) => callback(result)),
-  createTclInfoFile: (tclInfoPath, processorType, tempPath, binPath) => ipcRenderer.invoke('createTclInfoFile', tclInfoPath, processorType, tempPath, binPath),
+  createTclInfoFile: (filePath, processorType, tempPath, binPath) => ipcRenderer.invoke('create-tcl-info-file', { path: filePath, processorType, tempPath, binPath }),
+  deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
   onUpdateProgress: (callback) => {
     ipcRenderer.on('update-progress', (event, data) => callback(data));
-  }
+  },
+  clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder')
 
 };
 

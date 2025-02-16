@@ -4,120 +4,203 @@ const closeModal = document.getElementById("closeModal");
 const addProcessorButton = document.getElementById("addProcessor");
 const processorsDiv = document.getElementById("processors");
 const clearAllButton = document.getElementById("clearAll");
+const clearTempButton = document.getElementById("clearTemp"); // Botão para limpar a pasta Temp
 const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
 const iverilogFlagsInput = document.getElementById("iverilogFlags");
 
 let processorCount = 0;
+// Armazena os nomes dos processadores carregados anteriormente
+let previousProcessorNames = [];
 
-// Function to clear existing processors
 function clearProcessors() {
-    const processorItems = document.querySelectorAll(".processor-item");
-    processorItems.forEach(item => item.remove());
+  const processorItems = document.querySelectorAll(".processor-item");
+  processorItems.forEach(item => item.remove());
 }
 
-// Function to populate modal with configuration
 async function loadConfiguration() {
-    try {
-        // Request configuration from main process
-        const config = await window.electronAPI.loadConfig();
+  try {
+    // Solicita a configuração do processo principal
+    const config = await window.electronAPI.loadConfig();
 
-        // Clear existing processors
-        clearProcessors();
+    // Limpa os processadores existentes
+    clearProcessors();
 
-        // Populate processors
-        if (config.processors) {
-            config.processors.forEach(processor => {
-                const processorItem = document.createElement("div");
-                processorItem.className = "processor-item";
-                processorItem.innerHTML = `
-                    <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
-                    <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
-                    <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
-                    <button class="removeProcessor">&times;</button>
-                `;
+    if (config.processors) {
+      config.processors.forEach(processor => {
+        const processorItem = document.createElement("div");
+        processorItem.className = "processor-item";
+        processorItem.innerHTML = `
+          <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
+          <select data-point-type 
+            style="
+                margin-left: 8px;
+                padding: 6px 12px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #fff;
+                font-size: 14px;
+                color: #333;
+                outline: none;
+                transition: border-color 0.2s ease-in-out;
+            "
+            onfocus="this.style.borderColor='#3498db'"
+            onblur="this.style.borderColor='#ccc'"
+          >
+            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
+            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
+          </select>
+          <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
+          <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
+          <button class="removeProcessor" 
+            style="margin-left: 8px; color: #fff; border: none; cursor: pointer; font-size: 16px; margin-bottom: 15px;">
+              &times;
+          </button>
+        `;
 
-                processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
-                    processorItem.remove();
-                });
+        processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
+          processorItem.remove();
+        });
 
-                processorsDiv.insertBefore(processorItem, addProcessorButton);
-                
-            });
-        }
+        processorsDiv.insertBefore(processorItem, addProcessorButton);
+      });
 
-        // Populate Iverilog flags
-        if (config.iverilogFlags) {
-            iverilogFlagsInput.value = config.iverilogFlags.join("; ");
-        }
-    } catch (error) {
-        console.error("Failed to load configuration:", error);
+      // Salva os nomes para identificar processadores removidos posteriormente
+      previousProcessorNames = config.processors.map(p => p.name);
     }
+
+    if (config.iverilogFlags) {
+      iverilogFlagsInput.value = config.iverilogFlags.join("; ");
+    }
+  } catch (error) {
+    console.error("Failed to load configuration:", error);
+  }
 }
 
-// Event Listeners
+// Abertura e fechamento do modal
 settingsButton.addEventListener("click", () => {
-    loadConfiguration();
-    modal.hidden = false; // Remove a propriedade hidden
-    modal.classList.add("active");
+  loadConfiguration();
+  modal.hidden = false;
+  modal.classList.add("active");
 });
 
 closeModal.addEventListener("click", () => {
-    modal.classList.remove("active");
-    setTimeout(() => modal.hidden = true, 300); // Aguarda a transição antes de esconder
+  modal.classList.remove("active");
+  setTimeout(() => modal.hidden = true, 300);
 });
 
-
+// Adiciona novo processador com o seletor estilizado
 addProcessorButton.addEventListener("click", () => {
-    processorCount++;
+  processorCount++;
 
-    const processorItem = document.createElement("div");
-    processorItem.className = "processor-item";
-    processorItem.innerHTML = `
-        <input type="text" placeholder="Processor Name" data-processor-name>
-        <input type="number" placeholder="CLK (MHz)" data-clk>
-        <input type="number" placeholder="Number of Clocks" data-num-clocks>
-        <button class="removeProcessor">&times;</button>
-    `;
+  const processorItem = document.createElement("div");
+  processorItem.className = "processor-item";
+  processorItem.innerHTML = `
+    <input type="text" placeholder="Processor Name" data-processor-name>
+    <select data-point-type 
+      style="margin-left: 8px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s ease-in-out;"
+      onfocus="this.style.borderColor='#3498db'" onblur="this.style.borderColor='#ccc'">
+      <option value="floating">Float</option>
+      <option value="int" selected>Int</option>
+    </select>
+    <input type="number" placeholder="CLK (MHz)" data-clk>
+    <input type="number" placeholder="Number of Clocks" data-num-clocks>
+    <button class="removeProcessor" 
+            style="margin-left: 8px; color: #fff; border: none; cursor: pointer; font-size: 16px; margin-bottom: 15px;">
+        &times;
+    </button>
+  `;
 
-    processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
-        processorItem.remove();
-    });
+  processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
+    processorItem.remove();
+  });
 
-    processorsDiv.insertBefore(processorItem, addProcessorButton);
+  processorsDiv.insertBefore(processorItem, addProcessorButton);
 });
 
 clearAllButton.addEventListener("click", () => {
-    clearProcessors();
-    iverilogFlagsInput.value = "";
+  clearProcessors();
+  iverilogFlagsInput.value = "";
 });
 
-saveConfigButton.addEventListener("click", () => {
-    const processors = [];
-    const processorItems = document.querySelectorAll(".processor-item");
+saveConfigButton.addEventListener("click", async () => {
+  const processors = [];
+  const processorItems = document.querySelectorAll(".processor-item");
 
-    processorItems.forEach(item => {
-        const name = item.querySelector("[data-processor-name]").value;
-        const clk = item.querySelector("[data-clk]").value;
-        const numClocks = item.querySelector("[data-num-clocks]").value;
-        if (name && clk && numClocks) {
-            processors.push({ name, clk: Number(clk), numClocks: Number(numClocks) });
-        }
-    });
+  processorItems.forEach(item => {
+    const name = item.querySelector("[data-processor-name]").value;
+    const clk = item.querySelector("[data-clk]").value;
+    const numClocks = item.querySelector("[data-num-clocks]").value;
+    const pointType = item.querySelector("[data-point-type]").value;
+    if (name && clk && numClocks) {
+      processors.push({ name, clk: Number(clk), numClocks: Number(numClocks), pointType });
+    }
+  });
 
-    const flags = iverilogFlagsInput.value.split(";").map(flag => flag.trim()).filter(flag => flag);
+  const flags = iverilogFlagsInput.value
+    .split(";")
+    .map(flag => flag.trim())
+    .filter(flag => flag);
 
-    const config = {
-        processors,
-        iverilogFlags: flags
-    };
+  const config = {
+    processors,
+    iverilogFlags: flags
+  };
 
-    console.log("Saved Configuration:", config);
-    modal.classList.remove("active");
-    window.electronAPI.saveConfig(config);
+  console.log("Saved Configuration:", config);
+
+  // Identifica processadores removidos para excluir o arquivo tcl_infos.txt
+  const newProcessorNames = processors.map(p => p.name);
+  const removedProcessors = previousProcessorNames.filter(name => !newProcessorNames.includes(name));
+
+  for (const processorName of removedProcessors) {
+    try {
+      const appPath = await window.electronAPI.getAppPath();
+      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
+      const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processorName);
+      const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+      await window.electronAPI.deleteTclFile(tclInfoPath);
+      console.log(`Deleted TCL file for processor ${processorName}`);
+    } catch (error) {
+      console.error(`Error deleting TCL file for processor ${processorName}:`, error);
+    }
+  }
+
+  // Para cada processador, cria ou atualiza o arquivo tcl_infos.txt
+  for (const processor of processors) {
+    try {
+      const processorType = processor.pointType === 'floating' ? 'float' : 'int';
+      const appPath = await window.electronAPI.getAppPath();
+      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
+      const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
+      const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
+      const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+
+      await window.electronAPI.createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
+      console.log(`Created/Updated TCL file for processor ${processor.name}`);
+    } catch (error) {
+      console.error(`Error creating/updating TCL file for processor ${processor.name}:`, error);
+    }
+  }
+
+  modal.classList.remove("active");
+  await window.electronAPI.saveConfig(config);
+  // Atualiza os processadores previamente carregados
+  previousProcessorNames = newProcessorNames;
 });
 
 cancelConfigButton.addEventListener("click", () => {
-    modal.classList.remove("active");
-    setTimeout(() => modal.hidden = true, 300);
+  modal.classList.remove("active");
+  setTimeout(() => modal.hidden = true, 300);
+});
+
+// Evento para o botão Clear Temp: apaga a pasta Temp e avisa o usuário
+clearTempButton.addEventListener("click", async () => {
+  try {
+    await window.electronAPI.clearTempFolder();
+    alert("Pasta Temp excluída com sucesso!");
+  } catch (error) {
+    console.error("Erro ao excluir pasta Temp:", error);
+    alert("Falha ao excluir pasta Temp.");
+  }
 });

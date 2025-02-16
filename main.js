@@ -1168,26 +1168,50 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
 });
 
 
-// Função para criar o tcl_infox.txt
-async function createTclInfoFile(tclInfoPath, processorType, tempPath, binPath) {
+// Handler para limpar a pasta Temp
+ipcMain.handle('clear-temp-folder', async () => {
   try {
-      // Certifique-se de que a pasta Temp existe antes de criar o arquivo
-      await fs.mkdir(path.dirname(tclInfoPath), { recursive: true });
-
-      // Conteúdo do arquivo
-      const content = `${processorType}\n${tempPath}\n${binPath}`;
-
-      // Cria o arquivo tcl_infox.txt
-      await fs.writeFile(tclInfoPath, content, 'utf8');
-      console.log(`Arquivo ${tclInfoPath} criado com sucesso.`);
+    // Obtém o caminho base (mesmo usado para os arquivos TCL)
+    const appPath = app.getAppPath();
+    const basePath = path.join(appPath, '..', '..');
+    const tempFolder = path.join(basePath, 'saphoComponents', 'Temp');
+    // Remove a pasta Temp recursivamente, se existir
+    await fs.rm(tempFolder, { recursive: true, force: true });
+    console.log("Pasta Temp excluída:", tempFolder);
+    return true;
   } catch (error) {
-      console.error('Erro ao criar tcl_infox.txt:', error);
+    console.error("Erro ao excluir a pasta Temp:", error);
+    throw error;
   }
-}
+});
 
-// Expor a função para o Renderer usar
-ipcMain.handle('createTclInfoFile', async (event, tclInfoPath, processorType, tempPath, binPath) => {
-  await createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
+ipcMain.handle('create-tcl-info-file', async (event, { path: filePath, processorType, tempPath, binPath }) => {
+  try {
+    // Garante que a pasta do processador exista
+    await fs.mkdir(tempPath, { recursive: true });
+    const content = `${processorType}\n${tempPath}\n${binPath}\n`;
+    await fs.writeFile(filePath, content, 'utf-8');
+    console.log(`tcl_infos.txt criado em: ${filePath}`);
+    return true;
+  } catch (error) {
+    console.error('Falha ao criar tcl_infos.txt:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('delete-tcl-file', async (event, filePath) => {
+  try {
+    await fs.unlink(filePath);
+    console.log(`tcl_infos.txt deletado em: ${filePath}`);
+    return true;
+  } catch (error) {
+    // Se o erro for "arquivo não encontrado", ignore
+    if (error.code !== 'ENOENT') {
+      console.error('Falha ao deletar tcl_infos.txt:', error);
+      throw error;
+    }
+    return false;
+  }
 });
 
 // Handler para obter informações do app

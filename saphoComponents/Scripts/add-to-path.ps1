@@ -20,17 +20,17 @@ foreach ($path in $pathsToAdd) {
     if ($oldPath -notlike "*$path*") {
         $pathsAlreadyExist = $false
         $oldPath = "$oldPath;$path"
-        Write-Host "Adicionado: $path"
+        Write-Host "Added: $path"
     }
 }
 
 # Se houver novos caminhos a serem adicionados, atualiza a variável de ambiente Path
 if (-not $pathsAlreadyExist) {
     [Environment]::SetEnvironmentVariable("Path", $oldPath, [EnvironmentVariableTarget]::Machine)
-    Write-Host "PATH atualizado com sucesso."
+    Write-Host "PATH updated successfully."
 } else {
     # Se os caminhos já existirem, exibe mensagem de que o terminal será fechado
-    Write-Host "Todos os caminhos já estão no PATH. O terminal será fechado."
+    Write-Host "All paths are now in the PATH. The terminal will close."
 }
 
 # Adiciona o delay antes de fechar o terminal

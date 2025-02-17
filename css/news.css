@@ -1,0 +1,117 @@
+/* Icone do Sino com Dot Vermelho */
+.notification-bell {
+    position: relative;
+    cursor: pointer;
+}
+
+.notification-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 10px;
+    height: 10px;
+    background: red;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+    transition: opacity 0.3s ease;
+}
+
+.notification-dot.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Modal Deslizante */
+.news-modal {
+    position: fixed;
+    top: 0;
+    left: -100%; /* Modal começa fora da tela */
+    width: 320px;
+    height: 100%;
+    overflow-y: auto;
+    z-index: 9999;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    transition: left 0.4s ease; /* Transição de movimento */
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    .news-modal {
+        background: #1f2937;
+        color: #c0caf5;
+    }
+    .news-modal h3 {
+        color: #7aa2f7;
+        border-bottom: 2px solid #7aa2f7;
+    }
+    .news-section {
+        background: #24283b;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    .news-divider {
+        border-top: 1px solid #3b4261;
+    }
+}
+
+/* Light Mode */
+@media (prefers-color-scheme: light) {
+    .news-modal {
+        background: #f9fafb;
+        color: #111827;
+    }
+    .news-modal h3 {
+        color: #2563eb;
+        border-bottom: 2px solid #2563eb;
+    }
+    .news-section {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    .news-divider {
+        border-top: 1px solid #e5e7eb;
+    }
+}
+
+/* Conteúdo e Estilização */
+.news-modal-content {
+    padding: 20px;
+    font-family: 'Inter', sans-serif;
+}
+
+.news-modal h3 {
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.news-section h4 {
+    margin-bottom: 5px;
+}
+
+.news-section p {
+    font-size: 14px;
+    margin: 5px 0;
+}
+
+.news-divider {
+    margin: 20px 0;
+    border: none;
+}
+
+/* Barra de Rolagem Estilizada */
+.news-modal::-webkit-scrollbar {
+    width: 8px;
+}
+
+.news-modal::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.4);
+    border-radius: 4px;
+}
+
+.news-modal::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 100, 100, 0.6);
+}

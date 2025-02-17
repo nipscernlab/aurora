@@ -425,15 +425,15 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 
         // Create the CMM file content
         const cmmContent = `#PRNAME ${formData.processorName}
-#DIRNAM "."
 #DATYPE ${formData.pointType === 'fixed' ? '0' : '1'}
-#NBMANT ${formData.nbMantissa}
 #NUBITS ${formData.nBits}
-#NUGAIN ${formData.gain}
 #NDSTAC ${formData.dataStackSize}
 #SDEPTH ${formData.instructionStackSize}
 #NUIOIN ${formData.inputPorts}
 #NUIOOU ${formData.outputPorts}
+#NBMANT ${formData.nbMantissa}
+#NBEXPO ${formData.nbExponent}
+#NUGAIN ${formData.gain}
 
 void main() 
 {

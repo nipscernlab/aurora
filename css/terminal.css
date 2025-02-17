@@ -151,7 +151,7 @@
 }
 
 .terminal-container {
-  height: 150px; /* Altura inicial do terminal */
+  height: 300px; /* Altura inicial do terminal */
   min-height: 35px;
   overflow-y: auto;
   display: flex;

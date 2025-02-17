@@ -74,12 +74,13 @@ function showConfirmDialog(title, message) {
     };
   });
 }
-//MONACO EDITOR ========================================================================================================================================================
 
+//MONACO EDITOR ========================================================================================================================================================
 class EditorManager {
-  static editors = new Map(); // Store editor instances for each file
+  static editors = new Map();
   static activeEditor = null;
   static editorContainer = null;
+  static currentTheme = 'cmm-dark'; // tema padrão
 
   static initialize() {
     this.editorContainer = document.getElementById('monaco-editor');
@@ -87,8 +88,6 @@ class EditorManager {
       console.error('Editor container not found');
       return;
     }
-
-    // Ensure the container has the correct styles
     this.editorContainer.style.position = 'relative';
     this.editorContainer.style.height = '100%';
     this.editorContainer.style.width = '100%';
@@ -97,22 +96,19 @@ class EditorManager {
   static updateOverlayVisibility() {
     const overlay = document.getElementById('editor-overlay');
     if (this.editors.size === 0) {
-      overlay.classList.add('visible');  // Aplica o fade-in e baixa o ícone
-      this.toggleEditorReadOnly(true);   // Desativa o Monaco Editor
+      overlay.classList.add('visible');
+      this.toggleEditorReadOnly(true);
     } else {
-      overlay.classList.remove('visible'); // Aplica o fade-out
-      this.toggleEditorReadOnly(false);    // Ativa o Monaco Editor
+      overlay.classList.remove('visible');
+      this.toggleEditorReadOnly(false);
     }
   }
-  
 
-  
   static createEditorInstance(filePath) {
     if (!this.editorContainer) {
       this.initialize();
     }
-  
-    // Cria um novo div para a instância do editor
+
     const editorDiv = document.createElement('div');
     editorDiv.className = 'editor-instance';
     editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
@@ -122,12 +118,11 @@ class EditorManager {
     editorDiv.style.right = '0';
     editorDiv.style.bottom = '0';
     editorDiv.style.display = 'none';
-  
+
     this.editorContainer.appendChild(editorDiv);
-  
-    // Cria uma nova instância do Monaco Editor
+
     const editor = monaco.editor.create(editorDiv, {
-      theme: 'vs-dark',
+      theme: this.currentTheme,  // Use o tema atual
       language: this.getLanguageFromPath(filePath),
       automaticLayout: true,
       minimap: { enabled: true },
@@ -138,27 +133,30 @@ class EditorManager {
       mouseWheelZoom: true,
       padding: { top: 10 }
     });
-  
+
     this.editors.set(filePath, {
       editor: editor,
       container: editorDiv
     });
-  
-    // Atualiza a visibilidade do ícone
+
     this.updateOverlayVisibility();
-  
     return editor;
   }
-  
-
   static toggleEditorReadOnly(isReadOnly) {
-  this.editors.forEach(({ editor }) => {
-    editor.updateOptions({ readOnly: isReadOnly });
-    if (isReadOnly) {
-      editor.blur(); // Remove o foco para evitar digitação acidental
-    }
-  });
-}
+    this.editors.forEach(({ editor }) => {
+      editor.updateOptions({ readOnly: isReadOnly });
+      if (isReadOnly) {
+        editor.blur();
+      }
+    });
+  }
+  // Adicione método para atualizar o tema
+  static setTheme(isDark) {
+    this.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
+    this.editors.forEach(({editor}) => {
+      editor.updateOptions({ theme: this.currentTheme });
+    });
+  }
 
 
   static getLanguageFromPath(filePath) {
@@ -177,7 +175,7 @@ class EditorManager {
       'cpp': 'cpp',
       'h': 'c',
       'hpp': 'cpp',
-      'cmm': 'c',
+      'cmm': 'cmm',
       'asm': 'asm',
       'v': 'verilog'
     };
@@ -185,30 +183,24 @@ class EditorManager {
   }
 
   static setActiveEditor(filePath) {
-    // Esconde todos os editores
     this.editors.forEach(({editor, container}) => {
       container.style.display = 'none';
     });
-  
-    // Obtém ou cria um editor para este arquivo
+
     let editorData = this.editors.get(filePath);
     if (!editorData) {
       this.createEditorInstance(filePath);
       editorData = this.editors.get(filePath);
     }
-  
-    // Ativa o editor
+
     editorData.container.style.display = 'block';
     this.activeEditor = editorData.editor;
     this.activeEditor.focus();
     this.activeEditor.layout();
-  
-    // Atualiza a visibilidade do ícone
+
     this.updateOverlayVisibility();
-  
     return this.activeEditor;
   }
-  
 
   static getEditorForFile(filePath) {
     const editorData = this.editors.get(filePath);
@@ -222,46 +214,378 @@ class EditorManager {
       this.editorContainer.removeChild(editorData.container);
       this.editors.delete(filePath);
     }
-  
-    // Se todos os arquivos foram fechados, exibe o ícone
     this.updateOverlayVisibility();
   }
-  
 }
 
+function setupASMLanguage() {
+  monaco.languages.register({ id: 'asm' });
+
+  monaco.languages.setMonarchTokensProvider('asm', {
+    defaultToken: '',
+    tokenPostfix: '.asm',
+
+    // Diretivas específicas do ASM
+    directives: [
+      'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC',
+      'SDEPTH', 'NUIOIN', 'NUIOOU', 'DATYPE', 'NUGAIN',
+      'FFTSIZ', 'array', 'arrays', 'ITRAD',
+      'USEMAC', 'ENDMAC', 'INTERPOINT'
+    ],
+
+    // Instruções do ASM
+    instructions: [
+      'LOAD', 'PLD', 'SET', 'SETP', 'PUSH', 'JZ', 'JMP',
+      'CALL', 'RETURN', 'SRF', 'IN', 'OUT', 'NEG', 'ADD',
+      'SADD', 'MLT', 'SMLT', 'DIV', 'SDIV', 'MOD', 'SMOD',
+      'AND', 'SAND', 'LAND', 'SLAND', 'OR', 'SOR', 'LOR',
+      'SLOR', 'XOR', 'SXOR', 'INV', 'LINV', 'EQU', 'SEQU',
+      'GRE', 'SGRE', 'LES', 'SLES', 'SHR', 'SSHR', 'SHL',
+      'SSHL', 'SRS', 'SSRS', 'PSET', 'NORM', 'ABS', 'ILDI',
+      'SIGN', 'LDI', 'ISRF'
+    ],
+
+    symbols: /[=><!~?:&|+\-*\/\^%]+/,
+
+    tokenizer: {
+      root: [
+        // Diretivas com #
+        [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|DATYPE|NUGAIN|FFTSIZ|array|arrays|ITRAD|DIRNAM|USEMAC|ENDMAC|INTERPOINT)\b/, 'keyword.directive'],
+
+        // Comentários
+        [/\/\/.*$/, 'comment'],
+        [/;.*$/, 'comment'],
+
+        // Labels (identificadores seguidos de :)
+        [/^\s*[.a-zA-Z_]\w*:/, 'type.identifier'],
+
+        // Números (hex, decimal, binário)
+        [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],
+        [/\b[0-9]+\b/, 'number'],
+        [/\b[01]+b\b/, 'number.binary'],
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, 'string.invalid'],
+        [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
+
+        // Instruções
+        [/\b([A-Z][A-Z0-9]*)\b/, {
+          cases: {
+            '@instructions': 'keyword.instruction',
+            '@directives': 'keyword.directive',
+            '@default': 'identifier'
+          }
+        }],
+
+        // Identificadores e outros tokens
+        [/[a-zA-Z_]\w*/, 'identifier'],
+
+        // Whitespace
+        { include: '@whitespace' },
+
+        // Operadores e símbolos
+        [/[(),]/, 'delimiter'],
+        [/[=<>!+\-*\/]/, 'operator'],
+      ],
+
+      string: [
+        [/[^\\"]+/, 'string'],
+        [/\\./, 'string.escape'],
+        [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+      ],
+
+      whitespace: [
+        [/[ \t\r\n]+/, 'white']
+      ],
+    }
+  });
+
+  // Define tema escuro personalizado para ASM com cores melhoradas
+  monaco.editor.defineTheme('asm-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      // Instruções em um tom de azul claro vibrante
+      { token: 'keyword.instruction', foreground: '#569CD6', fontStyle: 'bold' },
+      
+      // Diretivas mantidas em roxo/rosa
+      { token: 'keyword.directive', foreground: '#C586C0', fontStyle: 'bold' },
+      
+      // Identificadores em um verde água mais vivo
+      { token: 'type.identifier', foreground: '#56B6C2' },
+      
+      // Comentários em um verde mais suave
+      { token: 'comment', foreground: '#7EC699' },
+      
+      // Números em um tom mais destacado
+      { token: 'number', foreground: '#D19A66' },
+      
+      // Strings em um laranja suave
+      { token: 'string', foreground: '#E5C07B' },
+      
+      // Operadores em um cinza mais claro para melhor visibilidade
+      { token: 'operator', foreground: '#ABB2BF' },
+      
+      // Delimitadores em um tom distinto
+      { token: 'delimiter', foreground: '#89DDFF' }
+    ],
+    colors: {
+      'editor.background': '#282C34',
+      'editor.foreground': '#ABB2BF',
+      'editor.lineHighlightBackground': '#2C313A',
+      'editor.selectionBackground': '#3E4451',
+      'editorCursor.foreground': '#528BFF'
+    }
+  });
+
+  // Define tema claro personalizado para ASM com cores melhoradas
+  monaco.editor.defineTheme('asm-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      // Instruções em um azul mais vibrante
+      { token: 'keyword.instruction', foreground: '#0550AE', fontStyle: 'bold' },
+      
+      // Diretivas mantidas em roxo
+      { token: 'keyword.directive', foreground: '#AF00DB', fontStyle: 'bold' },
+      
+      // Identificadores em um azul esverdeado
+      { token: 'type.identifier', foreground: '#229DB5' },
+      
+      // Comentários em um verde mais escuro para melhor contraste
+      { token: 'comment', foreground: '#098658' },
+      
+      // Números em um laranja escuro
+      { token: 'number', foreground: '#CC6633' },
+      
+      // Strings em um vermelho mais suave
+      { token: 'string', foreground: '#A31515' },
+      
+      // Operadores em um cinza escuro
+      { token: 'operator', foreground: '#444444' },
+      
+      // Delimitadores em um azul escuro
+      { token: 'delimiter', foreground: '#0076C4' }
+    ],
+    colors: {
+      'editor.background': '#FFFFFF',
+      'editor.foreground': '#000000',
+      'editor.lineHighlightBackground': '#F7F7F7',
+      'editor.selectionBackground': '#ADD6FF',
+      'editorCursor.foreground': '#000000'
+    }
+  });
+}
+
+function setupCMMLanguage() {
+  // Register CMM language
+  monaco.languages.register({ id: 'cmm' });
+
+  // Define CMM language configuration
+  monaco.languages.setMonarchTokensProvider('cmm', {
+    defaultToken: '',
+    tokenPostfix: '.cmm',
+
+    keywords: [
+      'if', 'else', 'for', 'while', 'do', 'struct', 'return', 'break',
+      'continue', 'switch', 'case', 'default', 'goto', 'sizeof', 'volatile',
+      'typedef', 'enum', 'union', 'register', 'extern', 'inline', 'void',
+      'int', 'char', 'float', 'double', 'bool', 'long', 'short', 'signed',
+      'unsigned', 'const', 'static', 'auto'
+    ],
+
+    typeKeywords: [
+      'bool', 'int', 'long', 'float', 'double', 'char', 'void', 'unsigned',
+      'signed', 'short'
+    ],
+
+    operators: [
+      '=', '>', '<', '!', '~', '?', ':', '==', '<=', '>=', '!=',
+      '&&', '||', '++', '--', '+', '-', '*', '/', '&', '|', '^', '%',
+      '<<', '>>', '>>>', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+      '<<=', '>>=', '>>>='
+    ],
+
+    symbols: /[=><!~?:&|+\-*\/\^%]+/,
+
+    escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+
+    tokenizer: {
+      root: [
+        // CMM directives (incluindo as novas)
+        [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
+
+        // StdLib functions
+        [/\b(in|out|norm|pset|abs|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+
+        // StdLib functions
+        [/\b(in|out|norm|pset|abs|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+
+        // Array initialization from file
+        [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
+
+        // Inverted array index
+        [/\[\s*\w+\s*\)/, 'delimiter.square.inverted'],
+
+        // Identifiers and keywords
+        [/[a-zA-Z_]\w*/, {
+          cases: {
+            '@typeKeywords': 'keyword.type',
+            '@keywords': 'keyword',
+            '@default': 'identifier'
+          }
+        }],
+
+        // Whitespace
+        { include: '@whitespace' },
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, 'string.invalid'],
+        [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
+
+        // Characters
+        [/'[^\\']'/, 'string'],
+        [/(')(@escapes)(')/, ['string', 'string.escape', 'string']],
+        [/'/, 'string.invalid'],
+
+        // Operators
+        [/>>>/, 'operator.shift.arithmetic'],
+        [/@symbols/, {
+          cases: {
+            '@operators': 'operator',
+            '@default': ''
+          }
+        }],
+
+        // Numbers
+        [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+        [/0[xX][0-9a-fA-F]+/, 'number.hex'],
+        [/\d+/, 'number']
+      ],
+
+      comment: [
+        [/[^\/*]+/, 'comment'],
+        [/\/\*/, 'comment', '@push'],
+        ["\\*/", 'comment', '@pop'],
+        [/[\/*]/, 'comment']
+      ],
+
+      string: [
+        [/[^\\"]+/, 'string'],
+        [/\\./, 'string.escape.invalid'],
+        [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+      ],
+
+      whitespace: [
+        [/[ \t\r\n]+/, 'white'],
+        [/\/\*/, 'comment', '@comment'],
+        [/\/\/.*$/, 'comment'],
+      ],
+    }
+  });
+
+  // Define tema escuro personalizado para CMM
+  monaco.editor.defineTheme('cmm-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword.directive.cmm', foreground: '#569CD6' },
+      { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#DCDCAA' },
+      { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#D4D4D4' },
+      { token: 'delimiter.square.inverted', foreground: '#CE9178' }
+    ],
+    colors: {}
+  });
+
+  // Define tema claro personalizado para CMM
+  monaco.editor.defineTheme('cmm-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'keyword.directive.cmm', fontStyle: 'bold', foreground: '#0000FF' },
+      { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#795E26' },
+      { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#000000' },
+      { token: 'delimiter.square.inverted', foreground: '#A31515' }
+    ],
+    colors: {}
+  });
+}
+
+// Função para atualizar o tema do editor
+function updateEditorTheme(isDark) {
+  const theme = isDark ? 'cmm-dark' : 'cmm-light';
+  EditorManager.editors.forEach(({editor}) => {
+    editor.updateOptions({ theme: theme });
+  });
+}
+
+// Modifique initMonaco para configurar os temas
 async function initMonaco() {
-    require(['vs/editor/editor.main'], function() {
-        editor = monaco.editor.create(document.getElementById('monaco-editor'), {
-            theme: 'vs-dark',
-            language: 'c',
-            automaticLayout: true,
-            minimap: {
-                enabled: true
-            },
-            fontSize: 14,
-            fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
-            scrollBeyondLastLine: false,
-            renderWhitespace: 'selection',
-            mouseWheelZoom: true,
-            padding: {
-                top: 10
-            }
-        });
-
-         // Initialize tabs
-         initTabs();
-
-        // Add cursor position to status bar
-        editor.onDidChangeCursorPosition((e) => {
-            const position = editor.getPosition();
-            document.getElementById('editorStatus').textContent =
-                `Line ${position.lineNumber}, Column ${position.column}`;
-        });
-
-
+  require(['vs/editor/editor.main'], function() {
+    // Setup CMM language e temas
+    setupCMMLanguage();
+    setupASMLanguage();
+    
+    // Crie o editor inicial com o tema apropriado
+    const editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+      theme: EditorManager.currentTheme,
+      language: 'cmm',
+      automaticLayout: true,
+      minimap: { enabled: true },
+      fontSize: 14,
+      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+      scrollBeyondLastLine: false,
+      renderWhitespace: 'selection',
+      mouseWheelZoom: true,
+      padding: { top: 10 }
     });
+
+    // Adicione o listener de posição do cursor
+    editor.onDidChangeCursorPosition((e) => {
+      const position = editor.getPosition();
+      document.getElementById('editorStatus').textContent =
+        `Line ${position.lineNumber}, Column ${position.column}`;
+    });
+  });
 }
 
+// Variável para controlar o estado do tema
+let isDarkTheme = true;
+
+// Elemento do botão
+const themeToggleBtn = document.getElementById('themeToggle');
+const themeIcon = themeToggleBtn.querySelector('i');
+
+// Função para alternar o tema
+function toggleTheme() {
+  isDarkTheme = !isDarkTheme;
+  
+  // Atualiza o ícone
+  themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
+  themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
+  
+  // Atualiza o tema do editor
+  EditorManager.setTheme(isDarkTheme);
+  
+  // Salva a preferência do usuário
+  localStorage.setItem('editorTheme', isDarkTheme ? 'dark' : 'light');
+}
+
+// Adiciona o event listener ao botão
+themeToggleBtn.addEventListener('click', toggleTheme);
+
+// Carrega a preferência salva do tema ao iniciar
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('editorTheme');
+  if (savedTheme) {
+    isDarkTheme = savedTheme === 'dark';
+    // Atualiza o ícone inicial
+    themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
+    themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
+    // Aplica o tema salvo
+    EditorManager.setTheme(isDarkTheme);
+  }
+});
 //TAB MANAGER ========================================================================================================================================================
 
 class TabManager {
@@ -1933,128 +2257,127 @@ if (closeInfoButton) {
 }
 
 function initAIAssistant() {
-    aiAssistantContainer = document.createElement('div');
-    aiAssistantContainer.className = 'ai-assistant-container';
+  aiAssistantContainer = document.createElement('div');
+  aiAssistantContainer.className = 'ai-assistant-container';
 
-    const resizer = document.createElement('div');
-    resizer.className = 'ai-resizer';
+  const resizer = document.createElement('div');
+  resizer.className = 'ai-resizer';
 
-    // Create header with provider selection
-    const header = document.createElement('div');
-    header.className = 'ai-assistant-header';
-    header.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span class="ai-assistant-title">AI Assistant</span>
-      <select id="ai-provider-select" style="background: var(--background, #2d2d2d); color: var(--text-color, #ffffff); border: 1px solid var(--border-color, #404040); border-radius: 4px; padding: 2px;">
-        <option value="chatgpt">ChatGPT</option>
-        <option value="claude">Claude</option>
-      </select>
-    </div>
-    <i class="fas fa-times ai-assistant-close"></i>
-  `;
+  // Create header with provider selection
+  const header = document.createElement('div');
+  header.className = 'ai-assistant-header';
+  header.innerHTML = `
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <span class="ai-assistant-title">AI Assistant</span>
+    <select id="ai-provider-select" style="background: var(--background, #2d2d2d); color: var(--text-color, #ffffff); border: 1px solid var(--border-color, #404040); border-radius: 4px; padding: 2px;">
+      <option value="chatgpt">ChatGPT</option>
+      <option value="claude">Claude</option>
+    </select>
+  </div>
+  <i class="fas fa-times ai-assistant-close"></i>
+`;
 
-    // Create webview container
-    const webviewContainer = document.createElement('div');
-    webviewContainer.className = 'ai-assistant-content';
-    webviewContainer.style.padding = '0'; // Remove padding for webview
+  // Create webview container
+  const webviewContainer = document.createElement('div');
+  webviewContainer.className = 'ai-assistant-content';
+  webviewContainer.style.padding = '0'; // Remove padding for webview
 
-    // Create webview element
-    const webview = document.createElement('webview');
-    webview.style.width = '100%';
-    webview.style.height = '100%';                                                       
-    webview.src = 'https://chatgpt.com/?model=auto'; // Default to ChatGPT
-    webview.nodeintegration = 'false';
-    webviewContainer.appendChild(webview);
+  // Create webview element
+  const webview = document.createElement('webview');
+  webview.style.width = '100%';
+  webview.style.height = '100%';                                                       
+  webview.src = 'https://chatgpt.com/?model=auto'; // Default to ChatGPT
+  webview.nodeintegration = 'false';
+  webviewContainer.appendChild(webview);
 
-    // Append elements
-    aiAssistantContainer.appendChild(resizer);
-    aiAssistantContainer.appendChild(header);
-    aiAssistantContainer.appendChild(webviewContainer);
-    document.body.appendChild(aiAssistantContainer);
+  // Append elements
+  aiAssistantContainer.appendChild(resizer);
+  aiAssistantContainer.appendChild(header);
+  aiAssistantContainer.appendChild(webviewContainer);
+  document.body.appendChild(aiAssistantContainer);
 
-    // Add event listeners
-    const closeButton = header.querySelector('.ai-assistant-close');
-    closeButton.addEventListener('click', toggleAIAssistant);
+  // Add event listeners
+  const closeButton = header.querySelector('.ai-assistant-close');
+  closeButton.addEventListener('click', toggleAIAssistant);
 
-    const providerSelect = header.querySelector('#ai-provider-select');
-    providerSelect.addEventListener('change', (e) => {
-        currentProvider = e.target.value;
-        const url = currentProvider === 'chatgpt' ?
-            'https://chatgpt.com/?model=auto' :
-            'https://claude.ai';
-        webview.src = url;
-    });
+  const providerSelect = header.querySelector('#ai-provider-select');
+  providerSelect.addEventListener('change', (e) => {
+      currentProvider = e.target.value;
+      const url = currentProvider === 'chatgpt' ?
+          'https://chatgpt.com/?model=auto' :
+          'https://claude.ai';
+      webview.src = url;
+  });
 
-    // Setup resizing
-    setupAIAssistantResize(resizer);
+  // Setup resizing
+  setupAIAssistantResize(resizer);
 }
 
 // Add toggle function
 function toggleAIAssistant() {
-    aiAssistantVisible = !aiAssistantVisible;
-    aiAssistantContainer.classList.toggle('visible');
+  aiAssistantVisible = !aiAssistantVisible;
+  aiAssistantContainer.classList.toggle('visible');
 
-    // Adjust editor layout if needed
-    if (editor) {
-        editor.layout();
-    }
+  // Adjust editor layout if needed
+  if (editor) {
+      editor.layout();
+  }
 }
 
 // Add resize functionality
 function setupAIAssistantResize(resizer) {
-    let startX, startWidth;
+  let startX, startWidth;
 
-    function startResize(e) {
-        startX = e.clientX;
-        startWidth = parseInt(getComputedStyle(aiAssistantContainer).width, 10);
-        document.addEventListener('mousemove', resize);
-        document.addEventListener('mouseup', stopResize);
-    }
+  function startResize(e) {
+      startX = e.clientX;
+      startWidth = parseInt(getComputedStyle(aiAssistantContainer).width, 10);
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResize);
+  }
 
-    function resize(e) {
-        const width = startWidth - (e.clientX - startX);
-        aiAssistantContainer.style.width = `${width}px`;
+  function resize(e) {
+      const width = startWidth - (e.clientX - startX);
+      aiAssistantContainer.style.width = `${width}px`;
 
-        // Adjust editor layout
-        if (editor) {
-            editor.layout();
-        }
-    }
+      // Adjust editor layout
+      if (editor) {
+          editor.layout();
+      }
+  }
 
-    function stopResize() {
-        document.removeEventListener('mousemove', resize);
-        document.removeEventListener('mouseup', stopResize);
-    }
+  function stopResize() {
+      document.removeEventListener('mousemove', resize);
+      document.removeEventListener('mouseup', stopResize);
+  }
 
-    resizer.addEventListener('mousedown', startResize);
+  resizer.addEventListener('mousedown', startResize);
 }
 
 
 //WINDOW.ONLOAD ===========================================================================================================================================================
 window.onload = () => {
-    initMonaco();
-    initAIAssistant();
+  initMonaco();
+  initAIAssistant();
 
-    // Add AI Assistant button to toolbar
-    const toolbar = document.querySelector('.toolbar');
-    const aiButton = document.createElement('button');
+  // Add AI Assistant button to toolbar
+  const toolbar = document.querySelector('.toolbar');
+  const aiButton = document.createElement('button');
 
-    aiButton.className = 'toolbar-icon rainbow btn';
-    aiButton.innerHTML = '<i class="fas fa-robot"></i>';
-    aiButton.title = 'Toggle AI Assistant';
-    aiButton.addEventListener('click', toggleAIAssistant);
-    toolbar.appendChild(aiButton);
+  aiButton.className = 'toolbar-icon rainbow btn';
+  aiButton.innerHTML = '<i class="fas fa-robot"></i>';
+  aiButton.title = 'Toggle AI Assistant';
+  aiButton.addEventListener('click', toggleAIAssistant);
+  toolbar.appendChild(aiButton);
 
-    // Existing event listeners
-    document.getElementById('openFolderBtn').addEventListener('click', async () => {
-        const result = await window.electronAPI.openFolder();
-        if (result) {
-            const fileTree = document.getElementById('file-tree');
-            fileTree.innerHTML = '';
-            renderFileTree(result.files, fileTree);
-        }
-    });
-
+  // Existing event listeners
+  document.getElementById('openFolderBtn').addEventListener('click', async () => {
+      const result = await window.electronAPI.openFolder();
+      if (result) {
+          const fileTree = document.getElementById('file-tree');
+          fileTree.innerHTML = '';
+          renderFileTree(result.files, fileTree);
+      }
+  });
     document.getElementById('saveFileBtn').addEventListener('click', () => TabManager.saveCurrentFile());
 
     // Add refresh button event listener

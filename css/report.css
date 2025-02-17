@@ -79,7 +79,7 @@
 .modal-content button {
   margin-right: 10px;
   padding: 10px 20px;
-  background-color: var(--accent-primary);
+  background-color: var(--accent-secondary);
   color: var(--text-primary);
   border: none;
   border-radius: 8px;
@@ -87,6 +87,7 @@
   font-size: 16px;
   transition: background-color 0.3s ease;
 }
+
 
 .modal-content button:hover {
   background-color: var(--accent-hover);

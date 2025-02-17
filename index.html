@@ -36,6 +36,7 @@
  
   <link rel="stylesheet" href="./css/toolbar.css">
   <link rel="stylesheet" href="./css/fileTree.css">
+  <link rel="stylesheet" href="./css/news.css">
 
   <link rel="stylesheet" href="./css/blockView.css">
   <link rel="stylesheet" href="./css/simulationModal.css">
@@ -83,7 +84,6 @@
       <button id="wavecomp" class="toolbar-button" title="Open Wave">
         <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
       </button>
-
     </div>
     <button id="allcomp" class="toolbar-button" title="Compile All">
       <i class="fa-solid fa-layer-group" style="color: aqua;"></i>
@@ -157,9 +157,10 @@
       <i class="fab fa-github"></i>
     </li>
     <li title="News and Updates">
-      <i class="fas fa-newspaper"></i>
-    </li>
-    <i class="fa-solid fa-bell"></i>
+      <i class="fa-solid fa-bell notification-bell">
+          <span class="notification-dot"></span>
+      </i>
+  </li>
     <li title="Keyboard shortcuts">
       <i class="fas fa-keyboard"></i>
     </li>
@@ -170,6 +171,43 @@
       <i class="fas fa-power-off"></i>
     </li>
   </ul>
+</div>
+
+<!-- Modal deslizante de notícias -->
+<div class="news-modal" id="newsModal">
+  <div class="news-modal-content">
+      <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
+
+      <!-- Atualização 2.18.1 -->
+      <div class="news-section">
+          <h4><i class="fa-solid fa-bolt"></i> Atualização 2.18.1</h4>
+          <p>- Melhorias de desempenho e correções de bugs críticos.</p><br>
+
+          <p>- Ajustes na interface para maior usabilidade.</p><br>
+
+          <p>- Adicionada a pasta /saphoComponents/Packages/iverilog.</p><br>
+
+          <p>- Melhorias no add-to-path script.</p><br>
+
+          <p>- Removida a compilação standard (agora todas as compilações são std).</p><br>
+
+          <p>- Adicionado syntax highlight para .cmm e .asm</p><br>
+      </div>
+      
+      <hr class="news-divider">
+      
+      <!-- Atualização 2.17.0 -->
+      <div class="news-section">
+          <h4><i class="fa-solid fa-paint-brush"></i> Atualização 2.17.0</h4>
+          <p>- Novo parâmetro 'Float ou Int' na configuração de processadores a serem compilados.</p><br>
+
+          <p>- Apresentação ao abrir a IDE.</p><br>
+
+          <p>- Melhorado o README.md no AURORA IDE GitHub. </p><br>
+
+          <p>- Adicionado botão 'Informações do Sistema'. </p><br>
+      </div>
+  </div>
 </div>
 
 <!-- Modal de Configurações -->
@@ -234,7 +272,7 @@
 <div id="bug-report-modal" class="modal hidden">
   <div class="modal-content">
     <h2><i class="fa-solid fa-bug"></i>Bug Report</h2>
-    <form id="bug-report-form" action="https://formspree.io/f/xgvebqla" method="POST">
+    <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
       <label for="bug-title">Título</label>
       <input type="text" id="bug-title" name="bug-title" placeholder="Digite o título do bug" required />
 
@@ -410,6 +448,7 @@
   <script src="./js/modal.js"></script>
   <script src="./js/terminal.js"></script>
   <script src="./js/buttons.js" ></script>
+  <script src="./js/news.js" ></script>
   <script src="./js/report.js" type="module"></script>
   <script src="./js/resize.js" type="module"></script>
   <script src="./js/fileTree.js" type="module"></script>

@@ -33,23 +33,27 @@ async function loadConfiguration() {
         processorItem.innerHTML = `
           <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
           <select data-point-type 
-            style="
+              style="
                 margin-left: 8px;
                 padding: 6px 12px;
                 border: 1px solid #ccc;
                 border-radius: 4px;
-                background-color: #fff;
+                background-color: var(--select-bg, #fff);
                 font-size: 14px;
-                color: #333;
+                color: var(--select-text, #333);
                 outline: none;
-                transition: border-color 0.2s ease-in-out;
-            "
-            onfocus="this.style.borderColor='#3498db'"
-            onblur="this.style.borderColor='#ccc'"
-          >
-            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
-            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
-          </select>
+                transition: border-color 0.2s ease-in-out, background-color 0.3s, color 0.3s;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                appearance: none;
+                cursor: pointer;
+              "
+              onfocus="this.style.borderColor='#3498db'" 
+              onblur="this.style.borderColor='var(--border-color, #ccc)'"
+              onchange="this.blur()" 
+            >
+              <option value="floating" selected>Float</option>
+              <option value="int">Int</option>
+            </select>
           <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
           <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
           <button class="removeProcessor" 

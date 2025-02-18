@@ -1,5 +1,4 @@
 node_modules
-iverilog
 dist/win-unpacked/vulkan-1.dll
 dist/win-unpacked/vk_swiftshader_icd.json
 dist/win-unpacked/vk_swiftshader.dll

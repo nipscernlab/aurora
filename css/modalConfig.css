@@ -246,3 +246,101 @@ input:focus {
     justify-content: flex-end;
     gap: 12px;
   }
+
+
+  /*TESTE*/
+  /* modalConfig.css */
+
+/* Processor section styling */
+#processors {
+  padding: 20px;
+}
+
+/* Add Processor button styling */
+#addProcessor {
+  background-color: var(--accent-primary);
+  color: var(--text-primary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#addProcessor:hover {
+  background-color: var(--accent-hover);
+}
+
+#addProcessor:active {
+  transform: translateY(1px);
+}
+
+/* Clear Temp button styling */
+#clearTemp {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px;
+}
+
+#clearTemp:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+#clearTemp:active {
+  background-color: var(--bg-active);
+  transform: translateY(1px);
+}
+
+#clearTemp::before {
+ /* content: "🗑️"; */
+  font-size: 16px;
+}
+
+/* Select (Float/Int) styling */
+select[data-point-type] {
+  margin-left: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  min-width: 100px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2014%2014%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M7%2010L0%200h14z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+  padding-right: 30px;
+}
+
+select[data-point-type]:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+select[data-point-type]:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(58, 130, 246, 0.2);
+}

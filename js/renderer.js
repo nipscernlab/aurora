@@ -390,7 +390,7 @@ function setupCMMLanguage() {
       'if', 'else', 'for', 'while', 'do', 'struct', 'return', 'break',
       'continue', 'switch', 'case', 'default', 'goto', 'sizeof', 'volatile',
       'typedef', 'enum', 'union', 'register', 'extern', 'inline', 'void',
-      'int', 'char', 'float', 'double', 'bool', 'long', 'short', 'signed',
+      'int', 'comp', 'char', 'float', 'double', 'bool', 'long', 'short', 'signed',
       'unsigned', 'const', 'static', 'auto'
     ],
 
@@ -2755,11 +2755,11 @@ async runGtkWave(processor, simConfig) {
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             const tempNamePath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             
-            cmd = `cd /d "${tempNamePath}" && gtkwave --dark "${vcdPath}" --script="${scriptsPath}"`;
+            cmd = `cd /d "${tempNamePath}" && gtkwave  --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptsPath}"`;
         } else {
             const gtkwPath = await window.electronAPI.joinPath(hardwarePath, simConfig.selectedGtkw);
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
-            cmd = `gtkwave --dark "${vcdPath}" "${gtkwPath}"`;
+            cmd = `gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}"`;
         }
         
         this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${cmd}`);
@@ -2910,26 +2910,7 @@ class CompilationButtonManager {
       }
     });
 
-    // GTKWave
-    document.getElementById('wavecomp').addEventListener('click', async () => {
-      try {
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        const processor = this.compiler.config.processors[0];
-        
-        // Mostrar modal de configuração se necessário
-        const simConfig = await this.compiler.showSimulationConfig(processor);
-        if (!simConfig) {
-          console.log('GTKWave cancelled by user');
-          return;
-        }
 
-        await this.compiler.runGtkWave(processor, simConfig);
-      } catch (error) {
-        console.error('GTKWave error:', error);
-      }
-    });
   }
 }
 

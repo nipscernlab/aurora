@@ -30,17 +30,18 @@ async function loadConfiguration() {
       config.processors.forEach(processor => {
         const processorItem = document.createElement("div");
         processorItem.className = "processor-item";
-        // Modifique a parte onde você cria o select no addProcessorButton.addEventListener
-processorItem.innerHTML = `
-<input type="text" placeholder="Processor Name" data-processor-name>
-<select data-point-type>
-  <option value="floating">Float</option>
-  <option value="int" selected>Int</option>
-</select>
-<input type="number" placeholder="CLK (MHz)" data-clk>
-<input type="number" placeholder="Number of Clocks" data-num-clocks>
-<button class="removeProcessor">&times;</button>
-`;
+        processorItem.innerHTML = `
+          <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
+          <select data-point-type>
+            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
+            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
+          <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
+          <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
+          <button class="removeProcessor" 
+            style="margin-left: 8px; color: #fff; border: none; cursor: pointer; font-size: 16px; margin-bottom: 15px;">
+              &times;
+          </button>
+        `;
 
         processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
           processorItem.remove();
@@ -82,8 +83,7 @@ addProcessorButton.addEventListener("click", () => {
   processorItem.innerHTML = `
     <input type="text" placeholder="Processor Name" data-processor-name>
     <select data-point-type 
-      style="margin-left: 8px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s ease-in-out;"
-      onfocus="this.style.borderColor='#3498db'" onblur="this.style.borderColor='#ccc'">
+
       <option value="floating">Float</option>
       <option value="int" selected>Int</option>
     </select>

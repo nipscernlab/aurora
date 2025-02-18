@@ -82,10 +82,9 @@ addProcessorButton.addEventListener("click", () => {
   processorItem.className = "processor-item";
   processorItem.innerHTML = `
     <input type="text" placeholder="Processor Name" data-processor-name>
-    <select data-point-type 
-
-      <option value="floating">Float</option>
-      <option value="int" selected>Int</option>
+    <select data-point-type>
+      <option value="floating" selected>Float</option>
+      <option value="int">Int</option>
     </select>
     <input type="number" placeholder="CLK (MHz)" data-clk>
     <input type="number" placeholder="Number of Clocks" data-num-clocks>

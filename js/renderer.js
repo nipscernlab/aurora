@@ -6,7 +6,7 @@ let terminal = null;
 let aiAssistantVisible = false;
 let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
-
+let editorInstance;
 
 class SimulationModal {
   constructor() {
@@ -526,8 +526,25 @@ async function initMonaco() {
     setupCMMLanguage();
     setupASMLanguage();
     
+    // Registrando os temas
+    monaco.editor.defineTheme('cmm-dark', {
+      // Configuração do tema escuro
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {}
+    });
+    
+    monaco.editor.defineTheme('cmm-light', {
+      // Configuração do tema claro
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {}
+    });
+    
     // Crie o editor inicial com o tema apropriado
-    const editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+    editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), {
       theme: EditorManager.currentTheme,
       language: 'cmm',
       automaticLayout: true,
@@ -539,14 +556,29 @@ async function initMonaco() {
       mouseWheelZoom: true,
       padding: { top: 10 }
     });
-
-    // Adicione o listener de posição do cursor
-    editor.onDidChangeCursorPosition((e) => {
-      const position = editor.getPosition();
-      document.getElementById('editorStatus').textContent =
-        `Line ${position.lineNumber}, Column ${position.column}`;
-    });
+    
+    // Configura o evento de mudança de posição do cursor
+    if (editorInstance) {
+      editorInstance.onDidChangeCursorPosition(updateCursorPosition);
+    } else {
+      console.error("Editor instance is null");
+    }
   });
+}
+
+function updateCursorPosition(e) {
+  // e é o evento com a nova posição
+  if (!editorInstance) {
+    console.warn("Editor ainda não inicializado!");
+    return;
+  }
+  
+  const position = e.position; // Usando a posição do evento
+  const statusElement = document.getElementById('editorStatus');
+  
+  if (statusElement && position) {
+    statusElement.textContent = `Line ${position.lineNumber}, Column ${position.column}`;
+  }
 }
 
 // Variável para controlar o estado do tema
@@ -2823,8 +2855,6 @@ document.getElementById('allcomp').addEventListener('click', async () => {
   }
 });
 
-
-
 // Gerenciador para as compilações individuais
 class CompilationButtonManager {
   constructor() {
@@ -2931,8 +2961,13 @@ class TerminalManager {
     };
     
     this.setupTerminalTabs();
-    this.setupClearButton();
     this.setupAutoScroll();
+
+    if (!TerminalManager.clearButtonInitialized) {
+      this.setupClearButton();
+      TerminalManager.clearButtonInitialized = true;
+    }
+      
   }
 
   setupTerminalTabs() {
@@ -2956,34 +2991,45 @@ class TerminalManager {
   }
 
   setupClearButton() {
-    const clearButton = document.getElementById('clear-terminal');
+  const clearButton = document.getElementById('clear-terminal');
   
-    // Evento de clique com o botão esquerdo
-    clearButton.addEventListener('click', (event) => {
-      if (event.button === 0) { // Botão esquerdo
-        const icon = clearButton.querySelector('i');
-        if (icon.classList.contains('fa-trash-can')) {
-          // Limpa apenas o terminal ativo
-          const activeTab = document.querySelector('.terminal-tabs .tab.active');
-          if (activeTab) {
-            const terminalId = activeTab.getAttribute('data-terminal');
-            this.clearTerminal(terminalId);
-          }
-        } else if (icon.classList.contains('fa-dumpster')) {
-          // Limpa todos os terminais
-          this.clearAllTerminals();
+  // Remova quaisquer event listeners anteriores para evitar duplicação
+  clearButton.removeEventListener('click', this.handleClearClick);
+  clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
+  
+  // Defina as funções de manipulação de eventos como propriedades da classe
+  this.handleClearClick = (event) => {
+    if (event.button === 0) { // Botão esquerdo
+      const icon = clearButton.querySelector('i');
+      if (icon.classList.contains('fa-trash-can')) {
+        // Limpa apenas o terminal ativo
+        const activeTab = document.querySelector('.terminal-tabs .tab.active');
+        if (activeTab) {
+          const terminalId = activeTab.getAttribute('data-terminal');
+          this.clearTerminal(terminalId);
         }
+      } else if (icon.classList.contains('fa-dumpster')) {
+        // Limpa todos os terminais
+        this.clearAllTerminals();
       }
-    });
-  
-    // Evento de clique com o botão direito
-    clearButton.addEventListener('contextmenu', (event) => {
-      event.preventDefault(); // Evita o menu de contexto padrão
-      if (event.button === 2) { // Botão direito
+    }
+  };
+
+  this.handleClearContextMenu = (event) => {
+    event.preventDefault();
+    console.log("Botão direito detectado!");
+
+    if (event.button === 2) { 
+      setTimeout(() => {
         this.changeClearIcon(clearButton);
-      }
-    });
-  }
+      }, 50); // Pequeno atraso para garantir a renderização
+    }
+  };
+
+  // Adicione os event listeners
+  clearButton.addEventListener('click', this.handleClearClick);
+  clearButton.addEventListener('contextmenu', this.handleClearContextMenu);
+}
   
 
   setupAutoScroll() {
@@ -3328,9 +3374,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-
-
-
 
 // No seu renderer.js
 

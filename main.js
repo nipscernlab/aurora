@@ -6,6 +6,7 @@ const fse = require('fs-extra'); // fs-extra makes it easier to copy directories
 const fs = require('fs').promises;
 const os = require('os');
 const { spawn } = require('child_process'); // Importa spawn corretamente 
+const moment = require("moment"); // Para gerar a data e hora
 
 let mainWindow, splashWindow;
 
@@ -116,6 +117,7 @@ function createMainWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: true,
+      webviewTag: true,
       preload: path.join(__dirname, 'js', 'preload.js'),
     },
     backgroundColor: '#1e1e1e',
@@ -148,51 +150,6 @@ function createSplashScreen() {
   }, 2000);
 }
 
-function checkForUpdates() {
-  autoUpdater.checkForUpdatesAndNotify();
-
-  autoUpdater.on('update-available', async (info) => {
-    console.log(`Nova versão disponível: ${info.version}, versão atual: ${app.getVersion()}`);
-    const { response } = await dialog.showMessageBox({
-      type: 'info',
-      title: 'Atualização Disponível',
-      message: `Versão Atual: ${app.getVersion()}\nNova Versão: ${info.version}\nDeseja baixar agora?`,
-      buttons: ['Sim', 'Depois'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (response === 0) {
-      console.log('Iniciando o download da atualização...');
-      autoUpdater.downloadUpdate();
-    }
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    console.log(`Progresso do download: ${Math.round(progress.percent)}%`);
-  });
-
-  autoUpdater.on('update-downloaded', async () => {
-    console.log('Download concluído. Perguntando ao usuário sobre a instalação.');
-    const { response } = await dialog.showMessageBox({
-      type: 'info',
-      title: 'Instalar Atualização',
-      message: 'A atualização foi baixada. Instalar agora?',
-      buttons: ['Sim', 'Depois'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (response === 0) {
-      console.log('Fechando o aplicativo e instalando a atualização.');
-      autoUpdater.quitAndInstall(true, true);
-      installExecutables();
-    }
-  });
-  
-
-  autoUpdater.on('error', (err) => {
-    console.error('Erro na atualização:', err);
-  });
-}
 
 function clearCache() {
   const cachePath = app.getPath('userData');
@@ -1146,27 +1103,64 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
   }
 
   const folderName = path.basename(folderPath);
-  const zipFileName = `${folderName}.7z`;
+  const backupFolderPath = path.join(folderPath, "Backup"); // Caminho da pasta Backup
+  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss"); // Data e hora no formato adequado
+  const tempBackupFolderName = `backup_${timestamp}`; // Nome da pasta temporária
+  const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName); // Caminho da pasta temporária de backup
+  const zipFileName = `${folderName}_${timestamp}.7z`; // Nome do arquivo compactado
+  const zipFilePath = path.join(backupFolderPath, zipFileName); // Caminho completo do arquivo zip
 
-  // Define o caminho onde o backup será salvo (dentro da própria pasta do projeto)
-  const zipFilePath = path.join(folderPath, zipFileName);
+  try {
+    // Garantir que a pasta Backup exista
+    await fse.ensureDir(backupFolderPath);
+    console.log(`Pasta Backup criada ou já existe: ${backupFolderPath}`);
 
-  // Comando com 7-Zip, usando diretamente o comando '7z' já presente no PATH
-  const command = `"${sevenZipPath}" a "${zipFilePath}" "${folderPath}"`;
+    // Criar a pasta temporária backup_[data]_[hora]
+    await fse.ensureDir(tempBackupFolderPath);
+    console.log(`Pasta temporária de backup criada: ${tempBackupFolderPath}`);
 
-  return new Promise((resolve) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error("Erro ao criar backup:", stderr);
-        resolve({ success: false, message: "Erro ao criar backup." });
-      } else {
-        console.log(`Backup criado com sucesso: ${zipFilePath}`);
-        resolve({ success: true, message: `Backup criado em: ${zipFilePath}` });
+    // Copiar todos os arquivos, exceto a própria pasta Backup
+    const files = await fse.readdir(folderPath);
+    for (let file of files) {
+      const sourcePath = path.join(folderPath, file);
+      const destPath = path.join(tempBackupFolderPath, file);
+      if (file !== "Backup" && file !== tempBackupFolderName) {
+        await fse.copy(sourcePath, destPath);
+        console.log(`Arquivo copiado: ${file}`);
       }
-    });
-  });
-});
+    }
 
+    // Comando com 7-Zip, para compactar a pasta temporária
+    // A mudança-chave é aqui - vamos para o diretório do projeto e comprimir a partir dali
+    const command = `"${sevenZipPath}" a "${zipFilePath}" "${tempBackupFolderName}"`;
+
+    return new Promise((resolve) => {
+      // Execute o comando a partir do diretório do projeto
+      exec(command, { cwd: folderPath }, async (error, stdout, stderr) => {
+        if (error) {
+          console.error("Erro ao criar backup:", stderr);
+          resolve({ success: false, message: "Erro ao criar backup." });
+        } else {
+          console.log(`Backup criado com sucesso: ${zipFilePath}`);
+
+          // Excluir a pasta temporária de backup após a compactação
+          try {
+            await fse.remove(tempBackupFolderPath);
+            console.log(`Pasta temporária de backup excluída: ${tempBackupFolderPath}`);
+          } catch (deleteError) {
+            console.error("Erro ao excluir a pasta temporária:", deleteError);
+          }
+
+          resolve({ success: true, message: `Backup criado em: ${zipFilePath}` });
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error("Erro ao criar backup:", error);
+    return { success: false, message: "Erro ao criar backup." };
+  }
+});
 
 // Handler para limpar a pasta Temp
 ipcMain.handle('clear-temp-folder', async () => {

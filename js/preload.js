@@ -61,7 +61,9 @@ const projectOperations = {
   onUpdateProgress: (callback) => {
     ipcRenderer.on('update-progress', (event, data) => callback(data));
   },
-  clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder')
+  clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder'),
+  openPrismWindow: () => ipcRenderer.send("open-prism-window")
+
 
 };
 

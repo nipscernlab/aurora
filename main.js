@@ -43,6 +43,30 @@ function createProgressWindow() {
   progressWindow.loadFile(path.join(__dirname, 'html', 'progress.html'));
 }
 
+
+ipcMain.on("open-prism-window", () => {
+  let prismWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    icon: path.join(__dirname, "assets/icons/prism.png"), // Ícone correto
+    webPreferences: {
+      nodeIntegration: true
+    },
+    autoHideMenuBar: true, // Remove a barra de menu
+    frame: true, // Permite minimizar/maximizar/fechar
+  });
+
+  prismWindow.loadFile("html/prism.html");
+
+  prismWindow.once("ready-to-show", () => {
+    prismWindow.show(); // Garante que a janela abre corretamente
+  });
+
+  prismWindow.on("closed", () => {
+    prismWindow = null; // Evita consumo de memória
+  });
+});
+
 // Modifique a função checkForUpdates
 function checkForUpdates() {
   autoUpdater.checkForUpdatesAndNotify();

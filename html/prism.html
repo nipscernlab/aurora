@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg" href="/assets/icons/prism.svg">
+    <title>PRISM - Processor RTL Inspection & Schematic Mapper</title>
+    <style>
+        :root {
+            --primary-color: #3a86ff;
+            --secondary-color: #8338ec;
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-color: #e6edf3;
+            --border-color: #30363d;
+            --success-color: #3fb950;
+            --warning-color: #f0883e;
+            --error-color: #f85149;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .prism-header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .prism-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prism-title h1 {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .prism-logo {
+            width: 24px;
+            height: 24px;
+        }
+
+        .prism-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .prism-button {
+            background-color: var(--panel-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .prism-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .prism-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .prism-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #svg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            transform-origin: 0 0;
+            transition: transform 0.3s ease;
+        }
+
+        #svg-container svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .prism-navigation {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 100;
+        }
+
+        .prism-nav-button {
+            background-color: var(--panel-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .prism-nav-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .prism-status {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .highlight-element {
+            stroke: var(--primary-color) !important;
+            stroke-width: 2px !important;
+            stroke-opacity: 1 !important;
+        }
+
+        .svg-element:hover {
+            cursor: pointer;
+        }
+
+        .breadcrumb {
+            background-color: var(--panel-bg);
+            padding: 8px 20px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .breadcrumb::-webkit-scrollbar {
+            height: 5px;
+        }
+
+        .breadcrumb::-webkit-scrollbar-track {
+            background: var(--panel-bg);
+        }
+
+        .breadcrumb::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 10px;
+        }
+
+        .breadcrumb span {
+            display: inline-block;
+            padding: 2px 4px;
+        }
+
+        .breadcrumb span:not(:last-child)::after {
+            content: '›';
+            margin: 0 5px;
+            color: var(--border-color);
+        }
+
+        .breadcrumb span:last-child {
+            color: var(--primary-color);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(13, 17, 23, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Open File Dialog Styling */
+        .file-drop-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-drop-area:hover {
+            border-color: var(--primary-color);
+            background-color: rgba(58, 134, 255, 0.05);
+        }
+
+        .file-drop-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(58, 134, 255, 0.1);
+        }
+
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .file-message {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+
+        .file-instruction {
+            font-size: 0.9rem;
+            color: rgba(230, 237, 243, 0.7);
+            margin-bottom: 20px;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            max-width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+    <div class="prism-header">
+        <div class="prism-title">
+            <img src="../assets/icons/prism.svg" alt="PRISM Logo" class="prism-logo">
+            <h1>PRISM - Processor RTL Inspection & Schematic Mapper</h1>
+        </div>
+        
+        <div class="prism-controls">
+            <button id="open-file-btn" class="prism-button">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                </svg>
+                Open SVG
+            </button>
+            <button id="back-btn" class="prism-button" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back
+            </button>
+            <button id="reset-view-btn" class="prism-button">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reset View
+            </button>
+        </div>
+    </div>
+
+    <div class="breadcrumb" id="breadcrumb">
+        <span>No SVG loaded</span>
+    </div>
+
+    <div class="prism-content">
+        <div id="initial-load" class="file-drop-area">
+            <div class="file-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </div>
+            <div class="file-message">Drag & Drop SVG Files Here</div>
+            <div class="file-instruction">or click to browse files</div>
+            <input type="file" id="file-input" style="display: none" accept=".svg">
+        </div>
+
+        <div id="svg-container" style="display: none;"></div>
+        
+        <div class="prism-status" id="status">Ready</div>
+        
+        <div class="prism-navigation">
+            <button class="prism-nav-button" id="zoom-in" title="Zoom In">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            </button>
+            <button class="prism-nav-button" id="zoom-out" title="Zoom Out">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+                </svg>
+            </button>
+            <button class="prism-nav-button" id="fit-view" title="Fit to View">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="tooltip" id="tooltip"></div>
+
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        class PrismViewer {
+    constructor() {
+        this.currentZoom = 1;
+        this.isDragging = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.translateX = 0;
+        this.translateY = 0;
+        this.svgHistory = [];
+        this.currentSvgPath = null;
+        this.currentSvgName = null;
+        this.isLoaded = false;
+
+        // DOM Elements
+        this.svgContainer = document.getElementById('svg-container');
+        this.statusElement = document.getElementById('status');
+        this.breadcrumbElement = document.getElementById('breadcrumb');
+        this.initialLoadArea = document.getElementById('initial-load');
+        this.backButton = document.getElementById('back-btn');
+        this.tooltipElement = document.getElementById('tooltip');
+        this.loadingOverlay = document.getElementById('loading-overlay');
+        this.fileInput = document.getElementById('file-input');
+
+        // Initialize
+        this.initTerminalManager();
+        this.setupEventListeners();
+    }
+
+
+    initTerminalManager() {
+        // Use the existing TerminalManager if available
+        if (window.terminalManager) {
+            this.terminalManager = window.terminalManager;
+        } else {
+            // Create a simple terminal logging function if TerminalManager is not available
+            this.terminalManager = {
+                appendToTerminal: (terminalId, content, type = 'info') => {
+                    const terminal = document.querySelector(`#terminal-${terminalId} .terminal-body`);
+                    if (terminal) {
+                        const logEntry = document.createElement('div');
+                        logEntry.classList.add('log-entry', type);
+                        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${content}`;
+                        terminal.appendChild(logEntry);
+                        terminal.scrollTop = terminal.scrollHeight;
+                    } else {
+                        console.log(`Terminal ${terminalId}: ${content}`);
+                    }
+                }
+            };
+            window.terminalManager = this.terminalManager;
+        }
+    }
+
+    setupEventListeners() {
+        // Zoom controls
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            // Get center of container for zooming
+            const containerRect = this.svgContainer.getBoundingClientRect();
+            const centerX = containerRect.left + containerRect.width / 2;
+            const centerY = containerRect.top + containerRect.height / 2;
+            this.zoom(1.2, centerX, centerY);
+        });
+        
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            // Get center of container for zooming
+            const containerRect = this.svgContainer.getBoundingClientRect();
+            const centerX = containerRect.left + containerRect.width / 2;
+            const centerY = containerRect.top + containerRect.height / 2;
+            this.zoom(0.8, centerX, centerY);
+        });
+        
+        document.getElementById('fit-view').addEventListener('click', () => this.centerSvg());
+        document.getElementById('reset-view-btn').addEventListener('click', () => this.centerSvg());
+
+        // Back button
+        this.backButton.addEventListener('click', () => this.navigateBack());
+
+        // Drag and pan
+        this.svgContainer.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        window.addEventListener('mouseup', () => this.handleMouseUp());
+
+        // Wheel zoom
+        this.svgContainer.addEventListener('wheel', (e) => this.handleWheel(e));
+
+        // Open file button
+        document.getElementById('open-file-btn').addEventListener('click', () => {
+            this.fileInput.click();
+        });
+
+        // File input change
+        this.fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.loadSvgFromFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        this.initialLoadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.initialLoadArea.classList.add('dragover');
+        });
+
+        this.initialLoadArea.addEventListener('dragleave', () => {
+            this.initialLoadArea.classList.remove('dragover');
+        });
+
+        this.initialLoadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.initialLoadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
+                    this.loadSvgFromFile(file);
+                } else {
+                    this.showStatus('Error: Please select an SVG file', 'error');
+                }
+            }
+        });
+
+        this.initialLoadArea.addEventListener('click', () => {
+            this.fileInput.click();
+        });
+    }
+    async loadSvgFromFile(file) {
+        this.showLoading(true);
+        try {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const svgContent = e.target.result;
+                this.loadSvg(svgContent, file.name);
+            };
+            reader.readAsText(file);
+        } catch (error) {
+            this.showStatus(`Error loading file: ${error.message}`, 'error');
+            this.showLoading(false);
+        }
+    }
+
+    loadSvg(svgContent, svgName) {
+        try {
+            // Hide initial load area and show SVG container
+            this.initialLoadArea.style.display = 'none';
+            this.svgContainer.style.display = 'block';
+            
+            // Clear previous SVG content
+            this.svgContainer.innerHTML = svgContent;
+
+            // Store current SVG info
+            this.currentSvgPath = svgName;
+            this.currentSvgName = svgName.split('/').pop().replace('.svg', '');
+            
+            // Center the SVG in view
+            this.centerSvg();
+            
+            // Setup SVG elements
+            this.setupSvgElements();
+            
+            // Update breadcrumb
+            this.updateBreadcrumb();
+            
+            // Log to terminal
+            this.logToTerminal(`Loaded SVG: ${this.currentSvgName}`);
+            
+            // Show success status
+            this.showStatus(`SVG loaded: ${this.currentSvgName}`);
+            
+            // Update state
+            this.isLoaded = true;
+        } catch (error) {
+            this.showStatus(`Error loading SVG: ${error.message}`, 'error');
+            console.error('Error loading SVG:', error);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+
+    setupSvgElements() {
+        // Find all interactive elements in the SVG
+        const svgElements = this.svgContainer.querySelectorAll('g, rect, circle, path, polygon, polyline');
+        
+        svgElements.forEach(element => {
+            // Add class for styling
+            element.classList.add('svg-element');
+            
+            // Mouse over highlight
+            element.addEventListener('mouseover', (e) => {
+                element.classList.add('highlight-element');
+                
+                // Show tooltip if there's a title or id
+                const title = element.getAttribute('title') || element.getAttribute('id');
+                if (title) {
+                    this.showTooltip(title, e.clientX, e.clientY);
+                }
+            });
+            
+            element.addEventListener('mousemove', (e) => {
+                const title = element.getAttribute('title') || element.getAttribute('id');
+                if (title) {
+                    this.showTooltip(title, e.clientX, e.clientY);
+                }
+            });
+            
+            element.addEventListener('mouseout', () => {
+                element.classList.remove('highlight-element');
+                this.hideTooltip();
+            });
+            
+            // Click to navigate
+            element.addEventListener('click', (e) => {
+                if (!this.isDragging) {
+                    // Check if element has an href or xlink:href attribute
+                    const href = element.getAttribute('href') || element.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                    
+                    if (href && href.endsWith('.svg')) {
+                        e.stopPropagation();
+                        e.preventDefault(); // Prevent default behavior
+                        this.navigateTo(href, element.getAttribute('title') || element.getAttribute('id') || href);
+                    }
+                }
+            });
+        });
+    }
+
+    navigateTo(svgPath, svgName) {
+        // Add current SVG to history
+        this.svgHistory.push({
+            content: this.svgContainer.innerHTML,
+            path: this.currentSvgPath,
+            name: this.currentSvgName
+        });
+        
+        // Enable back button
+        this.backButton.disabled = false;
+        
+        // Log navigation
+        this.logToTerminal(`Navigating to: ${svgName}`);
+        
+        // Show loading
+        this.showLoading(true);
+        
+        // Fix relative path if needed
+        // If we're in Electron, we might need to handle paths differently
+        // This is a simple approach that might need adaptation for your specific setup
+        let fullPath = svgPath;
+        if (!svgPath.startsWith('http') && !svgPath.startsWith('/')) {
+            // Handle relative path
+            // In Electron, you might need to use a more specific approach
+            const currentDir = this.currentSvgPath ? this.currentSvgPath.split('/').slice(0, -1).join('/') : '';
+            fullPath = currentDir ? `${currentDir}/${svgPath}` : svgPath;
+        }
+        
+        // In Electron, we might use IPC to fetch files
+        if (window.electron && window.electron.ipcRenderer) {
+            // Using Electron IPC for file operations
+            window.electron.ipcRenderer.invoke('read-svg-file', fullPath)
+                .then(svgContent => {
+                    this.loadSvg(svgContent, svgName);
+                })
+                .catch(error => {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                })
+                .finally(() => {
+                    this.showLoading(false);
+                });
+        } else {
+            // Browser approach - fetch SVG
+            fetch(fullPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load SVG: ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(svgContent => {
+                    this.loadSvg(svgContent, svgName);
+                })
+                .catch(error => {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                    console.error('Navigation error:', error);
+                })
+                .finally(() => {
+                    this.showLoading(false);
+                });
+        }
+    }
+
+    navigateBack() {
+        if (this.svgHistory.length === 0) return;
+        
+        // Log navigation
+        this.logToTerminal(`Navigating back to: ${this.svgHistory[this.svgHistory.length - 1].name}`);
+        
+        // Show loading
+        this.showLoading(true);
+        
+        // Get previous SVG from history
+        const previousSvg = this.svgHistory.pop();
+        
+        // Update current SVG info
+        this.currentSvgPath = previousSvg.path;
+        this.currentSvgName = previousSvg.name;
+        
+        // Load previous SVG
+        this.svgContainer.innerHTML = previousSvg.content;
+        
+        // Center the SVG
+        this.centerSvg();
+        
+        // Setup SVG elements
+        this.setupSvgElements();
+        
+        // Update breadcrumb
+        this.updateBreadcrumb();
+        
+        // Update back button
+        this.backButton.disabled = this.svgHistory.length === 0;
+        
+        // Show success status
+        this.showStatus(`Returned to: ${this.currentSvgName}`);
+        
+        // Hide loading
+        this.showLoading(false);
+    }
+
+    centerSvg() {
+        if (!this.isLoaded) return;
+        
+        // Reset zoom
+        this.currentZoom = 1;
+        
+        // Get the SVG element
+        const svgElement = this.svgContainer.querySelector('svg');
+        if (!svgElement) return;
+        
+        // Get view information
+        const containerRect = this.svgContainer.getBoundingClientRect();
+        const svgRect = svgElement.getBoundingClientRect();
+        
+        // Calculate centering position
+        this.translateX = (containerRect.width - svgRect.width) / 2;
+        this.translateY = (containerRect.height - svgRect.height) / 2;
+        
+        // Apply transformation
+        this.applyTransform();
+        
+        // Update status
+        this.showStatus('SVG centered');
+    }
+    updateBreadcrumb() {
+        // Clear breadcrumb
+        this.breadcrumbElement.innerHTML = '';
+        
+        // Create breadcrumb items for history
+        if (this.svgHistory.length > 0) {
+            this.svgHistory.forEach((item, index) => {
+                const span = document.createElement('span');
+                span.textContent = item.name;
+                span.style.cursor = 'pointer';
+                span.addEventListener('click', () => {
+                    // Navigate back to this item
+                    while (this.svgHistory.length > index) {
+                        this.navigateBack();
+                    }
+                });
+                this.breadcrumbElement.appendChild(span);
+            });
+        }
+        
+        // Add current SVG to breadcrumb
+        if (this.currentSvgName) {
+            const span = document.createElement('span');
+            span.textContent = this.currentSvgName;
+            this.breadcrumbElement.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.textContent = 'No SVG loaded';
+            this.breadcrumbElement.appendChild(span);
+        }
+    }
+
+
+    showStatus(message, type = 'info') {
+        this.statusElement.textContent = message;
+        this.statusElement.className = 'prism-status';
+        if (type) {
+            this.statusElement.classList.add(type);
+        }
+        
+        // Show status briefly then fade out
+        this.statusElement.style.opacity = '1';
+        clearTimeout(this.statusTimeout);
+        this.statusTimeout = setTimeout(() => {
+            this.statusElement.style.opacity = '0.7';
+        }, 3000);
+    }
+
+    showTooltip(text, x, y) {
+        this.tooltipElement.textContent = text;
+        this.tooltipElement.style.left = `${x + 15}px`;
+        this.tooltipElement.style.top = `${y + 15}px`;
+        this.tooltipElement.style.opacity = '1';
+    }
+
+    hideTooltip() {
+        this.tooltipElement.style.opacity = '0';
+    }
+
+    logToTerminal(message) {
+        // Send log to TPRISM terminal
+        this.terminalManager.appendToTerminal('tprism', message);
+    }
+    showLoading(show) {
+        if (show) {
+            this.loadingOverlay.classList.add('active');
+        } else {
+            this.loadingOverlay.classList.remove('active');
+        }
+    }
+
+    zoom(factor, centerX = null, centerY = null) {
+        if (!this.isLoaded) return;
+        
+        const container = this.svgContainer;
+        const rect = container.getBoundingClientRect();
+        
+        // Use the specified center or default to center of container
+        const cx = centerX !== null ? centerX - rect.left : rect.width / 2;
+        const cy = centerY !== null ? centerY - rect.top : rect.height / 2;
+        
+        // Calculate point before zoom
+        const beforeZoomPoint = {
+            x: (cx - this.translateX) / this.currentZoom,
+            y: (cy - this.translateY) / this.currentZoom
+        };
+        
+        // Apply zoom
+        this.currentZoom *= factor;
+        
+        // Limit zoom level
+        this.currentZoom = Math.max(0.1, Math.min(10, this.currentZoom));
+        
+        // Calculate point after zoom
+        const afterZoomPoint = {
+            x: beforeZoomPoint.x,
+            y: beforeZoomPoint.y
+        };
+        
+        // Adjust translation to keep the point under cursor
+        this.translateX = cx - (afterZoomPoint.x * this.currentZoom);
+        this.translateY = cy - (afterZoomPoint.y * this.currentZoom);
+        
+        // Apply transformation
+        this.applyTransform();
+        
+        // Update status
+        this.showStatus(`Zoom: ${Math.round(this.currentZoom * 100)}%`);
+    }
+    handleMouseDown(e) {
+        if (!this.isLoaded) return;
+        
+        // Only handle left mouse button
+        if (e.button !== 0) return;
+        
+        this.isDragging = true;
+        this.startX = e.clientX - this.translateX;
+        this.startY = e.clientY - this.translateY;
+        
+        // Change cursor
+        this.svgContainer.style.cursor = 'grabbing';
+    }
+
+    handleMouseMove(e) {
+        if (!this.isDragging) return;
+        
+        // Calculate new position
+        this.translateX = e.clientX - this.startX;
+        this.translateY = e.clientY - this.startY;
+        
+        // Apply transformation
+        this.applyTransform();
+    }
+
+    handleMouseUp() {
+        this.isDragging = false;
+        
+        // Restore cursor
+        this.svgContainer.style.cursor = 'default';
+    }
+
+    handleWheel(e) {
+        if (!this.isLoaded) return;
+        
+        // Prevent default scrolling
+        e.preventDefault();
+        
+        // Determine zoom direction
+        const factor = e.deltaY < 0 ? 1.1 : 0.9;
+        
+        // Zoom centered on mouse position
+        this.zoom(factor, e.clientX, e.clientY);
+    }
+
+    applyTransform() {
+        this.svgContainer.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.currentZoom})`;
+    }
+
+
+            resetView(centerSvg = false) {
+    if (!this.isLoaded) return;
+    
+    // Reset zoom
+    this.currentZoom = 1;
+    
+    if (centerSvg) {
+        // Get SVG element dimensions
+        const svgElement = this.svgContainer.querySelector('svg');
+        if (svgElement) {
+            const containerRect = this.svgContainer.getBoundingClientRect();
+            const svgRect = svgElement.getBoundingClientRect();
+            
+            // Calculate centering position
+            this.translateX = (containerRect.width - svgRect.width) / 2;
+            this.translateY = (containerRect.height - svgRect.height) / 2;
+        } else {
+            // Default centering if no SVG element found
+            this.translateX = 0;
+            this.translateY = 0;
+        }
+    } else {
+        // Just reset position without centering
+        this.translateX = 0;
+        this.translateY = 0;
+    }
+    
+    // Apply transformation
+    this.applyTransform();
+    
+    // Update status
+    this.showStatus('View reset');
+}
+
+
+        }
+
+        // Initialize PRISM viewer when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Create and store the PRISM viewer instance
+            window.prismViewer = new PrismViewer();
+        });
+        if (document.getElementById('prismcomp')) {
+    document.getElementById('prismcomp').addEventListener('click', () => {
+        // Just log message, no new window
+        if (window.terminalManager) {
+            window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer is already active');
+        }
+    });
+}
+        // Connect PRISM button to viewer
+        document.getElementById('prismcomp').addEventListener('click', () => {
+            // Create a new window for the PRISM viewer
+            const prismWindow = window.open('', 'prism-viewer', 'width=1200,height=800');
+            
+            // Clone the current document HTML into the new window
+            prismWindow.document.write(document.documentElement.outerHTML);
+            
+            // Add a script to initialize the viewer in the new window
+            prismWindow.document.write(`
+            <script>
+                window.addEventListener('DOMContentLoaded', () => {
+                    window.prismViewer = new PrismViewer();
+                    
+                    // Log para o terminal da janela pai
+                    if (window.opener && window.opener.terminalManager) {
+                        window.terminalManager = window.opener.terminalManager;
+                        window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer opened in new window');
+                    }
+                });
+            <\/script>
+        `);
+            
+            // Close the document
+            prismWindow.document.close();
+            
+            // Log to terminal
+            if (window.terminalManager) {
+                window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer launched');
+            }
+        });
+    </script>
+</body>
+</html>

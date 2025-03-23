@@ -1173,11 +1173,9 @@ const tabDragStyles = document.createElement('style');
 tabDragStyles.textContent = `
   .tab.dragging {
     opacity: 0.5;
-    cursor: grabbing;
   }
 
   .tab {
-    cursor: grab;
     user-select: none;
     transition: opacity 0.2s ease;
   }
@@ -2949,6 +2947,19 @@ window.addEventListener('load', () => {
   const compilationManager = new CompilationButtonManager();
 });
 
+// Add an event listener to the PRISM button
+document.getElementById("prismcomp").addEventListener("click", function() {
+  // Chama o processo principal para abrir a nova janela
+  window.electronAPI.openPrismWindow();
+
+  // Log no terminal informando que a PRISM foi aberta
+  if (window.terminalManager) {
+    window.terminalManager.appendToTerminal("tprism", "PRISM Viewer launched");
+  }
+});
+
+
+
 //TERMINAL =============================================================================================================================================================
 class TerminalManager {
   constructor() {
@@ -2957,7 +2968,8 @@ class TerminalManager {
       tasm: document.querySelector('#terminal-tasm .terminal-body'),
       tveri: document.querySelector('#terminal-tveri .terminal-body'),
       twave: document.querySelector('#terminal-twave .terminal-body'),
-      tcmd: document.querySelector('#terminal-tcmd .terminal-body')
+      tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
+      tprism: document.querySelector('#terminal-tprism .terminal-body')
     };
     
     this.setupTerminalTabs();

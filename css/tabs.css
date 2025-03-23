@@ -51,13 +51,14 @@
 }
 
 .tab {
-  cursor: grab;
+  /*cursor: grab;*/
+  cursor: pointer;
   user-select: none;
 }
 
 .tab.dragging {
   opacity: 0.5;
-  cursor: grabbing;
+  /*cursor: grabbing;*/
 }
 
 /* Drop indicator styling */

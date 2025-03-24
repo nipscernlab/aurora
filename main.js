@@ -15,30 +15,22 @@ let isQuitting = false;  // Flag para controlar o fechamento do app
 
 let mainWindow, splashWindow;
 
-async function loadSettings() {
+function loadSettings() {
   try {
-    // Use await com fs.promises
-    try {
-      await fs.access(settingsPath);
-      const data = await fs.readFile(settingsPath, 'utf8');
-      return JSON.parse(data);
-    } catch (err) {
-      // Arquivo não existe, retorne as configurações padrão
-      return {
-        startWithWindows: false,
-        minimizeToTray: true,
-        theme: 'dark'
-      };
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf8');
+      return JSON.parse(settingsData);
     }
   } catch (error) {
     console.error('Error loading settings:', error);
-    // Retornar configurações padrão em caso de erro
-    return {
-      startWithWindows: false,
-      minimizeToTray: true,
-      theme: 'dark'
-    };
   }
+
+  // Default settings
+  return {
+    startWithWindows: false,
+    minimizeToTray: true,
+    theme: 'dark'
+  };
 }
 
 
@@ -302,26 +294,27 @@ async function createMainWindow() {
 
    // Handle window close
    mainWindow.on('close', async (event) => {
-    if (isQuitting) {
-      // Se estiver fechando o app, não faz nada
-      return;
-    }
-    
-    // Recarrega as configurações para obter o estado atual
-    const settings = await loadSettings();
-    
-    // Se estiver configurado para minimizar para a bandeja, impede o fechamento
-    if (settings.minimizeToTray) {
-      event.preventDefault();
-      mainWindow.hide();
-    } else {
-      // Se não, marca como saindo e destrói o tray
-      isQuitting = true;
-      if (tray) {
-        tray.destroy();
-        tray = null;
+    // Verifica se já está marcado para sair
+    if (isQuitting) return;
+  
+    try {
+      // Carrega as configurações atuais
+      const settings = await loadSettings();
+      
+      // Se a opção de minimizar para bandeja estiver ativada
+      if (settings.minimizeToTray) {
+        event.preventDefault(); // Impede o fechamento padrão
+        mainWindow.hide(); // Minimiza para a bandeja
+        return; // Sai do manipulador de evento
       }
+    } catch (error) {
+      console.error('Erro ao verificar configurações:', error);
     }
+  });
+  
+  // Modifique também o evento de 'before-quit'
+  app.on('before-quit', () => {
+    isQuitting = true;
   });
 
   mainWindow.once('ready-to-show', () => {

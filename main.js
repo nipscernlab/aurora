@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu} = require('electron');
+const { app, BrowserWindow, ipcMain, shell,  Tray, nativeImage, dialog, Menu} = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec } = require('child_process');
 const path = require('path');
@@ -8,7 +8,148 @@ const os = require('os');
 const { spawn } = require('child_process'); // Importa spawn corretamente 
 const moment = require("moment"); // Para gerar a data e hora
 
+const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+let tray = null;
+let settingsWindow = null;
+let isQuitting = false;  // Flag para controlar o fechamento do app
+
 let mainWindow, splashWindow;
+
+async function loadSettings() {
+  try {
+    // Use await com fs.promises
+    try {
+      await fs.access(settingsPath);
+      const data = await fs.readFile(settingsPath, 'utf8');
+      return JSON.parse(data);
+    } catch (err) {
+      // Arquivo não existe, retorne as configurações padrão
+      return {
+        startWithWindows: false,
+        minimizeToTray: true,
+        theme: 'dark'
+      };
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    // Retornar configurações padrão em caso de erro
+    return {
+      startWithWindows: false,
+      minimizeToTray: true,
+      theme: 'dark'
+    };
+  }
+}
+
+
+async function saveSettings(settings) {
+  try {
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return false;
+  }
+}
+
+// Aplicar configuração de inicialização automática
+function applyAutoStartSettings(enabled) {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: process.execPath
+    });
+    return true;
+  } catch (error) {
+    console.error('Error setting login item:', error);
+    return false;
+  }
+}
+
+function createTray() {
+  // Evitar duplicação do tray
+  if (tray !== null) return;
+
+  // Caminho para o ícone principal
+  const iconPath = path.join(__dirname, 'assets','icons', 'aurora_borealis-2.png');
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+  
+  // Caminhos para os ícones do menu
+  const openIconPath = path.join(__dirname, 'assets', 'icons', 'open.png');
+  const settingsIconPath = path.join(__dirname, 'assets','icons', 'settings.png');
+  const quitIconPath = path.join(__dirname, 'assets','icons', 'close.png');
+  
+  // Criar menu de contexto com ícones
+  const contextMenu = Menu.buildFromTemplate([
+    { 
+      label: 'Open App', 
+      icon: nativeImage.createFromPath(openIconPath).resize({ width: 16, height: 16 }),
+      click: () => {
+        mainWindow.show();
+      } 
+    },
+    { 
+      label: 'Settings', 
+      icon: nativeImage.createFromPath(settingsIconPath).resize({ width: 16, height: 16 }),
+      click: () => {
+        createSettingsWindow();
+      } 
+    },
+    { type: 'separator' },
+    { 
+      label: 'Quit', 
+      icon: nativeImage.createFromPath(quitIconPath).resize({ width: 16, height: 16 }),
+      click: () => {
+        isQuitting = true;  // Marcar que está saindo
+        if (tray) {
+          tray.destroy();  // Destruir o tray antes de sair
+          tray = null;
+        }
+        app.quit();  // Sair do aplicativo
+      } 
+    }
+  ]);
+  
+  tray.setToolTip('AURORA IDE');
+  tray.setContextMenu(contextMenu);
+  
+  // Clique duplo para mostrar app
+  tray.on('double-click', () => {
+    mainWindow.show();
+  });
+}
+
+// Create the settings window
+function createSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.focus();
+    return;
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 490,
+    height: 505,
+    parent: mainWindow,
+    modal: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    autoHideMenuBar: true,
+    frame: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    },
+    title: 'Settings'
+  });
+
+  settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
 
 function updatePathInElectron() {
   console.log("Atualizando o PATH no Electron...");
@@ -132,11 +273,11 @@ function checkForUpdates() {
   });
 }
 
-function createMainWindow() {
+async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    //autoHideMenuBar: true,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -149,11 +290,78 @@ function createMainWindow() {
   });
 
   mainWindow.loadFile('index.html');
+
+  // Load settings
+  const settings = await loadSettings();
+  
+  // Apply auto-start setting
+  applyAutoStartSettings(settings.startWithWindows);
+
+  // Create tray icon
+  createTray();
+
+   // Handle window close
+   mainWindow.on('close', async (event) => {
+    if (isQuitting) {
+      // Se estiver fechando o app, não faz nada
+      return;
+    }
+    
+    // Recarrega as configurações para obter o estado atual
+    const settings = await loadSettings();
+    
+    // Se estiver configurado para minimizar para a bandeja, impede o fechamento
+    if (settings.minimizeToTray) {
+      event.preventDefault();
+      mainWindow.hide();
+    } else {
+      // Se não, marca como saindo e destrói o tray
+      isQuitting = true;
+      if (tray) {
+        tray.destroy();
+        tray = null;
+      }
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     updatePathInElectron();
     mainWindow.show();
   });
 }
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+});
+
+
+// Manipuladores IPC para configurações
+ipcMain.handle('get-settings', async () => {
+  return await loadSettings();
+});
+
+ipcMain.handle('save-settings', async (event, settings) => {
+  // Salvar configurações no arquivo
+  const success = await saveSettings(settings);
+  
+  // Aplicar configuração de inicialização automática
+  applyAutoStartSettings(settings.startWithWindows);
+  
+  return success;
+});
+
+ipcMain.on('close-settings-modal', () => {
+  if (settingsWindow) settingsWindow.close();
+});
+
+// Manipulador IPC para abrir janela de configurações
+ipcMain.on('open-settings', () => {
+  createSettingsWindow();
+});
 
 function createSplashScreen() {
   splashWindow = new BrowserWindow({

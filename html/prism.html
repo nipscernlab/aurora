@@ -1,21 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/svg" href="/assets/icons/prism.svg">
     <title>PRISM - Processor RTL Inspection & Schematic Mapper</title>
     <style>
         :root {
-            --primary-color: #3a86ff;
-            --secondary-color: #8338ec;
-            --bg-color: #0d1117;
-            --panel-bg: #161b22;
-            --text-color: #e6edf3;
-            --border-color: #30363d;
-            --success-color: #3fb950;
-            --warning-color: #f0883e;
-            --error-color: #f85149;
+            /* Dark theme (default) */
+            --bg-primary: #1a1b26;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #24283b;
+            --bg-hover: #292e42;
+            --bg-active: #364156;
+            
+            --accent-primary: #7aa2f7;
+            --accent-secondary: #5973c0;
+            --accent-hover: #89b4f7;
+            
+            --text-primary: #c0caf5;
+            --text-secondary: #9aa5ce;
+            --text-muted: #565f89;
+            
+            --border-primary: #29324d;
+            --border-secondary: #1f2937;
+            
+            --icon-primary: #7aa2f7;
+            --icon-secondary: #9aa5ce;
+            
+            --error: #f7768e;
+            --warning: #e0af68;
+            --success: #9ece6a;
+            --info: #7dcfff;
+            
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            
+            /* Font families */
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        
+        /* Light theme */
+        body.theme-light {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --bg-hover: #e2e8f0;
+            --bg-active: #cbd5e1;
+            
+            --accent-primary: #3b82f6;
+            --accent-secondary: #2563eb;
+            --accent-hover: #60a5fa;
+            
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            
+            --border-primary: #e2e8f0;
+            --border-secondary: #cbd5e1;
+            
+            --icon-primary: #3b82f6;
+            --icon-secondary: #64748b;
         }
 
         * {
@@ -25,949 +72,1056 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: var(--font-sans);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
 
-        .prism-header {
-            background-color: var(--panel-bg);
-            border-bottom: 1px solid var(--border-color);
-            padding: 10px 20px;
+        header {
+            background-color: var(--bg-secondary);
+            padding: 0.8rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            user-select: none;
+            border-bottom: 1px solid var(--border-primary);
         }
 
-        .prism-title {
+        .title-container {
             display: flex;
             align-items: center;
-            gap: 10px;
-        }
-
-        .prism-title h1 {
-            font-size: 1.2rem;
-            font-weight: 500;
+            gap: 1rem;
         }
 
         .prism-logo {
-            width: 24px;
-            height: 24px;
+            height: 32px;
+            width: auto;
         }
 
-        .prism-controls {
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .controls {
             display: flex;
-            gap: 10px;
             align-items: center;
+            gap: 1rem;
         }
 
-        .prism-button {
-            background-color: var(--panel-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 6px 12px;
+        button {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 0.5rem;
             transition: all 0.2s ease;
         }
 
-        .prism-button:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+        button:hover {
+            background-color: var(--bg-hover);
         }
 
-        .prism-button svg {
-            width: 16px;
-            height: 16px;
+        button:active {
+            background-color: var(--bg-active);
         }
 
-        .prism-content {
+        button.primary {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+
+        button.primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-right: 1rem;
+        }
+
+        .zoom-level {
+            min-width: 80px;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--icon-secondary);
+            cursor: pointer;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--bg-hover);
+        }
+
+        main {
+            width: 100%;
+            height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .drop-area {
             flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             position: relative;
             overflow: hidden;
         }
 
-        #svg-container {
+        .drop-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
-            transform-origin: 0 0;
-            transition: transform 0.3s ease;
-        }
-
-        #svg-container svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        .prism-navigation {
-            position: absolute;
-            right: 20px;
-            bottom: 20px;
+            background-color: rgba(0, 0, 0, 0.6);
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px;
-            z-index: 100;
-        }
-
-        .prism-nav-button {
-            background-color: var(--panel-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .prism-nav-button:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .prism-status {
-            position: absolute;
-            left: 20px;
-            bottom: 20px;
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 0.9rem;
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        .highlight-element {
-            stroke: var(--primary-color) !important;
-            stroke-width: 2px !important;
-            stroke-opacity: 1 !important;
-        }
-
-        .svg-element:hover {
-            cursor: pointer;
-        }
-
-        .breadcrumb {
-            background-color: var(--panel-bg);
-            padding: 8px 20px;
-            border-bottom: 1px solid var(--border-color);
-            white-space: nowrap;
-            overflow-x: auto;
-            scrollbar-width: thin;
-        }
-
-        .breadcrumb::-webkit-scrollbar {
-            height: 5px;
-        }
-
-        .breadcrumb::-webkit-scrollbar-track {
-            background: var(--panel-bg);
-        }
-
-        .breadcrumb::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 10px;
-        }
-
-        .breadcrumb span {
-            display: inline-block;
-            padding: 2px 4px;
-        }
-
-        .breadcrumb span:not(:last-child)::after {
-            content: '›';
-            margin: 0 5px;
-            color: var(--border-color);
-        }
-
-        .breadcrumb span:last-child {
-            color: var(--primary-color);
-        }
-
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(13, 17, 23, 0.8);
-            display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
+            gap: 1.5rem;
+            z-index: 10;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
         }
 
-        .loading-overlay.active {
+        .drop-overlay.active {
             opacity: 1;
             pointer-events: all;
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
+        .drop-message {
+            font-size: 1.5rem;
+            text-align: center;
+            max-width: 500px;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            color: white;
+            opacity: 0.8;
+        }
+
+        .svg-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .svg-container {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+        .welcome-message {
+            max-width: 600px;
+            text-align: center;
+            padding: 2rem;
+            background-color: var(--bg-secondary);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .welcome-message h2 {
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+        }
+
+        .welcome-message p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        #svg-wrapper {
+            transform-origin: 0 0;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transition: transform 0.1s ease;
+        }
+
+        #svg-wrapper svg {
+            display: block;
+        }
+
+        #svg-wrapper * {
+            transition: outline 0s ease;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            box-shadow: var(--shadow-md);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid var(--border-primary);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .status-bar {
+            padding: 0.5rem 1rem;
+            background-color: var(--bg-tertiary);
+            border-top: 1px solid var(--border-primary);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
             border-radius: 50%;
-            border-top-color: var(--primary-color);
-            animation: spin 1s linear infinite;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
 
-        /* Open File Dialog Styling */
-        .file-drop-area {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            background-color: rgba(255, 255, 255, 0.03);
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .hidden {
+            display: none !important;
         }
 
-        .file-drop-area:hover {
-            border-color: var(--primary-color);
-            background-color: rgba(58, 134, 255, 0.05);
-        }
+        /* For the highlighted element */
+        .highlight-outline {
+    filter: drop-shadow(0 0 4px var(--accent-primary)) drop-shadow(0 0 2px var(--accent-hover));
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    transition: all 0.15s ease;
+}
 
-        .file-drop-area.dragover {
-            border-color: var(--primary-color);
-            background-color: rgba(58, 134, 255, 0.1);
-        }
+        #svg-wrapper {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+    transition: transform 0.2s ease;
+}
 
-        .file-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-            color: var(--primary-color);
-        }
+.navigation-buttons {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 50;
+    display: flex;
+    gap: 10px;
+}
 
-        .file-message {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-        }
+/* Adicione transição para a navegação suave entre SVGs */
+.svg-transition {
+    transition: opacity 0.3s ease;
+}
 
-        .file-instruction {
-            font-size: 0.9rem;
-            color: rgba(230, 237, 243, 0.7);
-            margin-bottom: 20px;
-        }
+#back-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+}
 
-        /* Tooltip */
-        .tooltip {
-            position: absolute;
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 0.8rem;
-            pointer-events: none;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.2s;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            max-width: 250px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+#back-btn:hover {
+    background-color: var(--bg-hover);
+}
+
+#back-btn.hidden {
+    display: none !important;
+}
+#back-btn:hover {
+    opacity: 1;
+    background-color: var(--bg-hover);
+}
+
+
+#back-btn:disabled,
+#back-btn.hidden {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+#theme-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--icon-secondary);
+    cursor: pointer;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+}
+
+#theme-toggle:hover {
+    background-color: var(--bg-hover);
+}
     </style>
 </head>
 <body>
-    <div class="prism-header">
-        <div class="prism-title">
+    <header>
+        <div class="title-container">
             <img src="../assets/icons/prism.svg" alt="PRISM Logo" class="prism-logo">
-            <h1>PRISM - Processor RTL Inspection & Schematic Mapper</h1>
+            <h1>PRISM</h1>
         </div>
-        
-        <div class="prism-controls">
-            <button id="open-file-btn" class="prism-button">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+        <div class="controls">
+            <div class="zoom-controls">
+                <button id="zoom-out-btn" title="Diminuir Zoom">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                </button>
+                <span id="zoom-level" class="zoom-level">100%</span>
+                <button id="zoom-in-btn" title="Aumentar Zoom">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                </button>
+            </div>
+            <button id="reset-view-btn" title="Redefinir Visualização">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"></path>
+                    <path d="M17 12H7"></path>
                 </svg>
-                Open SVG
+                Reset
             </button>
-            <button id="back-btn" class="prism-button" disabled>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <button id="open-file-btn" class="primary" title="Abrir Arquivo SVG">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5v14"></path>
                 </svg>
-                Back
+                Abrir SVG
             </button>
-            <button id="reset-view-btn" class="prism-button">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Reset View
+            <button id="theme-toggle" class="theme-toggle" title="Alternar Tema">
+                <i class="fa-solid fa-circle-half-stroke"></i>
             </button>
         </div>
-    </div>
-
-    <div class="breadcrumb" id="breadcrumb">
-        <span>No SVG loaded</span>
-    </div>
-
-    <div class="prism-content">
-        <div id="initial-load" class="file-drop-area">
-            <div class="file-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    </header>
+    <main>
+        <div class="drop-area" id="drop-area">
+            <div class="welcome-message" id="welcome-message">
+                <h2>Bem-vindo ao PRISM</h2>
+                <p>Arraste e solte um arquivo SVG aqui ou clique no botão "Abrir SVG" para começar a explorar seus esquemáticos RTL.</p>
+                <button id="welcome-open-btn" class="primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5v14"></path>
+                    </svg>
+                    Abrir SVG
+                </button>
+            </div>
+            <div class="svg-container hidden" id="svg-container">
+                <div id="svg-wrapper"></div>
+                <div class="navigation-buttons">
+                    <button id="back-btn" class="hidden" title="Voltar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 12H5"></path>
+                            <path d="M12 19l-7-7 7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="drop-overlay" id="drop-overlay">
+                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
+                <div class="drop-message">Solte o arquivo SVG para carregar</div>
             </div>
-            <div class="file-message">Drag & Drop SVG Files Here</div>
-            <div class="file-instruction">or click to browse files</div>
-            <input type="file" id="file-input" style="display: none" accept=".svg">
+            <div class="tooltip" id="tooltip"></div>
         </div>
-
-        <div id="svg-container" style="display: none;"></div>
-        
-        <div class="prism-status" id="status">Ready</div>
-        
-        <div class="prism-navigation">
-            <button class="prism-nav-button" id="zoom-in" title="Zoom In">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-            </button>
-            <button class="prism-nav-button" id="zoom-out" title="Zoom Out">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
-                </svg>
-            </button>
-            <button class="prism-nav-button" id="fit-view" title="Fit to View">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-                </svg>
-            </button>
+        <div class="status-bar">
+            <div id="status-message">Pronto</div>
+            <div id="file-info">Nenhum arquivo carregado</div>
         </div>
-
-        <div class="tooltip" id="tooltip"></div>
-
-        <div class="loading-overlay" id="loading-overlay">
-            <div class="spinner"></div>
-        </div>
-    </div>
+    </main>
+    <input type="file" id="file-input" accept=".svg" class="hidden">
 
     <script>
-        class PrismViewer {
-    constructor() {
-        this.currentZoom = 1;
-        this.isDragging = false;
-        this.startX = 0;
-        this.startY = 0;
-        this.translateX = 0;
-        this.translateY = 0;
-        this.svgHistory = [];
-        this.currentSvgPath = null;
-        this.currentSvgName = null;
-        this.isLoaded = false;
-
-        // DOM Elements
-        this.svgContainer = document.getElementById('svg-container');
-        this.statusElement = document.getElementById('status');
-        this.breadcrumbElement = document.getElementById('breadcrumb');
-        this.initialLoadArea = document.getElementById('initial-load');
-        this.backButton = document.getElementById('back-btn');
-        this.tooltipElement = document.getElementById('tooltip');
-        this.loadingOverlay = document.getElementById('loading-overlay');
-        this.fileInput = document.getElementById('file-input');
-
-        // Initialize
-        this.initTerminalManager();
-        this.setupEventListeners();
-    }
-
-
-    initTerminalManager() {
-        // Use the existing TerminalManager if available
-        if (window.terminalManager) {
-            this.terminalManager = window.terminalManager;
-        } else {
-            // Create a simple terminal logging function if TerminalManager is not available
-            this.terminalManager = {
-                appendToTerminal: (terminalId, content, type = 'info') => {
-                    const terminal = document.querySelector(`#terminal-${terminalId} .terminal-body`);
-                    if (terminal) {
-                        const logEntry = document.createElement('div');
-                        logEntry.classList.add('log-entry', type);
-                        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${content}`;
-                        terminal.appendChild(logEntry);
-                        terminal.scrollTop = terminal.scrollHeight;
-                    } else {
-                        console.log(`Terminal ${terminalId}: ${content}`);
-                    }
-                }
-            };
-            window.terminalManager = this.terminalManager;
-        }
-    }
-
-    setupEventListeners() {
-        // Zoom controls
-        document.getElementById('zoom-in').addEventListener('click', () => {
-            // Get center of container for zooming
-            const containerRect = this.svgContainer.getBoundingClientRect();
-            const centerX = containerRect.left + containerRect.width / 2;
-            const centerY = containerRect.top + containerRect.height / 2;
-            this.zoom(1.2, centerX, centerY);
-        });
+        // Variáveis globais
+        let zoomLevel = 1;
+        let isDragging = false;
+        let startPosition = { x: 0, y: 0 };
+        let offset = { x: 0, y: 0 };
+        let svgSize = { width: 0, height: 0 };
+        let svgHistory = [];
+        let currentSvgIndex = -1;
+        let currentHighlightedElement = null;
+        let svgLoadedFromFile = false;
         
-        document.getElementById('zoom-out').addEventListener('click', () => {
-            // Get center of container for zooming
-            const containerRect = this.svgContainer.getBoundingClientRect();
-            const centerX = containerRect.left + containerRect.width / 2;
-            const centerY = containerRect.top + containerRect.height / 2;
-            this.zoom(0.8, centerX, centerY);
-        });
-        
-        document.getElementById('fit-view').addEventListener('click', () => this.centerSvg());
-        document.getElementById('reset-view-btn').addEventListener('click', () => this.centerSvg());
 
-        // Back button
-        this.backButton.addEventListener('click', () => this.navigateBack());
+        // Elementos DOM
+        const dropArea = document.getElementById('drop-area');
+        const dropOverlay = document.getElementById('drop-overlay');
+        const svgContainer = document.getElementById('svg-container');
+        const svgWrapper = document.getElementById('svg-wrapper');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const fileInput = document.getElementById('file-input');
+        const tooltip = document.getElementById('tooltip');
+        const zoomLevelDisplay = document.getElementById('zoom-level');
+        const statusMessage = document.getElementById('status-message');
+        const fileInfo = document.getElementById('file-info');
+        const themeToggle = document.getElementById('theme-toggle');
 
-        // Drag and pan
-        this.svgContainer.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        window.addEventListener('mouseup', () => this.handleMouseUp());
+        // Botões
+        const openFileBtn = document.getElementById('open-file-btn');
+        const welcomeOpenBtn = document.getElementById('welcome-open-btn');
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const resetViewBtn = document.getElementById('reset-view-btn');
 
-        // Wheel zoom
-        this.svgContainer.addEventListener('wheel', (e) => this.handleWheel(e));
+        // Event listeners para a interface
+        openFileBtn.addEventListener('click', () => fileInput.click());
+        welcomeOpenBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+        themeToggle.addEventListener('click', toggleTheme);
+        zoomInBtn.addEventListener('click', () => zoomAt(null, 0.1));
+        zoomOutBtn.addEventListener('click', () => zoomAt(null, -0.1));
+        resetViewBtn.addEventListener('click', resetView);
 
-        // Open file button
-        document.getElementById('open-file-btn').addEventListener('click', () => {
-            this.fileInput.click();
-        });
-
-        // File input change
-        this.fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                this.loadSvgFromFile(e.target.files[0]);
-            }
-        });
-
-        // Drag and drop
-        this.initialLoadArea.addEventListener('dragover', (e) => {
+        // Event listeners para arrastar e soltar
+        dropArea.addEventListener('dragover', (e) => {
             e.preventDefault();
-            this.initialLoadArea.classList.add('dragover');
+            dropOverlay.classList.add('active');
         });
 
-        this.initialLoadArea.addEventListener('dragleave', () => {
-            this.initialLoadArea.classList.remove('dragover');
-        });
-
-        this.initialLoadArea.addEventListener('drop', (e) => {
+        dropArea.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            this.initialLoadArea.classList.remove('dragover');
+            dropOverlay.classList.remove('active');
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropOverlay.classList.remove('active');
             
-            if (e.dataTransfer.files.length > 0) {
+            if (e.dataTransfer.files.length) {
                 const file = e.dataTransfer.files[0];
-                if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
-                    this.loadSvgFromFile(file);
+                if (file.type === 'image/svg+xml') {
+                    loadSvgFile(file);
                 } else {
-                    this.showStatus('Error: Please select an SVG file', 'error');
+                    showStatus('Erro: O arquivo deve ser um SVG válido', true);
                 }
             }
         });
 
-        this.initialLoadArea.addEventListener('click', () => {
-            this.fileInput.click();
-        });
-    }
-    async loadSvgFromFile(file) {
-        this.showLoading(true);
-        try {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const svgContent = e.target.result;
-                this.loadSvg(svgContent, file.name);
-            };
-            reader.readAsText(file);
-        } catch (error) {
-            this.showStatus(`Error loading file: ${error.message}`, 'error');
-            this.showLoading(false);
+        // Event listeners para o SVG
+        svgContainer.addEventListener('wheel', handleZoom);
+        svgContainer.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        // Funções principais
+        function handleFileSelect(e) {
+            if (e.target.files.length) {
+                const file = e.target.files[0];
+                if (file.type === 'image/svg+xml') {
+                    loadSvgFile(file);
+                } else {
+                    showStatus('Erro: O arquivo deve ser um SVG válido', true);
+                }
+                e.target.value = null; // Reset para permitir selecionar o mesmo arquivo novamente
+            }
         }
-    }
 
-    loadSvg(svgContent, svgName) {
-        try {
-            // Hide initial load area and show SVG container
-            this.initialLoadArea.style.display = 'none';
-            this.svgContainer.style.display = 'block';
-            
-            // Clear previous SVG content
-            this.svgContainer.innerHTML = svgContent;
-
-            // Store current SVG info
-            this.currentSvgPath = svgName;
-            this.currentSvgName = svgName.split('/').pop().replace('.svg', '');
-            
-            // Center the SVG in view
-            this.centerSvg();
-            
-            // Setup SVG elements
-            this.setupSvgElements();
-            
-            // Update breadcrumb
-            this.updateBreadcrumb();
-            
-            // Log to terminal
-            this.logToTerminal(`Loaded SVG: ${this.currentSvgName}`);
-            
-            // Show success status
-            this.showStatus(`SVG loaded: ${this.currentSvgName}`);
-            
-            // Update state
-            this.isLoaded = true;
-        } catch (error) {
-            this.showStatus(`Error loading SVG: ${error.message}`, 'error');
-            console.error('Error loading SVG:', error);
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-
-    setupSvgElements() {
-        // Find all interactive elements in the SVG
-        const svgElements = this.svgContainer.querySelectorAll('g, rect, circle, path, polygon, polyline');
+        function loadSvgFile(file) {
+    const reader = new FileReader();
+    
+    showStatus('Carregando SVG...', false, true);
+    
+    reader.onload = function(event) {
+        const svgContent = event.target.result;
         
-        svgElements.forEach(element => {
-            // Add class for styling
-            element.classList.add('svg-element');
-            
-            // Mouse over highlight
-            element.addEventListener('mouseover', (e) => {
-                element.classList.add('highlight-element');
-                
-                // Show tooltip if there's a title or id
-                const title = element.getAttribute('title') || element.getAttribute('id');
-                if (title) {
-                    this.showTooltip(title, e.clientX, e.clientY);
-                }
-            });
-            
-            element.addEventListener('mousemove', (e) => {
-                const title = element.getAttribute('title') || element.getAttribute('id');
-                if (title) {
-                    this.showTooltip(title, e.clientX, e.clientY);
-                }
-            });
-            
-            element.addEventListener('mouseout', () => {
-                element.classList.remove('highlight-element');
-                this.hideTooltip();
-            });
-            
-            // Click to navigate
-            element.addEventListener('click', (e) => {
-                if (!this.isDragging) {
-                    // Check if element has an href or xlink:href attribute
-                    const href = element.getAttribute('href') || element.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
-                    
-                    if (href && href.endsWith('.svg')) {
-                        e.stopPropagation();
-                        e.preventDefault(); // Prevent default behavior
-                        this.navigateTo(href, element.getAttribute('title') || element.getAttribute('id') || href);
-                    }
-                }
-            });
-        });
-    }
-
-    navigateTo(svgPath, svgName) {
-        // Add current SVG to history
-        this.svgHistory.push({
-            content: this.svgContainer.innerHTML,
-            path: this.currentSvgPath,
-            name: this.currentSvgName
+        // Se estiver carregando um novo arquivo, limpar histórico
+        if (!svgLoadedFromFile) {
+            svgHistory = [];
+            currentSvgIndex = 0;
+            svgLoadedFromFile = true;
+        } else {
+            // Se já estiver navegando, apenas trunca o histórico
+            if (currentSvgIndex < svgHistory.length - 1) {
+                svgHistory = svgHistory.slice(0, currentSvgIndex + 1);
+            }
+            currentSvgIndex = svgHistory.length;
+        }
+        
+        // Adicionar ao histórico
+        svgHistory.push({
+            content: svgContent,
+            name: file.name
         });
         
-        // Enable back button
-        this.backButton.disabled = false;
+        console.log('SVG adicionado ao histórico. Total:', svgHistory.length, 'Índice atual:', currentSvgIndex);
         
-        // Log navigation
-        this.logToTerminal(`Navigating to: ${svgName}`);
-        
-        // Show loading
-        this.showLoading(true);
-        
-        // Fix relative path if needed
-        // If we're in Electron, we might need to handle paths differently
-        // This is a simple approach that might need adaptation for your specific setup
-        let fullPath = svgPath;
-        if (!svgPath.startsWith('http') && !svgPath.startsWith('/')) {
-            // Handle relative path
-            // In Electron, you might need to use a more specific approach
-            const currentDir = this.currentSvgPath ? this.currentSvgPath.split('/').slice(0, -1).join('/') : '';
-            fullPath = currentDir ? `${currentDir}/${svgPath}` : svgPath;
-        }
-        
-        // In Electron, we might use IPC to fetch files
-        if (window.electron && window.electron.ipcRenderer) {
-            // Using Electron IPC for file operations
-            window.electron.ipcRenderer.invoke('read-svg-file', fullPath)
-                .then(svgContent => {
-                    this.loadSvg(svgContent, svgName);
-                })
-                .catch(error => {
-                    this.showStatus(`Error: ${error.message}`, 'error');
-                })
-                .finally(() => {
-                    this.showLoading(false);
-                });
-        } else {
-            // Browser approach - fetch SVG
-            fetch(fullPath)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Failed to load SVG: ${response.statusText}`);
-                    }
-                    return response.text();
-                })
-                .then(svgContent => {
-                    this.loadSvg(svgContent, svgName);
-                })
-                .catch(error => {
-                    this.showStatus(`Error: ${error.message}`, 'error');
-                    console.error('Navigation error:', error);
-                })
-                .finally(() => {
-                    this.showLoading(false);
-                });
-        }
-    }
-
-    navigateBack() {
-        if (this.svgHistory.length === 0) return;
-        
-        // Log navigation
-        this.logToTerminal(`Navigating back to: ${this.svgHistory[this.svgHistory.length - 1].name}`);
-        
-        // Show loading
-        this.showLoading(true);
-        
-        // Get previous SVG from history
-        const previousSvg = this.svgHistory.pop();
-        
-        // Update current SVG info
-        this.currentSvgPath = previousSvg.path;
-        this.currentSvgName = previousSvg.name;
-        
-        // Load previous SVG
-        this.svgContainer.innerHTML = previousSvg.content;
-        
-        // Center the SVG
-        this.centerSvg();
-        
-        // Setup SVG elements
-        this.setupSvgElements();
-        
-        // Update breadcrumb
-        this.updateBreadcrumb();
-        
-        // Update back button
-        this.backButton.disabled = this.svgHistory.length === 0;
-        
-        // Show success status
-        this.showStatus(`Returned to: ${this.currentSvgName}`);
-        
-        // Hide loading
-        this.showLoading(false);
-    }
-
-    centerSvg() {
-        if (!this.isLoaded) return;
-        
-        // Reset zoom
-        this.currentZoom = 1;
-        
-        // Get the SVG element
-        const svgElement = this.svgContainer.querySelector('svg');
-        if (!svgElement) return;
-        
-        // Get view information
-        const containerRect = this.svgContainer.getBoundingClientRect();
-        const svgRect = svgElement.getBoundingClientRect();
-        
-        // Calculate centering position
-        this.translateX = (containerRect.width - svgRect.width) / 2;
-        this.translateY = (containerRect.height - svgRect.height) / 2;
-        
-        // Apply transformation
-        this.applyTransform();
-        
-        // Update status
-        this.showStatus('SVG centered');
-    }
-    updateBreadcrumb() {
-        // Clear breadcrumb
-        this.breadcrumbElement.innerHTML = '';
-        
-        // Create breadcrumb items for history
-        if (this.svgHistory.length > 0) {
-            this.svgHistory.forEach((item, index) => {
-                const span = document.createElement('span');
-                span.textContent = item.name;
-                span.style.cursor = 'pointer';
-                span.addEventListener('click', () => {
-                    // Navigate back to this item
-                    while (this.svgHistory.length > index) {
-                        this.navigateBack();
-                    }
-                });
-                this.breadcrumbElement.appendChild(span);
-            });
-        }
-        
-        // Add current SVG to breadcrumb
-        if (this.currentSvgName) {
-            const span = document.createElement('span');
-            span.textContent = this.currentSvgName;
-            this.breadcrumbElement.appendChild(span);
-        } else {
-            const span = document.createElement('span');
-            span.textContent = 'No SVG loaded';
-            this.breadcrumbElement.appendChild(span);
-        }
-    }
-
-
-    showStatus(message, type = 'info') {
-        this.statusElement.textContent = message;
-        this.statusElement.className = 'prism-status';
-        if (type) {
-            this.statusElement.classList.add(type);
-        }
-        
-        // Show status briefly then fade out
-        this.statusElement.style.opacity = '1';
-        clearTimeout(this.statusTimeout);
-        this.statusTimeout = setTimeout(() => {
-            this.statusElement.style.opacity = '0.7';
-        }, 3000);
-    }
-
-    showTooltip(text, x, y) {
-        this.tooltipElement.textContent = text;
-        this.tooltipElement.style.left = `${x + 15}px`;
-        this.tooltipElement.style.top = `${y + 15}px`;
-        this.tooltipElement.style.opacity = '1';
-    }
-
-    hideTooltip() {
-        this.tooltipElement.style.opacity = '0';
-    }
-
-    logToTerminal(message) {
-        // Send log to TPRISM terminal
-        this.terminalManager.appendToTerminal('tprism', message);
-    }
-    showLoading(show) {
-        if (show) {
-            this.loadingOverlay.classList.add('active');
-        } else {
-            this.loadingOverlay.classList.remove('active');
-        }
-    }
-
-    zoom(factor, centerX = null, centerY = null) {
-        if (!this.isLoaded) return;
-        
-        const container = this.svgContainer;
-        const rect = container.getBoundingClientRect();
-        
-        // Use the specified center or default to center of container
-        const cx = centerX !== null ? centerX - rect.left : rect.width / 2;
-        const cy = centerY !== null ? centerY - rect.top : rect.height / 2;
-        
-        // Calculate point before zoom
-        const beforeZoomPoint = {
-            x: (cx - this.translateX) / this.currentZoom,
-            y: (cy - this.translateY) / this.currentZoom
-        };
-        
-        // Apply zoom
-        this.currentZoom *= factor;
-        
-        // Limit zoom level
-        this.currentZoom = Math.max(0.1, Math.min(10, this.currentZoom));
-        
-        // Calculate point after zoom
-        const afterZoomPoint = {
-            x: beforeZoomPoint.x,
-            y: beforeZoomPoint.y
-        };
-        
-        // Adjust translation to keep the point under cursor
-        this.translateX = cx - (afterZoomPoint.x * this.currentZoom);
-        this.translateY = cy - (afterZoomPoint.y * this.currentZoom);
-        
-        // Apply transformation
-        this.applyTransform();
-        
-        // Update status
-        this.showStatus(`Zoom: ${Math.round(this.currentZoom * 100)}%`);
-    }
-    handleMouseDown(e) {
-        if (!this.isLoaded) return;
-        
-        // Only handle left mouse button
-        if (e.button !== 0) return;
-        
-        this.isDragging = true;
-        this.startX = e.clientX - this.translateX;
-        this.startY = e.clientY - this.translateY;
-        
-        // Change cursor
-        this.svgContainer.style.cursor = 'grabbing';
-    }
-
-    handleMouseMove(e) {
-        if (!this.isDragging) return;
-        
-        // Calculate new position
-        this.translateX = e.clientX - this.startX;
-        this.translateY = e.clientY - this.startY;
-        
-        // Apply transformation
-        this.applyTransform();
-    }
-
-    handleMouseUp() {
-        this.isDragging = false;
-        
-        // Restore cursor
-        this.svgContainer.style.cursor = 'default';
-    }
-
-    handleWheel(e) {
-        if (!this.isLoaded) return;
-        
-        // Prevent default scrolling
-        e.preventDefault();
-        
-        // Determine zoom direction
-        const factor = e.deltaY < 0 ? 1.1 : 0.9;
-        
-        // Zoom centered on mouse position
-        this.zoom(factor, e.clientX, e.clientY);
-    }
-
-    applyTransform() {
-        this.svgContainer.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.currentZoom})`;
-    }
-
-
-            resetView(centerSvg = false) {
-    if (!this.isLoaded) return;
+        displaySvg(svgContent, file.name);
+    };
     
-    // Reset zoom
-    this.currentZoom = 1;
+    reader.onerror = function() {
+        showStatus('Erro ao ler o arquivo', true);
+    };
     
-    if (centerSvg) {
-        // Get SVG element dimensions
-        const svgElement = this.svgContainer.querySelector('svg');
-        if (svgElement) {
-            const containerRect = this.svgContainer.getBoundingClientRect();
-            const svgRect = svgElement.getBoundingClientRect();
-            
-            // Calculate centering position
-            this.translateX = (containerRect.width - svgRect.width) / 2;
-            this.translateY = (containerRect.height - svgRect.height) / 2;
-        } else {
-            // Default centering if no SVG element found
-            this.translateX = 0;
-            this.translateY = 0;
-        }
-    } else {
-        // Just reset position without centering
-        this.translateX = 0;
-        this.translateY = 0;
-    }
-    
-    // Apply transformation
-    this.applyTransform();
-    
-    // Update status
-    this.showStatus('View reset');
+    reader.readAsText(file);
 }
 
+function displaySvg(svgContent, filename) {
+    // Limpa o contêiner SVG
+    svgWrapper.innerHTML = svgContent;
+    
+    // Oculta a mensagem de boas-vindas e mostra o contêiner SVG
+    welcomeMessage.classList.add('hidden');
+    svgContainer.classList.remove('hidden');
+    
+    const svg = svgWrapper.querySelector('svg');
+    
+    if (!svg) {
+        showStatus('Erro: SVG inválido', true);
+        return;
+    }
+    
+    // Configura o SVG
+    setupSvgDimensions(svg);
+    
+    // Configura interatividade nos elementos do SVG
+    setupSvgInteractivity(svg);
+    
+    // Reseta a visualização
+    resetView();
+    
+    // Atualiza a informação do arquivo
+    fileInfo.textContent = filename;
+    showStatus('SVG carregado com sucesso');
+    
+    // Atualiza botão de voltar
+    updateNavigationButtons();
+    
+    // Restaurar opacidade após carregar
+    setTimeout(() => {
+        svgWrapper.style.opacity = 1;
+    }, 50);
+}
 
-        }
+        function setupSvgDimensions(svg) {
+    const viewBox = svg.getAttribute('viewBox');
+    
+    if (viewBox) {
+        const [, , width, height] = viewBox.split(' ').map(Number);
+        svgSize.width = width;
+        svgSize.height = height;
+    } else {
+        svgSize.width = parseInt(svg.getAttribute('width') || 800);
+        svgSize.height = parseInt(svg.getAttribute('height') || 600);
+        
+        // Se não tiver viewBox, cria um
+        svg.setAttribute('viewBox', `0 0 ${svgSize.width} ${svgSize.height}`);
+    }
+    
+    // Garante que o SVG tenha largura e altura
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+}
 
-        // Initialize PRISM viewer when DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            // Create and store the PRISM viewer instance
-            window.prismViewer = new PrismViewer();
+function setupSvgInteractivity(svg) {
+    // Adiciona event listeners a todos os elementos SVG
+    const allElements = svg.querySelectorAll('*');
+    
+    allElements.forEach(element => {
+        // Mouse over para destacar e mostrar tooltip
+        element.addEventListener('mouseover', (e) => {
+            if (currentHighlightedElement) {
+                currentHighlightedElement.classList.remove('highlight-outline');
+            }
+            
+            element.classList.add('highlight-outline');
+            currentHighlightedElement = element;
+            
+            // Mostrar tooltip com ID
+            const id = element.id || '(sem ID)';
+            const tagName = element.tagName;
+            
+            tooltip.textContent = `${tagName}${id !== '(sem ID)' ? ' #' + id : ' ' + id}`;
+            tooltip.classList.add('visible');
+            
+            // Posiciona o tooltip perto do cursor
+            positionTooltip(e);
+            
+            e.stopPropagation();
         });
-        if (document.getElementById('prismcomp')) {
-    document.getElementById('prismcomp').addEventListener('click', () => {
-        // Just log message, no new window
-        if (window.terminalManager) {
-            window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer is already active');
-        }
+        
+        // Mouse out para remover destaque
+        element.addEventListener('mouseout', () => {
+            element.classList.remove('highlight-outline');
+            tooltip.classList.remove('visible');
+            currentHighlightedElement = null;
+        });
+        
+        // Click para navegar para links
+        element.addEventListener('click', (e) => {
+            const href = element.getAttribute('xlink:href');
+            
+            if (href && href.endsWith('.svg')) {
+                e.preventDefault();
+                loadSvgFromUrl(href);
+                e.stopPropagation();
+            }
+        });
     });
 }
-        // Connect PRISM button to viewer
-        document.getElementById('prismcomp').addEventListener('click', () => {
-            // Create a new window for the PRISM viewer
-            const prismWindow = window.open('', 'prism-viewer', 'width=1200,height=800');
-            
-            // Clone the current document HTML into the new window
-            prismWindow.document.write(document.documentElement.outerHTML);
-            
-            // Add a script to initialize the viewer in the new window
-            prismWindow.document.write(`
-            <script>
-                window.addEventListener('DOMContentLoaded', () => {
-                    window.prismViewer = new PrismViewer();
-                    
-                    // Log para o terminal da janela pai
-                    if (window.opener && window.opener.terminalManager) {
-                        window.terminalManager = window.opener.terminalManager;
-                        window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer opened in new window');
-                    }
-                });
-            <\/script>
-        `);
-            
-            // Close the document
-            prismWindow.document.close();
-            
-            // Log to terminal
-            if (window.terminalManager) {
-                window.terminalManager.appendToTerminal('tprism', 'PRISM Viewer launched');
+
+
+function setupThemeToggle() {
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    if (!themeToggle) {
+        const headerControls = document.querySelector('.controls');
+        
+        const themeToggleBtn = document.createElement('button');
+        themeToggleBtn.id = 'theme-toggle';
+        themeToggleBtn.className = 'theme-toggle';
+        themeToggleBtn.title = 'Alternar Tema';
+        themeToggleBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+        `;
+        
+        headerControls.appendChild(themeToggleBtn);
+        
+        // Adicionar event listener
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+}
+
+function preventSelectionOnDrag() {
+    // Prevenir comportamentos de texto nativo
+    svgContainer.addEventListener('selectstart', function(e) {
+        if (isDragging) {
+            e.preventDefault();
+        }
+    });
+    
+    // Prevenir seleção durante arrasto
+    svgContainer.addEventListener('dragstart', function(e) {
+        e.preventDefault();
+    });
+}
+
+
+// Função para alternar tema
+function toggleTheme() {
+    const body = document.body;
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    if (body.classList.contains('theme-light')) {
+        body.classList.remove('theme-light');
+        themeToggle.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+        `;
+    } else {
+        body.classList.add('theme-light');
+        themeToggle.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path d="M12 1v2"></path>
+                <path d="M12 21v2"></path>
+                <path d="M4.22 4.22l1.42 1.42"></path>
+                <path d="M18.36 18.36l1.42 1.42"></path>
+                <path d="M1 12h2"></path>
+                <path d="M21 12h2"></path>
+                <path d="M4.22 19.78l1.42-1.42"></path>
+                <path d="M18.36 5.64l1.42-1.42"></path>
+            </svg>
+        `;
+    }
+}
+
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('back-btn');
+    
+    if (!backBtn) {
+        // Criar botão se não existir
+        const navButtons = document.createElement('div');
+        navButtons.className = 'navigation-buttons';
+        navButtons.innerHTML = `
+            <button id="back-btn" title="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"></path>
+                    <path d="M12 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+        `;
+        svgContainer.appendChild(navButtons);
+        
+        // Adicionar event listener
+        document.getElementById('back-btn').addEventListener('click', navigateBack);
+    }
+    
+    // Atualizar visibilidade - mostrar apenas se houver para onde voltar
+    if (backBtn) {
+        if (currentSvgIndex > 0) {
+            backBtn.classList.remove('hidden');
+            backBtn.disabled = false;
+        } else {
+            backBtn.classList.add('hidden');
+            backBtn.disabled = true;
+        }
+    }
+}
+
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('back-btn');
+    
+    if (!backBtn) {
+        // Criar botão se não existir
+        const navButtons = document.createElement('div');
+        navButtons.className = 'navigation-buttons';
+        navButtons.innerHTML = `
+            <button id="back-btn" title="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"></path>
+                    <path d="M12 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+        `;
+        svgContainer.appendChild(navButtons);
+        
+        // Adicionar event listener
+        document.getElementById('back-btn').addEventListener('click', navigateBack);
+    }
+    
+    // Atualizar visibilidade do botão - mostrar apenas se houver histórico
+    if (currentSvgIndex > 0) {
+        backBtn.classList.remove('hidden');
+    } else {
+        backBtn.classList.add('hidden');
+    }
+    
+    console.log('História de SVGs:', svgHistory.length, 'Índice atual:', currentSvgIndex);
+}
+
+function navigateBack() {
+    if (currentSvgIndex <= 0) return;
+    
+    currentSvgIndex--;
+    const previousSvg = svgHistory[currentSvgIndex];
+    
+    if (!previousSvg || !previousSvg.content) {
+        console.error('SVG anterior não encontrado no histórico');
+        return;
+    }
+    
+    console.log('Voltando para SVG:', previousSvg.name);
+    
+    // Adicionar animação de transição
+    svgWrapper.style.opacity = 0;
+    
+    setTimeout(() => {
+        // Carregar SVG anterior
+        svgWrapper.innerHTML = previousSvg.content;
+        
+        const svg = svgWrapper.querySelector('svg');
+        if (svg) {
+            // Configura o SVG
+            setupSvgDimensions(svg);
+            setupSvgInteractivity(svg);
+        }
+        
+        // Restaurar opacidade
+        svgWrapper.style.opacity = 1;
+        
+        // Atualizar informações e status
+        fileInfo.textContent = previousSvg.name;
+        showStatus(`Voltou para ${previousSvg.name}`);
+        
+        // Atualizar botões de navegação
+        updateNavigationButtons();
+        
+        // Centralizar visualização
+        resetView();
+    }, 200);
+}
+
+
+function loadSvgFromUrl(url) {
+    showStatus(`Carregando ${url}...`, false, true);
+    
+    // Adicionar animação de transição
+    svgWrapper.style.opacity = 0;
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar SVG');
             }
+            return response.text();
+        })
+        .then(svgContent => {
+            // Truncar histórico se estiver navegando para trás
+            if (currentSvgIndex < svgHistory.length - 1) {
+                svgHistory = svgHistory.slice(0, currentSvgIndex + 1);
+            }
+            
+            // Adicionar ao histórico
+            svgHistory.push({
+                content: svgContent,
+                name: url.split('/').pop()
+            });
+            
+            currentSvgIndex = svgHistory.length - 1;
+            
+            console.log('SVG da URL adicionado ao histórico. Total:', svgHistory.length, 'Índice atual:', currentSvgIndex);
+            
+            setTimeout(() => {
+                displaySvg(svgContent, url.split('/').pop());
+            }, 200);
+        })
+        .catch(error => {
+            showStatus(`Erro: ${error.message}`, true);
+            svgWrapper.style.opacity = 1;
         });
+}
+
+
+        function handleZoom(e) {
+            e.preventDefault();
+            
+            // Determina a direção do zoom
+            const delta = Math.sign(e.deltaY) * -0.1;
+            
+            // Obtem a posição do mouse para zoom centralizado
+            const rect = svgContainer.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Aplica o zoom
+            zoomAt({ x: mouseX, y: mouseY }, delta);
+        }
+
+        function zoomAt(point, delta) {
+            const oldZoom = zoomLevel;
+            zoomLevel = Math.max(0.1, Math.min(10, zoomLevel + delta));
+            
+            if (point) {
+                // Ponto de zoom baseado na posição do mouse
+                const svgRect = svgContainer.getBoundingClientRect();
+                const svgCenterX = svgRect.width / 2;
+                const svgCenterY = svgRect.height / 2;
+                
+                // Ajusta o deslocamento baseado na mudança de zoom
+                offset.x = (offset.x - (point.x - svgCenterX)) * (zoomLevel / oldZoom) + (point.x - svgCenterX);
+                offset.y = (offset.y - (point.y - svgCenterY)) * (zoomLevel / oldZoom) + (point.y - svgCenterY);
+            } else {
+                // Zoom centralizado se não houver ponto
+                const centerX = svgContainer.offsetWidth / 2;
+                const centerY = svgContainer.offsetHeight / 2;
+                
+                offset.x = (offset.x - centerX) * (zoomLevel / oldZoom) + centerX;
+                offset.y = (offset.y - centerY) * (zoomLevel / oldZoom) + centerY;
+            }
+            
+            updateTransform();
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+        }
+
+        function handleMouseDown(e) {
+            // Apenas permitir arrastar com botão principal do mouse (botão esquerdo)
+            if (e.button !== 0) return;
+            
+            isDragging = true;
+            startPosition = {
+                x: e.clientX - offset.x,
+                y: e.clientY - offset.y
+            };
+            
+            svgContainer.style.cursor = 'grabbing';
+        }
+
+        function handleMouseMove(e) {
+            // Posiciona o tooltip próximo ao cursor
+            if (tooltip.classList.contains('visible')) {
+                positionTooltip(e);
+            }
+            
+            if (!isDragging) return;
+            
+            offset.x = e.clientX - startPosition.x;
+            offset.y = e.clientY - startPosition.y;
+            
+            updateTransform();
+        }
+
+        function handleMouseUp() {
+            isDragging = false;
+            svgContainer.style.cursor = 'default';
+        }
+
+        function positionTooltip(e) {
+            const tooltipHeight = tooltip.offsetHeight;
+            const tooltipWidth = tooltip.offsetWidth;
+            
+            tooltip.style.left = `${e.clientX + 15}px`;
+            tooltip.style.top = `${e.clientY - tooltipHeight - 10}px`;
+            
+            // Verifica se o tooltip está saindo da tela
+            const rect = tooltip.getBoundingClientRect();
+            
+            if (rect.right > window.innerWidth) {
+                tooltip.style.left = `${e.clientX - tooltipWidth - 10}px`;
+            }
+            
+            if (rect.top < 0) {
+                tooltip.style.top = `${e.clientY + 15}px`;
+            }
+        }
+
+        function updateTransform() {
+    svgWrapper.style.transform = `translate(-50%, -50%) scale(${zoomLevel})`;
+    svgWrapper.style.left = `50%`;
+    svgWrapper.style.top = `50%`;
+    svgWrapper.style.transform = `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px)) scale(${zoomLevel})`;
+}
+
+        function resetView() {
+            zoomLevel = 1;
+            offset = { x: 0, y: 0 };
+            
+            updateTransform();
+            zoomLevelDisplay.textContent = '100%';
+        }
+
+        function showStatus(message, isError = false, loading = false) {
+            statusMessage.textContent = message;
+            statusMessage.style.color = isError ? 'var(--error)' : 'var(--text-secondary)';
+            
+            if (loading) {
+                // Poderia adicionar um spinner aqui
+                statusMessage.innerHTML = `
+                    <div style="display: flex; align-items: center;">
+                        <div class="loading-spinner"></div>
+                        ${message}
+                    </div>
+                `;
+            }
+        }
+        function toggleTheme() {
+    const body = document.body;
+    if (body.classList.contains('theme-light')) {
+        body.classList.remove('theme-light');
+        themeToggle.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+        `;
+    } else {
+        body.classList.add('theme-light');
+        themeToggle.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path d="M12 1v2"></path>
+                <path d="M12 21v2"></path>
+                <path d="M4.22 4.22l1.42 1.42"></path>
+                <path d="M18.36 18.36l1.42 1.42"></path>
+                <path d="M1 12h2"></path>
+                <path d="M21 12h2"></path>
+                <path d="M4.22 19.78l1.42-1.42"></path>
+                <path d="M18.36 5.64l1.42-1.42"></path>
+            </svg>
+        `;
+    }
+}
+
+// Inicialização quando a página carrega
+window.addEventListener('load', () => {
+    showStatus('Pronto para carregar um SVG');
+    updateNavigationButtons();
+    setupThemeToggle();
+    preventSelectionOnDrag();
+
+    // Detectar preferência de tema do sistema
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.body.classList.add('theme-light');
+        themeToggle.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path d="M12 1v2"></path>
+                <path d="M12 21v2"></path>
+                <path d="M4.22 4.22l1.42 1.42"></path>
+                <path d="M18.36 18.36l1.42 1.42"></path>
+                <path d="M1 12h2"></path>
+                <path d="M21 12h2"></path>
+                <path d="M4.22 19.78l1.42-1.42"></path>
+                <path d="M18.36 5.64l1.42-1.42"></path>
+            </svg>
+        `;
+    }
+    
+    // Ajustar tamanho da janela
+    window.addEventListener('resize', () => {
+        if (svgContainer.classList.contains('hidden')) return;
+        updateTransform();
+    });
+});
     </script>
 </body>
 </html>

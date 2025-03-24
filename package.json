@@ -3,7 +3,7 @@
     "productName": "Aurora IDE",
     "description": "Aurora IDE",
     "author": "NIPSCERN",
-    "version": "2.21.0",
+    "version": "2.22.0",
     "win": {
         "icon": "./assets/icons/aurora_borealis-2.ico"
     },
@@ -35,7 +35,7 @@
         "win": {
             "target": "nsis",
             "icon": "./assets/icons/aurora_borealis-2.ico",
-            "artifactName": "AuroraIDE-Setup-2.21.0.${ext}"
+            "artifactName": "AuroraIDE-Setup-2.22.0.${ext}"
         },
         "nsis": {
             "include": "build/installer.nsh"

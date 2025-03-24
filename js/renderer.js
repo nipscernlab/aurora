@@ -3459,3 +3459,8 @@ function openNewsSidebar() {
 
 // Evento de clique no ícone de jornal
 newsIcon.addEventListener('click', openNewsSidebar);
+
+// In your renderer process
+document.getElementById('settingsButton').addEventListener('click', () => {
+  ipcRenderer.send('open-settings');
+});

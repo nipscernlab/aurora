@@ -24,7 +24,7 @@
     border-radius: 12px;
     box-shadow: var(--shadow-lg);
     width: 90%;
-    max-width: 550px;
+    max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
     padding: 25px;
@@ -258,7 +258,6 @@ input:focus {
 
 /* Add Processor button styling */
 #addProcessor {
-  background-color: var(--accent-primary);
   color: var(--text-primary);
   border: none;
   padding: 8px 16px;

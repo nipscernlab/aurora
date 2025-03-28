@@ -26,7 +26,7 @@
    <link rel="stylesheet" href="./css/ia.css">
   <!--<link rel="stylesheet" href="./css/terminal2.css"> --> 
   <link rel="stylesheet" href="./css/tabs.css">
-
+  <link rel="stylesheet" href="./css/multicore.css">
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/editor.css">
@@ -98,7 +98,7 @@
         <i class="fas fa-sun" title="Theme Toggle"></i>
       </button>
       <button id="settings" class="toolbar-button">
-        <i class="fa-solid fa-gear" title="Processor Configuration"></i>
+        <i class="fa-solid fa-gears" title="Processor Configuration"></i>
       </button>
       <button id="info-aurora" class="toolbar-button">
         <i class="fa-solid fa-circle-info" title="Info Aurora"></i>
@@ -242,7 +242,14 @@
         </button>
         <button id="clearTemp">
           <i class="fa-solid fa-trash"></i> Clear Temp
-        </button>        
+        </button>
+        <button id="multicore">
+        <h>Multicore</h>   
+          <label class="toggle-switch">
+            <input type="checkbox" id="multicore">
+            <span class="slider"></span>
+          </label>    
+        </button> 
         <div id="processorList">
           <!-- Processor items will be dynamically added here -->
         </div>
@@ -346,15 +353,13 @@
         <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><br>
         <span id="current-spf-name">No project open</span>
         <span title="Open Project Folder" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i></span>
-       <span title="Create TopLevel File"  style="cursor: pointer;">
-        <button id="create-toplevel-button"><i class="fa-solid fa-file-circle-plus"></i></button>
-        </span>
+        <span title="Create TopLevel Folder & .v File" id="create-toplevel-folder" style="cursor: pointer;"><i class="fa-solid fa-folder-plus"></i></span>
       </div>
-
+    <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
       <div class="resizer-vertical"></div>
     </div>
-
+  </div>
     <!-- Editor and Terminal Section -->
     <div class="editor-terminal-container">
       <div class="editor-container">
@@ -466,6 +471,7 @@
     require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
   </script>
   <script src="./js/renderer.js"></script>
+  <script src="./js/multicore.js"></script>
   <script src="./js/sidebar.js"></script>
   <script src="./js/modal.js"></script>
   <script src="./js/terminal.js"></script>
@@ -485,6 +491,32 @@
   <script src="./js/compiler.js" type="module"></script>
   <script src="./js/tabManager.js" type="module"></script> 
   -->
+
+  <!-- Adicione este bloco no seu index.html, preferencialmente próximo ao final do body -->
+<div id="multicoreModal" class="modal modal-multicore">
+  <div class="modal-content modal-multicore-content">
+    <div class="modal-header">
+      <h2>Multicore Configuration</h2>
+      <button id="closeMulticoreModal" class="close-modal-btn">&times;</button>
+    </div>
+    <div id="multicoreModalBody" class="modal-body">
+      <!-- Conteúdo do multicore.html será carregado aqui -->
+    </div>
+  </div>
+</div>
+
+<div id="multicoreModal" class="modal modal-multicore">
+  <div class="modal-content modal-multicore-content">
+      <div class="modal-header">
+          <h2>Multicore Configuration</h2>
+          <button id="closeMulticoreModal">&times;</button>
+      </div>
+      <div id="multicoreModalBody" class="modal-body">
+          <!-- Conteúdo do multicore.html será carregado aqui -->
+      </div>
+  </div>
+</div>
+</script>
 
 </body>
 </html>

@@ -202,3 +202,165 @@
     transform: translateY(0);
   }
 }
+
+
+/* TERMINAL CMD */
+#terminal-tcmd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Container do terminal CMD */
+#terminal-tcmd .cmd-terminal-container {
+  flex: 1;
+  padding: 10px;
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  overflow-y: auto;
+}
+
+#terminal-tcmd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Header do terminal TCMD */
+#terminal-tcmd .terminal-header {
+  background: linear-gradient(to right, #2d2d2d, #252525);
+  color: #dbdbdb;
+  padding: 10px 15px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Corpo do terminal TCMD */
+#terminal-tcmd .terminal-body {
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Container do terminal real */
+#terminal-tcmd #terminal-container {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+}
+
+/* Elemento do terminal */
+#terminal-tcmd .terminal {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Saída do terminal */
+#terminal-tcmd .terminal-output {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  color: #e0e0e0;
+}
+
+/* Linhas do terminal */
+#terminal-tcmd .terminal-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 2px 0;
+}
+
+/* Linha de input */
+#terminal-tcmd .terminal-input-line {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  background-color: #252525;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* Prompt */
+#terminal-tcmd .terminal-prompt {
+  color: #4ec9b0;
+  margin-right: 8px;
+  user-select: none;
+}
+
+/* Campo de input */
+#terminal-tcmd .terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #f0f0f0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  outline: none;
+  caret-color: #4ec9b0;
+}
+
+/* Estilos para diferentes tipos de mensagens */
+#terminal-tcmd .terminal-line.command {
+  color: #9cdcfe;
+}
+
+#terminal-tcmd .terminal-line.error {
+  color: #f48771;
+}
+
+#terminal-tcmd .terminal-line.success {
+  color: #4ec9b0;
+}
+
+/* Scrollbar personalizada */
+#terminal-tcmd #terminal-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#terminal-tcmd #terminal-container::-webkit-scrollbar-track {
+  background: #2d2d2d;
+  border-radius: 4px;
+}
+
+#terminal-tcmd #terminal-container::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 4px;
+}
+
+#terminal-tcmd #terminal-container::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
+/* Efeito de foco no input */
+#terminal-tcmd .terminal-input:focus {
+  box-shadow: 0 0 0 1px rgba(78, 201, 176, 0.3);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  #terminal-tcmd .terminal-header {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  
+  #terminal-tcmd .terminal-input,
+  #terminal-tcmd .terminal-line {
+    font-size: 12px;
+  }
+}

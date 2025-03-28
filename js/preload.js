@@ -71,6 +71,7 @@ loadPrismSvg: async (svgPath) => {
     console.log("Requisitando SVG:", svgPath);
     return ipcRenderer.invoke("load-svg-file", svgPath);
 },
+createTopLevel: (folderPath) => ipcRenderer.invoke("create-toplevel-folder", folderPath),
 
 };
 
@@ -145,3 +146,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: () => ipcRenderer.invoke('getAppPath'), // Expondo o método para o renderer
 
 });
+
+
+if (ipcRenderer) {
+  contextBridge.exposeInMainWorld('terminalAPI', {
+    createTerminal: (terminalId) => ipcRenderer.invoke('create-terminal', terminalId),
+    sendCommand: (terminalId, command) => {
+      return new Promise((resolve, reject) => {
+        try {
+          ipcRenderer.send('terminal-command', terminalId, command);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    destroyTerminal: (terminalId) => ipcRenderer.send('destroy-terminal', terminalId),
+    onData: (callback) => ipcRenderer.on('terminal-data', callback),
+    onError: (callback) => ipcRenderer.on('terminal-error', callback)
+  });
+} else {
+  console.error('ipcRenderer não está disponível');
+}

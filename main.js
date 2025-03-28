@@ -15,7 +15,11 @@ const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 let tray = null;
 let settingsWindow = null;
 let isQuitting = false;  // Flag para controlar o fechamento do app
-
+// Variável para armazenar o estado do projeto
+let projectState = {
+  spfLoaded: false,
+  projectPath: null
+};
 let mainWindow, splashWindow;
 
 async function loadSettings() {
@@ -911,6 +915,12 @@ ipcMain.handle('project:open', async (_, spfPath) => {
     const oldBasePath = projectData.structure.basePath;
     const basePathExists = await fse.pathExists(oldBasePath);
 
+     // Atualize o estado do projeto
+     projectState = {
+      spfLoaded: true,
+      projectPath: path.dirname(spfPath)
+  };
+
     if (!basePathExists) {
       const newBasePath = path.dirname(spfPath);
       projectData.metadata.projectPath = newBasePath;
@@ -1495,3 +1505,105 @@ ipcMain.handle('delete-folder', async (_, folderPath) => {
 });
 
 //TOP LEVEL
+ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
+  // Verificar se o projeto está aberto
+  if (!projectPath) {
+    console.error("Nenhum projeto aberto");
+    return { 
+      success: false, 
+      message: "Nenhum projeto aberto. Por favor, abra um projeto primeiro." 
+    };
+  }
+
+  try {
+    const topLevelFolderPath = path.join(projectPath, "TopLevel");
+    
+    // Verificar se a pasta TopLevel já existe
+    const topLevelExists = await fse.pathExists(topLevelFolderPath);
+
+    // Se não existir, criar a pasta TopLevel
+    if (!topLevelExists) {
+      await fse.ensureDir(topLevelFolderPath);
+    }
+
+    // Abrir diálogo para salvar arquivo .v
+    const result = await dialog.showSaveDialog({
+      title: 'Criar Arquivo Verilog',
+      defaultPath: path.join(topLevelFolderPath, ''),  // Sem nome padrão
+      filters: [{ name: 'Arquivos Verilog', extensions: ['v'] }]
+    });
+
+    if (!result.canceled && result.filePath) {
+      // Criar arquivo vazio
+      await fse.writeFile(result.filePath, '');
+      
+      console.log('Arquivo .v criado:', result.filePath);
+      return { 
+        success: true, 
+        message: `Arquivo .v criado em: ${result.filePath}`,
+        filePath: result.filePath
+      };
+    } else {
+      return { 
+        success: false, 
+        message: 'Criação de arquivo cancelada'
+      };
+    }
+
+  } catch (error) {
+    console.error("Erro no processo:", error);
+    return { 
+      success: false, 
+      message: `Erro: ${error.message}`
+    };
+  }
+});
+
+//TERMINAL CMD
+const terminals = {};
+
+ipcMain.handle('create-terminal', (event, terminalId) => {
+  try {
+    const shell = spawn('cmd.exe', [], {
+      cwd: process.env.HOME || process.env.USERPROFILE,
+      env: process.env,
+      shell: true
+    });
+
+    terminals[terminalId] = shell;
+    
+    shell.stdout.on('data', (data) => {
+      event.sender.send('terminal-data', terminalId, data.toString());
+    });
+
+    shell.stderr.on('data', (data) => {
+      event.sender.send('terminal-error', terminalId, data.toString());
+    });
+
+    shell.on('exit', () => {
+      delete terminals[terminalId];
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error creating terminal:', error);
+    return false;
+  }
+});
+
+ipcMain.on('terminal-command', (event, terminalId, command) => {
+  const terminal = terminals[terminalId];
+  if (terminal) {
+    terminal.stdin.write(command + '\r\n'); // Usar \r\n para Windows
+  }
+});
+
+ipcMain.on('destroy-terminal', (event, terminalId) => {
+  const terminal = terminals[terminalId];
+  if (terminal) {
+    terminal.kill();
+    delete terminals[terminalId];
+  }
+});
+
+app.commandLine.appendSwitch('allow-file-access-from-files')

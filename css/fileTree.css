@@ -57,6 +57,6 @@
     color: var(--accent-color);
 }
 
-#create-toplevel-v:hover {
+#create-toplevel-folder:hover {
   color: var(--accent-color);
 }

@@ -87,6 +87,10 @@
   }
 
   
+  .monaco-editor, .monaco-editor-background {
+    background-color: var(--bg-primary);
+  } 
+
   .editor-instance {
     position: absolute;
     top: 0;

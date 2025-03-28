@@ -70,7 +70,8 @@ const projectOperations = {
 loadPrismSvg: async (svgPath) => {
     console.log("Requisitando SVG:", svgPath);
     return ipcRenderer.invoke("load-svg-file", svgPath);
-}
+},
+
 };
 
 const dialogOperations = {

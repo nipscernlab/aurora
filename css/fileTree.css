@@ -56,3 +56,7 @@
 #open-folder-button:hover {
     color: var(--accent-color);
 }
+
+#create-toplevel-v:hover {
+  color: var(--accent-color);
+}

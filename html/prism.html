@@ -425,6 +425,15 @@
 #theme-toggle:hover {
     background-color: var(--bg-hover);
 }
+
+
+
+
+#svg-wrapper.loading {
+    opacity: 0.7;
+    transition: opacity 0.3s ease-in-out;
+}
+
     </style>
 </head>
 <body>
@@ -653,6 +662,7 @@ function displaySvg(svgContent, filename) {
     // Atualiza botão de voltar
     updateNavigationButtons();
     
+    
     // Restaurar opacidade após carregar
     setTimeout(() => {
         svgWrapper.style.opacity = 1;
@@ -797,123 +807,105 @@ function toggleTheme() {
     }
 }
 
-function updateNavigationButtons() {
-    const backBtn = document.getElementById('back-btn');
-    
-    if (!backBtn) {
-        // Criar botão se não existir
-        const navButtons = document.createElement('div');
-        navButtons.className = 'navigation-buttons';
-        navButtons.innerHTML = `
-            <button id="back-btn" title="Voltar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5"></path>
-                    <path d="M12 19l-7-7 7-7"></path>
-                </svg>
-            </button>
-        `;
-        svgContainer.appendChild(navButtons);
-        
-        // Adicionar event listener
-        document.getElementById('back-btn').addEventListener('click', navigateBack);
-    }
-    
-    // Atualizar visibilidade - mostrar apenas se houver para onde voltar
-    if (backBtn) {
-        if (currentSvgIndex > 0) {
-            backBtn.classList.remove('hidden');
-            backBtn.disabled = false;
-        } else {
-            backBtn.classList.add('hidden');
-            backBtn.disabled = true;
-        }
-    }
-}
 
 function updateNavigationButtons() {
     const backBtn = document.getElementById('back-btn');
     
-    if (!backBtn) {
-        // Criar botão se não existir
-        const navButtons = document.createElement('div');
-        navButtons.className = 'navigation-buttons';
-        navButtons.innerHTML = `
-            <button id="back-btn" title="Voltar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5"></path>
-                    <path d="M12 19l-7-7 7-7"></path>
-                </svg>
-            </button>
-        `;
-        svgContainer.appendChild(navButtons);
-        
-        // Adicionar event listener
-        document.getElementById('back-btn').addEventListener('click', navigateBack);
-    }
-    
-    // Atualizar visibilidade do botão - mostrar apenas se houver histórico
-    if (currentSvgIndex > 0) {
+    // Mostrar botão de voltar SE houver mais de um item no histórico
+    // E SE não for o primeiro SVG
+    if (svgHistory.length > 1 && currentSvgIndex > 0) {
         backBtn.classList.remove('hidden');
     } else {
         backBtn.classList.add('hidden');
     }
     
-    console.log('História de SVGs:', svgHistory.length, 'Índice atual:', currentSvgIndex);
+    console.log('Botão de voltar atualizado. Histórico:', svgHistory.length, 'Índice atual:', currentSvgIndex);
 }
 
 function navigateBack() {
-    if (currentSvgIndex <= 0) return;
+    console.log('Função navigateBack chamada');
+    console.log('Histórico de SVGs atual:', svgHistory);
     
-    currentSvgIndex--;
-    const previousSvg = svgHistory[currentSvgIndex];
-    
-    if (!previousSvg || !previousSvg.content) {
-        console.error('SVG anterior não encontrado no histórico');
+    // Se não há histórico para voltar, sai da função
+    if (currentSvgIndex <= 0) {
+        console.warn('Já está no primeiro SVG');
         return;
     }
     
-    console.log('Voltando para SVG:', previousSvg.name);
+    // Decrementa o índice
+    currentSvgIndex--;
     
-    // Adicionar animação de transição
+    const previousSvg = svgHistory[currentSvgIndex];
+    
+    if (!previousSvg || !previousSvg.url) {
+        console.error('URL anterior não encontrada no histórico');
+        return;
+    }
+    
+    console.log('Navegando de volta para SVG:', previousSvg.url);
+    
+    // Preparar para transição
     svgWrapper.style.opacity = 0;
+    svgWrapper.classList.add('loading');
     
-    setTimeout(() => {
-        // Carregar SVG anterior
-        svgWrapper.innerHTML = previousSvg.content;
-        
-        const svg = svgWrapper.querySelector('svg');
-        if (svg) {
-            // Configura o SVG
-            setupSvgDimensions(svg);
-            setupSvgInteractivity(svg);
-        }
-        
-        // Restaurar opacidade
-        svgWrapper.style.opacity = 1;
-        
-        // Atualizar informações e status
-        fileInfo.textContent = previousSvg.name;
-        showStatus(`Voltou para ${previousSvg.name}`);
-        
-        // Atualizar botões de navegação
-        updateNavigationButtons();
-        
-        // Centralizar visualização
-        resetView();
-    }, 200);
+    // Tenta carregar o SVG anterior usando a URL original
+    window.electronAPI.loadPrismSvg(previousSvg.url)
+        .then(response => {
+            console.log('Resposta do preload.js ao voltar:', response);
+            
+            if (response.error) {
+                console.error('Erro ao carregar SVG anterior:', response.error);
+                showStatus(`Erro ao carregar SVG anterior: ${response.error}`, true);
+                return;
+            }
+            
+            // Usar setTimeout para garantir animação de fade
+            setTimeout(() => {
+                displaySvg(response.content, response.filename);
+                
+                // Atualiza botões de navegação
+                updateNavigationButtons();
+                
+                // Restaurar opacidade com animação
+                svgWrapper.style.opacity = 1;
+                svgWrapper.classList.remove('loading');
+            }, 200);
+        })
+        .catch(error => {
+            console.error('Erro ao carregar SVG anterior:', error);
+            showStatus('Erro ao carregar SVG anterior', true);
+            svgWrapper.style.opacity = 1;
+            svgWrapper.classList.remove('loading');
+        });
 }
 
+// Adicione um event listener para o botão de voltar
+document.addEventListener('DOMContentLoaded', () => {
+    const backBtn = document.getElementById('back-btn');
+    if (backBtn) {
+        backBtn.addEventListener('click', navigateBack);
+        console.log('Event listener de voltar adicionado');
+    } else {
+        console.warn('Botão de voltar não encontrado');
+    }
+});
 
-function loadSvgFromUrl(url) {
+function loadSvgFromUrl(url, isNavigatingBack = false) {
     const maxLength = 30;
     const shortenedUrl = url.length > maxLength 
         ? `${url.substring(0, 15)}...${url.substring(url.length - 15)}`
         : url;
 
-    showStatus(`Carregando ${shortenedUrl}...`, false, true);
-    
-    // Adicionar animação de transição
+    // Se não for navegação para trás, adiciona ao histórico
+    if (!isNavigatingBack) {
+        // Incrementa o índice antes de adicionar
+        currentSvgIndex++;
+        svgHistory.push({ url: url });
+    }
+
+    // Configurações de transição
     svgWrapper.style.opacity = 0;
+    svgWrapper.classList.add('loading');
     
     fetch(url)
         .then(response => {
@@ -923,31 +915,22 @@ function loadSvgFromUrl(url) {
             return response.text();
         })
         .then(svgContent => {
-            // Truncar histórico se estiver navegando para trás
-            if (currentSvgIndex < svgHistory.length - 1) {
-                svgHistory = svgHistory.slice(0, currentSvgIndex + 1);
-            }
-            
-            // Adicionar ao histórico
-            svgHistory.push({
-                content: svgContent,
-                name: url.split('/').pop()
-            });
-            
-            currentSvgIndex = svgHistory.length - 1;
-            
-            console.log('SVG da URL adicionado ao histórico. Total:', svgHistory.length, 'Índice atual:', currentSvgIndex);
-            
             setTimeout(() => {
                 displaySvg(svgContent, url.split('/').pop());
+                
+                // Atualiza botões de navegação após carregar
+                updateNavigationButtons();
+                
+                // Remove classe de carregamento
+                svgWrapper.classList.remove('loading');
             }, 200);
         })
         .catch(error => {
             showStatus(`Erro: ${error.message}`, true);
             svgWrapper.style.opacity = 1;
+            svgWrapper.classList.remove('loading');
         });
 }
-
         function handleZoom(e) {
             e.preventDefault();
             
@@ -1128,34 +1111,46 @@ window.addEventListener('load', () => {
     });
 });
 
-        document.addEventListener("DOMContentLoaded", async () => {
-            const params = new URLSearchParams(window.location.search);
-            const svgPath = params.get("svgPath");
+document.addEventListener("DOMContentLoaded", async () => {
+    const params = new URLSearchParams(window.location.search);
+    const svgPath = params.get("svgPath");
 
-            console.log("PRISM iniciado. Caminho do SVG:", svgPath);
+    console.log("PRISM iniciado. Caminho do SVG:", svgPath);
 
-            if (svgPath) {
-                try {
-                    const response = await window.electronAPI.loadPrismSvg(svgPath);
-                    
-                    console.log("Resposta do preload.js:", response);
+    // Reinicializar o histórico de SVGs e índice
+    svgHistory = [];
+    currentSvgIndex = -1;
 
-                    if (response.error) {
-                        console.error("Erro ao carregar SVG:", response.error);
-                        showStatus(`Erro ao carregar SVG: ${response.error}`, true);
-                        return;
-                    }
+    if (svgPath) {
+        try {
+            const response = await window.electronAPI.loadPrismSvg(svgPath);
+            
+            console.log("Resposta do preload.js:", response);
 
-                    console.log("Carregando SVG no display...");
-                    displaySvg(response.content, response.filename);
-                } catch (error) {
-                    console.error("Erro inesperado ao carregar SVG:", error);
-                    showStatus("Erro ao carregar SVG", true);
-                }
-            } else {
-                console.warn("Nenhum caminho de SVG recebido.");
+            if (response.error) {
+                console.error("Erro ao carregar SVG:", response.error);
+                showStatus(`Erro ao carregar SVG: ${response.error}`, true);
+                return;
             }
-        });
+
+            console.log("Carregando SVG no display...");
+            
+            // Adiciona o primeiro SVG ao histórico com índice 0
+            svgHistory.push({ url: svgPath });
+            currentSvgIndex = 0;
+            
+            displaySvg(response.content, response.filename);
+            
+            // Esconde o botão de voltar inicialmente
+            updateNavigationButtons();
+        } catch (error) {
+            console.error("Erro inesperado ao carregar SVG:", error);
+            showStatus("Erro ao carregar SVG", true);
+        }
+    } else {
+        console.warn("Nenhum caminho de SVG recebido.");
+    }
+});
 
     </script>
 </body>

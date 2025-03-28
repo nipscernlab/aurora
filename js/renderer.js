@@ -3666,3 +3666,97 @@ newsIcon.addEventListener('click', openNewsSidebar);
 document.getElementById('settingsButton').addEventListener('click', () => {
   ipcRenderer.send('open-settings');
 });
+
+//TOPLEVEL =======
+// Get current project path from your app state
+function getCurrentProjectPath() {
+  // Adjust this based on how your app stores the current project path
+  const projectState = remote.getGlobal('projectState');
+  return projectState?.basePath;
+}
+
+// Create TopLevel folder and .v file
+async function handleTopLevelCreation() {
+  try {
+    console.log('[TopLevel] Starting TopLevel creation process');
+    
+    const projectPath = getCurrentProjectPath();
+    if (!projectPath) {
+      console.error('[TopLevel] Error: No project currently open');
+      alert('Please open a project first');
+      return;
+    }
+
+    const topLevelPath = path.join(projectPath, 'TopLevel');
+    console.log(`[TopLevel] Target path: ${topLevelPath}`);
+
+    // Check if TopLevel exists, create if not
+    if (!fs.existsSync(topLevelPath)) {
+      console.log('[TopLevel] TopLevel folder does not exist, creating...');
+      await fse.mkdir(topLevelPath);
+      console.log('[TopLevel] Successfully created TopLevel folder');
+    } else {
+      console.log('[TopLevel] TopLevel folder already exists');
+    }
+
+    // Open save dialog for .v file
+    console.log('[TopLevel] Opening file save dialog...');
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Create Verilog File',
+      defaultPath: path.join(topLevelPath, 'new_file.v'),
+      filters: [{ name: 'Verilog Files', extensions: ['v'] }],
+      properties: ['createDirectory']
+    });
+
+    if (filePath) {
+      console.log(`[TopLevel] User selected path: ${filePath}`);
+      
+      // Ensure file has .v extension
+      const finalPath = path.extname(filePath) === '.v' ? filePath : `${filePath}.v`;
+      
+      console.log(`[TopLevel] Creating file at: ${finalPath}`);
+      await fse.writeFile(finalPath, '// New Verilog file\n');
+      console.log('[TopLevel] File created successfully');
+
+      // Refresh file tree
+      console.log('[TopLevel] Refreshing file tree...');
+      ipcRenderer.send('refresh-file-tree');
+    } else {
+      console.log('[TopLevel] User canceled file creation');
+    }
+  } catch (error) {
+    console.error('[TopLevel] Error during TopLevel creation:', error);
+    alert(`Failed to create file: ${error.message}`);
+  }
+}
+
+// Add event listener to the button
+document.getElementById('create-toplevel-button').addEventListener('click', () => {
+  console.log('[TopLevel] Create TopLevel button clicked');
+  handleTopLevelCreation().catch(console.error);
+});
+
+// Optional: Change button style when TopLevel exists
+async function updateButtonState() {
+  const projectPath = getCurrentProjectPath();
+  if (!projectPath) return;
+
+  const topLevelPath = path.join(projectPath, 'TopLevel');
+  const exists = await fse.pathExists(topLevelPath);
+  const button = document.getElementById('create-toplevel-button');
+
+  if (exists) {
+    button.title = 'Create Verilog File in TopLevel';
+    button.style.color = '#4CAF50'; // Green color when folder exists
+  } else {
+    button.title = 'Create TopLevel Folder and Verilog File';
+    button.style.color = '';
+  }
+}
+
+// Update button state when project changes
+ipcRenderer.on('project-opened', updateButtonState);
+ipcRenderer.on('refresh-file-tree', updateButtonState);
+
+// Initial update
+updateButtonState().catch(console.error);

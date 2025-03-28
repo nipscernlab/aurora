@@ -539,7 +539,6 @@ ipcMain.handle('refreshFolder', async (event, projectPath) => {
 });
 
 
-
 ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDir, outputPath }) => {
   return new Promise((resolve, reject) => {
     const compilerPath = path.join(__dirname, compiler);
@@ -1494,3 +1493,5 @@ ipcMain.handle('delete-folder', async (_, folderPath) => {
     throw error;
   }
 });
+
+//TOP LEVEL

@@ -2571,8 +2571,9 @@ async loadConfig() {
       const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
       const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
+      const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
 
-      const cmd = `"${cmmCompPath}" "${cmmPath}" "${asmPath}" "${macrosPath}" "${tempPath}" ${name}`;
+      const cmd = `"${cmmCompPath}" ${name} "${projectPath}" "${macrosPath}" "${tempPath}" `;
       
       this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
       
@@ -2657,26 +2658,11 @@ async loadConfig() {
     
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+        const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
         const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
         const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
         const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-        
-        this.terminalManager.appendToTerminal('tveri', 'Copying required files...');
-        
-        // Copiar arquivos necessários
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`),
-            await window.electronAPI.joinPath(tempPath, `${name}_data.mif`)
-        );
-        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_data.mif`);
-        
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
-            await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
-        );
-        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_inst.mif`);
         
         const flags = this.config.iverilogFlags.join(' ');
         
@@ -2696,14 +2682,13 @@ async loadConfig() {
         }
         
         const verilogFiles = [
-            'int2float.v', 'proc_fl.v', 'float2int.v', 'addr_dec.v', 'core_fl.v', 'mem_instr.v',
-            'prefetch.v', 'instr_dec.v', 'stack_pointer.v', 'ula.v', 'float2index.v', 'stack.v',
-            'rel_addr.v', 'ula_fl.v', 'proc_fx.v', 'core_fx.v', 'ula_fx.v'
+            'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
+            'stack_pointer.v', 'stack.v', 'rel_addr.v', 'processor.v', 'core.v', 'ula.v'
         ];
         
         const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
         
-        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `mem_data_${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `pc_${name}.v`)}" ${verilogFilesString}`;
+        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `mem_data_${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `pc_${name}.v`)}" ${verilogFilesString}`;
         
         console.log('Icarus Verilog Command:', cmd);
 
@@ -2721,10 +2706,25 @@ async loadConfig() {
         if (result.code !== 0) {
             throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
         }
+
+        this.terminalManager.appendToTerminal('tveri', `Copying ${name}_data.mif to ${tempPath}...`);
+        await window.electronAPI.copyFile(
+            await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`),
+            await window.electronAPI.joinPath(tempPath, `${name}_data.mif`)
+        );
+        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_data.mif successfully.`);
+        
+        this.terminalManager.appendToTerminal('tveri', `Copying ${name}_inst.mif to ${tempPath}...`);
+        await window.electronAPI.copyFile(
+            await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
+            await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
+        );
+        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_inst.mif successfully.`);        
+
         
         // Executar vvp
         this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation...');
-        const vvpCmd = `cd "${tempPath}" && vvp ${name} -fst`;
+        const vvpCmd = `cd "${tempPath}" && vvp ${name}.vvp -fst`;
         this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
         
         const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -2761,26 +2761,27 @@ async runGtkWave(processor, simConfig) {
     
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+        const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
         const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-        
-        // Copiar executáveis
-        this.terminalManager.appendToTerminal('twave', 'Copying GTKWave executables...');
+    
         const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
-        const executables = ['comp2gtkw.exe', 'f2i_gtkw.exe', 'float2gtkw.exe'];
+
+        const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+
+        this.terminalManager.appendToTerminal('tveri', `Creating tcl_infos.txt in ${tempPath}...`);
         
-        for (const exe of executables) {
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(binPath, exe),
-                await window.electronAPI.joinPath(tempPath, exe)
-            );
-            this.terminalManager.appendToTerminal('twave', `Copied ${exe}`);
-        }
+        // Criar o conteúdo do arquivo
+        const tclContent = `${tempPath}\n${binPath}\n`;
         
+        // Escrever o arquivo
+        await window.electronAPI.writeFile(tclFilePath, tclContent);
+        
+        this.terminalManager.appendToTerminal('tveri', `tcl_infos.txt created successfully in ${tempPath}.`);
+              
         let cmd;
         if (simConfig.standardSimulation) {
-            const basePath = await window.electronAPI.joinPath(appPath, '..', '..'); // Sobe duas pastas
+            const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
             const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtk_proc_init.tcl');
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             const tempNamePath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
@@ -2815,30 +2816,196 @@ async runGtkWave(processor, simConfig) {
     }
 }
 
-  async compileAll() {
-    try {
-      await this.loadConfig();
-      for (const processor of this.config.processors) {
-        await this.ensureDirectories(processor.name);
-        const asmPath = await this.cmmCompilation(processor);
-        await this.asmCompilation(processor, asmPath);
-        
-        // Show simulation config modal and get configuration
-        const simConfig = await this.showSimulationConfig(processor);
-        if (!simConfig) {
-          console.log('Compilation cancelled by user');
-          return false;
-        }
-        
-        // Pass simConfig to iverilogCompilation
-        await this.iverilogCompilation(processor, simConfig);
-      }
-      return true;
-    } catch (error) {
-      console.error('Compilation error:', error);
-      return false;
+// Adicione estes métodos à classe CompilationModule ou ao window.electronAPI
+
+// Método para garantir criação de diretórios
+async ensureDirectories(name) {
+  try {
+    // Cria diretórios temporários
+    const basePath = await window.electronAPI.getAppPath();
+    const tempDir = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name, 'PRISM');
+    
+    // Cria diretórios recursivamente
+    await window.electronAPI.mkdir(tempDir, { recursive: true });
+    
+    // Cria outros diretórios necessários
+    const hdlDir = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+    await window.electronAPI.mkdir(hdlDir, { recursive: true });
+    
+    return tempDir;
+  } catch (error) {
+    console.error('Error ensuring directories:', error);
+    throw error;
+  }
+}
+
+// Método para listar arquivos
+async listFiles(dirPath, filterFn = () => true) {
+  try {
+    const files = await window.electronAPI.readDir(dirPath);
+    return files.filter(filterFn);
+  } catch (error) {
+    console.error('Error listing files:', error);
+    return [];
+  }
+}
+
+// Método para deletar arquivo
+async deleteFile(filePath) {
+  try {
+    await window.electronAPI.unlink(filePath);
+  } catch (error) {
+    // Silencia erros de arquivo não encontrado
+    if (error.code !== 'ENOENT') {
+      console.error('Error deleting file:', error);
     }
   }
+}
+
+// Método para copiar arquivo
+async copyFile(sourcePath, destPath) {
+  try {
+    await window.electronAPI.copyFile(sourcePath, destPath);
+  } catch (error) {
+    console.error('Error copying file:', error);
+    throw error;
+  }
+}
+
+
+async prismComp(processor, simConfig) {
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('tprism', `Starting PRISM compilation for ${name}...`);
+  
+  try {
+    // Definir caminhos
+    const basePath = await window.electronAPI.getAppPath();
+    const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
+    const tempPath = await this.ensureDirectories(name);
+    const fancyPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin', 'fancySVG.exe');
+    const prismPath = await window.electronAPI.joinPath(tempPath);
+    // Copiar arquivos necessários
+    const procVFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
+    const proc2rtlYsFile = await window.electronAPI.joinPath(scriptsPath, 'proc2rtl.ys');
+
+    // Copiar arquivos para pasta HDL
+    await this.copyFile(procVFile, await window.electronAPI.joinPath(hdlPath, `${name}.v`));
+    this.terminalManager.appendToTerminal('tprism', `Copied ${name}.v to HDL directory successfully.`);
+
+    await this.copyFile(proc2rtlYsFile, await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys'));
+    this.terminalManager.appendToTerminal('tprism', 'Copied proc2rtl.ys to HDL directory successfully.');
+
+    // Alterar o arquivo proc2rtl.ys
+    const proc2rtlPath = await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys');
+    let proc2rtlContent = await window.electronAPI.readFile(proc2rtlPath, 'utf8');
+    proc2rtlContent = proc2rtlContent.replace(/@PROC@/g, name);
+    await window.electronAPI.writeFile(proc2rtlPath, proc2rtlContent);
+    this.terminalManager.appendToTerminal('tprism', 'Updated proc2rtl.ys with processor name.');
+
+    // Executar Yosys
+    const yosysCmd = `cd /d "${hdlPath}" && yosys -s proc2rtl.ys`;
+    const yosysResult = await window.electronAPI.execCommand(yosysCmd);
+    
+    if (yosysResult.stderr) {
+      this.terminalManager.appendToTerminal('tprism', yosysResult.stderr, 'stderr');
+    }
+    
+    // Identificar arquivos JSON gerados
+    const jsonFiles = await this.listFiles(hdlPath, file => file.endsWith('.json'));
+
+    // Garantir que a pasta PRISM existe
+    await window.electronAPI.mkdir(tempPath, { recursive: true });
+
+    for (const jsonFile of jsonFiles) {
+      try {
+        const jsonPath = await window.electronAPI.joinPath(hdlPath, jsonFile);
+        const svgPath = await window.electronAPI.joinPath(hdlPath, jsonFile.replace('.json', '.svg'));
+
+        // Comando para gerar SVG
+        const netlistCmd = `cd /d "${hdlPath}" && npx netlistsvg "${jsonFile}" -o "${jsonFile.replace('.json', '.svg')}"`;
+
+        let netlistResult = { stderr: null }; 
+
+        try {
+          netlistResult = await window.electronAPI.execCommand(netlistCmd);
+          console.log('netlistsvg output:', netlistResult);
+        } catch (error) {
+          console.error(`Error running netlistsvg for ${jsonFile}:`, error);
+          this.terminalManager.appendToTerminal('tprism', `Error running netlistsvg for ${jsonFile}: ${error.message}`, 'error');
+          continue;
+        }
+
+        if (netlistResult.stderr) {
+          this.terminalManager.appendToTerminal('tprism', netlistResult.stderr, 'stderr');
+        }
+
+        // Copiar SVG para pasta PRISM
+        const destSvgPath = await window.electronAPI.joinPath(tempPath, jsonFile.replace('.json', '.svg'));
+        await this.copyFile(svgPath, destSvgPath);
+
+        // Processar SVG com fancySVG
+        const processSvgCmd = `${fancyPath} 1 "${name}" "${destSvgPath}" "${destSvgPath}" "${prismPath}"`;
+        await window.electronAPI.execCommand(processSvgCmd);
+
+        // Deletar arquivos temporários
+        await this.deleteFile(jsonPath);
+        await this.deleteFile(svgPath);
+
+        this.terminalManager.appendToTerminal('tprism', `Processed ${jsonFile} successfully.`);
+      } catch (fileError) {
+        this.terminalManager.appendToTerminal('tprism', `Error processing ${jsonFile}: ${fileError.message}`, 'error');
+      }
+    }
+
+    // Limpar arquivos restantes na pasta HDL
+    await this.deleteFile(await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys'));
+    await this.deleteFile(await window.electronAPI.joinPath(hdlPath, `${name}.v`));
+
+    // Limpar todos os arquivos .json na pasta HDL
+    const remainingJsonFiles = await this.listFiles(hdlPath, file => file.endsWith('.json'));
+    for (const jsonFile of remainingJsonFiles) {
+      await this.deleteFile(await window.electronAPI.joinPath(hdlPath, jsonFile));
+    }
+
+    this.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully.');
+
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tprism', `Error during PRISM compilation: ${error.message}`, 'error');
+    throw error;
+  }
+}
+
+    // No método compileAll() da classe CompilationModule
+    async compileAll() {
+      try {
+        await this.loadConfig();
+        for (const processor of this.config.processors) {
+          await this.ensureDirectories(processor.name);
+          const asmPath = await this.cmmCompilation(processor);
+          await this.asmCompilation(processor, asmPath);
+          
+          // Show simulation config modal and get configuration
+          const simConfig = await this.showSimulationConfig(processor);
+          if (!simConfig) {
+            console.log('Compilation cancelled by user');
+            return false;
+          }
+          
+          // Pass simConfig to iverilogCompilation
+          await this.iverilogCompilation(processor, simConfig);
+          
+          // Adicionar chamada para prismComp
+          // await this.prismComp(processor, simConfig);
+        }
+        return true;
+      } catch (error) {
+        console.error('Compilation error:', error);
+        return false;
+      }
+    }
+
 }
 
 document.getElementById('allcomp').addEventListener('click', async () => {
@@ -2938,6 +3105,52 @@ class CompilationButtonManager {
       }
     });
 
+    document.getElementById('prismcomp').addEventListener('click', async () => {
+      try {
+          if (!this.compiler) this.initializeCompiler();
+          
+          await this.compiler.loadConfig();
+          const processor = this.compiler.config.processors[0]; // Assume o primeiro processador
+          
+          if (!processor || !processor.name) {
+              throw new Error('Processor name is undefined.');
+          }
+  
+          const appPath = await window.electronAPI.getAppPath();
+          if (!appPath) {
+              throw new Error('Failed to retrieve appPath.');
+          }
+  
+          const basePath = await window.electronAPI.joinPath(appPath); 
+          const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
+  
+          const simConfig = await this.compiler.showSimulationConfig(processor);
+          if (!simConfig) {
+              console.log('PRISM compilation cancelled by user');
+              return;
+          }
+  
+          await this.compiler.prismComp(processor, simConfig);
+          await refreshFileTree();
+  
+          // Obtém o caminho do arquivo SVG gerado
+          const prismPath = await window.electronAPI.joinPath(tempPath, 'PRISM', `${processor.name}.svg`);
+          console.log(prismPath);
+          // Abre o PRISM Viewer passando o caminho do SVG
+          window.electronAPI.openPrismWindow(prismPath);
+  
+          if (window.terminalManager) {
+              window.terminalManager.appendToTerminal("tprism", "PRISM Viewer launched");
+          }
+      } catch (error) {
+          console.error('PRISM compilation error:', error);
+          window.electronAPI.showErrorMessage({
+              title: 'PRISM Compilation Error',
+              message: error.message || 'Failed to compile with PRISM'
+          });
+      }
+  });
+   
 
   }
 }
@@ -2945,17 +3158,6 @@ class CompilationButtonManager {
 // Inicializa o gerenciador quando a janela carregar
 window.addEventListener('load', () => {
   const compilationManager = new CompilationButtonManager();
-});
-
-// Add an event listener to the PRISM button
-document.getElementById("prismcomp").addEventListener("click", function() {
-  // Chama o processo principal para abrir a nova janela
-  window.electronAPI.openPrismWindow();
-
-  // Log no terminal informando que a PRISM foi aberta
-  if (window.terminalManager) {
-    window.terminalManager.appendToTerminal("tprism", "PRISM Viewer launched");
-  }
 });
 
 

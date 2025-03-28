@@ -62,9 +62,15 @@ const projectOperations = {
     ipcRenderer.on('update-progress', (event, data) => callback(data));
   },
   clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder'),
-  openPrismWindow: () => ipcRenderer.send("open-prism-window")
 
-
+  openPrismWindow: (svgPath) => {
+    console.log("Abrindo PRISM com SVG:", svgPath);
+    ipcRenderer.send("open-prism-window", svgPath);
+},
+loadPrismSvg: async (svgPath) => {
+    console.log("Requisitando SVG:", svgPath);
+    return ipcRenderer.invoke("load-svg-file", svgPath);
+}
 };
 
 const dialogOperations = {

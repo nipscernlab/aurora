@@ -2,9 +2,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
-#include <string.h>
 
-float i2mf(char *ifl, int nbm, int nbe)
+float b2mf(char *ifl, int nbm, int nbe)
 {
     int i;
 
@@ -46,13 +45,9 @@ float i2mf(char *ifl, int nbm, int nbe)
 
 int main(int argc, char **argv)
 {
-    char   fname[64], man[16], exp[16];
-    FILE  *flog = fopen("log.txt", "r");
-    fscanf(flog,"%s %s %s", fname, man, exp);
+    char ma[10], ex[10];
+    int  i, nbm, nbe, nbits;
 
-    int   nbm = atoi(man);
-    int   nbe = atoi(exp);
-    int   nbits = nbm+nbe+1;
     char  bufi[1025], bufo[1025];
     char  re[64], im[64];
     int   dre,dim;
@@ -65,21 +60,34 @@ int main(int argc, char **argv)
         fscanf(stdin, "%s", bufi);
         if (bufi[0]) 
         {
-            for (int i=0;i<nbits;i++)
+            for (i=0; i<8; i++)
             {
-                re[i] = bufi[i];
-                im[i] = bufi[i+nbits];
+                ma[i] = bufi[i  ];
+                ex[i] = bufi[i+8];
+            }
+            ma[8] = 0;
+            ex[8] = 0;
+
+            nbm = strtol(ma,NULL,2);
+            nbe = strtol(ex,NULL,2);
+            nbits = nbm+nbe+1;
+
+            for (i=0;i<nbits;i++)
+            {
+                re[i] = bufi[16+i];
+                im[i] = bufi[16+i+nbits];
             }
             re[nbits] = 0;
             im[nbits] = 0;
 
-            float fre = i2mf(re,nbm,nbe);
-            float fim = i2mf(im,nbm,nbe);
+            float fre = b2mf(re,nbm,nbe);
+            float fim = b2mf(im,nbm,nbe);
 
             sprintf(bufo, "%.3f %.3fi", fre, fim);
-            printf("%s\n", bufo);
-            fflush(stdout);
+             printf("%s\n", bufo);
+             fflush(stdout);
         }
     }
+
     return 0;
 }

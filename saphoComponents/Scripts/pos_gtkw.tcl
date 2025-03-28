@@ -1,0 +1,1 @@
+gtkwave::/View/Left_Justified_Signals

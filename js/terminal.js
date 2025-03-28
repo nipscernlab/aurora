@@ -36,6 +36,11 @@ document.getElementById('wavecomp').addEventListener('click', () => {
   switchTerminal('terminal-twave');
 });
 
+document.getElementById('prismcomp').addEventListener('click', () => {
+  switchTerminal('terminal-tprism');
+});
+
+
 // Event listeners para as tabs do terminal
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', (event) => {

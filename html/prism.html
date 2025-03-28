@@ -79,6 +79,16 @@
             overflow: hidden;
         }
 
+        @keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
         header {
             background-color: var(--bg-secondary);
             padding: 0.8rem 1.5rem;
@@ -575,12 +585,12 @@
 
         function loadSvgFile(file) {
     const reader = new FileReader();
-    
+
     showStatus('Carregando SVG...', false, true);
-    
+
     reader.onload = function(event) {
         const svgContent = event.target.result;
-        
+
         // Se estiver carregando um novo arquivo, limpar histórico
         if (!svgLoadedFromFile) {
             svgHistory = [];
@@ -593,15 +603,15 @@
             }
             currentSvgIndex = svgHistory.length;
         }
-        
+
         // Adicionar ao histórico
         svgHistory.push({
             content: svgContent,
             name: file.name
         });
-        
+
         console.log('SVG adicionado ao histórico. Total:', svgHistory.length, 'Índice atual:', currentSvgIndex);
-        
+
         displaySvg(svgContent, file.name);
     };
     
@@ -895,7 +905,12 @@ function navigateBack() {
 
 
 function loadSvgFromUrl(url) {
-    showStatus(`Carregando ${url}...`, false, true);
+    const maxLength = 30;
+    const shortenedUrl = url.length > maxLength 
+        ? `${url.substring(0, 15)}...${url.substring(url.length - 15)}`
+        : url;
+
+    showStatus(`Carregando ${shortenedUrl}...`, false, true);
     
     // Adicionar animação de transição
     svgWrapper.style.opacity = 0;
@@ -932,7 +947,6 @@ function loadSvgFromUrl(url) {
             svgWrapper.style.opacity = 1;
         });
 }
-
 
         function handleZoom(e) {
             e.preventDefault();
@@ -1091,7 +1105,7 @@ window.addEventListener('load', () => {
 
     // Detectar preferência de tema do sistema
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        document.body.classList.add('theme-light');
+        document.body.classList.add('theme-dark');
         themeToggle.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="5"></circle>
@@ -1113,6 +1127,36 @@ window.addEventListener('load', () => {
         updateTransform();
     });
 });
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const params = new URLSearchParams(window.location.search);
+            const svgPath = params.get("svgPath");
+
+            console.log("PRISM iniciado. Caminho do SVG:", svgPath);
+
+            if (svgPath) {
+                try {
+                    const response = await window.electronAPI.loadPrismSvg(svgPath);
+                    
+                    console.log("Resposta do preload.js:", response);
+
+                    if (response.error) {
+                        console.error("Erro ao carregar SVG:", response.error);
+                        showStatus(`Erro ao carregar SVG: ${response.error}`, true);
+                        return;
+                    }
+
+                    console.log("Carregando SVG no display...");
+                    displaySvg(response.content, response.filename);
+                } catch (error) {
+                    console.error("Erro inesperado ao carregar SVG:", error);
+                    showStatus("Erro ao carregar SVG", true);
+                }
+            } else {
+                console.warn("Nenhum caminho de SVG recebido.");
+            }
+        });
+
     </script>
 </body>
 </html>

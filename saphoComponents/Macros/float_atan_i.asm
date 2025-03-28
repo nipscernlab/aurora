@@ -1,85 +1,74 @@
 
-// Funcao arco-tangente para proc ponto fixo ----------------------------------
+// Funcao arco-tangente -------------------------------------------------------
 
-@float_atani SET arctan_x         // pega parametro
+@float_atani SET my_atan_x          // pega parametro x
 
-AND 4194303                       // zera o bit de sinal (abs pra float em software)
+EQU    0.0                          // if (x == 0) return 0.0;
+JIZ    L1else_atani
+LOD    0.0
+RET
 
-PLD 3244032 // 1.0                // testa se abs(x) < 1
-CALL denorm
-LOAD float_aux3
-GRE float_aux1
-JZ L4else
+@L1else_atani F_ABS_M my_atan_x     // if (abs(x) == 1.0) return sign(x,pi2*0.5);
+EQU     1.0
+JIZ     L2else_atani
+LOD     1.57079632679489661923      // pi/2
+F_MLT   0.5
+F_SGN   my_atan_x
+RET
+JMP     L2end_atani
 
-LOAD arctan_x                     // coloca o sinal de x em pi/2
-AND 4194304
-ADD pi_div_2
+@L2else_atani F_ABS_M my_atan_x     // else if (abs(x) > 1.0) return sign(x,pi2) - atan(1.0/x);
+F_LES   1.0
+JIZ     L3else_atani
+LOD     1.57079632679489661923      // pi/2
+F_SGN   my_atan_x
+P_LOD   my_atan_x
+F_DIV   1.0
+CAL     float_atani
+F_NEG
+SF_ADD
+RET
 
-PLD 3244032 // 1.0                // chama recursivo com 1/x (se abs(x) > 1)
-PLD arctan_x
-CALL float_div
-CALL float_atani
+@L3else_atani @L2end_atani LOD my_atan_x  // float termo = x;
+SET     my_atan_termo
 
-PLD float_nbits                   // negacao em ponto flutuante
-SHL 1
-SADD                              // fim da negacao
+LOD     my_atan_x                         // float x2 = x*x;
+F_MLT   my_atan_x
+SET     my_atan_x2
 
-CALL denorm                       // subtrai o resultado de pi/2 com sinal
-CALL float_add
-RETURN                            // retorna
+LOD     my_atan_termo                     // float resultado = termo;
+SET     my_atan_resultado
 
-@L4else LOAD arctan_x             // salva x em termo
-SET arctan_termo
+LOD     my_atan_x2                        // float tolerancia = epslon/x2;
+F_DIV   epsilon_taylor
+SET     my_atan_tolerancia
 
-LOAD arctan_x                     // calcula x^2
-PLD arctan_x
-CALL float_mult
-SET arctan_x2
+LOD 3                                     // int indiceX = 3;
+SET     my_atan_indiceX
 
-LOAD arctan_termo                 // salva termo em resultado
-SET arctan_resultado
+@L4_atani F_ABS_M my_atan_termo           // while (abs(termo) > tolerancia)
+F_LES   my_atan_tolerancia
+JIZ     L4end_atani
 
-LOAD epsilon_taylor               // calcula a tolerancia
-PLD arctan_x2
-CALL float_div
-SET arctan_tolerancia
+LOD    -2                                 // termo = termo * (- x2 * (indiceX - 2)) / indiceX;
+ADD     my_atan_indiceX
+I2F
+F_MLT   my_atan_x2
+F_NEG
+F_MLT   my_atan_termo
+P_I2F_M my_atan_indiceX
+SF_DIV
+SET     my_atan_termo
 
-LOAD 3                            // inicializa indice com 3
-SET arctan_indiceX
+LOD     my_atan_resultado                 // resultado = resultado + termo;
+F_ADD   my_atan_termo
+SET     my_atan_resultado
 
-@L5 LOAD arctan_termo             // inicio: testa se abs(termo) > tolerancia
-AND 4194303                       // zera o bit de sinal (abs pra float em software)
-PLD arctan_tolerancia
-CALL denorm
-LOAD float_aux3
-GRE float_aux1
-JZ L5end
+LOD     2                                 // indiceX = indiceX + 2;
+ADD     my_atan_indiceX
+SET     my_atan_indiceX
 
-LOAD -2                           // calculo principal: termo = termo * (- x2 * (indiceX - 2)) / indiceX;
-ADD arctan_indiceX
-CALL int2float
-PLD arctan_x2
-CALL float_mult
-PLD float_nbits                   // negacao em ponto flutuante
-SHL 1
-SADD                              // fim da negacao
-PLD arctan_termo
-CALL float_mult
-PLD arctan_indiceX
-CALL int2float
-CALL float_div
-SET arctan_termo
+JMP     L4_atani                          // }
 
-LOAD arctan_resultado             // atualiza o resultado
-PLD arctan_termo
-CALL denorm
-CALL float_add
-SET arctan_resultado
-
-LOAD 2                            // atualiza o indice
-ADD arctan_indiceX
-SET arctan_indiceX
-JMP L5                            // e volta
-
-@L5end LOAD arctan_resultado      // fim
-RETURN
+@L4end_atani LOD my_atan_resultado        // return resultado;
+RET

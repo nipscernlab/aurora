@@ -12,7 +12,11 @@ module mem_instr
 
 reg [NBDATA-1:0] mem [0:NADDRE-1];
 
-initial $readmemb(FNAME, mem);
+`ifdef YOSYS
+  // Yosys vai ignorar isso
+`else
+	initial $readmemb(FNAME, mem);
+`endif
 
 wire wr = 0; // evitar warnings desnecessarios
 

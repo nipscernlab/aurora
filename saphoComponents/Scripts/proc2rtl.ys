@@ -1,0 +1,26 @@
+read_verilog @PROC@.v
+read_verilog addr_dec.v
+read_verilog core.v
+read_verilog instr_dec.v
+read_verilog mem_data.v
+read_verilog mem_instr.v
+read_verilog pc.v
+read_verilog prefetch.v
+read_verilog processor.v
+read_verilog rel_addr.v
+read_verilog stack_pointer.v
+read_verilog stack.v
+read_verilog ula.v
+prep -top @PROC@
+
+cd @PROC@
+write_json -selected @PROC@.json
+
+cd p_@PROC@
+write_json -selected p_@PROC@.json
+
+cd genblk1.core
+write_json -selected core.json
+
+cd ula
+write_json -selected ula.json

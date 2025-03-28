@@ -9,7 +9,7 @@ module stack_pointer
 	output [NDATAW-1:0] addr_w, addr_r
 );
 
-reg         [NDATAW-1:0] cnt =    NDATAS-{{NDATAW-1{1'b0}}, {1'b1}};
+reg         [NDATAW-1:0] cnt = NDATAS   -{{NDATAW-1{1'b0}}, {1'b1}};
 wire signed [NDATAW-1:0] pm  = (push) ? -{{NDATAW-1{1'b0}}, {1'b1}} : {{NDATAW-1{1'b0}}, {1'b1}};
 
 always @ (posedge clk or posedge rst) begin

@@ -1,41 +1,22 @@
 
-// Funcao sqrt para float em ponto fixo ---------------------------------------
+// Funcao sqrt ----------------------------------------------------------------
 
 @float_sqrti SET     sqrt_num                  // pega parametro
 @L1_sqrti    SET     sqrt_x                    // atualiza x
 
-             LOAD    sqrt_num                  // iteracao
-             PLD     sqrt_x
-             CALL    float_div
-             PLD     sqrt_x
-             CALL    denorm
-             CALL    float_add
-             PLD     3178496 // 0.5
-             CALL    float_mult
+             F_DIV   sqrt_num                  // iteracao
+             F_ADD   sqrt_x
+             F_MLT   0.5
              SET     sqrt_raiz
 
-             PLD     float_nbits               // negacao da raiz
-             SHL     1
-             SADD                              // fim da negacao
+             F_NEG                              // negacao da raiz
+             F_ADD   sqrt_x                    // x - raiz
 
-             PLD     sqrt_x                    // x - raiz
-             CALL    denorm
-             CALL    float_add
+             F_GRE   epsilon_taylor            // checa tolerancia
+             JIZ     L2else_sqrti
 
-             PLD     float_nbits               // abs(.)
-             SHL     1
-             INV
-             SAND
+             LOD     sqrt_raiz                 // se eh, retorna o resultado
+             RET
 
-             PLD     epsilon_taylor            // checa tolerancia
-             CALL    denorm
-             LOAD    float_aux3
-             LES     float_aux1
-             JZ      L2else_sqrti
-             JMP     L1end_sqrti
-
-@L2else_sqrti LOAD   sqrt_raiz                 // se nao eh, volta
+@L2else_sqrti LOD    sqrt_raiz                 // se nao eh, volta
               JMP    L1_sqrti
-
-@L1end_sqrti LOAD    sqrt_raiz                 // se eh, retorna o resultado
-             RETURN

@@ -30,12 +30,7 @@ end
 
 // Stack ----------------------------------------------------------------------
 
-always @ (posedge clk) begin
-	if (push) mem[cnt] <= in;
-end 
-
-always @ (posedge clk) begin
-	out <= mem[cnt + {{$clog2(DEPTH)-1{1'b0}}, {1'b1}} + pop];
-end 
+always @ (posedge clk) if (push) mem[cnt] <= in; 
+always @ (posedge clk)    out <= mem[cnt + {{$clog2(DEPTH)-1{1'b0}}, {1'b1}} + pop]; 
 
 endmodule 

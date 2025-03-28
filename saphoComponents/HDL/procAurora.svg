@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:s="https://github.com/nturley/netlistsvg" width="441" height="249">
+  <style>svg {
+    stroke:#000;
+    fill:none;
+  }
+  text {
+    fill:#000;
+    stroke:none;
+    font-size:10px;
+    font-weight: bold;
+    font-family: "Courier New", monospace;
+  }
+  .nodelabel {
+    text-anchor: middle;
+  }
+  .inputPortLabel {
+    text-anchor: end;
+  }
+  .splitjoinBody {
+    fill:#000;
+  }</style>
+  <g s:type="generic" transform="translate(272,126.5)" s:width="30" s:height="40" id="cell_dec_out">
+    <text x="15" y="-4" class="nodelabel cell_dec_out" s:attribute="ref">$paramod\addr_dec\NPORT=s32'00000000000000000000000000000010</text>
+    <rect width="30" height="40" s:generic="body" class="cell_dec_out"/>
+    <g transform="translate(0,10)" s:x="0" s:y="10" s:pid="in0" id="port_dec_out~index">
+      <text x="-3" y="-4" class="inputPortLabel cell_dec_out">index</text>
+    </g>
+    <g transform="translate(0,30)" s:x="0" s:y="10" s:pid="in0" id="port_dec_out~valid_in">
+      <text x="-3" y="-4" class="inputPortLabel cell_dec_out">valid_in</text>
+    </g>
+    <g transform="translate(30,10)" s:x="30" s:y="10" s:pid="out0" id="port_dec_out~valid_out">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_dec_out">valid_out</text>
+    </g>
+  </g>
+  <g s:type="generic" transform="translate(108,111.5)" s:width="30" s:height="40" id="cell_p_procAurora">
+    <text x="15" y="-4" class="nodelabel cell_p_procAurora" s:attribute="ref">$paramod$7c8939b702b5e447ac77507150c3716add7ff3c6\processor</text>
+    <rect width="30" height="100" s:generic="body" class="cell_p_procAurora"/>
+    <g transform="translate(0,10)" s:x="0" s:y="10" s:pid="in0" id="port_p_procAurora~clk">
+      <text x="-3" y="-4" class="inputPortLabel cell_p_procAurora">clk</text>
+    </g>
+    <g transform="translate(0,30)" s:x="0" s:y="10" s:pid="in0" id="port_p_procAurora~io_in">
+      <text x="-3" y="-4" class="inputPortLabel cell_p_procAurora">io_in</text>
+    </g>
+    <g transform="translate(0,50)" s:x="0" s:y="10" s:pid="in0" id="port_p_procAurora~itr">
+      <text x="-3" y="-4" class="inputPortLabel cell_p_procAurora">itr</text>
+    </g>
+    <g transform="translate(0,70)" s:x="0" s:y="10" s:pid="in0" id="port_p_procAurora~rst">
+      <text x="-3" y="-4" class="inputPortLabel cell_p_procAurora">rst</text>
+    </g>
+    <g transform="translate(30,10)" s:x="30" s:y="10" s:pid="out0" id="port_p_procAurora~addr_in">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_p_procAurora">addr_in</text>
+    </g>
+    <g transform="translate(30,30)" s:x="30" s:y="10" s:pid="out0" id="port_p_procAurora~addr_out">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_p_procAurora">addr_out</text>
+    </g>
+    <g transform="translate(30,50)" s:x="30" s:y="10" s:pid="out0" id="port_p_procAurora~io_out">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_p_procAurora">io_out</text>
+    </g>
+    <g transform="translate(30,70)" s:x="30" s:y="10" s:pid="out0" id="port_p_procAurora~out_en">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_p_procAurora">out_en</text>
+    </g>
+    <g transform="translate(30,90)" s:x="30" s:y="10" s:pid="out0" id="port_p_procAurora~req_in">
+      <text x="5" y="-4" style="fill:#000; stroke:none" class="cell_p_procAurora">req_in</text>
+    </g>
+  </g>
+  <g s:type="inputExt" transform="translate(12,22)" s:width="30" s:height="20" id="cell_clk">
+    <text x="15" y="-4" class="nodelabel cell_clk" s:attribute="ref">clk</text>
+    <s:alias val="$_inputExt_"/>
+    <path d="M0,0 L0,20 L15,20 L30,10 L15,0 Z" class="cell_clk"/>
+    <g s:x="28" s:y="10" s:pid="Y"/>
+  </g>
+  <g s:type="inputExt" transform="translate(12,217)" s:width="30" s:height="20" id="cell_rst">
+    <text x="15" y="-4" class="nodelabel cell_rst" s:attribute="ref">rst</text>
+    <s:alias val="$_inputExt_"/>
+    <path d="M0,0 L0,20 L15,20 L30,10 L15,0 Z" class="cell_rst"/>
+    <g s:x="28" s:y="10" s:pid="Y"/>
+  </g>
+  <g s:type="inputExt" transform="translate(12,87)" s:width="30" s:height="20" id="cell_io_in">
+    <text x="15" y="-4" class="nodelabel cell_io_in" s:attribute="ref">io_in</text>
+    <s:alias val="$_inputExt_"/>
+    <path d="M0,0 L0,20 L15,20 L30,10 L15,0 Z" class="cell_io_in"/>
+    <g s:x="28" s:y="10" s:pid="Y"/>
+  </g>
+  <g s:type="outputExt" transform="translate(393,62)" s:width="30" s:height="20" id="cell_io_out">
+    <text x="15" y="-4" class="nodelabel cell_io_out" s:attribute="ref">io_out</text>
+    <s:alias val="$_outputExt_"/>
+    <path d="M30,0 L30,20 L15,20 L0,10 L15,0 Z" class="cell_io_out"/>
+    <g s:x="0" s:y="10" s:pid="A"/>
+  </g>
+  <g s:type="outputExt" transform="translate(393,192)" s:width="30" s:height="20" id="cell_req_in">
+    <text x="15" y="-4" class="nodelabel cell_req_in" s:attribute="ref">req_in</text>
+    <s:alias val="$_outputExt_"/>
+    <path d="M30,0 L30,20 L15,20 L0,10 L15,0 Z" class="cell_req_in"/>
+    <g s:x="0" s:y="10" s:pid="A"/>
+  </g>
+  <g s:type="outputExt" transform="translate(393,127)" s:width="30" s:height="20" id="cell_out_en">
+    <text x="15" y="-4" class="nodelabel cell_out_en" s:attribute="ref">out_en</text>
+    <s:alias val="$_outputExt_"/>
+    <path d="M30,0 L30,20 L15,20 L0,10 L15,0 Z" class="cell_out_en"/>
+    <g s:x="0" s:y="10" s:pid="A"/>
+  </g>
+  <g s:type="inputExt" transform="translate(12,152)" s:width="30" s:height="20" id="cell_itr">
+    <text x="15" y="-4" class="nodelabel cell_itr" s:attribute="ref">itr</text>
+    <s:alias val="$_inputExt_"/>
+    <path d="M0,0 L0,20 L15,20 L30,10 L15,0 Z" class="cell_itr"/>
+    <g s:x="28" s:y="10" s:pid="Y"/>
+  </g>
+  <line x1="139" x2="208" y1="142" y2="142" class="net_72"/>
+  <line x1="208" x2="208" y1="142" y2="137" class="net_72"/>
+  <line x1="208" x2="272" y1="137" y2="137" class="net_72"/>
+  <line x1="139" x2="208" y1="182" y2="182" class="net_73"/>
+  <line x1="208" x2="208" y1="182" y2="157" class="net_73"/>
+  <line x1="208" x2="272" y1="157" y2="157" class="net_73"/>
+  <line x1="40" x2="62" y1="32" y2="32" class="net_2"/>
+  <line x1="62" x2="62" y1="32" y2="122" class="net_2"/>
+  <line x1="62" x2="108" y1="122" y2="122" class="net_2"/>
+  <line x1="40" x2="52" y1="97" y2="97" class="net_4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35"/>
+  <line x1="52" x2="52" y1="97" y2="142" class="net_4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35"/>
+  <line x1="52" x2="108" y1="142" y2="142" class="net_4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35"/>
+  <line x1="40" x2="108" y1="162" y2="162" class="net_71"/>
+  <line x1="40" x2="52" y1="227" y2="227" class="net_3"/>
+  <line x1="52" x2="52" y1="227" y2="182" class="net_3"/>
+  <line x1="52" x2="108" y1="182" y2="182" class="net_3"/>
+  <line x1="139" x2="198" y1="162" y2="162" class="net_36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67"/>
+  <line x1="198" x2="198" y1="162" y2="72" class="net_36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67"/>
+  <line x1="198" x2="393" y1="72" y2="72" class="net_36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67"/>
+  <line x1="139" x2="393" y1="202" y2="202" class="net_68"/>
+  <line x1="303" x2="393" y1="137" y2="137" class="net_69,70"/>
+</svg>

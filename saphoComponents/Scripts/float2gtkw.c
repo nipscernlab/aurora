@@ -3,19 +3,38 @@
 #include <math.h>
 #include <stdlib.h>
 
-//1960477308 // 0.707107
-
-float i2mf(unsigned int ifl, int nbm, int nbe)
+float b2mf(char *ifl, int nbm, int nbe)
 {
+    int i;
+
     // sinal
-    int s = ifl >> (nbm+nbe);
+    int s = ifl[0] == '1';
 
     // expoente
-    int e = ifl << 1;
-    e = e >> (1+nbm);
+    char exb[64];
+
+    for (i=0;i<nbe;i++) exb[i] = ifl[i+1];
+    exb[nbe]=0;
+
+    int es = exb[0] == '1';
+    if (es)
+    {
+        for (i=0;i<nbe;i++) exb[i] = (exb[i] == '1') ? '0' : '1';
+    }
+
+    char *endp;
+    int e = strtol(exb,&endp,2);
+    if (es) e = -(e+1);
 
     // mantissa
-    int m = ((1 << nbm) - 1) & ifl;
+    char mab[64];
+
+    for (i=0;i<nbm;i++)   {
+        mab[i] = ifl[nbe+1+i];
+    }
+    mab[nbm]=0;
+
+    int m = strtol(mab,&endp,2);
 
     // gera o float
     float f = m * pow(2,e);
@@ -26,12 +45,8 @@ float i2mf(unsigned int ifl, int nbm, int nbe)
 
 int main(int argc, char **argv)
 {
-    char   fname[64], man[16], exp[16];
-    FILE  *flog = fopen("log.txt", "r");
-    fscanf(flog,"%s %s %s", fname, man, exp);
-
-    int nbm = atoi(man);
-    int nbe = atoi(exp);
+    char ma[10], ex[10];
+    int  i, nbm, nbe, nbi;
 
     char bufi[1025], bufo[1025];
 
@@ -41,13 +56,27 @@ int main(int argc, char **argv)
         fscanf(stdin, "%s", bufi);
         if (bufi[0]) 
         {
-            unsigned int x;
-            sscanf(bufi, "%u", &x);
-            float f = i2mf(x,nbm,nbe);
+            for (i=0; i<8; i++)
+            {
+                ma[i] = bufi[i  ];
+                ex[i] = bufi[i+8];
+            }
+            ma[8] = 0;
+            ex[8] = 0;
+
+            nbm = strtol(ma,NULL,2);
+            nbe = strtol(ex,NULL,2);
+            nbi = nbm+nbe+1;
+
+            char chx[64];
+            for (i=0; i<=nbi; i++) chx[i] = bufi[16+i];
+            float f = b2mf(chx,nbm,nbe);
+
             sprintf(bufo, "%.3f", f);
-            printf("%s\n", bufo);
-            fflush(stdout);
+             printf("%s\n",    bufo);
+             fflush(stdout);
         }
     }
+    
     return 0;
 }

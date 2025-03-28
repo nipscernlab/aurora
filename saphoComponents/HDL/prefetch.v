@@ -2,11 +2,10 @@ module prefetch
 #
 (
 	parameter  MINSTW = 8,
-	parameter  NBOPCO = 6,
+	parameter  NBOPCO = 7,
 	parameter  NBOPER = 9,
 
-	parameter [MINSTW-1:0] ITRADD = 0
-)
+	parameter [MINSTW-1:0] ITRADD = 0)
 (
 	 input                         clk, rst   ,
 	 input     [MINSTW       -1:0] addr       ,
@@ -36,23 +35,23 @@ assign instr_addr = (itr) ? ITRADD: (pc_load & ~rst) ? operand[MINSTW-1:0] : add
 
 always @ (*) begin
 	case (opcode)
-		5       : begin
-						 pc_load <=  acc_is_zero;  // JZ
-						isp_push <=         1'b0;
-						isp_pop  <=         1'b0;
-					 end
-		6       : begin
+		12      : begin
 						 pc_load <=         1'b1;  // JMP
 						isp_push <=         1'b0;
 						isp_pop  <=         1'b0;
 					 end
-		7       : begin
-						 pc_load <=         1'b1;  // CALL
+		13      : begin
+						 pc_load <= ~acc_is_zero;  // JIZ
+						isp_push <=         1'b0;
+						isp_pop  <=         1'b0;
+					 end
+		14      : begin
+						 pc_load <=         1'b1;  // CAL
 						isp_push <=         1'b1;
 						isp_pop  <=         1'b0;
 					 end
-		8       : begin
-						 pc_load <=         1'b1;  // RETURN
+		15      : begin
+						 pc_load <=         1'b1;  // RET
 						isp_push <=         1'b0;
 						isp_pop  <=         1'b1;
 					 end

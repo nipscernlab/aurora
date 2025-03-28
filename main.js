@@ -7,6 +7,9 @@ const fs = require('fs').promises;
 const os = require('os');
 const { spawn } = require('child_process'); // Importa spawn corretamente 
 const moment = require("moment"); // Para gerar a data e hora
+const electronFs = require('original-fs'); // Use original-fs instead of fs
+const url = require('url');
+
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 let tray = null;
@@ -15,22 +18,30 @@ let isQuitting = false;  // Flag para controlar o fechamento do app
 
 let mainWindow, splashWindow;
 
-function loadSettings() {
+async function loadSettings() {
   try {
-    if (fs.existsSync(settingsPath)) {
-      const settingsData = fs.readFileSync(settingsPath, 'utf8');
-      return JSON.parse(settingsData);
+    // Use await com fs.promises
+    try {
+      await fs.access(settingsPath);
+      const data = await fs.readFile(settingsPath, 'utf8');
+      return JSON.parse(data);
+    } catch (err) {
+      // Arquivo não existe, retorne as configurações padrão
+      return {
+        startWithWindows: false,
+        minimizeToTray: true,
+        theme: 'dark'
+      };
     }
   } catch (error) {
     console.error('Error loading settings:', error);
+    // Retornar configurações padrão em caso de erro
+    return {
+      startWithWindows: false,
+      minimizeToTray: true,
+      theme: 'dark'
+    };
   }
-
-  // Default settings
-  return {
-    startWithWindows: false,
-    minimizeToTray: true,
-    theme: 'dark'
-  };
 }
 
 
@@ -176,27 +187,55 @@ function createProgressWindow() {
   progressWindow.loadFile(path.join(__dirname, 'html', 'progress.html'));
 }
 
+ipcMain.handle("load-svg-file", async (event, svgPath) => {
+  try {
+      console.log("Tentando carregar SVG:", svgPath);
 
-ipcMain.on("open-prism-window", () => {
+      // Verifica se o arquivo existe de forma assíncrona
+      await fs.access(svgPath);
+
+      const svgContent = await fs.readFile(svgPath, "utf-8");
+      console.log("SVG carregado com sucesso!");
+      return { 
+          content: svgContent, 
+          filename: path.basename(svgPath) 
+      };
+  } catch (error) {
+      console.error("Erro ao carregar SVG:", error);
+      return { error: error.message };
+  }
+});
+
+ipcMain.on("open-prism-window", (event, svgPath) => {
   let prismWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, "assets/icons/prism.png"), // Ícone correto
+    icon: path.join(__dirname, "assets/icons/prism.png"),
     webPreferences: {
-      nodeIntegration: true
+      preload: path.join(__dirname, 'js', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     },
-    autoHideMenuBar: true, // Remove a barra de menu
-    frame: true, // Permite minimizar/maximizar/fechar
+    autoHideMenuBar: false,
+    frame: true
   });
 
-  prismWindow.loadFile("html/prism.html");
+  // Construct URL with SVG path as a query parameter
+  const prismUrl = url.format({
+    pathname: path.join(__dirname, 'html/prism.html'),
+    protocol: 'file:',
+    slashes: true,
+    search: `?svgPath=${encodeURIComponent(svgPath)}`
+  });
+
+  prismWindow.loadURL(prismUrl);
 
   prismWindow.once("ready-to-show", () => {
-    prismWindow.show(); // Garante que a janela abre corretamente
+    prismWindow.show();
   });
 
   prismWindow.on("closed", () => {
-    prismWindow = null; // Evita consumo de memória
+    prismWindow = null;
   });
 });
 
@@ -269,7 +308,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,

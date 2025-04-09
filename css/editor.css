@@ -1,185 +1,280 @@
-/* editor.css */
-.tabs-container {
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    overflow-x: auto;
-  }
-  
-  .tab {
-    padding: 0.5rem 1rem;
-    background-color: var(--bg-tertiary);
-    border: none;
-    /*border-right: 1px solid var(--accent-primary);*/
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    /*transition: all 0.2s ease;*/
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    min-width: 120px;
-    max-width: 200px;
-  }
-  
-  .tab.active {
-    background-color: var(--bg-active);
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--accent-primary);
-  }
-  
-  .tab:hover {
-    background-color: var(--bg-hover);
-  }
-  
-  .tab-title {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .tab-close {
-    opacity: 0.7;
-    padding: 0.25rem;
-    border-radius: 0.25rem;
-    cursor: pointer;
-  }
-  
-  .tab-close:hover {
-    opacity: 1;
-    background-color: var(--bg-hover);
-  }
-  
-  /* Editor container */
-  .editor-container {
-    background-color: var(--bg-primary);
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  
-  .editor-content {
-    flex: 1;
-    position: relative;
-  }
+/* ======================== */
+/* Tabs Container Styles    */
+/* ======================== */
 
-  .editor-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-  }
-  
-  .tabs-container {
-    display: flex;
-    overflow-x: auto;
-    /* background: #252526; */
-    border-bottom: 1px solid #3c3c3c;
-  }
-  
-  .monaco-editor {
-    flex: 1;
-    position: relative;
-    width: 100%;
-    height: calc(100% - 35px);
-  }
-
-  
-  .monaco-editor, .monaco-editor-background {
-    background-color: var(--bg-primary);
-  } 
-
-  .editor-instance {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-  
-  .tab {
-    display: flex;
-    align-items: center;
-    padding: 5px 10px;
-    background: #2d2d2d;
-    border-right: 1px solid #3c3c3c;
-    cursor: pointer;
-    min-width: 100px;
-    max-width: 200px;
-  }
-  
-  .tab.active {
-    background: #1e1e1e;
-  }
-  
-  .tab-name {
-    margin: 0 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .close-tab {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: #999;
-    cursor: pointer;
-  }
-  
-  .close-tab:hover {
-    color: #fff;
-  }
-
-
-/* Estilos específicos para o tema claro */
+.tabs-container,
 body.theme-light .tabs-container {
   background-color: var(--bg-secondary);
-  border-bottom-color: var(--border-primary);
+  border-bottom: 1px solid var(--border-primary);
 }
 
-body.theme-light .tab {
-  background-color: var(--bg-tertiary);
-  color: var(--text-secondary);
+.tabs-container {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid #3c3c3c; /* Override for border */
+  /* background: #252526; */
 }
 
-body.theme-light .tab.active {
-  background-color: var(--bg-active);
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-primary);
-}
-
-body.theme-light .tab:hover {
-  background-color: var(--bg-hover);
-}
-
-body.theme-light .tab-close {
-  color: var(--text-secondary);
-}
-
-body.theme-light .tab-close:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-body.theme-light .editor-container {
-  background-color: var(--bg-primary);
-}
-
-body.theme-light .monaco-editor {
-  background-color: var(--bg-primary);
+body.theme-light .tabs-container {
+  background-color: #f0f5fa; /* Fundo azul claro para o container no tema light */
+  border-bottom: 1px solid #bfd4e9; /* Borda mais clara para tema light */
 }
 
 body.theme-light .tabs-container::-webkit-scrollbar {
-  background-color: var(--bg-secondary);
+  background-color: #f0f5fa;
 }
 
 body.theme-light .tabs-container::-webkit-scrollbar-thumb {
-  background-color: var(--bg-hover);
+  background-color: #c1d5e7;
 }
 
 body.theme-light .tabs-container::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-primary);
+  background-color: #7aafde;
+}
+
+/* ======================== */
+/* Tab Styles               */
+/* ======================== */
+
+.tab {
+  padding: 5px 10px;
+  background-color: var(--bg-tertiary);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  min-width: 100px;
+  max-width: 200px;
+  background: #2d2d2d;
+  border-right: 1px solid #3c3c3c;
+}
+
+body.theme-light .tab {
+  background-color: #d9e6f2; /* Fundo azul claro para as abas no tema light */
+  color: #2c5a82; /* Texto em tom azul escuro para contraste */
+  border-right: 1px solid #b6cce2; /* Borda direita em azul claro */
+}
+
+.tab.active {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-primary);
+  background: #1e1e1e;
+}
+
+body.theme-light .tab.active {
+  background-color: #98c1e9; /* Azul mais intenso para a aba ativa */
+  color: #ffffff; /* Texto branco na aba ativa para melhor contraste */
+  border-bottom: 2px solid #2b7ad9; /* Borda inferior em azul mais escuro */
+}
+
+.tab:hover {
+  background-color: var(--bg-hover);
+}
+
+body.theme-light .tab:hover {
+  background-color: #afd0f7; /* Cor de hover mais azulada */
+}
+
+/* ======================== */
+/* Tab Content & Close Btn  */
+/* ======================== */
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.theme-light .tab-title {
+  color: #2c5a82; /* Cor do texto no tema claro */
+}
+
+body.theme-light .tab.active .tab-title {
+  color: #ffffff; /* Cor do texto na aba ativa no tema claro */
+}
+
+.tab-close {
+  opacity: 0.7;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+body.theme-light .tab-close {
+  color: #2c5a82; /* Cor do botão fechar no tema claro */
+}
+
+.tab-close:hover {
+  opacity: 1;
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+body.theme-light .tab-close:hover {
+  background-color: #7aafde; /* Fundo do botão fechar no hover */
+  color: #ffffff; /* Cor do botão fechar no hover */
+}
+
+.tab-name {
+  margin: 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.close-tab {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+}
+
+.close-tab:hover {
+  color: #fff;
+}
+
+body.theme-light .close-tab {
+  color: #2c5a82;
+}
+
+body.theme-light .close-tab:hover {
+  color: #1b3e5c;
+}
+
+/* ======================== */
+/* Editor Container Styles  */
+/* ======================== */
+
+.editor-container {
+  background-color: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+body.theme-light .editor-container {
+  background-color: #ffffff; /* Fundo branco para o editor no tema claro */
+}
+
+.editor-content {
+  flex: 1;
+  position: relative;
+}
+
+.monaco-editor {
+  background-color: var(--bg-primary);
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: calc(100% - 35px);
+}
+
+body.theme-light .monaco-editor {
+  background-color: #ffffff; /* Fundo branco para o editor Monaco no tema claro */
+}
+
+.monaco-editor-background {
+  background-color: var(--bg-primary);
+}
+
+body.theme-light .monaco-editor-background {
+  background-color: #ffffff;
+}
+
+.editor-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* ======================== */
+/* Editor Overlay Styles    */
+/* ======================== */
+
+#editor-overlay {
+  position: relative;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  /* background-color: rgba(0, 0, 0, 0.5); */
+  border-radius: 8px;
+  padding: 10% 0%;
+}
+
+#editor-overlay img {
+  max-width: 40%;
+  max-height: 40%;
+  opacity: 0.5;
+  margin-top: -10%;
+  filter: grayscale(80%);
+  transition: transform 0.15s ease-in-out, filter 0.2s ease-in-out;
+}
+
+#editor-overlay.visible {
+  opacity: 1;
+  pointer-events: none;
+}
+
+#editor-overlay.visible img {
+  transform: scale(1.1);
+  filter: grayscale(40%);
+}
+
+/* Overlay text content */
+
+#editor-overlay .overlay-content {
+  text-align: center;
+  opacity: 0.6;
+}
+
+#editor-overlay .overlay-title {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+#editor-overlay .overlay-subtitle {
+  font-size: 1rem;
+  margin-top: 0;
+}
+
+/* ======================== */
+/* Overlay Theme Styles     */
+/* ======================== */
+
+body.light-theme #editor-overlay {
+  background-color: #ffffff;
+}
+
+body.light-theme #editor-overlay img {
+  opacity: 0.8;
+  filter: grayscale(60%);
+}
+
+body.dark-theme #editor-overlay {
+  background-color: #000000;
+}
+
+body.dark-theme #editor-overlay img {
+  opacity: 0.4;
+  filter: grayscale(90%);
 }

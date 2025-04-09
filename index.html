@@ -16,23 +16,20 @@
   <link rel="stylesheet" href="./css/modal.css">
   <link rel="stylesheet" href="./css/styles.css">
   <link rel="stylesheet" href="./css/infoAurora.css">
-  <link rel="stylesheet" href="./css/breadCrumb.css">
-
 
   <link rel="stylesheet" href="./css/report.css">
   <link rel="stylesheet" href="./css/processorHub.css">
   <link rel="stylesheet" href="./css/rainbow.css">
 
    <link rel="stylesheet" href="./css/ia.css">
-  <!--<link rel="stylesheet" href="./css/terminal2.css"> --> 
   <link rel="stylesheet" href="./css/tabs.css">
   <link rel="stylesheet" href="./css/multicore.css">
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/editor.css">
   <link rel="stylesheet" href="./css/terminal.css">
-  <link rel="stylesheet" href="./css/ai-assistant.css">
-  <link rel="stylesheet" href="./css/theme-variables.css">
+  <link rel="stylesheet" href="./css/aiAssistant.css">
+  <link rel="stylesheet" href="./css/themeVariables.css">
  
   <link rel="stylesheet" href="./css/toolbar.css">
   <link rel="stylesheet" href="./css/fileTree.css">
@@ -147,18 +144,18 @@
     <li title="Browse the web">
       <i class="fas fa-globe"></i>
     </li>
-    <li title="Search for information">
+   <!-- <li title="Search for information">
       <i class="fas fa-search"></i>
     </li>
     <li title="View the Abstract Syntax Tree (AST)">
       <i class="fa-solid fa-code-branch"></i>
-    </li>
+    </li>-->
 
     <li title="Settings">
       <i class="fa-solid fa-sliders"></i>
       </li>
 
-    <li title="Report a bug">
+    <li id="open-bug-report" title="Report a bug">
       <i class="fas fa-bug"></i>
     </li>
     <li title="Open GitHub Desktop">
@@ -172,9 +169,7 @@
     <li title="Keyboard shortcuts">
       <i class="fas fa-keyboard"></i>
     </li>
-    <li title="Project information">
-      <i class="fas fa-info-circle"></i>
-    </li>
+
     <li title="Shut down the application">
       <i class="fas fa-power-off"></i>
     </li>
@@ -231,7 +226,7 @@
 <div id="modalConfig" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Configuration</h2>
+      <h2> <i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
       <button id="closeModal" aria-label="Close Modal">&times;</button>
     </div>
     <div class="modal-body">
@@ -268,7 +263,7 @@
             disabled
           >
           <small id="iverilogFlagsHelp" class="form-help">
-            Specify additional flags for Iverilog compilation
+            <br>Specify additional flags for Iverilog compilation
           </small>
         </div>
       </section>
@@ -296,7 +291,7 @@
 <!-- Janela Modal para o Bug Report -->
 <div id="bug-report-modal" class="modal hidden">
   <div class="modal-content">
-    <h2><i class="fa-solid fa-bug"></i>Bug Report</h2>
+    <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
     <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
       <label for="bug-title">Título</label>
       <input type="text" id="bug-title" name="bug-title" placeholder="Digite o título do bug" required />
@@ -328,15 +323,16 @@
   <!-- Modal Overlay -->
 <div id="newProjectModal" class="modal-overlay hidden">
   <div class="modal-content">
-    <h2><i class="fa-solid fa-diagram-project"></i> Create New Project</h2>
+    <h2>        
+      <i class="fas fa-folder-plus"></i> Create New Project
+    </h2>
     <div class="input-group">
       <label for="projectNameInput">Project Name:</label>
       <input type="text" id="projectNameInput" placeholder="Enter project name" />
     </div>
     <div class="input-group">
       <label for="projectLocationInput">Project Location:</label>
-      <input type="text" id="projectLocationInput" placeholder="Select project location" readonly />
-      <button id="browseBtn" class="btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
+      <input type="text" id="projectLocationInput" placeholder="Select project location" readonly /> <button id="browseBtn" class="btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
     </div>
     <div class="modal-actions">
       <button id="generateProjectBtn" class="btn-generate"><i class="fa-solid fa-plus"></i> Generate</button>
@@ -390,7 +386,6 @@
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05; "></i> TWAVE</button>
           <button class="tab" data-terminal="tprism" style=" cursor: pointer;"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
           <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb; "></i> TCMD</button>
-          <button id="open-bug-report" > <i class="fa-solid fa-bug"></i></button>
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>
@@ -424,44 +419,46 @@
   </div>
 
 <!-- Info Box Structure -->
+<!-- Info Box Structure -->
 <div id="infoBox" class="info-box hidden">
   <div class="info-box-header">
-    <h3>Keyboard Shortcuts</h3>
+    <h3 class="info-box-title">Keyboard Shortcuts</h3>
     <i class="fas fa-times info-box-close" title="Close"></i>
   </div>
   <div class="info-box-content">
-    <section>
-      <h4><i class="fas fa-file"></i> File Operations</h4>
-      <ul>
-        <li><strong>Ctrl + N</strong> - New File</li>
-        <li><strong>Ctrl + O</strong> - Open File</li>
-        <li><strong>Ctrl + S</strong> - Save File</li>
-        <li><strong>Ctrl + Shift + S</strong> - Save As</li>
-        <li><strong>Ctrl + W</strong> - Close Tab</li>
+    <section class="shortcut-section">
+      <h4 class="shortcut-category"><i class="fas fa-file"></i> File Operations</h4>
+      <ul class="shortcut-list">
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + N</span> - New File</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + O</span> - Open File</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + S</span> - Save File</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Shift + S</span> - Save As</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + W</span> - Close Tab</li>
       </ul>
     </section>
-    <hr />
-    <section>
-      <h4><i class="fas fa-edit"></i> Editing</h4>
-      <ul>
-        <li><strong>Ctrl + Z</strong> - Undo</li>
-        <li><strong>Ctrl + Y</strong> - Redo</li>
-        <li><strong>Ctrl + C</strong> - Copy</li>
-        <li><strong>Ctrl + V</strong> - Paste</li>
-        <li><strong>Ctrl + X</strong> - Cut</li>
+    <hr class="section-divider" />
+    <section class="shortcut-section">
+      <h4 class="shortcut-category"><i class="fas fa-edit"></i> Editing</h4>
+      <ul class="shortcut-list">
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Z</span> - Undo</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Y</span> - Redo</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + C</span> - Copy</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + V</span> - Paste</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + X</span> - Cut</li>
       </ul>
     </section>
-    <hr />
-    <section>
-      <h4><i class="fas fa-terminal"></i> Terminal</h4>
-      <ul>
-        <li><strong>Ctrl + K</strong> - Clear Terminal</li>
-        <li><strong>Ctrl + T</strong> - New Terminal Tab</li>
-        <li><strong>Ctrl + Scroll</strong> - Zoom In/Out</li>
+    <hr class="section-divider" />
+    <section class="shortcut-section">
+      <h4 class="shortcut-category"><i class="fas fa-terminal"></i> Terminal</h4>
+      <ul class="shortcut-list">
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + K</span> - Clear Terminal</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + T</span> - New Terminal Tab</li>
+        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Scroll</span> - Zoom In/Out</li>
       </ul>
     </section>
   </div>
 </div>
+
   <div class="status-bar">
     <div class="status-item">Ready</div>
     <div class="status-item" id="editorStatus">Line 1, Column 1</div>
@@ -510,7 +507,7 @@
 <div id="multicore-modal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
-      <h2><i class="fa-solid fa-microchip"></i> Multicore Configuration</h2>
+      <h2><i class="fa-solid fa-star-of-life"></i> Multicore Configuration</h2>
       <button type="button" id="close-multicore-modal" class="modal-close-btn">&times;</button>
     </div>
     <div id="multicore-modal-body">

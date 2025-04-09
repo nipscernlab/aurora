@@ -1,0 +1,113 @@
+/* ai-assistant.css */
+
+/* Base styles */
+.ai-assistant-container {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  min-width: 240px;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 100;
+  border-left: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans, sans-serif);
+}
+
+/* When visible */
+.ai-assistant-container.visible {
+  transform: translateX(0);
+}
+
+/* Header */
+.ai-assistant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+/* Title */
+.ai-assistant-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+/* Close button */
+.ai-assistant-close {
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.ai-assistant-close:hover {
+  background: var(--bg-hover);
+}
+
+/* Provider select */
+#ai-provider-select {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+}
+
+/* Webview content area */
+.ai-assistant-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.ai-assistant-content webview {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Resizer bar (left edge) */
+.ai-resizer {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 101;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #eaeaea;
+  --bg-hover: #dddddd;
+  --text-primary: #000000;
+  --text-secondary: #444444;
+  --border-color: #cccccc;
+  --accent-color: #007acc;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  --bg-hover: #444444;
+  --text-primary: #ffffff;
+  --text-secondary: #bbbbbb;
+  --border-color: #404040;
+  --accent-color: #0098ff;
+}

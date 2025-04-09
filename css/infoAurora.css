@@ -1,104 +1,311 @@
-/* styles.css */
-
-/* Modal Base */
+/* ===== Modal Base Styles ===== */
 .aurora-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    visibility: visible;
-    opacity: 1;
-    transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
-  }
-  
-  .aurora-modal--hidden {
-    visibility: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+}
+
+.aurora-modal--hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== Modal Overlay ===== */
+.aurora-modal__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== Modal Content ===== */
+.aurora-modal__content {
+  background-color: var(--bg-primary);
+  width: 500px;
+  max-width: 90%;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-primary);
+  position: relative;
+}
+
+/* ===== Modal Header ===== */
+.aurora-modal__header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.aurora-modal__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+}
+
+.aurora-modal__close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.aurora-modal__close:hover {
+  color: var(--text-primary);
+}
+
+/* ===== Modal Body ===== */
+.aurora-modal__body {
+  padding: 1rem;
+}
+
+/* ===== Info Items ===== */
+.aurora-info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.aurora-info-item:last-child {
+  border-bottom: none;
+}
+
+.aurora-info-item__label {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+.aurora-info-item__value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+
+/*TESTE*/
+/* Modern styling for Project Info Dialog and Keyboard Shortcuts */
+
+/* Project Info Dialog Styles */
+.project-info-dialog {
+  position: relative;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 100%;
+  color: var(--text-primary);
+  font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
+}
+
+.dialog-title {
+  margin-top: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-right: 1.5rem;
+  color: var(--text-highlight, #fff);
+}
+
+.close-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: var(--text-muted, #888);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.close-button:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
+}
+
+.info-section {
+  margin: 1.25rem 0;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-accent, #6b98ff);
+}
+
+.info-item {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.info-item strong {
+  color: var(--text-highlight, #fff);
+  font-weight: 500;
+  display: inline-block;
+  width: 110px;
+}
+
+/* Keyboard Shortcuts Info Box Styles */
+.info-box {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  width: 380px;
+  color: var(--text-primary);
+  overflow: hidden;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.info-box.hidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.info-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.info-box-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-highlight, #fff);
+}
+
+.info-box-close {
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-size: 0.9rem;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.info-box-close:hover {
+  color: var(--text-primary, #fff);
+}
+
+.info-box-content {
+  padding: 1rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.shortcut-section {
+  margin-bottom: 1rem;
+}
+
+.shortcut-category {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-accent, #6b98ff);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shortcut-category i {
+  font-size: 0.85rem;
+}
+
+.shortcut-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.shortcut-item {
+  font-size: 0.85rem;
+  margin: 0.4rem 0;
+  display: flex;
+  align-items: center;
+  line-height: 1.6;
+}
+
+.shortcut-key {
+  background-color: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  font-family: var(--font-mono, 'Consolas', monospace);
+  font-weight: 500;
+  color: var(--text-highlight, #fff);
+  display: inline-block;
+}
+
+.section-divider {
+  border: 0;
+  height: 1px;
+  background-color: var(--border-color, rgba(255, 255, 255, 0.1));
+  margin: 1rem 0;
+}
+
+/* Scrollbar customization for info-box-content */
+.info-box-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.info-box-content::-webkit-scrollbar-track {
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
+}
+
+.info-box-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #555);
+  border-radius: 3px;
+}
+
+.info-box-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, #777);
+}
+
+/* Animation for both components */
+@keyframes fadeIn {
+  from {
     opacity: 0;
-    pointer-events: none;
+    transform: translateY(10px);
   }
-  
-  /* Modal Overlay */
-  .aurora-modal__overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  /* Modal Content */
-  .aurora-modal__content {
-    background-color: var(--bg-primary);
-    width: 500px;
-    max-width: 90%;
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-primary);
-    position: relative;
-  }
-  
-  /* Modal Header */
-  .aurora-modal__header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .aurora-modal__title {
-    margin: 0;
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    font-size: 1.25rem;
-  }
-  
-  .aurora-modal__close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s ease;
-  }
-  
-  .aurora-modal__close:hover {
-    color: var(--text-primary);
-  }
-  
-  /* Modal Body */
-  .aurora-modal__body {
-    padding: 1rem;
-  }
-  
-  /* Info Items */
-  .aurora-info-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-secondary);
-  }
-  
-  .aurora-info-item:last-child {
-    border-bottom: none;
-  }
-  
-  .aurora-info-item__label {
-    color: var(--text-secondary);
-    font-family: var(--font-sans);
-  }
-  
-  .aurora-info-item__value {
-    color: var(--text-primary);
-    font-family: var(--font-mono);
-  }
+}
+
+.project-info-dialog, .info-box:not(.hidden) {
+  animation: fadeIn 0.3s ease forwards;
+}

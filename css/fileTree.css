@@ -60,3 +60,16 @@
 #create-toplevel-folder:hover {
   color: var(--accent-color);
 }
+
+.file-tree-actions {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  max-height: 100%; /* Certifique-se que está limitado */
+}
+
+/* Caso .file-tree precise também */
+.file-tree {
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}

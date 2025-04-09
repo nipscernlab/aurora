@@ -36,7 +36,10 @@ const fileOperations = {
   onData: (callback) => ipcRenderer.on('terminal:data', (_, data) => callback(data)),
   write: (data) => ipcRenderer.send('terminal:input', data),
   resize: (cols, rows) => ipcRenderer.send('terminal:resize', cols, rows),
-  clear: () => ipcRenderer.send('terminal:clear')
+  clear: () => ipcRenderer.send('terminal:clear'),
+  openBrowser: () => ipcRenderer.send('open-browser'),
+  openGithubDesktop: () => ipcRenderer.send('open-github-desktop'),
+  quitApp: () => ipcRenderer.send('quit-app')
 };
 
 const projectOperations = {

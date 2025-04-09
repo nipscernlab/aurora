@@ -39,3 +39,21 @@ function showInfoBox() {
   }
   
  
+
+const resizer = document.querySelector('.ai-resizer');
+const container = document.querySelector('.ai-assistant-container');
+
+resizer.addEventListener('mousedown', function (e) {
+  document.addEventListener('mousemove', resizePanel);
+  document.addEventListener('mouseup', stopResize);
+});
+
+function resizePanel(e) {
+  const newWidth = window.innerWidth - e.clientX;
+  container.style.width = `${newWidth}px`;
+}
+
+function stopResize() {
+  document.removeEventListener('mousemove', resizePanel);
+  document.removeEventListener('mouseup', stopResize);
+}

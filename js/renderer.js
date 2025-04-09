@@ -8,6 +8,7 @@ let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
 
+
 class SimulationModal {
   constructor() {
     this.modal = null;
@@ -1811,7 +1812,7 @@ async function createProcessor(formData) {
   }
 }
 
-/*
+
 
 document.getElementById('open-folder-button').addEventListener('click', async () => {
     if (currentProjectPath) {
@@ -1821,7 +1822,7 @@ document.getElementById('open-folder-button').addEventListener('click', async ()
             console.error('Error opening folder:', error);
         }
     }
-}); */
+}); 
 
 // Função para atualizar o nome do projeto na UI
 function updateProjectNameUI(projectData) {
@@ -1940,32 +1941,24 @@ function showProjectInfoDialog(projectData) {
     .join('');
 
   dialog.innerHTML = `
-    <div style="position: relative;">
-      <h2 style="margin-top: 0;">Project Information</h2>
-      <button id="closeDialog" style="
-        position: absolute;
-        top: 0;
-        right: 0;
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 20px;
-      ">×</button>
-      
-      <div style="margin: 15px 0;">
-        <h3>Project Details</h3>
-        <p><strong>Name:</strong> ${metadata.projectName}</p>
-        <p><strong>Created:</strong> ${new Date(metadata.createdAt).toLocaleString()}</p>
-        <p><strong>Last Modified:</strong> ${new Date(metadata.lastModified).toLocaleString()}</p>
-        <p><strong>Computer:</strong> ${metadata.computerName}</p>
-        <p><strong>App Version:</strong> ${metadata.appVersion}</p>
-      </div>
+    <div class="project-info-dialog">
+  <h2 class="dialog-title">Project Information</h2>
+  <button id="closeDialog" class="close-button">×</button>
+  
+  <div class="info-section">
+    <h3 class="section-title">Project Details</h3>
+    <p class="info-item"><strong>Name:</strong> ${metadata.projectName}</p>
+    <p class="info-item"><strong>Created:</strong> ${new Date(metadata.createdAt).toLocaleString()}</p>
+    <p class="info-item"><strong>Last Modified:</strong> ${new Date(metadata.lastModified).toLocaleString()}</p>
+    <p class="info-item"><strong>Computer:</strong> ${metadata.computerName}</p>
+    <p class="info-item"><strong>App Version:</strong> ${metadata.appVersion}</p>
+  </div>
 
-      <div style="margin: 15px 0;">
-        <h3>Project Structure</h3>
-        ${folderStatus}
-      </div>
-    </div>
+  <div class="info-section">
+    <h3 class="section-title">Project Structure</h3>
+    ${folderStatus}
+  </div>
+</div>
   `;
 
   const closeButton = dialog.querySelector('#closeDialog');
@@ -2059,7 +2052,7 @@ function updateFileTree(files) {
 
 const processorHubButton = document.createElement('button');
 processorHubButton.className = 'toolbar-button';
-processorHubButton.innerHTML = '<i class="fas fa-microchip"></i> Processor Hub';
+processorHubButton.innerHTML = '<i class="fa-solid fa-star-of-life"></i> Processor Hub';
 processorHubButton.title = 'Create New Processor Project';
 processorHubButton.disabled = true; // Disabled by default
 document.querySelector('.toolbar').appendChild(processorHubButton);
@@ -2073,19 +2066,13 @@ function createProcessorHubModal() {
     modal.innerHTML = `
     <div class="processor-hub-overlay"></div>
     <div class="processor-hub-modal">
-      <h2><i class="fas fa-microchip"></i> Create Processor Project</h2>
+      <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
       <form class="processor-hub-form" id="processorHubForm">
         <div class="form-group">
           <label for="processorName">Processor Name</label>
           <input type="text" id="processorName" required value="procTest_00">
         </div>
-        <div class="form-group">
-          <label for="pointType">Point Type</label>
-          <select id="pointType" required>
-            <option value="fixed">Fixed Point</option>
-            <option value="floating" selected>Floating Point</option>
-          </select>
-        </div>
+
         <div class="form-group">
         <label for="nBits">Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
 
@@ -2137,7 +2124,6 @@ processorHubButton.addEventListener('click', () => {
 
     const form = document.getElementById('processorHubForm');
     const generateButton = document.getElementById('generateProcessor');
-    const pointTypeSelect = document.getElementById('pointType');
     const floatingPointOptions = document.querySelectorAll('.floating-point-options');
     const nBitsInput = document.getElementById('nBits');
     const nbMantissaInput = document.getElementById('nbMantissa');
@@ -2167,7 +2153,7 @@ processorHubButton.addEventListener('click', () => {
         generateButton.disabled = !form.checkValidity();
     }
 
-    // Initialize point type options visibility
+    /*
     pointTypeSelect.addEventListener('change', () => {
         const isFloating = pointTypeSelect.value === 'floating';
         floatingPointOptions.forEach(option => {
@@ -2175,7 +2161,7 @@ processorHubButton.addEventListener('click', () => {
             option.querySelector('input').required = isFloating;
         });
         validateCustomRules();
-    });
+    }); */
 
     // Attach real-time validation to relevant inputs
     [nBitsInput, nbMantissaInput, nbExponentInput, gainInput].forEach(input => {
@@ -2202,7 +2188,6 @@ form.addEventListener('submit', async (e) => {
   const formData = {
       projectLocation: currentProjectPath,
       processorName: document.getElementById('processorName').value,
-      pointType: pointTypeSelect.value,
       nBits: parseInt(nBitsInput.value),
       nbMantissa: parseInt(nbMantissaInput.value),
       nbExponent: parseInt(nbExponentInput.value),
@@ -2392,34 +2377,41 @@ function toggleAIAssistant() {
   }
 }
 
-// Add resize functionality
 function setupAIAssistantResize(resizer) {
+  let isResizing = false;
   let startX, startWidth;
 
-  function startResize(e) {
-      startX = e.clientX;
-      startWidth = parseInt(getComputedStyle(aiAssistantContainer).width, 10);
-      document.addEventListener('mousemove', resize);
-      document.addEventListener('mouseup', stopResize);
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // ESSENCIAL!
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(window.getComputedStyle(aiAssistantContainer).width, 10);
+
+    // Desativa o pointer no webview (porque ele "bloqueia" mousemove/mouseup)
+    aiAssistantContainer.querySelector('webview').style.pointerEvents = 'none';
+
+    document.body.style.cursor = 'ew-resize';
+  });
+
+  function onMouseMove(e) {
+    if (!isResizing) return;
+    const newWidth = startWidth - (e.clientX - startX);
+    aiAssistantContainer.style.width = `${Math.max(240, newWidth)}px`;
   }
 
-  function resize(e) {
-      const width = startWidth - (e.clientX - startX);
-      aiAssistantContainer.style.width = `${width}px`;
-
-      // Adjust editor layout
-      if (editor) {
-          editor.layout();
-      }
+  function onMouseUp() {
+    if (isResizing) {
+      isResizing = false;
+      aiAssistantContainer.querySelector('webview').style.pointerEvents = 'auto';
+      document.body.style.cursor = '';
+    }
   }
 
-  function stopResize() {
-      document.removeEventListener('mousemove', resize);
-      document.removeEventListener('mouseup', stopResize);
-  }
-
-  resizer.addEventListener('mousedown', startResize);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
 }
+
+
 
 
 //WINDOW.ONLOAD ===========================================================================================================================================================
@@ -3618,180 +3610,38 @@ document.getElementById('open-bug-report')?.addEventListener('click', () => open
 document.getElementById('close-bug-report')?.addEventListener('click', () => closeModal('bug-report-modal'));
 
 //TESTE ========================================================================================================================================================
-const { shell, app, exec } = require('electron');
-
 document.addEventListener('DOMContentLoaded', () => {
-  const sidebar = document.getElementById('sidebar');
-  const sidebarItems = sidebar.querySelectorAll('li');
-
-  // Browser launch function
-  const launchBrowser = () => {
-    shell.openExternal('https://nipscern.com');
-  };
-
-  // Utility functions for loading overlays
-  function createLoadingOverlay(iconClass, closeId) {
-    const loadingIcon = document.createElement('div');
-    loadingIcon.innerHTML = `
-      <div class="loading-overlay">
-        <i class="${iconClass}"></i>
-        <button id="${closeId}" class="close-loading">✕</button>
-      </div>
-    `;
-    document.body.appendChild(loadingIcon);
-    
-    document.getElementById(closeId).addEventListener('click', () => {
-      loadingIcon.remove();
-    });
-  }
-
-  // Shutdown Application function
-  const shutdownApplication = () => {
-    const shutdownOverlay = document.createElement('div');
-    shutdownOverlay.innerHTML = `
-      <div class="shutdown-overlay">
-        <div class="shutdown-dialog">
-          <h3>Shutting Down</h3>
-          <div class="countdown">5</div>
-          <div class="shutdown-actions">
-            <button id="cancelShutdown">Cancel</button>
-            <button id="confirmShutdown">Confirm</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(shutdownOverlay);
-
-    const countdownEl = shutdownOverlay.querySelector('.countdown');
-    const cancelButton = document.getElementById('cancelShutdown');
-    const confirmButton = document.getElementById('confirmShutdown');
-    let countdown = 5;
-    let countdownInterval;
-
-    const startCountdown = () => {
-      countdownInterval = setInterval(() => {
-        countdown--;
-        countdownEl.textContent = countdown;
-        
-        if (countdown <= 0) {
-          clearInterval(countdownInterval);
-          app.quit();
-        }
-      }, 1000);
-    };
-
-    startCountdown();
-
-    cancelButton.addEventListener('click', () => {
-      clearInterval(countdownInterval);
-      shutdownOverlay.remove();
-    });
-
-    confirmButton.addEventListener('click', () => {
-      app.quit();
-    });
-  };
-
-  // Open GitHub Desktop
-  const openGitHubDesktop = () => {
-    try {
-      // Adjust the path based on your system
-      exec('github-desktop', (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error opening GitHub Desktop: ${error}`);
-          return;
-        }
-      });
-    } catch (err) {
-      console.error('Failed to launch GitHub Desktop', err);
-    }
-  };
-
-  // Open Keyboard Shortcuts
-  const openKeyboardShortcuts = () => {
-    const infoBox = document.getElementById('infoBox');
-    infoBox.classList.remove('hidden');
-
-    const closeButton = infoBox.querySelector('.info-box-close');
-    closeButton.addEventListener('click', () => {
-      infoBox.classList.add('hidden');
-    });
-  };
-
-  // Open Bug Report Modal
-  const openBugReportModal = () => {
-    const modal = document.getElementById('bug-report-modal');
-    modal.classList.remove('hidden');
-    
-    const closeButton = modal.querySelector('.modal-close');
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        modal.classList.add('hidden');
-      });
-    }
-  };
-
-  // Sidebar Item Click Handlers
-  sidebarItems.forEach(item => {
-    item.addEventListener('click', (event) => {
-      const title = item.getAttribute('title');
-
-      switch(title) {
-        case 'Browse the web':
-          launchBrowser();
-          break;
-        case 'Search for information':
-          createLoadingOverlay('fa-solid fa-hourglass-half', 'closeSearchLoading');
-          break;
-        case 'View the Abstract Syntax Tree (AST)':
-          createLoadingOverlay('fa-solid fa-hourglass-half', 'closeASTLoading');
-          break;
-        case 'Report a bug':
-          openBugReportModal();
-          break;
-        case 'Open GitHub Desktop':
-          openGitHubDesktop();
-          break;
-        case 'Keyboard shortcuts':
-          openKeyboardShortcuts();
-          break;
-        case 'Project information':
-          createLoadingOverlay('fa-solid fa-hourglass-half', 'closeProjectInfo');
-          break;
-        case 'Shut down the application':
-          shutdownApplication();
-          break;
-      }
-    });
+  // Get sidebar elements
+  const browseWebItem = document.querySelector('.sidebar-menu li[title="Browse the web"]');
+  const githubDesktopItem = document.querySelector('.sidebar-menu li[title="Open GitHub Desktop"]');
+  const shutdownItem = document.querySelector('.sidebar-menu li[title="Shut down the application"]');
+  
+  // Browse the web - Open nipscern.com in default browser
+  browseWebItem.addEventListener('click', () => {
+    window.electronAPI.openBrowser();
   });
-
-  // Toggle Sidebar Function
-  function toggleSidebar() {
-    const sidebar = document.getElementById("sidebar");
-
-    if (sidebar.style.left === "0px") {
-      sidebar.style.left = "-60px";
-    } else {
-      sidebar.style.left = "0px";
-    }
-  }
-
-  // Close Sidebar When Clicking Outside
-  document.addEventListener("click", function (event) {
-    const sidebar = document.getElementById("sidebar");
-    const menuButton = document.getElementById("sidebarMenu");
-
-    if (
-      sidebar.style.left === "0px" &&
-      !sidebar.contains(event.target) &&
-      !menuButton.contains(event.target)
-    ) {
-      sidebar.style.left = "-60px";
-    }
+  
+  // Open GitHub Desktop
+  githubDesktopItem.addEventListener('click', () => {
+    window.electronAPI.openGithubDesktop();
+  });
+  
+  // Shut down the application
+  shutdownItem.addEventListener('click', () => {
+    window.electronAPI.quitApp();
+  });
+  
+  // Add hover effect for better user feedback
+  const sidebarItems = document.querySelectorAll('.sidebar-menu li');
+  sidebarItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      item.style.backgroundColor = '#444';
+    });
+    item.addEventListener('mouseleave', () => {
+      item.style.backgroundColor = '';
+    });
   });
 });
-
-// No seu renderer.js
 
 // Elementos do modal de confirmação
 const confirmDeleteModal = document.getElementById('confirmDeleteModal');

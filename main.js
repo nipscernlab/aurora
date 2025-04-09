@@ -649,7 +649,6 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 
         // Create the CMM file content
         const cmmContent = `#PRNAME ${formData.processorName}
-#DATYPE ${formData.pointType === 'fixed' ? '0' : '1'}
 #NUBITS ${formData.nBits}
 #NDSTAC ${formData.dataStackSize}
 #SDEPTH ${formData.instructionStackSize}
@@ -1123,7 +1122,6 @@ function parseProcessor(content) {
   const processor = {
     PRNAME: '',
     DIRNAM: '',
-    DATYPE: '',
     NUBITS: 0,
     NDSTAC: 0,
     SDEPTH: 0,
@@ -1609,4 +1607,21 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+// Coloque isso junto com suas outras configurações do IPC
+ipcMain.on('open-browser', () => {
+  const { shell } = require('electron');
+  shell.openExternal('https://nipscern.com');
+});
+
+ipcMain.on('open-github-desktop', () => {
+  const { shell } = require('electron');
+  shell.openExternal('github-desktop://');
+});
+
+ipcMain.on('quit-app', () => {
+  setTimeout(() => {
+    app.quit();
+  }, 5000); // espera 5 segundos antes de fechar
 });

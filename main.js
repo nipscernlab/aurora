@@ -1560,50 +1560,53 @@ ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
 });
 
 //TERMINAL CMD
-const terminals = {};
-
-ipcMain.handle('create-terminal', (event, terminalId) => {
-  try {
-    const shell = spawn('cmd.exe', [], {
-      cwd: process.env.HOME || process.env.USERPROFILE,
-      env: process.env,
-      shell: true
-    });
-
-    terminals[terminalId] = shell;
-    
-    shell.stdout.on('data', (data) => {
-      event.sender.send('terminal-data', terminalId, data.toString());
-    });
-
-    shell.stderr.on('data', (data) => {
-      event.sender.send('terminal-error', terminalId, data.toString());
-    });
-
-    shell.on('exit', () => {
-      delete terminals[terminalId];
-    });
-
-    return true;
-  } catch (error) {
-    console.error('Error creating terminal:', error);
-    return false;
-  }
+// Adicione este manipulador de eventos IPC ao seu main.js
+ipcMain.on('start-terminal', (event) => {
+  console.log('Iniciando processo do terminal CMD');
+  
+  // No Windows, usamos 'cmd.exe'
+  const shell = spawn('cmd.exe', [], {
+    env: process.env,
+    cwd: process.env.USERPROFILE || process.env.HOME,
+    windowsHide: true
+  });
+  
+  const webContents = event.sender;
+  const terminalId = Date.now().toString();
+  
+  // Enviar saída do terminal para o renderer
+  shell.stdout.on('data', (data) => {
+    console.log('Terminal stdout:', data.toString());
+    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
+  });
+  
+  shell.stderr.on('data', (data) => {
+    console.log('Terminal stderr:', data.toString());
+    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
+  });
+  
+  shell.on('exit', (code) => {
+    console.log('Terminal exited with code:', code);
+    webContents.send('terminal-exit', { id: terminalId, code });
+  });
+  
+  // Enviar ID do terminal para o renderer
+  webContents.send('terminal-started', { id: terminalId });
+  
+  // Escutar comandos do renderer
+  ipcMain.on('terminal-input', (event, data) => {
+    if (data.id === terminalId && shell.stdin.writable) {
+      console.log('Enviando para terminal:', data.data);
+      shell.stdin.write(data.data);
+    }
+  });
 });
 
-ipcMain.on('terminal-command', (event, terminalId, command) => {
-  const terminal = terminals[terminalId];
-  if (terminal) {
-    terminal.stdin.write(command + '\r\n'); // Usar \r\n para Windows
-  }
+// Eventos padrão do Electron
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.on('destroy-terminal', (event, terminalId) => {
-  const terminal = terminals[terminalId];
-  if (terminal) {
-    terminal.kill();
-    delete terminals[terminalId];
-  }
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
-
-app.commandLine.appendSwitch('allow-file-access-from-files')

@@ -30,6 +30,13 @@ const fileOperations = {
   // Modal and dialog interactions
   showOpenDialog: () => ipcRenderer.invoke('dialog:openFile'),
   showErrorDialog: (title, message) => ipcRenderer.send('show-error-dialog', title, message),
+
+  start: () => ipcRenderer.send('terminal:start'),
+  onStarted: (callback) => ipcRenderer.on('terminal:started', callback),
+  onData: (callback) => ipcRenderer.on('terminal:data', (_, data) => callback(data)),
+  write: (data) => ipcRenderer.send('terminal:input', data),
+  resize: (cols, rows) => ipcRenderer.send('terminal:resize', cols, rows),
+  clear: () => ipcRenderer.send('terminal:clear')
 };
 
 const projectOperations = {
@@ -144,6 +151,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'), // Expondo o método para o renderer
+
+  scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath)
 
 });
 

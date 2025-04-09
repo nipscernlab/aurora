@@ -158,6 +158,20 @@ class EditorManager {
     });
   }
 
+  static initialize() {
+    this.editorContainer = document.getElementById('monaco-editor');
+    if (!this.editorContainer) {
+      console.error('Editor container not found');
+      return;
+    }
+    this.editorContainer.style.position = 'relative';
+    this.editorContainer.style.height = '100%';
+    this.editorContainer.style.width = '100%';
+    
+    // Forçar o tema escuro na inicialização
+    this.setTheme(true);
+  }
+
 
   static getLanguageFromPath(filePath) {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -217,6 +231,7 @@ class EditorManager {
     this.updateOverlayVisibility();
   }
 }
+
 
 function setupASMLanguage() {
   monaco.languages.register({ id: 'asm' });
@@ -1381,13 +1396,20 @@ async function refreshFileTree() {
       if (fileTree) {
         fileTree.innerHTML = '';
         renderFileTree(result.files, fileTree);
-      }
+        fileTree.classList.add('blink');
+
+      // Remove a classe após a animação (evita acúmulo)
+      setTimeout(() => {
+        fileTree.classList.remove('blink');
+      }, 700);
+            }
     }
 
     if (refreshButton) {
       refreshButton.style.pointerEvents = 'auto'; // Reabilitar cliques
       refreshButton.classList.remove('spinning');
       refreshButton.style.visibility = 'visible';
+
     }
 
   } catch (error) {
@@ -1464,6 +1486,18 @@ style.textContent = `
     transform: rotate(180deg);
     pointer-events: none;
   }
+
+  @keyframes blinkEffect {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+
+  .blink {
+    animation: blinkEffect 0.3s ease-in-out;
+  }
+
+
 `;
 document.head.appendChild(style);
 
@@ -1777,6 +1811,8 @@ async function createProcessor(formData) {
   }
 }
 
+/*
+
 document.getElementById('open-folder-button').addEventListener('click', async () => {
     if (currentProjectPath) {
         try {
@@ -1785,7 +1821,7 @@ document.getElementById('open-folder-button').addEventListener('click', async ()
             console.error('Error opening folder:', error);
         }
     }
-});
+}); */
 
 // Função para atualizar o nome do projeto na UI
 function updateProjectNameUI(projectData) {
@@ -2010,11 +2046,13 @@ function updateFileTree(files) {
   fileTree.innerHTML = '';
   renderFileTree(files, fileTree);
 
+  /*
   // Add refresh animation
   fileTree.style.animation = 'refresh-fade 0.5s ease';
   setTimeout(() => {
     fileTree.style.animation = '';
   }, 500);
+  */
 }
 
 //PROCESSADOR HUB ==========================================================================================================================================================
@@ -2398,7 +2436,7 @@ window.onload = () => {
   aiButton.title = 'Toggle AI Assistant';
   aiButton.addEventListener('click', toggleAIAssistant);
   toolbar.appendChild(aiButton);
-
+/*
   // Existing event listeners
   document.getElementById('openFolderBtn').addEventListener('click', async () => {
       const result = await window.electronAPI.openFolder();
@@ -2407,28 +2445,33 @@ window.onload = () => {
           fileTree.innerHTML = '';
           renderFileTree(result.files, fileTree);
       }
-  });
-    document.getElementById('saveFileBtn').addEventListener('click', () => TabManager.saveCurrentFile());
+  }); */
 
-    // Add refresh button event listener
-    const refreshButton = document.getElementById('refresh-button');
-    refreshButton.addEventListener('click', async () => {
-        // Add spinning animation
-        refreshButton.classList.add('spinning');
+  document.getElementById('saveFileBtn').addEventListener('click', () => TabManager.saveCurrentFile());
 
-        // Disable the button temporarily
-        refreshButton.style.pointerEvents = 'none';
-
-        await refreshFileTree();
-
-        // Remove spinning animation and re-enable button
-        setTimeout(() => {
-            refreshButton.classList.remove('spinning');
-            refreshButton.style.pointerEvents = 'auto';
-        }, 300);
-    });
 };
 
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshButton = document.getElementById('refresh-button');
+
+  if (refreshButton) {
+    refreshButton.addEventListener('click', async () => {
+      // Add spinning animation
+      refreshButton.classList.add('spinning');
+
+      // Disable the button temporarily
+      refreshButton.style.pointerEvents = 'none';
+
+      await refreshFileTree();
+
+      // Remove spinning animation and re-enable button
+      setTimeout(() => {
+        refreshButton.classList.remove('spinning');
+        refreshButton.style.pointerEvents = 'auto';
+      }, 300);
+    });
+  }
+});
 
 // WIPE OUT TERMINAL ========================================================================================================================================================
 document.getElementById('clear-terminal').addEventListener('click', () => {
@@ -2614,14 +2657,23 @@ async loadConfig() {
     this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...`);
     
     try {
-      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
+        const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+        const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+        const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+        const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
 
-      const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
-      const cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0`;
+        const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
+        
+        // Check if multicore is enabled
+        const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
+        
+        let cmd;
+        if (multicoreEnabled) {
+            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 1`;
+        } else {
+            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0`;
+        }
       
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
       
@@ -2654,8 +2706,147 @@ async loadConfig() {
 
   async iverilogCompilation(processor, simConfig) {
     const { name } = processor;
-    this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
     
+    // Check if multicore is active
+    const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
+    
+    if (multicoreEnabled) {
+        // Multicore compilation
+        this.terminalManager.appendToTerminal('tveri', `Starting Multicore Icarus Verilog compilation...`);
+        
+        try {
+            const appPath = await window.electronAPI.getAppPath();
+            const basePath = await window.electronAPI.joinPath(appPath);
+            const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+            const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
+            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
+
+            // Read processor configuration to get all processor names
+            const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
+            const configData = await window.electronAPI.readFile(configPath);
+            const config = JSON.parse(configData);
+            const processors = config.processors;
+            const flags = config.iverilogFlags.join(' ');
+            
+            // Get project name (directory name of this.projectPath)
+            const projectPathParts = this.projectPath.split(/[\/\\]/);
+            const projectName = projectPathParts[projectPathParts.length - 1];
+            
+            // Get selected files from multicore modal
+            const selectedFiles = JSON.parse(localStorage.getItem('multicoreConfig')) || {};
+            const selectedTb = selectedFiles.tb;
+            
+            // Build file paths for all processors
+            let verilogFilesString = '';
+            
+            // Add HDL files
+            const verilogFiles = [
+                'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
+                'stack_pointer.v', 'stack.v', 'rel_addr.v', 'processor.v', 'core.v', 'ula.v'
+            ];
+            verilogFilesString += verilogFiles.map(file => `"${window.electronAPI.joinPath(hdlPath, file)}"`).join(' ');
+            
+            // Add all processor files
+            for (const proc of processors) {
+                const procName = proc.name;
+                const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
+                verilogFilesString += ` "${await window.electronAPI.joinPath(hardwarePath, `${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `mem_data_${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `pc_${procName}.v`)}"`;
+            }
+            
+            // Add TopLevel files (except testbench files)
+            const topLevelPath = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
+            const topLevelFiles = await window.electronAPI.readDir(topLevelPath);
+            for (const file of topLevelFiles) {
+                if (file.endsWith('.v') && !file.endsWith('_tb.v')) {
+                    verilogFilesString += ` "${await window.electronAPI.joinPath(topLevelPath, file)}"`;
+                }
+            }
+            
+            // Build iverilog command
+            const cmd = `cd "${tempPath}" && iverilog ${flags} -s ${selectedTb.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempPath, `${projectName}.vvp`)}" "${await window.electronAPI.joinPath(topLevelPath, selectedTb)}" ${verilogFilesString}`;
+            
+            this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+            
+            const result = await window.electronAPI.execCommand(cmd);
+            
+            if (result.stdout) {
+                this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+            }
+            if (result.stderr) {
+                this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+            }
+            
+            if (result.code !== 0) {
+                throw new Error(`Multicore Icarus Verilog compilation failed with code ${result.code}`);
+            }
+            
+            // Copy necessary files for each processor
+            for (const proc of processors) {
+                const procName = proc.name;
+                const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
+                const procTempPath = await window.electronAPI.joinPath(tempPath, procName);
+                
+                // Copy instruction memory file
+                this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_inst.mif to ${tempPath}...`);
+                await window.electronAPI.copyFile(
+                    await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`),
+                    await window.electronAPI.joinPath(tempPath, `${procName}_inst.mif`)
+                );
+                
+                // Copy data memory file
+                this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_data.mif to ${tempPath}...`);
+                await window.electronAPI.copyFile(
+                    await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`),
+                    await window.electronAPI.joinPath(tempPath, `${procName}_data.mif`)
+                );
+                
+                // Copy PC memory file
+                this.terminalManager.appendToTerminal('tveri', `Copying pc_${procName}_mem.txt to ${tempPath}...`);
+                await window.electronAPI.copyFile(
+                    await window.electronAPI.joinPath(procTempPath, `pc_${procName}_mem.txt`),
+                    await window.electronAPI.joinPath(tempPath, `pc_${procName}_mem.txt`)
+                );
+            }
+            
+            // Run VVP simulation
+            this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation for multicore...');
+            const vvpCmd = `cd "${tempPath}" && vvp ${projectName}.vvp -fst`;
+            this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
+            
+            const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+            
+            if (vvpResult.stdout) {
+                this.terminalManager.appendToTerminal('tveri', vvpResult.stdout, 'stdout');
+            }
+            if (vvpResult.stderr) {
+                this.terminalManager.appendToTerminal('tveri', vvpResult.stderr, 'stderr');
+            }
+            
+            if (vvpResult.code !== 0) {
+                throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+            }
+            
+            this.terminalManager.appendToTerminal('tveri', 'Multicore Verilog compilation and simulation completed successfully.');
+            
+            await refreshFileTree();
+            
+            // Use the selected GTKW file for visualization
+            if (selectedFiles.gtkw) {
+                const gtkwSimConfig = {
+                    standardSimulation: false,
+                    selectedGtkw: selectedFiles.gtkw
+                };
+                await this.runGtkWave(processor, gtkwSimConfig);
+            }
+            
+        } catch (error) {
+            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+            throw error;
+        }
+    } else {
+        // Original single-core compilation (your existing code)
+        this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+       
     try {
         const appPath = await window.electronAPI.getAppPath();
         const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
@@ -2719,8 +2910,8 @@ async loadConfig() {
             await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
             await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
         );
-        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_inst.mif successfully.`);        
 
+        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_inst.mif successfully.`);        
         
         // Executar vvp
         this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation...');
@@ -2753,11 +2944,18 @@ async loadConfig() {
         this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
         throw error;
     }
+  }
 }
 
 async runGtkWave(processor, simConfig) {
     const { name } = processor;
     this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+
+    const multicoreEnabled = document.querySelector('#multicore input[type="checkbox"]').checked;
+    if (multicoreEnabled) {
+        this.terminalManager.appendToTerminal('twave', `Multicore enabled, skipping GTKWave for ${processor.name}.`);
+        return; // Don't run the function if multicore is enabled
+    }
     
     try {
         const appPath = await window.electronAPI.getAppPath();
@@ -2853,14 +3051,19 @@ async listFiles(dirPath, filterFn = () => true) {
 // Método para deletar arquivo
 async deleteFile(filePath) {
   try {
-    await window.electronAPI.unlink(filePath);
+    const isWindows = window.electronAPI.platform === 'win32';
+    const deleteCmd = isWindows
+      ? `del /f /q "${filePath}"`
+      : `rm -f "${filePath}"`;
+
+    await window.electronAPI.execCommand(deleteCmd);
   } catch (error) {
-    // Silencia erros de arquivo não encontrado
     if (error.code !== 'ENOENT') {
-      console.error('Error deleting file:', error);
+      console.error('Error deleting file with command:', error);
     }
   }
 }
+
 
 // Método para copiar arquivo
 async copyFile(sourcePath, destPath) {

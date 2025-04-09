@@ -32,9 +32,7 @@ async function loadConfiguration() {
         processorItem.className = "processor-item";
         processorItem.innerHTML = `
           <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
-          <select data-point-type>
-            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
-            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
+          
           <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
           <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
           <button class="removeProcessor" 
@@ -82,10 +80,7 @@ addProcessorButton.addEventListener("click", () => {
   processorItem.className = "processor-item";
   processorItem.innerHTML = `
     <input type="text" placeholder="Processor Name" data-processor-name>
-    <select data-point-type>
-      <option value="floating" selected>Float</option>
-      <option value="int">Int</option>
-    </select>
+
     <input type="number" placeholder="CLK (MHz)" data-clk>
     <input type="number" placeholder="Number of Clocks" data-num-clocks>
     <button class="removeProcessor" 
@@ -114,9 +109,8 @@ saveConfigButton.addEventListener("click", async () => {
     const name = item.querySelector("[data-processor-name]").value;
     const clk = item.querySelector("[data-clk]").value;
     const numClocks = item.querySelector("[data-num-clocks]").value;
-    const pointType = item.querySelector("[data-point-type]").value;
     if (name && clk && numClocks) {
-      processors.push({ name, clk: Number(clk), numClocks: Number(numClocks), pointType });
+      processors.push({ name, clk: Number(clk), numClocks: Number(numClocks)});
     }
   });
 
@@ -152,7 +146,6 @@ saveConfigButton.addEventListener("click", async () => {
   // Para cada processador, cria ou atualiza o arquivo tcl_infos.txt
   for (const processor of processors) {
     try {
-      const processorType = processor.pointType === 'floating' ? 'float' : 'int';
       const appPath = await window.electronAPI.getAppPath();
       const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
       const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
@@ -187,3 +180,10 @@ clearTempButton.addEventListener("click", async () => {
     alert("Falha ao excluir pasta Temp.");
   }
 });
+
+
+/*
+<select data-point-type>
+            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
+            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
+*/

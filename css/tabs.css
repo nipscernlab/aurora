@@ -78,10 +78,10 @@
   /*background: var(--background-color);*/
   border-bottom: 1px solid var(--border-color);
 }
-/* Estilo ao passar o mouse em abas inativas */
+/* Estilo ao passar o mouse em abas inativas 
 .tab:not(.active):hover {
-  /* background-color: #e0e0e0; */
-}
+  background-color: #e0e0e0; 
+}*/
   
   .tab i {
     margin-right: 8px;

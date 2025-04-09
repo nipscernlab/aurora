@@ -263,8 +263,9 @@
             type="text" 
             id="iverilogFlags" 
             name="iverilogFlags"
-            placeholder="e.g., -Wall; -v; -s" 
+            placeholder="e.g., -Wall; -v; -s (Flags Desabilitadas)" 
             aria-describedby="iverilogFlagsHelp"
+            disabled
           >
           <small id="iverilogFlagsHelp" class="form-help">
             Specify additional flags for Iverilog compilation
@@ -505,17 +506,19 @@
   </div>
 </div>
 
-<div id="multicoreModal" class="modal modal-multicore">
-  <div class="modal-content modal-multicore-content">
-      <div class="modal-header">
-          <h2>Multicore Configuration</h2>
-          <button id="closeMulticoreModal">&times;</button>
-      </div>
-      <div id="multicoreModalBody" class="modal-body">
-          <!-- Conteúdo do multicore.html será carregado aqui -->
-      </div>
+<!-- Container Modal para o Multicore -->
+<div id="multicore-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-microchip"></i> Multicore Configuration</h2>
+      <button type="button" id="close-multicore-modal" class="modal-close-btn">&times;</button>
+    </div>
+    <div id="multicore-modal-body">
+      <!-- O conteúdo do multicore.html será carregado aqui -->
+    </div>
   </div>
 </div>
+
 </script>
 
 </body>

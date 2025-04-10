@@ -177,6 +177,7 @@ body.theme-light .editor-container {
   position: relative;
   width: 100%;
   height: calc(100% - 35px);
+  color: var(--text-primary);
 }
 
 body.theme-light .monaco-editor {
@@ -225,7 +226,6 @@ body.theme-light .monaco-editor-background {
   max-width: 40%;
   max-height: 40%;
   opacity: 0.5;
-  margin-top: -10%;
   filter: grayscale(80%);
   transition: transform 0.15s ease-in-out, filter 0.2s ease-in-out;
 }

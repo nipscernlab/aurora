@@ -5,7 +5,6 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--background-darker, #1e1e1e);
   border: 1px solid var(--border-color, #404040);
   border-radius: 8px;
   padding: 20px;

@@ -103,19 +103,19 @@
 
 
 /*TESTE*/
-/* Modern styling for Project Info Dialog and Keyboard Shortcuts */
+/* Modal Styling with Theme Support */
 
 /* Project Info Dialog Styles */
 .project-info-dialog {
   position: relative;
   background-color: var(--bg-secondary);
   border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
   padding: 1.5rem;
   max-width: 500px;
-  width: 100%;
+  width: 80%;
   color: var(--text-primary);
-  font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
+  font-family: var(--font-sans);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .dialog-title {
@@ -124,7 +124,7 @@
   font-weight: 600;
   margin-bottom: 1rem;
   padding-right: 1.5rem;
-  color: var(--text-highlight, #fff);
+  color: var(--accent-primary);
 }
 
 .close-button {
@@ -134,61 +134,83 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.25rem;
-  color: var(--text-muted, #888);
+  font-size: 1.5rem;
+  color: var(--text-muted);
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .close-button:hover {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
-  color: var(--text-primary, #fff);
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.close-button:active {
+  background-color: var(--bg-active);
+  transform: scale(0.95);
 }
 
 .info-section {
   margin: 1.25rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.info-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .section-title {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: var(--text-accent, #6b98ff);
+  margin-bottom: 0.875rem;
+  color: var(--accent-primary);
 }
 
 .info-item {
-  margin: 0.5rem 0;
+  margin: 0.625rem 0;
   font-size: 0.9rem;
-  line-height: 1.5;
+  line-height: 1.6;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .info-item strong {
-  color: var(--text-highlight, #fff);
+  color: var(--text-secondary);
   font-weight: 500;
   display: inline-block;
   width: 110px;
+  margin-right: 0.5rem;
 }
 
 /* Keyboard Shortcuts Info Box Styles */
 .info-box {
+  position: fixed;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
   background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--border-primary);
   border-radius: 8px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   width: 380px;
+  max-width: 90vw;
   color: var(--text-primary);
   overflow: hidden;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
+  z-index: 1000;
 }
 
 .info-box.hidden {
   opacity: 0;
-  transform: translateY(10px);
+  visibility: hidden;
+  transform: translate(-50%, -45%) !important;
   pointer-events: none;
 }
 
@@ -197,51 +219,54 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background-color: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .info-box-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-highlight, #fff);
+  color: var(--accent-primary);
 }
 
 .info-box-close {
   cursor: pointer;
-  color: var(--text-muted, #888);
-  font-size: 0.9rem;
-  padding: 0.25rem;
-  transition: color 0.2s;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 0.375rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .info-box-close:hover {
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
 }
 
 .info-box-content {
-  padding: 1rem;
+  padding: 1.25rem;
   max-height: 70vh;
   overflow-y: auto;
 }
 
 .shortcut-section {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .shortcut-category {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: var(--text-accent, #6b98ff);
+  margin-bottom: 0.875rem;
+  color: var(--accent-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
 .shortcut-category i {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  color: var(--icon-primary);
 }
 
 .shortcut-list {
@@ -251,50 +276,51 @@
 }
 
 .shortcut-item {
-  font-size: 0.85rem;
-  margin: 0.4rem 0;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
   display: flex;
   align-items: center;
   line-height: 1.6;
 }
 
 .shortcut-key {
-  background-color: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
-  padding: 0.2rem 0.4rem;
+  background-color: var(--bg-tertiary);
+  padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  margin-right: 0.5rem;
-  font-family: var(--font-mono, 'Consolas', monospace);
+  margin-right: 0.75rem;
+  font-family: var(--font-mono);
   font-weight: 500;
-  color: var(--text-highlight, #fff);
+  color: var(--accent-primary);
   display: inline-block;
+  border: 1px solid var(--border-primary);
 }
 
 .section-divider {
   border: 0;
   height: 1px;
-  background-color: var(--border-color, rgba(255, 255, 255, 0.1));
-  margin: 1rem 0;
+  background-color: var(--border-primary);
+  margin: 1.25rem 0;
 }
 
-/* Scrollbar customization for info-box-content */
+/* Scrollbar customization */
 .info-box-content::-webkit-scrollbar {
   width: 6px;
 }
 
 .info-box-content::-webkit-scrollbar-track {
-  background: var(--bg-tertiary, rgba(0, 0, 0, 0.2));
+  background: var(--bg-tertiary);
 }
 
 .info-box-content::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb, #555);
+  background: var(--text-muted);
   border-radius: 3px;
 }
 
 .info-box-content::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover, #777);
+  background: var(--text-secondary);
 }
 
-/* Animation for both components */
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -306,6 +332,38 @@
   }
 }
 
-.project-info-dialog, .info-box:not(.hidden) {
+.project-info-dialog {
   animation: fadeIn 0.3s ease forwards;
+}
+
+.info-box:not(.hidden) {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .project-info-dialog {
+    width: 95%;
+    padding: 1.25rem;
+  }
+  
+  .info-box {
+    width: 95%;
+    max-height: 80vh;
+  }
+  
+  .info-item strong {
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+  
+  .shortcut-item {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+  
+  .shortcut-key {
+    margin-bottom: 0.25rem;
+  }
 }

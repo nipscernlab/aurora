@@ -169,13 +169,14 @@
    Form Element Styles
    ======================================== */
 input {
-    padding: 10px;
+    padding: 10px 10px;
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     color: var(--text-primary);
-    /*width: 100%;*/
+    width: 95%;
     transition: border-color 0.2s ease;
+    margin-top: 15px;
 }
 
 input:focus {
@@ -418,7 +419,7 @@ button:disabled::after {
 }
 
 #addProcessor {
-  color: var(--text-primary);
+  /* color: var(--text-primary); */
   border: none;
   padding: 8px 16px;
   border-radius: 4px;

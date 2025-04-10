@@ -103,7 +103,7 @@ body {
 }
 
 .sidebar-menu li:hover {
-  background-color: var(--hover-background);
+  background-color: var(--hover-background) !important;
   transform: scale(1.1);
 }
 

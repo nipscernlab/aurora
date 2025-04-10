@@ -11,11 +11,18 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/file-icon-vectors@1.0.0/dist/file-icon-vectors.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=folder_zip" />
 
+  <link rel="stylesheet" href="./css/aiAssistant.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/editor.css">
+  <link rel="stylesheet" href="./css/fileTree.css">
+  <link rel="stylesheet" href="./css/infoAurora.css">
+
+
+  
   <link rel="stylesheet" href="./css/info.css">
   <link rel="stylesheet" href="./css/sidebar.css">
   <link rel="stylesheet" href="./css/modal.css">
   <link rel="stylesheet" href="./css/styles.css">
-  <link rel="stylesheet" href="./css/infoAurora.css">
 
   <link rel="stylesheet" href="./css/report.css">
   <link rel="stylesheet" href="./css/processorHub.css">
@@ -24,15 +31,11 @@
    <link rel="stylesheet" href="./css/ia.css">
   <link rel="stylesheet" href="./css/tabs.css">
   <link rel="stylesheet" href="./css/multicore.css">
-  <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/layout.css">
-  <link rel="stylesheet" href="./css/editor.css">
   <link rel="stylesheet" href="./css/terminal.css">
-  <link rel="stylesheet" href="./css/aiAssistant.css">
   <link rel="stylesheet" href="./css/themeVariables.css">
  
   <link rel="stylesheet" href="./css/toolbar.css">
-  <link rel="stylesheet" href="./css/fileTree.css">
   <link rel="stylesheet" href="./css/news.css">
 
   <link rel="stylesheet" href="./css/blockView.css">
@@ -149,11 +152,11 @@
     </li>
     <li title="View the Abstract Syntax Tree (AST)">
       <i class="fa-solid fa-code-branch"></i>
-    </li>-->
+    </li>
 
     <li title="Settings">
       <i class="fa-solid fa-sliders"></i>
-      </li>
+      </li>-->
 
     <li id="open-bug-report" title="Report a bug">
       <i class="fas fa-bug"></i>
@@ -163,9 +166,9 @@
     </li>
     <li title="News and Updates">
       <i class="fa-solid fa-bell notification-bell">
-          <span class="notification-dot"></span>
+        <span class="notification-dot"></span>
       </i>
-  </li>
+    </li>
     <li title="Keyboard shortcuts">
       <i class="fas fa-keyboard"></i>
     </li>
@@ -176,49 +179,58 @@
   </ul>
 </div>
 
-<!-- Modal deslizante de notícias -->
-<div class="news-modal" id="newsModal">
-  <div class="news-modal-content">
-      <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
-      
-      <!-- Atualização 2.18.1 -->
-      <div class="news-section">
-        <h4><i class="fa-solid fa-bolt"></i> Atualização 2.19.0</h4>
-        <p>- Melhorias no design dos botões de 'Processor Config'.</p><br>
+<div class="modal-backdrop" id="modalBackdrop"></div>
 
+<!-- Sliding News Modal -->
+<div class="news-modal" id="newsModal">
+  <button id="closeNewsModal" class="news-close-btn" aria-label="Close">
+    <i class="fa-solid fa-times"></i>
+  </button>
+  
+  <div class="news-modal-content">
+    <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
+    
+    <!-- Update 2.19.0 -->
+    <div class="news-section new">
+      <h4>
+        <i class="fa-solid fa-bolt update-improvement"></i> 
+        Update 2.19.0
+        <span class="version-tag">Latest</span>
+      </h4>
+      <ul class="update-list">
+        <li>Improved design of 'Processor Config' buttons</li>
+        <li>Enhanced overall interface responsiveness</li>
+        <li>Added support for new file formats</li>
+      </ul>
     </div>
     
     <hr class="news-divider">
-      
-      <!-- Atualização 2.18.1 -->
-      <div class="news-section">
-          <h4><i class="fa-solid fa-bolt"></i> Atualização 2.18.1</h4>
-          <p>- Melhorias de desempenho e correções de bugs críticos.</p><br>
-
-          <p>- Ajustes na interface para maior usabilidade.</p><br>
-
-          <p>- Adicionada a pasta /saphoComponents/Packages/iverilog.</p><br>
-
-          <p>- Melhorias no add-to-path script.</p><br>
-
-          <p>- Removida a compilação standard (agora todas as compilações são std).</p><br>
-
-          <p>- Adicionado syntax highlight para .cmm e .asm</p><br>
-      </div>
-      
-      <hr class="news-divider">
-      
-      <!-- Atualização 2.17.0 -->
-      <div class="news-section">
-          <h4><i class="fa-solid fa-paint-brush"></i> Atualização 2.17.0</h4>
-          <p>- Novo parâmetro 'Float ou Int' na configuração de processadores a serem compilados.</p><br>
-
-          <p>- Apresentação ao abrir a IDE.</p><br>
-
-          <p>- Melhorado o README.md no AURORA IDE GitHub. </p><br>
-
-          <p>- Adicionado botão 'Informações do Sistema'. </p><br>
-      </div>
+    
+    <!-- Update 2.18.1 -->
+    <div class="news-section">
+      <h4><i class="fa-solid fa-wrench update-fix"></i> Update 2.18.1</h4>
+      <ul class="update-list">
+        <li>Performance improvements and critical bug fixes</li>
+        <li>Interface adjustments for better usability</li>
+        <li>Added /saphoComponents/Packages/iverilog folder</li>
+        <li>Improved add-to-path script</li>
+        <li>Removed standard compilation (all compilations are std now)</li>
+        <li>Added syntax highlighting for .cmm and .asm files</li>
+      </ul>
+    </div>
+    
+    <hr class="news-divider">
+    
+    <!-- Update 2.17.0 -->
+    <div class="news-section">
+      <h4><i class="fa-solid fa-paint-brush update-feature"></i> Update 2.17.0</h4>
+      <ul class="update-list">
+        <li>New 'Float or Int' parameter in processor compilation configuration</li>
+        <li>Added welcome presentation when opening the IDE</li>
+        <li>Improved README.md in AURORA IDE GitHub</li>
+        <li>Added 'System Information' button</li>
+      </ul>
+    </div>
   </div>
 </div>
 
@@ -418,7 +430,6 @@
     </div>
   </div>
 
-<!-- Info Box Structure -->
 <!-- Info Box Structure -->
 <div id="infoBox" class="info-box hidden">
   <div class="info-box-header">

@@ -312,7 +312,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -1249,8 +1249,10 @@ ipcMain.on('refresh-file-tree', (event) => {
   event.sender.send('trigger-refresh-file-tree');
 });
 
-// Use app.getPath('userData') para garantir que o caminho seja correto após o empacotamento
-const configDir = path.join(app.getPath('userData'), 'saphoComponents', 'Scripts');
+// Use app.getAppPath() for the installation directory instead of app.getPath('userData')
+const appPath = app.getAppPath();
+const rootPath = path.join(appPath, '..', '..'); // Go up from app.asar to the installation directory
+const configDir = path.join(rootPath, 'saphoComponents', 'Scripts');
 const configFilePath = path.join(configDir, 'processorConfig.json');
 
 // Função para garantir que o diretório exista antes de ler ou escrever o arquivo
@@ -1284,8 +1286,12 @@ ipcMain.on('save-config', async (event, data) => {
     console.error('Falha ao salvar o arquivo:', error);
   }
 });
-// Adicione junto aos outros handlers no main.js
+
+// Also update your joinPath handler to use rootPath when needed
 ipcMain.handle('join-path', (event, ...paths) => {
+  if (paths[0] === 'saphoComponents') {
+    return path.join(rootPath, ...paths);
+  }
   return path.join(...paths);
 });
 

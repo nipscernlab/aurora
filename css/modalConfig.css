@@ -166,6 +166,229 @@
 }
 
 /* ========================================
+   Modal Create Project
+   ======================================== */
+/* Project Modal Specific Styles */
+.npmodal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.npmodal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.npmodal-content {
+  width: 90%;
+  max-width: 500px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--border-primary);
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+
+.npmodal-overlay.hidden .npmodal-content {
+  transform: translateY(-20px);
+}
+
+.npmodal-content h2 {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.npmodal-content h2 i {
+  color: var(--icon-primary);
+}
+
+.npmodal-input-group {
+  margin-bottom: 1.25rem;
+}
+
+.npmodal-input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.npmodal-input-group input {
+  width: 90%;
+  padding: 0.75rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.npmodal-input-group input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.2);
+}
+
+.npmodal-input-group input::placeholder {
+  color: var(--text-muted);
+}
+
+.npmodal-location-input {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.npmodal-location-input input {
+  flex: 1;
+}
+
+.npmodal-btn-browse {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.npmodal-btn-browse:hover {
+  background-color: var(--bg-hover);
+}
+
+.npmodal-btn-browse i {
+  color: var(--icon-secondary);
+}
+
+.npmodal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.npmodal-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.npmodal-btn-generate {
+  background-color: var(--accent-primary);
+  color: white;
+  border: none;
+}
+
+.npmodal-btn-generate:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.npmodal-btn-generate:active {
+  transform: translateY(0);
+}
+
+.npmodal-btn-cancel {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.npmodal-btn-cancel:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .npmodal-content {
+    width: 95%;
+    padding: 1.25rem;
+  }
+  
+  .npmodal-location-input {
+    flex-direction: column;
+  }
+  
+  .npmodal-btn-browse {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .npmodal-actions {
+    flex-direction: column;
+  }
+  
+  .npmodal-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Animação do npmodal */
+.npmodal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.npmodal-overlay:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.npmodal-content {
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.npmodal-overlay:not(.hidden) .npmodal-content {
+  transform: translateY(0);
+}
+   
+/* ========================================
    Form Element Styles
    ======================================== */
 input {
@@ -176,7 +399,6 @@ input {
     color: var(--text-primary);
     width: 95%;
     transition: border-color 0.2s ease;
-    margin-top: 15px;
 }
 
 input:focus {
@@ -188,9 +410,8 @@ input:focus {
 .modal-content input,
 .modal-content textarea,
 .modal-content select {
-  width: 80%;
+  width: 100%;
   padding: 12px;
-  margin-bottom: 15px;
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   font-size: 16px;

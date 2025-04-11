@@ -126,43 +126,10 @@ saveConfigButton.addEventListener("click", async () => {
 
   console.log("Saved Configuration:", config);
 
-  // Identifica processadores removidos para excluir o arquivo tcl_infos.txt
-  const newProcessorNames = processors.map(p => p.name);
-  const removedProcessors = previousProcessorNames.filter(name => !newProcessorNames.includes(name));
-
-  for (const processorName of removedProcessors) {
-    try {
-      const appPath = await window.electronAPI.getAppPath();
-      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-      const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processorName);
-      const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-      await window.electronAPI.deleteTclFile(tclInfoPath);
-      console.log(`Deleted TCL file for processor ${processorName}`);
-    } catch (error) {
-      console.error(`Error deleting TCL file for processor ${processorName}:`, error);
-    }
-  }
-
-  // Para cada processador, cria ou atualiza o arquivo tcl_infos.txt
-  for (const processor of processors) {
-    try {
-      const appPath = await window.electronAPI.getAppPath();
-      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-      const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
-      const binPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin');
-      const tclInfoPath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-
-      await window.electronAPI.createTclInfoFile(tclInfoPath, processorType, tempPath, binPath);
-      console.log(`Created/Updated TCL file for processor ${processor.name}`);
-    } catch (error) {
-      console.error(`Error creating/updating TCL file for processor ${processor.name}:`, error);
-    }
-  }
-
   modal.classList.remove("active");
   await window.electronAPI.saveConfig(config);
   // Atualiza os processadores previamente carregados
-  previousProcessorNames = newProcessorNames;
+  previousProcessorNames = processors.map(p => p.name);
 });
 
 cancelConfigButton.addEventListener("click", () => {
@@ -180,10 +147,3 @@ clearTempButton.addEventListener("click", async () => {
     alert("Falha ao excluir pasta Temp.");
   }
 });
-
-
-/*
-<select data-point-type>
-            <option value="floating" ${processor.pointType === 'floating' ? 'selected' : ''}>Float</option>
-            <option value="int" ${processor.pointType === 'int' || !processor.pointType ? 'selected' : ''}>Int</option>
-*/

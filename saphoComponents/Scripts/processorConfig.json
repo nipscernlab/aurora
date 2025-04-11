@@ -1,7 +1,7 @@
 {
   "processors": [
     {
-      "name": "proc_fft",
+      "name": "teste",
       "clk": 200,
       "numClocks": 20000
     }

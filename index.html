@@ -325,26 +325,28 @@
 </div>
 
   <!-- Modal Overlay -->
-<div id="newProjectModal" class="modal-overlay hidden">
-  <div class="modal-content">
-    <h2>        
-      <i class="fas fa-folder-plus"></i> Create New Project
-    </h2>
-    <div class="input-group">
-      <label for="projectNameInput">Project Name:</label>
-      <input type="text" id="projectNameInput" placeholder="Enter project name" />
-    </div>
-    <div class="input-group">
-      <label for="projectLocationInput">Project Location:</label>
-      <input type="text" id="projectLocationInput" placeholder="Select project location" readonly /> <button id="browseBtn" class="btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
-    </div>
-    <div class="modal-actions">
-      <button id="generateProjectBtn" class="btn-generate"><i class="fa-solid fa-plus"></i> Generate</button>
-      <button id="cancelProjectBtn" class="btn-cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>
+  <div id="newProjectModal" class="npmodal-overlay hidden">
+    <div class="npmodal-content">
+      <h2>        
+        <i class="fas fa-folder-plus"></i> Create New Project
+      </h2>
+      <div class="npmodal-input-group">
+        <label for="projectNameInput">Project Name:</label>
+        <input type="text" id="projectNameInput" placeholder="Enter project name" />
+      </div>
+      <div class="npmodal-input-group">
+        <label for="projectLocationInput">Project Location:</label>
+        <div class="npmodal-location-input">
+          <input type="text" id="projectLocationInput" placeholder="Select project location" readonly />
+          <button id="browseBtn" class="npmodal-btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
+        </div>
+      </div>
+      <div class="npmodal-actions">
+        <button id="generateProjectBtn" class="npmodal-btn npmodal-btn-generate"><i class="fa-solid fa-plus"></i> Generate</button>
+        <button id="cancelProjectBtn" class="npmodal-btn npmodal-btn-cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>
+      </div>
     </div>
   </div>
-</div>
-  
 
   <div class="main-container">
     <!-- File Tree Section -->

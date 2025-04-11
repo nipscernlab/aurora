@@ -2708,7 +2708,7 @@ async loadConfig() {
         
         try {
             const appPath = await window.electronAPI.getAppPath();
-            const basePath = await window.electronAPI.joinPath(appPath);
+            const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
             const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
             const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
             const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
@@ -2841,13 +2841,18 @@ async loadConfig() {
        
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
+        const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
         const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
         const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
         const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+        const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
+        const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
         
-        const flags = this.config.iverilogFlags.join(' ');
+        // Lê o arquivo de configuração do processador para obter as flags
+        const configData = await window.electronAPI.readFile(configPath);
+        const config = JSON.parse(configData);
+        const flags = config.iverilogFlags.join(' ');
         
         // Definir arquivo de testbench
         let tbFile;
@@ -2951,7 +2956,7 @@ async runGtkWave(processor, simConfig) {
     
     try {
         const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
+        const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
         const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
         const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
     
@@ -2971,8 +2976,8 @@ async runGtkWave(processor, simConfig) {
               
         let cmd;
         if (simConfig.standardSimulation) {
-            const basePath = await window.electronAPI.joinPath(appPath); // Sobe duas pastas
-            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtk_proc_init.tcl');
+          const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
+          const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtk_proc_init.tcl');
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             const tempNamePath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             
@@ -3011,20 +3016,25 @@ async runGtkWave(processor, simConfig) {
 // Método para garantir criação de diretórios
 async ensureDirectories(name) {
   try {
-    // Cria diretórios temporários
-    const basePath = await window.electronAPI.getAppPath();
-    const tempDir = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name, 'PRISM');
+    // First ensure the saphoComponents directory exists
+    const saphoComponentsDir = await window.electronAPI.joinPath('saphoComponents');
+    await window.electronAPI.mkdir(saphoComponentsDir);
     
-    // Cria diretórios recursivamente
-    await window.electronAPI.mkdir(tempDir, { recursive: true });
+    // Then ensure the Temp directory exists
+    const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+    await window.electronAPI.mkdir(tempBaseDir);
+
+    // Then ensure the PRISM directory exists
+    const prismDir = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'PRISM');
+    await window.electronAPI.mkdir(prismDir);
     
-    // Cria outros diretórios necessários
-    const hdlDir = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
-    await window.electronAPI.mkdir(hdlDir, { recursive: true });
+    // Finally ensure the processor-specific temp directory exists
+    const tempProcessorDir = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    await window.electronAPI.mkdir(tempProcessorDir);
     
-    return tempDir;
+    return tempProcessorDir;
   } catch (error) {
-    console.error('Error ensuring directories:', error);
+    console.error("Failed to ensure directories:", error);
     throw error;
   }
 }
@@ -3074,13 +3084,14 @@ async prismComp(processor, simConfig) {
   
   try {
     // Definir caminhos
-    const basePath = await window.electronAPI.getAppPath();
+    const appPath = await window.electronAPI.getAppPath();
+    const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
     const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
     const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
     const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
     const tempPath = await this.ensureDirectories(name);
     const fancyPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin', 'fancySVG.exe');
-    const prismPath = await window.electronAPI.joinPath(tempPath);
+    const prismPath = await window.electronAPI.joinPath(tempPath, 'PRISM');
     // Copiar arquivos necessários
     const procVFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
     const proc2rtlYsFile = await window.electronAPI.joinPath(scriptsPath, 'proc2rtl.ys');
@@ -3137,7 +3148,7 @@ async prismComp(processor, simConfig) {
         }
 
         // Copiar SVG para pasta PRISM
-        const destSvgPath = await window.electronAPI.joinPath(tempPath, jsonFile.replace('.json', '.svg'));
+        const destSvgPath = await window.electronAPI.joinPath(prismPath, jsonFile.replace('.json', '.svg'));
         await this.copyFile(svgPath, destSvgPath);
 
         // Processar SVG com fancySVG
@@ -3316,7 +3327,7 @@ class CompilationButtonManager {
               throw new Error('Failed to retrieve appPath.');
           }
   
-          const basePath = await window.electronAPI.joinPath(appPath); 
+          const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
           const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
   
           const simConfig = await this.compiler.showSimulationConfig(processor);
@@ -3662,7 +3673,7 @@ cancelDeleteBtn.addEventListener('click', () => {
 // Handler para confirmar a deleção
 confirmDeleteBtn.addEventListener('click', async () => {
   try {
-    const basePath = await window.electronAPI.getBasePath(); // Assumindo que você tem uma função para pegar o basePath
+    const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
     const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
     await window.electronAPI.deleteFolder(tempPath);
     

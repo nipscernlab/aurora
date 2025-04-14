@@ -2600,13 +2600,13 @@ async loadConfig() {
     this.terminalManager.appendToTerminal('tcmm', `Starting CMM compilation for ${name}...`);
     
     try {
+      const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
       const cmmPath = await window.electronAPI.joinPath(this.projectPath, name, 'Software', `${name}.cmm`);
       const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
       const asmPath = await window.electronAPI.joinPath(softwarePath, `${name}.asm`);
       const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
       const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
-      const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
 
       const cmd = `"${cmmCompPath}" ${name} "${projectPath}" "${macrosPath}" "${tempPath}" `;
       

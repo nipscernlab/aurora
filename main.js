@@ -1,36 +1,37 @@
-const { app, BrowserWindow, ipcMain, shell,  Tray, nativeImage, dialog, Menu} = require('electron');
+// Importing necessary modules from Electron
+const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec } = require('child_process');
 const path = require('path');
-const fse = require('fs-extra'); // fs-extra makes it easier to copy directories
-const fs = require('fs').promises;
+const fse = require('fs-extra'); // Provides extended file system methods
+const fs = require('fs').promises; // Promisified file system module
 const os = require('os');
-const { spawn } = require('child_process'); // Importa spawn corretamente 
-const moment = require("moment"); // Para gerar a data e hora
-const electronFs = require('original-fs'); // Use original-fs instead of fs
+const { spawn } = require('child_process'); // Used for spawning child processes
+const moment = require("moment"); // For generating timestamps
+const electronFs = require('original-fs'); // Original file system module for Electron
 const url = require('url');
 
-
+// Path to store user settings
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-let tray = null;
-let settingsWindow = null;
-let isQuitting = false;  // Flag para controlar o fechamento do app
-// Variável para armazenar o estado do projeto
-let projectState = {
-  spfLoaded: false,
-  projectPath: null
-};
-let mainWindow, splashWindow;
 
+// Global variables for app state
+let tray = null; // Tray icon instance
+let settingsWindow = null; // Settings window instance
+let isQuitting = false; // Flag to control app exit behavior
+let projectState = {
+  spfLoaded: false, // Indicates if a project file is loaded
+  projectPath: null // Path to the currently loaded project
+};
+let mainWindow, splashWindow; // Main and splash window instances
+// Function to load user settings from a file
 async function loadSettings() {
   try {
-    // Use await com fs.promises
     try {
-      await fs.access(settingsPath);
-      const data = await fs.readFile(settingsPath, 'utf8');
-      return JSON.parse(data);
+      await fs.access(settingsPath); // Check if the settings file exists
+      const data = await fs.readFile(settingsPath, 'utf8'); // Read the settings file
+      return JSON.parse(data); // Parse and return the settings
     } catch (err) {
-      // Arquivo não existe, retorne as configurações padrão
+      // If the file doesn't exist, return default settings
       return {
         startWithWindows: false,
         minimizeToTray: true,
@@ -39,7 +40,7 @@ async function loadSettings() {
     }
   } catch (error) {
     console.error('Error loading settings:', error);
-    // Retornar configurações padrão em caso de erro
+    // Return default settings in case of an error
     return {
       startWithWindows: false,
       minimizeToTray: true,
@@ -48,10 +49,10 @@ async function loadSettings() {
   }
 }
 
-
+// Function to save user settings to a file
 async function saveSettings(settings) {
   try {
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8'); // Write settings to file
     return true;
   } catch (error) {
     console.error('Error saving settings:', error);
@@ -59,7 +60,7 @@ async function saveSettings(settings) {
   }
 }
 
-// Aplicar configuração de inicialização automática
+// Function to apply auto-start settings for the application
 function applyAutoStartSettings(enabled) {
   try {
     app.setLoginItemSettings({
@@ -73,61 +74,57 @@ function applyAutoStartSettings(enabled) {
   }
 }
 
+// Function to create a system tray icon and menu
 function createTray() {
-  // Evitar duplicação do tray
-  if (tray !== null) return;
+  if (tray !== null) return; // Avoid duplicate tray creation
 
-  // Caminho para o ícone principal
-  const iconPath = path.join(__dirname, 'assets','icons', 'aurora_borealis-2.png');
+  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.png');
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
-  
-  // Caminhos para os ícones do menu
+
   const openIconPath = path.join(__dirname, 'assets', 'icons', 'open.png');
-  const settingsIconPath = path.join(__dirname, 'assets','icons', 'settings.png');
-  const quitIconPath = path.join(__dirname, 'assets','icons', 'close.png');
-  
-  // Criar menu de contexto com ícones
+  const settingsIconPath = path.join(__dirname, 'assets', 'icons', 'settings.png');
+  const quitIconPath = path.join(__dirname, 'assets', 'icons', 'close.png');
+
   const contextMenu = Menu.buildFromTemplate([
-    { 
-      label: 'Open App', 
+    {
+      label: 'Open App',
       icon: nativeImage.createFromPath(openIconPath).resize({ width: 16, height: 16 }),
       click: () => {
         mainWindow.show();
-      } 
+      }
     },
-    { 
-      label: 'Settings', 
+    {
+      label: 'Settings',
       icon: nativeImage.createFromPath(settingsIconPath).resize({ width: 16, height: 16 }),
       click: () => {
         createSettingsWindow();
-      } 
+      }
     },
     { type: 'separator' },
-    { 
-      label: 'Quit', 
+    {
+      label: 'Quit',
       icon: nativeImage.createFromPath(quitIconPath).resize({ width: 16, height: 16 }),
       click: () => {
-        isQuitting = true;  // Marcar que está saindo
+        isQuitting = true;
         if (tray) {
-          tray.destroy();  // Destruir o tray antes de sair
+          tray.destroy();
           tray = null;
         }
-        app.quit();  // Sair do aplicativo
-      } 
+        app.quit();
+      }
     }
   ]);
-  
+
   tray.setToolTip('AURORA IDE');
   tray.setContextMenu(contextMenu);
-  
-  // Clique duplo para mostrar app
+
   tray.on('double-click', () => {
     mainWindow.show();
   });
 }
 
-// Create the settings window
+// Function to create the settings window
 function createSettingsWindow() {
   if (settingsWindow) {
     settingsWindow.focus();
@@ -158,21 +155,22 @@ function createSettingsWindow() {
   });
 }
 
+// Function to update the PATH environment variable in Electron
 function updatePathInElectron() {
-  console.log("Atualizando o PATH no Electron...");
+  console.log("Updating PATH in Electron...");
   exec('powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'Machine\')"', (error, stdout) => {
-      if (!error) {
-          process.env.PATH = stdout.trim();
-          console.log("PATH atualizado no Electron:", process.env.PATH);
-      } else {
-          console.error("Erro ao atualizar o PATH:", error);
-      }
+    if (!error) {
+      process.env.PATH = stdout.trim();
+      console.log("PATH updated in Electron:", process.env.PATH);
+    } else {
+      console.error("Error updating PATH:", error);
+    }
   });
 }
 
 updatePathInElectron();
 
-// Primeiro, vamos criar uma função para gerenciar a janela de progresso
+// Function to create a progress window for updates
 let progressWindow = null;
 
 function createProgressWindow() {
@@ -190,26 +188,27 @@ function createProgressWindow() {
 
   progressWindow.loadFile(path.join(__dirname, 'html', 'progress.html'));
 }
-
+// IPC handler to load an SVG file
 ipcMain.handle("load-svg-file", async (event, svgPath) => {
   try {
-      console.log("Tentando carregar SVG:", svgPath);
+      console.log("Attempting to load SVG:", svgPath);
 
-      // Verifica se o arquivo existe de forma assíncrona
+      // Check if the file exists asynchronously
       await fs.access(svgPath);
 
       const svgContent = await fs.readFile(svgPath, "utf-8");
-      console.log("SVG carregado com sucesso!");
+      console.log("SVG loaded successfully!");
       return { 
           content: svgContent, 
           filename: path.basename(svgPath) 
       };
   } catch (error) {
-      console.error("Erro ao carregar SVG:", error);
+      console.error("Error loading SVG:", error);
       return { error: error.message };
   }
 });
 
+// IPC handler to open a new window for Prism visualization
 ipcMain.on("open-prism-window", (event, svgPath) => {
   let prismWindow = new BrowserWindow({
     width: 1200,
@@ -243,22 +242,22 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
   });
 });
 
-// Modifique a função checkForUpdates
+// Function to check for application updates
 function checkForUpdates() {
   autoUpdater.checkForUpdatesAndNotify();
 
   autoUpdater.on('update-available', async (info) => {
-    console.log(`Nova versão disponível: ${info.version}, versão atual: ${app.getVersion()}`);
+    console.log(`New version available: ${info.version}, current version: ${app.getVersion()}`);
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      title: 'Atualização Disponível',
-      message: `Versão Atual: ${app.getVersion()}\nNova Versão: ${info.version}\nDeseja baixar agora?`,
-      buttons: ['Sim', 'Depois'],
+      title: 'Update Available',
+      message: `Current Version: ${app.getVersion()}\nNew Version: ${info.version}\nDo you want to download now?`,
+      buttons: ['Yes', 'Later'],
       defaultId: 0,
       cancelId: 1,
     });
     if (response === 0) {
-      console.log('Iniciando o download da atualização...');
+      console.log('Starting update download...');
       createProgressWindow();
       autoUpdater.downloadUpdate();
     }
@@ -266,15 +265,15 @@ function checkForUpdates() {
 
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.round(progress.percent);
-    const transferred = (progress.transferred / 1048576).toFixed(2); // Converter para MB
-    const total = (progress.total / 1048576).toFixed(2); // Converter para MB
+    const transferred = (progress.transferred / 1048576).toFixed(2); // Convert to MB
+    const total = (progress.total / 1048576).toFixed(2); // Convert to MB
     
     if (progressWindow) {
       progressWindow.webContents.send('update-progress', {
         percent,
         transferred,
         total,
-        speed: (progress.bytesPerSecond / 1048576).toFixed(2) // Velocidade em MB/s
+        speed: (progress.bytesPerSecond / 1048576).toFixed(2) // Speed in MB/s
       });
     }
   });
@@ -287,9 +286,9 @@ function checkForUpdates() {
 
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      title: 'Instalar Atualização',
-      message: 'A atualização foi baixada. Instalar agora?',
-      buttons: ['Sim', 'Depois'],
+      title: 'Install Update',
+      message: 'The update has been downloaded. Install now?',
+      buttons: ['Yes', 'Later'],
       defaultId: 0,
       cancelId: 1,
     });
@@ -300,7 +299,7 @@ function checkForUpdates() {
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('Erro na atualização:', err);
+    console.error('Update error:', err);
     if (progressWindow) {
       progressWindow.close();
       progressWindow = null;
@@ -308,6 +307,7 @@ function checkForUpdates() {
   });
 }
 
+// Function to create the main application window
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -326,7 +326,7 @@ async function createMainWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // Load settings
+  // Load user settings
   const settings = await loadSettings();
   
   // Apply auto-start setting
@@ -335,27 +335,24 @@ async function createMainWindow() {
   // Create tray icon
   createTray();
 
-   // Handle window close
-   mainWindow.on('close', async (event) => {
-    // Verifica se já está marcado para sair
+  // Handle window close
+  mainWindow.on('close', async (event) => {
     if (isQuitting) return;
   
     try {
-      // Carrega as configurações atuais
       const settings = await loadSettings();
       
-      // Se a opção de minimizar para bandeja estiver ativada
       if (settings.minimizeToTray) {
-        event.preventDefault(); // Impede o fechamento padrão
-        mainWindow.hide(); // Minimiza para a bandeja
-        return; // Sai do manipulador de evento
+        event.preventDefault();
+        mainWindow.hide();
+        return;
       }
     } catch (error) {
-      console.error('Erro ao verificar configurações:', error);
+      console.error('Error checking settings:', error);
     }
   });
   
-  // Modifique também o evento de 'before-quit'
+  // Handle app quit
   app.on('before-quit', () => {
     isQuitting = true;
   });
@@ -366,6 +363,7 @@ async function createMainWindow() {
   });
 }
 
+// Handle app quit event
 app.on('before-quit', () => {
   isQuitting = true;
   if (tray) {
@@ -373,32 +371,26 @@ app.on('before-quit', () => {
     tray = null;
   }
 });
-
-
-// Manipuladores IPC para configurações
+// IPC handlers for settings management
 ipcMain.handle('get-settings', async () => {
   return await loadSettings();
 });
 
 ipcMain.handle('save-settings', async (event, settings) => {
-  // Salvar configurações no arquivo
-  const success = await saveSettings(settings);
-  
-  // Aplicar configuração de inicialização automática
-  applyAutoStartSettings(settings.startWithWindows);
-  
+  const success = await saveSettings(settings); // Save settings to file
+  applyAutoStartSettings(settings.startWithWindows); // Apply auto-start configuration
   return success;
 });
 
 ipcMain.on('close-settings-modal', () => {
-  if (settingsWindow) settingsWindow.close();
+  if (settingsWindow) settingsWindow.close(); // Close settings window if open
 });
 
-// Manipulador IPC para abrir janela de configurações
 ipcMain.on('open-settings', () => {
-  createSettingsWindow();
+  createSettingsWindow(); // Open settings window
 });
 
+// Function to create a splash screen
 function createSplashScreen() {
   splashWindow = new BrowserWindow({
     width: 400,
@@ -412,25 +404,25 @@ function createSplashScreen() {
 
   splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html'));
   setTimeout(() => {
-    splashWindow.close();
-    createMainWindow();
-    setTimeout(checkForUpdates, 2000);
+    splashWindow.close(); // Close splash screen
+    createMainWindow(); // Create main application window
+    setTimeout(checkForUpdates, 2000); // Check for updates after a delay
   }, 2000);
 }
 
-
+// Function to clear application cache
 function clearCache() {
   const cachePath = app.getPath('userData');
   fs.removeSync(path.join(cachePath, 'Cache'));
   fs.removeSync(path.join(cachePath, 'GPUCache'));
 }
 
+// Initialize the application when ready
 app.whenReady().then(createSplashScreen);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') app.quit(); // Quit app if not on macOS
 });
-
 
 ipcMain.handle('open-folder', async () => {
   try {
@@ -441,41 +433,40 @@ ipcMain.handle('open-folder', async () => {
     if (!result.canceled) {
       const folderPath = result.filePaths[0];
       if (!folderPath) {
-        throw new Error('Nenhuma pasta selecionada.');
+        throw new Error('No folder selected.');
       }
-      global.currentFolderPath = folderPath; // Armazena o caminho da pasta atual
-      const files = await listFiles(folderPath); // Chama a função listFiles
+      global.currentFolderPath = folderPath; // Store the current folder path
+      const files = await listFiles(folderPath); // List files in the folder
       return { folderPath, files };
     }
-    return null; // Nenhuma pasta selecionada
+    return null; // No folder selected
   } catch (error) {
-    console.error('Erro ao abrir a pasta:', error.message);
-    throw error; // Lança o erro para o renderer.js
+    console.error('Error opening folder:', error.message);
+    throw error; // Propagate error to renderer.js
   }
 });
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
-    const content = await fs.readFile(filePath, 'utf8'); // fs.promises
+    const content = await fs.readFile(filePath, 'utf8'); // Read file content
     return content;
   } catch (error) {
-    console.error(`Erro ao ler o arquivo: ${error.message}`);
+    console.error(`Error reading file: ${error.message}`);
     throw error;
   }
 });
 
 ipcMain.handle('save-file', async (event, { filePath, content }) => {
   try {
-    await fs.writeFile(filePath, content, 'utf8'); // fs.promises
+    await fs.writeFile(filePath, content, 'utf8'); // Save file content
     return true;
   } catch (error) {
-    console.error('Erro ao salvar o arquivo:', error.message);
+    console.error('Error saving file:', error.message);
     return false;
   }
 });
 
-
-
+// Function to list files in a directory recursively
 async function listFiles(dir) {
   try {
     const files = await fs.readdir(dir, { withFileTypes: true });
@@ -483,7 +474,7 @@ async function listFiles(dir) {
       files.map(async (file) => {
         const filePath = path.join(dir, file.name);
         if (file.isDirectory()) {
-          const children = await listFiles(filePath); // Recursão para subdiretórios
+          const children = await listFiles(filePath); // Recursively list subdirectories
           return { name: file.name, path: filePath, type: 'directory', children };
         }
         return { name: file.name, path: filePath, type: 'file' };
@@ -491,26 +482,24 @@ async function listFiles(dir) {
     );
     return items;
   } catch (error) {
-    console.error('Erro ao listar arquivos:', error.message);
-    throw error; // Lança o erro para ser tratado no `ipcMain.handle`
+    console.error('Error listing files:', error.message);
+    throw error; // Propagate error to be handled in `ipcMain.handle`
   }
 }
 
-
-// Add this to your existing IPC handlers
+// IPC handler to get the current folder path
 ipcMain.handle('getCurrentFolder', () => {
   return global.currentFolderPath || null;
 });
 
-
-// Add this function to scan directory recursively
+// Function to scan a directory recursively
 async function scanDirectory(dirPath) {
   const items = await fse.readdir(dirPath, { withFileTypes: true });
   const files = await Promise.all(
     items.map(async item => {
       const fullPath = path.join(dirPath, item.name);
       if (item.isDirectory()) {
-        const children = await scanDirectory(fullPath);
+        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
         return {
           name: item.name,
           path: fullPath,
@@ -527,8 +516,9 @@ async function scanDirectory(dirPath) {
   );
   return files;
 }
+// Context: IPC handlers for various functionalities in an Electron application
 
-// Update the refreshFolder handler
+// Handler to refresh the folder structure
 ipcMain.handle('refreshFolder', async (event, projectPath) => {
   try {
     if (!projectPath) {
@@ -542,29 +532,25 @@ ipcMain.handle('refreshFolder', async (event, projectPath) => {
   }
 });
 
-
+// Handler to compile a file using a specified compiler
 ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDir, outputPath }) => {
   return new Promise((resolve, reject) => {
     const compilerPath = path.join(__dirname, compiler);
-    
     const options = {
-      cwd: workingDir, // Diretório de trabalho
-      maxBuffer: 1024 * 1024 // Aumenta o buffer para 1MB para lidar com saídas grandes
+      cwd: workingDir,
+      maxBuffer: 1024 * 1024, // Increase buffer size to handle large outputs
     };
-    
-    // Primeiro salva o arquivo para garantir que está atualizado
+
     try {
-      require('fs').writeFileSync(filePath, content);
+      require('fs').writeFileSync(filePath, content); // Save the file before compilation
     } catch (error) {
       reject(error);
       return;
     }
-    
-    // Comando de compilação
-    const compileCommand = `"${compilerPath}" "${filePath}" "${outputPath}"`;
-    console.log('Comando de compilação:', compileCommand); // Debug: Verifique o comando gerado
 
-    // Executa o compilador
+    const compileCommand = `"${compilerPath}" "${filePath}" "${outputPath}"`;
+    console.log('Compilation command:', compileCommand);
+
     const process = exec(compileCommand, options, (error, stdout, stderr) => {
       if (error) {
         reject({ stdout, stderr, error: error.message });
@@ -573,7 +559,6 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
       resolve({ stdout, stderr });
     });
 
-    // Captura a saída em tempo real
     process.stdout.on('data', (data) => {
       console.log(data);
     });
@@ -584,11 +569,12 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
   });
 });
 
+// Handler to get the current working directory
 ipcMain.handle('get-current-folder', async () => {
-  // Return the current working directory or stored folder path
-  return process.cwd(); 
+  return process.cwd();
 });
 
+// Handler to open a folder in the system's file explorer
 ipcMain.handle('open-in-explorer', async (event, folderPath) => {
   try {
     await shell.openPath(folderPath);
@@ -599,55 +585,51 @@ ipcMain.handle('open-in-explorer', async (event, folderPath) => {
   }
 });
 
+// Handler to open an external URL in the default browser
 ipcMain.handle('open-external', async (event, url) => {
   try {
     await shell.openExternal(url);
     return true;
   } catch (error) {
-    console.error('Erro ao abrir o link externo:', error);
+    console.error('Error opening external link:', error);
     return false;
   }
 });
 
-
-// IPC Handler for directory selection
+// Handler to select a directory
 ipcMain.handle('select-directory', async () => {
   const result = await dialog.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory']
+    properties: ['openDirectory', 'createDirectory'],
   });
-  
+
   if (!result.canceled) {
     return result.filePaths[0];
   }
   return null;
 });
 
-// Modified create-processor-project handler
+// Handler to create a processor project
 ipcMain.handle('create-processor-project', async (event, formData) => {
   try {
     if (!formData.projectLocation) {
       throw new Error('Project location is required');
     }
 
-    // Create processor base directory
     const processorPath = path.join(formData.projectLocation, formData.processorName);
     const softwarePath = path.join(processorPath, 'Software');
     const hardwarePath = path.join(processorPath, 'Hardware');
-    const SimulationPath = path.join(processorPath, 'Simulation');
+    const simulationPath = path.join(processorPath, 'Simulation');
 
-    // Check if processor folder already exists
     try {
       await fse.access(processorPath);
       throw new Error(`A processor with name "${formData.processorName}" already exists`);
     } catch (err) {
       if (err.code === 'ENOENT') {
-        // Create directories
         await fse.mkdir(processorPath, { recursive: true });
         await fse.mkdir(softwarePath, { recursive: true });
         await fse.mkdir(hardwarePath, { recursive: true });
-        await fse.mkdir(SimulationPath, { recursive: true });
+        await fse.mkdir(simulationPath, { recursive: true });
 
-        // Create the CMM file content
         const cmmContent = `#PRNAME ${formData.processorName}
 #NUBITS ${formData.nBits}
 #NDSTAC ${formData.dataStackSize}
@@ -663,15 +645,13 @@ void main()
 
 }`;
 
-        // Create the CMM file
         const cmmFilePath = path.join(softwarePath, `${formData.processorName}.cmm`);
         await fse.writeFile(cmmFilePath, cmmContent, 'utf8');
 
-        // Update the SPF file with the new processor
         const spfPath = path.join(formData.projectLocation, `${path.basename(formData.projectLocation)}.spf`);
         const spfContent = await fse.readFile(spfPath, 'utf8');
         const spfData = JSON.parse(spfContent);
-        
+
         spfData.structure.processors.push({
           name: formData.processorName,
           config: {
@@ -683,8 +663,8 @@ void main()
             instructionStackSize: formData.instructionStackSize,
             inputPorts: formData.inputPorts,
             outputPorts: formData.outputPorts,
-            gain: formData.gain
-          }
+            gain: formData.gain,
+          },
         });
 
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
@@ -699,118 +679,91 @@ void main()
     throw error;
   }
 });
+// Context: IPC handlers for managing hardware folder paths, file movements, and project-related operations
 
-// Função para obter o caminho da pasta Hardware, corrigido para ser no nível da pasta Software
+// Handler to get the hardware folder path
 ipcMain.handle('get-hardware-folder-path', async (event, processorName, inputDir) => {
-  // Calculate the processor folder path (going up from Software folder)
-  const processorDir = path.join(inputDir, '..');  // Go up from Software folder to processor folder
+  const processorDir = path.join(inputDir, '..');
   const hardwareFolderPath = path.join(processorDir, 'Hardware');
   return hardwareFolderPath;
 });
 
-// Função para mover os arquivos compilados para a pasta Hardware, filtrando apenas os arquivos de saída
+// Handler to move compiled files to the hardware folder, filtering only output files
 ipcMain.handle('move-files-to-hardware-folder', async (event, inputDir, hardwareFolderPath) => {
   try {
-    // Cria a pasta Hardware, se não existir
-    await fs.mkdir(hardwareFolderPath, { recursive: true });
+    await fs.mkdir(hardwareFolderPath, { recursive: true }); // Ensure the Hardware folder exists
 
-    console.log(`Verificando arquivos em: ${inputDir}`);
-
-    // Lê os arquivos gerados na pasta de entrada (inputDir)
-    const compiledFiles = await fs.readdir(inputDir);
+    const compiledFiles = await fs.readdir(inputDir); // Read files in the input directory
 
     if (!compiledFiles.length) {
-      console.error('Nenhum arquivo encontrado em', inputDir);
-      throw new Error('Nenhum arquivo compilado encontrado.');
+      throw new Error('No compiled files found.');
     }
 
-    // Definir as extensões dos arquivos de saída que você deseja mover
-    const validExtensions = ['.mif', '.v'];
+    const validExtensions = ['.mif', '.v']; // Define valid output file extensions
 
-    // Filtra os arquivos que possuem as extensões válidas
+    // Filter and move files with valid extensions
     const movePromises = compiledFiles
-      .filter(file => validExtensions.includes(path.extname(file).toLowerCase())) // Filtra pelos arquivos de saída
+      .filter(file => validExtensions.includes(path.extname(file).toLowerCase()))
       .map(async (file) => {
         const filePath = path.join(inputDir, file);
         const destPath = path.join(hardwareFolderPath, file);
 
         try {
-          console.log(`Tentando mover: ${filePath} -> ${destPath}`);
-
-          // Verifica se o arquivo existe antes de mover
-          await fs.access(filePath);
-          
-          // Tenta mover o arquivo
-          await fs.rename(filePath, destPath);  // Move o arquivo para a pasta desejada
-          console.log(`Arquivo movido: ${file}`);
+          await fs.access(filePath); // Check if the file exists
+          await fs.rename(filePath, destPath); // Move the file
         } catch (err) {
-          console.error(`Erro ao mover o arquivo: ${file}`, err);
-          throw new Error(`Erro movendo o arquivo: ${file}`);
+          throw new Error(`Error moving file: ${file}`);
         }
       });
 
-    // Aguarda mover todos os arquivos filtrados
-    await Promise.all(movePromises);
-
-    console.log('Arquivos de saída movidos com sucesso.');
+    await Promise.all(movePromises); // Wait for all files to be moved
     return 'Files moved successfully';
   } catch (error) {
-    console.error('Erro ao mover arquivos:', error);
-    throw new Error(`Erro ao mover arquivos: ${error.message}`);
+    throw new Error(`Error moving files: ${error.message}`);
   }
 });
 
-
+// Handler to show an open file dialog for selecting .spf files
 ipcMain.handle('dialog:showOpen', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
-    filters: [
-      { name: 'Sapho Project Files', extensions: ['spf'] }
-    ]
+    filters: [{ name: 'Sapho Project Files', extensions: ['spf'] }]
   });
   return result;
 });
 
-// Handler for getting project info
+// Handler to get project information from a .spf file
 ipcMain.handle('project:getInfo', async (_, spfPath) => {
   try {
-    // Debug log
-    console.log('Attempting to read project info from:', spfPath);
-
     if (!spfPath) {
       throw new Error('No project file path provided');
     }
 
-    // Ensure the path exists
-    const exists = await fse.pathExists(spfPath);
+    const exists = await fse.pathExists(spfPath); // Check if the file exists
     if (!exists) {
       throw new Error(`Project file not found at: ${spfPath}`);
     }
 
-    // Read and parse the project file
-    const projectData = await fse.readJSON(spfPath);
-    console.log('Successfully read project data');
-    
+    const projectData = await fse.readJSON(spfPath); // Read and parse the project file
     return projectData;
   } catch (error) {
-    console.error('Error reading project info:', error);
     throw error;
   }
 });
 
-// Manipulador para abrir o explorador de arquivos
+// Handler to open a directory dialog
 ipcMain.handle('dialog:openDirectory', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory'],
   });
 
   if (result.canceled) {
-    return null; // Se o usuário cancelar
+    return null; // Return null if the user cancels
   }
-  return result.filePaths[0]; // Caminho da pasta selecionada
+  return result.filePaths[0]; // Return the selected folder path
 });
 
-// ProjectFile class for .spf structure
+// Class representing the structure of a .spf project file
 class ProjectFile {
   constructor(projectPath) {
     this.metadata = {
@@ -837,22 +790,24 @@ class ProjectFile {
   }
 }
 
+// Function to update the project state and notify the renderer process
 function updateProjectState(window, projectPath, spfPath) {
   window.webContents.send('project:stateChange', { projectPath, spfPath });
 }
+// Context: IPC handlers for project creation, opening, and folder operations in an Electron application
 
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
   updatePathInElectron();
   try {
-    // 1. Criar a estrutura do projeto
+    // Create the project structure
     await fse.mkdir(projectPath, { recursive: true });
     const projectFile = new ProjectFile(projectPath);
     await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
 
-    // 2. Aguardar um pouco para garantir que o sistema de arquivos sincronizou
+    // Wait briefly to ensure the file system syncs
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    // 3. Verificar se os arquivos existem
+    // Verify if the files exist
     const projectExists = await fse.pathExists(projectPath);
     const spfExists = await fse.pathExists(spfPath);
 
@@ -860,7 +815,7 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
       throw new Error('Failed to create project structure or .spf file');
     }
 
-    // 4. Ler os arquivos para confirmar que estão acessíveis
+    // Read the files to confirm accessibility
     const files = await fse.readdir(projectPath, { withFileTypes: true });
     const fileList = files.map(file => ({
       name: file.name,
@@ -870,7 +825,7 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
 
     const focusedWindow = BrowserWindow.getFocusedWindow();
 
-    // 5. Opcional: Enviar um evento simulando a resposta do showOpenDialog
+    // Simulate the response of the showOpenDialog event
     focusedWindow.webContents.send('simulateOpenProject', {
       canceled: false,
       filePaths: [projectPath]
@@ -893,11 +848,9 @@ ipcMain.handle('project:open', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
 
-    // Se o arquivo não existir, tenta corrigir o caminho:
+    // If the file does not exist, attempt to correct the path
     if (!(await fse.pathExists(spfPath))) {
-      // Supondo que o nome do projeto seja igual ao nome do arquivo (sem a extensão)
       const projectName = path.basename(spfPath, '.spf');
-      // Monta o caminho esperado: pasta do projeto + nome do projeto + ".spf"
       const correctedSpfPath = path.join(path.dirname(spfPath), projectName, `${projectName}.spf`);
       console.log(`SPF file not found at ${spfPath}. Trying corrected path: ${correctedSpfPath}`);
       spfPath = correctedSpfPath;
@@ -914,11 +867,11 @@ ipcMain.handle('project:open', async (_, spfPath) => {
     const oldBasePath = projectData.structure.basePath;
     const basePathExists = await fse.pathExists(oldBasePath);
 
-     // Atualize o estado do projeto
-     projectState = {
+    // Update the project state
+    projectState = {
       spfLoaded: true,
       projectPath: path.dirname(spfPath)
-  };
+    };
 
     if (!basePathExists) {
       const newBasePath = path.dirname(spfPath);
@@ -955,7 +908,7 @@ ipcMain.handle('project:open', async (_, spfPath) => {
     const focusedWindow = BrowserWindow.getFocusedWindow();
     updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
     
-    // Enviar evento para habilitar o Processor Hub
+    // Notify the renderer process to enable the Processor Hub
     focusedWindow.webContents.send('project:processorHubState', { enabled: true });
 
     return {
@@ -1022,91 +975,76 @@ ipcMain.handle('write-file', async (event, filePath, content) => {
     throw error;
   }
 });*/
+// Context: IPC handlers for Verilog, BlockView, VCD, Icarus, and directory watching functionalities
 
-//VERILOG
+// IPC handler to execute PowerShell commands for Verilog-related tasks
 ipcMain.handle('execute-powershell', async () => {
   try {
-      // Caminho para a pasta de comandos
-      const commandsFolder = path.join(__dirname, 'commands');
-      
-      // Nome dos arquivos de comandos (ordem que devem ser executados)
-      const commandFiles = [
-          'command1.ps1', // Inicia WSL
-          'command2.ps1', // Muda de diretório
-          'command3.ps1', // Exibe versão do Verilator
-          'command4.ps1'  // Executa a compilação
-      ];
+    const commandsFolder = path.join(__dirname, 'commands');
+    const commandFiles = [
+      'command1.ps1', // Start WSL
+      'command2.ps1', // Change directory
+      'command3.ps1', // Display Verilator version
+      'command4.ps1'  // Execute compilation
+    ];
 
-      let output = '';
-      let errorOutput = '';
+    let output = '';
+    let errorOutput = '';
 
-      // Executando os arquivos de comandos em sequência
-      for (const commandFile of commandFiles) {
-          const commandPath = path.join(commandsFolder, commandFile);
+    for (const commandFile of commandFiles) {
+      const commandPath = path.join(commandsFolder, commandFile);
+      const commands = await fs.readFile(commandPath, 'utf8');
+      const commandResult = await executePowerShell(commands);
+      output += commandResult.output;
+      errorOutput += commandResult.errorOutput;
+    }
 
-          // Lê o conteúdo do arquivo de comando
-          const commands = await fs.readFile(commandPath, 'utf8');
-          
-          // Executa o comando no PowerShell
-          const commandResult = await executePowerShell(commands);
-
-          // Acumula as saídas
-          output += commandResult.output;
-          errorOutput += commandResult.errorOutput;
-      }
-
-      // Retorna o resultado final
-      return { output, errorOutput };
-
+    return { output, errorOutput };
   } catch (error) {
-      throw error;
+    throw error;
   }
 });
 
-// Função auxiliar para executar o comando no PowerShell
+// Helper function to execute PowerShell commands
 function executePowerShell(commands) {
   return new Promise((resolve, reject) => {
-      const powershell = exec('powershell.exe -NoProfile -ExecutionPolicy Bypass -Command -', (error) => {
-          if (error) {
-              reject(error);
-          }
-      });
+    const powershell = exec('powershell.exe -NoProfile -ExecutionPolicy Bypass -Command -', (error) => {
+      if (error) {
+        reject(error);
+      }
+    });
 
-      let output = '';
-      let errorOutput = '';
+    let output = '';
+    let errorOutput = '';
 
-      powershell.stdout.on('data', (data) => {
-          output += data.toString();
-      });
+    powershell.stdout.on('data', (data) => {
+      output += data.toString();
+    });
 
-      powershell.stderr.on('data', (data) => {
-          errorOutput += data.toString();
-      });
+    powershell.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
 
-      powershell.on('close', () => {
-          resolve({ output, errorOutput });
-      });
+    powershell.on('close', () => {
+      resolve({ output, errorOutput });
+    });
 
-      powershell.stdin.write(commands);
-      powershell.stdin.end();
+    powershell.stdin.write(commands);
+    powershell.stdin.end();
   });
 }
 
-//BLOCKVIEW
+// IPC handler to select a .cmm file
 ipcMain.handle('select-cmm-file', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
-    filters: [
-      { name: 'CMM Files', extensions: ['cmm'] }
-    ]
+    filters: [{ name: 'CMM Files', extensions: ['cmm'] }]
   });
-  
-  if (!result.canceled) {
-    return result.filePaths[0];
-  }
-  return null;
+
+  return result.canceled ? null : result.filePaths[0];
 });
 
+// IPC handler to parse a .cmm file
 ipcMain.handle('parse-cmm-file', async (event, filePath) => {
   try {
     const content = await fs.readFile(filePath, 'utf8');
@@ -1117,6 +1055,7 @@ ipcMain.handle('parse-cmm-file', async (event, filePath) => {
   }
 });
 
+// Helper function to parse processor details from a .cmm file
 function parseProcessor(content) {
   const lines = content.split('\n');
   const processor = {
@@ -1132,37 +1071,32 @@ function parseProcessor(content) {
     FFTSIZ: 0,
     NUGAIN: 0,
     ITRAD: 0
-
   };
 
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith('#')) {
       const [directive, ...valueParts] = trimmedLine.split(/\s+/);
-      const directiveName = directive.substring(1); // Remove the # symbol
+      const directiveName = directive.substring(1);
       const value = valueParts[0];
-      
-      if (processor.hasOwnProperty(directiveName)) {
-        // Convert to number if it's a numeric field
-        processor[directiveName] = isNaN(value) ? value : Number(value);
-      }
+      processor[directiveName] = isNaN(value) ? value : Number(value);
     }
   }
 
   return processor;
 }
 
-
-//VCD
+// IPC handler to open a dialog for selecting a .vcd file
 ipcMain.handle('open-wave-dialog', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
-    filters: [{ name: 'VCD Files', extensions: ['vcd'] }],
+    filters: [{ name: 'VCD Files', extensions: ['vcd'] }]
   });
 
   return result.filePaths[0] || null;
 });
 
+// IPC handler to open GTKWave with a specified .vcd file
 ipcMain.handle('open-gtkwave', async (event, filePath) => {
   if (!filePath) return;
 
@@ -1170,39 +1104,40 @@ ipcMain.handle('open-gtkwave', async (event, filePath) => {
 
   exec(command, (error) => {
     if (error) {
-      console.error(`Erro ao abrir GTKWave: ${error.message}`);
+      console.error(`Error opening GTKWave: ${error.message}`);
     }
   });
 });
 
-//ICARUS
+// IPC handler to create a directory
 ipcMain.handle('create-directory', async (event, dirPath) => {
   try {
-      await fse.ensureDir(dirPath); // usando fse ao invés de fs
-      return { success: true };
+    await fse.ensureDir(dirPath);
+    return { success: true };
   } catch (error) {
-      console.error('Error creating directory:', error);
-      throw error;
+    console.error('Error creating directory:', error);
+    throw error;
   }
 });
 
+// IPC handler to write content to a file
 ipcMain.handle('write-file', async (event, filePath, content) => {
   try {
-      await fse.writeFile(filePath, content); // usando fse ao invés de fs
-      return { success: true };
+    await fse.writeFile(filePath, content);
+    return { success: true };
   } catch (error) {
-      console.error('Error writing file:', error);
-      throw error;
+    console.error('Error writing file:', error);
+    throw error;
   }
 });
 
-//WATCH
+// Directory watcher instance
 let watcher = null;
 
-// Função para lidar com a leitura recursiva de diretórios
+// Helper function to recursively read a directory
 function readDirectoryRecursive(dirPath) {
   const items = fs.readdirSync(dirPath, { withFileTypes: true });
-  
+
   return items.map(item => {
     const path = `${dirPath}/${item.name}`;
     if (item.isDirectory()) {
@@ -1220,21 +1155,19 @@ function readDirectoryRecursive(dirPath) {
     };
   });
 }
+// Context: IPC handlers for folder watching, configuration management, and utility functions in an Electron application
 
-// Configurar IPC handlers
+// IPC handler to watch a folder for changes
 ipcMain.handle('watchFolder', async (event, folderPath) => {
-  // Limpar watcher anterior se existir
   if (watcher) {
-    await watcher.close();
+    await watcher.close(); // Close the previous watcher if it exists
   }
 
-  // Configurar novo watcher
   watcher = chokidar.watch(folderPath, {
-    ignored: /(^|[\/\\])\../, // ignorar arquivos ocultos
+    ignored: /(^|[\/\\])\../, // Ignore hidden files
     persistent: true
   });
 
-  // Enviar eventos para o renderer process
   watcher
     .on('add', path => event.sender.send('fileChanged', { type: 'add', path }))
     .on('unlink', path => event.sender.send('fileChanged', { type: 'unlink', path }))
@@ -1243,51 +1176,50 @@ ipcMain.handle('watchFolder', async (event, folderPath) => {
     .on('change', path => event.sender.send('fileChanged', { type: 'change', path }));
 });
 
-//Refresh
+// IPC handler to refresh the file tree
 ipcMain.on('refresh-file-tree', (event) => {
-  // Envia o evento de volta para o renderer para atualizar o file tree
-  event.sender.send('trigger-refresh-file-tree');
+  event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
 });
 
-// Use app.getAppPath() for the installation directory instead of app.getPath('userData')
+// Define paths for configuration management
 const appPath = app.getAppPath();
-const rootPath = path.join(appPath, '..', '..'); // Go up from app.asar to the installation directory
+const rootPath = path.join(appPath, '..', '..'); // Navigate to the installation directory
 const configDir = path.join(rootPath, 'saphoComponents', 'Scripts');
 const configFilePath = path.join(configDir, 'processorConfig.json');
 
-// Função para garantir que o diretório exista antes de ler ou escrever o arquivo
+// Ensure the configuration directory exists
 async function ensureConfigDir() {
   try {
     await fs.mkdir(configDir, { recursive: true });
   } catch (error) {
-    console.error('Falha ao criar diretório de configuração:', error);
+    console.error('Failed to create configuration directory:', error);
   }
 }
 
-// Lendo a configuração
+// IPC handler to load configuration
 ipcMain.handle('load-config', async () => {
   await ensureConfigDir();
   try {
     const fileContent = await fs.readFile(configFilePath, 'utf-8');
     return JSON.parse(fileContent);
   } catch (error) {
-    console.error('Falha ao ler o arquivo de configuração:', error);
+    console.error('Failed to read configuration file:', error);
     return { processors: [], iverilogFlags: [] };
   }
 });
 
-// Salvando a configuração
+// IPC handler to save configuration
 ipcMain.on('save-config', async (event, data) => {
   await ensureConfigDir();
   try {
     await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
-    console.log('Configuração salva em:', configFilePath);
+    console.log('Configuration saved at:', configFilePath);
   } catch (error) {
-    console.error('Falha ao salvar o arquivo:', error);
+    console.error('Failed to save configuration file:', error);
   }
 });
 
-// Also update your joinPath handler to use rootPath when needed
+// IPC handler to join paths
 ipcMain.handle('join-path', (event, ...paths) => {
   if (paths[0] === 'saphoComponents') {
     return path.join(rootPath, ...paths);
@@ -1295,7 +1227,7 @@ ipcMain.handle('join-path', (event, ...paths) => {
   return path.join(...paths);
 });
 
-// Handlers adicionais necessários para a compilação
+// IPC handler to execute a shell command
 ipcMain.handle('exec-command', (event, command) => {
   return new Promise((resolve, reject) => {
     const child = exec(command, {
@@ -1326,15 +1258,19 @@ ipcMain.handle('exec-command', (event, command) => {
     });
   });
 });
+// Context: IPC handlers for file and directory operations, backup creation, and temporary file management
 
+// IPC handler to create a directory
 ipcMain.handle('mkdir', (event, dirPath) => {
   return fs.mkdir(dirPath, { recursive: true });
 });
 
+// IPC handler to copy a file
 ipcMain.handle('copy-file', (event, src, dest) => {
   return fs.copyFile(src, dest);
 });
 
+// IPC handler to check if a directory exists
 ipcMain.handle('directory-exists', async (event, dirPath) => {
   try {
     const stats = await fs.stat(dirPath);
@@ -1344,148 +1280,134 @@ ipcMain.handle('directory-exists', async (event, dirPath) => {
   }
 });
 
-  // Manipulador para a chamada getAppPath
-  ipcMain.handle('getAppPath', () => {
-    return app.getAppPath(); // Retorna o caminho do app
-  });
-
-  ipcMain.handle('readDir', async (event, dirPath) => {
-    try {
-      const files = await fs.readdir(dirPath)
-      return files
-    } catch (error) {
-      console.error('Error reading directory:', error)
-      throw error
-    }
-  })
-
-  ipcMain.handle('folder:open', async (_, folderPath) => {
-    try {
-        await shell.openPath(folderPath);
-        return { success: true };
-    } catch (error) {
-        console.error('Error opening folder:', error);
-        return { success: false, error: error.message };
-    }
+// IPC handler to get the application path
+ipcMain.handle('getAppPath', () => {
+  return app.getAppPath();
 });
 
-//ZIP
-// Caminho do 7-Zip já garantido no PATH, não há necessidade de verificação
+// IPC handler to read a directory
+ipcMain.handle('readDir', async (event, dirPath) => {
+  try {
+    const files = await fs.readdir(dirPath);
+    return files;
+  } catch (error) {
+    console.error('Error reading directory:', error);
+    throw error;
+  }
+});
+
+// IPC handler to open a folder in the system's file explorer
+ipcMain.handle('folder:open', async (_, folderPath) => {
+  try {
+    await shell.openPath(folderPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening folder:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Context: Backup creation using 7-Zip
+
+// Path to 7-Zip executable
 const sevenZipPath = "7z";
 
-// Manipulador para criar backup com 7z
+// IPC handler to create a backup of a folder
 ipcMain.handle("create-backup", async (_, folderPath) => {
   if (!folderPath) {
-    return { success: false, message: "Nenhuma pasta aberta para backup!" };
+    return { success: false, message: "No folder open for backup!" };
   }
 
   const folderName = path.basename(folderPath);
-  const backupFolderPath = path.join(folderPath, "Backup"); // Caminho da pasta Backup
-  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss"); // Data e hora no formato adequado
-  const tempBackupFolderName = `backup_${timestamp}`; // Nome da pasta temporária
-  const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName); // Caminho da pasta temporária de backup
-  const zipFileName = `${folderName}_${timestamp}.7z`; // Nome do arquivo compactado
-  const zipFilePath = path.join(backupFolderPath, zipFileName); // Caminho completo do arquivo zip
+  const backupFolderPath = path.join(folderPath, "Backup");
+  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss");
+  const tempBackupFolderName = `backup_${timestamp}`;
+  const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
+  const zipFileName = `${folderName}_${timestamp}.7z`;
+  const zipFilePath = path.join(backupFolderPath, zipFileName);
 
   try {
-    // Garantir que a pasta Backup exista
     await fse.ensureDir(backupFolderPath);
-    console.log(`Pasta Backup criada ou já existe: ${backupFolderPath}`);
-
-    // Criar a pasta temporária backup_[data]_[hora]
     await fse.ensureDir(tempBackupFolderPath);
-    console.log(`Pasta temporária de backup criada: ${tempBackupFolderPath}`);
 
-    // Copiar todos os arquivos, exceto a própria pasta Backup
     const files = await fse.readdir(folderPath);
     for (let file of files) {
       const sourcePath = path.join(folderPath, file);
       const destPath = path.join(tempBackupFolderPath, file);
       if (file !== "Backup" && file !== tempBackupFolderName) {
         await fse.copy(sourcePath, destPath);
-        console.log(`Arquivo copiado: ${file}`);
       }
     }
 
-    // Comando com 7-Zip, para compactar a pasta temporária
-    // A mudança-chave é aqui - vamos para o diretório do projeto e comprimir a partir dali
     const command = `"${sevenZipPath}" a "${zipFilePath}" "${tempBackupFolderName}"`;
 
     return new Promise((resolve) => {
-      // Execute o comando a partir do diretório do projeto
       exec(command, { cwd: folderPath }, async (error, stdout, stderr) => {
         if (error) {
-          console.error("Erro ao criar backup:", stderr);
-          resolve({ success: false, message: "Erro ao criar backup." });
+          console.error("Error creating backup:", stderr);
+          resolve({ success: false, message: "Error creating backup." });
         } else {
-          console.log(`Backup criado com sucesso: ${zipFilePath}`);
-
-          // Excluir a pasta temporária de backup após a compactação
           try {
             await fse.remove(tempBackupFolderPath);
-            console.log(`Pasta temporária de backup excluída: ${tempBackupFolderPath}`);
           } catch (deleteError) {
-            console.error("Erro ao excluir a pasta temporária:", deleteError);
+            console.error("Error deleting temporary backup folder:", deleteError);
           }
-
-          resolve({ success: true, message: `Backup criado em: ${zipFilePath}` });
+          resolve({ success: true, message: `Backup created at: ${zipFilePath}` });
         }
       });
     });
 
   } catch (error) {
-    console.error("Erro ao criar backup:", error);
-    return { success: false, message: "Erro ao criar backup." };
+    console.error("Error creating backup:", error);
+    return { success: false, message: "Error creating backup." };
   }
 });
 
-// Handler para limpar a pasta Temp
+// Context: Temporary folder management
+
+// IPC handler to clear the Temp folder
 ipcMain.handle('clear-temp-folder', async () => {
   try {
-    // Obtém o caminho base (mesmo usado para os arquivos TCL)
     const appPath = app.getAppPath();
     const basePath = path.join(appPath, '..', '..');
     const tempFolder = path.join(basePath, 'saphoComponents', 'Temp');
-    // Remove a pasta Temp recursivamente, se existir
     await fs.rm(tempFolder, { recursive: true, force: true });
-    console.log("Pasta Temp excluída:", tempFolder);
     return true;
   } catch (error) {
-    console.error("Erro ao excluir a pasta Temp:", error);
+    console.error("Error deleting Temp folder:", error);
     throw error;
   }
 });
 
+// IPC handler to create a TCL info file
 ipcMain.handle('create-tcl-info-file', async (event, { path: filePath, processorType, tempPath, binPath }) => {
   try {
-    // Garante que a pasta do processador exista
     await fs.mkdir(tempPath, { recursive: true });
     const content = `${processorType}\n${tempPath}\n${binPath}\n`;
     await fs.writeFile(filePath, content, 'utf-8');
-    console.log(`tcl_infos.txt criado em: ${filePath}`);
     return true;
   } catch (error) {
-    console.error('Falha ao criar tcl_infos.txt:', error);
+    console.error('Failed to create tcl_infos.txt:', error);
     throw error;
   }
 });
 
+// IPC handler to delete a TCL info file
 ipcMain.handle('delete-tcl-file', async (event, filePath) => {
   try {
     await fs.unlink(filePath);
-    console.log(`tcl_infos.txt deletado em: ${filePath}`);
     return true;
   } catch (error) {
-    // Se o erro for "arquivo não encontrado", ignore
     if (error.code !== 'ENOENT') {
-      console.error('Falha ao deletar tcl_infos.txt:', error);
+      console.error('Failed to delete tcl_infos.txt:', error);
       throw error;
     }
     return false;
   }
 });
+// Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
-// Handler para obter informações do app
+// Handler to get app information
 ipcMain.handle('get-app-info', () => {
   return {
     appVersion: app.getVersion(),
@@ -1496,8 +1418,7 @@ ipcMain.handle('get-app-info', () => {
   };
 });
 
-
-// Handler para deletar pasta
+// Handler to delete a folder
 ipcMain.handle('delete-folder', async (_, folderPath) => {
   try {
     await fs.rm(folderPath, { recursive: true, force: true });
@@ -1508,105 +1429,86 @@ ipcMain.handle('delete-folder', async (_, folderPath) => {
   }
 });
 
-//TOP LEVEL
+// Handler to create a "TopLevel" folder and a Verilog (.v) file
 ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
-  // Verificar se o projeto está aberto
   if (!projectPath) {
-    console.error("Nenhum projeto aberto");
+    console.error("No project open");
     return { 
       success: false, 
-      message: "Nenhum projeto aberto. Por favor, abra um projeto primeiro." 
+      message: "No project open. Please open a project first." 
     };
   }
 
   try {
     const topLevelFolderPath = path.join(projectPath, "TopLevel");
-    
-    // Verificar se a pasta TopLevel já existe
     const topLevelExists = await fse.pathExists(topLevelFolderPath);
 
-    // Se não existir, criar a pasta TopLevel
     if (!topLevelExists) {
       await fse.ensureDir(topLevelFolderPath);
     }
 
-    // Abrir diálogo para salvar arquivo .v
     const result = await dialog.showSaveDialog({
-      title: 'Criar Arquivo Verilog',
-      defaultPath: path.join(topLevelFolderPath, ''),  // Sem nome padrão
-      filters: [{ name: 'Arquivos Verilog', extensions: ['v'] }]
+      title: 'Create Verilog File',
+      defaultPath: path.join(topLevelFolderPath, ''),
+      filters: [{ name: 'Verilog Files', extensions: ['v'] }]
     });
 
     if (!result.canceled && result.filePath) {
-      // Criar arquivo vazio
       await fse.writeFile(result.filePath, '');
-      
-      console.log('Arquivo .v criado:', result.filePath);
       return { 
         success: true, 
-        message: `Arquivo .v criado em: ${result.filePath}`,
+        message: `Verilog file created at: ${result.filePath}`,
         filePath: result.filePath
       };
     } else {
       return { 
         success: false, 
-        message: 'Criação de arquivo cancelada'
+        message: 'File creation canceled'
       };
     }
 
   } catch (error) {
-    console.error("Erro no processo:", error);
+    console.error("Error in process:", error);
     return { 
       success: false, 
-      message: `Erro: ${error.message}`
+      message: `Error: ${error.message}`
     };
   }
 });
 
-//TERMINAL CMD
-// Adicione este manipulador de eventos IPC ao seu main.js
+// Handler to start a terminal (CMD) process
 ipcMain.on('start-terminal', (event) => {
-  console.log('Iniciando processo do terminal CMD');
-  
-  // No Windows, usamos 'cmd.exe'
   const shell = spawn('cmd.exe', [], {
     env: process.env,
     cwd: process.env.USERPROFILE || process.env.HOME,
     windowsHide: true
   });
-  
+
   const webContents = event.sender;
   const terminalId = Date.now().toString();
-  
-  // Enviar saída do terminal para o renderer
+
   shell.stdout.on('data', (data) => {
-    console.log('Terminal stdout:', data.toString());
     webContents.send('terminal-output', { id: terminalId, data: data.toString() });
   });
-  
+
   shell.stderr.on('data', (data) => {
-    console.log('Terminal stderr:', data.toString());
     webContents.send('terminal-output', { id: terminalId, data: data.toString() });
   });
-  
+
   shell.on('exit', (code) => {
-    console.log('Terminal exited with code:', code);
     webContents.send('terminal-exit', { id: terminalId, code });
   });
-  
-  // Enviar ID do terminal para o renderer
+
   webContents.send('terminal-started', { id: terminalId });
-  
-  // Escutar comandos do renderer
+
   ipcMain.on('terminal-input', (event, data) => {
     if (data.id === terminalId && shell.stdin.writable) {
-      console.log('Enviando para terminal:', data.data);
       shell.stdin.write(data.data);
     }
   });
 });
 
-// Eventos padrão do Electron
+// Electron app lifecycle events
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -1615,19 +1517,21 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-// Coloque isso junto com suas outras configurações do IPC
+// Handler to open a browser with a specific URL
 ipcMain.on('open-browser', () => {
   const { shell } = require('electron');
   shell.openExternal('https://nipscern.com');
 });
 
+// Handler to open GitHub Desktop
 ipcMain.on('open-github-desktop', () => {
   const { shell } = require('electron');
   shell.openExternal('github-desktop://');
 });
 
+// Handler to quit the app with a delay
 ipcMain.on('quit-app', () => {
   setTimeout(() => {
     app.quit();
-  }, 5000); // espera 5 segundos antes de fechar
+  }, 5000);
 });

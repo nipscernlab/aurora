@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Update Available</title>
   <style>
+    /* General styles for the body */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -15,6 +16,8 @@
       height: 100vh;
       background-color: rgba(0, 0, 0, 0.4);
     }
+
+    /* Styles for the notification container */
     .notification-container {
       background-color: #fff;
       padding: 20px;
@@ -23,25 +26,35 @@
       border-radius: 8px;
       text-align: center;
     }
+
+    /* Header text styling */
     .notification-header {
       font-size: 18px;
       color: #333;
       font-weight: bold;
     }
+
+    /* Message text styling */
     .notification-message {
       margin: 10px 0 20px;
       color: #555;
     }
+
+    /* Alert section styling */
     .notification-alert {
       border-top: 3px solid #ff5555;
       padding-top: 10px;
       margin-bottom: 15px;
       color: #333;
     }
+
+    /* Button container styling */
     .notification-buttons {
       display: flex;
       justify-content: space-around;
     }
+
+    /* Button styling */
     .notification-buttons button {
       padding: 8px 12px;
       border: none;
@@ -51,9 +64,13 @@
       background-color: #007bff;
       color: #fff;
     }
+
+    /* Cancel button specific styling */
     .notification-buttons button.cancel {
       background-color: #aaa;
     }
+
+    /* Progress bar container styling */
     .progress-bar {
       margin-top: 20px;
       background-color: #e0e0e0;
@@ -62,12 +79,16 @@
       overflow: hidden;
       width: 100%;
     }
+
+    /* Progress bar fill styling */
     .progress-bar div {
       height: 100%;
       width: 0;
       background-color: #007bff;
       transition: width 0.3s;
     }
+
+    /* Success message styling */
     .success-message {
       color: green;
       font-weight: bold;
@@ -76,25 +97,33 @@
   </style>
 </head>
 <body>
+  <!-- Notification container -->
   <div class="notification-container">
+    <!-- Header for the notification -->
     <div class="notification-header">Update Available</div>
+    <!-- Alert message for the user -->
     <div class="notification-alert">New version available. Do you want to download it now?</div>
+    <!-- Buttons for user response -->
     <div class="notification-buttons">
       <button onclick="handleUserResponse(true)">Yes</button>
       <button class="cancel" onclick="handleUserResponse(false)">No</button>
     </div>
+    <!-- Progress section, initially hidden -->
     <div id="progress-section" style="display: none;">
       <div class="notification-message">Downloading update...</div>
       <div class="progress-bar"><div id="progress-bar-fill"></div></div>
     </div>
+    <!-- Success message, initially hidden -->
     <div id="success-message" class="success-message" style="display: none;">
       Update downloaded successfully. Restart to install.
     </div>
+    <!-- Buttons for restarting or postponing, initially hidden -->
     <div class="notification-buttons" id="reload-section" style="display: none;">
       <button onclick="handleInstall()">Restart Now</button>
       <button class="cancel" onclick="closeNotification()">Later</button>
     </div>
   </div>
+  <!-- External JavaScript file -->
   <script src="/js/renderer.js"></script>
 </body>
 </html>

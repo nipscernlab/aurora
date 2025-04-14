@@ -1,60 +1,48 @@
-// Select elements
+// Select key elements for notification and modal functionality
 const bellIcon = document.querySelector('.notification-bell');
 const notificationDot = document.querySelector('.notification-dot');
 const newsModal = document.getElementById('newsModal');
 const modalBackdrop = document.getElementById('modalBackdrop');
 const closeButton = document.getElementById('closeNewsModal');
 
-// Local storage key for read status
+// Key for storing read status in local storage
 const READ_STATUS_KEY = 'newsUpdatesReadStatus';
 
-// Check if the user has seen the latest updates
+// Check if the user has seen the latest updates and update the notification dot
 function checkReadStatus() {
   const lastReadDate = localStorage.getItem(READ_STATUS_KEY);
-  
-  // If no read date found or it's older than the last update, show notification dot
-  if (!lastReadDate) {
+  const latestUpdateDate = '2023-06-15'; // Update this date when new content is added
+
+  if (!lastReadDate || new Date(lastReadDate) < new Date(latestUpdateDate)) {
     notificationDot.classList.remove('hidden');
   } else {
-    // Compare with your latest update date - this should be updated when new content is added
-    const latestUpdateDate = '2023-06-15'; // Format: YYYY-MM-DD - Update this when adding new content
-    if (new Date(lastReadDate) < new Date(latestUpdateDate)) {
-      notificationDot.classList.remove('hidden');
-    } else {
-      notificationDot.classList.add('hidden');
-    }
+    notificationDot.classList.add('hidden');
   }
 }
 
-// Open news modal
+// Open the news modal and mark updates as read
 function openNewsModal() {
   newsModal.classList.add('visible');
   modalBackdrop.classList.add('visible');
-  
-  // Mark as read
   markAsRead();
 }
 
-// Close news modal
+// Close the news modal
 function closeNewsModal() {
   newsModal.classList.remove('visible');
   modalBackdrop.classList.remove('visible');
 }
 
-// Mark updates as read
+// Mark updates as read by hiding the notification dot and saving the current date
 function markAsRead() {
-  // Hide notification dot
   notificationDot.classList.add('hidden');
-  
-  // Save current date as read date
   const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
   localStorage.setItem(READ_STATUS_KEY, currentDate);
 }
 
-// Toggle modal when clicking bell icon
+// Toggle the news modal when the bell icon is clicked
 bellIcon.addEventListener('click', (event) => {
   event.stopPropagation();
-  
   if (newsModal.classList.contains('visible')) {
     closeNewsModal();
   } else {
@@ -62,33 +50,33 @@ bellIcon.addEventListener('click', (event) => {
   }
 });
 
-// Close modal when clicking close button
+// Close the modal when the close button is clicked
 closeButton.addEventListener('click', () => {
   closeNewsModal();
 });
 
-// Close modal when clicking outside
+// Close the modal when clicking outside the modal content
 modalBackdrop.addEventListener('click', () => {
   closeNewsModal();
 });
 
-// Prevent closing when clicking inside modal
+// Prevent modal from closing when clicking inside the modal content
 newsModal.addEventListener('click', (event) => {
   event.stopPropagation();
 });
 
-// Handle escape key to close modal
+// Close the modal when the Escape key is pressed
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && newsModal.classList.contains('visible')) {
     closeNewsModal();
   }
 });
 
-// Initialize notification status on page load
+// Initialize notification status and add animation effect to new content
 document.addEventListener('DOMContentLoaded', () => {
   checkReadStatus();
-  
-  // Add animation effect to new content
+
+  // Remove the "pulse" animation effect from new content after 10 seconds
   setTimeout(() => {
     const newItems = document.querySelectorAll('.news-section.new');
     newItems.forEach(item => {

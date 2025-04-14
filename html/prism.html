@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en"></html>
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PRISM - Processor RTL Inspection & Schematic Mapper</title>
     <style>
+        /* Define CSS variables for dark and light themes */
         :root {
             /* Dark theme (default) */
             --bg-primary: #1a1b26;
@@ -13,15 +14,15 @@
             --bg-tertiary: #24283b;
             --bg-hover: #292e42;
             --bg-active: #364156;
-            
             --accent-primary: #7aa2f7;
             --accent-secondary: #5973c0;
             --accent-hover: #89b4f7;
-            
             --text-primary: #c0caf5;
             --text-secondary: #9aa5ce;
             --text-muted: #565f89;
-            
+            --border-primary: #29324d;
+            --border-secondary: #1f2937;
+            --icon-primary: #7aa2f7;
             --border-primary: #29324d;
             --border-secondary: #1f2937;
             
@@ -48,8 +49,7 @@
             --bg-secondary: #f8fafc;
             --bg-tertiary: #f1f5f9;
             --bg-hover: #e2e8f0;
-            --bg-active: #cbd5e1;
-            
+            --bg-active:
             --accent-primary: #3b82f6;
             --accent-secondary: #2563eb;
             --accent-hover: #60a5fa;
@@ -455,7 +455,7 @@
             </button>
             <button id="open-file-btn" class="primary" title="Abrir Arquivo SVG">
                 <i class="fa-solid fa-plus" style="color: #5794ff;"></i>
-                Abrir SVG
+                Open SVG
             </button>
             <button id="theme-toggle" class="theme-toggle" title="Alternar Tema">
                 <i class="fa-solid fa-circle-half-stroke" style="color: #5794ff;"></i>
@@ -465,21 +465,22 @@
     <main>
         <div class="drop-area" id="drop-area">
             <div class="welcome-message" id="welcome-message">
-                <h2>Bem-vindo ao PRISM</h2>
-                <p>Arraste e solte um arquivo SVG aqui ou clique no botão "Abrir SVG" para começar a explorar seus esquemáticos RTL.</p>
+                <!-- Welcome message displayed when no SVG is loaded -->
+                <h2>Welcome to PRISM</h2>
+                <p>Drag and drop an SVG file here or click the "Open SVG" button to start exploring your RTL schematics.</p>
                 <button id="welcome-open-btn" class="primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin=</button>"round">
                         <path d="M5 12h14"></path>
                         <path d="M12 5v14"></path>
                     </svg>
-                    Abrir SVG
+                    Open SVG
                 </button>
             </div>
             <div class="svg-container hidden" id="svg-container">
                 <div id="svg-wrapper"></div>
                 <div class="navigation-buttons">
                     <button id="back-btn" class="hidden" title="Voltar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http:/</button>/www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 12H5"></path>
                             <path d="M12 19l-7-7 7-7"></path>
                         </svg>
@@ -487,24 +488,28 @@
                 </div>
             </div>
             <div class="drop-overlay" id="drop-overlay">
-                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" strok</button>e-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <div class="drop-message">Solte o arquivo SVG para carregar</div>
+                <!-- Drop message displayed when a file is dragged over the drop area -->
+                <div class="drop-message">Drop the SVG file to load</div>
             </div>
             <div class="tooltip" id="tooltip"></div>
         </div>
+        <!-- Status bar to display messages and file information -->
         <div class="status-bar">
-            <div id="status-message">Pronto</div>
-            <div id="file-info">Nenhum arquivo carregado</div>
+            <!-- Status message area -->
+            <div id="status-message">Ready</div>
+            <!-- File information area -->
+            <div id="file-info">No file loaded</div>
         </div>
     </main>
     <input type="file" id="file-input" accept=".svg" class="hidden">
 
     <script>
-        // Variáveis globais
+        // Vari</svg>áveis globais
         let zoomLevel = 1;
         let isDragging = false;
         let startPosition = { x: 0, y: 0 };
@@ -565,25 +570,25 @@
                 if (file.type === 'image/svg+xml') {
                     loadSvgFile(file);
                 } else {
-                    showStatus('Erro: O arquivo deve ser um SVG válido', true);
+                    showStatus('Error: The file must be a valid SVG', true);
                 }
             }
         });
 
-        // Event listeners para o SVG
-        svgContainer.addEventListener('wheel', handleZoom);
-        svgContainer.addEventListener('mousedown', handleMouseDown);
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        // Add event listeners for SVG interactions
+        svgContainer.addEventListener('wheel', handleZoom); // Handle zooming with mouse wheel
+        svgContainer.addEventListener('mousedown', handleMouseDown); // Start dragging on mouse down
+        document.addEventListener('mousemove', handleMouseMove); // Handle dragging movement
+        document.addEventListener('mouseup', handleMouseUp); // Stop dragging on mouse up
 
-        // Funções principais
+        // Main function to handle file selection
         function handleFileSelect(e) {
             if (e.target.files.length) {
                 const file = e.target.files[0];
                 if (file.type === 'image/svg+xml') {
-                    loadSvgFile(file);
+                    loadSvgFile(file); // Load the selected SVG file
                 } else {
-                    showStatus('Erro: O arquivo deve ser um SVG válido', true);
+                    showStatus('Error: The file must be a valid SVG', true); // Show error for invalid file type
                 }
                 e.target.value = null; // Reset para permitir selecionar o mesmo arquivo novamente
             }
@@ -592,7 +597,7 @@
         function loadSvgFile(file) {
     const reader = new FileReader();
 
-    showStatus('Carregando SVG...', false, true);
+    showStatus('Loading SVG...', false, true);
 
     reader.onload = function(event) {
         const svgContent = event.target.result;
@@ -615,14 +620,16 @@
             content: svgContent,
             name: file.name
         });
+        // Add the loaded SVG to the history and update the current index
+        console.log('SVG added to history. Total:', svgHistory.length, 'Current index:', currentSvgIndex);
 
-        console.log('SVG adicionado ao histórico. Total:', svgHistory.length, 'Índice atual:', currentSvgIndex);
-
+        // Display the loaded SVG content
         displaySvg(svgContent, file.name);
-    };
-    
-    reader.onerror = function() {
-        showStatus('Erro ao ler o arquivo', true);
+        };
+        
+        // Handle file reading errors
+        reader.onerror = function() {
+        showStatus('Error reading the file', true);
     };
     
     reader.readAsText(file);
@@ -639,7 +646,7 @@ function displaySvg(svgContent, filename) {
     const svg = svgWrapper.querySelector('svg');
     
     if (!svg) {
-        showStatus('Erro: SVG inválido', true);
+        showStatus('Error: Invalid SVG', true);
         return;
     }
     
@@ -654,7 +661,8 @@ function displaySvg(svgContent, filename) {
     
     // Atualiza a informação do arquivo
     fileInfo.textContent = filename;
-    showStatus('SVG carregado com sucesso');
+    // Display a success message when the SVG is loaded
+    showStatus('SVG loaded successfully');
     
     // Atualiza botão de voltar
     updateNavigationButtons();
@@ -810,120 +818,125 @@ function updateNavigationButtons() {
     
     // Mostrar botão de voltar SE houver mais de um item no histórico
     // E SE não for o primeiro SVG
+    // Show the back button if there is more than one item in the history
+    // and the current index is not the first SVG
     if (svgHistory.length > 1 && currentSvgIndex > 0) {
         backBtn.classList.remove('hidden');
     } else {
         backBtn.classList.add('hidden');
     }
-    
-    console.log('Botão de voltar atualizado. Histórico:', svgHistory.length, 'Índice atual:', currentSvgIndex);
+
+    console.log('Back button updated. History length:', svgHistory.length, 'Current index:', currentSvgIndex);
 }
 
 function navigateBack() {
-    console.log('Função navigateBack chamada');
-    console.log('Histórico de SVGs atual:', svgHistory);
-    
-    // Se não há histórico para voltar, sai da função
+    console.log('navigateBack function called');
+    console.log('Current SVG history:', svgHistory);
+
+    // Exit the function if there is no history to navigate back
     if (currentSvgIndex <= 0) {
-        console.warn('Já está no primeiro SVG');
+        console.warn('Already at the first SVG');
         return;
     }
-    
-    // Decrementa o índice
+
+    // Decrement the current index
     currentSvgIndex--;
-    
+
     const previousSvg = svgHistory[currentSvgIndex];
-    
+
     if (!previousSvg || !previousSvg.url) {
-        console.error('URL anterior não encontrada no histórico');
+        console.error('Previous URL not found in history');
         return;
     }
-    
-    console.log('Navegando de volta para SVG:', previousSvg.url);
-    
-    // Preparar para transição
+
+    console.log('Navigating back to SVG:', previousSvg.url);
+
+    // Prepare for transition
     svgWrapper.style.opacity = 0;
     svgWrapper.classList.add('loading');
-    
-    // Tenta carregar o SVG anterior usando a URL original
+
+    // Attempt to load the previous SVG using the original URL
     window.electronAPI.loadPrismSvg(previousSvg.url)
         .then(response => {
-            console.log('Resposta do preload.js ao voltar:', response);
-            
+            console.log('Response from preload.js on back navigation:', response);
+
             if (response.error) {
-                console.error('Erro ao carregar SVG anterior:', response.error);
-                showStatus(`Erro ao carregar SVG anterior: ${response.error}`, true);
+                console.error('Error loading previous SVG:', response.error);
+                showStatus(`Error loading previous SVG: ${response.error}`, true);
                 return;
             }
-            
-            // Usar setTimeout para garantir animação de fade
+
+            // Use setTimeout to ensure fade animation
             setTimeout(() => {
                 displaySvg(response.content, response.filename);
-                
-                // Atualiza botões de navegação
+
+                // Update navigation buttons
                 updateNavigationButtons();
-                
-                // Restaurar opacidade com animação
+
+                // Restore opacity with animation
                 svgWrapper.style.opacity = 1;
                 svgWrapper.classList.remove('loading');
             }, 200);
         })
         .catch(error => {
-            console.error('Erro ao carregar SVG anterior:', error);
-            showStatus('Erro ao carregar SVG anterior', true);
+            console.error('Error loading previous SVG:', error);
+            showStatus('Error loading previous SVG', true);
             svgWrapper.style.opacity = 1;
             svgWrapper.classList.remove('loading');
         });
 }
 
-// Adicione um event listener para o botão de voltar
+// Add an event listener for the back button
 document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     if (backBtn) {
         backBtn.addEventListener('click', navigateBack);
-        console.log('Event listener de voltar adicionado');
+        console.log('Back button event listener added');
     } else {
-        console.warn('Botão de voltar não encontrado');
+        console.warn('Back button not found');
     }
 });
-
+// Function to load an SVG from a URL
 function loadSvgFromUrl(url, isNavigatingBack = false) {
+    // Shorten the URL for display purposes if it exceeds the maximum length
     const maxLength = 30;
     const shortenedUrl = url.length > maxLength 
         ? `${url.substring(0, 15)}...${url.substring(url.length - 15)}`
         : url;
 
-    // Se não for navegação para trás, adiciona ao histórico
+    // If not navigating back, add the URL to the history
     if (!isNavigatingBack) {
-        // Incrementa o índice antes de adicionar
-        currentSvgIndex++;
+        currentSvgIndex++; // Increment the index before adding
         svgHistory.push({ url: url });
     }
 
-    // Configurações de transição
+    // Prepare for transition by setting opacity and loading class
     svgWrapper.style.opacity = 0;
     svgWrapper.classList.add('loading');
     
+    // Fetch the SVG content from the provided URL
     fetch(url)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Erro ao carregar SVG');
+                throw new Error('Error loading SVG');
             }
             return response.text();
         })
         .then(svgContent => {
+            // Display the SVG content after a short delay for smooth transition
             setTimeout(() => {
                 displaySvg(svgContent, url.split('/').pop());
                 
-                // Atualiza botões de navegação após carregar
+                // Update navigation buttons after loading
                 updateNavigationButtons();
                 
-                // Remove classe de carregamento
+                // Remove the loading class
                 svgWrapper.classList.remove('loading');
             }, 200);
         })
         .catch(error => {
-            showStatus(`Erro: ${error.message}`, true);
+            // Show an error message if the SVG fails to load
+            showStatus(`Error: ${error.message}`, true);
             svgWrapper.style.opacity = 1;
             svgWrapper.classList.remove('loading');
         });
@@ -1108,44 +1121,45 @@ window.addEventListener('load', () => {
     });
 });
 
+// Context: This script initializes the PRISM application and handles loading an SVG file based on a query parameter in the URL.
 document.addEventListener("DOMContentLoaded", async () => {
     const params = new URLSearchParams(window.location.search);
     const svgPath = params.get("svgPath");
 
-    console.log("PRISM iniciado. Caminho do SVG:", svgPath);
+    console.log("PRISM started. SVG path:", svgPath);
 
-    // Reinicializar o histórico de SVGs e índice
+    // Reset the SVG history and index
     svgHistory = [];
     currentSvgIndex = -1;
 
     if (svgPath) {
         try {
             const response = await window.electronAPI.loadPrismSvg(svgPath);
-            
-            console.log("Resposta do preload.js:", response);
+
+            console.log("Response from preload.js:", response);
 
             if (response.error) {
-                console.error("Erro ao carregar SVG:", response.error);
-                showStatus(`Erro ao carregar SVG: ${response.error}`, true);
+                console.error("Error loading SVG:", response.error);
+                showStatus(`Error loading SVG: ${response.error}`, true);
                 return;
             }
 
-            console.log("Carregando SVG no display...");
-            
-            // Adiciona o primeiro SVG ao histórico com índice 0
+            console.log("Loading SVG into the display...");
+
+            // Add the first SVG to the history with index 0
             svgHistory.push({ url: svgPath });
             currentSvgIndex = 0;
-            
+
             displaySvg(response.content, response.filename);
-            
-            // Esconde o botão de voltar inicialmente
+
+            // Hide the back button initially
             updateNavigationButtons();
         } catch (error) {
-            console.error("Erro inesperado ao carregar SVG:", error);
-            showStatus("Erro ao carregar SVG", true);
+            console.error("Unexpected error while loading SVG:", error);
+            showStatus("Error loading SVG", true);
         }
     } else {
-        console.warn("Nenhum caminho de SVG recebido.");
+        console.warn("No SVG path provided.");
     }
 });
 

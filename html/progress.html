@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Downloading Update</title>
   <style>
+    /* General styles for the body */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -14,17 +15,20 @@
       overflow: hidden;
     }
     
+    /* Container for centering content */
     .container {
       display: flex;
       flex-direction: column;
       align-items: center;
     }
     
+    /* Styles for the heading */
     h3 {
       margin-top: 0;
       margin-bottom: 15px;
     }
     
+    /* Styles for the progress bar container */
     .progress-container {
       width: 100%;
       height: 20px;
@@ -34,6 +38,7 @@
       overflow: hidden;
     }
     
+    /* Styles for the progress bar itself */
     .progress-bar {
       height: 100%;
       background-color: #565f89;
@@ -41,6 +46,7 @@
       transition: width 0.3s ease;
     }
     
+    /* Styles for the details section */
     .details {
       width: 100%;
       display: flex;
@@ -64,16 +70,24 @@
   </div>
 
   <script>
-    // Recebe atualizações de progresso do processo principal
+    // Context: This script listens for progress updates from the main process
+    // and updates the progress bar and details dynamically.
+
+    // Listen for progress updates from the main process
     window.electronAPI.onUpdateProgress((data) => {
       const progressBar = document.getElementById('progressBar');
       const progressText = document.getElementById('progressText');
       const transferInfo = document.getElementById('transferInfo');
       const speedInfo = document.getElementById('speedInfo');
       
+      // Update the progress bar width and text
       progressBar.style.width = `${data.percent}%`;
       progressText.textContent = `${data.percent}%`;
+
+      // Update the transfer information
       transferInfo.textContent = `${data.transferred}MB / ${data.total}MB`;
+
+      // Update the download speed
       speedInfo.textContent = `${data.speed}MB/s`;
     });
   </script>

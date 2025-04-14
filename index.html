@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AURORA IDE</title>
+
   <link rel="stylesheet" href="node_modules/monaco-editor/min/vs/editor/editor.main.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=inventory_2" />
@@ -14,11 +15,9 @@
   <link rel="stylesheet" href="./css/sidebar.css">
   <link rel="stylesheet" href="./css/styles.css">
   <link rel="stylesheet" href="./css/infoAurora.css">
-
   <link rel="stylesheet" href="./css/report.css">
   <link rel="stylesheet" href="./css/processorHub.css">
   <link rel="stylesheet" href="./css/rainbow.css">
-
   <link rel="stylesheet" href="./css/tabs.css">
   <link rel="stylesheet" href="./css/multicore.css">
   <link rel="stylesheet" href="./css/base.css">
@@ -27,18 +26,15 @@
   <link rel="stylesheet" href="./css/terminal.css">
   <link rel="stylesheet" href="./css/aiAssistant.css">
   <link rel="stylesheet" href="./css/themeVariables.css">
- 
   <link rel="stylesheet" href="./css/toolbar.css">
   <link rel="stylesheet" href="./css/fileTree.css">
   <link rel="stylesheet" href="./css/news.css">
-
-
-  <!-- --> <link rel="stylesheet" href="./css/modalConfig.css">
+  <link rel="stylesheet" href="./css/modalConfig.css">
 </head>
 
 <body class="theme-dark">
   <div class="toolbar">
-    <!-- Botões à esquerda -->
+    <!-- Buttons on the left -->
     <div class="toolbar-left">
       <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
         <i class="fa-solid fa-compass"></i>
@@ -61,7 +57,7 @@
       </button>
     </div>
 
-    <!-- Botões no centro -->
+    <!-- Buttons in the center -->
     <div class="toolbar-center">
       <button id="cmmcomp" class="toolbar-button" title="Compile CMM">
         <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
@@ -84,7 +80,7 @@
       <i class="fa-solid fa-layer-group" style="color: aqua;"></i>
     </button>
 
-    <!-- Botões à direita -->
+    <!-- Buttons on the right -->
     <div class="toolbar-right">
       <button id="themeToggle" class="toolbar-button">
         <i class="fas fa-sun" title="Theme Toggle"></i>
@@ -99,17 +95,17 @@
   </div>
   <div id="processor-visualization"></div>
 
-<!-- Modal com classes específicas -->
+<!-- Modal with specific classes -->
 <div id="aurora-info-modal" class="aurora-modal aurora-modal--hidden">
   <div class="aurora-modal__overlay">
     <div class="aurora-modal__content">
       <div class="aurora-modal__header">
-        <h2 class="aurora-modal__title">Informações do Sistema</h2>
+        <h2 class="aurora-modal__title">System Information</h2>
         <button class="aurora-modal__close">&times;</button>
       </div>
       <div class="aurora-modal__body">
         <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Versão da Aurora:</span>
+          <span class="aurora-info-item__label">Aurora Version:</span>
           <span id="aurora-app-version" class="aurora-info-item__value"></span>
         </div>
         <div class="aurora-info-item">
@@ -125,7 +121,7 @@
           <span id="aurora-node-version" class="aurora-info-item__value"></span>
         </div>
         <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Sistema Operacional:</span>
+          <span class="aurora-info-item__label">Operating System:</span>
           <span id="aurora-os-info" class="aurora-info-item__value"></span>
         </div>
       </div>
@@ -226,8 +222,8 @@
   </div>
 </div>
 
-<!-- Modal de Configurações -->
-<div id="modalConfig" class="modal">
+<!-- Configuration Modal -->
+ <div id="modalConfig" class="modal">
   <div class="modal-content">
     <div class="modal-header">
       <h2> <i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
@@ -262,7 +258,7 @@
             type="text" 
             id="iverilogFlags" 
             name="iverilogFlags"
-            placeholder="e.g., -Wall; -v; -s (Flags Desabilitadas)" 
+            placeholder="e.g., -Wall; -v; -s (Disabled)" 
             aria-describedby="iverilogFlagsHelp"
             disabled
           >
@@ -290,36 +286,34 @@
   </div>
 </div>
 
-
-
-<!-- Janela Modal para o Bug Report -->
+<!-- Modal Window for Bug Report -->
 <div id="bug-report-modal" class="modal hidden">
   <div class="modal-content">
     <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
     <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
-      <label for="bug-title">Título</label>
-      <input type="text" id="bug-title" name="bug-title" placeholder="Digite o título do bug" required />
+      <label for="bug-title">Title</label>
+      <input type="text" id="bug-title" name="bug-title" placeholder="Enter the bug title" required />
 
-      <label for="bug-body">Descrição</label>
-      <textarea id="bug-body" name="bug-body" placeholder="Descreva o problema e elogie o programador!" required></textarea>
+      <label for="bug-body">Description</label>
+      <textarea id="bug-body" name="bug-body" placeholder="Describe the issue and praise the developer!" required></textarea>
 
-      <label>Severidade</label>
+      <label>Severity</label>
       <div class="severity-options">
         <label>
           <input type="radio" name="severity" value="low" required />
-          <span class="severity-dot low"></span> Baixa
+          <span class="severity-dot low"></span> Low
         </label>
         <label>
           <input type="radio" name="severity" value="medium" required />
-          <span class="severity-dot medium"></span> Média
+          <span class="severity-dot medium"></span> Medium
         </label>
         <label>
           <input type="radio" name="severity" value="high" required />
-          <span class="severity-dot high"></span> Alta
+          <span class="severity-dot high"></span> High
         </label>
       </div>
-      <button type="submit">Enviar</button>
-      <button type="button" id="close-bug-report">Cancelar</button>
+      <button type="submit">Submit</button>
+      <button type="button" id="close-bug-report">Cancel</button>
     </form>
   </div>
 </div>
@@ -363,6 +357,7 @@
       <div class="resizer-vertical"></div>
     </div>
   </div>
+
     <!-- Editor and Terminal Section -->
     <div class="editor-terminal-container">
       <div class="editor-container">
@@ -395,27 +390,27 @@
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TCMM!</div>
+          <div class="terminal-body">Welcome to the TCMM Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
           <div class="terminal-header">TASM Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TASM!</div>
+          <div class="terminal-body">Welcome to the TASM Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tveri">
           <div class="terminal-header">TVERI Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TVERI!</div>
+          <div class="terminal-body">Welcome to the TVERI Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-twave">
           <div class="terminal-header">TWAVE Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TWAVE!</div>
+          <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header">TPRISM Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TPRISM!</div>
+          <div class="terminal-body">Welcome to the TPRISM Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tcmd">
           <div class="terminal-header">TCMD Terminal</div>
-          <div class="terminal-body">Bem-vindo ao Terminal TCMD!</div>
+          <div class="terminal-body">Welcome to the TCMD Terminal!</div>
             <div id="terminal-container"></div>
           </div>
         </div>
@@ -473,29 +468,7 @@
   <script>
     require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
   </script>
-  <script src="./js/renderer.js"></script>
-  <script src="./js/multicore.js"></script>
-  <script src="./js/sidebar.js"></script>
-  <script src="./js/modal.js"></script>
-  <script src="./js/terminal.js"></script>
-  <script src="./js/buttons.js" ></script>
-  <script src="./js/news.js" ></script>
-  <script src="./js/report.js" type="module"></script>
-  <script src="./js/resize.js" type="module"></script>
-  <script src="./js/fileTree.js" type="module"></script>
-  <script src="./js/modalConfig.js" type="module"></script>
-  <script src="./js/simulationModal.js" type="module"></script>
-  <script src="./js/infoAurora.js" type="module"></script>
 
-  <!--
-  <script src="./js/index.js" type="module"></script>
-  <script src="./js/blockView.js" type="module"></script>
-  <script src="./js/breadCrumb.js" type="module"></script>
-  <script src="./js/compiler.js" type="module"></script>
-  <script src="./js/tabManager.js" type="module"></script> 
-  -->
-
-  <!-- Adicione este bloco no seu index.html, preferencialmente próximo ao final do body -->
 <div id="multicoreModal" class="modal modal-multicore">
   <div class="modal-content modal-multicore-content">
     <div class="modal-header">
@@ -503,12 +476,12 @@
       <button id="closeMulticoreModal" class="close-modal-btn">&times;</button>
     </div>
     <div id="multicoreModalBody" class="modal-body">
-      <!-- Conteúdo do multicore.html será carregado aqui -->
+      <!-- Content from multicore.html will be loaded here -->
     </div>
   </div>
 </div>
 
-<!-- Container Modal para o Multicore -->
+<!-- Modal Container for Multicore -->
 <div id="multicore-modal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
@@ -516,12 +489,22 @@
       <button type="button" id="close-multicore-modal" class="modal-close-btn">&times;</button>
     </div>
     <div id="multicore-modal-body">
-      <!-- O conteúdo do multicore.html será carregado aqui -->
+      <!-- Content from multicore.html will be loaded here -->
     </div>
   </div>
 </div>
-
-</script>
-
-</body>
+  <script src="./js/buttons.js" ></script>
+  <script src="./js/infoAurora.js" type="module"></script>
+  <script src="./js/modal.js"></script>
+  <script src="./js/modalConfig.js" type="module"></script>
+  <script src="./js/multicore.js"></script>
+  <script src="./js/news.js" ></script>
+  <script src="./js/renderer.js"></script>
+  <script src="./js/report.js" type="module"></script>
+  <script src="./js/resize.js" type="module"></script>
+  <script src="./js/sidebar.js"></script>
+  <script src="./js/simulationModal.js" type="module"></script>
+  <script src="./js/terminal.js"></script>
+    </script>
+  </body>
 </html>

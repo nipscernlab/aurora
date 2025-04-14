@@ -4,35 +4,35 @@ const closeModal = document.getElementById("closeModal");
 const addProcessorButton = document.getElementById("addProcessor");
 const processorsDiv = document.getElementById("processors");
 const clearAllButton = document.getElementById("clearAll");
-const clearTempButton = document.getElementById("clearTemp"); // Botão para limpar a pasta Temp
+const clearTempButton = document.getElementById("clearTemp");
 const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
 const iverilogFlagsInput = document.getElementById("iverilogFlags");
 
 let processorCount = 0;
-// Armazena os nomes dos processadores carregados anteriormente
-let previousProcessorNames = [];
+let previousProcessorNames = []; // Stores previously loaded processor names
 
+// Clears all processor items from the configuration
 function clearProcessors() {
   const processorItems = document.querySelectorAll(".processor-item");
   processorItems.forEach(item => item.remove());
 }
 
+// Loads the configuration from the main process and populates the modal
 async function loadConfiguration() {
   try {
-    // Solicita a configuração do processo principal
     const config = await window.electronAPI.loadConfig();
 
-    // Limpa os processadores existentes
+    // Clear existing processors
     clearProcessors();
 
+    // Populate processors if available in the configuration
     if (config.processors) {
       config.processors.forEach(processor => {
         const processorItem = document.createElement("div");
         processorItem.className = "processor-item";
         processorItem.innerHTML = `
           <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
-          
           <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
           <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
           <button class="removeProcessor" 
@@ -41,6 +41,7 @@ async function loadConfiguration() {
           </button>
         `;
 
+        // Add event listener to remove the processor item
         processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
           processorItem.remove();
         });
@@ -48,10 +49,11 @@ async function loadConfiguration() {
         processorsDiv.insertBefore(processorItem, addProcessorButton);
       });
 
-      // Salva os nomes para identificar processadores removidos posteriormente
+      // Save processor names for later comparison
       previousProcessorNames = config.processors.map(p => p.name);
     }
 
+    // Populate iverilog flags if available
     if (config.iverilogFlags) {
       iverilogFlagsInput.value = config.iverilogFlags.join("; ");
     }
@@ -60,19 +62,20 @@ async function loadConfiguration() {
   }
 }
 
-// Abertura e fechamento do modal
+// Opens the configuration modal and loads the current configuration
 settingsButton.addEventListener("click", () => {
   loadConfiguration();
   modal.hidden = false;
   modal.classList.add("active");
 });
 
+// Closes the configuration modal
 closeModal.addEventListener("click", () => {
   modal.classList.remove("active");
   setTimeout(() => modal.hidden = true, 300);
 });
 
-// Adiciona novo processador com o seletor estilizado
+// Adds a new processor item to the configuration
 addProcessorButton.addEventListener("click", () => {
   processorCount++;
 
@@ -80,7 +83,6 @@ addProcessorButton.addEventListener("click", () => {
   processorItem.className = "processor-item";
   processorItem.innerHTML = `
     <input type="text" placeholder="Processor Name" data-processor-name>
-
     <input type="number" placeholder="CLK (MHz)" data-clk>
     <input type="number" placeholder="Number of Clocks" data-num-clocks>
     <button class="removeProcessor" 
@@ -89,6 +91,7 @@ addProcessorButton.addEventListener("click", () => {
     </button>
   `;
 
+  // Add event listener to remove the processor item
   processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
     processorItem.remove();
   });
@@ -96,15 +99,18 @@ addProcessorButton.addEventListener("click", () => {
   processorsDiv.insertBefore(processorItem, addProcessorButton);
 });
 
+// Clears all processors and resets the iverilog flags input
 clearAllButton.addEventListener("click", () => {
   clearProcessors();
   iverilogFlagsInput.value = "";
 });
 
+// Saves the current configuration and sends it to the main process
 saveConfigButton.addEventListener("click", async () => {
   const processors = [];
   const processorItems = document.querySelectorAll(".processor-item");
 
+  // Collect processor data from the input fields
   processorItems.forEach(item => {
     const name = item.querySelector("[data-processor-name]").value;
     const clk = item.querySelector("[data-clk]").value;
@@ -114,6 +120,7 @@ saveConfigButton.addEventListener("click", async () => {
     }
   });
 
+  // Collect iverilog flags from the input field
   const flags = iverilogFlagsInput.value
     .split(";")
     .map(flag => flag.trim())
@@ -126,24 +133,27 @@ saveConfigButton.addEventListener("click", async () => {
 
   console.log("Saved Configuration:", config);
 
+  // Close the modal and save the configuration
   modal.classList.remove("active");
   await window.electronAPI.saveConfig(config);
-  // Atualiza os processadores previamente carregados
+
+  // Update previously loaded processor names
   previousProcessorNames = processors.map(p => p.name);
 });
 
+// Cancels the configuration changes and closes the modal
 cancelConfigButton.addEventListener("click", () => {
   modal.classList.remove("active");
   setTimeout(() => modal.hidden = true, 300);
 });
 
-// Evento para o botão Clear Temp: apaga a pasta Temp e avisa o usuário
+// Clears the Temp folder and notifies the user
 clearTempButton.addEventListener("click", async () => {
   try {
     await window.electronAPI.clearTempFolder();
-    alert("Pasta Temp excluída com sucesso!");
+    alert("Temp folder successfully deleted!");
   } catch (error) {
-    console.error("Erro ao excluir pasta Temp:", error);
-    alert("Falha ao excluir pasta Temp.");
+    console.error("Error deleting Temp folder:", error);
+    alert("Failed to delete Temp folder.");
   }
 });

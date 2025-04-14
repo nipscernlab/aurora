@@ -1,15 +1,15 @@
 class SimulationModal {
   constructor() {
     this.modal = null;
-    this.tbFiles = [];
-    this.gtkwFiles = [];
-    this.selectedTb = '';
-    this.selectedGtkw = '';
-    this.standardSimulation = false;
+    this.tbFiles = []; // List of testbench files
+    this.gtkwFiles = []; // List of GTKWave files
+    this.selectedTb = ''; // Selected testbench file
+    this.selectedGtkw = ''; // Selected GTKWave file
+    this.standardSimulation = false; // Flag for standard simulation mode
   }
 
+  // Display the modal and load the testbench and GTKWave files
   async show(hardwarePath) {
-    // Read directory contents
     const files = await window.electronAPI.readDir(hardwarePath);
     this.tbFiles = files.filter(file => file.endsWith('_tb.v'));
     this.gtkwFiles = files.filter(file => file.endsWith('.gtkw'));
@@ -19,6 +19,7 @@ class SimulationModal {
     });
   }
 
+  // Create the modal structure and inject it into the DOM
   createModal(resolve) {
     const modalHtml = `
       <div class="modal-content">
@@ -61,7 +62,6 @@ class SimulationModal {
           <button class="btn btn-save" disabled>Save</button>
         </div>
       </div>
-    </div>
     `;
 
     this.modal = document.createElement('div');
@@ -71,6 +71,7 @@ class SimulationModal {
     this.setupEventListeners(resolve);
   }
 
+  // Set up event listeners for modal interactions
   setupEventListeners(resolve) {
     const tbCheckboxes = this.modal.querySelectorAll('input[name="tb"]');
     const gtkwCheckboxes = this.modal.querySelectorAll('input[name="gtkw"]');
@@ -78,7 +79,7 @@ class SimulationModal {
     const saveButton = this.modal.querySelector('.btn-save');
     const cancelButton = this.modal.querySelector('.btn-cancel');
 
-    // Handle testbench selection
+    // Handle testbench file selection
     tbCheckboxes.forEach(cb => {
       cb.addEventListener('change', (e) => {
         tbCheckboxes.forEach(other => {
@@ -90,7 +91,7 @@ class SimulationModal {
       });
     });
 
-    // Handle gtkw selection
+    // Handle GTKWave file selection
     gtkwCheckboxes.forEach(cb => {
       cb.addEventListener('change', (e) => {
         gtkwCheckboxes.forEach(other => {
@@ -102,7 +103,7 @@ class SimulationModal {
       });
     });
 
-    // Handle standard simulation
+    // Handle standard simulation mode toggle
     standardCheckbox.addEventListener('change', (e) => {
       this.standardSimulation = e.target.checked;
       tbCheckboxes.forEach(cb => {
@@ -118,7 +119,7 @@ class SimulationModal {
       this.updateSaveButton(saveButton);
     });
 
-    // Handle save
+    // Handle save button click
     saveButton.addEventListener('click', () => {
       const result = {
         standardSimulation: this.standardSimulation,
@@ -129,18 +130,20 @@ class SimulationModal {
       resolve(result);
     });
 
-    // Handle cancel
+    // Handle cancel button click
     cancelButton.addEventListener('click', () => {
       this.closeModal();
       resolve(null);
     });
   }
 
+  // Enable or disable the save button based on the current selection
   updateSaveButton(saveButton) {
     const isValid = this.standardSimulation || (this.selectedTb && this.selectedGtkw);
     saveButton.disabled = !isValid;
   }
 
+  // Close the modal and remove it from the DOM
   closeModal() {
     document.body.removeChild(this.modal);
   }

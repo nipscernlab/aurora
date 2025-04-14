@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Agrupamento de funções por categoria
+// Grouping functions by category
 const fileOperations = {
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
@@ -14,19 +14,19 @@ const fileOperations = {
   isDirectory: (path) => ipcRenderer.invoke('isDirectory', path),
   openExternalLink: (url) => shell.openExternal(url),
   openGitHubDesktop: () => {
-      try {
-          exec('github-desktop.exe', (error) => {
-              if (error) {
-                  console.error('Failed to open GitHub Desktop:', error);
-                  ipcRenderer.send('show-error-dialog', 'GitHub Desktop', 'Could not launch GitHub Desktop');
-              }
-          });
-      } catch (err) {
-          console.error('Error opening GitHub Desktop:', err);
-      }
+    try {
+      exec('github-desktop.exe', (error) => {
+        if (error) {
+          console.error('Failed to open GitHub Desktop:', error);
+          ipcRenderer.send('show-error-dialog', 'GitHub Desktop', 'Could not launch GitHub Desktop');
+        }
+      });
+    } catch (err) {
+      console.error('Error opening GitHub Desktop:', err);
+    }
   },
   quitApp: () => ipcRenderer.send('app-quit'),
-  
+
   // Modal and dialog interactions
   showOpenDialog: () => ipcRenderer.invoke('dialog:openFile'),
   showErrorDialog: (title, message) => ipcRenderer.send('show-error-dialog', title, message),
@@ -74,15 +74,14 @@ const projectOperations = {
   clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder'),
 
   openPrismWindow: (svgPath) => {
-    console.log("Abrindo PRISM com SVG:", svgPath);
+    console.log("Opening PRISM with SVG:", svgPath);
     ipcRenderer.send("open-prism-window", svgPath);
-},
-loadPrismSvg: async (svgPath) => {
-    console.log("Requisitando SVG:", svgPath);
+  },
+  loadPrismSvg: async (svgPath) => {
+    console.log("Requesting SVG:", svgPath);
     return ipcRenderer.invoke("load-svg-file", svgPath);
-},
-createTopLevel: (folderPath) => ipcRenderer.invoke("create-toplevel-folder", folderPath),
-
+  },
+  createTopLevel: (folderPath) => ipcRenderer.invoke("create-toplevel-folder", folderPath),
 };
 
 const dialogOperations = {
@@ -103,7 +102,7 @@ const pathOperations = {
   joinPath: (...paths) => ipcRenderer.invoke('join-path', ...paths)
 };
 
-// API exposta para o renderer
+// Exposing API to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
   // File Operations
   ...fileOperations,
@@ -138,14 +137,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (data) => ipcRenderer.send('save-config', data),
   loadConfig: () => ipcRenderer.invoke('load-config'),
   
-  // Update Operations 
-  /*
-  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
-  onDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
-  startDownload: () => ipcRenderer.send('start-download'),
-  installUpdate: () => ipcRenderer.send('install-update'),*/
-  
   // File Parsing
   parseCMMFile: (filePath) => ipcRenderer.invoke('parse-cmm-file', filePath),
   
@@ -153,12 +144,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
   onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
 
-  getAppPath: () => ipcRenderer.invoke('getAppPath'), // Expondo o método para o renderer
+  getAppPath: () => ipcRenderer.invoke('getAppPath'),
 
   scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath)
-
 });
-
 
 if (ipcRenderer) {
   contextBridge.exposeInMainWorld('terminalAPI', {
@@ -178,5 +167,5 @@ if (ipcRenderer) {
     onError: (callback) => ipcRenderer.on('terminal-error', callback)
   });
 } else {
-  console.error('ipcRenderer não está disponível');
+  console.error('ipcRenderer is not available');
 }

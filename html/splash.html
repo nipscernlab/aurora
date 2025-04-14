@@ -4,53 +4,54 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aurora IDE</title>
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet"> <!-- Importando a fonte Lato -->
+  <!-- Importing the Lato font from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
   <style>
-    /* Estilo geral da página */
+    /* General page styling */
     body {
-      margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      font-family: 'Lato', sans-serif; /* Definindo a fonte */
+      margin: 0; /* Resetting default margin */
+      justify-content: center; /* Centering content horizontally */
+      align-items: center; /* Centering content vertically */
+      height: 100vh; /* Full viewport height */
+      font-family: 'Lato', sans-serif; /* Setting the font */
     }
 
-    /* Estilo da imagem */
+    /* Styling for the image */
     img {
-      width: 300px; /* Aumentando o tamanho da imagem */
-      height: auto;
-      margin-bottom: 20px;
+      width: 300px; /* Setting the image width */
+      height: auto; /* Maintaining aspect ratio */
+      margin-bottom: 20px; /* Adding space below the image */
     }
 
-    /* Estilo do título com gradiente */
+    /* Styling for the title with gradient */
     h3 {
-      color: transparent;
-      background-image: linear-gradient(to right, #a45fff, #feb47b, #6a11cb, #2575fc); /* Gradiente de cores bonitas */
-      -webkit-background-clip: text; /* Aplica o gradiente apenas no texto */
-      background-clip: text; /* Aplica o gradiente apenas no texto */
-      font-size: 2rem;
-      font-weight: 700;
-      text-align: center;
-      line-height: 1.2;
+      color: transparent; /* Making the text transparent */
+      background-image: linear-gradient(to right, #a45fff, #feb47b, #6a11cb, #2575fc); /* Applying a gradient to the text */
+      -webkit-background-clip: text; /* Applying the gradient only to the text (WebKit browsers) */
+      background-clip: text; /* Applying the gradient only to the text */
+      font-size: 2rem; /* Setting font size */
+      font-weight: 700; /* Making the text bold */
+      text-align: center; /* Center-aligning the text */
+      line-height: 1.2; /* Adjusting line height */
     }
 
-    /* Estilo do texto abaixo da imagem */
+    /* Styling for the text below the image */
     p {
-      color: #fff; /* Cor do texto abaixo da imagem */
-      font-size: 1rem;
-      font-weight: 300;
-      text-align: center;
-      margin-top: 10px;
+      color: #fff; /* Setting text color */
+      font-size: 1rem; /* Setting font size */
+      font-weight: 300; /* Setting font weight */
+      text-align: center; /* Center-aligning the text */
+      margin-top: 10px; /* Adding space above the text */
     }
   </style>
 </head>
 <body>
 
+  <!-- Main container for the splash screen -->
   <div>
-    <img src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE">
-    <h3>Powered by AURORA IDE</h3>
-    <p>Loading...</p>
+    <img src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE"> <!-- Logo image -->
+    <h3>Powered by AURORA IDE</h3> <!-- Title with gradient effect -->
+    <p>Loading...</p> <!-- Loading message -->
   </div>
 
 </body>

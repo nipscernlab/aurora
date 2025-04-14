@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en"></html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* Estilos para o conteúdo do multicore */
+        /* Styles for the multicore simulation content */
         .multicore-container {
             display: flex;
             flex-direction: column;
@@ -176,12 +176,13 @@
 <body>
     <div class="multicore-container">
 
+        <!-- Section for managing processors -->
         <section id="processors">
             <h3>Processors</h3>
             <button id="addProcessor" aria-label="Add Processor">
               <i class="fa-solid fa-plus"></i> Add Processor
             </button>
-            <div id="processorList">
+            <div id="processorList"></div>
               <!-- Processor items will be dynamically added here -->
             </div>
             <div class="footer-actions">
@@ -191,59 +192,60 @@
               </div>
           </section>
     
-        <p>Selecione os arquivos de testbench e visualização para configurar a simulação multicore.</p>
+        <p>Select the testbench and visualization files to configure the multicore simulation.</p>
         
         <div class="columns-container">
-            <!-- Coluna de arquivos Testbench -->
+            <!-- Column for Testbench files -->
             <div class="column">
                 <div class="column-header">
                     <div class="column-title">
                         <i class="fas fa-file-code" style="color: var(--accent-primary);"></i>
-                        Arquivos Testbench
+                        Testbench Files
                     </div>
                     <span class="file-count-badge" id="tb-file-count">0</span>
                 </div>
                 <div class="column-body" id="tb-files-container">
-                    <!-- Os cartões de arquivo serão inseridos aqui via JavaScript -->
-                    <p class="empty-message">Carregando arquivos testbench...</p>
+                    <!-- File cards will be dynamically inserted here via JavaScript -->
+                    <p class="empty-message">Loading testbench files...</p>
                 </div>
             </div>
             
-            <!-- Coluna de arquivos GTKW -->
+            <!-- Column for GTKW files -->
             <div class="column">
                 <div class="column-header">
                     <div class="column-title">
                         <i class="fas fa-chart-line" style="color: var(--success);"></i>
-                        Arquivos de Visualização
+                        Visualization Files
                     </div>
                     <span class="file-count-badge" id="gtkw-file-count">0</span>
                 </div>
                 <div class="column-body" id="gtkw-files-container">
-                    <!-- Os cartões de arquivo serão inseridos aqui via JavaScript -->
-                    <p class="empty-message">Carregando arquivos GTKW...</p>
+                    <!-- File cards will be dynamically inserted here via JavaScript -->
+                    <p class="empty-message">Loading GTKW files...</p>
                 </div>
             </div>
         </div>
         
+        <!-- Action bar for running the simulation -->
         <div class="action-bar">
             <button id="run-multicore-sim" class="action-button">
-                <i class="fas fa-play"></i> Executar Simulação Multicore
+                <i class="fas fa-play"></i> Run Multicore Simulation
             </button>
         </div>
     </div>
 
     <script>
-        // Script específico do multicore.html
+        // Script for handling multicore simulation functionality
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('Conteúdo multicore carregado');
+            console.log('Multicore content loaded');
             
-            // Atualizar contadores de arquivos
+            // Update file counters for testbench and visualization files
             const tbFilesContainer = document.getElementById('tb-files-container');
             const gtkwFilesContainer = document.getElementById('gtkw-files-container');
             const tbFileCount = document.getElementById('tb-file-count');
             const gtkwFileCount = document.getElementById('gtkw-file-count');
             
-            // Esta função será chamada depois que os arquivos forem carregados
+            // Function to update file counters dynamically
             function updateFileCounters() {
                 const tbCount = tbFilesContainer.querySelectorAll('.file-card').length;
                 const gtkwCount = gtkwFilesContainer.querySelectorAll('.file-card').length;
@@ -252,10 +254,10 @@
                 gtkwFileCount.textContent = gtkwCount;
             }
             
-            // Adicionar ao objeto window para ser acessível pelo script principal
+            // Expose the function to the global scope for external access
             window.updateMulticoreFileCounters = updateFileCounters;
             
-            // Também pode ser chamado manualmente após um breve atraso
+            // Call the function after a short delay to ensure files are loaded
             setTimeout(updateFileCounters, 500);
         });
     </script>

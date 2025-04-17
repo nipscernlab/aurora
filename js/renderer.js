@@ -2643,58 +2643,60 @@ async loadConfig() {
     return await modal.show(hardwarePath);
   }
 
-
-  async asmCompilation(processor, asmPath) {
+async asmCompilation(processor, asmPath)
+{
     const { name, clk, numClocks } = processor;
-    this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...`);
+    const   multicoreEnabled       = document.querySelector('input[id="multicore"]').checked;
     
     try {
-        const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-        const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-        const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-        const projectPath = await window.electronAPI.joinPath(currentProjectPath, name);
-
-        const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
+        const projectPath    = await window.electronAPI.joinPath(currentProjectPath, name                 );
+        const hardwarePath   = await window.electronAPI.joinPath(this.projectPath  , name,   'Hardware'   );
+        const simulationPath = await window.electronAPI.joinPath(this.projectPath  , name,   'Simulation' );
+        const appCompPath    = await window.electronAPI.joinPath('saphoComponents' , 'bin' , 'appcomp.exe');
+        const asmCompPath    = await window.electronAPI.joinPath('saphoComponents' , 'bin' , 'asmcomp.exe');
+        const hdlPath        = await window.electronAPI.joinPath('saphoComponents' , 'HDL'                );
+        const tempPath       = await window.electronAPI.joinPath('saphoComponents' , 'Temp',  name        );
         
-        // Check if multicore is enabled
-        const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
-        
-        let cmd;
-        if (multicoreEnabled) {
-            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 1`;
-        } else {
-            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0`;
-        }
-      
-      this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
-      
-      const result = await window.electronAPI.execCommand(cmd);
+        let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
 
-      await refreshFileTree();
+        this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
+        this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`               );
       
-      if (result.stdout) {
-        this.terminalManager.appendToTerminal('tasm', result.stdout, 'stdout');
-      }
-      if (result.stderr) {
-        this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr');
-      }
-
-      if (result.code !== 0) {
-        throw new Error(`ASM compilation failed with code ${result.code}`);
-      }
-
-      // Copia o testbench
-      const testbenchSource = await window.electronAPI.joinPath(tempPath, `${name}_tb.v`);
-      const testbenchDestination = await window.electronAPI.joinPath(simulationPath, `${name}_tb.v`);
-      await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
+        const result = await window.electronAPI.execCommand(cmd);
+                       await refreshFileTree();
       
-      this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.');
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
-      throw error;
+        if (result.stdout) this.terminalManager.appendToTerminal('tasm', result.stdout, 'stdout');
+        if (result.stderr) this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr');
+
+        if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`);
+
+        cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 ${multicoreEnabled}`;
+
+        this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.');
+        this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...` );
+        this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`               );
+      
+        const resasm = await window.electronAPI.execCommand(cmd);
+                       await refreshFileTree();
+      
+        if (resasm.stdout) this.terminalManager.appendToTerminal('tasm', resasm.stdout, 'stdout');
+        if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr');
+
+        if (resasm.code !== 0) throw new Error(`ASM compilation failed with code ${resasm.code}`);
+
+        // Copia o testbench
+        const testbenchSource      = await window.electronAPI.joinPath(tempPath      , `${name}_tb.v`);
+        const testbenchDestination = await window.electronAPI.joinPath(simulationPath, `${name}_tb.v`);
+        await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
+      
+        this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.');
     }
-  }
+    catch (error)
+    {
+        this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
+        throw error;
+    }
+}
 
   async iverilogCompilation(processor, simConfig) {
     const { name } = processor;
@@ -2870,13 +2872,12 @@ async loadConfig() {
         }
         
         const verilogFiles = [
-            'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
-            'stack_pointer.v', 'stack.v', 'rel_addr.v', 'processor.v', 'core.v', 'ula.v'
+            'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
         ];
         
         const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
         
-        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `mem_data_${name}.v`)}" "${await window.electronAPI.joinPath(tempPath, `pc_${name}.v`)}" ${verilogFilesString}`;
+        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
         
         console.log('Icarus Verilog Command:', cmd);
 

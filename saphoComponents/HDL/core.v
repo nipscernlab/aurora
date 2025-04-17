@@ -1,3 +1,198 @@
+// ****************************************************************************
+// Circuitos auxiliares *******************************************************
+// ****************************************************************************
+
+// program counter ------------------------------------------------------------
+
+module pc
+#(
+	parameter NBITS = 8
+)
+(
+	 input             clk , rst,
+	 input             load,
+	 input [NBITS-1:0] data,
+	output [NBITS-1:0] addr,
+
+    output [NBITS-1:0] val
+);
+
+reg  [NBITS-1:0] cnt=0;
+
+assign val = (load) ? data : cnt;
+
+always @ (posedge clk or posedge rst) begin
+	if (rst)
+		cnt <= 0;
+	else
+		cnt <= val + {{NBITS-1{1'b0}}, {1'b1}};
+end
+
+assign addr = cnt;
+
+endmodule
+
+// prefetch de instrucoes -----------------------------------------------------
+
+module prefetch
+#
+(
+	parameter   MINSTW = 8,
+	parameter   NBOPCO = 7,
+	parameter   NBOPER = 9,
+	parameter  [MINSTW-1:0] ITRADD = 0)
+(
+	 input                         clk, rst  ,
+	 input     [MINSTW       -1:0] addr      ,
+	output     [NBOPCO       -1:0] opcode    ,
+	output     [NBOPER       -1:0] operand   ,
+	 input     [NBOPCO+NBOPER-1:0] instr     ,
+	output     [MINSTW       -1:0] instr_addr,
+	output                         pc_l      ,
+	 input                         is_zero   ,
+	output reg                     isp_push  ,
+	output reg                     isp_pop   ,
+	input                          itr
+);
+
+reg pc_load;
+
+assign opcode  =  instr[NBOPCO+NBOPER-1:NBOPER];
+assign operand =  instr[NBOPER       -1:     0];
+assign pc_l = itr | pc_load;
+assign instr_addr = (itr) ? ITRADD: (pc_load & ~rst) ? operand[MINSTW-1:0] : addr;
+
+always @ (*) begin
+	case (opcode)
+		12      : begin
+						 pc_load <=     1'b1;  // JMP
+						isp_push <=     1'b0;
+						isp_pop  <=     1'b0;
+					 end
+		13      : begin
+						 pc_load <= ~is_zero;  // JIZ
+						isp_push <=     1'b0;
+						isp_pop  <=     1'b0;
+					 end
+		14      : begin
+						 pc_load <=     1'b1;  // CAL
+						isp_push <=     1'b1;
+						isp_pop  <=     1'b0;
+					 end
+		15      : begin
+						 pc_load <=     1'b1;  // RET
+						isp_push <=     1'b0;
+						isp_pop  <=     1'b1;
+					 end
+		default : begin
+						 pc_load <=     1'b0;
+						isp_push <=     1'b0;
+						isp_pop  <=     1'b0;
+					 end
+	endcase
+end
+
+endmodule
+
+// ponteiro pra pilha de dados ------------------------------------------------
+
+module stack_pointer
+#(
+	parameter              NDATAW = 8,  // Numero de bits de endereco  da memoria
+	parameter [NDATAW-1:0] NDATAS = 8   // Numero de         enderecos da memoria
+)
+(
+	 input              clk   , rst,
+	 input              push  , pop,
+	output [NDATAW-1:0] addr_w, addr_r
+);
+
+reg         [NDATAW-1:0] cnt = NDATAS   -{{NDATAW-1{1'b0}}, {1'b1}};
+wire signed [NDATAW-1:0] pm  = (push) ? -{{NDATAW-1{1'b0}}, {1'b1}} : {{NDATAW-1{1'b0}}, {1'b1}};
+
+always @ (posedge clk or posedge rst) begin
+	if (rst)
+		cnt <= NDATAS-{{NDATAW-1{1'b0}}, {1'b1}};
+	else if (push | pop)
+		cnt <= cnt + pm;
+end
+
+assign addr_w = cnt;
+assign addr_r = cnt + pm;
+
+endmodule
+
+// pilha de instrucao ---------------------------------------------------------
+
+module stack
+#(
+	parameter             NADDR = 7,
+	parameter [NADDR-1:0] DEPTH = 3,
+	parameter             NBITS = 8
+)
+(
+	input                   clk, rst,
+	input                  push, pop,
+	input      [NBITS-1:0] in,
+	output reg [NBITS-1:0] out
+);
+
+reg [NBITS-1:0] mem [DEPTH-1:0];
+
+// Stack Pointer --------------------------------------------------------------
+
+reg         [NADDR-1:0] cnt = DEPTH    -{{NADDR-1{1'b0}}, {1'b1}};
+wire signed [NADDR-1:0] pm  = (push) ? -{{NADDR-1{1'b0}}, {1'b1}} : {{NADDR-1{1'b0}}, {1'b1}};
+
+always @ (posedge clk or posedge rst) begin
+	if (rst)
+		cnt <= DEPTH-{{NADDR-1{1'b0}}, {1'b1}};
+	else if (push | pop)
+		cnt <= cnt + pm;
+end
+
+// Stack ----------------------------------------------------------------------
+
+always @ (posedge clk) if (push) mem[cnt] <= in; 
+always @ (posedge clk)    out <= mem[cnt + {{$clog2(DEPTH)-1{1'b0}}, {1'b1}} + pop]; 
+
+endmodule
+
+// enderecamento indireto -----------------------------------------------------
+
+module rel_addr
+#(
+	parameter MDATAW = 8,
+	parameter FFTSIZ = 3,
+	parameter USEFFT = 1
+)
+(
+	input               srf, ldi, inv,
+	input  [MDATAW-1:0] in,
+	input  [MDATAW-1:0] addr,
+	output [MDATAW-1:0] out
+);
+
+generate 
+	if (USEFFT) begin
+		reg [FFTSIZ-1:0] aux;
+
+		integer i;
+		always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] <= in[FFTSIZ-1-i];
+
+		wire [MDATAW-1:0] add = (inv) ? {in[MDATAW-1:FFTSIZ], aux} : in;
+
+		assign out = (srf || ldi) ? add + addr: addr;
+	end else
+		assign out = (srf || ldi) ? in  + addr: addr;
+endgenerate
+
+endmodule
+
+// ****************************************************************************
+// Circuito principal *********************************************************
+// ****************************************************************************
+
 module core
 #(
 	// -------------------------------------------------------------------------
@@ -133,7 +328,10 @@ module core
 	output     [$clog2(NUIOOU)-1:0] addr_out,
 	output                          req_in, out_en,
 
-	input                           itr
+	input                           itr,
+
+	
+	output     [MINSTW        -1:0] pc_sim_val
 );
 
 // Program Counter ------------------------------------------------------------
@@ -152,7 +350,7 @@ generate
 
 endgenerate
 
-pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr);
+pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr, pc_sim_val);
 
 // Prefetch de instrucao ------------------------------------------------------
 

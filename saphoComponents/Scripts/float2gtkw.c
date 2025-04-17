@@ -1,43 +1,38 @@
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
+// ----------------------------------------------------------------------------
+// tradutor de meu float para o gtkwave ---------------------------------------
+// ----------------------------------------------------------------------------
+
+#include   <math.h>
+#include  <stdio.h>
 #include <stdlib.h>
 
+// binario (em ascii) para meu float
 float b2mf(char *ifl, int nbm, int nbe)
 {
-    int i;
+    // sinal ------------------------------------------------------------------
 
-    // sinal
     int s = ifl[0] == '1';
 
-    // expoente
-    char exb[64];
+    // expoente ---------------------------------------------------------------
 
-    for (i=0;i<nbe;i++) exb[i] = ifl[i+1];
-    exb[nbe]=0;
+    char exb[64]; for (int i=0;i<nbe;i++) exb[i] = ifl[i+1]; exb[nbe]=0;
 
     int es = exb[0] == '1';
-    if (es)
-    {
-        for (i=0;i<nbe;i++) exb[i] = (exb[i] == '1') ? '0' : '1';
-    }
+    if (es) for (int i=0;i<nbe;i++) exb[i] = (exb[i] == '1') ? '0' : '1';
 
     char *endp;
     int e = strtol(exb,&endp,2);
     if (es) e = -(e+1);
 
-    // mantissa
-    char mab[64];
+    // mantissa ---------------------------------------------------------------
 
-    for (i=0;i<nbm;i++)   {
-        mab[i] = ifl[nbe+1+i];
-    }
-    mab[nbm]=0;
+    char mab[64]; for (int i=0;i<nbm;i++) mab[i] = ifl[nbe+1+i]; mab[nbm]=0;
 
-    int m = strtol(mab,&endp,2);
+    int  m = strtol(mab,&endp,2);
 
-    // gera o float
-    float f = m * pow(2,e);
+    // gera o float -----------------------------------------------------------
+
+    float  f = m * pow(2,e);
     if (s) f = -f;
 
     return f;
@@ -56,6 +51,7 @@ int main(int argc, char **argv)
         fscanf(stdin, "%s", bufi);
         if (bufi[0]) 
         {
+            // os primeiros 16 bits codificam o nbm e nbe
             for (i=0; i<8; i++)
             {
                 ma[i] = bufi[i  ];

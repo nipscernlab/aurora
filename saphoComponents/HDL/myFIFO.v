@@ -1,18 +1,22 @@
+// ----------------------------------------------------------------------------
+// modulo para substituir uso de IP da FIFO do Quartus ------------------------
+// ----------------------------------------------------------------------------
+
 module myFIFO
 #(
-	parameter WORD   = 16,
+	parameter WORD   =  16,
 	parameter LENGTH = 128,
-	parameter ALMOST = 2
+	parameter ALMOST =   2
 )
 (
-	input                           clock,
-	input      [WORD          -1:0] data,
+	input                           clk  ,
+	input      [WORD          -1:0] data ,
 	input                           rdreq,
-	input                           sclr,
+	input                           sclr ,
 	input                           wrreq,
 	output                          almost_empty,
 	output                          empty,
-	output                          full,
+	output                          full ,
 	output reg [WORD          -1:0] q,
 	output     [$clog2(LENGTH)-1:0] usedw
 );
@@ -21,10 +25,9 @@ reg [WORD-1:0]  mem  [LENGTH-1:0];
 reg [$clog2(LENGTH)-1:0] addr_w=0;
 reg [$clog2(LENGTH)-1:0] addr_r=0;
 
-reg wr=0;
-always @ (posedge clock) wr<= wrreq;
+reg wr=0; always @ (posedge clk) wr<= wrreq;
 
-always @ (posedge clock) begin
+always @ (posedge clk) begin
 	if (sclr)
 		addr_w <= 0;
 	else if (wr & !full) begin
@@ -33,7 +36,7 @@ always @ (posedge clock) begin
 	end
 end
 
-always @ (posedge clock) begin
+always @ (posedge clk) begin
 	if (sclr) begin
 		addr_r <= 0;
 	end else if (rdreq & !empty) begin

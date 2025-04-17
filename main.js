@@ -312,7 +312,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -359,6 +359,7 @@ async function createMainWindow() {
 
   mainWindow.once('ready-to-show', () => {
     updatePathInElectron();
+    mainWindow.maximize();
     mainWindow.show();
   });
 }

@@ -9,7 +9,7 @@
              F_MLT   0.5
              SET     sqrt_raiz
 
-             F_NEG                              // negacao da raiz
+             F_NEG                             // negacao da raiz
              F_ADD   sqrt_x                    // x - raiz
 
              F_GRE   epsilon_taylor            // checa tolerancia

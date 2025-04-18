@@ -244,21 +244,36 @@ function setupASMLanguage() {
     // Diretivas específicas do ASM
     directives: [
       'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC',
-      'SDEPTH', 'NUIOIN', 'NUIOOU', 'DATYPE', 'NUGAIN',
-      'FFTSIZ', 'array', 'arrays', 'ITRAD',
-      'USEMAC', 'ENDMAC', 'INTERPOINT'
+      'SDEPTH', 'NUIOIN', 'NUIOOU', 'NUGAIN', 'FFTSIZ',
+      'array' , 'arrays', 'ITRAD'
     ],
 
     // Instruções do ASM
     instructions: [
-      'LOAD', 'PLD', 'SET', 'SETP', 'PUSH', 'JZ', 'JMP',
-      'CALL', 'RETURN', 'SRF', 'IN', 'OUT', 'NEG', 'ADD',
-      'SADD', 'MLT', 'SMLT', 'DIV', 'SDIV', 'MOD', 'SMOD',
-      'AND', 'SAND', 'LAND', 'SLAND', 'OR', 'SOR', 'LOR',
-      'SLOR', 'XOR', 'SXOR', 'INV', 'LINV', 'EQU', 'SEQU',
-      'GRE', 'SGRE', 'LES', 'SLES', 'SHR', 'SSHR', 'SHL',
-      'SSHL', 'SRS', 'SSRS', 'PSET', 'NORM', 'ABS', 'ILDI',
-      'SIGN', 'LDI', 'ISRF'
+        'LOD', 'P_LOD', 'LDI'    , 'ILI'   ,
+        'SET', 'SET_P', 'SRF'    , 'IRF'   ,
+        'PSH', 'POP'  ,
+        'INN', 'OUT'  ,
+        'JMP', 'JIZ'  ,
+        'CAL', 'RET'  ,
+        'ADD', 'S_ADD', 'F_ADD'  , 'SF_ADD',
+        'MLT', 'S_MLT', 'F_MLT'  , 'SF_MLT',
+        'DIV', 'S_DIV', 'F_DIV'  , 'SF_DIV',
+        'MOD', 'S_MOD',
+        'SGN', 'S_SGN', 'F_SGN'  , 'SF_SGN',
+        'NEG', 'NEG_M', 'P_NEG_M', 'F_NEG' , 'F_NEG_M', 'PF_NEG_M',
+        'ABS', 'ABS_M', 'P_ABS_M', 'F_ABS' , 'F_ABS_M', 'PF_ABS_M',
+        'NRM', 'NRM_M', 'P_NRM_M',
+        'I2F', 'I2F_M', 'P_I2F_M',
+        'F2I', 'F2I_M', 'P_F2I_M',
+        'AND', 'S_AND', 'ORR'    , 'S_ORR' , 'XOR'    , 'S_XOR'   ,
+        'INV', 'INV_M', 'P_INV_M',
+        'LAN', 'S_LAN', 'LOR'    , 'S_LOR' ,
+        'LIN', 'LIN_M', 'P_LIN_M',
+        'LES', 'S_LES', 'F_LES'  , 'SF_LES',
+        'GRE', 'S_GRE', 'F_GRE'  , 'SF_GRE',
+        'EQU', 'S_EQU',
+        'SHL', 'S_SHL', 'SHR'    , 'S_SHR', 'SRS'     , 'S_SRS'
     ],
 
     symbols: /[=><!~?:&|+\-*\/\^%]+/,
@@ -266,14 +281,14 @@ function setupASMLanguage() {
     tokenizer: {
       root: [
         // Diretivas com #
-        [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|DATYPE|NUGAIN|FFTSIZ|array|arrays|ITRAD|DIRNAM|USEMAC|ENDMAC|INTERPOINT)\b/, 'keyword.directive'],
+        [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|array|arrays|ITRAD)\b/, 'keyword.directive'],
 
         // Comentários
         [/\/\/.*$/, 'comment'],
         [/;.*$/, 'comment'],
 
         // Labels (identificadores seguidos de :)
-        [/^\s*[.a-zA-Z_]\w*:/, 'type.identifier'],
+        [/^\s*[a-zA-Z_]\w*:/, 'type.identifier'],
 
         // Números (hex, decimal, binário)
         [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],
@@ -285,7 +300,7 @@ function setupASMLanguage() {
         [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
 
         // Instruções
-        [/\b([A-Z][A-Z0-9]*)\b/, {
+        [/\b([A-Z][A-Z0-9_]*)\b/, {
           cases: {
             '@instructions': 'keyword.instruction',
             '@directives': 'keyword.directive',
@@ -363,7 +378,8 @@ function setupASMLanguage() {
       { token: 'keyword.instruction', foreground: '#0550AE', fontStyle: 'bold' },
       
       // Diretivas mantidas em roxo
-      { token: 'keyword.directive', foreground: '#AF00DB', fontStyle: 'bold' },
+      //{ token: 'keyword.directive', foreground: '#AF00DB', fontStyle: 'bold' },
+      { token: 'keyword.directive', foreground: '#098658', fontStyle: 'bold' },
       
       // Identificadores em um azul esverdeado
       { token: 'type.identifier', foreground: '#229DB5' },

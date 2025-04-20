@@ -2481,33 +2481,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// WIPE OUT TERMINAL ========================================================================================================================================================
-document.getElementById('clear-terminal').addEventListener('click', () => {
-  // Identificar o terminal ativo
-  const activeTerminal = document.querySelector('.terminal-content:not(.hidden)'); // Terminal ativo
-  console.log("Limpar terminal1");
-
-  if (activeTerminal) {
-    const terminalId = activeTerminal.id; // Obtém o ID do terminal ativo
-
-    if (terminalId === 'terminal-tcmm') {
-      console.log("Limpar terminal2");
-      // Substituir o conteúdo do terminal TCMM pelo estado inicial
-      activeTerminal.innerHTML = `
-        <div class="terminal-header">TCMM Terminal</div>
-        <div class="terminal-body">Bem-vindo ao Terminal TCMM! Clean</div>
-      `;
-    } else if (terminalId === 'terminal-tasm') {
-      console.log("Limpar terminal3");
-      // Substituir o conteúdo do terminal TASM pelo estado inicial
-      activeTerminal.innerHTML = `
-        <div class="terminal-header">TASM Terminal</div>
-        <div class="terminal-body">Bem-vindo ao Terminal TASM! Clean</div>
-      `;
-    }
-  }
-});
-
 // VERILOG ========================================================================================================================================================
 // Get the compile button
 const compileButton = document.getElementById('vericomp');

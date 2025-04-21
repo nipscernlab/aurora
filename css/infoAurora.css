@@ -108,7 +108,7 @@
 /* Project Info Dialog Styles */
 .project-info-dialog {
   position: relative;
-  background-color: var(--bg-secondary);
+ /* background-color: var(--bg-secondary); */
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 500px;

@@ -312,7 +312,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -1524,11 +1524,15 @@ ipcMain.on('open-browser', () => {
   shell.openExternal('https://nipscern.com');
 });
 
-// Handler to open GitHub Desktop
 ipcMain.on('open-github-desktop', () => {
-  const { shell } = require('electron');
-  shell.openExternal('github-desktop://');
+  const githubPath = path.join(
+    process.env.LOCALAPPDATA,
+    'GitHubDesktop',
+    'GitHubDesktop.exe'
+  );
+  shell.openPath(githubPath);
 });
+
 
 // Handler to quit the app with a delay
 ipcMain.on('quit-app', () => {

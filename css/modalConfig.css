@@ -386,6 +386,7 @@
 
 .npmodal-overlay:not(.hidden) .npmodal-content {
   transform: translateY(0);
+  animation: slideDown 0.3s ease;
 }
    
 /* ========================================

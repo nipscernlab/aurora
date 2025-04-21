@@ -99,6 +99,7 @@
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-primary);
   }
   
   .file-item {

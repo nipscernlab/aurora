@@ -283,3 +283,17 @@ body.theme-light #editor-overlay img {
   filter: saturate(0.9) brightness(0.95);
 }
 
+
+/* Cor no tema escuro */
+.vs-dark .mtk3, .mkt8 {
+  color: #ffff00 !important; /* amarelo vibrante */
+}
+
+.vs-dark .mkt8 {
+  color: #ffff00 !important; /* amarelo vibrante */
+}
+
+/* Cor no tema claro */
+.vs-light .mtk3, .mkt8 {
+  color: #858500 !important; /* amarelo queimado */
+}

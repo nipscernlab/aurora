@@ -254,8 +254,6 @@ function setupASMLanguage() {
         'SET', 'SET_P', 'SRF'    , 'IRF'   ,
         'PSH', 'POP'  ,
         'INN', 'OUT'  ,
-        'JMP', 'JIZ'  ,
-        'CAL', 'RET'  ,
         'ADD', 'S_ADD', 'F_ADD'  , 'SF_ADD',
         'MLT', 'S_MLT', 'F_MLT'  , 'SF_MLT',
         'DIV', 'S_DIV', 'F_DIV'  , 'SF_DIV',
@@ -274,6 +272,11 @@ function setupASMLanguage() {
         'GRE', 'S_GRE', 'F_GRE'  , 'SF_GRE',
         'EQU', 'S_EQU',
         'SHL', 'S_SHL', 'SHR'    , 'S_SHR', 'SRS'     , 'S_SRS'
+    ],
+
+    // Instruções de salto destacadas
+    jumpInstructions: [
+        'JMP', 'JIZ'
     ],
 
     symbols: /[=><!~?:&|+\-*\/\^%]+/,
@@ -299,7 +302,10 @@ function setupASMLanguage() {
         [/"([^"\\]|\\.)*$/, 'string.invalid'],
         [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
 
-        // Instruções
+        // Instruções de salto (JMP, JIZ) - tratadas com um token especial
+        [/\b(JMP|JIZ)\b/, 'keyword.jumpInstruction'],
+
+        // Outras instruções
         [/\b([A-Z][A-Z0-9_]*)\b/, {
           cases: {
             '@instructions': 'keyword.instruction',
@@ -317,6 +323,8 @@ function setupASMLanguage() {
         // Operadores e símbolos
         [/[(),]/, 'delimiter'],
         [/[=<>!+\-*\/]/, 'operator'],
+
+        [/@\w+/, 'annotation.asm'],
       ],
 
       string: [
@@ -338,6 +346,9 @@ function setupASMLanguage() {
     rules: [
       // Instruções em um tom de azul claro vibrante
       { token: 'keyword.instruction', foreground: '#569CD6', fontStyle: 'bold' },
+      
+      // JMP e JIZ destacados em amarelo intenso no tema escuro
+      { token: 'keyword.jumpInstruction', foreground: '#FFDD00', fontStyle: 'bold' },
       
       // Diretivas mantidas em roxo/rosa
       { token: 'keyword.directive', foreground: '#C586C0', fontStyle: 'bold' },
@@ -377,8 +388,10 @@ function setupASMLanguage() {
       // Instruções em um azul mais vibrante
       { token: 'keyword.instruction', foreground: '#0550AE', fontStyle: 'bold' },
       
-      // Diretivas mantidas em roxo
-      //{ token: 'keyword.directive', foreground: '#AF00DB', fontStyle: 'bold' },
+      // JMP e JIZ destacados em amarelo mais suave no tema claro
+      { token: 'keyword.jumpInstruction', foreground: '#B58B00', fontStyle: 'bold' },
+      
+      // Diretivas mantidas em verde
       { token: 'keyword.directive', foreground: '#098658', fontStyle: 'bold' },
       
       // Identificadores em um azul esverdeado
@@ -3715,7 +3728,6 @@ function openNewsSidebar() {
 // Evento de clique no ícone de jornal
 newsIcon.addEventListener('click', openNewsSidebar);
 
-// In your renderer process
 document.getElementById('settingsButton').addEventListener('click', () => {
   ipcRenderer.send('open-settings');
 });

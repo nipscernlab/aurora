@@ -2557,19 +2557,6 @@ TabManager.activateTab = function(filePath) {
     updateCompileButtonState();
 };
 
-//VCD ========================================================================================================================================================
-document.getElementById('wavecomp').addEventListener('click', async () => {
-  // Chama o diálogo para selecionar arquivo
-  const filePath = await window.electronAPI.openWaveDialog();
-
-  if (filePath) {
-    // Abre o GTKWave com o arquivo selecionado
-    await window.electronAPI.openGTKWave(filePath);
-  } else {
-    console.log('Nenhum arquivo selecionado.');
-  }
-});
-
 //COMP ========================================================================================================================================================
 class CompilationModule {
   constructor(projectPath) {
@@ -2700,7 +2687,213 @@ async asmCompilation(processor, asmPath)
     }
 }
 
-  async iverilogCompilation(processor, simConfig) {
+async iverilogCompilation(processor, simConfig) {
+  const { name } = processor;
+  
+  // Check if multicore is active
+  const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
+  
+  if (multicoreEnabled) {
+      // Multicore compilation
+      this.terminalManager.appendToTerminal('tveri', `Starting Multicore Icarus Verilog compilation...`);
+      
+      try {
+          const appPath = await window.electronAPI.getAppPath();
+          const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
+          const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+          const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
+          const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
+
+          // Read processor configuration to get all processor names
+          const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
+          const configData = await window.electronAPI.readFile(configPath);
+          const config = JSON.parse(configData);
+          const processors = config.processors;
+          const flags = config.iverilogFlags.join(' ');
+          
+          // Get project name (directory name of this.projectPath)
+          const projectPathParts = this.projectPath.split(/[\/\\]/);
+          const projectName = projectPathParts[projectPathParts.length - 1];
+          
+          // Get selected files from multicore modal
+          const selectedFiles = JSON.parse(localStorage.getItem('multicoreConfig')) || {};
+          const selectedTb = selectedFiles.tb;
+          
+          // Build file paths for all processors
+          let verilogFilesString = '';
+          
+          // Add HDL files
+          const verilogFiles = [
+              'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
+              'stack_pointer.v', 'stack.v', 'rel_addr.v', 'processor.v', 'core.v', 'ula.v'
+          ];
+          verilogFilesString += verilogFiles.map(file => `"${window.electronAPI.joinPath(hdlPath, file)}"`).join(' ');
+          
+          // Add all processor files
+          for (const proc of processors) {
+              const procName = proc.name;
+              const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
+              verilogFilesString += ` "${await window.electronAPI.joinPath(hardwarePath, `${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `mem_data_${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `pc_${procName}.v`)}"`;
+          }
+          
+          // Add TopLevel files (except testbench files)
+          const topLevelPath = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
+          const topLevelFiles = await window.electronAPI.readDir(topLevelPath);
+          for (const file of topLevelFiles) {
+              if (file.endsWith('.v') && !file.endsWith('_tb.v')) {
+                  verilogFilesString += ` "${await window.electronAPI.joinPath(topLevelPath, file)}"`;
+              }
+          }
+          
+          // Build iverilog command
+          const cmd = `cd "${tempPath}" && iverilog ${flags} -s ${selectedTb.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempPath, `${projectName}.vvp`)}" "${await window.electronAPI.joinPath(topLevelPath, selectedTb)}" ${verilogFilesString}`;
+          
+          this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+          
+          const result = await window.electronAPI.execCommand(cmd);
+          
+          if (result.stdout) {
+              this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+          }
+          if (result.stderr) {
+              this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+          }
+          
+          if (result.code !== 0) {
+              throw new Error(`Multicore Icarus Verilog compilation failed with code ${result.code}`);
+          }
+          
+          // Copy necessary files for each processor
+          for (const proc of processors) {
+              const procName = proc.name;
+              const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
+              const procTempPath = await window.electronAPI.joinPath(tempPath, procName);
+              
+              // Copy instruction memory file
+              this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_inst.mif to ${tempPath}...`);
+              await window.electronAPI.copyFile(
+                  await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`),
+                  await window.electronAPI.joinPath(tempPath, `${procName}_inst.mif`)
+              );
+              
+              // Copy data memory file
+              this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_data.mif to ${tempPath}...`);
+              await window.electronAPI.copyFile(
+                  await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`),
+                  await window.electronAPI.joinPath(tempPath, `${procName}_data.mif`)
+              );
+              
+              // Copy PC memory file
+              this.terminalManager.appendToTerminal('tveri', `Copying pc_${procName}_mem.txt to ${tempPath}...`);
+              await window.electronAPI.copyFile(
+                  await window.electronAPI.joinPath(procTempPath, `pc_${procName}_mem.txt`),
+                  await window.electronAPI.joinPath(tempPath, `pc_${procName}_mem.txt`)
+              );
+          }
+          
+          // Run VVP simulation
+          this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation for multicore...');
+          const vvpCmd = `cd "${tempPath}" && vvp ${projectName}.vvp -fst`;
+          this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
+          
+          const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+          
+          if (vvpResult.stdout) {
+              this.terminalManager.appendToTerminal('tveri', vvpResult.stdout, 'stdout');
+          }
+          if (vvpResult.stderr) {
+              this.terminalManager.appendToTerminal('tveri', vvpResult.stderr, 'stderr');
+          }
+          
+          if (vvpResult.code !== 0) {
+              throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+          }
+          
+          this.terminalManager.appendToTerminal('tveri', 'Multicore Verilog compilation and simulation completed successfully.');
+          
+          await refreshFileTree();
+          
+          // Use the selected GTKW file for visualization
+          if (selectedFiles.gtkw) {
+              const gtkwSimConfig = {
+                  standardSimulation: false,
+                  selectedGtkw: selectedFiles.gtkw
+              };
+              await this.runGtkWave(processor, gtkwSimConfig);
+          }
+          
+      } catch (error) {
+          this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+          throw error;
+      }
+  } else {
+      // Original single-core compilation (your existing code)
+      this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+     
+  try {
+      const appPath = await window.electronAPI.getAppPath();
+      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
+      const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
+      const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
+      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+      const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
+      const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
+      
+      // Lê o arquivo de configuração do processador para obter as flags
+      const configData = await window.electronAPI.readFile(configPath);
+      const config = JSON.parse(configData);
+      const flags = config.iverilogFlags.join(' ');
+      
+      // Definir arquivo de testbench
+      let tbFile;
+      
+          const expectedFileName = `${name}.v`;
+          const files = await window.electronAPI.readDir(hardwarePath);
+          tbFile = files.find(f => f === expectedFileName);
+          if (!tbFile) {
+              this.terminalManager.appendToTerminal('tveri', `Error: Processor file not found at ${hardwarePath}`, 'error');
+              throw new Error('Standard processor file not found');
+          }
+      
+      const verilogFiles = [
+          'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
+      ];
+      
+      const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
+      
+      const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
+      
+      console.log('Icarus Verilog Command:', cmd);
+
+      this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+      
+      const result = await window.electronAPI.execCommand(cmd);
+      
+      if (result.stdout) {
+          this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+      }
+      if (result.stderr) {
+          this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+      }
+      
+      if (result.code !== 0) {
+          throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+      }
+      
+      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.');
+
+      await refreshFileTree();
+
+      
+    } catch (error) {
+      this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+      throw error;
+    }
+  }
+}
+
+  async simulationCompilation(processor, simConfig) {
     const { name } = processor;
     
     // Check if multicore is active
@@ -2708,7 +2901,7 @@ async asmCompilation(processor, asmPath)
     
     if (multicoreEnabled) {
         // Multicore compilation
-        this.terminalManager.appendToTerminal('tveri', `Starting Multicore Icarus Verilog compilation...`);
+        this.terminalManager.appendToTerminal('twave', `Starting Multicore Icarus Verilog compilation...`);
         
         try {
             const appPath = await window.electronAPI.getAppPath();
@@ -2761,15 +2954,15 @@ async asmCompilation(processor, asmPath)
             // Build iverilog command
             const cmd = `cd "${tempPath}" && iverilog ${flags} -s ${selectedTb.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempPath, `${projectName}.vvp`)}" "${await window.electronAPI.joinPath(topLevelPath, selectedTb)}" ${verilogFilesString}`;
             
-            this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+            this.terminalManager.appendToTerminal('twave', `Executing Icarus Verilog compilation:\n${cmd}`);
             
             const result = await window.electronAPI.execCommand(cmd);
             
             if (result.stdout) {
-                this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+                this.terminalManager.appendToTerminal('twave', result.stdout, 'stdout');
             }
             if (result.stderr) {
-                this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+                this.terminalManager.appendToTerminal('twave', result.stderr, 'stderr');
             }
             
             if (result.code !== 0) {
@@ -2783,21 +2976,21 @@ async asmCompilation(processor, asmPath)
                 const procTempPath = await window.electronAPI.joinPath(tempPath, procName);
                 
                 // Copy instruction memory file
-                this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_inst.mif to ${tempPath}...`);
+                this.terminalManager.appendToTerminal('twave', `Copying ${procName}_inst.mif to ${tempPath}...`);
                 await window.electronAPI.copyFile(
                     await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`),
                     await window.electronAPI.joinPath(tempPath, `${procName}_inst.mif`)
                 );
                 
                 // Copy data memory file
-                this.terminalManager.appendToTerminal('tveri', `Copying ${procName}_data.mif to ${tempPath}...`);
+                this.terminalManager.appendToTerminal('twave', `Copying ${procName}_data.mif to ${tempPath}...`);
                 await window.electronAPI.copyFile(
                     await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`),
                     await window.electronAPI.joinPath(tempPath, `${procName}_data.mif`)
                 );
                 
                 // Copy PC memory file
-                this.terminalManager.appendToTerminal('tveri', `Copying pc_${procName}_mem.txt to ${tempPath}...`);
+                this.terminalManager.appendToTerminal('twave', `Copying pc_${procName}_mem.txt to ${tempPath}...`);
                 await window.electronAPI.copyFile(
                     await window.electronAPI.joinPath(procTempPath, `pc_${procName}_mem.txt`),
                     await window.electronAPI.joinPath(tempPath, `pc_${procName}_mem.txt`)
@@ -2805,24 +2998,24 @@ async asmCompilation(processor, asmPath)
             }
             
             // Run VVP simulation
-            this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation for multicore...');
+            this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for multicore...');
             const vvpCmd = `cd "${tempPath}" && vvp ${projectName}.vvp -fst`;
-            this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
+            this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
             
             const vvpResult = await window.electronAPI.execCommand(vvpCmd);
             
             if (vvpResult.stdout) {
-                this.terminalManager.appendToTerminal('tveri', vvpResult.stdout, 'stdout');
+                this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
             }
             if (vvpResult.stderr) {
-                this.terminalManager.appendToTerminal('tveri', vvpResult.stderr, 'stderr');
+                this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
             }
             
             if (vvpResult.code !== 0) {
                 throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
             }
             
-            this.terminalManager.appendToTerminal('tveri', 'Multicore Verilog compilation and simulation completed successfully.');
+            this.terminalManager.appendToTerminal('twave', 'Multicore Verilog compilation and simulation completed successfully.');
             
             await refreshFileTree();
             
@@ -2836,12 +3029,12 @@ async asmCompilation(processor, asmPath)
             }
             
         } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
             throw error;
         }
     } else {
         // Original single-core compilation (your existing code)
-        this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+        this.terminalManager.appendToTerminal('twave', `Starting Icarus Verilog simulation for ${name}...`);
        
     try {
         const appPath = await window.electronAPI.getAppPath();
@@ -2866,7 +3059,7 @@ async asmCompilation(processor, asmPath)
             tbFile = files.find(f => f === expectedFileName);
             if (!tbFile) {
                 const fullPath = await window.electronAPI.joinPath(hardwarePath, expectedFileName);
-                this.terminalManager.appendToTerminal('tveri', `Error: Testbench file not found at ${fullPath}`, 'error');
+                this.terminalManager.appendToTerminal('twave', `Error: Testbench file not found at ${fullPath}`, 'error');
                 throw new Error('Standard testbench file not found');
             }
         } else {
@@ -2883,55 +3076,55 @@ async asmCompilation(processor, asmPath)
         
         console.log('Icarus Verilog Command:', cmd);
 
-        this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+        this.terminalManager.appendToTerminal('twave', `Executing Icarus Verilog simulation:\n${cmd}`);
         
         const result = await window.electronAPI.execCommand(cmd);
         
         if (result.stdout) {
-            this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+            this.terminalManager.appendToTerminal('twave', result.stdout, 'stdout');
         }
         if (result.stderr) {
-            this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+            this.terminalManager.appendToTerminal('twave', result.stderr, 'stderr');
         }
         
         if (result.code !== 0) {
-            throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+            throw new Error(`Icarus Verilog simulation failed with code ${result.code}`);
         }
 
-        this.terminalManager.appendToTerminal('tveri', `Copying ${name}_data.mif to ${tempPath}...`);
+        this.terminalManager.appendToTerminal('twave', `Copying ${name}_data.mif to ${tempPath}...`);
         await window.electronAPI.copyFile(
             await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`),
             await window.electronAPI.joinPath(tempPath, `${name}_data.mif`)
         );
-        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_data.mif successfully.`);
+        this.terminalManager.appendToTerminal('twave', `Copied ${name}_data.mif successfully.`);
         
-        this.terminalManager.appendToTerminal('tveri', `Copying ${name}_inst.mif to ${tempPath}...`);
+        this.terminalManager.appendToTerminal('twave', `Copying ${name}_inst.mif to ${tempPath}...`);
         await window.electronAPI.copyFile(
             await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
             await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
         );
 
-        this.terminalManager.appendToTerminal('tveri', `Copied ${name}_inst.mif successfully.`);        
+        this.terminalManager.appendToTerminal('twave', `Copied ${name}_inst.mif successfully.`);        
         
         // Executar vvp
-        this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation...');
+        this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
         const vvpCmd = `cd "${tempPath}" && vvp ${name}.vvp -fst`;
-        this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
+        this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
         
         const vvpResult = await window.electronAPI.execCommand(vvpCmd);
         
         if (vvpResult.stdout) {
-            this.terminalManager.appendToTerminal('tveri', vvpResult.stdout, 'stdout');
+            this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
         }
         if (vvpResult.stderr) {
-            this.terminalManager.appendToTerminal('tveri', vvpResult.stderr, 'stderr');
+            this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
         }
         
         if (vvpResult.code !== 0) {
             throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
         }
         
-        this.terminalManager.appendToTerminal('tveri', 'Verilog compilation and simulation completed successfully.');
+        this.terminalManager.appendToTerminal('twave', 'Verilog simulation completed successfully.');
 
         await refreshFileTree();
 
@@ -2941,7 +3134,7 @@ async asmCompilation(processor, asmPath)
 
         
     } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
         throw error;
     }
   }
@@ -3306,6 +3499,30 @@ class CompilationButtonManager {
         }
 
         await this.compiler.iverilogCompilation(processor, simConfig);
+        
+        // Atualiza a file tree após a compilação
+        await refreshFileTree();
+      } catch (error) {
+        console.error('Verilog compilation error:', error);
+      }
+    });
+
+    // Simulation Compilation
+    document.getElementById('wavecomp').addEventListener('click', async () => {
+      try {
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        const processor = this.compiler.config.processors[0];
+        
+        // Mostrar modal de configuração
+        const simConfig = await this.compiler.showSimulationConfig(processor);
+        if (!simConfig) {
+          console.log('Verilog compilation cancelled by user');
+          return;
+        }
+    
+        await this.compiler.simulationCompilation(processor, simConfig);
         
         // Atualiza a file tree após a compilação
         await refreshFileTree();

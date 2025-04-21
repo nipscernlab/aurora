@@ -139,7 +139,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: false,
     webPreferences: {
       nodeIntegration: true,

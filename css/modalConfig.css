@@ -744,3 +744,304 @@ button:disabled::after {
     background-color: var(--accent-primary);
     border-radius: 4px;
 }
+
+/* Config Modal Styles */
+.config-modal {
+  display: flex;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.config-modal.active {
+  opacity: 1;
+}
+
+.config-modal-content {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  width: 80%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: #e0e0e0;
+  display: flex;
+  flex-direction: column;
+}
+
+.config-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #444;
+}
+
+.config-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #aaa;
+}
+
+.config-close-btn:hover {
+  color: #fff;
+}
+
+.config-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-section h3 {
+  margin: 0 0 10px 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #444;
+}
+
+.config-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.config-input {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.config-input:disabled {
+  background-color: #2c2c2c;
+  color: #777;
+  cursor: not-allowed;
+}
+
+.config-form-help {
+  font-size: 12px;
+  color: #999;
+}
+
+.config-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #444;
+}
+
+.config-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.config-footer-primary-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.config-btn {
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.config-btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.config-btn-primary:hover {
+  background-color: #0069d9;
+}
+
+.config-btn-secondary {
+  background-color: #555;
+  color: white;
+}
+
+.config-btn-secondary:hover {
+  background-color: #666;
+}
+
+.config-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  width: fit-content;
+  min-width: 150px;
+}
+
+.config-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.config-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.config-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #666;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.config-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .config-slider {
+  background-color: #007bff;
+}
+
+input:checked + .config-slider:before {
+  transform: translateX(20px);
+}
+
+/* Processor list styles */
+.config-processor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.config-empty-message {
+  font-style: italic;
+  color: #999;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.config-processor-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.config-processor-card {
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.config-processor-card:hover {
+  background-color: #3a3a3a;
+}
+
+.config-processor-card.selected {
+  border-color: #007bff;
+  background-color: #2c3c4c;
+}
+
+.config-processor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.config-processor-header h4 {
+  margin: 0;
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.config-remove-processor {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.config-remove-processor:hover {
+  color: #ff4d4d;
+}
+
+.config-processor-details {
+  font-size: 13px;
+  color: #bbb;
+}
+
+.config-processor-settings {
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 15px;
+}
+
+.config-processor-settings h4 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+}
+
+.config-form-message {
+  font-style: italic;
+  color: #999;
+  text-align: center;
+  margin-top: 10px;
+}

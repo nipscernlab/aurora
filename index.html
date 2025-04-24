@@ -222,63 +222,92 @@
   </div>
 </div>
 
-<!-- Configuration Modal -->
- <div id="modalConfig" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2> <i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
-      <button id="closeModal" aria-label="Close Modal">&times;</button>
+<!-- Modal de Configuração com Classes Específicas -->
+<div id="modalConfig" class="config-modal">
+  <div class="config-modal-content">
+    <div class="config-modal-header">
+      <h2><i class="fa-solid fa-gears" title="Configuration"></i> Configuration</h2>
+      <button id="closeConfigModal" class="config-close-btn" aria-label="Close Modal">&times;</button>
     </div>
-    <div class="modal-body">
-      <section id="processors">
+    <div class="config-modal-body">
+      <section id="processorsSection" class="config-section">
         <h3>Processors</h3>
-        <button id="addProcessor" aria-label="Add Processor">
-          <i class="fa-solid fa-plus"></i> Add Processor
-        </button>
-        <button id="clearTemp">
+        <button id="clearTempBtn" class="config-btn">
           <i class="fa-solid fa-trash"></i> Clear Temp
         </button>
-        <button id="multicore">
-        <h>Multicore</h>   
-          <label class="toggle-switch">
-            <input type="checkbox" id="multicore">
-            <span class="slider"></span>
+        <button id="multicoreBtn" class="config-toggle-btn">
+          <span>Multicore</span>   
+          <label class="config-toggle-switch">
+            <input type="checkbox" id="multicoreCheckbox">
+            <span class="config-slider"></span>
           </label>    
-        </button> 
-        <div id="processorList">
-          <!-- Processor items will be dynamically added here -->
+        </button>
+        
+        <div id="processorListContainer" class="config-processor-list">
+          <!-- Lista de processadores será adicionada dinamicamente aqui -->
         </div>
       </section>
       
-      <section id="iverilogSettings">
-        <h3>Iverilog Settings</h3>
-        <div class="form-group">
-          <label for="iverilogFlags">Compilation Flags</label>
+      <section id="compilerSettings" class="config-section">
+        <h3>Compiler Settings</h3>
+        <div class="config-form-group">
+          <label for="iverilogFlags">Iverilog Flags</label>
           <input 
             type="text" 
             id="iverilogFlags" 
-            name="iverilogFlags"
+            name="iverilogFlags" 
+            class="config-input"
             placeholder="e.g., -Wall; -v; -s (Disabled)" 
             aria-describedby="iverilogFlagsHelp"
             disabled
           >
-          <small id="iverilogFlagsHelp" class="form-help">
-            <br>Specify additional flags for Iverilog compilation
+          <small id="iverilogFlagsHelp" class="config-form-help">
+            Specify additional flags for Iverilog compilation
+          </small>
+        </div>
+
+        <div class="config-form-group">
+          <label for="cmmCompFlags">CMM Compiler Flags</label>
+          <input 
+            type="text" 
+            id="cmmCompFlags" 
+            name="cmmCompFlags" 
+            class="config-input"
+            placeholder="e.g., -O2; -debug" 
+            aria-describedby="cmmCompFlagsHelp"
+          >
+          <small id="cmmCompFlagsHelp" class="config-form-help">
+            Specify additional flags for CMM compilation
+          </small>
+        </div>
+
+        <div class="config-form-group">
+          <label for="asmCompFlags">ASM Compiler Flags</label>
+          <input 
+            type="text" 
+            id="asmCompFlags" 
+            name="asmCompFlags" 
+            class="config-input"
+            placeholder="e.g., -v; -warnings" 
+            aria-describedby="asmCompFlagsHelp"
+          >
+          <small id="asmCompFlagsHelp" class="config-form-help">
+            Specify additional flags for ASM compilation
           </small>
         </div>
       </section>
     </div>
-    <div class="modal-footer">
-      <div class="footer-actions">
-        <button id="clearAll" aria-label="Clear All Settings" class="btn-secondary">
+    <div class="config-modal-footer">
+      <div class="config-footer-actions">
+        <button id="clearAllConfig" aria-label="Clear All Settings" class="config-btn config-btn-secondary">
           <i class="fa-solid fa-trash-can"></i> Clear
         </button>
-        <div class="footer-primary-actions">
-          <button id="cancelConfig" aria-label="Cancel Changes" class="btn-secondary">
+        <div class="config-footer-primary-actions">
+          <button id="cancelConfig" aria-label="Cancel Changes" class="config-btn config-btn-secondary">
             Cancel
           </button>
-          <button id="saveConfig" aria-label="Save Settings" class="btn-primary">
-            <i class="fa-solid fa-star" style="color: #e47d00;"></i>Save
+          <button id="saveConfig" aria-label="Save Settings" class="config-btn config-btn-primary">
+            <i class="fa-solid fa-star" style="color: #e47d00;"></i> Save
           </button>
         </div>
       </div>
@@ -497,7 +526,7 @@
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
   <script src="./js/modalConfig.js" type="module"></script>
-  <script src="./js/multicore.js"></script>
+  <!-- <script src="./js/multicore.js"></script> -->
   <script src="./js/news.js" ></script>
   <script src="./js/renderer.js"></script>
   <script src="./js/report.js" type="module"></script>

@@ -102,6 +102,7 @@ const pathOperations = {
   joinPath: (...paths) => ipcRenderer.invoke('join-path', ...paths)
 };
 
+
 // Exposing API to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
   // File Operations
@@ -146,8 +147,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
 
-  scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath)
+  scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath),
+
+   // Processor creation event listener
+ onProcessorCreated: (callback) => {
+  ipcRenderer.on('processor-created', (event, processorName) => callback(event, processorName));
+}
+
 });
+
 
 if (ipcRenderer) {
   contextBridge.exposeInMainWorld('terminalAPI', {

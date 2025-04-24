@@ -670,11 +670,15 @@ void main()
 
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
 
+        mainWindow.webContents.send('processor-created', formData.processorName);
+
         return { success: true, path: processorPath };
       } else {
         throw err;
       }
     }
+
+    
   } catch (error) {
     console.error('Error in create-processor-project:', error);
     throw error;
@@ -1201,22 +1205,48 @@ async function ensureConfigDir() {
 ipcMain.handle('load-config', async () => {
   await ensureConfigDir();
   try {
+    // Check if config file exists
+    try {
+      await fs.access(configFilePath);
+    } catch (error) {
+      // If file doesn't exist, create a default config
+      const defaultConfig = { 
+        processors: [], 
+        iverilogFlags: [],
+        cmmCompFlags: [],
+        asmCompFlags: [],
+        multicore: false
+      };
+      await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
+      return defaultConfig;
+    }
+
     const fileContent = await fs.readFile(configFilePath, 'utf-8');
     return JSON.parse(fileContent);
   } catch (error) {
     console.error('Failed to read configuration file:', error);
-    return { processors: [], iverilogFlags: [] };
+    return { 
+      processors: [], 
+      iverilogFlags: [],
+      cmmCompFlags: [],
+      asmCompFlags: [],
+      multicore: false
+    };
   }
 });
 
+
+
 // IPC handler to save configuration
-ipcMain.on('save-config', async (event, data) => {
+ipcMain.handle('save-config', async (event, data) => {
   await ensureConfigDir();
   try {
     await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
     console.log('Configuration saved at:', configFilePath);
+    return { success: true };
   } catch (error) {
     console.error('Failed to save configuration file:', error);
+    throw error;
   }
 });
 
@@ -1369,13 +1399,12 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
 // IPC handler to clear the Temp folder
 ipcMain.handle('clear-temp-folder', async () => {
   try {
-    const appPath = app.getAppPath();
-    const basePath = path.join(appPath, '..', '..');
-    const tempFolder = path.join(basePath, 'saphoComponents', 'Temp');
-    await fs.rm(tempFolder, { recursive: true, force: true });
-    return true;
+    const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+    await fs.rmdir(tempFolderPath, { recursive: true });
+    await fs.mkdir(tempFolderPath, { recursive: true }); // Recreate the empty folder
+    return { success: true };
   } catch (error) {
-    console.error("Error deleting Temp folder:", error);
+    console.error('Failed to clear temp folder:', error);
     throw error;
   }
 });

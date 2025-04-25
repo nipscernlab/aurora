@@ -1,72 +1,193 @@
+// Modal configuration elements
 const settingsButton = document.getElementById("settings");
 const modal = document.getElementById("modalConfig");
 const closeModal = document.getElementById("closeModal");
-const addProcessorButton = document.getElementById("addProcessor");
-const processorsDiv = document.getElementById("processors");
+const processorSelect = document.getElementById("processorSelect");
+const deleteProcessorButton = document.getElementById("deleteProcessor");
 const clearAllButton = document.getElementById("clearAll");
 const clearTempButton = document.getElementById("clearTemp");
 const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
+const processorClkInput = document.getElementById("processorClk");
+const processorNumClocksInput = document.getElementById("processorNumClocks");
 const iverilogFlagsInput = document.getElementById("iverilogFlags");
+const cmmCompFlagsInput = document.getElementById("cmmCompFlags");
+const asmCompFlagsInput = document.getElementById("asmCompFlags");
 
-let processorCount = 0;
-let previousProcessorNames = []; // Stores previously loaded processor names
+// Store available processors and current configuration
+let availableProcessors = [];
+let selectedProcessor = null;
+let currentConfig = {
+  processors: [],
+  iverilogFlags: [],
+  cmmCompFlags: [],
+  asmCompFlags: []
+};
 
-// Clears all processor items from the configuration
-function clearProcessors() {
-  const processorItems = document.querySelectorAll(".processor-item");
-  processorItems.forEach(item => item.remove());
+// Get available processors from the main process
+async function loadAvailableProcessors() {
+  try {
+    // Precisamos obter o caminho do projeto atual
+    const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+    
+    if (!currentProjectPath) {
+      console.warn("No project path available to load processors");
+      availableProcessors = [];
+      updateProcessorSelect();
+      return [];
+    }
+    
+    console.log("Loading processors for project:", currentProjectPath);
+    
+    // Call the IPC method to get processors with the current project path
+    const processors = await window.electronAPI.getAvailableProcessors(currentProjectPath);
+    console.log("Loaded processors:", processors);
+    
+    availableProcessors = processors || [];
+    updateProcessorSelect();
+    return availableProcessors;
+  } catch (error) {
+    console.error("Failed to load available processors:", error);
+    // Don't throw the error, just use empty array to continue
+    availableProcessors = [];
+    updateProcessorSelect();
+    return [];
+  }
 }
+
+// Update the processor select dropdown with available processors
+function updateProcessorSelect() {
+  console.log("Updating processor select with processors:", availableProcessors);
+  
+  // Clear existing options
+  processorSelect.innerHTML = '';
+  
+  // Add a default option
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "-- Select Processor --";
+  defaultOption.disabled = true;
+  defaultOption.selected = !selectedProcessor;
+  processorSelect.appendChild(defaultOption);
+  
+  // Add processor options
+  availableProcessors.forEach(processor => {
+    const option = document.createElement("option");
+    option.value = processor;
+    option.textContent = processor;
+    option.selected = processor === selectedProcessor;
+    processorSelect.appendChild(option);
+    console.log(`Added processor option: ${processor}`);
+  });
+  
+  // Enable/disable delete button based on selection
+  deleteProcessorButton.disabled = !selectedProcessor;
+  
+  // Force a UI refresh
+  processorSelect.blur();
+  processorSelect.focus();
+}
+
+// Handle processor selection change
+processorSelect.addEventListener("change", function() {
+  selectedProcessor = this.value;
+  deleteProcessorButton.disabled = !selectedProcessor;
+  
+  // Find processor configuration if it exists
+  const processorConfig = currentConfig.processors.find(p => p.name === selectedProcessor);
+  
+  if (processorConfig) {
+    processorClkInput.value = processorConfig.clk || '';
+    processorNumClocksInput.value = processorConfig.numClocks || '';
+  } else {
+    processorClkInput.value = '';
+    processorNumClocksInput.value = '';
+  }
+});
+
+// Delete selected processor
+deleteProcessorButton.addEventListener("click", async function() {
+  if (!selectedProcessor) return;
+  
+  if (confirm(`Are you sure you want to delete processor "${selectedProcessor}"?`)) {
+    try {
+      await window.electronAPI.deleteProcessor(selectedProcessor);
+      
+      // Remove from available processors
+      availableProcessors = availableProcessors.filter(p => p !== selectedProcessor);
+      
+      // Remove from current config
+      currentConfig.processors = currentConfig.processors.filter(p => p.name !== selectedProcessor);
+      
+      // Reset selection
+      selectedProcessor = null;
+      
+      // Update UI
+      updateProcessorSelect();
+      processorClkInput.value = '';
+      processorNumClocksInput.value = '';
+    } catch (error) {
+      console.error("Failed to delete processor:", error);
+      alert(`Failed to delete processor: ${error.message}`);
+    }
+  }
+});
 
 // Loads the configuration from the main process and populates the modal
 async function loadConfiguration() {
   try {
     const config = await window.electronAPI.loadConfig();
-
-    // Clear existing processors
-    clearProcessors();
-
-    // Populate processors if available in the configuration
-    if (config.processors) {
-      config.processors.forEach(processor => {
-        const processorItem = document.createElement("div");
-        processorItem.className = "processor-item";
-        processorItem.innerHTML = `
-          <input type="text" placeholder="Processor Name" data-processor-name value="${processor.name}">
-          <input type="number" placeholder="CLK (MHz)" data-clk value="${processor.clk}">
-          <input type="number" placeholder="Number of Clocks" data-num-clocks value="${processor.numClocks}">
-          <button class="removeProcessor" 
-            style="margin-left: 8px; color: #fff; border: none; cursor: pointer; font-size: 16px; margin-bottom: 15px;">
-              &times;
-          </button>
-        `;
-
-        // Add event listener to remove the processor item
-        processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
-          processorItem.remove();
-        });
-
-        processorsDiv.insertBefore(processorItem, addProcessorButton);
-      });
-
-      // Save processor names for later comparison
-      previousProcessorNames = config.processors.map(p => p.name);
+    currentConfig = config;
+    
+    // Populate processor selection if available
+    if (config.processors && config.processors.length > 0) {
+      const lastActiveProcessor = config.processors[0]; // Assume first processor is the active one
+      selectedProcessor = lastActiveProcessor.name;
+      
+      processorClkInput.value = lastActiveProcessor.clk || '';
+      processorNumClocksInput.value = lastActiveProcessor.numClocks || '';
+    } else {
+      selectedProcessor = null;
+      processorClkInput.value = '';
+      processorNumClocksInput.value = '';
     }
-
-    // Populate iverilog flags if available
+    
+    // Populate compiler flags inputs
     if (config.iverilogFlags) {
       iverilogFlagsInput.value = config.iverilogFlags.join("; ");
+    } else {
+      iverilogFlagsInput.value = "";
     }
+    
+    if (config.cmmCompFlags) {
+      cmmCompFlagsInput.value = config.cmmCompFlags.join("; ");
+    } else {
+      cmmCompFlagsInput.value = "";
+    }
+    
+    if (config.asmCompFlags) {
+      asmCompFlagsInput.value = config.asmCompFlags.join("; ");
+    } else {
+      asmCompFlagsInput.value = "";
+    }
+    
+    // Update the processor select dropdown
+    updateProcessorSelect();
   } catch (error) {
     console.error("Failed to load configuration:", error);
   }
 }
 
 // Opens the configuration modal and loads the current configuration
-settingsButton.addEventListener("click", () => {
-  loadConfiguration();
-  modal.hidden = false;
-  modal.classList.add("active");
+settingsButton.addEventListener("click", async () => {
+  try {
+    await loadAvailableProcessors();
+    await loadConfiguration();
+    modal.hidden = false;
+    modal.classList.add("active");
+  } catch (error) {
+    console.error("Error opening configuration modal:", error);
+  }
 });
 
 // Closes the configuration modal
@@ -75,79 +196,16 @@ closeModal.addEventListener("click", () => {
   setTimeout(() => modal.hidden = true, 300);
 });
 
-// Adds a new processor item to the configuration
-addProcessorButton.addEventListener("click", () => {
-  processorCount++;
-
-  const processorItem = document.createElement("div");
-  processorItem.className = "processor-item";
-  processorItem.innerHTML = `
-    <input type="text" placeholder="Processor Name" data-processor-name>
-    <input type="number" placeholder="CLK (MHz)" data-clk>
-    <input type="number" placeholder="Number of Clocks" data-num-clocks>
-    <button class="removeProcessor" 
-            style="margin-left: 8px; color: #fff; border: none; cursor: pointer; font-size: 16px; margin-bottom: 15px;">
-        &times;
-    </button>
-  `;
-
-  // Add event listener to remove the processor item
-  processorItem.querySelector(".removeProcessor").addEventListener("click", () => {
-    processorItem.remove();
-  });
-
-  processorsDiv.insertBefore(processorItem, addProcessorButton);
-});
-
-// Clears all processors and resets the iverilog flags input
+// Clears all fields
 clearAllButton.addEventListener("click", () => {
-  clearProcessors();
+  processorClkInput.value = "";
+  processorNumClocksInput.value = "";
   iverilogFlagsInput.value = "";
+  cmmCompFlagsInput.value = "";
+  asmCompFlagsInput.value = "";
 });
 
-// Saves the current configuration and sends it to the main process
-saveConfigButton.addEventListener("click", async () => {
-  const processors = [];
-  const processorItems = document.querySelectorAll(".processor-item");
-
-  // Collect processor data from the input fields
-  processorItems.forEach(item => {
-    const name = item.querySelector("[data-processor-name]").value;
-    const clk = item.querySelector("[data-clk]").value;
-    const numClocks = item.querySelector("[data-num-clocks]").value;
-    if (name && clk && numClocks) {
-      processors.push({ name, clk: Number(clk), numClocks: Number(numClocks)});
-    }
-  });
-
-  // Collect iverilog flags from the input field
-  const flags = iverilogFlagsInput.value
-    .split(";")
-    .map(flag => flag.trim())
-    .filter(flag => flag);
-
-  const config = {
-    processors,
-    iverilogFlags: flags
-  };
-
-  console.log("Saved Configuration:", config);
-
-  // Close the modal and save the configuration
-  modal.classList.remove("active");
-  await window.electronAPI.saveConfig(config);
-
-  // Update previously loaded processor names
-  previousProcessorNames = processors.map(p => p.name);
-});
-
-// Cancels the configuration changes and closes the modal
-cancelConfigButton.addEventListener("click", () => {
-  modal.classList.remove("active");
-  setTimeout(() => modal.hidden = true, 300);
-});
-
-// Clears the Temp folder and notifies the user
+// Clears the Temp folder
 clearTempButton.addEventListener("click", async () => {
   try {
     await window.electronAPI.clearTempFolder();
@@ -156,4 +214,102 @@ clearTempButton.addEventListener("click", async () => {
     console.error("Error deleting Temp folder:", error);
     alert("Failed to delete Temp folder.");
   }
+});
+
+// Saves the current configuration and sends it to the main process
+saveConfigButton.addEventListener("click", async () => {
+  // Create processor configuration for the selected processor
+  let processors = [];
+  
+  if (selectedProcessor) {
+    const clk = processorClkInput.value.trim();
+    const numClocks = processorNumClocksInput.value.trim();
+    
+    if (clk && numClocks) {
+      processors.push({
+        name: selectedProcessor,
+        clk: Number(clk),
+        numClocks: Number(numClocks)
+      });
+    }
+  }
+  
+  // Collect compiler flags
+  const iverilogFlags = iverilogFlagsInput.value
+    .split(";")
+    .map(flag => flag.trim())
+    .filter(flag => flag);
+    
+  const cmmCompFlags = cmmCompFlagsInput.value
+    .split(";")
+    .map(flag => flag.trim())
+    .filter(flag => flag);
+    
+  const asmCompFlags = asmCompFlagsInput.value
+    .split(";")
+    .map(flag => flag.trim())
+    .filter(flag => flag);
+  
+  const config = {
+    processors,
+    iverilogFlags,
+    cmmCompFlags,
+    asmCompFlags
+  };
+  
+  console.log("Saving Configuration:", config);
+  
+  try {
+    // Close the modal and save the configuration
+    modal.classList.remove("active");
+    await window.electronAPI.saveConfig(config);
+    setTimeout(() => modal.hidden = true, 300);
+  } catch (error) {
+    console.error("Failed to save configuration:", error);
+    alert("Failed to save configuration: " + error.message);
+  }
+});
+
+// Cancels the configuration changes and closes the modal
+cancelConfigButton.addEventListener("click", () => {
+  modal.classList.remove("active");
+  setTimeout(() => modal.hidden = true, 300);
+});
+
+// Listen for processor creation events to update the list
+window.electronAPI.onProcessorCreated((data) => {
+  console.log("Processor created event received:", data);
+  
+  // Extrair dados do evento
+  const processorName = typeof data === 'object' ? data.processorName : data;
+  const projectPath = typeof data === 'object' ? data.projectPath : window.currentProjectPath;
+  
+  if (projectPath) {
+    // Armazenar o caminho do projeto para uso futuro
+    if (window.currentProjectPath === undefined) {
+      window.currentProjectPath = projectPath;
+    }
+    localStorage.setItem('currentProjectPath', projectPath);
+  }
+  
+  // Always reload the processor list from the main process
+  loadAvailableProcessors().then(processors => {
+    // After loading, make sure the new processor is selected
+    if (processorName && processors.includes(processorName)) {
+      selectedProcessor = processorName;
+      updateProcessorSelect();
+      
+      // Set default values for the new processor
+      processorClkInput.value = '100'; // Default clock, adjust as needed
+      processorNumClocksInput.value = '1000'; // Default clocks, adjust as needed
+    }
+  }).catch(error => {
+    console.error("Failed to reload processors after creation:", error);
+  });
+});
+
+// Initial load of available processors when the page loads
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load processors at startup so they're available even before opening modal
+  await loadAvailableProcessors();
 });

@@ -223,62 +223,103 @@
 </div>
 
 <!-- Configuration Modal -->
- <div id="modalConfig" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2> <i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
-      <button id="closeModal" aria-label="Close Modal">&times;</button>
+<div id="modalConfig" class="mconfig-modal">
+  <div class="mconfig-modal-content">
+    <div class="mconfig-modal-header">
+      <h2 class="mconfig-title"><i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
+      <button id="closeModal" class="mconfig-close-btn" aria-label="Close Modal">&times;</button>
     </div>
-    <div class="modal-body">
-      <section id="processors">
-        <h3>Processors</h3>
-        <button id="addProcessor" aria-label="Add Processor">
-          <i class="fa-solid fa-plus"></i> Add Processor
-        </button>
-        <button id="clearTemp">
+    <div class="mconfig-modal-body">
+      <section class="mconfig-section" id="processors">
+        <h3 class="mconfig-section-title">Processors</h3>
+        <div class="mconfig-processor-selector">
+          <label for="processorSelect" class="mconfig-label">Select Processor:</label>
+          <div class="mconfig-select-container">
+            <select id="processorSelect" class="mconfig-select">
+              <!-- Processor options will be dynamically added here -->
+            </select>
+          </div>
+          <button id="deleteProcessor" class="mconfig-icon-btn" aria-label="Delete Selected Processor">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+        
+        <div class="mconfig-processor-config">
+          <div class="mconfig-form-group">
+            <label for="processorClk" class="mconfig-label">CLK (MHz)</label>
+            <input type="number" id="processorClk" class="mconfig-input" placeholder="Clock frequency">
+          </div>
+          <div class="mconfig-form-group">
+            <label for="processorNumClocks" class="mconfig-label">Number of Clocks</label>
+            <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks">
+          </div>
+        </div>
+        
+        <button id="clearTemp" class="mconfig-btn mconfig-btn-warning">
           <i class="fa-solid fa-trash"></i> Clear Temp
         </button>
-        <button id="multicore">
-        <h>Multicore</h>   
-          <label class="toggle-switch">
-            <input type="checkbox" id="multicore">
-            <span class="slider"></span>
-          </label>    
-        </button> 
-        <div id="processorList">
-          <!-- Processor items will be dynamically added here -->
-        </div>
       </section>
       
-      <section id="iverilogSettings">
-        <h3>Iverilog Settings</h3>
-        <div class="form-group">
-          <label for="iverilogFlags">Compilation Flags</label>
+      <section class="mconfig-section" id="compilerSettings">
+        <h3 class="mconfig-section-title">Compiler Settings</h3>
+        
+        <div class="mconfig-form-group">
+          <label for="iverilogFlags" class="mconfig-label">Iverilog Flags</label>
           <input 
             type="text" 
             id="iverilogFlags" 
+            class="mconfig-input"
             name="iverilogFlags"
-            placeholder="e.g., -Wall; -v; -s (Disabled)" 
+            placeholder="e.g., -Wall; -v; -s" 
             aria-describedby="iverilogFlagsHelp"
-            disabled
           >
-          <small id="iverilogFlagsHelp" class="form-help">
-            <br>Specify additional flags for Iverilog compilation
+          <small id="iverilogFlagsHelp" class="mconfig-form-help">
+            Specify additional flags for Iverilog compilation (separate with semicolons)
+          </small>
+        </div>
+        
+        <div class="mconfig-form-group">
+          <label for="cmmCompFlags" class="mconfig-label">CMMComp Flags</label>
+          <input 
+            type="text" 
+            id="cmmCompFlags" 
+            class="mconfig-input"
+            name="cmmCompFlags"
+            placeholder="Enter CMMComp flags (separate with semicolons)" 
+            aria-describedby="cmmCompFlagsHelp"
+          >
+          <small id="cmmCompFlagsHelp" class="mconfig-form-help">
+            Specify additional flags for CMMComp compilation
+          </small>
+        </div>
+        
+        <div class="mconfig-form-group">
+          <label for="asmCompFlags" class="mconfig-label">ASMComp Flags</label>
+          <input 
+            type="text" 
+            id="asmCompFlags" 
+            class="mconfig-input" 
+            name="asmCompFlags"
+            placeholder="Enter ASMComp flags (separate with semicolons)" 
+            aria-describedby="asmCompFlagsHelp"
+          >
+          <small id="asmCompFlagsHelp" class="mconfig-form-help">
+            Specify additional flags for ASMComp compilation
           </small>
         </div>
       </section>
     </div>
-    <div class="modal-footer">
-      <div class="footer-actions">
-        <button id="clearAll" aria-label="Clear All Settings" class="btn-secondary">
+    <div class="mconfig-modal-footer">
+      <div class="mconfig-footer-actions">
+        <button id="clearAll" aria-label="Clear All Settings" class="mconfig-btn mconfig-btn-secondary">
           <i class="fa-solid fa-trash-can"></i> Clear
         </button>
-        <div class="footer-primary-actions">
-          <button id="cancelConfig" aria-label="Cancel Changes" class="btn-secondary">
+        <div class="mconfig-footer-primary-actions">
+          <button id="cancelConfig" aria-label="Cancel Changes" class="mconfig-btn mconfig-btn-secondary">
             Cancel
           </button>
-          <button id="saveConfig" aria-label="Save Settings" class="btn-primary">
-            <i class="fa-solid fa-star" style="color: #e47d00;"></i>Save
+          <button id="saveConfig" aria-label="Save Settings" class="mconfig-btn mconfig-btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save
           </button>
         </div>
       </div>

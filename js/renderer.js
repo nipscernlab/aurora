@@ -1389,6 +1389,7 @@ highlightStyles.textContent = `
 `;
 document.head.appendChild(highlightStyles);
 
+
 // Atualizar a função refreshFileTree
 async function refreshFileTree() {
   try {
@@ -1402,6 +1403,11 @@ async function refreshFileTree() {
       // If not a directory, try to get the directory from the .spf file
       const directoryPath = path.dirname(currentSpfPath);
       currentProjectPath = directoryPath;
+      const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+      if (currentProjectPath) {
+        await window.electronAPI.setCurrentProject(currentProjectPath);
+      }
+
     }
 
     // Prevenir múltiplas atualizações simultâneas

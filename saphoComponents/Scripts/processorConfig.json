@@ -1,9 +1,14 @@
 {
   "processors": [
     {
-      "name": "teste",
+      "name": "ZeroCross",
       "clk": 200,
-      "numClocks": 20000
+      "numClocks": 2000
+    },
+    {
+      "name": "ProcDTW",
+      "clk": 200,
+      "numClocks": 2000
     }
   ],
   "iverilogFlags": []

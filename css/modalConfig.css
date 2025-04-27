@@ -835,7 +835,7 @@ button:disabled::after {
 .mconfig-modal-body {
   padding: 1.5rem;
   color: var(--text-primary);
-  max-height: 70vh;
+  max-height: 60vh;
   overflow-y: auto;
 }
 

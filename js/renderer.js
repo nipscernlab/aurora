@@ -920,7 +920,7 @@ static restoreEditorState(filePath) {
     'h': 'fas fa-code',
     'hpp': 'fas fa-code'
   };
-  return iconMap[extension] || 'fas fa-file';
+  return iconMap[extension] || 'fas fa-file-code';
 }
 
 
@@ -1556,7 +1556,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
       folderToggle.className = 'fas fa-chevron-right folder-toggle';
       item.appendChild(folderToggle);
 
-      icon.className = 'fas fa-folder file-item-icon';
+      icon.className = 'fas fa-folder-closed file-item-icon';
 
       const childContainer = document.createElement('div');
       childContainer.className = 'folder-content';
@@ -1901,8 +1901,9 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
 
 const projectInfoButton = document.createElement('button');
 projectInfoButton.className = 'toolbar-button';
+projectInfoButton.id = 'projectInfo';
 projectInfoButton.innerHTML = `
-  <i class="fa-solid fa-circle-info"></i>
+  <i class="fa-solid fa-circle-question"></i>
   <span>Project Info</span>
 `;
 
@@ -2087,8 +2088,8 @@ function updateFileTree(files) {
 
 const processorHubButton = document.createElement('button');
 processorHubButton.className = 'toolbar-button';
+processorHubButton.id = 'processorHub';
 processorHubButton.innerHTML = '<i class="fa-solid fa-star-of-life"></i> Processor Hub';
-processorHubButton.title = 'Create New Processor Project';
 processorHubButton.disabled = true; // Disabled by default
 document.querySelector('.toolbar').appendChild(processorHubButton);
 
@@ -2458,9 +2459,9 @@ window.onload = () => {
   const toolbar = document.querySelector('.toolbar');
   const aiButton = document.createElement('button');
 
-  aiButton.className = 'toolbar-icon rainbow btn';
+  aiButton.className = ' id="aiAssistant" toolbar-icon rainbow btn';
   aiButton.innerHTML = '<i class="fas fa-robot"></i>';
-  aiButton.title = 'Toggle AI Assistant';
+  aiButton.id = 'aiAssistant';
   aiButton.addEventListener('click', toggleAIAssistant);
   toolbar.appendChild(aiButton);
 /*
@@ -2603,6 +2604,8 @@ async loadConfig() {
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
       const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
 
+      statusUpdater.startCompilation('cmm');
+
       const cmd = `"${cmmCompPath}" ${name} "${projectPath}" "${macrosPath}" "${tempPath}" `;
       
       this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
@@ -2617,17 +2620,21 @@ async loadConfig() {
       }
       if (result.stderr) {
         this.terminalManager.appendToTerminal('tcmm', result.stderr, 'stderr');
+        statusUpdater.compilationError('cmm', error.message);
       }
 
       // Verifica o código de saída
       if (result.code !== 0) {
+        statusUpdater.compilationError('cmm', error.message);
         throw new Error(`CMM compilation failed with code ${result.code}`);
       }
 
       this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.');
+      statusUpdater.compilationSuccess('cmm');
       return asmPath;
     } catch (error) {
       this.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
+      statusUpdater.compilationError('cmm', error.message);
       throw error;
     }
   }
@@ -2651,7 +2658,9 @@ async asmCompilation(processor, asmPath)
         const asmCompPath    = await window.electronAPI.joinPath('saphoComponents' , 'bin' , 'asmcomp.exe');
         const hdlPath        = await window.electronAPI.joinPath('saphoComponents' , 'HDL'                );
         const tempPath       = await window.electronAPI.joinPath('saphoComponents' , 'Temp',  name        );
-        
+
+        statusUpdater.startCompilation('asm');
+
         let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
 
         this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
@@ -2661,9 +2670,14 @@ async asmCompilation(processor, asmPath)
                        await refreshFileTree();
       
         if (result.stdout) this.terminalManager.appendToTerminal('tasm', result.stdout, 'stdout');
-        if (result.stderr) this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr');
+        if (result.stderr) this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr')
+          statusUpdater.compilationError('asm', error.message);
+        ;
 
-        if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`);
+        if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`)
+          statusUpdater.compilationError('asm', error.message);
+        ;
+        
 
         cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 ${multicoreEnabled}`;
 
@@ -2675,9 +2689,13 @@ async asmCompilation(processor, asmPath)
                        await refreshFileTree();
       
         if (resasm.stdout) this.terminalManager.appendToTerminal('tasm', resasm.stdout, 'stdout');
-        if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr');
+        if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr')
+          statusUpdater.compilationError('asm', error.message);
+        ;
 
-        if (resasm.code !== 0) throw new Error(`ASM compilation failed with code ${resasm.code}`);
+        if (resasm.code !== 0) throw new Error(`ASM compilation failed with code ${resasm.code}`)
+          statusUpdater.compilationError('asm', error.message);
+        ;
 
         // Copia o testbench
         const testbenchSource      = await window.electronAPI.joinPath(tempPath      , `${name}_tb.v`);
@@ -2685,10 +2703,12 @@ async asmCompilation(processor, asmPath)
         await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
       
         this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.');
+        statusUpdater.compilationSuccess('asm');
     }
     catch (error)
     {
         this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('asm', error.message);
         throw error;
     }
 }

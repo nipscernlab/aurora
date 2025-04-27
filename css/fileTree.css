@@ -53,13 +53,10 @@
   }
 
 
-#open-folder-button:hover {
-    color: var(--accent-color);
-}
+  #refresh-button:hover, #open-folder-button:hover, #create-toplevel-folder:hover {
+    color: var(--accent-hover);
+  }
 
-#create-toplevel-folder:hover {
-  color: var(--accent-color);
-}
 
 .file-tree-actions {
   flex: 1;

@@ -30,6 +30,8 @@
   <link rel="stylesheet" href="./css/fileTree.css">
   <link rel="stylesheet" href="./css/news.css">
   <link rel="stylesheet" href="./css/modalConfig.css">
+  <link rel="stylesheet" href="./css/tooltip.css">
+  <link rel="stylesheet" href="./css/statusUpdater.css">
 </head>
 
 <body class="theme-dark">
@@ -39,7 +41,7 @@
       <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
         <i class="fa-solid fa-compass"></i>
       </button>
-      <button id="newProjectBtn" title="New Project" class="toolbar-button">
+      <button id="newProjectBtn" titles="New Project" class="toolbar-button">
         <i class="fas fa-folder-plus"></i>
         <span>New Project</span>
       </button>
@@ -59,37 +61,37 @@
 
     <!-- Buttons in the center -->
     <div class="toolbar-center">
-      <button id="cmmcomp" class="toolbar-button" title="Compile CMM">
+      <button id="cmmcomp" class="toolbar-button" titles="Compile CMM">
         <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
         <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
       </button>
-      <button id="asmcomp" class="toolbar-button" title="Compile ASM">
+      <button id="asmcomp" class="toolbar-button" titles="Compile ASM">
         <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
       </button>
-      <button id="vericomp" class="toolbar-button" title="Compile Verilog">
+      <button id="vericomp" class="toolbar-button" titles="Compile Verilog">
         <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
       </button>
-      <button id="wavecomp" class="toolbar-button" title="Open Wave">
+      <button id="wavecomp" class="toolbar-button" titles="Open Wave">
         <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
       </button>
-      <button id="prismcomp" class="toolbar-button" title="Open PRISM">
+      <button id="prismcomp" class="toolbar-button" titles="Open PRISM">
         <img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;">      
       </button>
     </div>
-    <button id="allcomp" class="toolbar-button" title="Compile All">
-      <i class="fa-solid fa-star" style="color: #ff9800;"></i>
+    <button id="allcomp" class="toolbar-button" titles="Compile All">
+      <i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Compile All
     </button>
 
     <!-- Buttons on the right -->
     <div class="toolbar-right">
       <button id="themeToggle" class="toolbar-button">
-        <i class="fas fa-sun" title="Theme Toggle"></i>
+        <i class="fas fa-sun" titles="Theme Toggle"></i>
       </button>
       <button id="settings" class="toolbar-button">
-        <i class="fa-solid fa-gears" title="Processor Configuration"></i>
+        <i class="fa-solid fa-gears" titles="Processor Configuration"></i>
       </button>
       <button id="info-aurora" class="toolbar-button">
-        <i class="fa-solid fa-circle-info" title="Info Aurora"></i>
+        <i class="fa-solid fa-circle-info" titles="Info Aurora"></i>
       </button>
     </div>
   </div>
@@ -422,16 +424,32 @@
         <div class="terminal-tabs">
           <button id="clear-terminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
           
-          <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue; "></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
+          <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue;"></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
-          <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131; "></i> TIVERI</button>
-          <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05; "></i> TWAVE</button>
+          <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
+          <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
           <button class="tab" data-terminal="tprism" style=" cursor: pointer;"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
-          <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb; "></i> TCMD</button>
+          <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button>
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>
-          <div class="terminal-body">Welcome to the TCMM Terminal!</div>
+          <div class="terminal-body">
+   Welcome to the TCMM Terminal!
+            <br>
+  To create a Processor project, click on <span class="keyword" onclick="activateButton('newProjectBtn')">New Project</span>. Give your project a name and select the installation location. Then, the .spf project will open automatically and the <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> button will be enabled. If you already have a created project, click on <span class="keyword" onclick="activateButton('openProjectBtn')">Open Project</span>.
+            <br>
+  Click on <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> to create a processor with all parameters pre-defined by you. Program your processor using the CMM language in the .cmm file within the Software folder of your project. When modifying a file, click on <span class="keyword" onclick="activateButton('saveFileBtn')">Save</span> to save it. 
+            <br>
+  Next, configure the compilation in the <span class="keyword" onclick="activateButton('settings')">Processor Config</span> button, setting up the processor to be compiled, the number of clocks and cycles (frequency), as well as the compilation flags for cmmcomp, asmcomp, and iverilog.
+            <br>
+  After configuration, you can compile step by step or use the <span class="keyword" onclick="activateButton('allcomp')">Compile All</span> button to compile the entire project and view the simulation in gtkwave. Monitor the process log in the terminals <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> & <span class="terminal-keyword" onclick="activateTerminal('tprism')">TPRISM</span>. Clear each terminal individually with the <span class="keyword" onclick="activateButton('clear-terminal')">Clear Terminal</span> button.
+            <br>
+  To backup your currently open project, click on <span class="keyword" onclick="activateButton('backupFolderBtn')">Backup</span>. AI assistance may be helpful. Click the <span class="keyword" onclick="activateButton('aiAssistant')">Toggle AI</span> button to activate it. Select one of the models: ChatGPT or Claude. Check your project hierarchy in <span class="keyword" onclick="activateButton('open-folder-button')">Open Folder</span>.
+            <br>
+  If you want to switch the IDE theme between light and dark, click on <span class="keyword" onclick="activateButton('themeToggle')">Toggle Theme</span>.
+            <br>
+   Want to view information about the current project? Click on <span class="keyword" onclick="activateButton('projectInfo')">Project Info</span>. Information about the IDE version, Chromium, Node.js, Electron, and Windows is available in the <span class="keyword" onclick="activateButton('info-aurora')">Info Aurora</span> button. There's more in <span class="keyword" onclick="activateButton('sidebarMenu')">Menu</span>.
+          </div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
           <div class="terminal-header">TASM Terminal</div>
@@ -500,10 +518,12 @@
   </div>
 </div>
 
-  <div class="status-bar">
-    <div class="status-item">Ready</div>
-    <div class="status-item" id="editorStatus">Line 1, Column 1</div>
-  </div>
+<div class="status-bar">
+  <div class="status-item">Ready</div>
+  <div class="status-item"></div>
+  <div class="status-item" id="editorStatus">Line 1, Column 1</div>
+</div>
+
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
   <script src="node_modules/sortablejs/Sortable.min.js"></script>
   <script>
@@ -534,6 +554,127 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Function to activate buttons based on their IDs
+  function activateButton(buttonId) {
+    console.log(`Activating button: ${buttonId}`);
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.click();
+    } else if (buttonId === 'open-folder-button') {
+      // Special case for the folder button which might be a span
+      const folderButton = document.querySelector('#open-folder-button');
+      if (folderButton) {
+        folderButton.click();
+      } else {
+        console.error(`Button with ID ${buttonId} not found`);
+      }
+    } else {
+      console.error(`Button with ID ${buttonId} not found`);
+    }
+  }
+
+  // Function to activate terminals based on their data-terminal attribute
+  function activateTerminal(terminalId) {
+    console.log(`Activating terminal: ${terminalId}`);
+    const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+    if (terminal) {
+      terminal.click();
+    } else {
+      console.error(`Terminal with data-terminal="${terminalId}" not found`);
+    }
+  }
+  
+  // Add the highlight class to all buttons for hover effect
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add button-highlight class to all buttons referenced in keywords
+    const buttons = [
+      'newProjectBtn', 'processorHub', 'openProjectBtn', 'saveFileBtn', 
+      'settings', 'allcomp', 'clear-terminal', 'backupFolderBtn', 
+      'aiAssistant', 'themeToggle', 'projectInfo', 'info-aurora', 
+      'sidebarMenu'
+    ];
+    
+    // Add to buttons
+    buttons.forEach(id => {
+      const button = document.getElementById(id);
+      if (button) {
+        button.classList.add('button-highlight');
+      }
+    });
+    
+    // Add to folder button span
+    const folderBtn = document.getElementById('open-folder-button');
+    if (folderBtn) {
+      folderBtn.classList.add('button-highlight');
+    }
+    
+    // Add to terminals
+    const terminals = ['tcmm', 'tasm', 'tveri', 'twave', 'tprism', 'tcmd'];
+    terminals.forEach(id => {
+      const terminal = document.querySelector(`[data-terminal="${id}"]`);
+      if (terminal) {
+        terminal.classList.add('button-highlight');
+      }
+    });
+    
+    // Set up mouseover events for all keywords
+    const keywords = document.querySelectorAll('.keyword');
+    keywords.forEach(keyword => {
+      keyword.addEventListener('mouseover', function() {
+        const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+        const button = document.getElementById(buttonId);
+        
+        if (button) {
+          button.classList.add('button-highlight-active');
+        } else if (buttonId === 'open-folder-button') {
+          const folderButton = document.querySelector('#open-folder-button');
+          if (folderButton) {
+            folderButton.classList.add('button-highlight-active');
+          }
+        }
+      });
+      
+      keyword.addEventListener('mouseout', function() {
+        const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+        const button = document.getElementById(buttonId);
+        
+        if (button) {
+          button.classList.remove('button-highlight-active');
+        } else if (buttonId === 'open-folder-button') {
+          const folderButton = document.querySelector('#open-folder-button');
+          if (folderButton) {
+            folderButton.classList.remove('button-highlight-active');
+          }
+        }
+      });
+    });
+    
+    // Set up mouseover events for terminal keywords
+    const termKeywords = document.querySelectorAll('.terminal-keyword');
+    termKeywords.forEach(keyword => {
+      keyword.addEventListener('mouseover', function() {
+        const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+        const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+        
+        if (terminal) {
+          terminal.classList.add('button-highlight-active');
+        }
+      });
+      
+      keyword.addEventListener('mouseout', function() {
+        const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+        const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+        
+        if (terminal) {
+          terminal.classList.remove('button-highlight-active');
+        }
+      });
+    });
+  });
+</script>
+
   <script src="./js/buttons.js" ></script>
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
@@ -546,6 +687,8 @@
   <script src="./js/sidebar.js"></script>
   <script src="./js/simulationModal.js" type="module"></script>
   <script src="./js/terminal.js"></script>
+  <script src="./js/tooltip.js"></script>
+  <script src="./js/statusUpdater.js"></script>
     </script>
   </body>
 </html>

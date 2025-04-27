@@ -242,7 +242,6 @@ body.dark-mode .resizer-horizontal {
 }
 
 #cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp {
-  padding: 8px;
   background-color: var(--bg-hover);
   color: var(--text-muted);
   cursor: pointer;

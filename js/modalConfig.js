@@ -334,7 +334,7 @@ clearTempButton.addEventListener("click", async () => {
   }
 });
 
-// Saves the current configuration and sends it to the main process
+// Saves the current configuration
 saveConfigButton.addEventListener("click", async () => {
   // Save current processor to temp before saving
   saveCurrentProcessorToTemp();

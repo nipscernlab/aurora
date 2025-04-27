@@ -10,6 +10,8 @@ const { spawn } = require('child_process'); // Used for spawning child processes
 const moment = require("moment"); // For generating timestamps
 const electronFs = require('original-fs'); // Original file system module for Electron
 const url = require('url');
+const log = require('electron-log');
+log.transports.file.level = 'debug';
 
 // Path to store user settings
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -1381,20 +1383,6 @@ ipcMain.handle('load-config', async () => {
 });
 
 
-
-// IPC handler to save configuration
-ipcMain.handle('save-config', async (event, data) => {
-  await ensureConfigDir();
-  try {
-    await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
-    console.log('Configuration saved at:', configFilePath);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to save configuration file:', error);
-    throw error;
-  }
-});
-
 // IPC handler to save configuration
 ipcMain.handle('save-config', async (event, data) => {
   await ensureConfigDir();
@@ -1556,33 +1544,38 @@ ipcMain.handle("delete-backup-folder", async (_, folderPath) => {
   if (!folderPath) {
     return { success: false, message: "No folder open to delete backup!" };
   }
-
+  
   const backupFolderPath = path.join(folderPath, "Backup");
-
-  try {
-    // Verifica se a pasta existe
-    const exists = await fse.pathExists(backupFolderPath);
-    
-    if (!exists) {
-      return { success: false, message: "Backup folder does not exist" };
-    }
-
-    // Exclui a pasta Backup recursivamente
-    await fse.remove(backupFolderPath);
-    
-    return { 
-      success: true, 
-      message: "Backup folder deleted successfully" 
-    };
-  } catch (error) {
-    console.error("Error deleting backup folder:", error);
-    return { 
-      success: false, 
-      message: `Error deleting backup folder: ${error.message}` 
-    };
-  }
+  
+  return new Promise((resolve) => {
+    // Use process.nextTick to avoid blocking the main thread
+    process.nextTick(async () => {
+      try {
+        // Verify folder exists
+        const exists = await fse.pathExists(backupFolderPath);
+        
+        if (!exists) {
+          resolve({ success: false, message: "Backup folder does not exist" });
+          return;
+        }
+        
+        // Delete the Backup folder recursively
+        await fse.remove(backupFolderPath);
+        
+        resolve({
+          success: true,
+          message: "Backup folder deleted successfully"
+        });
+      } catch (error) {
+        log.error("Error deleting backup folder:", error);
+        resolve({
+          success: false,
+          message: `Error deleting backup folder: ${error.message}`
+        });
+      }
+    });
+  });
 });
-
 
 app.whenReady().then(() => {
   // Código existente...
@@ -1657,14 +1650,19 @@ ipcMain.handle('get-app-info', () => {
 
 // Handler to delete a folder
 ipcMain.handle('delete-folder', async (_, folderPath) => {
-  try {
-    await fs.rm(folderPath, { recursive: true, force: true });
-    return true;
-  } catch (error) {
-    console.error('Error deleting folder:', error);
-    throw error;
-  }
+  return new Promise((resolve, reject) => {
+    process.nextTick(async () => {
+      try {
+        await fs.rm(folderPath, { recursive: true, force: true });
+        resolve(true);
+      } catch (error) {
+        log.error('Error deleting folder:', error);
+        reject(error);
+      }
+    });
+  });
 });
+
 
 // Handler to create a "TopLevel" folder and a Verilog (.v) file
 ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {

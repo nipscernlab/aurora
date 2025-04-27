@@ -53,7 +53,7 @@
   }
 
 
-  #refresh-button:hover, #open-folder-button:hover, #create-toplevel-folder:hover {
+  #refresh-button:hover, #open-folder-button:hover, #create-toplevel-folder:hover, #backup-trash-button:hover {
     color: var(--accent-hover);
   }
 

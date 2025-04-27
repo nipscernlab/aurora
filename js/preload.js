@@ -48,7 +48,7 @@ const projectOperations = {
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
   createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
-  getCurrentProject: () => ipcRenderer.invoke('project:getCurrent'),
+  getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   getHardwareFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-hardware-folder-path', processorName, inputDir),
@@ -70,10 +70,14 @@ const projectOperations = {
   onSimulateOpenProject: (callback) => ipcRenderer.on('simulateOpenProject', (_, result) => callback(result)),
   createTclInfoFile: (filePath, processorType, tempPath, binPath) => ipcRenderer.invoke('create-tcl-info-file', { path: filePath, processorType, tempPath, binPath }),
   deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
-  getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath || currentProjectPath),
+  getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
+  deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
 
-  onProcessorCreated: (callback) => ipcRenderer.on('processor-created', (event, data) => callback(data)),
+  onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
+  onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
+  onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
+  saveConfig: (data) => ipcRenderer.send('save-config', data),
 
 
   onUpdateProgress: (callback) => {
@@ -94,6 +98,7 @@ const projectOperations = {
 
 const dialogOperations = {
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
+  getBasename: (fullPath) => path.basename(fullPath),
   selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
   selectCMMFile: () => ipcRenderer.invoke('select-cmm-file'),
@@ -142,7 +147,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openGTKWave: (filePath) => ipcRenderer.invoke('open-gtkwave', filePath),
   
   // Config Operations
-  saveConfig: (data) => ipcRenderer.send('save-config', data),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),
   
   // File Parsing
@@ -185,4 +190,18 @@ let currentProjectPath = null;
 // Adicione um listener para atualizar o caminho do projeto atual
 ipcRenderer.on('project-opened', (event, projectPath) => {
   currentProjectPath = projectPath;
+});
+
+const VERILOG_PATH = path.join(__dirname, 'saphoComponents', 'Packages', 'modules', 'verilog');
+
+contextBridge.exposeInMainWorld('verilogAPI', {
+  loadVerilogFile: async (moduleName) => {
+    try {
+      const filePath = path.join(VERILOG_PATH, `${moduleName}.v`);
+      const content = await fs.readFile(filePath, 'utf8');
+      return { success: true, content };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 });

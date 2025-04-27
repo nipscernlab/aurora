@@ -3,7 +3,7 @@
 class StatusUpdater {
     constructor() {
       this.statusItem = document.querySelector('.status-item:nth-child(2)'); // Place Holder element
-      this.defaultStatus = '';
+      this.defaultStatus = '<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation';
       this.isCompiling = false;
       
       // Initialize - make sure placeholder is empty
@@ -157,7 +157,7 @@ class StatusUpdater {
         
         this.statusItem.style.opacity = opacity;
         
-        if (this.isCompiling) {
+        if (!this.isCompiling) {
           requestAnimationFrame(pulse);
         } else {
           this.statusItem.style.opacity = 1; // Reset opacity when done

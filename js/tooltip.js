@@ -23,28 +23,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const extendedDescriptions = {
         'sidebarMenu': 'Opens the main navigation panel to access the website, report bugs, view GitHub repository, read update news, check keyboard shortcuts, and exit the program.',
   
-  'newProjectBtn': 'Creates a new AURORA .spf project with the complete folder structure and initial configuration files.',
-  'backupFolderBtn': 'Creates a .zip backup of the entire project, making it easy to share or safeguard your work.',
-  'openProjectBtn': 'Opens an existing .spf project and loads it into the workspace.',
-  'projectInfo': 'Displays detailed information and properties about the currently loaded .spf project.',
-  
-  'saveFileBtn': 'Saves any changes made to the currently open file in the Monaco Editor.',
-  
-  'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
-  'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',
-  'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
-  'wavecomp': 'Analyzes Verilog output using VPP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
-  'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
-  'allcomp': 'Performs a full compilation workflow: CMM ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
-  
-  'themeToggle': 'Switches between light and dark themes for optimal comfort based on your environment.',
-  'settings': 'Opens the processor configuration panel to customize hardware parameters and optimization settings.',
-  
-  'info-aurora': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
-  'processorHub': 'Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.',
-  'aiAssistant': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.'
-      }
-      ;
+        'newProjectBtn': 'Creates a new AURORA .spf project with the complete folder structure and initial configuration files.',
+        'backupFolderBtn': 'Creates a .zip backup of the entire project, making it easy to share or safeguard your work.',
+        'openProjectBtn': 'Opens an existing .spf project and loads it into the workspace.',
+        'projectInfo': 'Displays detailed information and properties about the currently loaded .spf project.',
+        
+        'saveFileBtn': 'Saves any changes made to the currently open file in the Monaco Editor.',
+        
+        'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
+        'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',
+        'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
+        'wavecomp': 'Analyzes Verilog output using VPP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
+        'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
+        'allcomp': 'Performs a full compilation workflow: CMM ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
+        
+        'themeToggle': 'Switches between light and dark themes for optimal comfort based on your environment.',
+        'settings': 'Opens the processor configuration panel to customize hardware parameters and optimization settings.',
+        
+        'info-aurora': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
+        'processorHub': 'Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.',
+        'aiAssistant': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.',
+        'current-spf-name': 'Project Currently Open',
+        'verilog-block': 'Browse and Insert a Prebuilt Verilog Module into Your Project. Most modules are generic and FPGA-agnostic, but always review before integrating.'
+
+      };
   
     // Add mouse events to all buttons
     buttons.forEach(button => {

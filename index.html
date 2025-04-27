@@ -32,6 +32,8 @@
   <link rel="stylesheet" href="./css/modalConfig.css">
   <link rel="stylesheet" href="./css/tooltip.css">
   <link rel="stylesheet" href="./css/statusUpdater.css">
+  <link rel="stylesheet" href="./css/blockmodal.css">
+
 </head>
 
 <body class="theme-dark">
@@ -92,6 +94,9 @@
       </button>
       <button id="info-aurora" class="toolbar-button">
         <i class="fa-solid fa-circle-info" titles="Info Aurora"></i>
+      </button>
+      <button id="verilog-block" class="toolbar-button">
+        <i class="fa-solid fa-code" titles="Verilog Block Code"></i>
       </button>
     </div>
   </div>
@@ -202,7 +207,7 @@
       <ul class="update-list">
         <li>Performance improvements and critical bug fixes</li>
         <li>Interface adjustments for better usability</li>
-        <li>Added /saphoComponents/Packages/iverilog folder</li>
+        <li>Added /saphoComponents/<br>Packages/iverilog folder</li>
         <li>Improved add-to-path script</li>
         <li>Removed standard compilation (all compilations are std now)</li>
         <li>Added syntax highlighting for .cmm and .asm files</li>
@@ -390,8 +395,8 @@
     <div class="file-tree-container">
       <div class="file-tree-header">
         <span>EXPLORER</span>
-        <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><br>
-        <span id="current-spf-name">No project open</span>
+        <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><span title="Delete Backup Folder" id="backup-trash-button" style="cursor: pointer;"> <i class="fa-solid fa-trash-can"></i></span><br>
+        <span id="current-spf-name" title="Project Currently Open">No project open</span>
         <span title="Open Project Folder" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i></span>
         <span title="Create TopLevel Folder & .v File" id="create-toplevel-folder" style="cursor: pointer;"><i class="fa-solid fa-folder-plus"></i></span>
       </div>
@@ -433,10 +438,9 @@
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>
-          <div class="terminal-body">
-   Welcome to the TCMM Terminal!
-            <br>
-  To create a Processor project, click on <span class="keyword" onclick="activateButton('newProjectBtn')">New Project</span>. Give your project a name and select the installation location. Then, the .spf project will open automatically and the <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> button will be enabled. If you already have a created project, click on <span class="keyword" onclick="activateButton('openProjectBtn')">Open Project</span>.
+          <div class="terminal-body">Welcome to the TCMM Terminal!
+
+  To create a Processor project, click on <span class="keyword" onclick="activateButton('newProjectBtn')">New Project</span>. Give your project a name and select the installation location. Then, the .spf project will open automatically and the <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> button will be enabled. If you already have a created project, click on <span class="keyword" onclick="activateButton('openProjectBtn')">Open Project</span>
             <br>
   Click on <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> to create a processor with all parameters pre-defined by you. Program your processor using the CMM language in the .cmm file within the Software folder of your project. When modifying a file, click on <span class="keyword" onclick="activateButton('saveFileBtn')">Save</span> to save it. 
             <br>
@@ -448,7 +452,7 @@
             <br>
   If you want to switch the IDE theme between light and dark, click on <span class="keyword" onclick="activateButton('themeToggle')">Toggle Theme</span>.
             <br>
-   Want to view information about the current project? Click on <span class="keyword" onclick="activateButton('projectInfo')">Project Info</span>. Information about the IDE version, Chromium, Node.js, Electron, and Windows is available in the <span class="keyword" onclick="activateButton('info-aurora')">Info Aurora</span> button. There's more in <span class="keyword" onclick="activateButton('sidebarMenu')">Menu</span>.
+   Want to view information about the current project? Click on <span class="keyword" onclick="activateButton('projectInfo')">Project Info</span>. Information about the IDE version, Chromium, Node.js, Electron, and Windows is available in the <span class="keyword" onclick="activateButton('info-aurora')">Info Aurora</span> button. There's more in <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>.
           </div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
@@ -520,7 +524,7 @@
 
 <div class="status-bar">
   <div class="status-item">Ready</div>
-  <div class="status-item"></div>
+  <div class="status-item"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
   <div class="status-item" id="editorStatus">Line 1, Column 1</div>
 </div>
 
@@ -551,6 +555,266 @@
     </div>
     <div id="multicore-modal-body">
       <!-- Content from multicore.html will be loaded here -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal principal -->
+<div id="verilog-modal" class="modal-wrapper hidden">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h2>Módulos Verilog</h2>
+      <div class="search-container">
+        <input type="text" id="module-search" placeholder="Pesquisar módulos..." class="search-input">
+        <i class="fa-solid fa-search search-icon"></i>
+      </div>
+      <button id="close-modal" class="modal-close-btn">
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Categorias de módulos -->
+      <div class="categories-container">
+        <h3>Categorias</h3>
+        <ul class="categories-list">
+          <li class="category-item active" data-category="all">Todos</li>
+          <li class="category-item" data-category="timing">Timing & Sincronização</li>
+          <li class="category-item" data-category="memory">Memória & Registros</li>
+          <li class="category-item" data-category="math">Matemática & Cálculo</li>
+          <li class="category-item" data-category="communication">Comunicação</li>
+          <li class="category-item" data-category="utility">Utilitários</li>
+        </ul>
+      </div>
+      
+      <!-- Lista de módulos -->
+      <div class="modules-container">
+        <div class="modules-list">
+          <!-- Timing & Sincronização -->
+          <div class="module-card" data-category="timing">
+            <div class="module-header">
+              <h4>button_debounce.v</h4>
+              <span class="module-tag">Timing</span>
+            </div>
+            <p class="module-description">Timing-based button debouncing circuit.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="button_debounce">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="timing">
+            <div class="module-header">
+              <h4>reset.v</h4>
+              <span class="module-tag">Timing</span>
+            </div>
+            <p class="module-description">Implements a "good" reset with asynchronous assertion and synchronous de-assertion.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="reset">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Memória & Registros -->
+          <div class="module-card" data-category="memory">
+            <div class="module-header">
+              <h4>pipeline_registers.v</h4>
+              <span class="module-tag">Registros</span>
+            </div>
+            <p class="module-description">A parameterized number of pipeline registers of some depth and width. Útil como bloco para outros módulos.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="pipeline_registers">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="memory">
+            <div class="module-header">
+              <h4>pipeline_registers_set.v</h4>
+              <span class="module-tag">Registros</span>
+            </div>
+            <p class="module-description">Pipeline registers with the ability to set the value of the registers.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="pipeline_registers_set">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="memory">
+            <div class="module-header">
+              <h4>ram_infer.v</h4>
+              <span class="module-tag">Memória</span>
+            </div>
+            <p class="module-description">Xilinx standard module that will infer RAM during FPGA synthesis.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="ram_infer">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Matemática & Cálculo -->
+          <div class="module-card" data-category="math">
+            <div class="module-header">
+              <h4>sign_extender.v</h4>
+              <span class="module-tag">Matemática</span>
+            </div>
+            <p class="module-description">Explicit sign extender (necessário em Verilog)</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="sign_extender">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="math">
+            <div class="module-header">
+              <h4>sqrt_pipelined.v</h4>
+              <span class="module-tag">Matemática</span>
+              <span class="module-deprecated">Deprecated</span>
+            </div>
+            <p class="module-description">A pipelined implementation of a fixed point square root. Deprecated devido à complexidade e arredondamento incorreto.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="sqrt_pipelined">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="math">
+            <div class="module-header">
+              <h4>sqrt_generic.v</h4>
+              <span class="module-tag">Matemática</span>
+            </div>
+            <p class="module-description">A refactor of sqrt_pipelined.v com sintaxe mais limpa. Usa truncamento implícito e tende para infinito negativo.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="sqrt_generic">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="math">
+            <div class="module-header">
+              <h4>div_pipelined.v</h4>
+              <span class="module-tag">Matemática</span>
+              <span class="module-warning">Em teste</span>
+            </div>
+            <p class="module-description">Pipelined division module (largely untested)</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="div_pipelined">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Comunicação -->
+          <div class="module-card" data-category="communication">
+            <div class="module-header">
+              <h4>uart_rx.v</h4>
+              <span class="module-tag">UART</span>
+            </div>
+            <p class="module-description">UART receiver.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="uart_rx">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="module-card" data-category="communication">
+            <div class="module-header">
+              <h4>uart_tx.v</h4>
+              <span class="module-tag">UART</span>
+            </div>
+            <p class="module-description">UART transmitter.</p>
+            <div class="module-actions">
+              <button class="module-select-btn">
+                <i class="fa-solid fa-plus"></i> Selecionar
+              </button>
+              <button class="module-info-btn" data-module="uart_tx">
+                <i class="fa-solid fa-info-circle"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Mensagem quando nenhum módulo é encontrado -->
+        <div id="no-modules-message" class="hidden">
+          <div class="no-results">
+            <i class="fa-solid fa-search"></i>
+            <p>Nenhum módulo encontrado.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <div class="modal-stats">
+        <span id="modules-count">10 módulos encontrados</span>
+      </div>
+      <button id="modal-cancel" class="modal-btn modal-btn-secondary">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para visualização de código Verilog -->
+<div id="verilog-code-modal" class="code-modal-wrapper hidden">
+  <div class="code-modal-container">
+    <div class="code-modal-header">
+      <h2 id="code-modal-title">Verilog Module</h2>
+      <div class="modal-actions">
+        <button id="copy-code-btn" class="icon-btn" title="Copiar código">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+        <button id="close-code-modal" class="modal-close-btn">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+    </div>
+    
+    <div class="code-modal-body">
+      <div class="code-container">
+        <pre><code id="verilog-code-content" class="verilog-code"></code></pre>
+      </div>
+    </div>
+    
+    <div class="code-modal-footer">
+      <button id="code-modal-close" class="modal-btn modal-btn-secondary">Fechar</button>
     </div>
   </div>
 </div>
@@ -679,7 +943,7 @@
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
   <script src="./js/modalConfig.js" type="module"></script>
-  <script src="./js/multicore.js"></script>
+  <!-- <script src="./js/multicore.js"></script> -->
   <script src="./js/news.js" ></script>
   <script src="./js/renderer.js"></script>
   <script src="./js/report.js" type="module"></script>
@@ -689,6 +953,7 @@
   <script src="./js/terminal.js"></script>
   <script src="./js/tooltip.js"></script>
   <script src="./js/statusUpdater.js"></script>
+  <script src="./js/blockModal.js"></script>
     </script>
   </body>
 </html>

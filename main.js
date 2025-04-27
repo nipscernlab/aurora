@@ -614,22 +614,6 @@ ipcMain.handle('select-directory', async () => {
 // Variable to track the current open project path
 let currentOpenProjectPath = null;
 
-// Update your openProject handler to store the project path
-ipcMain.handle('openProject', async (event, spfPath) => {
-  try {
-    // Your existing code...
-    
-    // Store the current project path for reference in other handlers
-    currentOpenProjectPath = spfPath;
-    
-    // Rest of your existing code...
-    return { projectData, files };
-  } catch (error) {
-    console.error('Error opening project:', error);
-    throw error;
-  }
-});
-
 
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentOpenProjectPath = projectPath;
@@ -654,24 +638,58 @@ ipcMain.handle('delete-processor', async (event, processorName) => {
     const processorDir = path.join(projectDir, processorName);
     
     // Check if processor directory exists
-    await fse.access(processorDir);
+    const dirExists = await fse.pathExists(processorDir);
     
-    // Delete processor directory
-    await fse.remove(processorDir);
+    if (dirExists) {
+      // Delete processor directory
+      await fse.remove(processorDir);
+    }
     
-    // Update project file
-    // Remove processor from structure
-    projectData.structure.processors = projectData.structure.processors.filter(
-      processor => processor.name !== processorName
-    );
+    // Update project file - Remove processor from structure
+    if (projectData.structure.processors) {
+      projectData.structure.processors = projectData.structure.processors.filter(
+        processor => processor.name !== processorName
+      );
+      
+      // Write updated project file
+      await fse.writeFile(currentOpenProjectPath, JSON.stringify(projectData, null, 2));
+    }
     
-    // Write updated project file
-    await fse.writeFile(currentOpenProjectPath, JSON.stringify(projectData, null, 2));
+    // Notify the renderer about the processor list update
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (focusedWindow) {
+      focusedWindow.webContents.send('project:processors', { 
+        processors: projectData.structure.processors.map(p => p.name),
+        projectPath: projectData.structure.basePath
+      });
+    }
     
     return { success: true };
   } catch (error) {
     console.error('Error deleting processor:', error);
     throw error;
+  }
+});
+
+// Add a new IPC handler to check current open project
+ipcMain.handle('get-current-project', async () => {
+  if (!currentOpenProjectPath) {
+    return { projectOpen: false };
+  }
+  
+  try {
+    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    
+    return { 
+      projectOpen: true, 
+      projectPath: projectData.structure.basePath,
+      spfPath: currentOpenProjectPath,
+      processors: projectData.structure.processors.map(p => p.name)
+    };
+  } catch (error) {
+    console.error('Error getting current project:', error);
+    return { projectOpen: false };
   }
 });
 
@@ -757,31 +775,50 @@ void main()
 // Método para obter a lista de processadores disponíveis
 ipcMain.handle('get-available-processors', async (event, projectPath) => {
   try {
-    // Se não há projectPath, retornar uma lista vazia
-    if (!projectPath) {
-      return [];
-    }
-
-    // Ler o arquivo SPF
-    const spfPath = path.join(projectPath, `${path.basename(projectPath)}.spf`);
-    try {
-      const spfContent = await fse.readFile(spfPath, 'utf8');
-      const spfData = JSON.parse(spfContent);
+    // First try to use currentOpenProjectPath (most reliable)
+    if (currentOpenProjectPath && await fse.pathExists(currentOpenProjectPath)) {
+      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+      const projectData = JSON.parse(spfData);
       
-      // Extrair nomes dos processadores
-      if (spfData && spfData.structure && Array.isArray(spfData.structure.processors)) {
-        return spfData.structure.processors.map(p => p.name);
+      if (projectData.structure && projectData.structure.processors) {
+        return projectData.structure.processors.map(p => p.name);
       }
-      return [];
-    } catch (err) {
-      console.error('Error reading SPF file:', err);
-      return [];
     }
+    
+    // If that fails, try to find the SPF file using the provided projectPath
+    if (projectPath) {
+      // Check if projectPath is a directory or an SPF file
+      const stats = await fse.stat(projectPath);
+      let spfPath;
+      
+      if (stats.isDirectory()) {
+        // Find SPF file in the directory
+        const files = await fse.readdir(projectPath);
+        const spfFile = files.find(file => file.endsWith('.spf'));
+        if (spfFile) {
+          spfPath = path.join(projectPath, spfFile);
+        }
+      } else if (projectPath.endsWith('.spf')) {
+        spfPath = projectPath;
+      }
+      
+      if (spfPath && await fse.pathExists(spfPath)) {
+        const spfData = await fse.readFile(spfPath, 'utf8');
+        const projectData = JSON.parse(spfData);
+        
+        if (projectData.structure && projectData.structure.processors) {
+          return projectData.structure.processors.map(p => p.name);
+        }
+      }
+    }
+    
+    return [];
   } catch (error) {
-    console.error('Error in get-available-processors:', error);
-    throw error;
+    console.error('Error getting available processors:', error);
+    return [];
   }
 });
+
 
 // Handler to get the hardware folder path
 ipcMain.handle('get-hardware-folder-path', async (event, processorName, inputDir) => {
@@ -961,6 +998,9 @@ ipcMain.handle('project:open', async (_, spfPath) => {
       }
     }
 
+    // Set the current open project path - IMPORTANT!
+    currentOpenProjectPath = spfPath;
+
     const spfContent = await fse.readFile(spfPath, 'utf8');
     const projectData = JSON.parse(spfContent);
     
@@ -1012,6 +1052,12 @@ ipcMain.handle('project:open', async (_, spfPath) => {
     
     // Notify the renderer process to enable the Processor Hub
     focusedWindow.webContents.send('project:processorHubState', { enabled: true });
+    
+    // Send processor list to the renderer 
+    focusedWindow.webContents.send('project:processors', { 
+      processors: projectData.structure.processors.map(p => p.name),
+      projectPath: projectData.structure.basePath
+    });
 
     return {
       projectData,
@@ -1321,6 +1367,20 @@ ipcMain.on('save-config', async (event, data) => {
   }
 });
 
+// IPC handler to save configuration
+ipcMain.handle('save-config', async (event, data) => {
+  await ensureConfigDir();
+  try {
+    await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
+    console.log('Configuration saved at:', configFilePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to save configuration file:', error);
+    throw error;
+  }
+});
+
+
 // IPC handler to join paths
 ipcMain.handle('join-path', (event, ...paths) => {
   if (paths[0] === 'saphoComponents') {
@@ -1410,10 +1470,6 @@ ipcMain.handle('folder:open', async (_, folderPath) => {
 });
 
 // Context: Backup creation using 7-Zip
-
-// Path to 7-Zip executable
-const sevenZipPath = "7z";
-
 // IPC handler to create a backup of a folder
 ipcMain.handle("create-backup", async (_, folderPath) => {
   if (!folderPath) {
@@ -1465,7 +1521,59 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
   }
 });
 
-// Context: Temporary folder management
+// Path to 7-Zip executable
+const sevenZipPath = "7z";
+// IPC handler para excluir a pasta Backup
+ipcMain.handle("delete-backup-folder", async (_, folderPath) => {
+  if (!folderPath) {
+    return { success: false, message: "No folder open to delete backup!" };
+  }
+
+  const backupFolderPath = path.join(folderPath, "Backup");
+
+  try {
+    // Verifica se a pasta existe
+    const exists = await fse.pathExists(backupFolderPath);
+    
+    if (!exists) {
+      return { success: false, message: "Backup folder does not exist" };
+    }
+
+    // Exclui a pasta Backup recursivamente
+    await fse.remove(backupFolderPath);
+    
+    return { 
+      success: true, 
+      message: "Backup folder deleted successfully" 
+    };
+  } catch (error) {
+    console.error("Error deleting backup folder:", error);
+    return { 
+      success: false, 
+      message: `Error deleting backup folder: ${error.message}` 
+    };
+  }
+});
+
+
+app.whenReady().then(() => {
+  // Código existente...
+  
+  // Garantir que a pasta js existe para o gerenciador de blocos Verilog
+  const jsDir = path.join(app.getAppPath(), 'js');
+  if (!fs.existsSync(jsDir)) {
+    fs.mkdirSync(jsDir, { recursive: true });
+  }
+  
+  // Criar o arquivo verilog-block-manager.js se ele não existir
+  const verilogBlockManagerPath = path.join(jsDir, 'verilog-block-manager.js');
+  if (!fs.existsSync(verilogBlockManagerPath)) {
+    fs.copyFileSync(
+      path.join(app.getAppPath(), 'js', 'verilog-block-manager.js'),
+      verilogBlockManagerPath
+    );
+  }
+});
 
 // IPC handler to clear the Temp folder
 ipcMain.handle('clear-temp-folder', async () => {
@@ -1641,3 +1749,4 @@ ipcMain.on('quit-app', () => {
     app.quit();
   }, 5000);
 });
+

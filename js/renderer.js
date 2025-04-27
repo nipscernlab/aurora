@@ -1455,6 +1455,94 @@ async function refreshFileTree() {
   }
 }
 
+function showNotification(message, type = 'info') {
+  console.log(`[${type}] ${message}`);
+  
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  notification.style.position = 'fixed';
+  notification.style.bottom = '30px';
+  notification.style.right = '30px';
+  notification.style.maxWidth = '400px';
+  notification.style.padding = '12px 20px';
+  notification.style.borderRadius = '8px';
+  notification.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
+  notification.style.fontSize = '14px';
+  notification.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+  notification.style.color = 'white';
+  notification.style.zIndex = '9999';
+  notification.style.opacity = '0';
+  notification.style.transform = 'translateY(20px)';
+  notification.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+  
+  // Estilo baseado no tipo de notificação
+  if (type === 'error') {
+    notification.style.backgroundColor = '#e74c3c'; // vermelho suave
+  } else if (type === 'success') {
+    notification.style.backgroundColor = '#2ecc71'; // verde suave
+  } else {
+    notification.style.backgroundColor = '#3498db'; // azul suave
+  }
+
+  document.body.appendChild(notification);
+
+  // Forçar reflow para ativar a transição
+  requestAnimationFrame(() => {
+    notification.style.opacity = '1';
+    notification.style.transform = 'translateY(0)';
+  });
+
+  // Remover a notificação após 3 segundos
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 400); // deve combinar com o tempo de transição
+  }, 3000);
+}
+
+// Listener para o botão de excluir backup
+document.addEventListener('DOMContentLoaded', () => {
+  const backupTrashButton = document.getElementById('backup-trash-button');
+  
+  if (backupTrashButton) {
+    backupTrashButton.addEventListener('click', async () => {
+      try {
+        // Obter o caminho da pasta atualmente aberta
+        const currentFolderPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+
+        if (!currentFolderPath) {
+          showNotification('No open project to delete backup!', 'error');
+          return;
+        }
+        
+        // Confirmação antes de excluir
+        const confirmDelete = confirm('Do you really want to delete the backup folder? This action cannot be undone.');
+        
+        if (!confirmDelete) {
+          return;
+        }
+        
+        // Chamar o handler IPC para excluir a pasta de backup
+        const result = await window.electronAPI.deleteBackupFolder(currentFolderPath);
+        
+        if (result.success) {
+          showNotification('Backup folder deleted successfully', 'success');
+          refreshFileTree();
+        } else {
+          showNotification(`Error deleting backup folder: ${result.message}`, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting backup folder:', error);
+        showNotification('Error deleting backup folder', 'error');
+      }
+    });
+  }
+});
+
 const style = document.createElement('style');
 style.textContent = `
   @keyframes refresh-fade {
@@ -1537,10 +1625,15 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-
-// Atualizar a função renderFileTree para usar o estado
 function renderFileTree(files, container, level = 0, parentPath = '') {
-  files.forEach(file => {
+  // Filtrar arquivos .spf antes de renderizar
+  const filteredFiles = files.filter(file => {
+    if (file.type === 'directory') return true;
+    const extension = file.name.split('.').pop().toLowerCase();
+    return extension !== 'spf';
+  });
+  
+  filteredFiles.forEach(file => {
     const itemWrapper = document.createElement('div');
     itemWrapper.className = 'file-tree-item';
 
@@ -1561,7 +1654,6 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
       const childContainer = document.createElement('div');
       childContainer.className = 'folder-content';
       
-      // Verificar se a pasta estava expandida anteriormente
       const wasExpanded = FileTreeState.isExpanded(filePath);
       if (!wasExpanded) {
         childContainer.classList.add('hidden');
@@ -1580,7 +1672,6 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         icon.classList.toggle('fa-folder');
         icon.classList.toggle('fa-folder-open');
         
-        // Armazenar o estado da pasta
         FileTreeState.toggleFolder(filePath, !isExpanded);
       };
 
@@ -1593,16 +1684,20 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
       itemWrapper.appendChild(item);
       itemWrapper.appendChild(childContainer);
     } else {
-      icon.className = TabManager.getFileIcon(file.name);
-      // Adicionar o data-path ao wrapper do item
+      // Definir o ícone baseado na extensão
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (extension === 'zip' || extension === '7z') {
+        icon.className = 'fa-solid fa-file-zipper file-item-icon';
+      } else {
+        icon.className = TabManager.getFileIcon(file.name);
+      }
+
       itemWrapper.setAttribute('data-path', file.path);
-      
-      // Modificar o evento de clique para abrir o arquivo e destacá-lo
+
       item.addEventListener('click', async () => {
         try {
           const content = await window.electronAPI.readFile(file.path);
           TabManager.addTab(file.path, content);
-          // O highlight será feito automaticamente pelo TabManager.activateTab
         } catch (error) {
           console.error('Error opening file:', error);
         }
@@ -1620,6 +1715,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
     container.appendChild(itemWrapper);
   });
 }
+
 
 // Função para monitorar mudanças na pasta com debounce
 let watcherTimeout = null;
@@ -1887,7 +1983,7 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
       await loadProject(currentProjectPath);
       
       // Atualiza o nome do projeto na interface
-      const projectName = path.basename(currentProjectPath);
+      const projectName = window.electronAPI.getBasename(currentProjectPath);
       updateProjectNameUI({
         metadata: {
           projectName: projectName
@@ -2357,7 +2453,7 @@ function initAIAssistant() {
   header.className = 'ai-assistant-header';
   header.innerHTML = `
   <div style="display: flex; align-items: center; gap: 8px;">
-    <span class="ai-assistant-title">AI Assistant</span>
+    <img src="./assets/icons/clean.png" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;"><span class="ai-assistant-title">AI Assistant</span>
     <select id="ai-provider-select" style="background: var(--background, #2d2d2d); color: var(--text-color, #ffffff); border: 1px solid var(--border-color, #404040); border-radius: 4px; padding: 2px;">
       <option value="chatgpt">ChatGPT</option>
       <option value="claude">Claude</option>
@@ -2413,6 +2509,62 @@ function toggleAIAssistant() {
   }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  // Configurar o evento de clique no botão verilog-block
+  const verilogBlockBtn = document.getElementById('verilog-block');
+  if (verilogBlockBtn) {
+    verilogBlockBtn.addEventListener('click', () => {
+      // Mostrar o modal - sem verificação de arquivo .v
+      const modal = document.getElementById('verilog-block-modal');
+      if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+          modal.classList.add('show');
+          const searchBox = document.getElementById('block-search');
+          if (searchBox) searchBox.focus();
+        }, 10);
+      }
+    });
+  }
+  
+  // Configurar o botão de fechar modal
+  const closeModalBtn = document.getElementById('close-modal');
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      const modal = document.getElementById('verilog-block-modal');
+      if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+          modal.style.display = 'none';
+        }, 300);
+      }
+    });
+  }
+  
+  // Fechar modal com ESC ou clicando fora
+  window.addEventListener('click', (event) => {
+    const modal = document.getElementById('verilog-block-modal');
+    if (event.target === modal) {
+      modal.classList.remove('show');
+      setTimeout(() => {
+        modal.style.display = 'none';
+      }, 300);
+    }
+  });
+  
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      const modal = document.getElementById('verilog-block-modal');
+      if (modal && modal.style.display === 'flex') {
+        modal.classList.remove('show');
+        setTimeout(() => {
+          modal.style.display = 'none';
+        }, 300);
+      }
+    }
+  });
+});
+
 function setupAIAssistantResize(resizer) {
   let isResizing = false;
   let startX, startWidth;
@@ -2457,10 +2609,10 @@ window.onload = () => {
 
   // Add AI Assistant button to toolbar
   const toolbar = document.querySelector('.toolbar');
-  const aiButton = document.createElement('button');
+  const aiButton = document.createElement('aiButton');
 
-  aiButton.className = ' id="aiAssistant" toolbar-icon rainbow btn';
-  aiButton.innerHTML = '<i class="fas fa-robot"></i>';
+  aiButton.className = 'toolbar-button button-highlight rainbow btn';
+  aiButton.innerHTML = '<img src="./assets/icons/clean.png" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;">';
   aiButton.id = 'aiAssistant';
   aiButton.addEventListener('click', toggleAIAssistant);
   toolbar.appendChild(aiButton);
@@ -2648,7 +2800,9 @@ async loadConfig() {
 async asmCompilation(processor, asmPath)
 {
     const { name, clk, numClocks } = processor;
-    const   multicoreEnabled       = document.querySelector('input[id="multicore"]').checked;
+    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
+    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : true;
+    //const   multicoreEnabled       = document.querySelector('input[id="multicore"]').checked;
     
     try {
         const projectPath    = await window.electronAPI.joinPath(currentProjectPath, name                 );
@@ -2670,13 +2824,9 @@ async asmCompilation(processor, asmPath)
                        await refreshFileTree();
       
         if (result.stdout) this.terminalManager.appendToTerminal('tasm', result.stdout, 'stdout');
-        if (result.stderr) this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr')
-          statusUpdater.compilationError('asm', error.message);
-        ;
+        if (result.stderr) this.terminalManager.appendToTerminal('tasm', result.stderr, 'stderr');
 
-        if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`)
-          statusUpdater.compilationError('asm', error.message);
-        ;
+        if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`);
         
 
         cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 ${multicoreEnabled}`;
@@ -2689,13 +2839,9 @@ async asmCompilation(processor, asmPath)
                        await refreshFileTree();
       
         if (resasm.stdout) this.terminalManager.appendToTerminal('tasm', resasm.stdout, 'stdout');
-        if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr')
-          statusUpdater.compilationError('asm', error.message);
-        ;
+        if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr');
 
-        if (resasm.code !== 0) throw new Error(`ASM compilation failed with code ${resasm.code}`)
-          statusUpdater.compilationError('asm', error.message);
-        ;
+        if (resasm.code !== 0) throw new Error(`ASM compilation failed with code ${resasm.code}`);
 
         // Copia o testbench
         const testbenchSource      = await window.electronAPI.joinPath(tempPath      , `${name}_tb.v`);
@@ -2717,11 +2863,14 @@ async iverilogCompilation(processor, simConfig) {
   const { name } = processor;
   
   // Check if multicore is active
-  const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
-  
+  const multicoreCheckbox = document.querySelector('input[id="multicore"]');
+  const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
+  //const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
+
   if (multicoreEnabled) {
       // Multicore compilation
       this.terminalManager.appendToTerminal('tveri', `Starting Multicore Icarus Verilog compilation...`);
+      statusUpdater.startCompilation('verilog');
       
       try {
           const appPath = await window.electronAPI.getAppPath();
@@ -2775,7 +2924,8 @@ async iverilogCompilation(processor, simConfig) {
           const cmd = `cd "${tempPath}" && iverilog ${flags} -s ${selectedTb.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempPath, `${projectName}.vvp`)}" "${await window.electronAPI.joinPath(topLevelPath, selectedTb)}" ${verilogFilesString}`;
           
           this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
-          
+          statusUpdater.startCompilation('verilog');
+
           const result = await window.electronAPI.execCommand(cmd);
           
           if (result.stdout) {
@@ -2786,6 +2936,7 @@ async iverilogCompilation(processor, simConfig) {
           }
           
           if (result.code !== 0) {
+              statusUpdater.compilationError('verilog', error.message);
               throw new Error(`Multicore Icarus Verilog compilation failed with code ${result.code}`);
           }
           
@@ -2837,6 +2988,8 @@ async iverilogCompilation(processor, simConfig) {
           
           this.terminalManager.appendToTerminal('tveri', 'Multicore Verilog compilation and simulation completed successfully.');
           
+          statusUpdater.compilationSuccess('verilog');
+
           await refreshFileTree();
           
           // Use the selected GTKW file for visualization
@@ -2855,6 +3008,8 @@ async iverilogCompilation(processor, simConfig) {
   } else {
       // Original single-core compilation (your existing code)
       this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+      statusUpdater.startCompilation('verilog');
+
      
   try {
       const appPath = await window.electronAPI.getAppPath();
@@ -2904,16 +3059,21 @@ async iverilogCompilation(processor, simConfig) {
       }
       
       if (result.code !== 0) {
+        statusUpdater.compilationError('verilog', error.message);
+
           throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+          
       }
       
       this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.');
+      statusUpdater.compilationSuccess('verilog');
 
       await refreshFileTree();
 
       
     } catch (error) {
       this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+      statusUpdater.compilationError('verilog', error.message);
       throw error;
     }
   }
@@ -2923,7 +3083,9 @@ async iverilogCompilation(processor, simConfig) {
     const { name } = processor;
     
     // Check if multicore is active
-    const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
+    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
+    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
+    //const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
     
     if (multicoreEnabled) {
         // Multicore compilation
@@ -3169,8 +3331,12 @@ async iverilogCompilation(processor, simConfig) {
 async runGtkWave(processor, simConfig) {
     const { name } = processor;
     this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+    
+    statusUpdater.startCompilation('wave');
 
-    const multicoreEnabled = document.querySelector('#multicore input[type="checkbox"]').checked;
+    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
+    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
+    //const multicoreEnabled = document.querySelector('#multicore input[type="checkbox"]').checked;
     if (multicoreEnabled) {
         this.terminalManager.appendToTerminal('twave', `Multicore enabled, skipping GTKWave for ${processor.name}.`);
         return; // Don't run the function if multicore is enabled
@@ -3190,6 +3356,8 @@ async runGtkWave(processor, simConfig) {
         
         // Criar o conteúdo do arquivo
         const tclContent = `${tempPath}\n${binPath}\n`;
+
+
         
         // Escrever o arquivo
         await window.electronAPI.writeFile(tclFilePath, tclContent);
@@ -3226,9 +3394,13 @@ async runGtkWave(processor, simConfig) {
         }
         
         this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.');
+
+        statusUpdater.compilationSuccess('wave');
+
         
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('wave', error.message);
         throw error;
     }
 }
@@ -3303,7 +3475,8 @@ async copyFile(sourcePath, destPath) {
 async prismComp(processor, simConfig) {
   const { name } = processor;
   this.terminalManager.appendToTerminal('tprism', `Starting PRISM compilation for ${name}...`);
-  
+  statusUpdater.startCompilation('prism');
+
   try {
     // Definir caminhos
     const appPath = await window.electronAPI.getAppPath();
@@ -3362,6 +3535,7 @@ async prismComp(processor, simConfig) {
         } catch (error) {
           console.error(`Error running netlistsvg for ${jsonFile}:`, error);
           this.terminalManager.appendToTerminal('tprism', `Error running netlistsvg for ${jsonFile}: ${error.message}`, 'error');
+          statusUpdater.compilationError('prism', error.message);
           continue;
         }
 
@@ -3382,8 +3556,10 @@ async prismComp(processor, simConfig) {
         await this.deleteFile(svgPath);
 
         this.terminalManager.appendToTerminal('tprism', `Processed ${jsonFile} successfully.`);
+
       } catch (fileError) {
         this.terminalManager.appendToTerminal('tprism', `Error processing ${jsonFile}: ${fileError.message}`, 'error');
+        statusUpdater.compilationError('prism', error.message);
       }
     }
 
@@ -3398,9 +3574,11 @@ async prismComp(processor, simConfig) {
     }
 
     this.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully.');
+    statusUpdater.compilationSuccess('prism');
 
   } catch (error) {
     this.terminalManager.appendToTerminal('tprism', `Error during PRISM compilation: ${error.message}`, 'error');
+    statusUpdater.compilationError('prism', error.message);
     throw error;
   }
 }
@@ -3408,6 +3586,7 @@ async prismComp(processor, simConfig) {
     // No método compileAll() da classe CompilationModule
     async compileAll() {
       try {
+        statusUpdater.startCompilation('all');
         await this.loadConfig();
         for (const processor of this.config.processors) {
           await this.ensureDirectories(processor.name);
@@ -3423,13 +3602,16 @@ async prismComp(processor, simConfig) {
           
           // Pass simConfig to iverilogCompilation
           await this.iverilogCompilation(processor, simConfig);
-          
+          await this.runGtkWave(processor, simConfig);
+          statusUpdater.compilationSuccess('all');
+
           // Adicionar chamada para prismComp
           // await this.prismComp(processor, simConfig);
         }
         return true;
       } catch (error) {
         console.error('Compilation error:', error);
+        statusUpdater.compilationError('all', error.message);
         return false;
       }
     }
@@ -3974,4 +4156,3 @@ newsIcon.addEventListener('click', openNewsSidebar);
 document.getElementById('settingsButton').addEventListener('click', () => {
   ipcRenderer.send('open-settings');
 });
-

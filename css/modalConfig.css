@@ -745,303 +745,372 @@ button:disabled::after {
     border-radius: 4px;
 }
 
-/* Config Modal Styles */
-.config-modal {
-  display: flex;
+.mconfig-modal {
+  display: none;
   position: fixed;
-  z-index: 999;
+  z-index: 1000;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.6);
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.mconfig-modal.active {
+  opacity: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
-.config-modal.active {
-  opacity: 1;
-}
-
-.config-modal-content {
-  background-color: #2a2a2a;
+.mconfig-modal-content {
+  background-color: var(--bg-tertiary);
+  margin: 2rem auto;
+  width: 95%;
+  max-width: 600px;
   border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-  width: 80%;
-  max-width: 700px;
-  max-height: 90vh;
-  overflow-y: auto;
-  color: #e0e0e0;
-  display: flex;
-  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: mconfigSlideIn 0.3s ease;
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
 }
 
-.config-modal-header {
+@keyframes mconfigSlideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.mconfig-modal-header {
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border-primary);
 }
 
-.config-modal-header h2 {
+.mconfig-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.75rem;
+  font-weight: 600;
 }
 
-.config-close-btn {
-  background: none;
+.mconfig-title i {
+  color: var(--icon-primary);
+}
+
+.mconfig-close-btn {
+  background: transparent;
   border: none;
-  font-size: 24px;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
   cursor: pointer;
-  color: #aaa;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
 }
 
-.config-close-btn:hover {
+.mconfig-close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mconfig-modal-body {
+  padding: 1.5rem;
+  color: var(--text-primary);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.mconfig-section {
+  margin-bottom: 2rem;
+}
+
+.mconfig-section:last-child {
+  margin-bottom: 0;
+}
+
+.mconfig-section-title {
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+
+.mconfig-processor-selector {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  gap: 0.75rem;
+}
+
+.mconfig-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.mconfig-select-container {
+  position: relative;
+  flex: 1;
+}
+
+.mconfig-select {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa5ce' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mconfig-select:hover {
+  border-color: var(--accent-primary);
+}
+
+.mconfig-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.2);
+}
+
+.mconfig-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: none;
+  background-color: var(--bg-secondary);
+  color: var(--error);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mconfig-icon-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.mconfig-processor-config {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.mconfig-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.mconfig-input {
+  display: block;
+  width: 95%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mconfig-input:hover {
+  border-color: var(--accent-primary);
+}
+
+.mconfig-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.2);
+}
+
+.mconfig-btn {
+  padding: 0.625rem 1rem;
+  border-radius: 4px;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.mconfig-btn:active {
+  transform: translateY(1px);
+}
+
+.mconfig-btn-primary {
+  background-color: var(--accent-primary);
   color: #fff;
 }
 
-.config-modal-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.mconfig-btn-primary:hover {
+  background-color: var(--accent-hover);
 }
 
-.config-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.mconfig-btn-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
 }
 
-.config-section h3 {
-  margin: 0 0 10px 0;
-  padding-bottom: 5px;
-  border-bottom: 1px solid #444;
+.mconfig-btn-secondary:hover {
+  background-color: var(--bg-hover);
 }
 
-.config-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 12px;
+.mconfig-btn-warning {
+  background-color: var(--bg-secondary);
+  color: var(--warning);
+  border: 1px solid var(--border-primary);
 }
 
-.config-input {
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background-color: #333;
-  color: #e0e0e0;
-  font-size: 14px;
+.mconfig-btn-warning:hover {
+  background-color: var(--bg-hover);
 }
 
-.config-input:disabled {
-  background-color: #2c2c2c;
-  color: #777;
-  cursor: not-allowed;
+.mconfig-form-help {
+  display: block;
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
-.config-form-help {
-  font-size: 12px;
-  color: #999;
+.mconfig-modal-footer {
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
 }
 
-.config-modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #444;
-}
-
-.config-footer-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.config-footer-primary-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.config-btn {
-  padding: 8px 15px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.2s ease;
-}
-
-.config-btn-primary {
-  background-color: #007bff;
-  color: white;
-}
-
-.config-btn-primary:hover {
-  background-color: #0069d9;
-}
-
-.config-btn-secondary {
-  background-color: #555;
-  color: white;
-}
-
-.config-btn-secondary:hover {
-  background-color: #666;
-}
-
-.config-toggle-btn {
+.mconfig-footer-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px;
-  background-color: #333;
-  border: 1px solid #555;
-  border-radius: 4px;
-  cursor: pointer;
-  width: fit-content;
-  min-width: 150px;
 }
 
-.config-toggle-switch {
+.mconfig-footer-primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .mconfig-processor-config {
+    grid-template-columns: 1fr;
+  }
+  
+  .mconfig-footer-actions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .mconfig-footer-primary-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Estilização para o seletor de processadores */
+#processors .mconfig-processor-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-md);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Container visual do select */
+.mconfig-select-container {
+  flex: 1;
   position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 20px;
 }
 
-.config-toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+/* Estilo moderno para o <select> */
+#processorSelect {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  appearance: none;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--shadow-sm);
 }
 
-.config-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #666;
-  transition: .4s;
-  border-radius: 20px;
+#processorSelect:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background-color: var(--bg-hover);
 }
 
-.config-slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 2px;
-  bottom: 2px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-input:checked + .config-slider {
-  background-color: #007bff;
-}
-
-input:checked + .config-slider:before {
-  transform: translateX(20px);
-}
-
-/* Processor list styles */
-.config-processor-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.config-empty-message {
-  font-style: italic;
-  color: #999;
-  text-align: center;
-  padding: 20px 0;
-}
-
-.config-processor-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.config-processor-card {
-  background-color: #333;
-  border: 1px solid #555;
-  border-radius: 6px;
-  padding: 10px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.config-processor-card:hover {
-  background-color: #3a3a3a;
-}
-
-.config-processor-card.selected {
-  border-color: #007bff;
-  background-color: #2c3c4c;
-}
-
-.config-processor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
-.config-processor-header h4 {
-  margin: 0;
-  font-size: 16px;
-  word-break: break-word;
-}
-
-.config-remove-processor {
-  background: none;
+/* Estilo para o botão de deletar */
+#deleteProcessor {
+  background: transparent;
   border: none;
-  color: #aaa;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0 5px;
+  color: var(--icon-primary);
+  font-size: 1.1rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.config-remove-processor:hover {
-  color: #ff4d4d;
+#deleteProcessor:hover {
+  background-color: var(--bg-hover);
+  color: var(--error);
 }
 
-.config-processor-details {
-  font-size: 13px;
-  color: #bbb;
+/* Fade-in da seção de processadores */
+#processors {
+  animation: fadeInProcessors 0.5s ease forwards;
 }
 
-.config-processor-settings {
-  background-color: #333;
-  border: 1px solid #555;
-  border-radius: 6px;
-  padding: 15px;
-}
-
-.config-processor-settings h4 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
-}
-
-.config-form-message {
-  font-style: italic;
-  color: #999;
-  text-align: center;
-  margin-top: 10px;
+@keyframes fadeInProcessors {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

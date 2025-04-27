@@ -609,6 +609,72 @@ ipcMain.handle('select-directory', async () => {
   return null;
 });
 
+// Add this to your main.js where your other IPC handlers are defined
+
+// Variable to track the current open project path
+let currentOpenProjectPath = null;
+
+// Update your openProject handler to store the project path
+ipcMain.handle('openProject', async (event, spfPath) => {
+  try {
+    // Your existing code...
+    
+    // Store the current project path for reference in other handlers
+    currentOpenProjectPath = spfPath;
+    
+    // Rest of your existing code...
+    return { projectData, files };
+  } catch (error) {
+    console.error('Error opening project:', error);
+    throw error;
+  }
+});
+
+
+ipcMain.handle('set-current-project', async (event, projectPath) => {
+  currentOpenProjectPath = projectPath;
+  console.log("Project path set:", currentOpenProjectPath);
+});
+
+
+// Handler to delete a processor
+ipcMain.handle('delete-processor', async (event, processorName) => {
+  try {
+    // Check if we have an open project
+    if (!currentOpenProjectPath) {
+      throw new Error('No open project');
+    }
+    
+    // Get the project directory
+    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    const projectDir = projectData.structure.basePath;
+    
+    // Path to the processor directory
+    const processorDir = path.join(projectDir, processorName);
+    
+    // Check if processor directory exists
+    await fse.access(processorDir);
+    
+    // Delete processor directory
+    await fse.remove(processorDir);
+    
+    // Update project file
+    // Remove processor from structure
+    projectData.structure.processors = projectData.structure.processors.filter(
+      processor => processor.name !== processorName
+    );
+    
+    // Write updated project file
+    await fse.writeFile(currentOpenProjectPath, JSON.stringify(projectData, null, 2));
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting processor:', error);
+    throw error;
+  }
+});
+
 // Handler to create a processor project
 ipcMain.handle('create-processor-project', async (event, formData) => {
   try {
@@ -670,7 +736,12 @@ void main()
 
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
 
-        mainWindow.webContents.send('processor-created', formData.processorName);
+        if (mainWindow) {
+          mainWindow.webContents.send('processor-created', {
+            processorName: formData.processorName,
+            projectPath: formData.projectLocation
+          });
+        }
 
         return { success: true, path: processorPath };
       } else {
@@ -684,7 +755,35 @@ void main()
     throw error;
   }
 });
-// Context: IPC handlers for managing hardware folder paths, file movements, and project-related operations
+
+// Método para obter a lista de processadores disponíveis
+ipcMain.handle('get-available-processors', async (event, projectPath) => {
+  try {
+    // Se não há projectPath, retornar uma lista vazia
+    if (!projectPath) {
+      return [];
+    }
+
+    // Ler o arquivo SPF
+    const spfPath = path.join(projectPath, `${path.basename(projectPath)}.spf`);
+    try {
+      const spfContent = await fse.readFile(spfPath, 'utf8');
+      const spfData = JSON.parse(spfContent);
+      
+      // Extrair nomes dos processadores
+      if (spfData && spfData.structure && Array.isArray(spfData.structure.processors)) {
+        return spfData.structure.processors.map(p => p.name);
+      }
+      return [];
+    } catch (err) {
+      console.error('Error reading SPF file:', err);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in get-available-processors:', error);
+    throw error;
+  }
+});
 
 // Handler to get the hardware folder path
 ipcMain.handle('get-hardware-folder-path', async (event, processorName, inputDir) => {

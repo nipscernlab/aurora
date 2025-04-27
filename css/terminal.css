@@ -151,7 +151,7 @@
 }
 
 .terminal-container {
-  height: 300px; /* Altura inicial do terminal */
+  height: 250px; /* Altura inicial do terminal */
   min-height: 35px;
   overflow-y: auto;
   display: flex;
@@ -313,6 +313,85 @@
   font-size: 14px;
   outline: none;
   caret-color: #4ec9b0;
+}
+
+ /* Terminal styles */
+ .terminal-content {
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-primary);
+}
+
+.terminal-header {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.terminal-body {
+  padding: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* Clickable keyword styles */
+.keyword {
+  color: var(--accent-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: bold;
+  transition: color 0.2s ease;
+}
+
+.keyword:hover {
+  color: var(--accent-hover);
+}
+
+/* Terminal keyword styles */
+.terminal-keyword {
+  color: var(--success);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Button highlight effect */
+.button-highlight {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
+}
+
+.button-highlight-active {
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary) !important;
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.button-highlight-active::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: linear-gradient(45deg, 
+    var(--accent-primary) 0%, 
+    transparent 40%,
+    transparent 60%,
+    var(--accent-primary) 100%);
+  border-radius: 8px;
+  z-index: -1;
+  opacity: 0.6;
+  animation: highlight-pulse 2s ease-in-out infinite;
+}
+
+@keyframes highlight-pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { opacity: 0.3; }
 }
 
 /* Estilos para diferentes tipos de mensagens */

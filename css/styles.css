@@ -241,8 +241,7 @@ body.dark-mode .resizer-horizontal {
   cursor: not-allowed;
 }
 
-#cmmcomp, #asmcomp {
-  padding: 8px;
+#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp {
   background-color: var(--bg-hover);
   color: var(--text-muted);
   cursor: pointer;

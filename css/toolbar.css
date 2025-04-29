@@ -116,3 +116,108 @@
 .standard-simulation span {
   flex: 1;
 }
+
+/* Iluminação para toda a toolbar ao passar o mouse - mais difusa e brilhante */
+.toolbar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle 180px at var(--mouse-x, 50%) var(--mouse-y, 50%),  /* Aumentado raio de 100px para 180px */
+    rgba(255, 255, 255, 0.15) 0%,  /* Aumentado de 0.08 para 0.15 */
+    rgba(255, 255, 255, 0.08) 30%, /* Adicionada camada intermediária */
+    rgba(255, 255, 255, 0.03) 60%, /* Adicionada camada intermediária */
+    rgba(255, 255, 255, 0) 80%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+  filter: blur(8px);  /* Adicionado blur para efeito mais difuso como na Microsoft Store */
+}
+
+.toolbar:hover::after {
+  opacity: 1;
+}
+
+/* Reset para z-index para garantir que o conteúdo fique acima do efeito */
+.toolbar-button *, .toolbar * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Classe adicional para controlar a persistência do efeito de brilho */
+.toolbar-hovering::after {
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+/* Transição suave para o efeito difuso */
+.toolbar::after {
+  transition: opacity 0.5s ease, background 0.3s ease;
+}
+
+
+/* Estilo específico para manter a aparência original da toolbar */
+.toolbar {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Estilos responsivos - melhorado alinhamento */
+@media screen and (max-width: 1200px) {
+  .toolbar {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .toolbar-left, .toolbar-center, .toolbar-right {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;  /* Alterado de center para flex-start */
+    gap: 8px;
+  }
+  
+  #allcomp {
+    margin-top: 8px;
+    width: auto;
+    align-self: flex-start;  /* Alinhado à esquerda */
+  }
+}
+
+/* Para telas muito pequenas, ajuste os botões para melhor visualização */
+@media screen and (max-width: 768px) {
+  .toolbar-button span {
+    display: none;
+  }
+  
+  .toolbar-button {
+    padding: 6px;
+  }
+  
+  #allcomp span {
+    display: inline;
+  }
+  
+  .toolbar-left, .toolbar-center, .toolbar-right {
+    justify-content: flex-start;  /* Mantém o alinhamento à esquerda */
+  }
+}
+
+/* Para telas extremamente pequenas */
+@media screen and (max-width: 480px) {
+  .toolbar-left, .toolbar-center, .toolbar-right {
+    flex-wrap: wrap;
+    justify-content: flex-start;  /* Mantém o alinhamento à esquerda */
+    gap: 4px;  /* Reduz o espaçamento entre botões */
+  }
+  
+  .toolbar-button {
+    padding: 5px;  /* Reduz ligeiramente o padding */
+  }
+}

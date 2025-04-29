@@ -1624,15 +1624,13 @@ style.textContent = `
 
 `;
 document.head.appendChild(style);
-
 function renderFileTree(files, container, level = 0, parentPath = '') {
-  // Filtrar arquivos .spf antes de renderizar
   const filteredFiles = files.filter(file => {
     if (file.type === 'directory') return true;
     const extension = file.name.split('.').pop().toLowerCase();
     return extension !== 'spf';
   });
-  
+
   filteredFiles.forEach(file => {
     const itemWrapper = document.createElement('div');
     itemWrapper.className = 'file-tree-item';
@@ -1646,34 +1644,48 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
 
     if (file.type === 'directory') {
       const folderToggle = document.createElement('i');
-      folderToggle.className = 'fas fa-chevron-right folder-toggle';
+      folderToggle.className = 'fa-solid fa-caret-right folder-toggle';
       item.appendChild(folderToggle);
 
-      icon.className = 'fas fa-folder-closed file-item-icon';
+      icon.className = 'fas fa-folder file-item-icon';
+      item.appendChild(icon);
 
       const childContainer = document.createElement('div');
       childContainer.className = 'folder-content';
-      
+
       const wasExpanded = FileTreeState.isExpanded(filePath);
       if (!wasExpanded) {
         childContainer.classList.add('hidden');
+        icon.classList.remove('fa-folder-open');
+        icon.classList.add('fa-folder');
       } else {
-        folderToggle.classList.remove('fa-chevron-right');
-        folderToggle.classList.add('fa-chevron-down');
+        folderToggle.classList.toggle('rotated');
         icon.classList.remove('fa-folder');
-        icon.classList.toggle('fa-folder-open');
+        icon.classList.add('fa-folder-open');
       }
 
       const toggleFolder = () => {
         const isExpanded = !childContainer.classList.contains('hidden');
         childContainer.classList.toggle('hidden');
-        folderToggle.classList.toggle('fa-chevron-right');
-        folderToggle.classList.toggle('fa-chevron-down');
+        folderToggle.classList.toggle('rotated');
+      
         icon.classList.toggle('fa-folder');
         icon.classList.toggle('fa-folder-open');
-        
+      
         FileTreeState.toggleFolder(filePath, !isExpanded);
+      
+        if (!isExpanded) {
+          // Adicionar delay dinâmico nos itens filhos ao expandir
+          const visibleItems = childContainer.querySelectorAll('.file-tree-item');
+          visibleItems.forEach((item, index) => {
+            item.style.animation = 'none'; // reset
+            item.offsetHeight; // force reflow
+            item.style.animation = `fadeInDown 0.3s ease forwards`;
+            item.style.animationDelay = `${index * 50}ms`;
+          });
+        }
       };
+      
 
       item.addEventListener('click', toggleFolder);
 
@@ -1684,9 +1696,12 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
       itemWrapper.appendChild(item);
       itemWrapper.appendChild(childContainer);
     } else {
-      // Definir o ícone baseado na extensão
       const extension = file.name.split('.').pop().toLowerCase();
-      if (extension === 'zip' || extension === '7z') {
+      if (extension === 'gtkw') {
+        icon.className = 'fa-solid fa-file-waveform file-item-icon';
+      } else if (extension === 'v') {
+        icon.className = 'fa-solid fa-vial file-item-icon';
+      } else if (extension === 'zip' || extension === '7z') {
         icon.className = 'fa-solid fa-file-zipper file-item-icon';
       } else {
         icon.className = TabManager.getFileIcon(file.name);
@@ -1703,18 +1718,35 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         }
       });
       item.addEventListener('click', () => openFile(file.path));
+
+      item.appendChild(icon);
       itemWrapper.appendChild(item);
     }
 
     const name = document.createElement('span');
     name.textContent = file.name;
-
-    item.appendChild(icon);
     item.appendChild(name);
 
     container.appendChild(itemWrapper);
   });
 }
+
+const toggleFolder = () => {
+  const isExpanded = !childContainer.classList.contains('hidden');
+  childContainer.classList.toggle('hidden');
+  folderToggle.classList.toggle('rotated');
+  icon.classList.toggle('fa-folder');
+  icon.classList.toggle('fa-folder-open');
+
+  // Se quiser um efeito mais suave de altura (slide)
+  if (!isExpanded) {
+    childContainer.style.maxHeight = childContainer.scrollHeight + 'px';
+  } else {
+    childContainer.style.maxHeight = '0px';
+  }
+
+  FileTreeState.toggleFolder(filePath, !isExpanded);
+};
 
 
 // Função para monitorar mudanças na pasta com debounce

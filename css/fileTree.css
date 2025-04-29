@@ -70,3 +70,32 @@
   overflow-y: auto;
   scroll-behavior: smooth;
 }
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.folder-content {
+  overflow: hidden;
+}
+
+.folder-content:not(.hidden) > .file-tree-item {
+  opacity: 0;
+  animation: fadeInDown 0.3s ease forwards;
+}
+
+/* Rotação suave do ícone de pasta */
+.folder-toggle {
+  transition: transform 0.2s ease;
+}
+
+.folder-toggle.rotated {
+  transform: rotate(90deg);
+}

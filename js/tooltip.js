@@ -134,3 +134,50 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  // Adicione este código ao seu arquivo JavaScript principal
+
+// Função para criar efeito de iluminação seguindo o cursor - versão melhorada
+document.addEventListener('DOMContentLoaded', function() {
+  const toolbar = document.querySelector('.toolbar');
+  
+  if (toolbar) {
+    let isHovering = false;
+    let lastX = '50%';
+    let lastY = '50%';
+    
+    // Acompanha o movimento do mouse com suavização
+    toolbar.addEventListener('mousemove', function(e) {
+      const rect = toolbar.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Atualiza as variáveis CSS para a posição do mouse
+      toolbar.style.setProperty('--mouse-x', `${x}px`);
+      toolbar.style.setProperty('--mouse-y', `${y}px`);
+      
+      lastX = `${x}px`;
+      lastY = `${y}px`;
+      
+      if (!isHovering) {
+        isHovering = true;
+        toolbar.classList.add('toolbar-hovering');
+      }
+    });
+    
+    // Mantém o efeito por um tempo após sair da área
+    toolbar.addEventListener('mouseleave', function() {
+      isHovering = false;
+      
+      // Pequena animação de saída para o efeito não sumir abruptamente
+      setTimeout(function() {
+        if (!isHovering) {
+          toolbar.classList.remove('toolbar-hovering');
+          // Mantém a posição do último ponto ao sair
+          toolbar.style.setProperty('--mouse-x', lastX);
+          toolbar.style.setProperty('--mouse-y', lastY);
+        }
+      }, 300);
+    });
+  }
+});

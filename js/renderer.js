@@ -1520,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Confirmação antes de excluir
-        const confirmDelete = confirm('Do you really want to delete the backup folder? This action cannot be undone.');
+        const confirmDelete = true;
         
         if (!confirmDelete) {
           return;
@@ -1661,7 +1661,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         folderToggle.classList.remove('fa-chevron-right');
         folderToggle.classList.add('fa-chevron-down');
         icon.classList.remove('fa-folder');
-        icon.classList.add('fa-folder-open');
+        icon.classList.toggle('fa-folder-open');
       }
 
       const toggleFolder = () => {

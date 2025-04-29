@@ -117,7 +117,13 @@
   flex: 1;
 }
 
-/* Iluminação para toda a toolbar ao passar o mouse - mais difusa e brilhante */
+/* Efeito de iluminação prateada para a toolbar */
+.toolbar {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Efeito principal - iluminação prateada mais natural */
 .toolbar::after {
   content: '';
   position: absolute;
@@ -126,48 +132,69 @@
   width: 100%;
   height: 100%;
   background: radial-gradient(
-    circle 180px at var(--mouse-x, 50%) var(--mouse-y, 50%),  /* Aumentado raio de 100px para 180px */
-    rgba(255, 255, 255, 0.15) 0%,  /* Aumentado de 0.08 para 0.15 */
-    rgba(255, 255, 255, 0.08) 30%, /* Adicionada camada intermediária */
-    rgba(255, 255, 255, 0.03) 60%, /* Adicionada camada intermediária */
+    circle 200px at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(220, 225, 235, 0.25) 0%,  /* Cor mais prateada */
+    rgba(192, 202, 215, 0.15) 20%,
+    rgba(180, 190, 210, 0.08) 40%,
+    rgba(160, 170, 190, 0.03) 60%,
     rgba(255, 255, 255, 0) 80%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+  filter: blur(12px);  /* Blur aumentado para efeito mais suave */
+  mix-blend-mode: screen;  /* Isso ajuda a criar um efeito mais metálico */
+}
+
+/* Camada adicional para efeito de brilho metálico */
+.toolbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle 120px at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    rgba(255, 255, 255, 0) 70%
   );
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
   z-index: 1;
-  filter: blur(8px);  /* Adicionado blur para efeito mais difuso como na Microsoft Store */
+  filter: blur(4px);
 }
 
-.toolbar:hover::after {
+.toolbar:hover::after,
+.toolbar:hover::before,
+.toolbar-hovering::after,
+.toolbar-hovering::before {
   opacity: 1;
 }
 
-/* Reset para z-index para garantir que o conteúdo fique acima do efeito */
+/* Garantir que o conteúdo fique acima do efeito */
 .toolbar-button *, .toolbar * {
   position: relative;
   z-index: 2;
 }
 
-/* Classe adicional para controlar a persistência do efeito de brilho */
-.toolbar-hovering::after {
+/* Classe para persistência do efeito */
+.toolbar-hovering::after,
+.toolbar-hovering::before {
   opacity: 1;
   transition: opacity 0.5s ease;
 }
 
-/* Transição suave para o efeito difuso */
-.toolbar::after {
+/* Transições suaves */
+.toolbar::after,
+.toolbar::before {
   transition: opacity 0.5s ease, background 0.3s ease;
 }
 
-
-/* Estilo específico para manter a aparência original da toolbar */
-.toolbar {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Estilos responsivos - melhorado alinhamento */
+/* Estilos responsivos */
 @media screen and (max-width: 1200px) {
   .toolbar {
     flex-direction: column;
@@ -179,18 +206,17 @@
     width: 100%;
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-start;  /* Alterado de center para flex-start */
+    justify-content: flex-start;
     gap: 8px;
   }
   
   #allcomp {
     margin-top: 8px;
     width: auto;
-    align-self: flex-start;  /* Alinhado à esquerda */
+    align-self: flex-start;
   }
 }
 
-/* Para telas muito pequenas, ajuste os botões para melhor visualização */
 @media screen and (max-width: 768px) {
   .toolbar-button span {
     display: none;
@@ -205,19 +231,18 @@
   }
   
   .toolbar-left, .toolbar-center, .toolbar-right {
-    justify-content: flex-start;  /* Mantém o alinhamento à esquerda */
+    justify-content: flex-start;
   }
 }
 
-/* Para telas extremamente pequenas */
 @media screen and (max-width: 480px) {
   .toolbar-left, .toolbar-center, .toolbar-right {
     flex-wrap: wrap;
-    justify-content: flex-start;  /* Mantém o alinhamento à esquerda */
-    gap: 4px;  /* Reduz o espaçamento entre botões */
+    justify-content: flex-start;
+    gap: 4px;
   }
   
   .toolbar-button {
-    padding: 5px;  /* Reduz ligeiramente o padding */
+    padding: 5px;
   }
 }

@@ -135,9 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Adicione este código ao seu arquivo JavaScript principal
-
-// Função para criar efeito de iluminação seguindo o cursor - versão melhorada
+// Código aprimorado para o efeito de iluminação seguindo o cursor
 document.addEventListener('DOMContentLoaded', function() {
   const toolbar = document.querySelector('.toolbar');
   
@@ -145,39 +143,84 @@ document.addEventListener('DOMContentLoaded', function() {
     let isHovering = false;
     let lastX = '50%';
     let lastY = '50%';
+    let rafId = null;
     
-    // Acompanha o movimento do mouse com suavização
+    // Função para suavizar o movimento do cursor
+    function smoothMouseMovement(targetX, targetY, currentX, currentY) {
+      // Interpolação para movimento mais suave
+      const newX = currentX + (targetX - currentX) * 0.2;
+      const newY = currentY + (targetY - currentY) * 0.2;
+      
+      return {
+        x: newX,
+        y: newY
+      };
+    }
+    
+    let currentX = parseFloat(toolbar.getBoundingClientRect().width / 2);
+    let currentY = parseFloat(toolbar.getBoundingClientRect().height / 2);
+    let targetX = currentX;
+    let targetY = currentY;
+    
+    // Função para animar o movimento
+    function updatePosition() {
+      const position = smoothMouseMovement(targetX, targetY, currentX, currentY);
+      currentX = position.x;
+      currentY = position.y;
+      
+      // Atualiza a posição do efeito de luz
+      toolbar.style.setProperty('--mouse-x', `${currentX}px`);
+      toolbar.style.setProperty('--mouse-y', `${currentY}px`);
+      
+      if (isHovering) {
+        rafId = requestAnimationFrame(updatePosition);
+      }
+    }
+    
+    // Detecta movimento do mouse na toolbar
     toolbar.addEventListener('mousemove', function(e) {
       const rect = toolbar.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      targetX = e.clientX - rect.left;
+      targetY = e.clientY - rect.top;
       
-      // Atualiza as variáveis CSS para a posição do mouse
-      toolbar.style.setProperty('--mouse-x', `${x}px`);
-      toolbar.style.setProperty('--mouse-y', `${y}px`);
-      
-      lastX = `${x}px`;
-      lastY = `${y}px`;
+      lastX = `${targetX}px`;
+      lastY = `${targetY}px`;
       
       if (!isHovering) {
         isHovering = true;
         toolbar.classList.add('toolbar-hovering');
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(updatePosition);
       }
     });
     
-    // Mantém o efeito por um tempo após sair da área
+    // Efeito de saída suave
     toolbar.addEventListener('mouseleave', function() {
       isHovering = false;
       
-      // Pequena animação de saída para o efeito não sumir abruptamente
+      // Mantém a animação por um curto período após sair
       setTimeout(function() {
         if (!isHovering) {
-          toolbar.classList.remove('toolbar-hovering');
-          // Mantém a posição do último ponto ao sair
-          toolbar.style.setProperty('--mouse-x', lastX);
-          toolbar.style.setProperty('--mouse-y', lastY);
+          // Animação de desvanecimento
+          const fadeOut = function() {
+            if (toolbar.classList.contains('toolbar-hovering')) {
+              toolbar.classList.remove('toolbar-hovering');
+            }
+            
+            // Mantém a última posição para um efeito de saída mais suave
+            toolbar.style.setProperty('--mouse-x', lastX);
+            toolbar.style.setProperty('--mouse-y', lastY);
+            
+            cancelAnimationFrame(rafId);
+          };
+          
+          fadeOut();
         }
       }, 300);
     });
+    
+    // Inicializa com posição central
+    toolbar.style.setProperty('--mouse-x', `${currentX}px`);
+    toolbar.style.setProperty('--mouse-y', `${currentY}px`);
   }
 });

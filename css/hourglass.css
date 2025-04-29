@@ -1,0 +1,103 @@
+/* Enhanced Rotate Button Styling */
+.toolbar-toggle-ui {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 2px solid var(--border-primary);
+    background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  
+  .toolbar-toggle-ui:hover {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .toolbar-toggle-ui:active {
+    transform: translateY(1px);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  /* Icon styling */
+  .toolbar-toggle-ui i {
+    font-size: 18px;
+    color: white;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    transition: all 0.3s ease;
+  }
+  
+  /* Animation for continuous rotation */
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Active state styling */
+  .toolbar-toggle-ui.active {
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 15px rgba(122, 162, 247, 0.5);
+  }
+  
+  .toolbar-toggle-ui.active i {
+    animation: spin 2s linear infinite;
+  }
+  
+  /* Starting and stopping animation with easing */
+  .toolbar-toggle-ui i {
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .toolbar-toggle-ui:not(.active):hover i {
+    transform: rotate(90deg);
+  }
+  
+  /* Dark theme specific adjustments */
+  :root:not(.theme-light) .toolbar-toggle-ui {
+    box-shadow: 0 0 10px rgba(122, 162, 247, 0.3);
+  }
+  
+  :root:not(.theme-light) .toolbar-toggle-ui.active {
+    box-shadow: 0 0 15px rgba(122, 162, 247, 0.6);
+  }
+  
+  /* Light theme specific adjustments */
+  body.theme-light .toolbar-toggle-ui {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  
+  body.theme-light .toolbar-toggle-ui.active {
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  }
+  
+  /* Add a subtle glow effect */
+  .toolbar-toggle-ui::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: -20%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .toolbar-toggle-ui:hover::before,
+  .toolbar-toggle-ui.active::before {
+    opacity: 1;
+  }

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let tooltipTimeout = null;
   
     // Get all toolbar buttons
-    const buttons = document.querySelectorAll('.toolbar-button');
+    const buttons = document.querySelectorAll('.toolbar-button, .toolbar-toggle-ui');
     
     // Extended descriptions for each button
     const extendedDescriptions = {
@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'processorHub': 'Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.',
         'aiAssistant': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.',
         'current-spf-name': 'Project Currently Open',
-        'verilog-block': 'Browse and Insert a Prebuilt Verilog Module into Your Project. Most modules are generic and FPGA-agnostic, but always review before integrating.'
+        'verilog-block': 'Browse and Insert a Prebuilt Verilog Module into Your Project. Most modules are generic and FPGA-agnostic, but always review before integrating.',
+        'toggle-ui' : 'Switch the IDE\'s GUI between Processor Oriented and Project Oriented modes.'
 
       };
   

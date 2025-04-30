@@ -1,103 +1,181 @@
-/* Enhanced Rotate Button Styling */
+/* toggle-ui.css - Estilos com animações aprimoradas */
+
+/* Botão de alternância */
 .toolbar-toggle-ui {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    border: 2px solid var(--border-primary);
-    background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-  }
-  
-  .toolbar-toggle-ui:hover {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .toolbar-toggle-ui:active {
-    transform: translateY(1px);
-    box-shadow: var(--shadow-sm);
-  }
-  
-  /* Icon styling */
-  .toolbar-toggle-ui i {
-    font-size: 18px;
-    color: white;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
-    transition: all 0.3s ease;
-  }
-  
-  /* Animation for continuous rotation */
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-  
-  /* Active state styling */
-  .toolbar-toggle-ui.active {
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
-    border-color: var(--accent-hover);
-    box-shadow: 0 0 15px rgba(122, 162, 247, 0.5);
-  }
-  
-  .toolbar-toggle-ui.active i {
-    animation: spin 2s linear infinite;
-  }
-  
-  /* Starting and stopping animation with easing */
-  .toolbar-toggle-ui i {
-    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
-  
-  .toolbar-toggle-ui:not(.active):hover i {
-    transform: rotate(90deg);
-  }
-  
-  /* Dark theme specific adjustments */
-  :root:not(.theme-light) .toolbar-toggle-ui {
-    box-shadow: 0 0 10px rgba(122, 162, 247, 0.3);
-  }
-  
-  :root:not(.theme-light) .toolbar-toggle-ui.active {
-    box-shadow: 0 0 15px rgba(122, 162, 247, 0.6);
-  }
-  
-  /* Light theme specific adjustments */
-  body.theme-light .toolbar-toggle-ui {
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-  }
-  
-  body.theme-light .toolbar-toggle-ui.active {
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-  }
-  
-  /* Add a subtle glow effect */
-  .toolbar-toggle-ui::before {
-    content: '';
-    position: absolute;
-    top: -20%;
-    left: -20%;
-    width: 140%;
-    height: 140%;
-    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  
-  .toolbar-toggle-ui:hover::before,
-  .toolbar-toggle-ui.active::before {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--icon-primary);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  font-family: var(--font-sans);
+  z-index: 999; /* Garantir que esteja sempre acessível */
+  overflow: hidden;
+}
+
+.toolbar-toggle-ui:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.toolbar-toggle-ui:active {
+  transform: translateY(1px);
+  transition: all 0.1s ease;
+}
+
+/* Ícone do botão */
+.toolbar-toggle-ui i {
+  font-size: 16px;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  will-change: transform;
+}
+
+/* Efeito hover no ícone */
+.toolbar-toggle-ui i.hover-rotate {
+  transform: rotate(90deg);
+}
+
+/* Rotação contínua */
+.toolbar-toggle-ui i.continuous-spin {
+  animation: continuous-spin 3s linear infinite;
+}
+
+/* Estado ativo do botão */
+.toolbar-toggle-ui.active {
+  background: rgba(0, 123, 255, 0.15);
+  border-color: rgba(0, 123, 255, 0.4);
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+}
+
+.toolbar-toggle-ui.active i {
+  color: #0077ff;
+}
+
+/* Efeito de brilho no hover/ativo */
+.toolbar-toggle-ui::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background: radial-gradient(circle, rgba(0, 119, 255, 0.15) 0%, rgba(0, 119, 255, 0) 70%);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.toolbar-toggle-ui:hover::before {
+  opacity: 0.6;
+  transform: scale(1);
+}
+
+.toolbar-toggle-ui.active::before {
+  opacity: 0.8;
+  transform: scale(1);
+}
+
+/* Animações para os elementos da interface */
+/* Elemento oculto (estado final) */
+.ui-element-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Animação de saída */
+.ui-element-hide {
+  animation: fadeOutUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none !important;
+  will-change: transform, opacity;
+}
+
+/* Animação de entrada */
+.ui-element-show {
+  animation: fadeInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
+/* Keyframes para animações */
+@keyframes fadeOutUp {
+  0% {
     opacity: 1;
+    transform: translateY(0);
   }
+  100% {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes fadeInDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animação de rotação contínua */
+@keyframes continuous-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Animação de pulso sutil para o botão ativo */
+.toolbar-toggle-ui.active {
+  animation: subtle-pulse 2s ease infinite;
+}
+
+@keyframes subtle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+  }
+}
+
+/* transição suave para trocar o ícone */
+.icon-swap {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+.icon-swap > .fa {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.icon-swap > .fa.hide {
+  opacity: 0;
+  transform: rotate(-20deg) scale(0.8);
+}
+.icon-swap > .fa.show {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}

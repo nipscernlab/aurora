@@ -1,83 +1,190 @@
-// Enhanced rotate-button.js
+// toggle-ui.js - Implementação com animações aprimoradas
 document.addEventListener('DOMContentLoaded', () => {
-    const toggleButton = document.getElementById('toggle-ui');
-    let isActive = false;
-    
-    // Function to set button state visually
-    function setButtonState(active) {
-      isActive = active;
+  // Elementos a serem controlados
+  const TOGGLE_BUTTON_ID = 'toggle-ui';
+  const HIDE_ELEMENTS = {
+    // Elementos da toolbar
+    buttons: ['cmmcomp', 'asmcomp'],
+    // Abas do terminal
+    tabs: ['tcmm', 'tasm']
+  };
+  
+  // Duração das animações em milissegundos
+  const ANIMATION_DURATION = 300;
+  
+  // Estado de visibilidade
+  let elementsVisible = true;
+  
+  // Referência para o botão de alternância
+  const toggleButton = document.getElementById(TOGGLE_BUTTON_ID);
+  if (!toggleButton) {
+    console.error('Botão de alternância não encontrado!');
+    return;
+  }
+  
+  // Inicialização
+  function init() {
+    // Restaurar estado do localStorage
+    const savedState = localStorage.getItem('uiToggleState');
+    if (savedState === 'hidden') {
+      elementsVisible = false;
+      // Aplicar imediatamente sem animação na inicialização
+      HIDE_ELEMENTS.buttons.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.classList.add('ui-element-hidden');
+          element.style.display = 'none';
+        }
+      });
       
-      if (active) {
-        toggleButton.classList.add('active');
-        // Store state in localStorage to persist between sessions
-        localStorage.setItem('rotateButtonState', 'active');
-        
-        // Apply starting animation with easing
-        toggleButton.querySelector('i').style.animationName = 'none';
-        // Force reflow
-        void toggleButton.querySelector('i').offsetWidth;
-        toggleButton.querySelector('i').style.animationName = 'spin';
-      } else {
-        // For smooth stopping of rotation
-        const currentRotation = getComputedStyle(toggleButton.querySelector('i')).transform;
-        toggleButton.querySelector('i').style.animationName = 'none';
-        toggleButton.querySelector('i').style.transform = currentRotation;
-        
-        // Force reflow then reset
-        void toggleButton.querySelector('i').offsetWidth;
-        toggleButton.querySelector('i').style.transform = '';
-        
-        toggleButton.classList.remove('active');
-        // Remove from localStorage when inactive
-        localStorage.removeItem('rotateButtonState');
-      }
+      HIDE_ELEMENTS.tabs.forEach(tabId => {
+        const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${tabId}"]`);
+        if (tab) {
+          tab.classList.add('ui-element-hidden');
+          tab.style.display = 'none';
+        }
+      });
+      
+      updateToggleButtonUI();
     }
     
-    // Function to toggle the state
-    function toggleButtonState() {
-      setButtonState(!isActive);
-    }
+    // Configurar eventos
+    toggleButton.addEventListener('click', toggleElementsVisibility);
     
-    // Check initial state from localStorage (when opening the IDE)
-    function initializeButtonState() {
-      const savedState = localStorage.getItem('rotateButtonState');
-      // If there's a saved active state, restore it
-      if (savedState === 'active') {
-        setButtonState(true);
-      } else {
-        setButtonState(false); // Ensure initial state is inactive if no saved data
-      }
-    }
-    
-    // Initialize state on load
-    initializeButtonState();
-    
-    // Add click event
-    toggleButton.addEventListener('click', toggleButtonState);
-    
-    // Ensure state is saved when closing the window/IDE
-    window.addEventListener('beforeunload', () => {
-      if (isActive) {
-        localStorage.setItem('rotateButtonState', 'active');
-      } else {
-        localStorage.removeItem('rotateButtonState');
-      }
-    });
-    
-    // Optional: Add keyboard shortcut (Ctrl/Cmd + R)
-    document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault(); // Prevent browser refresh
-        toggleButtonState();
-      }
-    });
-    
-    // Optional: Add tooltip functionality
-    toggleButton.setAttribute('title', 'Toggle UI Mode (Ctrl+R)');
+    // Animação ao passar o mouse
     toggleButton.addEventListener('mouseenter', () => {
-      toggleButton.classList.add('tooltip-visible');
+      const icon = toggleButton.querySelector('i');
+      if (icon && !elementsVisible) {
+        // Se já estiver em rotação contínua, não aplicamos hover
+        return;
+      }
+      icon.classList.add('hover-rotate');
     });
+    
     toggleButton.addEventListener('mouseleave', () => {
-      toggleButton.classList.remove('tooltip-visible');
+      const icon = toggleButton.querySelector('i');
+      if (icon) {
+        icon.classList.remove('hover-rotate');
+      }
     });
-  });
+    
+    // Atalho de teclado (Ctrl+R)
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        toggleElementsVisibility();
+      }
+    });
+    
+    // Tooltip
+    toggleButton.setAttribute('titles', 'Alternar elementos da UI (Ctrl+R)');
+    
+    console.log('Sistema de controle de UI inicializado');
+  }
+  
+  // Alterna a visibilidade dos elementos
+  function toggleElementsVisibility() {
+    elementsVisible = !elementsVisible;
+    
+    // Atualiza a visibilidade dos elementos
+    updateElementsVisibility();
+    
+    // Atualiza a aparência do botão de alternância
+    updateToggleButtonUI();
+    
+    // Salva o estado no localStorage
+    localStorage.setItem('uiToggleState', elementsVisible ? 'visible' : 'hidden');
+    
+    console.log(`Elementos da UI agora estão ${elementsVisible ? 'visíveis' : 'ocultos'}`);
+  }
+  
+  // Atualiza a visibilidade real dos elementos com animações
+  function updateElementsVisibility() {
+    // Processa botões da toolbar
+    HIDE_ELEMENTS.buttons.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        if (elementsVisible) {
+          // Mostrar elemento com animação
+          element.style.display = 'flex'; // Ou o display original do elemento
+          element.classList.remove('ui-element-hidden');
+          element.classList.add('ui-element-show');
+          element.classList.remove('ui-element-hide');
+          
+          // Restaurar interatividade após a animação
+          setTimeout(() => {
+            element.style.pointerEvents = 'auto';
+          }, ANIMATION_DURATION);
+        } else {
+          // Esconder elemento com animação
+          element.classList.add('ui-element-hide');
+          element.classList.remove('ui-element-show');
+          element.style.pointerEvents = 'none'; // Impedir cliques durante a animação
+          
+          // Completar ocultação após a animação
+          setTimeout(() => {
+            if (!elementsVisible) { // Verificar se ainda devemos ocultar
+              element.classList.add('ui-element-hidden');
+              element.style.display = 'none';
+            }
+          }, ANIMATION_DURATION);
+        }
+      }
+    });
+    
+    // Processa abas do terminal
+    HIDE_ELEMENTS.tabs.forEach(tabId => {
+      const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${tabId}"]`);
+      if (tab) {
+        if (elementsVisible) {
+          // Mostrar aba com animação
+          tab.style.display = 'flex'; // Ou o display original do elemento
+          tab.classList.remove('ui-element-hidden');
+          tab.classList.add('ui-element-show');
+          tab.classList.remove('ui-element-hide');
+          
+          // Restaurar interatividade após a animação
+          setTimeout(() => {
+            tab.style.pointerEvents = 'auto';
+          }, ANIMATION_DURATION);
+        } else {
+          // Esconder aba com animação
+          tab.classList.add('ui-element-hide');
+          tab.classList.remove('ui-element-show');
+          tab.style.pointerEvents = 'none'; // Impedir cliques durante a animação
+          
+          // Completar ocultação após a animação
+          setTimeout(() => {
+            if (!elementsVisible) { // Verificar se ainda devemos ocultar
+              tab.classList.add('ui-element-hidden');
+              tab.style.display = 'none';
+            }
+          }, ANIMATION_DURATION);
+        }
+      }
+    });
+  }
+  
+  // Atualiza a aparência do botão de alternância
+  function updateToggleButtonUI() {
+    const icon = toggleButton.querySelector('i');
+    
+    if (elementsVisible) {
+      // Estado normal
+      toggleButton.classList.remove('active');
+      if (icon) {
+        icon.style.animation = 'none';
+        icon.classList.remove('continuous-spin');
+      }
+    } else {
+      // Estado ativo
+      toggleButton.classList.add('active');
+      if (icon) {
+        icon.classList.add('continuous-spin');
+      }
+    }
+  }
+  
+  // Inicializar após um pequeno atraso para garantir que o DOM está completamente carregado
+  setTimeout(init, 500);
+});

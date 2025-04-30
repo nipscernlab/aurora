@@ -240,7 +240,7 @@
 <div id="modalConfig" class="mconfig-modal">
   <div class="mconfig-modal-content">
     <div class="mconfig-modal-header">
-      <h2 class="mconfig-title"><i class="fa-solid fa-gears" title="Processor Configuration"></i> Configuration</h2>
+      <h2 class="mconfig-title"><i class="fa-solid fa-gears" title="Processor Configuration"></i> Processor Oriented Configuration</h2>
       <button id="closeModal" class="mconfig-close-btn" aria-label="Close Modal">&times;</button>
     </div>
     <div class="mconfig-modal-body">
@@ -333,6 +333,109 @@
             Cancel
           </button>
           <button id="saveConfig" aria-label="Save Settings" class="mconfig-btn mconfig-btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalProjectConfig" class="mconfig-modal">
+  <div class="mconfig-modal-content">
+    <div class="mconfig-modal-header">
+      <h2 class="mconfig-title"><i class="fa-solid fa-gear" title="Project Configuration"></i> Project Oriented Configuration</h2>
+      <button id="closeProjectModal" class="mconfig-close-btn" aria-label="Close Modal">&times;</button>
+    </div>
+    <div class="mconfig-modal-body">
+      <section class="mconfig-section" id="verilogFiles">
+        <h3 class="mconfig-section-title">Verilog Files</h3>
+        
+        <div class="mconfig-form-group">
+          <label for="topLevelSelect" class="mconfig-label">Top Level File:</label>
+          <div class="mconfig-select-container">
+            <select id="topLevelSelect" class="mconfig-select">
+              <!-- Top level files will be dynamically added here -->
+              <option value="">Select Top Level File</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mconfig-form-group">
+          <label for="testbenchSelect" class="mconfig-label">Testbench File:</label>
+          <div class="mconfig-select-container">
+            <select id="testbenchSelect" class="mconfig-select">
+              <!-- Testbench files will be dynamically added here -->
+              <option value="">Select Testbench File</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mconfig-form-group">
+          <label for="gtkwaveSelect" class="mconfig-label">GTKWave File:</label>
+          <div class="mconfig-select-container">
+            <select id="gtkwaveSelect" class="mconfig-select">
+              <!-- GTKWave files will be dynamically added here -->
+              <option value="">Select GTKWave File</option>
+            </select>
+          </div>
+        </div>
+      </section>
+      
+      <section class="mconfig-section" id="processors">
+        <h3 class="mconfig-section-title">Processors</h3>
+        
+        <div id="processorsList">
+          <!-- Processor rows will be added here -->
+          <div class="mconfig-processor-row">
+            <div class="mconfig-select-container">
+              <select class="processor-select mconfig-select">
+                <!-- Processor options will be dynamically added here -->
+              </select>
+            </div>
+            <div class="mconfig-form-group instance-name-group">
+              <input type="text" class="processor-instance mconfig-input" placeholder="Instance name">
+            </div>
+            <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        
+        <button id="addProcessor" class="mconfig-btn mconfig-btn-primary">
+          <i class="fa-solid fa-plus"></i> Add Processor
+        </button>
+      </section>
+      
+      <section class="mconfig-section" id="compilerSettings">
+        <h3 class="mconfig-section-title">Compiler Settings</h3>
+        
+        <div class="mconfig-form-group">
+          <label for="iverilogFlags" class="mconfig-label">Iverilog Flags</label>
+          <input 
+            type="text" 
+            id="iverilogFlags" 
+            class="mconfig-input"
+            name="iverilogFlags"
+            placeholder="e.g., -Wall; -v; -s" 
+            aria-describedby="iverilogFlagsHelp"
+          >
+          <small id="iverilogFlagsHelp" class="mconfig-form-help">
+            Specify additional flags for Iverilog compilation (separate with semicolons)
+          </small>
+        </div>
+      </section>
+    </div>
+    <div class="mconfig-modal-footer">
+      <div class="mconfig-footer-actions">
+        <button id="clearAll" aria-label="Clear All Settings" class="mconfig-btn mconfig-btn-secondary">
+          <i class="fa-solid fa-trash-can"></i> Clear
+        </button>
+        <div class="mconfig-footer-primary-actions">
+          <button id="cancelProjectConfig" aria-label="Cancel Changes" class="mconfig-btn mconfig-btn-secondary">
+            Cancel
+          </button>
+          <button id="saveProjectConfig" aria-label="Save Settings" class="mconfig-btn mconfig-btn-primary">
             <i class="fa-solid fa-floppy-disk"></i> Save
           </button>
         </div>
@@ -950,7 +1053,7 @@
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
   <script src="./js/modalConfig.js" type="module"></script>
-  <!-- <script src="./js/multicore.js"></script> -->
+  <script src="./js/projectOriented.js"></script>
   <script src="./js/news.js" ></script>
   <script src="./js/renderer.js"></script>
   <script src="./js/report.js" type="module"></script>

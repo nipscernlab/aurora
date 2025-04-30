@@ -1114,3 +1114,28 @@ button:disabled::after {
     transform: translateY(0);
   }
 }
+
+
+.mconfig-processor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.instance-name-group {
+  flex: 1;
+  margin: 0;
+}
+
+#processorsList {
+  margin-bottom: 15px;
+}
+
+#addProcessor {
+  margin-top: 10px;
+}
+
+.mconfig-select-container {
+  flex: 2;
+}

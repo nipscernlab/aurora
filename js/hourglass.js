@@ -188,3 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicializar após um pequeno atraso para garantir que o DOM está completamente carregado
   setTimeout(init, 500);
 });
+
+
+

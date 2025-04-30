@@ -1,15 +1,6 @@
 {
-  "processors": [
-    {
-      "name": "ZeroCross",
-      "clk": 200,
-      "numClocks": 2000
-    },
-    {
-      "name": "ProcDTW",
-      "clk": 200,
-      "numClocks": 2000
-    }
-  ],
-  "iverilogFlags": []
+  "processors": [],
+  "iverilogFlags": [],
+  "cmmCompFlags": [],
+  "asmCompFlags": []
 }

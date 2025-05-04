@@ -1,4 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const fs = require('fs');
+const path = require('path');
 
 // Grouping functions by category
 const fileOperations = {
@@ -79,6 +81,18 @@ const projectOperations = {
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
   saveConfig: (data) => ipcRenderer.send('save-config', data),
 
+  readDirectory: async (dirPath) => {
+    try {
+      const files = await fs.promises.readdir(dirPath);
+      return files.filter(file => {
+        const fullPath = path.join(dirPath, file);
+        return fs.existsSync(fullPath) && fs.lstatSync(fullPath).isFile();
+      });
+    } catch (err) {
+      console.error('Error reading directory:', err);
+      return [];
+    }
+  },
 
   onUpdateProgress: (callback) => {
     ipcRenderer.on('update-progress', (event, data) => callback(data));

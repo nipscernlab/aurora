@@ -117,132 +117,128 @@
   flex: 1;
 }
 
-/* Efeito de iluminação prateada para a toolbar */
+/* Estilos responsivos para a toolbar */
 .toolbar {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Efeito principal - iluminação prateada mais natural */
-.toolbar::after {
-  content: '';
-  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
   top: 0;
-  left: 0;
+  z-index: 100;
   width: 100%;
-  height: 100%;
-  background: radial-gradient(
-    circle 200px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(220, 225, 235, 0.25) 0%,  /* Cor mais prateada */
-    rgba(192, 202, 215, 0.15) 20%,
-    rgba(180, 190, 210, 0.08) 40%,
-    rgba(160, 170, 190, 0.03) 60%,
-    rgba(255, 255, 255, 0) 80%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-  z-index: 1;
-  filter: blur(12px);  /* Blur aumentado para efeito mais suave */
-  mix-blend-mode: screen;  /* Isso ajuda a criar um efeito mais metálico */
+  padding: 0.5rem;
+  box-sizing: border-box;
 }
 
-/* Camada adicional para efeito de brilho metálico */
-.toolbar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(
-    circle 120px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    rgba(255, 255, 255, 0) 70%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 1;
-  filter: blur(4px);
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+  display: flex;
+  align-items: center;
 }
 
-.toolbar:hover::after,
-.toolbar:hover::before,
-.toolbar-hovering::after,
-.toolbar-hovering::before {
-  opacity: 1;
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.5rem;
+  margin: 0 2px;
 }
 
-/* Garantir que o conteúdo fique acima do efeito */
-.toolbar-button *, .toolbar * {
-  position: relative;
-  z-index: 2;
-}
-
-/* Classe para persistência do efeito */
-.toolbar-hovering::after,
-.toolbar-hovering::before {
-  opacity: 1;
-  transition: opacity 0.5s ease;
-}
-
-/* Transições suaves */
-.toolbar::after,
-.toolbar::before {
-  transition: opacity 0.5s ease, background 0.3s ease;
-}
-
-/* Estilos responsivos */
-@media screen and (max-width: 1200px) {
-  .toolbar {
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+/* Ajuste responsivo para telas médias */
+@media screen and (max-width: 1024px) {
+  .toolbar-button {
+    padding: 0.4rem;
+    font-size: 0.9rem;
   }
   
-  .toolbar-left, .toolbar-center, .toolbar-right {
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 8px;
+  .toolbar-button i, 
+  .toolbar-button img {
+    font-size: 0.9rem;
   }
   
-  #allcomp {
-    margin-top: 8px;
-    width: auto;
-    align-self: flex-start;
+  .toolbar-button span {
+    font-size: 0.9rem;
   }
 }
 
+/* Ajuste responsivo para telas pequenas */
 @media screen and (max-width: 768px) {
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.3rem;
+  }
+  
+  .toolbar-button {
+    padding: 0.3rem;
+    margin: 0 1px;
+  }
+  
+  .toolbar-button i,
+  .toolbar-button img {
+    font-size: 0.85rem;
+  }
+  
+  .toolbar-button span {
+    font-size: 0.8rem;
+  }
+  
+  /* Esconde texto em botões menos importantes em telas pequenas */
+  #saveFileBtn span,
+  #backupFolderBtn span,
+  #openProjectBtn span {
+    display: none;
+  }
+}
+
+/* Ajuste responsivo para telas muito pequenas */
+@media screen and (max-width: 480px) {
+  .toolbar {
+    padding: 0.2rem;
+  }
+  
+  .toolbar-button {
+    padding: 0.25rem;
+    margin: 0;
+  }
+  
+  .toolbar-button i,
+  .toolbar-button img {
+    font-size: 0.8rem;
+  }
+  
+  /* Esconde texto em todos os botões exceto "Compile All" */
   .toolbar-button span {
     display: none;
   }
   
-  .toolbar-button {
-    padding: 6px;
-  }
-  
+  /* Mantém texto visível apenas para "Compile All" */
   #allcomp span {
     display: inline;
+    font-size: 0.75rem;
   }
   
-  .toolbar-left, .toolbar-center, .toolbar-right {
-    justify-content: flex-start;
+  /* Reduz o tamanho do ícone para "Compile All" */
+  #allcomp i {
+    font-size: 0.75rem;
+  }
+  
+  /* Ajusta tamanho do ícone PRISM */
+  #prismcomp img {
+    height: 14px;
+    width: 14px;
   }
 }
 
-@media screen and (max-width: 480px) {
-  .toolbar-left, .toolbar-center, .toolbar-right {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 4px;
+/* Garante que a toolbar sempre fique visível em qualquer tamanho de tela */
+@media screen and (max-height: 600px) {
+  .toolbar {
+    min-height: 2.5rem;
   }
-  
-  .toolbar-button {
-    padding: 5px;
-  }
+}
+
+/* Adiciona um pequeno efeito de sombra para destacar a toolbar */
+.toolbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

@@ -1043,7 +1043,6 @@ static activateTab(filePath) {
   }
 }
 
-
   // Comprehensive save method
   static async saveCurrentFile() {
     const currentPath = this.activeTab;
@@ -1064,6 +1063,28 @@ static activateTab(filePath) {
       // Optional: Show error dialog to user
     }
   }
+
+  static async saveAllFiles() {
+    for (const [filePath, originalContent] of this.tabs.entries()) {
+      const editor = EditorManager.getEditorForFile(filePath);
+      if (!editor) continue;
+  
+      const currentContent = editor.getValue();
+      
+      // Só salva se tiver sido modificado
+      if (currentContent !== originalContent) {
+        try {
+          await window.electronAPI.writeFile(filePath, currentContent);
+          this.markFileAsSaved(filePath);
+          this.tabs.set(filePath, currentContent);
+        } catch (error) {
+          console.error(`Erro ao salvar o arquivo ${filePath}:`, error);
+          // Você pode adicionar uma notificação visual aqui
+        }
+      }
+    }
+  }
+  
 
    // Add listener for content changes
    static setupContentChangeListener(filePath, editor) {
@@ -1126,12 +1147,12 @@ static activateTab(filePath) {
     const dialogResult = await showConfirmDialog(
       'Unsaved Changes',
       `Do you want to save the changes you made to ${fileName}?`,
-      ['Save', "Don/'t Save", 'Cancel']
+      ['Save', "Don't Save", 'Cancel']
     );
-
+  
     switch (dialogResult) {
       case 'Save':
-        await this.saveCurrentFile();
+        await this.saveFile(filePath); // Aqui é a correção principal
         return true;
       case "Don't Save":
         this.unsavedChanges.delete(filePath);
@@ -1140,6 +1161,7 @@ static activateTab(filePath) {
         return false;
     }
   }
+  
 
 // Add this method to save the current file
 static async saveFile(filePath = null) {
@@ -2788,6 +2810,8 @@ async loadConfig() {
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
       const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
 
+      await TabManager.saveAllFiles();
+
       statusUpdater.startCompilation('cmm');
 
       const cmd = `"${cmmCompPath}" ${name} "${projectPath}" "${macrosPath}" "${tempPath}" `;
@@ -2844,6 +2868,8 @@ async asmCompilation(processor, asmPath)
         const asmCompPath    = await window.electronAPI.joinPath('saphoComponents' , 'bin' , 'asmcomp.exe');
         const hdlPath        = await window.electronAPI.joinPath('saphoComponents' , 'HDL'                );
         const tempPath       = await window.electronAPI.joinPath('saphoComponents' , 'Temp',  name        );
+
+        await TabManager.saveAllFiles();
 
         statusUpdater.startCompilation('asm');
 
@@ -2929,6 +2955,9 @@ async iverilogCompilation(processor, simConfig) {
           // Build file paths for all processors
           let verilogFilesString = '';
           
+          await TabManager.saveAllFiles();
+
+
           // Add HDL files
           const verilogFiles = [
               'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
@@ -3060,7 +3089,9 @@ async iverilogCompilation(processor, simConfig) {
       
       // Definir arquivo de testbench
       let tbFile;
-      
+
+          await TabManager.saveAllFiles();
+
           const expectedFileName = `${name}.v`;
           const files = await window.electronAPI.readDir(hardwarePath);
           tbFile = files.find(f => f === expectedFileName);
@@ -3364,6 +3395,8 @@ async runGtkWave(processor, simConfig) {
     const { name } = processor;
     this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
     
+    await TabManager.saveAllFiles();
+
     statusUpdater.startCompilation('wave');
 
     const multicoreCheckbox = document.querySelector('input[id="multicore"]');
@@ -3529,6 +3562,8 @@ async prismComp(processor, simConfig) {
 
     await this.copyFile(proc2rtlYsFile, await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys'));
     this.terminalManager.appendToTerminal('tprism', 'Copied proc2rtl.ys to HDL directory successfully.');
+
+    await TabManager.saveAllFiles();
 
     // Alterar o arquivo proc2rtl.ys
     const proc2rtlPath = await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys');

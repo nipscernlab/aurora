@@ -1,4 +1,5 @@
-// Modal configuration elements
+// Modal configuration Processor Oriented Configuration
+
 const settingsButton = document.getElementById("settings");
 const modal = document.getElementById("modalConfig");
 const closeModal = document.getElementById("closeModal");

@@ -15,6 +15,8 @@ const fileOperations = {
   getFolderFiles: (folderPath) => ipcRenderer.invoke('getFolderFiles', folderPath),
   isDirectory: (path) => ipcRenderer.invoke('isDirectory', path),
   openExternalLink: (url) => shell.openExternal(url),
+  getFilesWithExtension: (folderPath, extension) => ipcRenderer.invoke('get-files-with-extension', folderPath, extension),
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   openGitHubDesktop: () => {
     try {
       exec('github-desktop.exe', (error) => {
@@ -69,7 +71,10 @@ const projectOperations = {
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   joinPath: (...args) => require('path').join(...args),
   deleteFolder: (path) => ipcRenderer.invoke('delete-folder', path),
-  onSimulateOpenProject: (callback) => ipcRenderer.on('simulateOpenProject', (_, result) => callback(result)),
+  onSimulateOpenProject: (callback) => {
+    ipcRenderer.on('open-spf-file', (_, result) => callback(result));
+  },
+  
   createTclInfoFile: (filePath, processorType, tempPath, binPath) => ipcRenderer.invoke('create-tcl-info-file', { path: filePath, processorType, tempPath, binPath }),
   deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),

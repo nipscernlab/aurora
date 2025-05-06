@@ -328,6 +328,19 @@ async function createMainWindow() {
 
   mainWindow.loadFile('index.html');
 
+   // Verificar se há um arquivo .spf para abrir
+   mainWindow.webContents.on('did-finish-load', () => {
+    if (fileToOpen) {
+      mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
+    }
+  });
+
+  // Registrar o protocolo sapho: e a extensão .spf
+if (process.platform === 'win32') {
+  app.setAsDefaultProtocolClient('sapho');
+  app.setAppUserModelId(process.execPath);
+}
+
   // Load user settings
   const settings = await loadSettings();
   
@@ -1083,16 +1096,67 @@ ipcMain.handle('isDirectory', async (_, path) => {
   }
 });
 
-// Handle project opening from Windows double-click
-app.on('second-instance', (event, commandLine) => {
-  const spfPath = commandLine[commandLine.length - 1];
-  if (spfPath.endsWith('.spf')) {
-    mainWindow.webContents.send('project:openFromSystem', spfPath);
+// Verificar se há um arquivo .spf nos argumentos de linha de comando
+const fileToOpen = process.argv.find(arg => arg.endsWith('.spf'));
+
+// Função para lidar com o single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Alguém tentou executar uma segunda instância com um arquivo .spf
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      
+      // Procurar por arquivos .spf nos argumentos
+      const spfFile = commandLine.find(arg => arg.endsWith('.spf'));
+      if (spfFile) {
+        mainWindow.webContents.send('open-spf-file', { filePaths: [spfFile] });
+      }
+    }
+  });
+}
+
+// Listar arquivos com uma extensão específica
+ipcMain.handle('get-files-with-extension', async (event, folderPath, extension) => {
+  try {
+    // Verificar se o diretório existe
+    const stats = await fs.stat(folderPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`${folderPath} não é um diretório válido`);
+    }
+
+    // Ler os arquivos no diretório
+    const files = await fs.readdir(folderPath);
+    
+    // Filtrar arquivos pela extensão e adicionar o caminho completo
+    const filteredFiles = files
+      .filter(file => file.toLowerCase().endsWith(extension.toLowerCase()))
+      .map(file => path.join(folderPath, file));
+    
+    log.debug(`Arquivos com extensão ${extension} encontrados em ${folderPath}:`, filteredFiles);
+    return filteredFiles;
+  } catch (error) {
+    log.error(`Erro ao obter arquivos com extensão ${extension}:`, error);
+    throw error;
   }
 });
 
-// Handle file associations
-app.setAsDefaultProtocolClient('spf');
+// Verificar se um arquivo existe
+ipcMain.handle('file-exists', async (event, filePath) => {
+  try {
+    await fs.access(filePath);
+    log.debug(`Arquivo existe: ${filePath}`);
+    return true;
+  } catch (error) {
+    log.debug(`Arquivo não existe: ${filePath}`);
+    return false;
+  }
+});
 
 // Handler for reading folder contents
 ipcMain.handle('getFolderFiles', async (event, folderPath) => {
@@ -1399,6 +1463,10 @@ ipcMain.handle('save-config', async (event, data) => {
 
 // IPC handler to join paths
 ipcMain.handle('join-path', (event, ...paths) => {
+  console.log('join-path called with:', paths);
+  if (!paths.every(p => typeof p === 'string')) {
+    throw new TypeError('All arguments to join-path must be strings');
+  }
   if (paths[0] === 'saphoComponents') {
     return path.join(rootPath, ...paths);
   }

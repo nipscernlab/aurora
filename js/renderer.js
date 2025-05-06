@@ -1723,6 +1723,8 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         icon.className = 'fa-solid fa-file-waveform file-item-icon';
       } else if (extension === 'v') {
         icon.className = 'fa-solid fa-vial file-item-icon';
+      } else if (extension === 'txt') {
+        icon.className = 'fa-solid fa-file-lines';
       } else if (extension === 'zip' || extension === '7z') {
         icon.className = 'fa-solid fa-file-zipper file-item-icon';
       } else {
@@ -2059,23 +2061,28 @@ projectInfoButton.innerHTML = `
 
 document.getElementById('openProjectBtn').insertAdjacentElement('afterend', projectInfoButton);
 
-// Adicione este listener para simular o clique no openProjectBtn
+// Atualize esta função no seu renderer.js para usar openProject em vez de loadProject
 window.electronAPI.onSimulateOpenProject(async (result) => {
   try {
-    // Simular EXATAMENTE o comportamento do openProjectBtn
     if (!result.canceled && result.filePaths.length > 0) {
-      currentProjectPath = result.filePaths[0];
-      currentSpfPath = `${currentProjectPath}.spf`;
-
-      // Usar a mesma chamada que o botão usa
-      await loadProject(currentSpfPath);
+      const spfPath = result.filePaths[0];
       
-      // Atualiza o nome do projeto na interface
-      updateProjectNameUI(currentSpfPath);
+      // Fechar todas as abas antes de carregar o novo projeto
+      if (typeof TabManager !== 'undefined' && TabManager.closeAllTabs) {
+        await TabManager.closeAllTabs();
+      }
+      
+      // Definir o caminho atual
+      currentSpfPath = spfPath;
+      
+      // Usar openProject em vez de loadProject, conforme sua implementação existente
+      await loadProject(spfPath);
+      
+      console.log(`Projeto carregado com sucesso!`);
     }
   } catch (error) {
-    console.error('Error opening project:', error);
-    showErrorDialog('Error Opening Project', error.message);
+    console.error('Erro ao abrir o projeto:', error);
+    showErrorDialog('Erro ao abrir o projeto', error.message);
   }
 });
 

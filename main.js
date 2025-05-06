@@ -423,7 +423,7 @@ function createSplashScreen() {
     splashWindow.close(); // Close splash screen
     createMainWindow(); // Create main application window
     setTimeout(checkForUpdates, 2000); // Check for updates after a delay
-  }, 2000);
+  }, 1000);
 }
 
 // Function to clear application cache

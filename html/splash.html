@@ -4,55 +4,270 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aurora IDE</title>
-  <!-- Importing the Lato font from Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <!-- Importing modern fonts from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      /* Color variables */
+      --aurora-primary: #6a11cb;
+      --aurora-secondary: #2575fc;
+      --aurora-accent-1: #a45fff;
+      --aurora-accent-2: #feb47b;
+      --bg-dark: #121212;
+      --text-light: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.7);
+      
+      /* Animation durations */
+      --anim-duration-short: 0.5s;
+      --anim-duration-medium: 1.5s;
+      --anim-duration-long: 3s;
+    }
+
     /* General page styling */
     body {
-      margin: 0; /* Resetting default margin */
-      justify-content: center; /* Centering content horizontally */
-      align-items: center; /* Centering content vertically */
-      height: 100vh; /* Full viewport height */
-      font-family: 'Lato', sans-serif; /* Setting the font */
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: var(--bg-dark);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      position: relative;
     }
 
-    /* Styling for the image */
-    img {
-      width: 300px; /* Setting the image width */
-      height: auto; /* Maintaining aspect ratio */
-      margin-bottom: 20px; /* Adding space below the image */
+    /* Main container styling */
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      z-index: 2;
     }
 
-    /* Styling for the title with gradient */
-    h3 {
-      color: transparent; /* Making the text transparent */
-      background-image: linear-gradient(to right, #a45fff, #feb47b, #6a11cb, #2575fc); /* Applying a gradient to the text */
-      -webkit-background-clip: text; /* Applying the gradient only to the text (WebKit browsers) */
-      background-clip: text; /* Applying the gradient only to the text */
-      font-size: 2rem; /* Setting font size */
-      font-weight: 700; /* Making the text bold */
-      text-align: center; /* Center-aligning the text */
-      line-height: 1.2; /* Adjusting line height */
+    /* Logo container with animation */
+    .logo-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 2rem;
     }
 
-    /* Styling for the text below the image */
-    p {
-      color: #fff; /* Setting text color */
-      font-size: 1rem; /* Setting font size */
-      font-weight: 300; /* Setting font weight */
-      text-align: center; /* Center-aligning the text */
-      margin-top: 10px; /* Adding space above the text */
+    /* Logo styling */
+    .logo {
+      width: 180px;
+      height: auto;
+      z-index: 2;
+    }
+
+    /* Glow effect behind the logo */
+    .logo-glow {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(106, 17, 203, 0.4) 0%, rgba(37, 117, 252, 0.2) 50%, rgba(18, 18, 18, 0) 70%);
+      animation: glow var(--anim-duration-medium) infinite alternate ease-in-out;
+    }
+
+    /* Animated title */
+    .title {
+      color: transparent;
+      background-image: linear-gradient(135deg, var(--aurora-accent-1), var(--aurora-secondary), var(--aurora-accent-2), var(--aurora-primary));
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0;
+      animation: gradient-shift var(--anim-duration-long) infinite alternate ease-in-out;
+    }
+
+    /* Loading indicator */
+    .loading {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .loading-text {
+      color: var(--text-light);
+      font-size: 1.1rem;
+      font-weight: 300;
+      margin-bottom: 0.8rem;
+      letter-spacing: 1px;
+    }
+
+    /* Progress bar container */
+    .progress-container {
+      width: 200px;
+      height: 4px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Progress bar animation */
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--aurora-primary), var(--aurora-secondary));
+      border-radius: 2px;
+      animation: loading 3s infinite;
+    }
+
+    /* Background aurora effect */
+    .aurora-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      opacity: 0.1;
+      overflow: hidden;
+    }
+
+    .aurora-wave {
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      top: -50%;
+      left: -50%;
+      background: radial-gradient(ellipse at center, rgba(106, 17, 203, 0.4) 0%, rgba(37, 117, 252, 0.2) 40%, rgba(164, 95, 255, 0.1) 60%, rgba(254, 180, 123, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
+      animation: aurora-wave var(--anim-duration-long) infinite linear;
+    }
+
+    .aurora-wave:nth-child(2) {
+      background: radial-gradient(ellipse at center, rgba(37, 117, 252, 0.3) 0%, rgba(164, 95, 255, 0.2) 40%, rgba(254, 180, 123, 0.1) 60%, rgba(106, 17, 203, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
+      animation-delay: -1s;
+      animation-duration: 4s;
+    }
+
+    .aurora-wave:nth-child(3) {
+      background: radial-gradient(ellipse at center, rgba(254, 180, 123, 0.2) 0%, rgba(106, 17, 203, 0.2) 40%, rgba(37, 117, 252, 0.1) 60%, rgba(164, 95, 255, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
+      animation-delay: -2s;
+      animation-duration: 5s;
+    }
+
+    /* Version text */
+    .version {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      margin-top: 2rem;
+    }
+
+    /* Keyframe animations */
+    @keyframes pulse {
+      0% {
+        transform: scale(0.95);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(0.95);
+      }
+    }
+
+    @keyframes glow {
+      0% {
+        opacity: 0.5;
+        transform: scale(0.9);
+      }
+      100% {
+        opacity: 0.8;
+        transform: scale(1.1);
+      }
+    }
+
+    @keyframes gradient-shift {
+      0% {
+        background-position: 0% 50%;
+      }
+      100% {
+        background-position: 100% 50%;
+      }
+    }
+
+    @keyframes loading {
+      0% {
+        width: 0%;
+      }
+      50% {
+        width: 70%;
+      }
+      80% {
+        width: 80%;
+      }
+      100% {
+        width: 100%;
+      }
+    }
+
+    @keyframes aurora-wave {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
     }
   </style>
 </head>
 <body>
-
-  <!-- Main container for the splash screen -->
-  <div>
-    <img src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE"> <!-- Logo image -->
-    <h3>Powered by AURORA IDE</h3> <!-- Title with gradient effect -->
-    <p>Loading...</p> <!-- Loading message -->
+  <!-- Background aurora effect -->
+  <div class="aurora-bg">
+    <div class="aurora-wave"></div>
+    <div class="aurora-wave"></div>
+    <div class="aurora-wave"></div>
   </div>
 
+  <!-- Main container for the splash screen -->
+  <div class="splash-container">
+    <div class="logo-container">
+      <div class="logo-glow"></div>
+      <img class="logo" src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE Logo">
+    </div>
+    
+    <h1 class="title">AURORA IDE</h1>
+    
+    <div class="loading">
+      <p class="loading-text">Initializing environment...</p>
+      <div class="progress-container">
+        <div class="progress-bar"></div>
+      </div>
+    </div>
+    
+    <p class="version">v2.43.0</p>
+  </div>
+
+  <!-- Optional: You can add a simple script to simulate loading progress -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const loadingTextElement = document.querySelector('.loading-text');
+      const loadingTexts = [
+        'Initializing environment...',
+        'Loading components...',
+        'Preparing workspace...',
+        'Almost ready...'
+      ];
+      
+      let currentTextIndex = 0;
+      
+      setInterval(() => {
+        currentTextIndex = (currentTextIndex + 1) % loadingTexts.length;
+        loadingTextElement.textContent = loadingTexts[currentTextIndex];
+      }, 2000);
+    });
+  </script>
 </body>
 </html>

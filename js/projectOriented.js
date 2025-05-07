@@ -126,41 +126,95 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupToggleUI() {
     // Verificar se os elementos necessários existem
     if (!toggleUiButton || !settingsButton) {
-      console.error('Elementos necessários para toggle UI não encontrados');
-      return;
+        console.error('Elementos necessários para toggle UI não encontrados');
+        return;
     }
     
     // Adicionar estilos para a animação
     addToggleStyles();
     
+    // Criar um novo botão para configuração de projeto (oculto por padrão)
+    const projectSettingsButton = document.createElement('button');
+    projectSettingsButton.id = 'settings-project';
+    projectSettingsButton.className = 'toolbar-button';
+    projectSettingsButton.setAttribute('titles', 'Project Configuration');
+    projectSettingsButton.style.display = 'none'; // Início oculto
+    
+    // Adicionar ícone ao botão de projeto
+    const projectIcon = document.createElement('i');
+    projectIcon.className = 'fa-solid fa-gear';
+    projectSettingsButton.appendChild(projectIcon);
+    
+    // Inserir o novo botão após o botão original
+    settingsButton.parentNode.insertBefore(projectSettingsButton, settingsButton.nextSibling);
+    
+    // Adicionar listener apenas para o botão de projeto
+    projectSettingsButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        openProjectModal();
+    });
+    
     // Adicionar listener para o botão de toggle UI
-    toggleUiButton.addEventListener('click', handleToggleUI);
+    toggleUiButton.addEventListener('click', function() {
+        // Verificar se o toggleUiButton está ativo
+        const isToggleActive = toggleUiButton.classList.contains('active');
+        
+        // Realizar a transição suave
+        if (isToggleActive) {
+            // Mostrar botão de projeto e ocultar botão original
+            fadeOutIn(settingsButton, projectSettingsButton);
+        } else {
+            // Mostrar botão original e ocultar botão de projeto
+            fadeOutIn(projectSettingsButton, settingsButton);
+        }
+    });
     
     // Verificar estado inicial do toggle-ui após um pequeno atraso
     setTimeout(() => {
-      if (toggleUiButton.classList.contains('active')) {
-        // Modificar o ícone para fa-gear
-        updateSettingsButtonIcon(true);
-      }
+        if (toggleUiButton.classList.contains('active')) {
+            // Se o toggle estiver ativo, mostrar o botão de projeto
+            fadeOutIn(settingsButton, projectSettingsButton);
+        }
     }, 600);
-
-    // Modificar o comportamento do botão settings
-    settingsButton.addEventListener('click', handleSettingsClick);
+}
+  // Função para realizar a transição suave entre botões
+function fadeOutIn(buttonToHide, buttonToShow) {
+  // Verificar se os botões existem
+  if (!buttonToHide || !buttonToShow) {
+      console.error('Botões não encontrados para transição');
+      return;
   }
   
+  // Fade out do botão atual
+  buttonToHide.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
+  buttonToHide.style.opacity = '0';
+  
+  // Após o fade out, trocar os botões
+  setTimeout(() => {
+      buttonToHide.style.display = 'none';
+      
+      // Mostrar o novo botão com opacity 0
+      buttonToShow.style.opacity = '0';
+      buttonToShow.style.display = '';
+      buttonToShow.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
+      
+      // Forçar reflow para garantir que a transição ocorra
+      buttonToShow.offsetHeight;
+      
+      // Iniciar fade in
+      buttonToShow.style.opacity = '1';
+  }, ICON_TRANSITION_DURATION);
+}
+
   // Lidar com o clique no botão settings
   function handleSettingsClick(e) {
-    e.preventDefault();
-    
     // Se o toggleUI estiver ativo, abrir o modal de projeto em vez do modal de processor
     if (toggleUiButton && toggleUiButton.classList.contains('active')) {
+      e.preventDefault();
+      e.stopPropagation(); // Impede a propagação do evento
       openProjectModal();
-      modalConfig.remove('active');
-
+      return false; // Impede qualquer comportamento adicional
     }
-
-    modalConfig.add('active');
-
     // Caso contrário, o comportamento original é mantido (abrir modalConfig)
     // Isso é gerenciado pelo código original, não precisamos fazer nada aqui
   }
@@ -203,23 +257,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }, ICON_TRANSITION_DURATION);
   }
   
-  // Adicionar estilos CSS para a animação
-  function addToggleStyles() {
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      #settings {
-        transition: opacity ${ICON_TRANSITION_DURATION}ms ease;
+ // Modificar a função addToggleStyles para incluir os novos elementos
+function addToggleStyles() {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+      #settings, #settings-project {
+          transition: opacity ${ICON_TRANSITION_DURATION}ms ease;
       }
       
       /* Garantir que os modais sejam visíveis quando abertos */
       .mconfig-modal.active {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
       }
-    `;
-    document.head.appendChild(styleElement);
-  }
+  `;
+  document.head.appendChild(styleElement);
+}
   
   // Adicionar nova linha de processador
   function addProcessorRow() {

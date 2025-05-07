@@ -609,43 +609,49 @@ clearTempButton.addEventListener("click", async () => {
 
 // Saves the current configuration
 saveConfigButton.addEventListener("click", async () => {
-  // Save current processor to temp before saving
   saveCurrentProcessorToTemp();
-  
-  // Only save the currently selected processor to the config file
+
   let processors = [];
-  
+
   if (selectedProcessor && tempProcessorConfigs[selectedProcessor]) {
     processors.push(tempProcessorConfigs[selectedProcessor]);
   }
-  
-  // Collect compiler flags
+
   const iverilogFlags = iverilogFlagsInput.value
     .split(";")
     .map(flag => flag.trim())
     .filter(flag => flag);
-    
+
   const cmmCompFlags = cmmCompFlagsInput.value
     .split(";")
     .map(flag => flag.trim())
     .filter(flag => flag);
-    
+
   const asmCompFlags = asmCompFlagsInput.value
     .split(";")
     .map(flag => flag.trim())
     .filter(flag => flag);
-  
+
   const config = {
     processors,
     iverilogFlags,
     cmmCompFlags,
     asmCompFlags
   };
-  
+
   console.log("Saving Configuration:", config);
-  
+
   try {
-    // Close the modal and save the configuration
+    // Atualiza a interface com o nome do processador salvo
+    if (processors.length > 0) {
+      const processorName = processors[0].name;
+      const processorStatus = document.getElementById("processorName"); // Certifique-se que esse ID exista no HTML
+      if (processorStatus) {
+        processorStatus.textContent = processorName;
+      }
+    }
+
+    // Fecha o modal e salva
     modal.classList.remove("active");
     await window.electronAPI.saveConfig(config);
     setTimeout(() => modal.hidden = true, 300);
@@ -654,6 +660,7 @@ saveConfigButton.addEventListener("click", async () => {
     alert("Failed to save configuration: " + error.message);
   }
 });
+
 
 // Cancels the configuration changes and closes the modal
 cancelConfigButton.addEventListener("click", () => {

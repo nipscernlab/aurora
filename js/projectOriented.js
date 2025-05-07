@@ -245,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
 // Carregar arquivos .v e .gtkw para as listas suspensas
-// Carregar arquivos .v e .gtkw para as listas suspensas
 async function loadFileOptions() {
   try {
     // Obtém o caminho do projeto atual através do API
@@ -282,7 +281,7 @@ async function loadFileOptions() {
     
     console.log('Usando caminho do projeto:', projectPath);
 
-    
+
     
     // Tentar primeiro na pasta Top Level (se existir)
     const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');

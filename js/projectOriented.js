@@ -155,7 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Se o toggleUI estiver ativo, abrir o modal de projeto em vez do modal de processor
     if (toggleUiButton && toggleUiButton.classList.contains('active')) {
       openProjectModal();
+      modalConfig.remove('active');
+
     }
+
+    modalConfig.add('active');
+
     // Caso contrário, o comportamento original é mantido (abrir modalConfig)
     // Isso é gerenciado pelo código original, não precisamos fazer nada aqui
   }
@@ -239,70 +244,161 @@ document.addEventListener('DOMContentLoaded', () => {
     processorsList.appendChild(newRow);
   }
   
-  // Carregar arquivos .v e .gtkw para as listas suspensas
-  async function loadFileOptions() {
-    try {
-      // Verificar se temos uma variável global com o caminho do projeto atual
-      if (!window.currentProjectPath) {
-        console.error('Caminho do projeto atual não encontrado');
-        return;
+// Carregar arquivos .v e .gtkw para as listas suspensas
+// Carregar arquivos .v e .gtkw para as listas suspensas
+async function loadFileOptions() {
+  try {
+    // Obtém o caminho do projeto atual através do API
+    let projectPath = window.currentProjectPath;
+    
+    // Se não estiver definido, tenta obtê-lo via API
+    if (!projectPath) {
+      try {
+        const projectData = await window.electronAPI.getCurrentProject();
+        // Verificar se projectData é um objeto e extrair o caminho correto
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          // Atualiza a variável global
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          // Caso a API retorne diretamente o caminho como string
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
+        } else {
+          console.error('Formato de dados do projeto inválido:', projectData);
+        }
+      } catch (err) {
+        console.warn('Falha ao obter caminho do projeto via API:', err);
       }
-      
-      // Obter arquivos .v diretamente da pasta Top Level (não de subpastas)
-      const topLevelPath = window.currentProjectPath;
-      foundVerilogFiles = await window.electronAPI.getFilesWithExtension(topLevelPath, '.v');
-      
-      // Obter arquivos .gtkw diretamente da pasta Top Level
-      foundGtkwaveFiles = await window.electronAPI.getFilesWithExtension(topLevelPath, '.gtkw');
-      
-      // Limpar e popular as listas suspensas
-      populateSelectOptions(topLevelSelect, foundVerilogFiles);
-      populateSelectOptions(testbenchSelect, foundVerilogFiles);
-      populateSelectOptions(gtkwaveSelect, foundGtkwaveFiles);
-      
-      // Exibir log de arquivos encontrados
-      console.log('Arquivos Verilog (.v) encontrados:', foundVerilogFiles);
-      console.log('Arquivos GTKWave (.gtkw) encontrados:', foundGtkwaveFiles);
-    } catch (error) {
-      console.error('Erro ao carregar arquivos para as listas suspensas:', error);
     }
+    
+    // Verifica novamente se o caminho do projeto está disponível
+    if (!projectPath) {
+      console.error('Caminho do projeto atual não encontrado');
+      // Exibe mensagem visual para o usuário
+      showNoProjectError();
+      return;
+    }
+    
+    console.log('Usando caminho do projeto:', projectPath);
+
+    
+    
+    // Tentar primeiro na pasta Top Level (se existir)
+    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
+    let topLevelExists = false;
+    
+    try {
+      topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
+    } catch (err) {
+      console.warn('Erro ao verificar existência da pasta Top Level:', err);
+    }
+    
+    // Definir o caminho onde procurar os arquivos
+    const searchPath = topLevelExists ? topLevelPath : projectPath;
+    console.log('Procurando arquivos em:', searchPath);
+    
+    // Obter arquivos usando o caminho correto
+    try {
+      foundVerilogFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.v');
+      foundGtkwaveFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.gtkw');
+    } catch (err) {
+      console.error('Erro ao obter arquivos:', err);
+      foundVerilogFiles = [];
+      foundGtkwaveFiles = [];
+    }
+    
+    // Limpar e popular as listas suspensas
+    populateSelectOptions(topLevelSelect, foundVerilogFiles);
+    populateSelectOptions(testbenchSelect, foundVerilogFiles);
+    populateSelectOptions(gtkwaveSelect, foundGtkwaveFiles);
+    
+    // Exibir log de arquivos encontrados
+    console.log('Arquivos Verilog (.v) encontrados:', foundVerilogFiles);
+    console.log('Arquivos GTKWave (.gtkw) encontrados:', foundGtkwaveFiles);
+  } catch (error) {
+    console.error('Erro ao carregar arquivos para as listas suspensas:', error);
+  }
+}
+
+
+// Função para exibir erro visual quando não há projeto
+function showNoProjectError() {
+  // Adicionar mensagem visual ao modal
+  const errorDiv = document.createElement('div');
+  errorDiv.className = 'project-error-message';
+  errorDiv.innerHTML = `
+    <div class="alert alert-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      Nenhum projeto aberto. Por favor, abra ou crie um projeto primeiro.
+    </div>
+  `;
+  
+  // Adicionar no início do modal
+  const modalContent = document.querySelector('.mconfig-modal-content');
+  if (modalContent && !modalContent.querySelector('.project-error-message')) {
+    modalContent.insertBefore(errorDiv, modalContent.firstChild);
   }
   
-  // Popular uma lista suspensa com opções
-  function populateSelectOptions(selectElement, files) {
-    if (!selectElement) return;
-    
-    // Salvar seleção atual (se houver)
-    const currentSelectedValue = selectElement.value;
-    
-    // Limpar todas as opções existentes
-    selectElement.innerHTML = '';
-    
-    // Adicionar opção padrão/placeholder
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Selecione um arquivo';
-    selectElement.appendChild(defaultOption);
-    
-    // Adicionar novas opções
-    files.forEach(file => {
-      const option = document.createElement('option');
-      
-      // Extrair apenas o nome do arquivo do caminho completo
-      const fileName = file.split('/').pop().split('\\').pop();
-      
-      option.value = fileName;
-      option.textContent = fileName;
-      selectElement.appendChild(option);
-    });
-    
-    // Tentar restaurar seleção anterior
-    if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
-      selectElement.value = currentSelectedValue;
-    } else {
-      selectElement.selectedIndex = 0;
+  // Adicionar estilo para a mensagem
+  const style = document.createElement('style');
+  style.textContent = `
+    .project-error-message {
+      margin-bottom: 15px;
     }
+    .alert {
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .alert-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+    .alert i {
+      margin-right: 8px;
+    }
+  `;
+  document.head.appendChild(style);
+}
+  
+  // Popular uma lista suspensa com opções
+  // Popular uma lista suspensa com opções
+function populateSelectOptions(selectElement, files) {
+  if (!selectElement) return;
+  
+  // Salvar seleção atual (se houver)
+  const currentSelectedValue = selectElement.value;
+  
+  // Limpar todas as opções existentes
+  selectElement.innerHTML = '';
+  
+  // Adicionar opção padrão/placeholder
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Selecione um arquivo';
+  selectElement.appendChild(defaultOption);
+  
+  // Adicionar novas opções
+  files.forEach(file => {
+    const option = document.createElement('option');
+    
+    // Extrair apenas o nome do arquivo do caminho completo
+    const fileName = file.split('/').pop().split('\\').pop();
+    
+    option.value = fileName;
+    option.textContent = fileName;
+    selectElement.appendChild(option);
+  });
+  
+  // Tentar restaurar seleção anterior
+  if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
+    selectElement.value = currentSelectedValue;
+  } else {
+    selectElement.selectedIndex = 0;
   }
+}
   
   // Antes de abrir o modal, carregar arquivos e configuração atual
   async function prepareModalBeforeOpen() {
@@ -345,10 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const styleElement = document.createElement('style');
       styleElement.textContent = `
         .needs-selection {
-          border: 1px solid #ff9800;
+          border: 1px solid #2563eb;
         }
         .selection-required {
-          color: #ff9800;
+          color: #2563eb;
           font-weight: bold;
         }
       `;
@@ -359,38 +455,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Função para carregar configurações do projeto do arquivo JSON
-  async function loadProjectConfiguration() {
-    try {
-      // Reset da configuração atual
-      currentConfig = {
-        topLevelFile: '',
-        testbenchFile: '',
-        gtkwaveFile: '',
-        processors: [],
-        iverilogFlags: ''
-      };
-      
-      // Verificar se o arquivo de configuração existe
-      const configPath = await window.electronAPI.joinPath(window.currentProjectPath, CONFIG_FILENAME);
-      const configExists = await window.electronAPI.fileExists(configPath);
-      
-      if (configExists) {
-        // Carregar configuração do arquivo
-        const configContent = await window.electronAPI.readFile(configPath);
-        currentConfig = JSON.parse(configContent);
-        
-        console.log('Configuração carregada:', currentConfig);
-        
-        // Atualizar campos do formulário
-        updateFormWithConfig();
-      } else {
-        console.log('Arquivo de configuração não encontrado. Usando configuração padrão.');
+ // Função para carregar configurações do projeto do arquivo JSON
+ async function loadProjectConfiguration() {
+  try {
+    // Reset da configuração atual
+    currentConfig = {
+      topLevelFile: '',
+      testbenchFile: '',
+      gtkwaveFile: '',
+      processors: [],
+      iverilogFlags: ''
+    };
+    
+    // Verificar se temos o caminho do projeto
+    let projectPath = window.currentProjectPath;
+    
+    // Se não estiver definido, tenta obtê-lo via API
+    if (!projectPath) {
+      try {
+        const projectData = await window.electronAPI.getCurrentProject();
+        // Verificar se projectData é um objeto e extrair o caminho correto
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          // Atualiza a variável global
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          // Caso a API retorne diretamente o caminho como string
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
+        } else {
+          console.error('Formato de dados do projeto inválido:', projectData);
+        }
+      } catch (err) {
+        console.warn('Falha ao obter caminho do projeto via API:', err);
       }
-    } catch (error) {
-      console.error('Erro ao carregar configuração do projeto:', error);
     }
+    
+    // Verifica novamente se o caminho do projeto está disponível
+    if (!projectPath) {
+      console.error('Caminho do projeto não disponível. Impossível carregar configuração.');
+      return;
+    }
+    
+    // Usar a função joinPath da API electron
+    const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+    
+    // Verificar se o arquivo de configuração existe
+    const configExists = await window.electronAPI.fileExists(configPath);
+    
+    if (configExists) {
+      // Carregar configuração do arquivo
+      const configContent = await window.electronAPI.readFile(configPath);
+      currentConfig = JSON.parse(configContent);
+      
+      console.log('Configuração carregada:', currentConfig);
+      
+      // Atualizar campos do formulário
+      updateFormWithConfig();
+    } else {
+      console.log('Arquivo de configuração não encontrado. Usando configuração padrão.');
+    }
+  } catch (error) {
+    console.error('Erro ao carregar configuração do projeto:', error);
   }
+}
   
   // Atualizar formulário com a configuração carregada
   function updateFormWithConfig() {
@@ -508,23 +636,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Função para salvar configurações do projeto em arquivo JSON
-  async function saveProjectConfiguration() {
-    try {
-      // Coletar dados do formulário
-      const formData = collectFormData();
-      currentConfig = formData;
-      
-      // Salvar em arquivo JSON
-      const configPath = await window.electronAPI.joinPath(window.currentProjectPath, CONFIG_FILENAME);
-      await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
-      
-      console.log('Configuração do projeto salva em:', configPath);
-      console.log('Configuração salva:', currentConfig);
-    } catch (error) {
-      console.error('Erro ao salvar configuração do projeto:', error);
+  // Função para salvar configurações do projeto em arquivo JSON
+async function saveProjectConfiguration() {
+  try {
+    // Verificar se temos o caminho do projeto
+    let projectPath = window.currentProjectPath;
+    
+    // Se não estiver definido, tenta obtê-lo via API
+    if (!projectPath) {
+      try {
+        projectPath = await window.electronAPI.getCurrentProject();
+        // Atualiza a variável global se encontrado
+        if (projectPath) {
+          window.currentProjectPath = projectPath;
+        }
+      } catch (err) {
+        console.warn('Falha ao obter caminho do projeto via API:', err);
+      }
     }
+    
+    // Verifica novamente se o caminho do projeto está disponível
+    if (!projectPath) {
+      console.error('Caminho do projeto não disponível. Impossível salvar configuração.');
+      alert('Falha ao salvar: nenhum projeto aberto.');
+      return;
+    }
+    
+    // Coletar dados do formulário
+    const formData = collectFormData();
+    currentConfig = formData;
+    
+    // Usar a função joinPath da API electron
+    const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+    
+    // Salvar em arquivo JSON
+    await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
+    
+    console.log('Configuração do projeto salva em:', configPath);
+    console.log('Configuração salva:', currentConfig);
+  } catch (error) {
+    console.error('Erro ao salvar configuração do projeto:', error);
+    alert('Erro ao salvar configuração: ' + error.message);
   }
-  
+}
   // Limpar todas as configurações
   function clearAllSettings() {
     // Limpar selects

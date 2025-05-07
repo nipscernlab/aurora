@@ -4117,6 +4117,7 @@ function closeModal(modalId) {
 // Event Listeners for Configuration Modal
 document.getElementById('closeModal')?.addEventListener('click', () => closeModal('modalConfig'));
 document.getElementById('cancelConfig')?.addEventListener('click', () => closeModal('modalConfig'));
+document.getElementById('settings')?.addEventListener('click', () => openModal('modalConfig'));
 
 // Event Listeners for Bug Report Modal
 document.getElementById('open-bug-report')?.addEventListener('click', () => openModal('bug-report-modal'));

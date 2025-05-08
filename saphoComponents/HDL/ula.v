@@ -142,8 +142,8 @@ wire        [MAN-1:0] m1_in = in1[MAN    -1:0  ];
 wire        [MAN-1:0] m2_in = in2[MAN    -1:0  ];
 
 wire signed [EXP:0] eme    =  e1_in-e2_in;
-wire                ege    =  eme[EXP];
-wire        [EXP:0] shift2 = (ege) ?  {EXP+1{1'b0}} : eme;
+wire                ege    =  eme           [EXP];
+wire        [EXP:0] shift2 = (ege) ?        {EXP+1{1'b0}} : eme;
 wire        [EXP:0] shift1 = (ege) ? -eme : {EXP+1{1'b0}};
 
 assign e_out = (ege) ? e2_in : e1_in;
@@ -183,7 +183,7 @@ module ula_norm
     parameter EXP = 8
 )
 (
-     input [MAN+EXP:0] in,
+	 input [MAN+EXP:0] in,
 	output [MAN+EXP:0] out
 );
 
@@ -196,7 +196,7 @@ wire [EXP-1:0] w [MAN-1:0];
 wire        [EXP-1:0] sh    =  w[MAN-2];
 wire                  out_s =  sig;
 wire signed [EXP-1:0] out_e = (man == {MAN{1'b0}}) ? {1'b1, {EXP-1{1'b0}}} : exp - sh;
-wire        [MAN-1:0] out_m =  man << sh; // verificar se <<< eh melhor e quando
+wire        [MAN-1:0] out_m =  man << sh;
 
 ula_nmux #(1, EXP) mm1 (man[MAN-1], 1'b0, {{EXP-1{1'b0}}, {1'b1}}, {EXP{1'b0}}, w[0]);
 
@@ -271,9 +271,9 @@ module ula_fadd
 wire signed [MAN+1:0] soma = sm1_in + sm2_in;
 wire signed [MAN+1:0] m    = (soma[MAN+1]) ? -soma : soma;
 
-wire                  s_out = soma[MAN+1];
+wire                  s_out = soma    [MAN+1];
 wire signed [EXP-1:0] e_out = e_in + {{EXP-1{1'b0}}, {1'b1}}; // colocar limite para +inf?
-wire        [MAN-1:0] m_out = m   [MAN:1];
+wire        [MAN-1:0] m_out = m       [MAN:1];
 
 assign out = {s_out, e_out, m_out};
 
@@ -314,10 +314,10 @@ wire        [MAN-1:0] m1 = in1[MAN    -1:0  ];
 wire        [MAN-1:0] m2 = in2[MAN    -1:0  ];
 
 wire        [2*MAN-1:0] mult = m1 * m2;
-wire signed [  EXP  :0] e    = e1 + e2 + MAN; // colocar limite para +inf
+wire signed [  EXP  :0] e    = e1 + e2 + MAN[EXP-1:0]; // colocar limite para +inf
 
 wire                  s_out = (s1 != s2);
-wire                  unf   = (e[EXP:EXP-1] == 2'b10);       // underflow
+wire                  unf   = (e[EXP:EXP-1] == 2'b10); // underflow
 wire signed [EXP-1:0] e_out =  e[EXP-1:  0];
 wire        [MAN-1:0] m_out = (unf) ? {{MAN{1'b0}}} : mult[2*MAN-1:MAN];
 
@@ -364,7 +364,7 @@ wire [2*MAN-2:0] div    =  m1_ext / m2;
 
 wire                  s_out = (s1 != s2);
 wire signed [EXP-1:0] e_out = e1 - e2 - MAN + {{EXP-1{1'b0}}, {1'b1}};
-wire        [MAN-1:0] m_out = div[MAN-1:0];
+wire        [MAN-1:0] m_out = div      [MAN-1:0];
 
 assign out = {s_out, e_out, m_out};
 
@@ -1162,29 +1162,29 @@ wire [NUBITS-1:0] mux_out; // saida da ula
 ula_mux #(NUBITS) ula_mux (.op (op ),
                            .in1(in1),.in2 (in2 ),
                            .add(add),.fadd(fadd),
-						   .mlt(mlt),.fmlt(fmlt),
-						   .div(div),.fdiv(fdiv),
-						   .mod(mod),
-						   .sgn(sgn),.fsgn(fsgn),
-						   .neg(neg),.negm(negm),.fneg(fneg),.fnegm(fnegm),
-						   .abs(abs),.absm(absm),.fabs(fabs),.fabsm(fabsm),
-						   .pst(pst),.pstm(pstm),.fpst(fpst),.fpstm(fpstm),
+                           .mlt(mlt),.fmlt(fmlt),
+                           .div(div),.fdiv(fdiv),
+                           .mod(mod),
+                           .sgn(sgn),.fsgn(fsgn),
+                           .neg(neg),.negm(negm),.fneg(fneg),.fnegm(fnegm),
+                           .abs(abs),.absm(absm),.fabs(fabs),.fabsm(fabsm),
+                           .pst(pst),.pstm(pstm),.fpst(fpst),.fpstm(fpstm),
                            .nrm(nrm),.nrmm(nrmm),
-						   .i2f(i2f),.i2fm(i2fm), 
-					       .f2i(f2i),.f2im(f2im),
-						   .ann(ann),
-						   .orr(orr),
-						   .cor(cor),
-						   .inv(inv),.invm(invm),
-						   .lan(lan),
-						   .lor(lor),
-						   .lin(lin),.linm(linm),
+                           .i2f(i2f),.i2fm(i2fm), 
+                           .f2i(f2i),.f2im(f2im),
+                           .ann(ann),
+                           .orr(orr),
+                           .cor(cor),
+                           .inv(inv),.invm(invm),
+                           .lan(lan),
+                           .lor(lor),
+                           .lin(lin),.linm(linm),
                            .les(les),.fles(fles),
-						   .gre(gre),.fgre(fgre),
-						   .equ(equ),
+                           .gre(gre),.fgre(fgre),
+                           .equ(equ),
                            .shl(shl),
-						   .shr(shr),
-						   .srs(srs),
+                           .shr(shr),
+                           .srs(srs),
                            .out(mux_out));
 
 // mux de saida (se necessario) -----------------------------------------------

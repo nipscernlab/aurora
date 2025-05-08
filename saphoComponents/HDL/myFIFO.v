@@ -17,7 +17,7 @@ module myFIFO
 	output                          almost_empty,
 	output                          empty,
 	output                          full ,
-	output reg [WORD          -1:0] q,
+	output reg [WORD          -1:0] q    ,
 	output     [$clog2(LENGTH)-1:0] usedw
 );
 

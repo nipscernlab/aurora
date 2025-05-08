@@ -13,13 +13,13 @@ module mem_instr
 (
 	input                           clk,
 	input      [$clog2(NADDRE)-1:0] addr,
-	output reg [NBDATA        -1:0] data = 0 // para o modelsim
+	output reg [NBDATA        -1:0] data = 0
 );
 
 reg [NBDATA-1:0] mem [0:NADDRE-1];
 
 `ifdef YOSYS
-  // Yosys vai ignorar isso
+	// Yosys vai ignorar isso
 `else
 	initial $readmemb(FNAME, mem);
 `endif
@@ -40,11 +40,10 @@ module mem_data
 	parameter NADDRE =  8,
 	parameter NBDATA = 32,
 	parameter FNAME  = "data.mif"
-)
-(
+)(
 	input                                  clk,
-	input                                   wr,
-	input             [$clog2(NADDRE)-1:0] addr_w, addr_r,
+	input                                  wr,
+	input             [$clog2(NADDRE)-1:0] addr,
 	input      signed [NBDATA        -1:0] data_in,
 	output reg signed [NBDATA        -1:0] data_out
 );
@@ -52,17 +51,14 @@ module mem_data
 reg [NBDATA-1:0] mem [0:NADDRE-1];
 
 `ifdef YOSYS
-  // Yosys vai ignorar isso
+	// Yosys vai ignorar isso
 `else
 	initial $readmemb(FNAME, mem);
 `endif
 
 always @ (posedge clk) begin
-	if (wr) mem[addr_w] <= data_in;
-end
-
-always @ (posedge clk) begin
-	data_out <= mem[addr_r];
+	if (wr)     mem[addr] <= data_in;
+	data_out <= mem[addr];
 end
 
 endmodule
@@ -77,43 +73,38 @@ module processor
 	// Parametros de configuracao internos -------------------------------------
 	// -------------------------------------------------------------------------
 
-  	// fluxo de dados
-  	parameter NBOPCO = 7,               // Numero de bits de opcode (mudar o comp. assembler de acordo, em eval.c)
-  	parameter ITRADD = 0,               // Endereco da interrupcao
+	// fluxo de dados
+	parameter NBOPCO = 7,               // Numero de bits de opcode (mudar o comp. assembler de acordo, em eval.c)
+	parameter ITRADD = 0,               // Endereco da interrupcao
 
 	// memorias
 	parameter IFILE  = "inst.mif",      // Arquivo contendo o programa a ser executado
 	parameter DFILE  = "data.mif",      // Arquivo com conteudo da memoria de dados
-  	parameter MDATAS = 64,              // Tamanho da memoria de dados
+	parameter MDATAS = 64,              // Tamanho da memoria de dados
 	parameter MINSTS = 64,              // Tamanho da memoria de intrucoes
-  	parameter MDATAW = $clog2(MDATAS),  // Numero de bits de endereco da memoria de dados
+	parameter MDATAW = $clog2(MDATAS),  // Numero de bits de endereco da memoria de dados
 	parameter MINSTW = $clog2(MINSTS),  // Numero de bits de endereco da memoria de instrucao
 
-  	// simulacao
-	parameter NUINST =  0,              // numero de instrucoes encontradas pelo comp assembly (sem macros)
-	parameter MEMTAB = "",              // arquivo texto com a tabela de instrucoes
-  	parameter FIMADD =  0,              // endereco da instrucao FIM
-  	parameter SIMTYP =  0,              // tipo de simulacao (0 para single e 1 para multicore)
-
-  	// -------------------------------------------------------------------------
+	// -------------------------------------------------------------------------
 	// Parametros configurados pelo usuario ------------------------------------
 	// -------------------------------------------------------------------------
 
-  	// fluxo de dados
+	// fluxo de dados
 	parameter NUBITS = 16,              // Tamanho da palavra do processador
-  	parameter NBMANT = 23,              // Numero de bits da mantissa
-  	parameter NBEXPO =  8,              // Numero de bits do expoente
-  	parameter NBOPER =  7,              // Numero de bits de operando
+	parameter NBMANT = 23,              // Numero de bits da mantissa
+	parameter NBEXPO =  8,              // Numero de bits do expoente
+	parameter NBOPER =  7,              // Numero de bits de operando
 
-  	// memorias
-	parameter SDEPTH =  8,              // Tamanho da pilha   de instrucao
+	// memorias
+	parameter SDEPTH = 10,              // Tamanho da pilha de instrucao
+	parameter DDEPTH = 10,              // Tamanho da pilha de dados
 
-  	// entrada e Saida
+	// entrada e Saida
 	parameter NUIOIN =  2,              // Numero de portas de entrada
 	parameter NUIOOU =  2,              // Numero de portas de saida
 
-  	// constantes aritmeticas
-  	parameter NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
+	// constantes aritmeticas
+	parameter NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
 	parameter FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
 
 	// -------------------------------------------------------------------------
@@ -123,7 +114,7 @@ module processor
 	// implementa enderecamento indireto
 	parameter   LDI   = 0,
 	parameter   ILI   = 0,
-	parameter   SRF   = 0,
+	parameter   STI   = 0,
 	
 	// implementa pilha de subrotinas
 	parameter   CAL   = 0,
@@ -205,19 +196,29 @@ module processor
 	output [$clog2(NUIOIN)-1:0] addr_in ,
 	output [$clog2(NUIOOU)-1:0] addr_out,
 	output                      req_in  , out_en,
-	input                       itr,
+	input                       itr
 
-  	output                      mem_wr,
-  	output         [MDATAW-1:0] mem_addr_w,
-  	output         [MINSTW-1:0] pc_sim_val
+`ifdef __ICARUS__ // ----------------------------------------------------------
+
+	, output                    mem_wr,
+	  output       [MDATAW-1:0] mem_addr,
+	  output       [MINSTW-1:0] pc_sim_val);
+
+`else
+
 );
 
-// processador ----------------------------------------------------------------
+wire                     mem_wr;
+wire        [MDATAW-1:0] mem_addr;
+
+`endif // ---------------------------------------------------------------------
+
+// core -----------------------------------------------------------------------
 
 wire        [MINSTW-1:0] instr_addr;
-wire        [MDATAW-1:0] mem_addr_r;
 wire signed [NUBITS-1:0] mem_data_in;
 wire signed [NUBITS-1:0] mem_data_out;
+wire sw, mem_wrb;
 
 assign io_out = mem_data_out;
 
@@ -228,18 +229,18 @@ core #(.NBOPCO (NBOPCO ),
        .ITRADD (ITRADD ),
        .MDATAW (MDATAW ),
        .MINSTW (MINSTW ),
-       .MDATAS (MDATAS ),
        .NUBITS (NUBITS ),
        .NBMANT (NBMANT ),
        .NBEXPO (NBEXPO ),
        .SDEPTH (SDEPTH ),
+	   .DDEPTH (DDEPTH ),
        .NUIOIN (NUIOIN ),
        .NUIOOU (NUIOOU ),
        .NUGAIN (NUGAIN ),
        .FFTSIZ (FFTSIZ ),
          .LDI  (  LDI  ),
          .ILI  (  ILI  ),
-         .SRF  (  SRF  ),
+         .STI  (  STI  ),
          .CAL  (  CAL  ),
          .ADD  (  ADD  ),
        .F_ADD  (F_ADD  ),
@@ -286,8 +287,15 @@ core #(.NBOPCO (NBOPCO ),
          .SHR  (  SHR  ),
          .SRS  (  SRS  )) core(clk, rst,
                                instr, instr_addr,
-                               mem_wr, mem_addr_w, mem_addr_r, mem_data_in, mem_data_out,
-                               io_in, addr_in, addr_out, req_in, out_en, itr, pc_sim_val);
+                               mem_wr, mem_addr, mem_data_in, mem_data_out,
+                               io_in, addr_in, addr_out, req_in, out_en, itr
+
+`ifdef __ICARUS__ // ----------------------------------------------------------
+
+                             , pc_sim_val
+
+`endif // ---------------------------------------------------------------------
+);
 
 // memoria de instrucao -------------------------------------------------------
 
@@ -299,6 +307,6 @@ mem_instr # (.NADDRE(MINSTS       ),
 
 mem_data # (.NADDRE(MDATAS),
             .NBDATA(NUBITS),
-            .FNAME (DFILE )) mdata(clk, mem_wr, mem_addr_w, mem_addr_r, mem_data_out, mem_data_in);
+            .FNAME (DFILE )) mdata(clk, mem_wr, mem_addr, mem_data_out, mem_data_in);
 
 endmodule

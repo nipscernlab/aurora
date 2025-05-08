@@ -7,28 +7,27 @@
 module pc
 #(
 	parameter NBITS = 8
-)
-(
-	 input             clk , rst,
-	 input             load,
-	 input [NBITS-1:0] data,
-	output [NBITS-1:0] addr,
+)(
+	 input                 clk , rst,
+	 input                 load,
+	 input     [NBITS-1:0] data,
+	output reg [NBITS-1:0] addr = 0
 
-    output [NBITS-1:0] val
+`ifdef __ICARUS__ // ----------------------------------------------------------
+ , output     [NBITS-1:0] sim
+`endif // ---------------------------------------------------------------------
 );
 
-reg  [NBITS-1:0] cnt=0;
-
-assign val = (load) ? data : cnt;
+wire [NBITS-1:0] val = (load) ? data : addr;
 
 always @ (posedge clk or posedge rst) begin
-	if (rst)
-		cnt <= 0;
-	else
-		cnt <= val + {{NBITS-1{1'b0}}, {1'b1}};
+	if (rst) addr <= 0;
+	else     addr <= val + {{NBITS-1{1'b0}}, {1'b1}};
 end
 
-assign addr = cnt;
+`ifdef __ICARUS__ // ----------------------------------------------------------
+assign sim  = val;
+`endif // ---------------------------------------------------------------------
 
 endmodule
 
@@ -37,16 +36,16 @@ endmodule
 module prefetch
 #
 (
-	parameter   MINSTW = 8,
-	parameter   NBOPCO = 7,
-	parameter   NBOPER = 9,
+	parameter               MINSTW = 8,
+	parameter               NBOPCO = 7,
+	parameter               NBOPER = 9,
 	parameter  [MINSTW-1:0] ITRADD = 0)
 (
 	 input                         clk, rst  ,
-	 input     [MINSTW       -1:0] addr      ,
+	 input     [MINSTW       -1:0] pc_instr  ,
 	output     [NBOPCO       -1:0] opcode    ,
 	output     [NBOPER       -1:0] operand   ,
-	 input     [NBOPCO+NBOPER-1:0] instr     ,
+	 input     [NBOPCO+NBOPER-1:0] mem_instr ,
 	output     [MINSTW       -1:0] instr_addr,
 	output                         pc_l      ,
 	 input                         is_zero   ,
@@ -57,10 +56,10 @@ module prefetch
 
 reg pc_load;
 
-assign opcode  =  instr[NBOPCO+NBOPER-1:NBOPER];
-assign operand =  instr[NBOPER       -1:     0];
-assign pc_l = itr | pc_load;
-assign instr_addr = (itr) ? ITRADD: (pc_load & ~rst) ? operand[MINSTW-1:0] : addr;
+assign opcode     =  mem_instr[NBOPCO+NBOPER-1:NBOPER];
+assign operand    =  mem_instr[NBOPER       -1:     0];
+assign pc_l       =  itr  | pc_load;
+assign instr_addr = (itr) ? ITRADD : (pc_load & ~rst) ? operand[MINSTW-1:0] : pc_instr;
 
 always @ (*) begin
 	case (opcode)
@@ -94,17 +93,18 @@ end
 
 endmodule
 
-// ponteiro pra pilha de dados ------------------------------------------------
+// pilha de dados -------------------------------------------------------------
 
-module stack_pointer
+module stack_data
 #(
 	parameter              NDATAW = 8,  // Numero de bits de endereco  da memoria
-	parameter [NDATAW-1:0] NDATAS = 8   // Numero de         enderecos da memoria
-)
-(
-	 input              clk   , rst,
-	 input              push  , pop,
-	output [NDATAW-1:0] addr_w, addr_r
+	parameter [NDATAW-1:0] NDATAS = 8,  // Tamanho da memoria
+	parameter              NBDATA = 32  // Num de bits de dados
+)(
+	 input              clk    , rst,
+	 input              push   , pop,
+	 input [NBDATA-1:0] data_in, 
+	output reg [NBDATA-1:0] data_out
 );
 
 reg         [NDATAW-1:0] cnt = NDATAS   -{{NDATAW-1{1'b0}}, {1'b1}};
@@ -117,8 +117,15 @@ always @ (posedge clk or posedge rst) begin
 		cnt <= cnt + pm;
 end
 
-assign addr_w = cnt;
-assign addr_r = cnt + pm;
+wire [NDATAW-1:0] addr_w = cnt;
+wire [NDATAW-1:0] addr_r = cnt + pm;
+
+reg [NBDATA-1:0] mem [0:NDATAS-1];
+
+always @ (posedge clk) begin
+	if (push)   mem[addr_w] <= data_in;
+	data_out <= mem[addr_r];
+end
 
 endmodule
 
@@ -126,11 +133,10 @@ endmodule
 
 module stack
 #(
-	parameter             NADDR = 7,
-	parameter [NADDR-1:0] DEPTH = 3,
-	parameter             NBITS = 8
-)
-(
+	parameter              NADDR = 7,
+	parameter  [NADDR-1:0] DEPTH = 3,
+	parameter              NBITS = 8
+)(
 	input                   clk, rst,
 	input                  push, pop,
 	input      [NBITS-1:0] in,
@@ -139,7 +145,7 @@ module stack
 
 reg [NBITS-1:0] mem [DEPTH-1:0];
 
-// Stack Pointer --------------------------------------------------------------
+// Stack Pointer
 
 reg         [NADDR-1:0] cnt = DEPTH    -{{NADDR-1{1'b0}}, {1'b1}};
 wire signed [NADDR-1:0] pm  = (push) ? -{{NADDR-1{1'b0}}, {1'b1}} : {{NADDR-1{1'b0}}, {1'b1}};
@@ -151,7 +157,7 @@ always @ (posedge clk or posedge rst) begin
 		cnt <= cnt + pm;
 end
 
-// Stack ----------------------------------------------------------------------
+// Stack
 
 always @ (posedge clk) if (push) mem[cnt] <= in; 
 always @ (posedge clk)    out <= mem[cnt + {{$clog2(DEPTH)-1{1'b0}}, {1'b1}} + pop]; 
@@ -167,8 +173,8 @@ module rel_addr
 	parameter USEFFT = 1
 )
 (
-	input               srf, ldi, inv,
-	input  [MDATAW-1:0] in,
+	input               sti, ldi, fft,
+	input  [MDATAW-1:0] offset,
 	input  [MDATAW-1:0] addr,
 	output [MDATAW-1:0] out
 );
@@ -178,13 +184,13 @@ generate
 		reg [FFTSIZ-1:0] aux;
 
 		integer i;
-		always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] <= in[FFTSIZ-1-i];
+		always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] <= offset[FFTSIZ-1-i];
 
-		wire [MDATAW-1:0] add = (inv) ? {in[MDATAW-1:FFTSIZ], aux} : in;
+		wire [MDATAW-1:0] add = (fft) ? {offset[MDATAW-1:FFTSIZ], aux} : offset;
 
-		assign out = (srf || ldi) ? add + addr: addr;
+		assign out = (sti | ldi) ?     add + addr: addr;
 	end else
-		assign out = (srf || ldi) ? in  + addr: addr;
+		assign out = (sti | ldi) ? offset  + addr: addr;
 endgenerate
 
 endmodule
@@ -208,7 +214,6 @@ module core
 	parameter MDATAW = 9,               // Numero de bits de endereco da memoria de dados
 	parameter MINSTW = 9,               // Numero de bits de endereco da memoria de instrucao
 	parameter NBINST = NBOPCO + NBOPER, // Numero de bits da memoria de instrucao
-	parameter MDATAS = 512,             // Numero de enderecos da memoria de dados
 
 	// -------------------------------------------------------------------------
 	// Parametros configurados pelo usuario ------------------------------------
@@ -220,7 +225,8 @@ module core
 	parameter NBEXPO =  8,              // Numero de bits do expoente
 
 	// memorias
-	parameter SDEPTH =  5,              // Numero de bits de endereco da pilha de subrotinas
+	parameter SDEPTH = 10,              // Tamanho da pilha de instrucao
+	parameter DDEPTH = 10,              // Tamanho da pilha de dados
 
 	// entradas e Saidas
 	parameter NUIOIN =  8,              // Numero de enderecos de IO - entrada
@@ -237,7 +243,7 @@ module core
 	// implementa enderecamento indireto
 	parameter   LDI   = 0,
 	parameter   ILI   = 0,
-	parameter   SRF   = 0,
+	parameter   STI   = 0,
 	
 	// implementa pilha de subrotinas
 	parameter   CAL   = 0,
@@ -319,8 +325,8 @@ module core
 	output     [MINSTW        -1:0] instr_addr,
 
 	output                          mem_wr,
-	output     [MDATAW        -1:0] mem_addr_w, mem_addr_r,
-	input      [NUBITS        -1:0] mem_data_in,
+	output     [MDATAW        -1:0] mem_addr,
+	input      [NUBITS        -1:0] mem_data_inn,
 	output     [NUBITS        -1:0] data_out,
 
 	input      [NUBITS        -1:0] io_in,
@@ -328,10 +334,11 @@ module core
 	output     [$clog2(NUIOOU)-1:0] addr_out,
 	output                          req_in, out_en,
 
-	input                           itr,
+	input                           itr
 
-	
-	output     [MINSTW        -1:0] pc_sim_val
+`ifdef __ICARUS__ // ----------------------------------------------------------
+ , output     [MINSTW        -1:0] pc_sim_val
+`endif // ---------------------------------------------------------------------
 );
 
 // Program Counter ------------------------------------------------------------
@@ -342,15 +349,15 @@ wire [MINSTW-1:0] pc_addr;
 wire [MINSTW-1:0] pcl;
 
 generate
-
-	if (ITRADD>0)
-		assign pcl = (itr) ? instr_addr : pc_lval;
-	else
-		assign pcl = pc_lval;
-
+	if (ITRADD>0) assign pcl = (itr) ? instr_addr : pc_lval;
+	else          assign pcl = pc_lval;
 endgenerate
 
+`ifdef __ICARUS__ // ----------------------------------------------------------
 pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr, pc_sim_val);
+`else
+pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr);
+`endif // ---------------------------------------------------------------------
 
 // Prefetch de instrucao ------------------------------------------------------
 
@@ -381,9 +388,10 @@ wire              id_dsp_pop;
 
 wire [       5:0] id_ula_op;
 wire [NUBITS-1:0] id_ula_data;
+wire [NUBITS-1:0] mem_data_in;
 
 wire [MDATAW-1:0] id_mem_addr;
-wire              id_srf, id_ldi, id_inv;
+wire              id_sti, id_ldi, id_fft;
 
 instr_dec #(NUBITS, NBOPCO, NBOPER, MDATAW) id(clk, rst,
                                             id_opcode, id_operand,
@@ -391,16 +399,20 @@ instr_dec #(NUBITS, NBOPCO, NBOPER, MDATAW) id(clk, rst,
                                             id_ula_op, id_ula_data,
                                             mem_wr, id_mem_addr, mem_data_in,
                                             io_in, req_in, out_en,
-                                            id_srf, id_ldi, id_inv);
+                                            id_sti, id_ldi, id_fft);
 
-// Ponteiro pra pilha de dados ------------------------------------------------
+// Pilha de dados -------------------------------------------------------------
 
 wire              sp_push = id_dsp_push;
 wire              sp_pop  = id_dsp_pop;
-wire [MDATAW-1:0] sp_addr_w, sp_addr_r;
+wire [NUBITS-1:0] sp_data_out;
 
-stack_pointer #(.NDATAW(MDATAW),
-                .NDATAS(MDATAS)) sp(clk, rst, sp_push, sp_pop, sp_addr_w, sp_addr_r);
+reg sp_popr; always @ (posedge clk) sp_popr <= sp_pop;
+assign mem_data_in = (sp_popr) ? sp_data_out : mem_data_inn;
+
+stack_data #(.NDATAW($clog2(DDEPTH)),
+             .NDATAS(DDEPTH),
+			 .NBDATA(NUBITS)) sp(clk, rst, sp_push, sp_pop, data_out, sp_data_out);
 
 // Unidade Logico-Aritmetica --------------------------------------------------
 
@@ -460,12 +472,7 @@ ula #(.NUBITS (NUBITS ),
 
 reg signed [NUBITS-1:0] racc;
 
-always @ (posedge clk or posedge rst) begin
-	if (rst)
-		racc <= 0;
-	else
-		racc <= ula_out;
-end
+always @ (posedge clk or posedge rst) if (rst) racc <= 0; else racc <= ula_out;
 
 assign ula_acc = racc;
 assign  pf_acc = ula_out[0];
@@ -475,17 +482,11 @@ assign  pf_acc = ula_out[0];
 wire [MINSTW-1:0] stack_out;
 
 generate
-
-	if (CAL == 1) begin
-
+	if (CAL) begin
 		stack #($clog2(SDEPTH), SDEPTH, MINSTW) isp(clk, rst, pf_isp_push, pf_isp_pop, pc_addr, stack_out);
-
 		assign pc_lval = (pf_isp_pop) ? stack_out : instr[MINSTW-1:0];
-
 	end else
-
 		assign pc_lval = instr[MINSTW-1:0];
-
 endgenerate
 
 // Enderecamento Indireto -----------------------------------------------------
@@ -494,23 +495,18 @@ wire [MDATAW-1:0] rf;
 
 generate
 
-	if (SRF == 1 || LDI == 1) begin
-
+	if (STI | LDI) begin
 		wire [MDATAW-1:0] rf_in = (id_ldi) ? ula_out[MDATAW-1:0] : mem_data_in[MDATAW-1:0];
-
-		rel_addr #(MDATAW, FFTSIZ, ILI) ra(id_srf, id_ldi, id_inv, rf_in, id_mem_addr, rf);
-
+		rel_addr #(MDATAW, FFTSIZ, ILI) ra(id_sti, id_ldi, id_fft, rf_in, id_mem_addr, rf);
 	end else
-
 		assign rf = id_mem_addr;
-
+		
 endgenerate
 
 // Interface externa ----------------------------------------------------------
 
-assign data_out   =  ula_out;
-assign mem_addr_w = (sp_push   ) ? sp_addr_w : rf;
-assign mem_addr_r = (sp_pop    ) ? sp_addr_r : rf;
+assign data_out = ula_out;
+assign mem_addr = rf;
 
 generate
 

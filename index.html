@@ -65,20 +65,20 @@
 
     <!-- Buttons in the center -->
     <div class="toolbar-center">
-      <button id="cmmcomp" class="toolbar-button" titles="Compile CMM">
+      <button id="cmmcomp" class="toolbar-button" titles="Compile CMM" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
         <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
       </button>
-      <button id="asmcomp" class="toolbar-button" titles="Compile ASM">
+      <button id="asmcomp" class="toolbar-button" titles="Compile ASM" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
       </button>
-      <button id="vericomp" class="toolbar-button" titles="Compile Verilog">
+      <button id="vericomp" class="toolbar-button" titles="Compile Verilog" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
       </button>
-      <button id="wavecomp" class="toolbar-button" titles="Open Wave">
+      <button id="wavecomp" class="toolbar-button" titles="Open Wave" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
       </button>
-      <button id="prismcomp" class="toolbar-button" titles="Open PRISM">
+      <button id="prismcomp" class="toolbar-button" titles="Open PRISM" disabled style="cursor: not-allowed;">
         <img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;">      
       </button>
     </div>
@@ -87,7 +87,7 @@
       <i class="fa-solid fa-fan"></i>
     </button>
 
-    <button id="allcomp" class="toolbar-button" titles="Compile All">
+    <button id="allcomp" class="toolbar-button" titles="Compile All" disabled style="cursor: not-allowed;">
       <i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Compile All
     </button>
 
@@ -633,10 +633,11 @@
 </div>
 
 <div class="status-bar">
-  <div class="status-item">Ready</div>
-  <div class="status-item" style="right: -20%;"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
-  <div class="status-item" id="processorName" style="right: -20%;">No Processor Configured</div>
-  <div class="status-item" id="editorStatus">Line 1, Column 1</div>
+  <div class="status-item"><i class="fa-solid fa-check"></i> Ready</div>
+  <div  id="processorProjectOriented"><i class="fa-solid fa-water"></i> Processor Oriented</div>
+  <div class="status-item"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
+  <div class="status-item" id="processorName" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
+  <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Line 1, Column 1</div>
 </div>
 
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>

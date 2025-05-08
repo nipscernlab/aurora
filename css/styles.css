@@ -247,13 +247,18 @@ body.dark-mode .resizer-horizontal {
   transition: background-color 0.2s;
 }
 
-#cmmcomp:hover, #asmcomp:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+#processorName {
+  transition: opacity 0.3s ease;
 }
 
-#cmmcomp:active, #asmcomp:active {
-  background-color: rgba(255, 255, 255, 0.2);
+#processorProjectOriented {
+  transition: opacity 0.3s ease;
+  opacity: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+
 
 ::-webkit-scrollbar {
   width: 6px;

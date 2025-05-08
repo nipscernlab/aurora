@@ -2186,6 +2186,7 @@ async function loadProject(spfPath) {
 
     // Enable the processor hub button
     updateProcessorHubButton(true);
+    enableCompileButtons();
     refreshFileTree();
     
     // Check if folders exist
@@ -2223,6 +2224,18 @@ function showErrorDialog(title, message) {
   // Você pode usar um alert simples ou implementar um modal customizado
   alert(`${title}: ${message}`);
 }
+
+function enableCompileButtons() {
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp'];
+  buttons.forEach(id => {
+    const button = document.getElementById(id);
+    if (button) {
+      button.disabled = false;
+      button.style.cursor = 'pointer';
+    }
+  });
+}
+
 
 
 
@@ -2731,28 +2744,11 @@ function getProcessorName() {
     return processorNameInput ? processorNameInput.value : 'procTest_00';
 }
 
-// Update button state based on active tab
-function updateCompileButtonState() {
-
-    if (true) {
-        compileButton.style.opacity = "1";
-        compileButton.style.cursor = "pointer";
-    } else {
-        compileButton.style.opacity = "0.5";
-        compileButton.style.cursor = "not-allowed";
-        compileButtoncmm.style.opacity = "0.5";
-        compileButtoncmm.style.cursor = "not-allowed";
-        compileButtonasm.style.opacity = "0.5";
-        compileButtonasm.style.cursor = "not-allowed";
-    }
-}
-
 
 // Observe tab changes
 const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
         if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-            updateCompileButtonState();
         }
     });
 });
@@ -2764,18 +2760,6 @@ document.querySelectorAll('.tab').forEach(tab => {
     });
 });
 
-// Initial button state
-updateCompileButtonState();
-
-// Listen for TabManager changes
-document.addEventListener('TabManager.activeTabChanged', updateCompileButtonState);
-
-// Update button state whenever a new tab is created or activated
-const originalActivateTab = TabManager.activateTab;
-TabManager.activateTab = function(filePath) {
-    originalActivateTab.call(TabManager, filePath);
-    updateCompileButtonState();
-};
 
 //COMP ========================================================================================================================================================
 class CompilationModule {

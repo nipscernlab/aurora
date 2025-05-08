@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     iverilogFlags: ''
   };
 
+  // Lista de processadores disponíveis
+  let availableProcessors = [];
+
   // Cache para os arquivos encontrados
   let foundVerilogFiles = [];
   let foundGtkwaveFiles = [];
@@ -53,7 +56,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // Configurar toggle UI para alternar entre modais
     setupToggleUI();
     
+    // Carregar processadores disponíveis
+    loadAvailableProcessors();
+    
     console.log('Sistema de configuração orientada a projetos inicializado');
+  }
+  
+  // Carregar processadores disponíveis
+  async function loadAvailableProcessors() {
+    try {
+      // Obter informações do projeto atual usando a API Electron
+      const projectInfo = await window.electronAPI.getCurrentProject();
+      
+      if (projectInfo && projectInfo.projectOpen) {
+        console.log("Projeto atual encontrado:", projectInfo);
+        window.currentProjectPath = projectInfo.projectPath;
+        
+        // Usar processadores do projeto atual
+        availableProcessors = projectInfo.processors || [];
+      } else {
+        // Se não houver projeto atual, tente usar o caminho do projeto armazenado
+        const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+        
+        if (!currentProjectPath) {
+          console.warn("Nenhum caminho de projeto disponível para carregar processadores");
+          availableProcessors = [];
+          return;
+        }
+        
+        console.log("Carregando processadores para o projeto:", currentProjectPath);
+        
+        // Chamar o método IPC para obter processadores com o caminho do projeto atual
+        const processors = await window.electronAPI.getAvailableProcessors(currentProjectPath);
+        console.log("Processadores carregados:", processors);
+        
+        availableProcessors = processors || [];
+      }
+    } catch (error) {
+      console.error("Falha ao carregar processadores disponíveis:", error);
+      availableProcessors = [];
+    }
   }
   
   // Configurar os botões do modal
@@ -154,19 +196,36 @@ document.addEventListener('DOMContentLoaded', () => {
         openProjectModal();
     });
     
-    // Adicionar listener para o botão de toggle UI
-    toggleUiButton.addEventListener('click', function() {
-        // Verificar se o toggleUiButton está ativo
-        const isToggleActive = toggleUiButton.classList.contains('active');
-        
-        // Realizar a transição suave
-        if (isToggleActive) {
-            // Mostrar botão de projeto e ocultar botão original
-            fadeOutIn(settingsButton, projectSettingsButton);
-        } else {
-            // Mostrar botão original e ocultar botão de projeto
-            fadeOutIn(projectSettingsButton, settingsButton);
-        }
+    toggleUiButton.addEventListener('click', function () {
+      const isToggleActive = toggleUiButton.classList.contains('active');
+    
+      // Atualizar botões com transição
+      if (isToggleActive) {
+        fadeOutIn(settingsButton, projectSettingsButton);
+      } else {
+        fadeOutIn(projectSettingsButton, settingsButton);
+      }
+    
+      // Atualizar texto com ícone e transição suave
+      const statusText = document.getElementById("processorProjectOriented");
+      const statusTexttwo = document.getElementById("processorName");
+
+      if (statusText) {
+        statusText.style.opacity = "0"; // Fade out
+    
+        setTimeout(() => {
+          if (isToggleActive) {
+            // Processor Oriented
+            statusText.innerHTML = `<i class="fa-solid fa-water"></i> Processor Oriented`;
+            statusTexttwo.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
+          } else {
+            // Project Oriented
+            statusText.innerHTML = `<i class="fa-solid fa-fire"></i> Project Oriented`;
+          }
+    
+          statusText.style.opacity = "1"; // Fade in
+        }, 300);
+      }
     });
     
     // Verificar estado inicial do toggle-ui após um pequeno atraso
@@ -176,35 +235,36 @@ document.addEventListener('DOMContentLoaded', () => {
             fadeOutIn(settingsButton, projectSettingsButton);
         }
     }, 600);
-}
-  // Função para realizar a transição suave entre botões
-function fadeOutIn(buttonToHide, buttonToShow) {
-  // Verificar se os botões existem
-  if (!buttonToHide || !buttonToShow) {
-      console.error('Botões não encontrados para transição');
-      return;
   }
   
-  // Fade out do botão atual
-  buttonToHide.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
-  buttonToHide.style.opacity = '0';
-  
-  // Após o fade out, trocar os botões
-  setTimeout(() => {
-      buttonToHide.style.display = 'none';
-      
-      // Mostrar o novo botão com opacity 0
-      buttonToShow.style.opacity = '0';
-      buttonToShow.style.display = '';
-      buttonToShow.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
-      
-      // Forçar reflow para garantir que a transição ocorra
-      buttonToShow.offsetHeight;
-      
-      // Iniciar fade in
-      buttonToShow.style.opacity = '1';
-  }, ICON_TRANSITION_DURATION);
-}
+  // Função para realizar a transição suave entre botões
+  function fadeOutIn(buttonToHide, buttonToShow) {
+    // Verificar se os botões existem
+    if (!buttonToHide || !buttonToShow) {
+        console.error('Botões não encontrados para transição');
+        return;
+    }
+    
+    // Fade out do botão atual
+    buttonToHide.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
+    buttonToHide.style.opacity = '0';
+    
+    // Após o fade out, trocar os botões
+    setTimeout(() => {
+        buttonToHide.style.display = 'none';
+        
+        // Mostrar o novo botão com opacity 0
+        buttonToShow.style.opacity = '0';
+        buttonToShow.style.display = '';
+        buttonToShow.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
+        
+        // Forçar reflow para garantir que a transição ocorra
+        buttonToShow.offsetHeight;
+        
+        // Iniciar fade in
+        buttonToShow.style.opacity = '1';
+    }, ICON_TRANSITION_DURATION);
+  }
 
   // Lidar com o clique no botão settings
   function handleSettingsClick(e) {
@@ -257,23 +317,23 @@ function fadeOutIn(buttonToHide, buttonToShow) {
     }, ICON_TRANSITION_DURATION);
   }
   
- // Modificar a função addToggleStyles para incluir os novos elementos
-function addToggleStyles() {
-  const styleElement = document.createElement('style');
-  styleElement.textContent = `
-      #settings, #settings-project {
-          transition: opacity ${ICON_TRANSITION_DURATION}ms ease;
-      }
-      
-      /* Garantir que os modais sejam visíveis quando abertos */
-      .mconfig-modal.active {
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-      }
-  `;
-  document.head.appendChild(styleElement);
-}
+  // Modificar a função addToggleStyles para incluir os novos elementos
+  function addToggleStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        #settings, #settings-project {
+            transition: opacity ${ICON_TRANSITION_DURATION}ms ease;
+        }
+        
+        /* Garantir que os modais sejam visíveis quando abertos */
+        .mconfig-modal.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    `;
+    document.head.appendChild(styleElement);
+  }
   
   // Adicionar nova linha de processador
   function addProcessorRow() {
@@ -283,8 +343,8 @@ function addToggleStyles() {
     newRow.innerHTML = `
       <div class="mconfig-select-container">
         <select class="processor-select mconfig-select">
-          <!-- Processor options will be dynamically added here -->
-          <option value="">Select Processor</option>
+          <option value="">Selecione um Processador</option>
+          ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
         </select>
       </div>
       <div class="mconfig-form-group instance-name-group">
@@ -298,163 +358,162 @@ function addToggleStyles() {
     processorsList.appendChild(newRow);
   }
   
-// Carregar arquivos .v e .gtkw para as listas suspensas
-async function loadFileOptions() {
-  try {
-    // Obtém o caminho do projeto atual através do API
-    let projectPath = window.currentProjectPath;
-    
-    // Se não estiver definido, tenta obtê-lo via API
-    if (!projectPath) {
-      try {
-        const projectData = await window.electronAPI.getCurrentProject();
-        // Verificar se projectData é um objeto e extrair o caminho correto
-        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-          projectPath = projectData.projectPath;
-          // Atualiza a variável global
-          window.currentProjectPath = projectPath;
-        } else if (typeof projectData === 'string') {
-          // Caso a API retorne diretamente o caminho como string
-          projectPath = projectData;
-          window.currentProjectPath = projectPath;
-        } else {
-          console.error('Formato de dados do projeto inválido:', projectData);
+  // Carregar arquivos .v e .gtkw para as listas suspensas
+  async function loadFileOptions() {
+    try {
+      // Obtém o caminho do projeto atual através do API
+      let projectPath = window.currentProjectPath;
+      
+      // Se não estiver definido, tenta obtê-lo via API
+      if (!projectPath) {
+        try {
+          const projectData = await window.electronAPI.getCurrentProject();
+          // Verificar se projectData é um objeto e extrair o caminho correto
+          if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+            projectPath = projectData.projectPath;
+            // Atualiza a variável global
+            window.currentProjectPath = projectPath;
+          } else if (typeof projectData === 'string') {
+            // Caso a API retorne diretamente o caminho como string
+            projectPath = projectData;
+            window.currentProjectPath = projectPath;
+          } else {
+            console.error('Formato de dados do projeto inválido:', projectData);
+          }
+        } catch (err) {
+          console.warn('Falha ao obter caminho do projeto via API:', err);
         }
-      } catch (err) {
-        console.warn('Falha ao obter caminho do projeto via API:', err);
       }
+      
+      // Verifica novamente se o caminho do projeto está disponível
+      if (!projectPath) {
+        console.error('Caminho do projeto atual não encontrado');
+        // Exibe mensagem visual para o usuário
+        showNoProjectError();
+        return;
+      }
+      
+      console.log('Usando caminho do projeto:', projectPath);
+      
+      // Tentar primeiro na pasta Top Level (se existir)
+      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
+      let topLevelExists = false;
+      
+      try {
+        topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
+      } catch (err) {
+        console.warn('Erro ao verificar existência da pasta Top Level:', err);
+      }
+      
+      // Definir o caminho onde procurar os arquivos
+      const searchPath = topLevelExists ? topLevelPath : projectPath;
+      console.log('Procurando arquivos em:', searchPath);
+      
+      // Obter arquivos usando o caminho correto
+      try {
+        foundVerilogFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.v');
+        foundGtkwaveFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.gtkw');
+      } catch (err) {
+        console.error('Erro ao obter arquivos:', err);
+        foundVerilogFiles = [];
+        foundGtkwaveFiles = [];
+      }
+      
+      // Limpar e popular as listas suspensas
+      populateSelectOptions(topLevelSelect, foundVerilogFiles);
+      populateSelectOptions(testbenchSelect, foundVerilogFiles);
+      populateSelectOptions(gtkwaveSelect, foundGtkwaveFiles);
+      
+      // Exibir log de arquivos encontrados
+      console.log('Arquivos Verilog (.v) encontrados:', foundVerilogFiles);
+      console.log('Arquivos GTKWave (.gtkw) encontrados:', foundGtkwaveFiles);
+    } catch (error) {
+      console.error('Erro ao carregar arquivos para as listas suspensas:', error);
     }
-    
-    // Verifica novamente se o caminho do projeto está disponível
-    if (!projectPath) {
-      console.error('Caminho do projeto atual não encontrado');
-      // Exibe mensagem visual para o usuário
-      showNoProjectError();
-      return;
-    }
-    
-    console.log('Usando caminho do projeto:', projectPath);
-
-
-    
-    // Tentar primeiro na pasta Top Level (se existir)
-    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
-    let topLevelExists = false;
-    
-    try {
-      topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
-    } catch (err) {
-      console.warn('Erro ao verificar existência da pasta Top Level:', err);
-    }
-    
-    // Definir o caminho onde procurar os arquivos
-    const searchPath = topLevelExists ? topLevelPath : projectPath;
-    console.log('Procurando arquivos em:', searchPath);
-    
-    // Obter arquivos usando o caminho correto
-    try {
-      foundVerilogFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.v');
-      foundGtkwaveFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.gtkw');
-    } catch (err) {
-      console.error('Erro ao obter arquivos:', err);
-      foundVerilogFiles = [];
-      foundGtkwaveFiles = [];
-    }
-    
-    // Limpar e popular as listas suspensas
-    populateSelectOptions(topLevelSelect, foundVerilogFiles);
-    populateSelectOptions(testbenchSelect, foundVerilogFiles);
-    populateSelectOptions(gtkwaveSelect, foundGtkwaveFiles);
-    
-    // Exibir log de arquivos encontrados
-    console.log('Arquivos Verilog (.v) encontrados:', foundVerilogFiles);
-    console.log('Arquivos GTKWave (.gtkw) encontrados:', foundGtkwaveFiles);
-  } catch (error) {
-    console.error('Erro ao carregar arquivos para as listas suspensas:', error);
-  }
-}
-
-
-// Função para exibir erro visual quando não há projeto
-function showNoProjectError() {
-  // Adicionar mensagem visual ao modal
-  const errorDiv = document.createElement('div');
-  errorDiv.className = 'project-error-message';
-  errorDiv.innerHTML = `
-    <div class="alert alert-warning">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      Nenhum projeto aberto. Por favor, abra ou crie um projeto primeiro.
-    </div>
-  `;
-  
-  // Adicionar no início do modal
-  const modalContent = document.querySelector('.mconfig-modal-content');
-  if (modalContent && !modalContent.querySelector('.project-error-message')) {
-    modalContent.insertBefore(errorDiv, modalContent.firstChild);
   }
   
-  // Adicionar estilo para a mensagem
-  const style = document.createElement('style');
-  style.textContent = `
-    .project-error-message {
-      margin-bottom: 15px;
+  // Função para exibir erro visual quando não há projeto
+  function showNoProjectError() {
+    // Adicionar mensagem visual ao modal
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'project-error-message';
+    errorDiv.innerHTML = `
+      <div class="alert alert-warning">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        Nenhum projeto aberto. Por favor, abra ou crie um projeto primeiro.
+      </div>
+    `;
+    
+    // Adicionar no início do modal
+    const modalContent = document.querySelector('.mconfig-modal-content');
+    if (modalContent && !modalContent.querySelector('.project-error-message')) {
+      modalContent.insertBefore(errorDiv, modalContent.firstChild);
     }
-    .alert {
-      padding: 10px 15px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
-    .alert-warning {
-      background-color: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeeba;
-    }
-    .alert i {
-      margin-right: 8px;
-    }
-  `;
-  document.head.appendChild(style);
-}
+    
+    // Adicionar estilo para a mensagem
+    const style = document.createElement('style');
+    style.textContent = `
+      .project-error-message {
+        margin-bottom: 15px;
+      }
+      .alert {
+        padding: 10px 15px;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .alert-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+      }
+      .alert i {
+        margin-right: 8px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
   
   // Popular uma lista suspensa com opções
-  // Popular uma lista suspensa com opções
-function populateSelectOptions(selectElement, files) {
-  if (!selectElement) return;
-  
-  // Salvar seleção atual (se houver)
-  const currentSelectedValue = selectElement.value;
-  
-  // Limpar todas as opções existentes
-  selectElement.innerHTML = '';
-  
-  // Adicionar opção padrão/placeholder
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Selecione um arquivo';
-  selectElement.appendChild(defaultOption);
-  
-  // Adicionar novas opções
-  files.forEach(file => {
-    const option = document.createElement('option');
+  function populateSelectOptions(selectElement, files) {
+    if (!selectElement) return;
     
-    // Extrair apenas o nome do arquivo do caminho completo
-    const fileName = file.split('/').pop().split('\\').pop();
+    // Salvar seleção atual (se houver)
+    const currentSelectedValue = selectElement.value;
     
-    option.value = fileName;
-    option.textContent = fileName;
-    selectElement.appendChild(option);
-  });
-  
-  // Tentar restaurar seleção anterior
-  if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
-    selectElement.value = currentSelectedValue;
-  } else {
-    selectElement.selectedIndex = 0;
+    // Limpar todas as opções existentes
+    selectElement.innerHTML = '';
+    
+    // Adicionar opção padrão/placeholder
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Selecione um arquivo';
+    selectElement.appendChild(defaultOption);
+    
+    // Adicionar novas opções
+    files.forEach(file => {
+      const option = document.createElement('option');
+      
+      // Extrair apenas o nome do arquivo do caminho completo
+      const fileName = file.split('/').pop().split('\\').pop();
+      
+      option.value = fileName;
+      option.textContent = fileName;
+      selectElement.appendChild(option);
+    });
+    
+    // Tentar restaurar seleção anterior
+    if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
+      selectElement.value = currentSelectedValue;
+    } else {
+      selectElement.selectedIndex = 0;
+    }
   }
-}
   
   // Antes de abrir o modal, carregar arquivos e configuração atual
   async function prepareModalBeforeOpen() {
+    // Carregar processadores disponíveis
+    await loadAvailableProcessors();
+    
     // Carregar arquivos para as listas suspensas
     await loadFileOptions();
     
@@ -508,70 +567,70 @@ function populateSelectOptions(selectElement, files) {
     }
   }
   
- // Função para carregar configurações do projeto do arquivo JSON
- async function loadProjectConfiguration() {
-  try {
-    // Reset da configuração atual
-    currentConfig = {
-      topLevelFile: '',
-      testbenchFile: '',
-      gtkwaveFile: '',
-      processors: [],
-      iverilogFlags: ''
-    };
-    
-    // Verificar se temos o caminho do projeto
-    let projectPath = window.currentProjectPath;
-    
-    // Se não estiver definido, tenta obtê-lo via API
-    if (!projectPath) {
-      try {
-        const projectData = await window.electronAPI.getCurrentProject();
-        // Verificar se projectData é um objeto e extrair o caminho correto
-        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-          projectPath = projectData.projectPath;
-          // Atualiza a variável global
-          window.currentProjectPath = projectPath;
-        } else if (typeof projectData === 'string') {
-          // Caso a API retorne diretamente o caminho como string
-          projectPath = projectData;
-          window.currentProjectPath = projectPath;
-        } else {
-          console.error('Formato de dados do projeto inválido:', projectData);
+  // Função para carregar configurações do projeto do arquivo JSON
+  async function loadProjectConfiguration() {
+    try {
+      // Reset da configuração atual
+      currentConfig = {
+        topLevelFile: '',
+        testbenchFile: '',
+        gtkwaveFile: '',
+        processors: [],
+        iverilogFlags: ''
+      };
+      
+      // Verificar se temos o caminho do projeto
+      let projectPath = window.currentProjectPath;
+      
+      // Se não estiver definido, tenta obtê-lo via API
+      if (!projectPath) {
+        try {
+          const projectData = await window.electronAPI.getCurrentProject();
+          // Verificar se projectData é um objeto e extrair o caminho correto
+          if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+            projectPath = projectData.projectPath;
+            // Atualiza a variável global
+            window.currentProjectPath = projectPath;
+          } else if (typeof projectData === 'string') {
+            // Caso a API retorne diretamente o caminho como string
+            projectPath = projectData;
+            window.currentProjectPath = projectPath;
+          } else {
+            console.error('Formato de dados do projeto inválido:', projectData);
+          }
+        } catch (err) {
+          console.warn('Falha ao obter caminho do projeto via API:', err);
         }
-      } catch (err) {
-        console.warn('Falha ao obter caminho do projeto via API:', err);
       }
-    }
-    
-    // Verifica novamente se o caminho do projeto está disponível
-    if (!projectPath) {
-      console.error('Caminho do projeto não disponível. Impossível carregar configuração.');
-      return;
-    }
-    
-    // Usar a função joinPath da API electron
-    const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
-    
-    // Verificar se o arquivo de configuração existe
-    const configExists = await window.electronAPI.fileExists(configPath);
-    
-    if (configExists) {
-      // Carregar configuração do arquivo
-      const configContent = await window.electronAPI.readFile(configPath);
-      currentConfig = JSON.parse(configContent);
       
-      console.log('Configuração carregada:', currentConfig);
+      // Verifica novamente se o caminho do projeto está disponível
+      if (!projectPath) {
+        console.error('Caminho do projeto não disponível. Impossível carregar configuração.');
+        return;
+      }
       
-      // Atualizar campos do formulário
-      updateFormWithConfig();
-    } else {
-      console.log('Arquivo de configuração não encontrado. Usando configuração padrão.');
+      // Usar a função joinPath da API electron
+      const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+      
+      // Verificar se o arquivo de configuração existe
+      const configExists = await window.electronAPI.fileExists(configPath);
+      
+      if (configExists) {
+        // Carregar configuração do arquivo
+        const configContent = await window.electronAPI.readFile(configPath);
+        currentConfig = JSON.parse(configContent);
+        
+        console.log('Configuração carregada:', currentConfig);
+        
+        // Atualizar campos do formulário
+        updateFormWithConfig();
+      } else {
+        console.log('Arquivo de configuração não encontrado. Usando configuração padrão.');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração do projeto:', error);
     }
-  } catch (error) {
-    console.error('Erro ao carregar configuração do projeto:', error);
   }
-}
   
   // Atualizar formulário com a configuração carregada
   function updateFormWithConfig() {
@@ -641,13 +700,27 @@ function populateSelectOptions(selectElement, files) {
       // Adicionar processadores da configuração
       if (currentConfig.processors && currentConfig.processors.length > 0) {
         currentConfig.processors.forEach(processor => {
-          addProcessorRow();
-          const newRow = processorsList.lastElementChild;
-          const instanceInput = newRow.querySelector('.processor-instance');
-          const processorSelect = newRow.querySelector('.processor-select');
+          const newRow = document.createElement('div');
+          newRow.className = 'mconfig-processor-row';
           
-          if (instanceInput) instanceInput.value = processor.instance || '';
-          if (processorSelect) processorSelect.value = processor.type || '';
+          newRow.innerHTML = `
+            <div class="mconfig-select-container">
+              <select class="processor-select mconfig-select">
+                <option value="">Selecione um Processador</option>
+                ${availableProcessors.map(proc => 
+                  `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="mconfig-form-group instance-name-group">
+              <input type="text" class="processor-instance mconfig-input" placeholder="Instance name" value="${processor.instance || ''}">
+            </div>
+            <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          `;
+          
+          processorsList.appendChild(newRow);
         });
       } else {
         // Adicionar uma linha em branco para começar
@@ -659,6 +732,39 @@ function populateSelectOptions(selectElement, files) {
     if (iverilogFlags) {
       iverilogFlags.value = currentConfig.iverilogFlags || '';
     }
+  }
+  
+  // Atualizar um select de processador com os processadores disponíveis
+  function updateProcessorSelect(selectElement, selectedValue = '') {
+    if (!selectElement) return;
+    
+    // Salvar o valor atual se não for fornecido um valor
+    if (!selectedValue) {
+      selectedValue = selectElement.value;
+    }
+    
+    // Limpar opções existentes
+    selectElement.innerHTML = '';
+    
+    // Adicionar opção padrão
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Selecione um Processador';
+    selectElement.appendChild(defaultOption);
+    
+    // Adicionar processadores disponíveis
+    availableProcessors.forEach(processor => {
+      const option = document.createElement('option');
+      option.value = processor;
+      option.textContent = processor;
+      
+      // Verificar se este é o processador selecionado anteriormente
+      if (processor === selectedValue) {
+        option.selected = true;
+      }
+      
+      selectElement.appendChild(option);
+    });
   }
   
   // Função para coletar dados do formulário
@@ -689,11 +795,10 @@ function populateSelectOptions(selectElement, files) {
   }
   
   // Função para salvar configurações do projeto em arquivo JSON
-  // Função para salvar configurações do projeto em arquivo JSON
-async function saveProjectConfiguration() {
-  try {
-    // Verificar se temos o caminho do projeto
-    let projectPath = window.currentProjectPath;
+  async function saveProjectConfiguration() {
+    try {
+      // Verificar se temos o caminho do projeto
+      let projectPath = window.currentProjectPath;
     
     // Se não estiver definido, tenta obtê-lo via API
     if (!projectPath) {

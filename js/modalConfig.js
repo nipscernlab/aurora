@@ -1,4 +1,4 @@
-// Modal configuration Processor Oriented Configuration
+//modalConfig.js Modal configuration Processor Oriented Configuration
 
 const settingsButton = document.getElementById("settings");
 const modal = document.getElementById("modalConfig");
@@ -642,23 +642,28 @@ saveConfigButton.addEventListener("click", async () => {
   console.log("Saving Configuration:", config);
 
   try {
-    // Atualiza a interface com o nome do processador salvo
-    if (processors.length > 0) {
-      const processorName = processors[0].name;
-      const processorStatus = document.getElementById("processorName"); // Certifique-se que esse ID exista no HTML
-      if (processorStatus) {
-        processorStatus.textContent = processorName;
+    const processorStatus = document.getElementById("processorName");
+    if (!processorStatus) return;
+  
+    // Inicia a transição: desaparece
+    processorStatus.style.opacity = "0";
+  
+    // Aguarda a transição antes de trocar o conteúdo
+    setTimeout(() => {
+      if (processors.length > 0) {
+        const processorName = processors[0].name;
+        processorStatus.innerHTML = `<i class="fa-solid fa-gears"></i> ${processorName}`;
+      } else {
+        processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131;"></i> No Processor Configured`;
       }
-    }
-
-    // Fecha o modal e salva
-    modal.classList.remove("active");
-    await window.electronAPI.saveConfig(config);
-    setTimeout(() => modal.hidden = true, 300);
+  
+      // Reaparece suavemente
+      processorStatus.style.opacity = "1";
+    }, 300); // Tempo correspondente à transição no CSS
   } catch (error) {
-    console.error("Failed to save configuration:", error);
-    alert("Failed to save configuration: " + error.message);
+    console.error("Erro ao atualizar o status do processador:", error);
   }
+  
 });
 
 

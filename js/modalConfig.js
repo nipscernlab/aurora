@@ -14,6 +14,8 @@ const processorNumClocksInput = document.getElementById("processorNumClocks");
 const iverilogFlagsInput = document.getElementById("iverilogFlags");
 const cmmCompFlagsInput = document.getElementById("cmmCompFlags");
 const asmCompFlagsInput = document.getElementById("asmCompFlags");
+const testbenchSelect = document.getElementById("testbenchSelect");
+const gtkwSelect = document.getElementById("gtkwSelect");
 
 // Store available processors and current configuration
 let availableProcessors = [];
@@ -22,7 +24,9 @@ let currentConfig = {
   processors: [],
   iverilogFlags: [],
   cmmCompFlags: [],
-  asmCompFlags: []
+  asmCompFlags: [],
+  testbenchFile: "standard",
+  gtkwFile: "standard"
 };
 
 
@@ -325,23 +329,122 @@ function updateProcessorSelect() {
   processorSelect.focus();
 }
 
-// Save the current processor configuration to temporary storage
+// Update the saveCurrentProcessorToTemp function to save simulation file selections
+// Update the saveCurrentProcessorToTemp function to correctly save simulation file selections
 function saveCurrentProcessorToTemp() {
   if (selectedProcessor) {
     const clk = processorClkInput.value.trim();
     const numClocks = processorNumClocksInput.value.trim();
+    const testbenchFile = testbenchSelect.value;
+    const gtkwFile = gtkwSelect.value;
     
     tempProcessorConfigs[selectedProcessor] = {
       name: selectedProcessor,
       clk: clk ? Number(clk) : null,
-      numClocks: numClocks ? Number(numClocks) : null
+      numClocks: numClocks ? Number(numClocks) : null,
+      testbenchFile: testbenchFile,
+      gtkwFile: gtkwFile
     };
     
     console.log(`Saved temporary config for ${selectedProcessor}:`, tempProcessorConfigs[selectedProcessor]);
   }
 }
 
-// Handle processor selection change
+
+async function loadSimulationFiles(processorName) {
+  if (!processorName) {
+    // Reset and disable selects if no processor is selected
+    testbenchSelect.innerHTML = '<option value="standard" selected>Standard Testbench</option>';
+    gtkwSelect.innerHTML = '<option value="standard" selected>Standard GTKWave</option>';
+    testbenchSelect.disabled = true;
+    gtkwSelect.disabled = true;
+    return;
+  }
+
+  try {
+    testbenchSelect.disabled = true;
+    gtkwSelect.disabled = true;
+    
+    console.log(`Loading simulation files for processor: ${processorName}`);
+    
+    // Get current project path from various possible sources
+    const currentProjectPath = 
+      window.currentProjectPath || 
+      localStorage.getItem('currentProjectPath');
+    
+    console.log(`Current project path from local storage: ${currentProjectPath}`);
+    
+    if (currentProjectPath) {
+      // Set the current project in the main process (for future reference)
+      await window.electronAPI.setCurrentProject(currentProjectPath);
+      console.log(`Set current project path to: ${currentProjectPath}`);
+    } else {
+      console.warn("No current project path available in local storage");
+    }
+    
+    // Pass the project path directly when calling getSimulationFiles
+    const result = await window.electronAPI.getSimulationFiles(processorName, currentProjectPath);
+    
+    if (!result.success) {
+      console.warn(`Failed to get simulation files: ${result.message || 'Unknown error'}`);
+      // Still allow default selection even in case of error
+      testbenchSelect.disabled = false;
+      gtkwSelect.disabled = false;
+      return;
+    }
+    
+    const { testbenchFiles, gtkwFiles } = result;
+    
+    // Update testbench select
+    testbenchSelect.innerHTML = '<option value="standard">Standard Testbench</option>';
+    testbenchFiles.forEach(file => {
+      const option = document.createElement('option');
+      option.value = file;
+      option.textContent = file;
+      // Select this option if it matches saved configuration
+      if (currentConfig.testbenchFile === file) {
+        option.selected = true;
+      } else if (tempProcessorConfigs[processorName] && 
+                tempProcessorConfigs[processorName].testbenchFile === file) {
+        option.selected = true;
+      }
+      testbenchSelect.appendChild(option);
+    });
+    
+    // Update GTKWave select
+    gtkwSelect.innerHTML = '<option value="standard">Standard GTKWave</option>';
+    gtkwFiles.forEach(file => {
+      const option = document.createElement('option');
+      option.value = file;
+      option.textContent = file;
+      // Select this option if it matches saved configuration
+      if (currentConfig.gtkwFile === file) {
+        option.selected = true;
+      } else if (tempProcessorConfigs[processorName] && 
+                tempProcessorConfigs[processorName].gtkwFile === file) {
+        option.selected = true;
+      }
+      gtkwSelect.appendChild(option);
+    });
+    
+    // Enable selects
+    testbenchSelect.disabled = false;
+    gtkwSelect.disabled = false;
+    
+    console.log(`Loaded ${testbenchFiles.length} testbench files and ${gtkwFiles.length} GTKWave files`);
+    
+  } catch (error) {
+    console.error("Failed to load simulation files:", error);
+    showNotification("Failed to load simulation files", 'error');
+    
+    // Still allow default selection even in case of error
+    testbenchSelect.disabled = false;
+    gtkwSelect.disabled = false;
+  }
+}
+
+
+// Update the processor selection change event to load simulation files
 processorSelect.addEventListener("change", function() {
   // Save current processor config to temp storage before switching
   saveCurrentProcessorToTemp();
@@ -350,11 +453,28 @@ processorSelect.addEventListener("change", function() {
   selectedProcessor = this.value;
   deleteProcessorButton.disabled = !selectedProcessor;
   
+  // Load simulation files for the selected processor
+  loadSimulationFiles(selectedProcessor);
+  
   // Check if we have a temp config for this processor
   if (selectedProcessor && tempProcessorConfigs[selectedProcessor]) {
     const tempConfig = tempProcessorConfigs[selectedProcessor];
     processorClkInput.value = tempConfig.clk || '';
     processorNumClocksInput.value = tempConfig.numClocks || '';
+    
+    // Set simulation file selections if available in temp config
+    if (tempConfig.testbenchFile) {
+      testbenchSelect.value = tempConfig.testbenchFile;
+    } else {
+      testbenchSelect.value = "standard";
+    }
+    
+    if (tempConfig.gtkwFile) {
+      gtkwSelect.value = tempConfig.gtkwFile;
+    } else {
+      gtkwSelect.value = "standard";
+    }
+    
     console.log(`Loaded temp config for ${selectedProcessor}:`, tempConfig);
     return;
   }
@@ -365,9 +485,24 @@ processorSelect.addEventListener("change", function() {
   if (processorConfig) {
     processorClkInput.value = processorConfig.clk || '';
     processorNumClocksInput.value = processorConfig.numClocks || '';
+    
+    // Set simulation file selections if available in processor config
+    if (processorConfig.testbenchFile) {
+      testbenchSelect.value = processorConfig.testbenchFile;
+    } else {
+      testbenchSelect.value = "standard";
+    }
+    
+    if (processorConfig.gtkwFile) {
+      gtkwSelect.value = processorConfig.gtkwFile;
+    } else {
+      gtkwSelect.value = "standard";
+    }
   } else {
     processorClkInput.value = '';
     processorNumClocksInput.value = '';
+    testbenchSelect.value = "standard";
+    gtkwSelect.value = "standard";
   }
 });
 
@@ -472,9 +607,7 @@ deleteProcessorButton.addEventListener("click", function() {
           
           // Update button state based on whether we have a selection
           deleteProcessorButton.disabled = !selectedProcessor;
-          
-          // Close modal properly and reset its state
-          modal.classList.remove("active");
+
           setTimeout(() => {
             modal.hidden = true;
             // Force page re-render to ensure input events work
@@ -513,7 +646,7 @@ deleteProcessorButton.addEventListener("click", function() {
 });
 
 
-// Loads the configuration from the main process and populates the modal
+// Update the loadConfiguration function to load simulation file selections
 async function loadConfiguration() {
   try {
     const config = await window.electronAPI.loadConfig();
@@ -534,10 +667,16 @@ async function loadConfiguration() {
       
       processorClkInput.value = lastActiveProcessor.clk || '';
       processorNumClocksInput.value = lastActiveProcessor.numClocks || '';
+      
+      // Load simulation files for the selected processor
+      loadSimulationFiles(selectedProcessor);
     } else {
       selectedProcessor = null;
       processorClkInput.value = '';
       processorNumClocksInput.value = '';
+      
+      // Disable simulation file selects
+      loadSimulationFiles(null);
     }
     
     // Populate compiler flags inputs
@@ -608,14 +747,12 @@ clearTempButton.addEventListener("click", async () => {
 });
 
 // Saves the current configuration
+// Update the save configuration logic to include simulation files
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();
 
-  let processors = [];
-
-  if (selectedProcessor && tempProcessorConfigs[selectedProcessor]) {
-    processors.push(tempProcessorConfigs[selectedProcessor]);
-  }
+  // Convert temporary processor configs to an array
+  let processors = Object.values(tempProcessorConfigs);
 
   const iverilogFlags = iverilogFlagsInput.value
     .split(";")
@@ -642,28 +779,41 @@ saveConfigButton.addEventListener("click", async () => {
   console.log("Saving Configuration:", config);
 
   try {
-    const processorStatus = document.getElementById("processorName");
-    if (!processorStatus) return;
-  
-    // Inicia a transição: desaparece
-    processorStatus.style.opacity = "0";
-  
-    // Aguarda a transição antes de trocar o conteúdo
-    setTimeout(() => {
-      if (processors.length > 0) {
-        const processorName = processors[0].name;
-        processorStatus.innerHTML = `<i class="fa-solid fa-gears"></i> ${processorName}`;
-      } else {
-        processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131;"></i> No Processor Configured`;
-      }
-  
-      // Reaparece suavemente
-      processorStatus.style.opacity = "1";
-    }, 300); // Tempo correspondente à transição no CSS
+    // Call the IPC method to save the configuration
+    await window.electronAPI.saveConfig(config);
+    
+    // Update currentConfig with the new values
+    currentConfig = config;
+    
+    // Update processor status in UI
+    const processorStatus = document.getElementById("processorNameID");
+    if (processorStatus) {
+      // Start transition: fade out
+      processorStatus.style.opacity = "0";
+    
+      // Wait for transition before changing content
+      setTimeout(() => {
+        if (processors.length > 0) {
+          const processorName = processors[0].name;
+          processorStatus.innerHTML = `<i class="fa-solid fa-gears"></i> ${processorName}`;
+        } else {
+          processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131;"></i> No Processor Configured`;
+        }
+    
+        // Fade back in smoothly
+        processorStatus.style.opacity = "1";
+      }, 300);
+    }
+    
+    // Show success notification and close modal
+    showNotification("Configuration saved successfully", 'success');
+    modal.classList.remove("active");
+    setTimeout(() => modal.hidden = true, 300);
+    
   } catch (error) {
-    console.error("Erro ao atualizar o status do processador:", error);
+    console.error("Failed to save configuration:", error);
+    showNotification("Failed to save configuration: " + error.message, 'error');
   }
-  
 });
 
 
@@ -796,3 +946,24 @@ function showNotification(message, type = 'info') {
     }, 400); // deve combinar com o tempo de transição
   }, 3000);
 }
+
+// Add the style for the simulation selectors
+const styleElement = document.createElement('style');
+styleElement.textContent = `
+  .mconfig-processor-simulation {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-primary);
+  }
+  
+  .mconfig-simulation-selectors {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  
+  .mconfig-simulation-selectors .mconfig-form-group {
+    flex: 1;
+  }
+`;
+document.head.appendChild(styleElement);

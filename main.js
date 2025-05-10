@@ -630,12 +630,6 @@ ipcMain.handle('select-directory', async () => {
 let currentOpenProjectPath = null;
 
 
-ipcMain.handle('set-current-project', async (event, projectPath) => {
-  currentOpenProjectPath = projectPath;
-  console.log("Project path set:", currentOpenProjectPath);
-});
-
-
 // Handler to delete a processor
 ipcMain.handle('delete-processor', async (event, processorName) => {
   try {
@@ -1425,9 +1419,7 @@ ipcMain.handle('load-config', async () => {
         processors: [], 
         iverilogFlags: [],
         cmmCompFlags: [],
-        asmCompFlags: [],
-        multicore: false
-      };
+        asmCompFlags: []      };
       await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
       return defaultConfig;
     }
@@ -1441,7 +1433,6 @@ ipcMain.handle('load-config', async () => {
       iverilogFlags: [],
       cmmCompFlags: [],
       asmCompFlags: [],
-      multicore: false
     };
   }
 });
@@ -1779,6 +1770,7 @@ ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
   }
 });
 
+
 // Handler to start a terminal (CMD) process
 ipcMain.on('start-terminal', (event) => {
   const shell = spawn('cmd.exe', [], {
@@ -1843,3 +1835,147 @@ ipcMain.on('quit-app', () => {
   }, 5000);
 });
 
+
+// Update the handler in the main process (main.js)
+// Handler to get simulation files (.v and .gtkw) from the processor's Simulation folder
+ipcMain.handle('get-simulation-files', async (_, processorName, projectPath) => {
+  try {
+    console.log('------- GET SIMULATION FILES -------');
+    console.log(`Received parameters: processorName=${processorName}, projectPath=${projectPath}`);
+    
+    // Check if a valid project path was provided directly
+    if (!projectPath) {
+      console.warn("No project path provided in the function call");
+      
+      // Fall back to global variables
+      if (global.currentProject && global.currentProject.path) {
+        projectPath = global.currentProject.path;
+        console.log(`Using global currentProject.path: ${projectPath}`);
+      } else if (global.currentProjectPath) {
+        projectPath = global.currentProjectPath;
+        console.log(`Using global currentProjectPath: ${projectPath}`);
+      } else {
+        console.error("No project path available from any source");
+        return { 
+          success: false, 
+          message: "No project path available", 
+          testbenchFiles: [], 
+          gtkwFiles: [] 
+        };
+      }
+    }
+    
+    console.log(`Using project path: ${projectPath}`);
+    
+    if (!processorName) {
+      console.warn("No processor name provided");
+      return { 
+        success: false, 
+        message: "No processor name provided", 
+        testbenchFiles: [], 
+        gtkwFiles: [] 
+      };
+    }
+    
+    const processorPath = path.join(projectPath, processorName);
+    console.log(`Processor path: ${processorPath}`);
+    
+    // Check if processor directory exists
+    const processorExists = await fse.pathExists(processorPath);
+    console.log(`Processor directory exists: ${processorExists}`);
+    
+    if (!processorExists) {
+      console.warn(`Processor directory does not exist: ${processorPath}`);
+      return { 
+        success: false, 
+        message: "Processor directory not found", 
+        testbenchFiles: [], 
+        gtkwFiles: [] 
+      };
+    }
+    
+    const simulationPath = path.join(processorPath, "Simulation");
+    console.log(`Looking for simulation files in: ${simulationPath}`);
+    
+    // Check if Simulation directory exists
+    const simulationExists = await fse.pathExists(simulationPath);
+    console.log(`Simulation directory exists: ${simulationExists}`);
+    
+    if (!simulationExists) {
+      console.warn(`Simulation directory does not exist: ${simulationPath}`);
+      
+      // Log all available directories in the processor folder to help with debugging
+      const processorDirs = await fse.readdir(processorPath);
+      console.log(`Available directories in processor folder: ${processorDirs.join(', ')}`);
+      
+      return { 
+        success: false, 
+        message: "Simulation directory not found", 
+        testbenchFiles: [], 
+        gtkwFiles: [] 
+      };
+    }
+    
+    // Read files in the Simulation directory
+    const files = await fse.readdir(simulationPath);
+    console.log(`All files in Simulation directory: ${files.join(', ')}`);
+    
+    // Filter by extension
+    const testbenchFiles = files.filter(file => file.toLowerCase().endsWith('.v'));
+    const gtkwFiles = files.filter(file => file.toLowerCase().endsWith('.gtkw'));
+    
+    console.log(`Found ${testbenchFiles.length} testbench files: ${testbenchFiles.join(', ')}`);
+    console.log(`Found ${gtkwFiles.length} GTKWave files: ${gtkwFiles.join(', ')}`);
+    
+    return { 
+      success: true, 
+      processorPath,
+      simulationPath,
+      testbenchFiles,
+      gtkwFiles
+    };
+  } catch (error) {
+    console.error("Error getting simulation files:", error);
+    return { 
+      success: false, 
+      message: `Error: ${error.message}`,
+      testbenchFiles: [],
+      gtkwFiles: []
+    };
+  }
+});
+
+
+// New handler to set current project path in the main process
+ipcMain.handle('set-current-project', (_, projectPath) => {
+  try {
+    if (!projectPath) {
+      console.warn("set-current-project: No project path provided");
+      return { success: false, message: "No project path provided" };
+    }
+    
+    console.log(`Setting current project path to: ${projectPath}`);
+    
+    // Update global variables
+    global.currentProjectPath = projectPath;
+    
+    // Also update the currentProject object if it exists
+    if (!global.currentProject) {
+      global.currentProject = {};
+    }
+    global.currentProject.path = projectPath;
+    
+    // Store the path in a file for persistence
+    const appDataPath = app.getPath('userData');
+    fs.writeFileSync(
+      path.join(appDataPath, 'lastProject.json'), 
+      JSON.stringify({ path: projectPath }, null, 2)
+    );
+    
+    console.log("Current project path successfully set");
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting current project path:", error);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+});

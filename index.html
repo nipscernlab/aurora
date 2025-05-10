@@ -268,6 +268,33 @@
             <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks">
           </div>
         </div>
+
+        <!-- Add this after the processor configuration section in modalConfig.html -->
+<div class="mconfig-processor-simulation">
+  <h3 class="mconfig-section-title">Simulation Files</h3>
+  
+  <div class="mconfig-simulation-selectors">
+    <div class="mconfig-form-group">
+      <label for="testbenchSelect" class="mconfig-label">Testbench File:</label>
+      <div class="mconfig-select-container">
+        <select id="testbenchSelect" class="mconfig-select" disabled>
+          <option value="standard" selected>Standard Testbench</option>
+          <!-- Testbench options will be added dynamically -->
+        </select>
+      </div>
+    </div>
+    
+      <div class="mconfig-form-group">
+        <label for="gtkwSelect" class="mconfig-label">GTKWave File:</label>
+        <div class="mconfig-select-container">
+          <select id="gtkwSelect" class="mconfig-select" disabled>
+            <option value="standard" selected>Standard GTKWave</option>
+            <!-- GTKWave options will be added dynamically -->
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
         
         <button id="clearTemp" class="mconfig-btn mconfig-btn-warning">
           <i class="fa-solid fa-trash"></i> Clear Temp
@@ -634,9 +661,9 @@
 
 <div class="status-bar">
   <div class="status-item"><i class="fa-solid fa-check"></i> Ready</div>
-  <div  id="processorProjectOriented"><i class="fa-solid fa-water"></i> Processor Oriented</div>
+  <div  id="processorProjectOriented"><i class="fa-solid fa-lock-open"></i> Processor Oriented</div>
   <div class="status-item"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
-  <div class="status-item" id="processorName" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
+  <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
   <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Line 1, Column 1</div>
 </div>
 

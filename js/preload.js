@@ -169,6 +169,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Config Operations
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),
+
+   // Funções relacionadas à simulação e configuração do processador
+  getSimulationFiles: (processorName) => {
+    return ipcRenderer.invoke('get-simulation-files', processorName);
+  },
+  
+  saveConfig: (config) => {
+    return ipcRenderer.invoke('save-config', config);
+  },
+  
+  loadConfig: () => {
+    return ipcRenderer.invoke('load-config');
+  },
+
+    setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
+      getSimulationFiles: (processorName, projectPath) => 
+    ipcRenderer.invoke('get-simulation-files', processorName, projectPath),
+  setCurrentProject: (projectPath) => 
+    ipcRenderer.invoke('set-current-project', projectPath),
   
   // File Parsing
   parseCMMFile: (filePath) => ipcRenderer.invoke('parse-cmm-file', filePath),

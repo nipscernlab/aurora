@@ -2226,7 +2226,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'allcomp'];
   buttons.forEach(id => {
     const button = document.getElementById(id);
     if (button) {
@@ -2268,191 +2268,201 @@ function updateProcessorHubButton(enabled) {
 }
 
 function createProcessorHubModal() {
-    const modal = document.createElement('div');
-    modal.innerHTML = `
-    <div class="processor-hub-overlay"></div>
-    <div class="processor-hub-modal">
-      <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
-      <form class="processor-hub-form" id="processorHubForm">
-        <div class="form-group">
-          <label for="processorName">Processor Name</label>
-          <input type="text" id="processorName" required value="procTest_00">
-        </div>
+  const modal = document.createElement('div');
+  modal.className = 'processor-hub-container'; // Adicionando classe para facilitar a seleção
+  modal.innerHTML = `
+  <div class="processor-hub-overlay"></div>
+  <div class="processor-hub-modal">
+    <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
+    <form class="processor-hub-form" id="processorHubForm">
+      <div class="form-group">
+        <label for="processorName">Processor Name</label>
+        <input type="text" id="processorName" name="processorName" required value="procTest_00">
+      </div>
 
-        <div class="form-group">
-        <label for="nBits">Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
+      <div class="form-group">
+      <label for="nBits">Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
 
-          <input type="number" id="nBits" required min="1" value="32">
-        </div>
-        <div class="form-group floating-point-options">
-          <label for="nbMantissa">Nb Mantissa</label>
-          <input type="number" id="nbMantissa" min="1" value="23">
-        </div>
-        <div class="form-group floating-point-options">
-          <label for="nbExponent">Nb Exponent</label>
-          <input type="number" id="nbExponent" min="1" value="8">
-        </div>
-        <div class="form-group">
-          <label for="dataStackSize">Data Stack Size</label>
-          <input type="number" id="dataStackSize" required min="1" value="10">
-        </div>
-        <div class="form-group">
-          <label for="instructionStackSize">Instruction Stack Size</label>
-          <input type="number" id="instructionStackSize" required min="1" value="10">
-        </div>
-        <div class="form-group">
-          <label for="inputPorts">Number of Input Ports</label>
-          <input type="number" id="inputPorts" required min="0" value="2">
-        </div>
-        <div class="form-group">
-          <label for="outputPorts">Number of Output Ports</label>
-          <input type="number" id="outputPorts" required min="0" value="2">
-        </div>
-        <div class="form-group">
-          <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
-          <input type="number" id="gain" required step="any" value="128">
-        </div>
-        <div class="button-group">
-          <button type="button" class="cancel-button" id="cancelProcessorHub">Cancel</button>
-          <button type="submit" class="generate-button" id="generateProcessor" disabled>
-            <i class="fas fa-cog"></i> Generate
-          </button>
-        </div>
-      </form>
-    </div>
-  `;
-    return modal;
+        <input type="number" id="nBits" required min="1" value="32">
+      </div>
+      <div class="form-group floating-point-options">
+        <label for="nbMantissa">Nb Mantissa</label>
+        <input type="number" id="nbMantissa" min="1" value="23">
+      </div>
+      <div class="form-group floating-point-options">
+        <label for="nbExponent">Nb Exponent</label>
+        <input type="number" id="nbExponent" min="1" value="8">
+      </div>
+      <div class="form-group">
+        <label for="dataStackSize">Data Stack Size</label>
+        <input type="number" id="dataStackSize" required min="1" value="10">
+      </div>
+      <div class="form-group">
+        <label for="instructionStackSize">Instruction Stack Size</label>
+        <input type="number" id="instructionStackSize" required min="1" value="10">
+      </div>
+      <div class="form-group">
+        <label for="inputPorts">Number of Input Ports</label>
+        <input type="number" id="inputPorts" required min="0" value="2">
+      </div>
+      <div class="form-group">
+        <label for="outputPorts">Number of Output Ports</label>
+        <input type="number" id="outputPorts" required min="0" value="2">
+      </div>
+      <div class="form-group">
+        <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
+        <input type="number" id="gain" required step="any" value="128">
+      </div>
+      <div class="button-group">
+        <button type="button" class="cancel-button" id="cancelProcessorHub">Cancel</button>
+        <button type="submit" class="generate-button" id="generateProcessor" disabled>
+          <i class="fas fa-cog"></i> Generate
+        </button>
+      </div>
+    </form>
+  </div>
+`;
+  return modal;
 }
 
 processorHubButton.addEventListener('click', () => {
-    const modal = createProcessorHubModal();
-    document.body.appendChild(modal);
+  const modal = createProcessorHubModal();
+  document.body.appendChild(modal);
 
-    const form = document.getElementById('processorHubForm');
-    const generateButton = document.getElementById('generateProcessor');
-    const floatingPointOptions = document.querySelectorAll('.floating-point-options');
-    const nBitsInput = document.getElementById('nBits');
-    const nbMantissaInput = document.getElementById('nbMantissa');
-    const nbExponentInput = document.getElementById('nbExponent');
-    const gainInput = document.getElementById('gain');
-
-    // Helper function to check if a number is a power of 2
-    function isPowerOfTwo(value) {
-        return value > 0 && (value & (value - 1)) === 0;
-    }
-
-    // Real-time validation for custom rules
-    function validateCustomRules() {
-        const nBits = parseInt(nBitsInput.value) || 0;
-        const nbMantissa = parseInt(nbMantissaInput.value) || 0;
-        const nbExponent = parseInt(nbExponentInput.value) || 0;
-        const gain = parseInt(gainInput.value) || 0;
-
-        const isNBitsValid = nBits === nbMantissa + nbExponent + 1;
-        const isGainValid = isPowerOfTwo(gain);
-
-        // Apply custom validation
-        nBitsInput.setCustomValidity(isNBitsValid ? '' : 'Number of Bits must equal Nb Mantissa + Nb Exponent + 1');
-        gainInput.setCustomValidity(isGainValid ? '' : 'Gain must be a power of 2');
-
-        // Update the generate button's state
-        generateButton.disabled = !form.checkValidity();
-    }
-
-    /*
-    pointTypeSelect.addEventListener('change', () => {
-        const isFloating = pointTypeSelect.value === 'floating';
-        floatingPointOptions.forEach(option => {
-            option.style.display = isFloating ? 'grid' : 'none';
-            option.querySelector('input').required = isFloating;
-        });
-        validateCustomRules();
-    }); */
-
-    // Attach real-time validation to relevant inputs
-    [nBitsInput, nbMantissaInput, nbExponentInput, gainInput].forEach(input => {
-        input.addEventListener('input', validateCustomRules);
-    });
-
-    // Handle form submission
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  // First check if we have a valid project path
-  if (!currentProjectPath) {
-      console.error('No project path available');
-      //writeToTerminal('Please open a project first', 'error');
-      return;
-  }
-
-  // Show loading state
+  const form = document.getElementById('processorHubForm');
   const generateButton = document.getElementById('generateProcessor');
-  const originalButtonText = generateButton.innerHTML;
-  generateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-  generateButton.disabled = true;
+  const floatingPointOptions = document.querySelectorAll('.floating-point-options');
+  const nBitsInput = document.getElementById('nBits');
+  const nbMantissaInput = document.getElementById('nbMantissa');
+  const nbExponentInput = document.getElementById('nbExponent');
+  const gainInput = document.getElementById('gain');
+  const processorNameInput = document.getElementById('processorName');
 
-  const formData = {
-      projectLocation: currentProjectPath,
-      processorName: document.getElementById('processorName').value,
-      nBits: parseInt(nBitsInput.value),
-      nbMantissa: parseInt(nbMantissaInput.value),
-      nbExponent: parseInt(nbExponentInput.value),
-      dataStackSize: parseInt(document.getElementById('dataStackSize').value),
-      instructionStackSize: parseInt(document.getElementById('instructionStackSize').value),
-      inputPorts: parseInt(document.getElementById('inputPorts').value),
-      outputPorts: parseInt(document.getElementById('outputPorts').value),
-      gain: parseInt(gainInput.value),
-  };
-
-  try {
-      // Call the main process to create the processor project
-      const result = await window.electronAPI.createProcessorProject(formData);
-
-      if (result && result.success) {
-          // Close modal
-          modal.remove();
-
-          // Refresh file tree
-          await refreshFileTree();
-
-          // Show success message
-          //writeToTerminal(`Processor project "${formData.processorName}" created successfully at: ${result.path}`, 'success');
-      } else {
-          throw new Error('Failed to create processor project - no success response received');
-      }
-  } catch (error) {
-      console.error('Error creating processor project:', error);
-      
-      // Format error message
-      const errorMessage = error.message || 'Unknown error occurred';
-      //writeToTerminal(
-        //`Failed to create processor project: ${error.message || 'Unknown error occurred'}`,
-        //'error'
-      //);      
-      
-      // Reset button state
-      generateButton.innerHTML = originalButtonText;
-      generateButton.disabled = false;
-      
-      // Keep modal open so user can try again
-      return;
+  // Verificar se o campo de nome foi encontrado
+  if (!processorNameInput) {
+      console.error('Processor name input field not found!');
+  } else {
+      console.log('Processor name input field found:', processorNameInput.value);
   }
+
+  // Helper function to check if a number is a power of 2
+  function isPowerOfTwo(value) {
+      return value > 0 && (value & (value - 1)) === 0;
+  }
+
+  // Real-time validation for custom rules
+  function validateCustomRules() {
+      const nBits = parseInt(nBitsInput.value) || 0;
+      const nbMantissa = parseInt(nbMantissaInput.value) || 0;
+      const nbExponent = parseInt(nbExponentInput.value) || 0;
+      const gain = parseInt(gainInput.value) || 0;
+
+      const isNBitsValid = nBits === nbMantissa + nbExponent + 1;
+      const isGainValid = isPowerOfTwo(gain);
+
+      // Apply custom validation
+      nBitsInput.setCustomValidity(isNBitsValid ? '' : 'Number of Bits must equal Nb Mantissa + Nb Exponent + 1');
+      gainInput.setCustomValidity(isGainValid ? '' : 'Gain must be a power of 2');
+
+      // Update the generate button's state
+      generateButton.disabled = !form.checkValidity();
+  }
+
+  // Attach real-time validation to relevant inputs
+  [nBitsInput, nbMantissaInput, nbExponentInput, gainInput].forEach(input => {
+      input.addEventListener('input', validateCustomRules);
+  });
+
+  // Handle form submission
+  form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Primeiro, verificar se temos um caminho de projeto válido
+      if (!currentProjectPath) {
+          console.error('No project path available');
+          return;
+      }
+
+      // Capturar o valor do nome do processador DIRETAMENTE do elemento no DOM
+      const processorNameElement = document.querySelector('#processorName');
+      
+      // Verificar se o elemento existe
+      if (!processorNameElement) {
+          console.error('Processor name element not found in DOM');
+          return;
+      }
+      
+      const processorName = processorNameElement.value;
+      
+      // Log para debug
+      console.log('DOM element found:', processorNameElement);
+      console.log('Processor name value:', processorName);
+      
+      // Validar que o nome do processador não está vazio
+      if (!processorName || processorName.trim() === '') {
+          console.error('Processor name is required');
+          return;
+      }
+
+      // Mostrar estado de carregamento
+      const originalButtonText = generateButton.innerHTML;
+      generateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+      generateButton.disabled = true;
+
+      const formData = {
+          projectLocation: currentProjectPath,
+          processorName: processorName,
+          nBits: parseInt(nBitsInput.value),
+          nbMantissa: parseInt(nbMantissaInput.value),
+          nbExponent: parseInt(nbExponentInput.value),
+          dataStackSize: parseInt(document.getElementById('dataStackSize').value),
+          instructionStackSize: parseInt(document.getElementById('instructionStackSize').value),
+          inputPorts: parseInt(document.getElementById('inputPorts').value),
+          outputPorts: parseInt(document.getElementById('outputPorts').value),
+          gain: parseInt(gainInput.value),
+      };
+
+      // Log para debug dos dados completos
+      console.log('Form data being sent:', formData);
+
+      try {
+          // Chamar o processo principal para criar o projeto do processador
+          const result = await window.electronAPI.createProcessorProject(formData);
+
+          if (result && result.success) {
+              // Fechar modal
+              modal.remove();
+
+              // Atualizar árvore de arquivos
+              await refreshFileTree();
+          } else {
+              throw new Error('Failed to create processor project - no success response received');
+          }
+      } catch (error) {
+          console.error('Error creating processor project:', error);
+          
+          // Resetar estado do botão
+          generateButton.innerHTML = originalButtonText;
+          generateButton.disabled = false;
+          
+          // Manter modal aberto para que o usuário possa tentar novamente
+          return;
+      }
+  });
+
+  // Manipular botão de cancelar
+  document.getElementById('cancelProcessorHub').addEventListener('click', () => {
+      modal.remove();
+  });
+
+  // Manipular clique fora do modal
+  modal.querySelector('.processor-hub-overlay').addEventListener('click', () => {
+      modal.remove();
+  });
+
+  // Realizar validação inicial
+  validateCustomRules();
 });
-
-    // Handle cancel button
-    document.getElementById('cancelProcessorHub').addEventListener('click', () => {
-        modal.remove();
-    });
-
-    // Handle click outside modal
-    modal.querySelector('.processor-hub-overlay').addEventListener('click', () => {
-        modal.remove();
-    });
-
-    // Perform initial validation
-    validateCustomRules();
-});
-
 
 // BUTTONS ==============================================================================================================================================================
 
@@ -2527,7 +2537,7 @@ function initAIAssistant() {
   header.className = 'ai-assistant-header';
   header.innerHTML = `
   <div style="display: flex; align-items: center; gap: 8px;">
-    <img src="./assets/icons/clean.png" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;"><span class="ai-assistant-title">AI Assistant</span>
+    <img src="./assets/icons/icon_flare.svg" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;"><span class="ai-assistant-title">AI Assistant</span>
     <select id="ai-provider-select" style="background: var(--background, #2d2d2d); color: var(--text-color, #ffffff); border: 1px solid var(--border-color, #404040); border-radius: 4px; padding: 2px;">
       <option value="chatgpt">ChatGPT</option>
       <option value="claude">Claude</option>
@@ -2686,7 +2696,7 @@ window.onload = () => {
   const aiButton = document.createElement('aiButton');
 
   aiButton.className = 'toolbar-button button-highlight rainbow btn';
-  aiButton.innerHTML = '<img src="./assets/icons/clean.png" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;">';
+  aiButton.innerHTML = '<img src="./assets/icons/icon_flare.svg" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;">';
   aiButton.id = 'aiAssistant';
   aiButton.addEventListener('click', toggleAIAssistant);
   toolbar.appendChild(aiButton);
@@ -2766,12 +2776,9 @@ class CompilationModule {
   constructor(projectPath) {
     this.projectPath = projectPath;
     this.config = null;
-    this.simConfig = null;
     this.terminalManager = new TerminalManager();
-
   }
   
-
 async loadConfig() {
   try {
     const config = await window.electronAPI.loadConfig();
@@ -2908,7 +2915,7 @@ async asmCompilation(processor, asmPath)
     }
 }
 
-async iverilogCompilation(processor, simConfig) {
+async iverilogCompilation(processor) {
   const { name } = processor;
   
   // Check if multicore is active
@@ -3043,15 +3050,7 @@ async iverilogCompilation(processor, simConfig) {
           statusUpdater.compilationSuccess('verilog');
 
           await refreshFileTree();
-          
-          // Use the selected GTKW file for visualization
-          if (selectedFiles.gtkw) {
-              const gtkwSimConfig = {
-                  standardSimulation: false,
-                  selectedGtkw: selectedFiles.gtkw
-              };
-              await this.runGtkWave(processor, gtkwSimConfig);
-          }
+      
           
       } catch (error) {
           this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
@@ -3133,256 +3132,7 @@ async iverilogCompilation(processor, simConfig) {
   }
 }
 
-  async simulationCompilation(processor, simConfig) {
-    const { name } = processor;
-    
-    // Check if multicore is active
-    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
-    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
-    //const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
-    
-    if (multicoreEnabled) {
-        // Multicore compilation
-        this.terminalManager.appendToTerminal('twave', `Starting Multicore Icarus Verilog compilation...`);
-        
-        try {
-            const appPath = await window.electronAPI.getAppPath();
-            const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-            const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
-            const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
-            const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
-
-            // Read processor configuration to get all processor names
-            const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
-            const configData = await window.electronAPI.readFile(configPath);
-            const config = JSON.parse(configData);
-            const processors = config.processors;
-            const flags = config.iverilogFlags.join(' ');
-            
-            // Get project name (directory name of this.projectPath)
-            const projectPathParts = this.projectPath.split(/[\/\\]/);
-            const projectName = projectPathParts[projectPathParts.length - 1];
-            
-            // Get selected files from multicore modal
-            const selectedFiles = JSON.parse(localStorage.getItem('multicoreConfig')) || {};
-            const selectedTb = selectedFiles.tb;
-            
-            // Build file paths for all processors
-            let verilogFilesString = '';
-            
-            // Add HDL files
-            const verilogFiles = [
-                'addr_dec.v', 'mem_instr.v', 'prefetch.v', 'instr_dec.v', 
-                'stack_pointer.v', 'stack.v', 'rel_addr.v', 'processor.v', 'core.v', 'ula.v'
-            ];
-            verilogFilesString += verilogFiles.map(file => `"${window.electronAPI.joinPath(hdlPath, file)}"`).join(' ');
-            
-            // Add all processor files
-            for (const proc of processors) {
-                const procName = proc.name;
-                const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
-                verilogFilesString += ` "${await window.electronAPI.joinPath(hardwarePath, `${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `mem_data_${procName}.v`)}" "${await window.electronAPI.joinPath(tempPath, procName, `pc_${procName}.v`)}"`;
-            }
-            
-            // Add TopLevel files (except testbench files)
-            const topLevelPath = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
-            const topLevelFiles = await window.electronAPI.readDir(topLevelPath);
-            for (const file of topLevelFiles) {
-                if (file.endsWith('.v') && !file.endsWith('_tb.v')) {
-                    verilogFilesString += ` "${await window.electronAPI.joinPath(topLevelPath, file)}"`;
-                }
-            }
-            
-            // Build iverilog command
-            const cmd = `cd "${tempPath}" && iverilog ${flags} -s ${selectedTb.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempPath, `${projectName}.vvp`)}" "${await window.electronAPI.joinPath(topLevelPath, selectedTb)}" ${verilogFilesString}`;
-            
-            this.terminalManager.appendToTerminal('twave', `Executing Icarus Verilog compilation:\n${cmd}`);
-            
-            const result = await window.electronAPI.execCommand(cmd);
-            
-            if (result.stdout) {
-                this.terminalManager.appendToTerminal('twave', result.stdout, 'stdout');
-            }
-            if (result.stderr) {
-                this.terminalManager.appendToTerminal('twave', result.stderr, 'stderr');
-            }
-            
-            if (result.code !== 0) {
-                throw new Error(`Multicore Icarus Verilog compilation failed with code ${result.code}`);
-            }
-            
-            // Copy necessary files for each processor
-            for (const proc of processors) {
-                const procName = proc.name;
-                const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
-                const procTempPath = await window.electronAPI.joinPath(tempPath, procName);
-                
-                // Copy instruction memory file
-                this.terminalManager.appendToTerminal('twave', `Copying ${procName}_inst.mif to ${tempPath}...`);
-                await window.electronAPI.copyFile(
-                    await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`),
-                    await window.electronAPI.joinPath(tempPath, `${procName}_inst.mif`)
-                );
-                
-                // Copy data memory file
-                this.terminalManager.appendToTerminal('twave', `Copying ${procName}_data.mif to ${tempPath}...`);
-                await window.electronAPI.copyFile(
-                    await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`),
-                    await window.electronAPI.joinPath(tempPath, `${procName}_data.mif`)
-                );
-                
-                // Copy PC memory file
-                this.terminalManager.appendToTerminal('twave', `Copying pc_${procName}_mem.txt to ${tempPath}...`);
-                await window.electronAPI.copyFile(
-                    await window.electronAPI.joinPath(procTempPath, `pc_${procName}_mem.txt`),
-                    await window.electronAPI.joinPath(tempPath, `pc_${procName}_mem.txt`)
-                );
-            }
-            
-            // Run VVP simulation
-            this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for multicore...');
-            const vvpCmd = `cd "${tempPath}" && vvp ${projectName}.vvp -fst`;
-            this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
-            
-            const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-            
-            if (vvpResult.stdout) {
-                this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-            }
-            if (vvpResult.stderr) {
-                this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-            }
-            
-            if (vvpResult.code !== 0) {
-                throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-            }
-            
-            this.terminalManager.appendToTerminal('twave', 'Multicore Verilog compilation and simulation completed successfully.');
-            
-            await refreshFileTree();
-            
-            // Use the selected GTKW file for visualization
-            if (selectedFiles.gtkw) {
-                const gtkwSimConfig = {
-                    standardSimulation: false,
-                    selectedGtkw: selectedFiles.gtkw
-                };
-                await this.runGtkWave(processor, gtkwSimConfig);
-            }
-            
-        } catch (error) {
-            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-            throw error;
-        }
-    } else {
-        // Original single-core compilation (your existing code)
-        this.terminalManager.appendToTerminal('twave', `Starting Icarus Verilog simulation for ${name}...`);
-       
-    try {
-        const appPath = await window.electronAPI.getAppPath();
-        const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-        const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
-        const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', name);
-        const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-        const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
-        const configPath = await window.electronAPI.joinPath(scriptsPath, 'processorConfig.json');
-        
-        // Lê o arquivo de configuração do processador para obter as flags
-        const configData = await window.electronAPI.readFile(configPath);
-        const config = JSON.parse(configData);
-        const flags = config.iverilogFlags.join(' ');
-        
-        // Definir arquivo de testbench
-        let tbFile;
-        if (simConfig.standardSimulation) {
-            const expectedFileName = `${name}_tb.v`;
-            const files = await window.electronAPI.readDir(simulationPath);
-            tbFile = files.find(f => f === expectedFileName);
-            if (!tbFile) {
-                const fullPath = await window.electronAPI.joinPath(hardwarePath, expectedFileName);
-                this.terminalManager.appendToTerminal('twave', `Error: Testbench file not found at ${fullPath}`, 'error');
-                throw new Error('Standard testbench file not found');
-            }
-        } else {
-            tbFile = simConfig.selectedTb;
-        }
-        
-        const verilogFiles = [
-            'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
-        ];
-        
-        const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
-        
-        const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name}_tb -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
-        
-        console.log('Icarus Verilog Command:', cmd);
-
-        this.terminalManager.appendToTerminal('twave', `Executing Icarus Verilog simulation:\n${cmd}`);
-        
-        const result = await window.electronAPI.execCommand(cmd);
-        
-        if (result.stdout) {
-            this.terminalManager.appendToTerminal('twave', result.stdout, 'stdout');
-        }
-        if (result.stderr) {
-            this.terminalManager.appendToTerminal('twave', result.stderr, 'stderr');
-        }
-        
-        if (result.code !== 0) {
-            throw new Error(`Icarus Verilog simulation failed with code ${result.code}`);
-        }
-
-        this.terminalManager.appendToTerminal('twave', `Copying ${name}_data.mif to ${tempPath}...`);
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`),
-            await window.electronAPI.joinPath(tempPath, `${name}_data.mif`)
-        );
-        this.terminalManager.appendToTerminal('twave', `Copied ${name}_data.mif successfully.`);
-        
-        this.terminalManager.appendToTerminal('twave', `Copying ${name}_inst.mif to ${tempPath}...`);
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
-            await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
-        );
-
-        this.terminalManager.appendToTerminal('twave', `Copied ${name}_inst.mif successfully.`);        
-        
-        // Executar vvp
-        this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
-        const vvpCmd = `cd "${tempPath}" && vvp ${name}.vvp -fst`;
-        this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
-        
-        const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-        
-        if (vvpResult.stdout) {
-            this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-        }
-        if (vvpResult.stderr) {
-            this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-        }
-        
-        if (vvpResult.code !== 0) {
-            throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-        }
-        
-        this.terminalManager.appendToTerminal('twave', 'Verilog simulation completed successfully.');
-
-        await refreshFileTree();
-
-        
-        // Executar GTKWave
-        await this.runGtkWave(processor, simConfig);
-
-        
-    } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-        throw error;
-    }
-  }
-}
-
-async runGtkWave(processor, simConfig) {
+async runGtkWave(processor) {
     const { name } = processor;
     this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
     
@@ -3421,7 +3171,7 @@ async runGtkWave(processor, simConfig) {
         this.terminalManager.appendToTerminal('tveri', `tcl_infos.txt created successfully in ${tempPath}.`);
               
         let cmd;
-        if (simConfig.standardSimulation) {
+        if (standardSimulation) {
           const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
           const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts', 'gtk_proc_init.tcl');
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
@@ -3429,7 +3179,7 @@ async runGtkWave(processor, simConfig) {
             
             cmd = `cd /d "${tempNamePath}" && gtkwave  --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptsPath}"`;
         } else {
-            const gtkwPath = await window.electronAPI.joinPath(hardwarePath, simConfig.selectedGtkw);
+            const gtkwPath = await window.electronAPI.joinPath(hardwarePath);
             const vcdPath = await window.electronAPI.joinPath(tempPath, `${name}_tb.vcd`);
             cmd = `gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}"`;
         }
@@ -3527,120 +3277,6 @@ async copyFile(sourcePath, destPath) {
   }
 }
 
-
-async prismComp(processor, simConfig) {
-  const { name } = processor;
-  this.terminalManager.appendToTerminal('tprism', `Starting PRISM compilation for ${name}...`);
-  statusUpdater.startCompilation('prism');
-
-  try {
-    // Definir caminhos
-    const appPath = await window.electronAPI.getAppPath();
-    const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-    const hdlPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'HDL');
-    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-    const scriptsPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Scripts');
-    const tempPath = await this.ensureDirectories(name);
-    const fancyPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'bin', 'fancySVG.exe');
-    const prismPath = await window.electronAPI.joinPath(tempPath, 'PRISM');
-    // Copiar arquivos necessários
-    const procVFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
-    const proc2rtlYsFile = await window.electronAPI.joinPath(scriptsPath, 'proc2rtl.ys');
-
-    // Copiar arquivos para pasta HDL
-    await this.copyFile(procVFile, await window.electronAPI.joinPath(hdlPath, `${name}.v`));
-    this.terminalManager.appendToTerminal('tprism', `Copied ${name}.v to HDL directory successfully.`);
-
-    await this.copyFile(proc2rtlYsFile, await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys'));
-    this.terminalManager.appendToTerminal('tprism', 'Copied proc2rtl.ys to HDL directory successfully.');
-
-    await TabManager.saveAllFiles();
-
-    // Alterar o arquivo proc2rtl.ys
-    const proc2rtlPath = await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys');
-    let proc2rtlContent = await window.electronAPI.readFile(proc2rtlPath, 'utf8');
-    proc2rtlContent = proc2rtlContent.replace(/@PROC@/g, name);
-    await window.electronAPI.writeFile(proc2rtlPath, proc2rtlContent);
-    this.terminalManager.appendToTerminal('tprism', 'Updated proc2rtl.ys with processor name.');
-
-    // Executar Yosys
-    const yosysCmd = `cd /d "${hdlPath}" && yosys -s proc2rtl.ys`;
-    const yosysResult = await window.electronAPI.execCommand(yosysCmd);
-    
-    if (yosysResult.stderr) {
-      this.terminalManager.appendToTerminal('tprism', yosysResult.stderr, 'stderr');
-    }
-    
-    // Identificar arquivos JSON gerados
-    const jsonFiles = await this.listFiles(hdlPath, file => file.endsWith('.json'));
-
-    // Garantir que a pasta PRISM existe
-    await window.electronAPI.mkdir(tempPath, { recursive: true });
-
-    for (const jsonFile of jsonFiles) {
-      try {
-        const jsonPath = await window.electronAPI.joinPath(hdlPath, jsonFile);
-        const svgPath = await window.electronAPI.joinPath(hdlPath, jsonFile.replace('.json', '.svg'));
-
-        // Comando para gerar SVG
-        const netlistCmd = `cd /d "${hdlPath}" && npx netlistsvg "${jsonFile}" -o "${jsonFile.replace('.json', '.svg')}"`;
-
-        let netlistResult = { stderr: null }; 
-
-        try {
-          netlistResult = await window.electronAPI.execCommand(netlistCmd);
-          console.log('netlistsvg output:', netlistResult);
-        } catch (error) {
-          console.error(`Error running netlistsvg for ${jsonFile}:`, error);
-          this.terminalManager.appendToTerminal('tprism', `Error running netlistsvg for ${jsonFile}: ${error.message}`, 'error');
-          statusUpdater.compilationError('prism', error.message);
-          continue;
-        }
-
-        if (netlistResult.stderr) {
-          this.terminalManager.appendToTerminal('tprism', netlistResult.stderr, 'stderr');
-        }
-
-        // Copiar SVG para pasta PRISM
-        const destSvgPath = await window.electronAPI.joinPath(prismPath, jsonFile.replace('.json', '.svg'));
-        await this.copyFile(svgPath, destSvgPath);
-
-        // Processar SVG com fancySVG
-        const processSvgCmd = `${fancyPath} 1 "${name}" "${destSvgPath}" "${destSvgPath}" "${prismPath}"`;
-        await window.electronAPI.execCommand(processSvgCmd);
-
-        // Deletar arquivos temporários
-        await this.deleteFile(jsonPath);
-        await this.deleteFile(svgPath);
-
-        this.terminalManager.appendToTerminal('tprism', `Processed ${jsonFile} successfully.`);
-
-      } catch (fileError) {
-        this.terminalManager.appendToTerminal('tprism', `Error processing ${jsonFile}: ${fileError.message}`, 'error');
-        statusUpdater.compilationError('prism', error.message);
-      }
-    }
-
-    // Limpar arquivos restantes na pasta HDL
-    await this.deleteFile(await window.electronAPI.joinPath(hdlPath, 'proc2rtl.ys'));
-    await this.deleteFile(await window.electronAPI.joinPath(hdlPath, `${name}.v`));
-
-    // Limpar todos os arquivos .json na pasta HDL
-    const remainingJsonFiles = await this.listFiles(hdlPath, file => file.endsWith('.json'));
-    for (const jsonFile of remainingJsonFiles) {
-      await this.deleteFile(await window.electronAPI.joinPath(hdlPath, jsonFile));
-    }
-
-    this.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully.');
-    statusUpdater.compilationSuccess('prism');
-
-  } catch (error) {
-    this.terminalManager.appendToTerminal('tprism', `Error during PRISM compilation: ${error.message}`, 'error');
-    statusUpdater.compilationError('prism', error.message);
-    throw error;
-  }
-}
-
     // No método compileAll() da classe CompilationModule
     async compileAll() {
       try {
@@ -3651,20 +3287,9 @@ async prismComp(processor, simConfig) {
           const asmPath = await this.cmmCompilation(processor);
           await this.asmCompilation(processor, asmPath);
           
-          // Show simulation config modal and get configuration
-          const simConfig = await this.showSimulationConfig(processor);
-          if (!simConfig) {
-            console.log('Compilation cancelled by user');
-            return false;
-          }
-          
-          // Pass simConfig to iverilogCompilation
-          await this.iverilogCompilation(processor, simConfig);
-          await this.runGtkWave(processor, simConfig);
+          await this.iverilogCompilation(processor);
+          await this.runGtkWave(processor);
           statusUpdater.compilationSuccess('all');
-
-          // Adicionar chamada para prismComp
-          // await this.prismComp(processor, simConfig);
         }
         return true;
       } catch (error) {
@@ -3757,14 +3382,8 @@ class CompilationButtonManager {
         await this.compiler.loadConfig();
         const processor = this.compiler.config.processors[0];
         
-        // Mostrar modal de configuração
-        const simConfig = await this.compiler.showSimulationConfig(processor);
-        if (!simConfig) {
-          console.log('Verilog compilation cancelled by user');
-          return;
-        }
-
-        await this.compiler.iverilogCompilation(processor, simConfig);
+     
+        await this.compiler.iverilogCompilation(processor);
         
         // Atualiza a file tree após a compilação
         await refreshFileTree();
@@ -3780,70 +3399,13 @@ class CompilationButtonManager {
         
         await this.compiler.loadConfig();
         const processor = this.compiler.config.processors[0];
-        
-        // Mostrar modal de configuração
-        const simConfig = await this.compiler.showSimulationConfig(processor);
-        if (!simConfig) {
-          console.log('Verilog compilation cancelled by user');
-          return;
-        }
-    
-        await this.compiler.simulationCompilation(processor, simConfig);
-        
+            
         // Atualiza a file tree após a compilação
         await refreshFileTree();
       } catch (error) {
         console.error('Verilog compilation error:', error);
       }
     });
-
-    document.getElementById('prismcomp').addEventListener('click', async () => {
-      try {
-          if (!this.compiler) this.initializeCompiler();
-          
-          await this.compiler.loadConfig();
-          const processor = this.compiler.config.processors[0]; // Assume o primeiro processador
-          
-          if (!processor || !processor.name) {
-              throw new Error('Processor name is undefined.');
-          }
-  
-          const appPath = await window.electronAPI.getAppPath();
-          if (!appPath) {
-              throw new Error('Failed to retrieve appPath.');
-          }
-  
-          const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-          const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp', processor.name);
-  
-          const simConfig = await this.compiler.showSimulationConfig(processor);
-          if (!simConfig) {
-              console.log('PRISM compilation cancelled by user');
-              return;
-          }
-  
-          await this.compiler.prismComp(processor, simConfig);
-          await refreshFileTree();
-  
-          // Obtém o caminho do arquivo SVG gerado
-          const prismPath = await window.electronAPI.joinPath(tempPath, 'PRISM', `${processor.name}.svg`);
-          console.log(prismPath);
-          // Abre o PRISM Viewer passando o caminho do SVG
-          window.electronAPI.openPrismWindow(prismPath);
-  
-          if (window.terminalManager) {
-              window.terminalManager.appendToTerminal("tprism", "PRISM Viewer launched");
-          }
-      } catch (error) {
-          console.error('PRISM compilation error:', error);
-          window.electronAPI.showErrorMessage({
-              title: 'PRISM Compilation Error',
-              message: error.message || 'Failed to compile with PRISM'
-          });
-      }
-  });
-   
-
   }
 }
 

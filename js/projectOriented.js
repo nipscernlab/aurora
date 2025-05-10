@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
       // Atualizar texto com ícone e transição suave
       const statusText = document.getElementById("processorProjectOriented");
-      const statusTexttwo = document.getElementById("processorName");
+      const statusTexttwo = document.getElementById("processorNameID");
 
       if (statusText) {
         statusText.style.opacity = "0"; // Fade out
@@ -216,11 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           if (isToggleActive) {
             // Processor Oriented
-            statusText.innerHTML = `<i class="fa-solid fa-water"></i> Processor Oriented`;
+            statusText.innerHTML = `<i class="fa-solid fa-lock"></i> Project Oriented`;
             statusTexttwo.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
           } else {
             // Project Oriented
-            statusText.innerHTML = `<i class="fa-solid fa-fire"></i> Project Oriented`;
+            statusText.innerHTML = `<i class="fa-solid fa-lock-open"></i> Processor Oriented`;
           }
     
           statusText.style.opacity = "1"; // Fade in

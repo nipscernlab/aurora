@@ -719,40 +719,64 @@ static async closeAllTabs() {
   }
   
   static updateContextPath(filePath) {
-    const contextContainer = document.getElementById('context-path');
-    if (!contextContainer) return;
+  const contextContainer = document.getElementById('context-path');
+  if (!contextContainer) return;
 
-    if (!filePath) {
-      contextContainer.className = 'context-path-container empty';
-      contextContainer.innerHTML = '';
-      return;
-    }
-
-    // Remover a classe empty e adicionar o conteúdo
-    contextContainer.className = 'context-path-container';
-
-    // Separar o caminho em segmentos
-    const segments = filePath.split(/[\\/]/);
-    const fileName = segments.pop();
-
-    // Criar o HTML para o caminho com ícone mais apropriado
-    let html = '<i class="fas fa-folder-open"></i>';
-    
-    if (segments.length > 0) {
-      html += segments.map(segment => 
-        `<span class="context-path-segment">${segment}</span>`
-      ).join('<span class="context-path-separator">/</span>');
-      
-      html += '<span class="context-path-separator">/</span>';
-    }
-
-    // Adicionar ícone específico para o tipo de arquivo
-    const fileIcon = TabManager.getFileIcon(fileName);
-    html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
-    html += `<span class="context-path-filename">${fileName}</span>`;
-    
-    contextContainer.innerHTML = html;
+  if (!filePath) {
+    contextContainer.className = 'context-path-container empty';
+    contextContainer.innerHTML = '';
+    return;
   }
+
+  // Remover a classe empty e adicionar o conteúdo
+  contextContainer.className = 'context-path-container';
+
+  // Separar o caminho em segmentos
+  const segments = filePath.split(/[\\/]/);
+  const fileName = segments.pop();
+
+  // Criar o HTML para o caminho com ícone mais apropriado
+  let html = '<i class="fas fa-folder-open"></i>';
+
+  if (segments.length > 0) {
+    html += segments.map(segment =>
+      `<span class="context-path-segment">${segment}</span>`
+    ).join('<span class="context-path-separator">/</span>');
+
+    html += '<span class="context-path-separator">/</span>';
+  }
+
+  // Adicionar ícone específico para o tipo de arquivo
+  const fileIcon = TabManager.getFileIcon(fileName);
+  html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
+  html += `<span class="context-path-filename">${fileName}</span>`;
+
+  // Adicionar botão de refatoração (ícone da vassoura)
+  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" titles="Refatorar código" style="margin-left: auto; cursor: pointer;"></i>`;
+
+  contextContainer.innerHTML = html;
+
+  // Adicionar listener de clique na vassoura
+  const broomIcon = contextContainer.querySelector('.context-refactor-button');
+if (broomIcon) {
+  broomIcon.addEventListener('click', async () => {
+    const editor = EditorManager.getEditorForFile(filePath); // Corrigido
+    if (!editor) return;
+
+    const model = editor.getModel();
+    if (!model) return;
+
+    const originalCode = model.getValue();
+    const refactoredCode = await refactorCode(originalCode);
+    if (refactoredCode && refactoredCode !== originalCode) {
+      model.setValue(refactoredCode);
+      TabManager.markFileAsModified(filePath);
+    }
+  });
+}
+
+}
+
 
   static highlightFileInTree(filePath) {
     // Remove highlight from all items
@@ -1063,6 +1087,8 @@ static activateTab(filePath) {
       // Optional: Show error dialog to user
     }
   }
+
+  
 
   static async saveAllFiles() {
     for (const [filePath, originalContent] of this.tabs.entries()) {
@@ -1646,6 +1672,7 @@ style.textContent = `
 
 `;
 document.head.appendChild(style);
+
 function renderFileTree(files, container, level = 0, parentPath = '') {
   const filteredFiles = files.filter(file => {
     if (file.type === 'directory') return true;
@@ -2684,8 +2711,6 @@ function setupAIAssistantResize(resizer) {
 }
 
 
-
-
 //WINDOW.ONLOAD ===========================================================================================================================================================
 window.onload = () => {
   initMonaco();
@@ -2845,19 +2870,10 @@ async loadConfig() {
     }
   }
   
-  async showSimulationConfig(processor) {
-    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
-    const modal = new SimulationModal();
-    return await modal.show(hardwarePath);
-  }
 
-async asmCompilation(processor, asmPath)
-{
-    const { name, clk, numClocks } = processor;
-    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
-    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : true;
-    //const   multicoreEnabled       = document.querySelector('input[id="multicore"]').checked;
-    
+async asmCompilation(processor, asmPath)  {
+
+    const { name, clk, numClocks } = processor;    
     try {
         const projectPath    = await window.electronAPI.joinPath(currentProjectPath, name                 );
         const hardwarePath   = await window.electronAPI.joinPath(this.projectPath  , name,   'Hardware'   );
@@ -2885,14 +2901,13 @@ async asmCompilation(processor, asmPath)
         if (result.code !== 0) throw new Error(`ASM Preprocessor failed with code ${result.code}`);
         
 
-        cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0 ${multicoreEnabled}`;
+        cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk} ${numClocks} 0`;
 
         this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.');
         this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...` );
         this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`               );
       
         const resasm = await window.electronAPI.execCommand(cmd);
-                       await refreshFileTree();
       
         if (resasm.stdout) this.terminalManager.appendToTerminal('tasm', resasm.stdout, 'stdout');
         if (resasm.stderr) this.terminalManager.appendToTerminal('tasm', resasm.stderr, 'stderr');
@@ -2919,8 +2934,6 @@ async iverilogCompilation(processor) {
   const { name } = processor;
   
   // Check if multicore is active
-  const multicoreCheckbox = document.querySelector('input[id="multicore"]');
-  const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
   //const multicoreEnabled = document.querySelector('input[id="multicore"]').checked;
 
   if (multicoreEnabled) {
@@ -3772,3 +3785,13 @@ function openNewsSidebar() {
 
 // Evento de clique no ícone de jornal
 newsIcon.addEventListener('click', openNewsSidebar);
+
+
+async function refactorCode(code) {
+  try {
+    return await window.electronAPI.refactorCode(code);
+  } catch (err) {
+    console.error('Erro ao refatorar código:', err);
+    return code; // Fallback para código original
+  }
+}

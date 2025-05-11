@@ -99,3 +99,173 @@
 .folder-toggle.rotated {
   transform: rotate(90deg);
 }
+
+
+  /* Improved File Tree Container */
+  .file-tree-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-right: 1px solid var(--border-primary);
+    background-color: var(--bg-secondary);
+    user-select: none;
+  }
+
+  .file-tree-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-primary);
+    background-color: var(--bg-secondary);
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .file-tree-header > span:first-child {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+
+  .file-tree {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 0;
+  }
+
+  /* File and Folder Items */
+  .file-tree-item {
+    position: relative;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-item:hover {
+    background-color: var(--bg-hover);
+  }
+
+  .file-tree-item.active > .file-item {
+    background-color: var(--bg-active);
+  }
+
+  .folder-toggle {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+  }
+
+  .file-tree-item .file-item-icon {
+    margin-right: 8px;
+    color: var(--icon-secondary);
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+  }
+
+  .file-tree-item .fa-folder,
+  .file-tree-item .fa-folder-open {
+    color: #e3a400;
+  }
+
+  .file-tree-item .fa-file-alt,
+  .file-tree-item .fa-file-lines {
+    color: #89b4f7;
+  }
+
+  .file-tree-item .fa-file-code,
+  .file-tree-item .fa-vial {
+    color: #7dcfff;
+  }
+
+  /* Folder content animation */
+  .folder-content {
+    overflow: hidden;
+    max-height: 1000px; /* Arbitrary large number */
+    transition: max-height 0.3s ease-out;
+  }
+
+  .folder-content.hidden {
+    max-height: 0;
+  }
+
+  /* Animations */
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .dragging {
+    opacity: 0.6;
+  }
+
+  .drag-over > .file-item {
+    background-color: var(--accent-primary);
+    color: white;
+    outline: 2px dashed var(--accent-hover);
+    outline-offset: -2px;
+  }
+
+  /* Action Buttons */
+  .file-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+  }
+
+  .file-actions button {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.2s;
+  }
+
+  .file-actions button:hover {
+    background-color: var(--bg-hover);
+  }
+
+  .file-actions button i {
+    font-size: 12px;
+  }
+
+  /* Context Menu Animation */
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .context-menu {
+    animation: scaleIn 0.1s ease-out;
+  }

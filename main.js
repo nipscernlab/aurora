@@ -1419,7 +1419,9 @@ ipcMain.handle('load-config', async () => {
         processors: [], 
         iverilogFlags: [],
         cmmCompFlags: [],
-        asmCompFlags: []      };
+        asmCompFlags: [],
+        isActive: []            
+      };
       await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
       return defaultConfig;
     }
@@ -1978,4 +1980,58 @@ ipcMain.handle('set-current-project', (_, projectPath) => {
     console.error("Error setting current project path:", error);
     return { success: false, message: `Error: ${error.message}` };
   }
+});
+
+// Helper function to recursively copy directories
+async function copyDir(src, dest) {
+  // Create destination directory
+  await fs.promises.mkdir(dest, { recursive: true });
+  
+  // Read source directory contents
+  const entries = await fs.promises.readdir(src, { withFileTypes: true });
+  
+  // Process each entry
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      // Recursively copy subdirectories
+      await copyDir(srcPath, destPath);
+    } else {
+      // Copy files
+      await fs.promises.copyFile(srcPath, destPath);
+    }
+  }
+}
+
+ipcMain.handle('refactor-code', async (event, code) => {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process');
+
+    const clang = spawn('clang-format', ['-style=LLVM']);
+
+    let formatted = '';
+    let errorOutput = '';
+
+    clang.stdout.on('data', (data) => {
+      formatted += data.toString();
+    });
+
+    clang.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    clang.on('close', (code) => {
+      if (code === 0) {
+        resolve(formatted);
+      } else {
+        console.error('clang-format error:', errorOutput);
+        reject(new Error('clang-format failed'));
+      }
+    });
+
+    clang.stdin.write(code);
+    clang.stdin.end();
+  });
 });

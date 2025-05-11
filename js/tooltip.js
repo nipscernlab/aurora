@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
         'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',
         'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
-        'wavecomp': 'Analyzes Verilog output using VPP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
+        'wavecomp': 'Analyzes Verilog output using VVP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
         'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
         'allcomp': 'Performs a full compilation workflow: CMM ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
         
@@ -45,8 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'aiAssistant': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.',
         'current-spf-name': 'Project Currently Open',
         'verilog-block': 'Browse and Insert a Prebuilt Verilog Module into Your Project. Most modules are generic and FPGA-agnostic, but always review before integrating.',
-        'toggle-ui' : 'Switch the IDE\'s GUI between Processor Oriented and Project Oriented modes.'
-
+        'toggle-ui' : 'Switch the IDE\'s GUI between Processor Oriented and Project Oriented modes.',
+        'context-refactor-button': 'teste'
       };
   
     // Add mouse events to all buttons

@@ -17,21 +17,21 @@
         "appId": "com.nipscern.auroraide",
         "productName": "Aurora IDE",
         "fileAssociations": [
-        {
-            "ext": "spf",
-            "name": "SAPHO Project File",
-            "description": "SAPHO Project File",
-            "role": "Editor",
-            "icon": "./assets/icons/aurora_borealis-2.ico"
-        }
+            {
+                "ext": "spf",
+                "name": "SAPHO Project File",
+                "description": "SAPHO Project File",
+                "role": "Editor",
+                "icon": "./assets/icons/aurora_borealis-2.ico"
+            }
         ],
         "protocols": [
-        {
-            "name": "SAPHO Project Protocol",
-            "schemes": [
-            "sapho"
-            ]
-        }
+            {
+                "name": "SAPHO Project Protocol",
+                "schemes": [
+                    "sapho"
+                ]
+            }
         ],
         "publish": [
             {
@@ -84,6 +84,7 @@
         "monaco-editor": "^0.45.0",
         "netlistsvg": "^1.0.2",
         "perf_hooks": "^0.0.1",
+        "prettier": "^3.5.3",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "sortablejs": "^1.15.3",
@@ -97,6 +98,7 @@
         "@babel/core": "^7.26.7",
         "@babel/preset-react": "^7.26.3",
         "babel-loader": "^9.2.1",
+        "clang-format": "^1.8.0",
         "electron": "^28.3.3",
         "electron-builder": "^25.1.8",
         "electron-rebuild": "^3.2.9",

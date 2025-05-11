@@ -26,7 +26,9 @@ let currentConfig = {
   cmmCompFlags: [],
   asmCompFlags: [],
   testbenchFile: "standard",
-  gtkwFile: "standard"
+  gtkwFile: "standard",
+  isActive: "false",
+
 };
 
 
@@ -747,12 +749,18 @@ clearTempButton.addEventListener("click", async () => {
 });
 
 // Saves the current configuration
-// Update the save configuration logic to include simulation files
+// Saves the current configuration
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();
 
   // Convert temporary processor configs to an array
   let processors = Object.values(tempProcessorConfigs);
+  
+  // Mark the selected processor as active and all others as inactive
+  processors = processors.map(proc => ({
+    ...proc,
+    isActive: proc.name === selectedProcessor
+  }));
 
   const iverilogFlags = iverilogFlagsInput.value
     .split(";")
@@ -794,7 +802,9 @@ saveConfigButton.addEventListener("click", async () => {
       // Wait for transition before changing content
       setTimeout(() => {
         if (processors.length > 0) {
-          const processorName = processors[0].name;
+          // Find the active processor
+          const activeProcessor = processors.find(proc => proc.isActive) || processors[0];
+          const processorName = activeProcessor.name;
           processorStatus.innerHTML = `<i class="fa-solid fa-gears"></i> ${processorName}`;
         } else {
           processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131;"></i> No Processor Configured`;

@@ -183,6 +183,181 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('load-config');
   },
 
+  async createFile(filePath, content = '') {
+    try {
+      await fs.promises.writeFile(filePath, content, 'utf8');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Create a new folder
+  async createFolder(folderPath) {
+    try {
+      await fs.promises.mkdir(folderPath, { recursive: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Rename a file or folder
+  async renameItem(oldPath, newPath) {
+    try {
+      // Check if destination already exists
+      try {
+        await fs.promises.access(newPath);
+        return { 
+          success: false, 
+          message: 'A file or folder with that name already exists' 
+        };
+      } catch {
+        // This is good - destination doesn't exist
+      }
+      
+      await fs.promises.rename(oldPath, newPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to rename item:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Delete a file or folder
+  async deleteItem(itemPath, isDirectory) {
+    try {
+      if (isDirectory) {
+        await fs.promises.rm(itemPath, { recursive: true, force: true });
+      } else {
+        await fs.promises.unlink(itemPath);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Check if a file or directory exists
+  async checkIfExists(itemPath) {
+    try {
+      await fs.promises.access(itemPath);
+      return { exists: true };
+    } catch {
+      return { exists: false };
+    }
+  },
+  
+  // Copy a file or directory
+  async copyItem(sourcePath, destPath, isDirectory) {
+    try {
+      if (isDirectory) {
+        // For directories, we need to recursively copy
+        await copyDir(sourcePath, destPath);
+      } else {
+        // For files, just copy the file
+        await fs.promises.copyFile(sourcePath, destPath);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to copy item:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Move a file or directory
+  async moveItem(sourcePath, destPath) {
+    try {
+      await fs.promises.rename(sourcePath, destPath);
+      return { success: true };
+    } catch (error) {
+      // If rename fails (e.g., across devices), try copy & delete
+      try {
+        const isDirectory = (await fs.promises.stat(sourcePath)).isDirectory();
+        
+        if (isDirectory) {
+          await copyDir(sourcePath, destPath);
+        } else {
+          await fs.promises.copyFile(sourcePath, destPath);
+        }
+        
+        // Delete original after successful copy
+        if (isDirectory) {
+          await fs.promises.rm(sourcePath, { recursive: true, force: true });
+        } else {
+          await fs.promises.unlink(sourcePath);
+        }
+        
+        return { success: true };
+      } catch (copyError) {
+        console.error('Failed to move item:', copyError);
+        return { success: false, message: copyError.message };
+      }
+    }
+    
+  },
+
+   async createFile(filePath, content = '') {
+    try {
+      await fs.promises.writeFile(filePath, content, 'utf8');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Create a new folder
+  async createFolder(folderPath) {
+    try {
+      await fs.promises.mkdir(folderPath, { recursive: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Rename a file or folder
+  async renameItem(oldPath, newPath) {
+    try {
+      // Check if destination already exists
+      try {
+        await fs.promises.access(newPath);
+        return { 
+          success: false, 
+          message: 'A file or folder with that name already exists' 
+        };
+      } catch {
+        // This is good - destination doesn't exist
+      }
+      
+      await fs.promises.rename(oldPath, newPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to rename item:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Delete a file or folder
+  async deleteItem(itemPath, isDirectory) {
+    try {
+      if (isDirectory) {
+        await fs.promises.rm(itemPath, { recursive: true, force: true });
+      } else {
+        await fs.promises.unlink(itemPath);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
     setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
       getSimulationFiles: (processorName, projectPath) => 
     ipcRenderer.invoke('get-simulation-files', processorName, projectPath),
@@ -195,6 +370,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Event Listeners
   openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
   onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
+
+  refactorCode: (code) => ipcRenderer.invoke('refactor-code', code),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
 

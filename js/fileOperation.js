@@ -1,645 +1,951 @@
-// FileOperations.js - Modern file operations for the file tree
-// This extends the existing code with VSCode-like file operations
+/**
+ * fileOperations.js
+ * Módulo responsável por operações de arquivo na file tree
+ * Inclui: criar, renomear e excluir arquivos e pastas
+ */
 
-// Add context menu CSS
-const contextMenuStyles = document.createElement('style');
-contextMenuStyles.textContent = `
-  .context-menu {
-    position: absolute;
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    border-radius: 6px;
-    box-shadow: var(--shadow-md);
-    min-width: 180px;
-    z-index: 1000;
-    animation: fadeIn 0.1s ease-out;
-    padding: 4px 0;
+// Envolve todas as operações de arquivo com manipulação de UI
+const FileOperations = (function() {
+  // Cache de referências DOM
+  let contextMenu = null;
+  let currentPath = null;
+  let isFolder = false;
+
+  // Para armazenar referência à função refreshFileTree
+  let refreshFileTreeFn = null;
+
+  // Inicializador do módulo - configurar todos os event listeners
+  function initialize(refreshFunction) {
+    refreshFileTreeFn = refreshFunction;
+    createContextMenu();
+    setupGlobalListeners();
   }
 
-  .context-menu-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-sans);
-    font-size: 13px;
-    color: var(--text-primary);
-    transition: background-color 0.1s;
+  // Função para obter o caminho do projeto atual
+  function getProjectPath() {
+    return window.currentProjectPath || '';
   }
 
-  .context-menu-item:hover {
-    background-color: var(--bg-hover);
+  // Função para normalizar caminhos
+  function normalizePath(path) {
+    if (!path) return '';
+    
+    const projectPath = getProjectPath().trim();
+    
+    // Já é um caminho absoluto com o caminho do projeto
+    if (path.startsWith(projectPath)) {
+      return path;
+    }
+    
+    // Caminho já é absoluto
+    if (/^[A-Za-z]:\\/.test(path)) {
+      return path;
+    }
+    
+    // Combina o caminho do projeto com o caminho relativo
+    let normalized = `${projectPath}\\${path.replace(/^[\/\\]+/, '')}`;
+    // Normaliza barras para Windows
+    normalized = normalized.replace(/\//g, '\\').replace(/\\+/g, '\\');
+    
+    return normalized;
   }
 
-  .context-menu-divider {
-    height: 1px;
-    background-color: var(--border-primary);
-    margin: 4px 0;
+  // Função para obter caminho relativo
+  function getRelativePath(absolutePath) {
+    const projectPath = getProjectPath();
+    if (absolutePath && absolutePath.startsWith(projectPath)) {
+      // Remove o caminho do projeto e qualquer barra inicial remanescente
+      return absolutePath.substring(projectPath.length).replace(/^[\/\\]+/, '');
+    }
+    return absolutePath || '';
   }
 
-  .input-overlay {
-    position: absolute;
-    z-index: 999;
-    animation: fadeIn 0.2s ease-out forwards;
-    width: calc(100% - 20px);
+  // Cria o menu de contexto
+  function createContextMenu() {
+    if (contextMenu) return;
+    
+    // Criar elemento do menu de contexto se ainda não existir
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.id = 'file-context-menu';
+    contextMenu.innerHTML = `
+      <ul>
+        <li id="context-new-file"><i class="fa-regular fa-file"></i> New File</li>
+        <li id="context-new-folder"><i class="fa-regular fa-folder"></i> New Folder</li>
+        <li class="context-separator"></li>
+        <li id="context-rename"><i class="fa-solid fa-i-cursor"></i> Rename</li>
+        <li id="context-delete" class="context-danger"><i class="fa-regular fa-trash-can"></i> Delete</li>
+      </ul>
+    `;
+    document.body.appendChild(contextMenu);
+    
+    // Estilizar o menu de contexto
+    const style = document.createElement('style');
+    style.textContent = `
+      .context-menu {
+        position: fixed;
+        z-index: 1000;
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        box-shadow: var(--shadow-md);
+        min-width: 180px;
+        animation: fadeIn 0.15s ease;
+        display: none;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .context-menu ul {
+        list-style: none;
+        margin: 0;
+        padding: 4px 0;
+      }
+      
+      .context-menu li {
+        padding: 8px 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        color: var(--text-primary);
+        font-size: 14px;
+      }
+      
+      .context-menu li:hover {
+        background-color: var(--bg-hover);
+      }
+      
+      .context-menu li i {
+        margin-right: 8px;
+        width: 16px;
+        text-align: center;
+        color: var(--icon-secondary);
+      }
+      
+      .context-separator {
+        height: 1px;
+        background-color: var(--border-primary);
+        margin: 4px 0;
+        padding: 0 !important;
+        pointer-events: none;
+      }
+      
+      .context-danger {
+        color: var(--error) !important;
+      }
+      
+      .context-danger i {
+        color: var(--error) !important;
+      }
+      
+      .file-input-container {
+        display: flex;
+        padding: 4px;
+        margin: 2px 0;
+      }
+      
+      .file-input {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--accent-primary);
+        border-radius: 4px;
+        color: var(--text-primary);
+        padding: 4px 8px;
+        font-size: 13px;
+        font-family: var(--font-sans);
+        width: 100%;
+        outline: none;
+      }
+      
+      .file-input:focus {
+        box-shadow: 0 0 0 2px var(--accent-primary);
+      }
+      
+      .file-tree-item.editing {
+        background-color: var(--bg-hover);
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Configurar handlers de eventos para os itens do menu
+    document.getElementById('context-new-file').addEventListener('click', () => handleNewFile());
+    document.getElementById('context-new-folder').addEventListener('click', () => handleNewFolder());
+    document.getElementById('context-rename').addEventListener('click', () => handleRename());
+    document.getElementById('context-delete').addEventListener('click', () => handleDelete());
   }
-
-  .input-overlay input {
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--accent-primary);
-    color: var(--text-primary);
-    border-radius: 4px;
-    width: 100%;
-    padding: 4px 8px;
-    font-size: 13px;
-    font-family: var(--font-sans);
-    outline: none;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-`;
-document.head.appendChild(contextMenuStyles);
-
-// File Operations Manager
-const FileOperations = {
-  contextMenu: null,
-  targetPath: null,
-  targetIsDirectory: false,
-  targetElement: null,
-
-  // Initialize context menu event handlers
-  init() {
-    // Close context menu on click outside
+  
+  // Configurar listeners globais
+  function setupGlobalListeners() {
+    // Fechar menu de contexto ao clicar fora dele
     document.addEventListener('click', (e) => {
-      if (this.contextMenu && !this.contextMenu.contains(e.target)) {
-        this.hideContextMenu();
+      if (contextMenu && !contextMenu.contains(e.target) && 
+          e.target.id !== 'file-context-menu') {
+        hideContextMenu();
       }
     });
-
-    // Close context menu on ESC key
+    
+    // Observador para o elemento file-tree (pode ser adicionado depois)
+    const observer = new MutationObserver(() => {
+      attachRightClickListeners();
+    });
+    
+    // Iniciar observação quando file-tree estiver disponível
+    function startObservingFileTree() {
+      const fileTree = document.getElementById('file-tree');
+      if (fileTree) {
+        observer.observe(fileTree, { childList: true, subtree: true });
+        attachRightClickListeners();
+      } else {
+        setTimeout(startObservingFileTree, 500);
+      }
+    }
+    
+    // Iniciar observação
+    startObservingFileTree();
+    
+    // Listener para tecla Escape para fechar menu
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        this.hideContextMenu();
-      }
-    });
-
-    // Add context menu on right-click for file tree items
-    document.getElementById('file-tree').addEventListener('contextmenu', (e) => {
-      // Find the closest file-tree-item
-      const fileItem = e.target.closest('.file-tree-item');
-      if (!fileItem) return;
-      
-      e.preventDefault();
-      
-      // Get file path from data attribute or compute from DOM
-      let filePath = fileItem.getAttribute('data-path');
-      if (!filePath && fileItem.querySelector('.file-item span')) {
-        // If it's a folder (which might not have data-path), compute it
-        const fileName = fileItem.querySelector('.file-item span').textContent;
-        // Get parent path by traversing DOM upwards
-        let parentElements = [];
-        let current = fileItem.parentElement;
-        while (current && !current.classList.contains('file-tree')) {
-          if (current.classList.contains('folder-content')) {
-            const parentSpan = current.previousElementSibling?.querySelector('span');
-            if (parentSpan) {
-              parentElements.unshift(parentSpan.textContent);
-            }
-          }
-          current = current.parentElement;
-        }
-        
-        filePath = [...parentElements, fileName].join('/');
-        // If we're in a project folder, prepend the project path
-        if (window.currentProjectPath) {
-          filePath = `${window.currentProjectPath}/${filePath}`;
-        }
-      }
-      
-      if (!filePath) return;
-
-      // Determine if it's a directory based on icon
-      const folderIcon = fileItem.querySelector('.fa-folder, .fa-folder-open');
-      this.targetIsDirectory = folderIcon !== null;
-      this.targetPath = filePath;
-      this.targetElement = fileItem;
-      
-      this.showContextMenu(e.clientX, e.clientY, this.targetIsDirectory);
-    });
-
-    // Add top-level folder and file creation buttons
-    this.setupTopLevelCreation();
-  },
-
-  // Show context menu at specified position
-  showContextMenu(x, y, isDirectory) {
-    // Remove existing menu if any
-    this.hideContextMenu();
-    
-    // Create new context menu
-    this.contextMenu = document.createElement('div');
-    this.contextMenu.className = 'context-menu';
-    
-    // Add menu items based on target type
-    if (isDirectory) {
-      this.addMenuItem('New File', 'fa-file-plus', () => this.createNewFile());
-      this.addMenuItem('New Folder', 'fa-folder-plus', () => this.createNewFolder());
-      this.addMenuDivider();
-    }
-    
-    this.addMenuItem('Rename', 'fa-i-cursor', () => this.renameItem());
-    this.addMenuItem('Delete', 'fa-trash-alt', () => this.deleteItem());
-    
-    // Position menu and add to DOM
-    this.contextMenu.style.left = `${x}px`;
-    this.contextMenu.style.top = `${y}px`;
-    document.body.appendChild(this.contextMenu);
-    
-    // Adjust position if menu overflows window
-    const rect = this.contextMenu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      this.contextMenu.style.left = `${window.innerWidth - rect.width - 10}px`;
-    }
-    if (rect.bottom > window.innerHeight) {
-      this.contextMenu.style.top = `${window.innerHeight - rect.height - 10}px`;
-    }
-  },
-
-  // Hide and remove context menu
-  hideContextMenu() {
-    if (this.contextMenu && this.contextMenu.parentNode) {
-      this.contextMenu.parentNode.removeChild(this.contextMenu);
-      this.contextMenu = null;
-    }
-  },
-
-  // Add menu item to context menu
-  addMenuItem(label, iconClass, onClick) {
-    const item = document.createElement('div');
-    item.className = 'context-menu-item';
-    
-    const icon = document.createElement('i');
-    icon.className = `fa-solid ${iconClass}`;
-    item.appendChild(icon);
-    
-    const text = document.createTextNode(label);
-    item.appendChild(text);
-    
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.hideContextMenu();
-      onClick();
-    });
-    
-    this.contextMenu.appendChild(item);
-  },
-
-  // Add divider to context menu
-  addMenuDivider() {
-    const divider = document.createElement('div');
-    divider.className = 'context-menu-divider';
-    this.contextMenu.appendChild(divider);
-  },
-
-  // Create input overlay for file/folder operations
-  createInputOverlay(targetElement, initialValue, placeholder, onSubmit) {
-    // Position the input relative to the target element
-    const fileNameElement = targetElement.querySelector('.file-item span');
-    if (!fileNameElement) return;
-
-    const fileItemElement = targetElement.querySelector('.file-item');
-    const rect = fileItemElement.getBoundingClientRect();
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'input-overlay';
-    overlay.style.top = `${rect.top}px`;
-    overlay.style.left = `${rect.left}px`;
-    overlay.style.height = `${rect.height}px`;
-    
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = initialValue || '';
-    input.placeholder = placeholder;
-    overlay.appendChild(input);
-    
-    document.body.appendChild(overlay);
-    
-    input.focus();
-    if (initialValue) {
-      const dotIndex = initialValue.lastIndexOf('.');
-      if (dotIndex > 0) {
-        input.setSelectionRange(0, dotIndex);
-      } else {
-        input.select();
-      }
-    }
-    
-    const handleSubmit = () => {
-      const value = input.value.trim();
-      if (value) {
-        onSubmit(value);
-      }
-      document.body.removeChild(overlay);
-    };
-    
-    const handleCancel = () => {
-      document.body.removeChild(overlay);
-    };
-    
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        handleSubmit();
-      } else if (e.key === 'Escape') {
-        handleCancel();
-      }
-    });
-    
-    input.addEventListener('blur', handleCancel);
-  },
-  
-  // Create a new file
-  async createNewFile() {
-    const parentPath = this.targetPath;
-    
-    this.createInputOverlay(
-      this.targetElement, 
-      'newfile.txt', 
-      'File name', 
-      async (fileName) => {
-        try {
-          const filePath = `${parentPath}/${fileName}`;
-          const result = await window.electronAPI.createFile(filePath, '');
-          if (result.success) {
-            showNotification(`File ${fileName} created`, 'success');
-            refreshFileTree();
-          } else {
-            showNotification(`Error creating file: ${result.message}`, 'error');
-          }
-        } catch (error) {
-          console.error('Error creating file:', error);
-          showNotification('Error creating file', 'error');
-        }
-      }
-    );
-  },
-  
-  // Create a new folder
-  async createNewFolder() {
-    const parentPath = this.targetPath;
-    
-    this.createInputOverlay(
-      this.targetElement, 
-      'New Folder', 
-      'Folder name', 
-      async (folderName) => {
-        try {
-          const folderPath = `${parentPath}/${folderName}`;
-          const result = await window.electronAPI.createFolder(folderPath);
-          if (result.success) {
-            showNotification(`Folder ${folderName} created`, 'success');
-            refreshFileTree();
-          } else {
-            showNotification(`Error creating folder: ${result.message}`, 'error');
-          }
-        } catch (error) {
-          console.error('Error creating folder:', error);
-          showNotification('Error creating folder', 'error');
-        }
-      }
-    );
-  },
-  
-  // Rename a file or folder
-  async renameItem() {
-    const path = this.targetPath;
-    const isDirectory = this.targetIsDirectory;
-    
-    // Get the current name from the path
-    const pathParts = path.split('/');
-    const currentName = pathParts[pathParts.length - 1];
-    
-    this.createInputOverlay(
-      this.targetElement,
-      currentName,
-      'New name',
-      async (newName) => {
-        try {
-          // Create the new path by replacing just the name part
-          pathParts[pathParts.length - 1] = newName;
-          const newPath = pathParts.join('/');
-          
-          const result = await window.electronAPI.renameItem(path, newPath);
-          if (result.success) {
-            showNotification(`${isDirectory ? 'Folder' : 'File'} renamed to ${newName}`, 'success');
-            
-            // If it's an open file in tabs, update the tab
-            if (!isDirectory && TabManager.tabs.has(path)) {
-              const content = TabManager.tabContents.get(path);
-              TabManager.removeTab(path);
-              TabManager.addTab(newPath, content);
-            }
-            
-            refreshFileTree();
-          } else {
-            showNotification(`Error renaming: ${result.message}`, 'error');
-          }
-        } catch (error) {
-          console.error('Error renaming item:', error);
-          showNotification('Error renaming item', 'error');
-        }
-      }
-    );
-  },
-  
-  // Delete a file or folder
-  async deleteItem() {
-    const path = this.targetPath;
-    const isDirectory = this.targetIsDirectory;
-    const itemName = path.split('/').pop();
-    
-    // Confirm deletion
-    const confirmMessage = `Are you sure you want to delete ${isDirectory ? 'folder' : 'file'} "${itemName}"?${isDirectory ? ' This will delete all contents inside.' : ''}`;
-    
-    if (confirm(confirmMessage)) {
-      try {
-        const result = await window.electronAPI.deleteItem(path, isDirectory);
-        if (result.success) {
-          showNotification(`${isDirectory ? 'Folder' : 'File'} ${itemName} deleted`, 'success');
-          
-          // If it's an open file in tabs, close the tab
-          if (!isDirectory && TabManager.tabs.has(path)) {
-            TabManager.removeTab(path);
-          }
-          
-          refreshFileTree();
-        } else {
-          showNotification(`Error deleting: ${result.message}`, 'error');
-        }
-      } catch (error) {
-        console.error('Error deleting item:', error);
-        showNotification('Error deleting item', 'error');
-      }
-    }
-  },
-  
-  // Setup top-level creation buttons
-  setupTopLevelCreation() {
-    // Create top-level file
-    document.getElementById('create-toplevel-folder').addEventListener('click', async () => {
-      if (!currentProjectPath) {
-        showNotification('No project is open', 'error');
-        return;
-      }
-      
-      // Create a folder creation dialog or prompt
-      const folderName = prompt('Enter the name for a new top-level folder:', 'New Folder');
-      if (!folderName) return;
-      
-      try {
-        const folderPath = `${currentProjectPath}/${folderName}`;
-        const result = await window.electronAPI.createFolder(folderPath);
-        
-        if (result.success) {
-          // Now create a default .v file inside the folder
-          const filePath = `${folderPath}/${folderName}.v`;
-          const defaultContent = `// ${folderName}.v\nmodule ${folderName}(\n  input clk,\n  input rst_n,\n  output reg [7:0] data_out\n);\n\n  always @(posedge clk or negedge rst_n) begin\n    if (!rst_n)\n      data_out <= 8'h0;\n    else\n      data_out <= data_out + 1;\n  end\n\nendmodule`;
-          
-          const fileResult = await window.electronAPI.createFile(filePath, defaultContent);
-          
-          if (fileResult.success) {
-            showNotification(`Created folder ${folderName} with default .v file`, 'success');
-            refreshFileTree();
-          } else {
-            showNotification(`Error creating .v file: ${fileResult.message}`, 'error');
-          }
-        } else {
-          showNotification(`Error creating folder: ${result.message}`, 'error');
-        }
-      } catch (error) {
-        console.error('Error creating folder structure:', error);
-        showNotification('Error creating folder structure', 'error');
+        hideContextMenu();
       }
     });
   }
-};
-
-// Add New File and New Folder buttons to the file-tree-header
-function setupExtraFileTreeButtons() {
-  const fileTreeHeader = document.querySelector('.file-tree-header');
   
-  if (fileTreeHeader) {
-    // Create a div for the new actions
-    const newItemActions = document.createElement('div');
-    newItemActions.className = 'file-actions';
-    newItemActions.style.margin = '8px 0';
-    newItemActions.style.display = 'flex';
-    newItemActions.style.gap = '8px';
+  // Adicionar listeners de contexto aos itens da file tree
+  function attachRightClickListeners() {
+    const fileItems = document.querySelectorAll('.file-item');
     
-    // New File button
-    const newFileBtn = document.createElement('button');
-    newFileBtn.innerHTML = '<i class="fa-solid fa-file-plus"></i> New File';
-    newFileBtn.style.display = 'flex';
-    newFileBtn.style.alignItems = 'center';
-    newFileBtn.style.gap = '6px';
-    newFileBtn.style.padding = '6px 10px';
-    newFileBtn.style.fontSize = '12px';
-    newFileBtn.style.border = 'none';
-    newFileBtn.style.borderRadius = '4px';
-    newFileBtn.style.backgroundColor = 'var(--bg-tertiary)';
-    newFileBtn.style.color = 'var(--text-primary)';
-    newFileBtn.style.cursor = 'pointer';
+    fileItems.forEach(item => {
+      // Remover listeners antigos para evitar duplicatas
+      item.removeEventListener('contextmenu', handleContextMenu);
+      // Adicionar novo listener
+      item.addEventListener('contextmenu', handleContextMenu);
+    });
+  }
+  
+  // Handler para o menu de contexto
+  function handleContextMenu(e) {
+    e.preventDefault();
     
-    // New Folder button
-    const newFolderBtn = document.createElement('button');
-    newFolderBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i> New Folder';
-    newFolderBtn.style.display = 'flex';
-    newFolderBtn.style.alignItems = 'center';
-    newFolderBtn.style.gap = '6px';
-    newFolderBtn.style.padding = '6px 10px';
-    newFolderBtn.style.fontSize = '12px';
-    newFolderBtn.style.border = 'none';
-    newFolderBtn.style.borderRadius = '4px';
-    newFolderBtn.style.backgroundColor = 'var(--bg-tertiary)';
-    newFolderBtn.style.color = 'var(--text-primary)';
-    newFolderBtn.style.cursor = 'pointer';
+    // Determinar o tipo (arquivo ou pasta) e o caminho
+    const fileItem = e.currentTarget;
+    const fileTreeItem = fileItem.closest('.file-tree-item');
     
-    // Hover effect
-    const addHoverEffect = (btn) => {
-      btn.addEventListener('mouseenter', () => {
-        btn.style.backgroundColor = 'var(--bg-hover)';
-      });
-      btn.addEventListener('mouseleave', () => {
-        btn.style.backgroundColor = 'var(--bg-tertiary)';
-      });
-    };
+    // Verificar se é uma pasta olhando para o ícone
+    const iconElement = fileItem.querySelector('i.file-item-icon');
+    isFolder = iconElement && (
+      iconElement.classList.contains('fa-folder') || 
+      iconElement.classList.contains('fa-folder-open')
+    );
     
-    addHoverEffect(newFileBtn);
-    addHoverEffect(newFolderBtn);
+    // Obter o caminho
+    if (fileTreeItem.hasAttribute('data-path')) {
+      currentPath = fileTreeItem.getAttribute('data-path');
+    } else {
+      // Se não tiver data-path, tente construir a partir dos elementos pai
+      let path = fileItem.querySelector('span').textContent;
+      let parent = fileTreeItem.parentElement;
+      
+      while (parent && parent.classList.contains('folder-content')) {
+        const parentItem = parent.previousElementSibling;
+        if (parentItem && parentItem.classList.contains('file-item')) {
+          const parentName = parentItem.querySelector('span').textContent;
+          path = `${parentName}\\${path}`;
+        }
+        parent = parent.parentElement;
+      }
+      
+      currentPath = path;
+    }
     
-    // Add buttons to container
-    newItemActions.appendChild(newFileBtn);
-    newItemActions.appendChild(newFolderBtn);
+    // Assegurar que o caminho seja absoluto
+    currentPath = normalizePath(currentPath);
+    console.log(`Menu de contexto para: ${currentPath} (${isFolder ? 'pasta' : 'arquivo'})`);
     
-    // Add click handlers
-    newFileBtn.addEventListener('click', async () => {
-      if (!currentProjectPath) {
-        showNotification('No project is open', 'error');
+    // Exibir o menu de contexto
+    showContextMenu(e.clientX, e.clientY);
+  }
+  
+  // Exibir o menu de contexto na posição especificada
+  function showContextMenu(x, y) {
+    if (!contextMenu) return;
+    
+    // Posicionar o menu
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.display = 'block';
+    
+    // Ajustar posição se estiver fora da tela
+    const rect = contextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      contextMenu.style.left = `${window.innerWidth - rect.width - 5}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      contextMenu.style.top = `${window.innerHeight - rect.height - 5}px`;
+    }
+  }
+  
+  // Esconder o menu de contexto
+  function hideContextMenu() {
+    if (contextMenu) {
+      contextMenu.style.display = 'none';
+    }
+  }
+  
+  // Tratar criação de novo arquivo
+  async function handleNewFile() {
+    hideContextMenu();
+    
+    let targetPath = currentPath;
+    console.log(`Caminho original para novo arquivo: ${targetPath}`);
+    
+    // Se o caminho atual for um arquivo, use o diretório pai
+    if (!isFolder) {
+      try {
+        targetPath = await window.electronAPI.getParentDirectory(targetPath);
+        console.log(`Novo caminho (pasta pai): ${targetPath}`);
+      } catch (error) {
+        console.error('Error getting parent directory:', error);
+        showNotification(`Error: Could not determine parent directory`, 'error');
+        return;
+      }
+    }
+    
+    // Criar input para nome do arquivo
+    const targetElement = findElementByPath(targetPath);
+    if (!targetElement) {
+      console.error(`Elemento não encontrado para: ${targetPath}`);
+      showNotification(`Error: Could not find target element for path: ${targetPath}`, 'error');
+      return;
+    }
+    
+    const folderContent = isFolder ? 
+      targetElement.querySelector('.folder-content') : 
+      targetElement.parentElement;
+    
+    if (!folderContent) {
+      showNotification(`Error: Could not find folder content for path: ${targetPath}`, 'error');
+      return;
+    }
+    
+    // Criar elemento para input
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'file-input-container';
+    
+    const input = document.createElement('input');
+    input.className = 'file-input';
+    input.type = 'text';
+    input.placeholder = 'filename.ext';
+    
+    inputContainer.appendChild(input);
+    folderContent.prepend(inputContainer);
+    
+    // Focar no input
+    input.focus();
+    
+    // Handler para criação do arquivo
+    const handleCreate = async () => {
+      if (!input.isConnected) return;
+      
+      const fileName = input.value.trim();
+      if (!fileName) {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
         return;
       }
       
-      const fileName = prompt('Enter the name for a new file:', 'newfile.txt');
-      if (!fileName) return;
-      
       try {
-        const filePath = `${currentProjectPath}/${fileName}`;
-        const result = await window.electronAPI.createFile(filePath, '');
+        // Construir o caminho completo do arquivo
+        const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
+        const newFilePath = `${targetPath}${fileSeparator}${fileName}`;
+        console.log(`Tentando criar arquivo: ${newFilePath}`);
         
-        if (result.success) {
-          showNotification(`File ${fileName} created`, 'success');
-          refreshFileTree();
-        } else {
-          showNotification(`Error creating file: ${result.message}`, 'error');
+        await window.electronAPI.createFile(newFilePath);
+        showNotification(`File "${fileName}" created successfully`, 'success');
+        
+        // Atualizar a árvore de arquivos após a criação
+        if (typeof refreshFileTreeFn === 'function') {
+          await refreshFileTreeFn();
         }
       } catch (error) {
         console.error('Error creating file:', error);
-        showNotification('Error creating file', 'error');
+        showNotification(`Error creating file: ${error.message}`, 'error');
+      } finally {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
+      }
+    };
+    
+    // Setup event listeners
+    let isProcessing = false;
+    input.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!isProcessing) {
+          isProcessing = true;
+          await handleCreate();
+          isProcessing = false;
+        }
+      } else if (e.key === 'Escape') {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
       }
     });
     
-    newFolderBtn.addEventListener('click', async () => {
-      if (!currentProjectPath) {
-        showNotification('No project is open', 'error');
+    input.addEventListener('blur', async () => {
+      setTimeout(async () => {
+        if (!isProcessing) {
+          isProcessing = true;
+          await handleCreate();
+          isProcessing = false;
+        }
+      }, 100);
+    });
+  }
+  
+  // Tratar criação de nova pasta
+  async function handleNewFolder() {
+    hideContextMenu();
+    
+    let targetPath = currentPath;
+    console.log(`Caminho original para nova pasta: ${targetPath}`);
+    
+    // Se o caminho atual for um arquivo, use o diretório pai
+    if (!isFolder) {
+      try {
+        targetPath = await window.electronAPI.getParentDirectory(targetPath);
+        console.log(`Novo caminho (pasta pai): ${targetPath}`);
+      } catch (error) {
+        console.error('Error getting parent directory:', error);
+        showNotification(`Error: Could not determine parent directory`, 'error');
+        return;
+      }
+    }
+    
+    // Criar input para nome da pasta
+    const targetElement = findElementByPath(targetPath);
+    if (!targetElement) {
+      console.error(`Elemento não encontrado para: ${targetPath}`);
+      showNotification(`Error: Could not find target element for path: ${getRelativePath(targetPath)}`, 'error');
+      return;
+    }
+    
+    const folderContent = isFolder ? 
+      targetElement.querySelector('.folder-content') : 
+      targetElement.parentElement;
+    
+    if (!folderContent) {
+      showNotification(`Error: Could not find folder content for path: ${getRelativePath(targetPath)}`, 'error');
+      return;
+    }
+    
+    // Criar elemento para input
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'file-input-container';
+    
+    const input = document.createElement('input');
+    input.className = 'file-input';
+    input.type = 'text';
+    input.placeholder = 'folder name';
+    
+    inputContainer.appendChild(input);
+    folderContent.prepend(inputContainer);
+    
+    // Focar no input
+    input.focus();
+    
+    // Handler para criação da pasta
+    const handleCreate = async () => {
+      // Verificar se o input ainda existe
+      if (!input.isConnected) {
         return;
       }
       
-      const folderName = prompt('Enter the name for a new folder:', 'New Folder');
-      if (!folderName) return;
+      const folderName = input.value.trim();
+      if (!folderName) {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
+        return;
+      }
       
       try {
-        const folderPath = `${currentProjectPath}/${folderName}`;
-        const result = await window.electronAPI.createFolder(folderPath);
+        // Construir o caminho completo da pasta
+        const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
+        const newFolderPath = `${targetPath}${fileSeparator}${folderName}`;
         
-        if (result.success) {
-          showNotification(`Folder ${folderName} created`, 'success');
-          refreshFileTree();
-        } else {
-          showNotification(`Error creating folder: ${result.message}`, 'error');
+        console.log(`Tentando criar pasta: ${newFolderPath}`);
+        await window.electronAPI.createDirectory(newFolderPath);
+        showNotification(`Folder "${folderName}" created successfully`, 'success');
+        
+        // Atualizar a árvore de arquivos
+        if (typeof refreshFileTreeFn === 'function') {
+          await refreshFileTreeFn();
         }
       } catch (error) {
         console.error('Error creating folder:', error);
-        showNotification('Error creating folder', 'error');
+        showNotification(`Error creating folder: ${error.message}`, 'error');
+      } finally {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
+      }
+    };
+    
+    // Flag para evitar processamentos repetidos
+    let isProcessing = false;
+    
+    // Event listeners para o input
+    input.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!isProcessing) {
+          isProcessing = true;
+          await handleCreate();
+          isProcessing = false;
+        }
+      } else if (e.key === 'Escape') {
+        if (folderContent.contains(inputContainer)) {
+          folderContent.removeChild(inputContainer);
+        }
       }
     });
     
-    // Insert after the existing buttons
-    fileTreeHeader.appendChild(newItemActions);
+    input.addEventListener('blur', async () => {
+      setTimeout(async () => {
+        if (!isProcessing) {
+          isProcessing = true;
+          await handleCreate();
+          isProcessing = false;
+        }
+      }, 100);
+    });
   }
-}
-
-// Add key shortcut handlers for common operations
-function setupFileShortcuts() {
-  document.addEventListener('keydown', async (e) => {
-    // Only handle if we have a file tree and a project open
-    if (!currentProjectPath) return;
+  
+  // Tratar renomeação de arquivo/pasta
+  async function handleRename() {
+    hideContextMenu();
     
-    // Focus must be in the file tree area
-    const fileTree = document.getElementById('file-tree');
-    const isFileTreeFocused = fileTree.contains(document.activeElement) || 
-                             fileTree === document.activeElement;
+    if (!currentPath) return;
     
-    if (!isFileTreeFocused) return;
+    // Garantir que o caminho seja absoluto
+    currentPath = normalizePath(currentPath);
+    console.log(`Tentando renomear: ${currentPath}`);
     
-    // Keyboard shortcuts similar to VS Code
-    if (e.key === 'Delete' || (e.metaKey && e.key === 'Backspace')) {
-      // Delete the selected item
-      const selectedItem = document.querySelector('.file-tree-item.active');
-      if (selectedItem) {
+    // Encontrar o elemento correspondente ao caminho
+    const element = findElementByPath(currentPath);
+    if (!element) {
+      showNotification(`Error: Could not find element for path: ${getRelativePath(currentPath)}`, 'error');
+      return;
+    }
+    
+    const fileItem = element.querySelector('.file-item');
+    if (!fileItem) {
+      showNotification(`Error: Could not find file item`, 'error');
+      return;
+    }
+    
+    // Guardar referência ao nome original
+    const nameSpan = fileItem.querySelector('span');
+    if (!nameSpan) {
+      showNotification(`Error: Could not find name element`, 'error');
+      return;
+    }
+    
+    const originalName = nameSpan.textContent;
+    
+    // Adicionar classe de edição
+    element.classList.add('editing');
+    
+    // Criar input no lugar do texto
+    const input = document.createElement('input');
+    input.className = 'file-input';
+    input.value = originalName;
+    input.style.width = '100%';
+    
+    // Substituir o span pelo input
+    const spanParent = nameSpan.parentElement;
+    spanParent.replaceChild(input, nameSpan);
+    
+    // Focar no input
+    input.focus();
+    input.setSelectionRange(0, originalName.lastIndexOf('.') > 0 && !isFolder ? 
+      originalName.lastIndexOf('.') : originalName.length);
+    
+    // Flag para evitar processamentos repetidos
+    let isCompleted = false;
+    
+    // Handler para completar a renomeação
+    const completeRename = async () => {
+      // Verificar se já foi completado ou se o input não está mais conectado
+      if (isCompleted || !input.isConnected) {
+        return;
+      }
+      
+      // Marcar como completado
+      isCompleted = true;
+      
+      const newName = input.value.trim();
+      
+      // Verificar se o elemento ainda existe
+      if (!input.isConnected) {
+        return;
+      }
+      
+      try {
+        // Restaurar o span
+        if (spanParent.contains(input)) {
+          spanParent.replaceChild(nameSpan, input);
+        }
+        element.classList.remove('editing');
+        
+        // Se o nome não mudou ou está vazio, não faz nada
+        if (!newName || newName === originalName) {
+          return;
+        }
+        
+        // Obter o diretório pai e construir o novo caminho
+        try {
+          const parentDir = await window.electronAPI.getParentDirectory(currentPath);
+          const fileSeparator = parentDir.endsWith('\\') ? '' : '\\';
+          const newPath = `${parentDir}${fileSeparator}${newName}`;
+          
+          console.log(`Renomeando de "${currentPath}" para "${newPath}"`);
+          
+          // Chamar a API para renomear
+          await window.electronAPI.renameFileOrDirectory(currentPath, newPath);
+          
+          showNotification(`Renamed successfully to "${newName}"`, 'success');
+          
+          // Atualizar a árvore de arquivos
+          if (typeof refreshFileTreeFn === 'function') {
+            await refreshFileTreeFn();
+          }
+        } catch (error) {
+          console.error('Error renaming:', error);
+          showNotification(`Error renaming: ${error.message}`, 'error');
+        }
+      } catch (error) {
+        console.error('Error in completeRename:', error);
+        showNotification(`Error: ${error.message}`, 'error');
+        // Tentar restaurar o elemento
+        try {
+          if (spanParent && input.parentNode === spanParent) {
+            spanParent.replaceChild(nameSpan, input);
+          }
+          element.classList.remove('editing');
+        } catch (e) {
+          console.error('Error restoring element:', e);
+        }
+      }
+    };
+    
+    // Event listeners para o input
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
         e.preventDefault();
+        completeRename();
+      } else if (e.key === 'Escape') {
+        isCompleted = true;
+        try {
+          if (spanParent.contains(input)) {
+            spanParent.replaceChild(nameSpan, input);
+          }
+          element.classList.remove('editing');
+        } catch (error) {
+          console.error('Error restoring after Escape:', error);
+        }
+      }
+    });
+    
+    // Usar um setTimeout para evitar corridas com o evento click
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        completeRename();
+      }, 100);
+    });
+  }
+  
+  // Tratar exclusão de arquivo/pasta
+  async function handleDelete() {
+    hideContextMenu();
+    
+    if (!currentPath) {
+      showNotification(`Error: No path selected`, 'error');
+      return;
+    }
+    
+    try {
+      console.log(`Tentando excluir: ${currentPath}`);
+      
+      // Verificar se o arquivo existe antes de tentar excluir
+      const exists = await window.electronAPI.fileExists(currentPath);
+      
+      if (!exists) {
+        showNotification(`Error: The file or folder no longer exists: ${currentPath}`, 'error');
         
-        const path = selectedItem.getAttribute('data-path');
-        if (!path) return;
-        
-        const isDirectory = selectedItem.querySelector('.fa-folder, .fa-folder-open') !== null;
-        const itemName = path.split('/').pop();
-        
-        if (confirm(`Are you sure you want to delete ${isDirectory ? 'folder' : 'file'} "${itemName}"?`)) {
-          try {
-            const result = await window.electronAPI.deleteItem(path, isDirectory);
-            if (result.success) {
-              showNotification(`${isDirectory ? 'Folder' : 'File'} ${itemName} deleted`, 'success');
-              
-              // If it's an open file in tabs, close the tab
-              if (!isDirectory && TabManager.tabs.has(path)) {
-                TabManager.removeTab(path);
-              }
-              
-              refreshFileTree();
-            } else {
-              showNotification(`Error deleting: ${result.message}`, 'error');
-            }
-          } catch (error) {
-            console.error('Error deleting item:', error);
-            showNotification('Error deleting item', 'error');
+        // Atualizar a árvore para refletir a exclusão
+        if (typeof refreshFileTreeFn === 'function') {
+          await refreshFileTreeFn();
+        }
+        return;
+      }
+      
+      // Perguntar ao usuário para confirmar
+      const itemName = currentPath.split(/[\/\\]/).pop();
+      const confirmed = await window.electronAPI.showConfirmDialog(
+        `Delete ${isFolder ? 'Folder' : 'File'}`,
+        `Are you sure you want to delete "${itemName}"${isFolder ? ' and all its contents' : ''}?`
+      );
+      
+      if (!confirmed) return;
+      
+      // Chamar a API para excluir
+      console.log(`Enviando comando para excluir: ${currentPath}`);
+      await window.electronAPI.deleteFileOrDirectory(currentPath);
+      
+      showNotification(`"${itemName}" deleted successfully`, 'success');
+      
+      // Atualizar a árvore de arquivos
+      if (typeof refreshFileTreeFn === 'function') {
+        await refreshFileTreeFn();
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
+      showNotification(`Error deleting: ${error.message}`, 'error');
+      
+      // Mesmo em caso de erro, atualiza a árvore
+      if (typeof refreshFileTreeFn === 'function') {
+        await refreshFileTreeFn();
+      }
+    }
+  }
+  
+  // Função auxiliar para encontrar um elemento pelo caminho
+  function findElementByPath(path) {
+    if (!path) return null;
+    
+    console.log(`Buscando elemento para caminho: ${path}`);
+    
+    // Tenta encontrar pelo atributo data-path
+    let element = null;
+    
+    // Seletores para data-path podem ser problemáticos devido a caracteres especiais
+    // então vamos usar uma abordagem mais direta
+    const allItems = document.querySelectorAll('.file-tree-item');
+    
+    for (const item of allItems) {
+      if (item.hasAttribute('data-path')) {
+        const itemPath = item.getAttribute('data-path');
+        if (path === itemPath) {
+          element = item;
+          break;
+        }
+      }
+    }
+    
+    // Se não encontrou por data-path, tenta pelo nome do arquivo/pasta
+    if (!element) {
+      const fileName = path.split('\\').pop();
+      
+      for (const item of allItems) {
+        const span = item.querySelector('.file-item span');
+        if (span && span.textContent === fileName) {
+          const reconstructedPath = getFilePathFromElement(item);
+          
+          // Verifica se o caminho reconstruído corresponde ao caminho fornecido
+          if (path === reconstructedPath || isPathMatchingElement(path, item)) {
+            element = item;
+            break;
           }
         }
       }
-    } else if (e.key === 'F2') {
-      // Rename the selected item
-      const selectedItem = document.querySelector('.file-tree-item.active');
-      if (selectedItem) {
-        e.preventDefault();
-        
-        const path = selectedItem.getAttribute('data-path');
-        if (!path) return;
-        
-        // Handle renaming logic similar to context menu version
-        const isDirectory = selectedItem.querySelector('.fa-folder, .fa-folder-open') !== null;
-        const pathParts = path.split('/');
-        const currentName = pathParts[pathParts.length - 1];
-        
-        FileOperations.targetElement = selectedItem;
-        FileOperations.targetPath = path;
-        FileOperations.targetIsDirectory = isDirectory;
-        FileOperations.renameItem();
-      }
     }
-  });
-}
+    
+    console.log(`Elemento encontrado: ${element ? 'Sim' : 'Não'}`);
+    return element;
+  }
 
-// Initialize FileOperations when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  FileOperations.init();
-  setupExtraFileTreeButtons();
-  setupFileShortcuts();
-  
-  // Add active class to clicked file-tree-item for visual selection
-  document.getElementById('file-tree').addEventListener('click', (e) => {
-    const fileItem = e.target.closest('.file-tree-item');
-    if (fileItem) {
-      // Clear any existing active items
-      document.querySelectorAll('.file-tree-item.active').forEach(item => {
-        item.classList.remove('active');
-      });
+  // Verifica se um elemento corresponde a um caminho
+  function isPathMatchingElement(path, element) {
+    const parts = [];
+    let current = element;
+    
+    // Obter o nome do próprio elemento
+    const span = current.querySelector('.file-item span');
+    if (span) {
+      parts.unshift(span.textContent);
+    }
+    
+    // Navegar pelos ancestrais para construir o caminho
+    while (current) {
+      const parent = current.parentElement;
       
-      // Add active class to the clicked item
-      fileItem.classList.add('active');
+      if (parent && parent.classList.contains('folder-content')) {
+        const parentItem = parent.previousElementSibling;
+        if (parentItem && parentItem.classList.contains('file-item')) {
+          const parentSpan = parentItem.querySelector('span');
+          if (parentSpan) {
+            parts.unshift(parentSpan.textContent);
+          }
+        }
+      }
+      
+      current = parent;
     }
-  });
-});
+    
+    const reconstructedPath = parts.join('\\');
+    
+    // Verificar se o final dos caminhos corresponde
+    const pathParts = path.split('\\');
+    const reconstructedParts = reconstructedPath.split('\\');
+    
+    // Se há menos partes no caminho reconstruído
+    if (reconstructedParts.length <= pathParts.length) {
+      // Verificar se as últimas partes correspondem
+      const offset = pathParts.length - reconstructedParts.length;
+      return reconstructedParts.every((part, i) => part === pathParts[i + offset]);
+    }
+    
+    return false;
+  }
+  
+  // Função auxiliar para obter o caminho completo de um elemento
+  function getFilePathFromElement(element) {
+    // Se tiver data-path, normalize-o em relação ao projeto atual
+    if (element.hasAttribute('data-path')) {
+      return normalizePath(element.getAttribute('data-path'));
+    }
+    
+    // Caso contrário, tente reconstruir o caminho
+    const parts = [];
+    let current = element;
+    
+    // Obter o nome do próprio elemento
+    const span = current.querySelector('.file-item span');
+    if (span) {
+      parts.unshift(span.textContent);
+    }
+    
+    // Navegar pelos ancestrais para construir o caminho
+    while (current) {
+      const parent = current.parentElement;
+      
+      if (parent && parent.classList.contains('folder-content')) {
+        const parentItem = parent.previousElementSibling;
+        if (parentItem && parentItem.classList.contains('file-item')) {
+          const parentSpan = parentItem.querySelector('span');
+          if (parentSpan) {
+            parts.unshift(parentSpan.textContent);
+          }
+        }
+      }
+      
+      current = parent;
+    }
+    
+    // Normalizar o caminho em relação ao projeto atual
+    return normalizePath(parts.join('\\'));
+  }
+  
+  // Função auxiliar para mostrar notificações
+  function showNotification(message, type = 'info') {
+    // Verificar se a função global já existe
+    if (typeof window.showNotification === 'function') {
+      window.showNotification(message, type);
+      return;
+    }
+    
+    // Implementação de fallback
+    console.log(`[${type}] ${message}`);
+    
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.bottom = '30px';
+    notification.style.right = '30px';
+    notification.style.maxWidth = '400px';
+    notification.style.padding = '12px 20px';
+    notification.style.borderRadius = '8px';
+    notification.style.fontFamily = 'var(--font-sans)';
+    notification.style.fontSize = '14px';
+    notification.style.boxShadow = 'var(--shadow-md)';
+    notification.style.color = 'white';
+    notification.style.zIndex = '9999';
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(20px)';
+    notification.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    
+    // Estilo baseado no tipo de notificação
+    if (type === 'error') {
+      notification.style.backgroundColor = 'var(--error)';
+    } else if (type === 'success') {
+      notification.style.backgroundColor = 'var(--success)';
+    } else {
+      notification.style.backgroundColor = 'var(--info)';
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Forçar reflow para ativar a transição
+    requestAnimationFrame(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateY(0)';
+    });
+    
+    // Remover a notificação após 3 segundos
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateY(20px)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 400);
+    }, 3000);
+  }
+  
+  // API pública do módulo
+  return {
+    initialize,
+    attachRightClickListeners
+  };
+})();
 
-// Preload file operations API implementation for the Electron side
-// This needs to be implemented on the Electron side, here's a guide for what's needed:
-/**
- * Required IPC handlers for the main process (preload.js):
- * 
- * 1. createFile(path, content) - Create a new file with initial content
- * 2. createFolder(path) - Create a new folder
- * 3. renameItem(oldPath, newPath) - Rename a file or folder
- * 4. deleteItem(path, isDirectory) - Delete a file or folder
- * 
- * Each should return { success: true/false, message?: 'error message' }
- */
+// Exportar o módulo
+export default FileOperations;
+
+
+// Quando o DOM estiver carregado, inicializar o módulo de operações de arquivos
+document.addEventListener('DOMContentLoaded', () => {
+  // Verificar se window.currentProjectPath existe
+  if (!window.currentProjectPath) {
+    console.warn('WARNING: window.currentProjectPath is not defined. File operations may not work correctly.');
+  }
+  
+  // Inicializar o módulo passando a referência para refreshFileTree
+  FileOperations.initialize(window.refreshFileTree || (() => console.log('refreshFileTree not available')));
+  
+  // Para garantir que os listeners sejam adicionados após qualquer atualização da árvore
+  if (window.refreshFileTree) {
+    const originalRefreshFileTree = window.refreshFileTree;
+    window.refreshFileTree = async function() {
+      try {
+        await originalRefreshFileTree.apply(this, arguments);
+        FileOperations.attachRightClickListeners();
+      } catch (error) {
+        console.error('Error in refreshFileTree:', error);
+      }
+    };
+  }
+  
+  // Exportar a função showNotification globalmente se ela for usada por outros módulos
+  if (!window.showNotification) {
+    window.showNotification = showNotification;
+  }
+});

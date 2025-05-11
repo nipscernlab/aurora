@@ -12,6 +12,7 @@ const electronFs = require('original-fs'); // Original file system module for El
 const url = require('url');
 const log = require('electron-log');
 log.transports.file.level = 'debug';
+const { promisify } = require('util');
 
 // Path to store user settings
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -2035,3 +2036,121 @@ ipcMain.handle('refactor-code', async (event, code) => {
     clang.stdin.end();
   });
 });
+
+// Converte funções de callback do fs para Promise
+const fsPromises = {
+  mkdir: promisify(fs.mkdir),
+  writeFile: promisify(fs.writeFile),
+  rename: promisify(fs.rename),
+  rm: promisify(fs.rm),
+  stat: promisify(fs.stat)
+};
+
+// Adicione esses handlers em seu arquivo main.js
+// onde você configura os outros ipcMain.handle
+
+// Criar arquivo
+ipcMain.handle('file:create', async (event, filePath) => {
+  try {
+    await fsPromises.writeFile(filePath, '', 'utf8');
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating file:', error);
+    throw new Error(`Failed to create file: ${error.message}`);
+  }
+});
+
+// Criar diretório
+ipcMain.handle('directory:create', async (event, dirPath) => {
+  try {
+    await fsPromises.mkdir(dirPath, { recursive: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating directory:', error);
+    throw new Error(`Failed to create directory: ${error.message}`);
+  }
+});
+
+// Renomear arquivo ou pasta
+ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
+  try {
+    await fsPromises.rename(oldPath, newPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error renaming:', error);
+    throw new Error(`Failed to rename: ${error.message}`);
+  }
+});
+
+// Excluir arquivo ou pasta
+ipcMain.handle('file:delete', async (event, filePath) => {
+  try {
+    console.log(`Tentando excluir: ${filePath}`);
+    
+    // Verificar se o caminho existe
+    try {
+      await fsPromises.access(filePath);
+    } catch (err) {
+      throw new Error(`Arquivo ou pasta não existe: ${filePath}`);
+    }
+    
+    // Obter stats do arquivo/pasta
+    const stats = await fsPromises.stat(filePath);
+    
+    if (stats.isDirectory()) {
+      // Remover diretório recursivamente - use um objeto literal para options
+      await fsPromises.rm(filePath, { recursive: true, force: true });
+    } else {
+      // Remover arquivo
+      await fsPromises.unlink(filePath);
+    }
+    
+    console.log(`Exclusão concluída com sucesso: ${filePath}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`Erro ao excluir ${filePath}:`, error);
+    throw new Error(`Failed to delete: ${error.message}`);
+  }
+});
+
+// Adicionar um handler para verificar se arquivo/pasta existe
+ipcMain.handle('file:exists', async (event, filePath) => {
+  try {
+    await fsPromises.access(filePath);
+    return true;
+  } catch (error) {
+    console.log(`Arquivo não existe: ${filePath}`);
+    return false;
+  }
+});
+
+// Obter diretório pai
+ipcMain.handle('file:get-parent', async (event, filePath) => {
+  return path.dirname(filePath);
+});
+
+// Verificar se é um diretório
+ipcMain.handle('file:is-directory', async (event, filePath) => {
+  try {
+    const stats = await fsPromises.stat(filePath);
+    return stats.isDirectory();
+  } catch (error) {
+    console.error('Error checking if path is directory:', error);
+    return false;
+  }
+});
+
+// Mostrar diálogo de confirmação
+ipcMain.handle('dialog:confirm', async (event, title, message) => {
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Cancel', 'Yes'],
+    defaultId: 1,
+    title: title,
+    message: message,
+    cancelId: 0,
+  });
+  
+  return result.response === 1; // true se clicou em "Yes"
+});
+

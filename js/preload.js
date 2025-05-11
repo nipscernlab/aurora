@@ -151,7 +151,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Path Operations
   ...pathOperations,
-  
+
+  createFile: (filePath) => ipcRenderer.invoke('file:create', filePath),
+  createDirectory: (dirPath) => ipcRenderer.invoke('directory:create', dirPath),
+  renameFileOrDirectory: (oldPath, newPath) => ipcRenderer.invoke('file:rename', oldPath, newPath),
+  deleteFileOrDirectory: (path) => ipcRenderer.invoke('file:delete', path),
+  getParentDirectory: (filePath) => ipcRenderer.invoke('file:get-parent', filePath),
+  isDirectory: (path) => ipcRenderer.invoke('file:is-directory', path),
+  showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
+    fileExists: (path) => ipcRenderer.invoke('file:exists', path),
+
   // Store Operations
   getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
   setLastFolder: (path) => ipcRenderer.invoke('set-last-folder', path),

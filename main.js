@@ -2046,8 +2046,7 @@ const fsPromises = {
   stat: promisify(fs.stat)
 };
 
-// Adicione esses handlers em seu arquivo main.js
-// onde você configura os outros ipcMain.handle
+// Handlers
 
 // Criar arquivo
 ipcMain.handle('file:create', async (event, filePath) => {
@@ -2085,30 +2084,39 @@ ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
 // Excluir arquivo ou pasta
 ipcMain.handle('file:delete', async (event, filePath) => {
   try {
-    console.log(`Tentando excluir: ${filePath}`);
-    
-    // Verificar se o caminho existe
+    console.log(`Attempting to delete: ${filePath}`);
+
+    // Normalize the file path to handle different path formats
+    const normalizedPath = path.normalize(filePath);
+
+    // Check if the path exists
     try {
-      await fsPromises.access(filePath);
+      await fs.access(normalizedPath);
     } catch (err) {
-      throw new Error(`Arquivo ou pasta não existe: ${filePath}`);
+      console.error(`File or folder does not exist: ${normalizedPath}`);
+      throw new Error(`File or folder does not exist: ${normalizedPath}`);
     }
-    
-    // Obter stats do arquivo/pasta
-    const stats = await fsPromises.stat(filePath);
-    
+
+    // Get file/directory stats
+    const stats = await fs.stat(normalizedPath);
+
     if (stats.isDirectory()) {
-      // Remover diretório recursivamente - use um objeto literal para options
-      await fsPromises.rm(filePath, { recursive: true, force: true });
+      // Remove directory recursively
+      await fs.rm(normalizedPath, { 
+        recursive: true, 
+        force: true 
+      });
     } else {
-      // Remover arquivo
-      await fsPromises.unlink(filePath);
+      // Remove file
+      await fs.unlink(normalizedPath);
     }
-    
-    console.log(`Exclusão concluída com sucesso: ${filePath}`);
+
+    console.log(`Successfully deleted: ${normalizedPath}`);
     return { success: true };
   } catch (error) {
-    console.error(`Erro ao excluir ${filePath}:`, error);
+    console.error(`Error deleting ${filePath}:`, error);
+    
+    // Provide more detailed error information
     throw new Error(`Failed to delete: ${error.message}`);
   }
 });

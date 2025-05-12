@@ -1,65 +1,95 @@
-/* ======================== */
-/* Root Variables          */
-/* ======================== */
+/* Aurora IDE - Modern Responsive Styles */
 
-:root {
-  /* Dark Theme Variables */
-  --dark-bg-primary: #1e1e1e;
-  --dark-bg-secondary: #252526;
-  --dark-bg-tertiary: #2d2d2d;
-  --dark-bg-hover: #383838;
-  --dark-bg-active: #1e1e1e;
-  --dark-text-primary: #d4d4d4;
-  --dark-text-secondary: #a7a7a7;
-  --dark-border-primary: #3c3c3c;
-  --dark-accent-primary: #007acc;
-  
-  /* Light Theme Variables */
-  --light-bg-primary: #ffffff;
-  --light-bg-secondary: #f3f3f3;
-  --light-bg-tertiary: #ececec;
-  --light-bg-hover: #e8e8e8;
-  --light-bg-active: #ffffff;
-  --light-text-primary: #333333;
-  --light-text-secondary: #616161;
-  --light-border-primary: #e0e0e0;
-  --light-accent-primary: #0078d4;
-  
-  /* Default to dark theme */
-  --bg-primary: var(--dark-bg-primary);
-  --bg-secondary: var(--dark-bg-secondary);
-  --bg-tertiary: var(--dark-bg-tertiary);
-  --bg-hover: var(--dark-bg-hover);
-  --bg-active: var(--dark-bg-active);
-  --text-primary: var(--dark-text-primary);
-  --text-secondary: var(--dark-text-secondary);
-  --border-primary: var(--dark-border-primary);
-  --accent-primary: var(--dark-accent-primary);
+/* Global Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-body.theme-light {
-  --bg-primary: var(--light-bg-primary);
-  --bg-secondary: var(--light-bg-secondary);
-  --bg-tertiary: var(--light-bg-tertiary);
-  --bg-hover: var(--light-bg-hover);
-  --bg-active: var(--light-bg-active);
-  --text-primary: var(--light-text-primary);
-  --text-secondary: var(--light-text-secondary);
-  --border-primary: var(--light-border-primary);
-  --accent-primary: var(--light-accent-primary);
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow: hidden;
 }
 
-/* ======================== */
-/* Tabs Container Styles    */
-/* ======================== */
+/* Main Container Layout */
+.main-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
 
+
+.file-tree-header i {
+  color: var(--icon-secondary);
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.file-tree-header i:hover {
+  color: var(--accent-primary);
+}
+
+#current-spf-name {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Resizer Styles */
+.resizer-vertical {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background-color: transparent;
+  cursor: col-resize;
+  transition: background-color 0.2s ease;
+}
+
+.resizer-vertical:hover {
+  background-color: var(--accent-primary);
+}
+
+.resizer-horizontal {
+  height: 5px;
+  background-color: transparent;
+  cursor: row-resize;
+  transition: background-color 0.2s ease;
+}
+
+.resizer-horizontal:hover {
+  background-color: var(--accent-primary);
+}
+
+/* Editor Terminal Container */
+.editor-terminal-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Tabs Container */
 .tabs-container {
   display: flex;
   overflow-x: auto;
-  height: 35px;
+  height: 40px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-primary);
   scrollbar-width: thin;
+  padding: 0 10px;
+  align-items: center;
 }
 
 .tabs-container::-webkit-scrollbar {
@@ -68,20 +98,12 @@ body.theme-light {
 }
 
 .tabs-container::-webkit-scrollbar-thumb {
-  background-color: rgba(128, 128, 128, 0.4);
+  background-color: var(--accent-primary);
   border-radius: 4px;
 }
 
-.tabs-container::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(128, 128, 128, 0.6);
-}
-
-/* ======================== */
-/* Tab Styles               */
-/* ======================== */
-
 .tab {
-  padding: 0 12px;
+  padding: 0 15px;
   height: 35px;
   background-color: var(--bg-tertiary);
   border: none;
@@ -90,215 +112,168 @@ body.theme-light {
   font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  min-width: 100px;
-  max-width: 180px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  min-width: 120px;
+  max-width: 200px;
+  transition: all 0.2s ease;
+  margin-right: 5px;
+  border-radius: 4px 4px 0 0;
   position: relative;
 }
 
 .tab.active {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-}
-
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: var(--accent-primary);
+  box-shadow: 0 -2px 0 var(--accent-primary);
 }
 
 .tab:hover {
   background-color: var(--bg-hover);
 }
 
-/* ======================== */
-/* Tab Content & Close Btn  */
-/* ======================== */
-
 .tab-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-mono);
 }
 
 .tab-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  opacity: 0.7;
-  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .tab-close:hover {
-  opacity: 1;
   background-color: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.tab.active .tab-close {
-  opacity: 0.8;
-}
-
-/* ======================== */
-/* Editor Container Styles  */
-/* ======================== */
-
+/* Editor Container */
 .editor-container {
-  background-color: var(--bg-primary);
+  flex: 1;
   display: flex;
   flex-direction: column;
-  flex: 1;
   overflow: hidden;
-  height: 100%;
-  width: 100%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.editor-content {
-  flex: 1;
   position: relative;
 }
 
 .monaco-editor {
-  background-color: var(--bg-primary);
   flex: 1;
   position: relative;
-  width: 100%;
-  height: calc(100% - 35px);
-  color: var(--text-primary);
-
-}
-
-.monaco-editor-background,
-.monaco-editor .margin {
   background-color: var(--bg-primary);
 }
 
-.editor-instance {
+/* Editor Overlay */
+#editor-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-}
-
-/* ======================== */
-/* Editor Overlay Styles    */
-/* ======================== */
-
-#editor-overlay {
-  position: inherit;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
   background-color: var(--bg-primary);
-  padding: 2rem 1rem;
-  filter: grayscale(100%);
-  padding: 5%;
-  margin-bottom: 200px;
-
-}
-
-#editor-overlay img {
-  max-width: 120px;
-  margin-bottom: 1rem;
-  opacity: 0.8;
-  filter: saturate(0.8);
-  transition: transform 0.2s ease-in-out, filter 0.3s ease-in-out;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 10;
 }
 
 #editor-overlay.visible {
-  opacity: 0.4;
-}
+  opacity: 1;
+  pointer-events: all;
+  background-color: var(--bg-secondary);
 
-#editor-overlay.visible img {
-  transform: scale(1.05);
-  filter: saturate(1);
 }
-
-/* Overlay text content */
 
 #editor-overlay .overlay-content {
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 500px;
+  padding: 10rem;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+#editor-overlay.visible .overlay-content {
+  transform: scale(1.02);
+}
+
+#editor-overlay .overlay-icon {
+  max-width: 150px;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+  transition: transform 0.3s ease;
+  filter: grayscale(100%);
+
+}
+
+#editor-overlay.visible .overlay-icon {
+  transform: scale(1.05);
 }
 
 #editor-overlay .overlay-title {
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
+  font-size: 2rem;
+  margin-bottom: 1rem;
   font-weight: 300;
-  color: var(--text-primary);
-  font-family: 'Segoe UI Light', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--accent-primary);
+  font-family: var(--font-sans);
 }
 
 #editor-overlay .overlay-subtitle {
-  font-size: 0.95rem;
-  margin-top: 0;
+  font-size: 1rem;
   color: var(--text-secondary);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* ======================== */
-/* Editor Terminal Container */
-/* ======================== */
-
-.editor-terminal-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+  }
+  
+  .file-tree-container {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .tabs-container {
+    height: 35px;
+  }
+  
+  .tab {
+    min-width: 100px;
+    padding: 0 10px;
+  }
 }
 
-/* ======================== */
-/* Specific Light Theme Styles */
-/* ======================== */
-
-body.theme-light .tab.active {
-  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.08);
+/* Theme-specific Enhancements */
+body.theme-light {
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
 }
 
-body.theme-light #editor-overlay img {
-  filter: saturate(0.9) brightness(0.95);
+/* Monaco Editor Theme Overrides */
+.monaco-editor-background,
+.monaco-editor .margin {
+  background-color: var(--bg-primary);
 }
 
-
-/* Cor no tema escuro */
-.vs-dark .mtk3, .mkt8 {
-  color: #ffff00 !important; /* amarelo vibrante */
-}
-
+/* Custom Syntax Highlighting */
+.vs-dark .mtk3, 
 .vs-dark .mkt8 {
-  color: #ffff00 !important; /* amarelo vibrante */
+  color: #ffff00 !important; /* Vibrant yellow for dark theme */
 }
 
-/* Cor no tema claro */
-.vs-light .mtk3, .mkt8 {
-  color: #858500 !important; /* amarelo queimado */
+.vs-light .mtk3, 
+.vs-light .mkt8 {
+  color: #858500 !important; /* Burnt yellow for light theme */
 }

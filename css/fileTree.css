@@ -1,76 +1,231 @@
-@keyframes refresh-fade {
-    0% { opacity: 0.5; }
-    100% { opacity: 1; }
-  }
+/* File Tree Styles - Modern and Responsive */
 
-  #refresh-button {
-    transition: transform 0.3s ease;
-  }
+/* Base File Tree Container */
+.file-tree-container {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  transition: width 0.3s ease, transform 0.3s ease;
+  user-select: none;
+  overflow: hidden;
+}
 
-  #refresh-button.spinning {
-    transform: rotate(180deg);
-  }
+/* File Tree Header */
+.file-tree-header {
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+}
 
-  .file-tree-item {
-    width: 100%;
-  }
+.file-tree-header > span:first-child {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
 
-  .file-item {
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-    cursor: pointer;
-  }
+/* Header Action Buttons */
+.file-tree-header .header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
 
-  .file-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+.file-tree-header .header-actions > * {
+  color: var(--icon-secondary);
+  cursor: pointer;
+  transition: 
+    color 0.3s ease, 
+    background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
 
-  .folder-toggle {
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 4px;
-    transition: transform 0.2s;
-  }
+.file-tree-header .header-actions > *:hover {
+  color: var(--accent-primary);
+  background-color: var(--bg-hover);
+}
 
-  .folder-content {
-    width: 100%;
-  }
+/* Smooth Header Hover Effect */
+#refresh-button,
+#open-folder-button,
+#create-toplevel-folder,
+#backup-trash-button {
+  position: relative;
+  transition: color 0.3s ease;
+}
 
-  .hidden {
-    display: none;
-  }
+#refresh-button::after,
+#open-folder-button::after,
+#create-toplevel-folder::after,
+#backup-trash-button::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--accent-primary);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
 
-  .file-item-icon {
-    margin-right: 8px;
-  }
+#refresh-button:hover::after,
+#open-folder-button:hover::after,
+#create-toplevel-folder:hover::after,
+#backup-trash-button:hover::after {
+  transform: scaleX(1);
+}
 
-  .file-item span {
-    margin-left: 4px;
-  }
+/* Current Project Name */
+#current-spf-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 8px;
+}
 
-
-  #refresh-button:hover, #open-folder-button:hover, #create-toplevel-folder:hover, #backup-trash-button:hover {
-    color: var(--accent-hover);
-  }
-
-
+/* File Tree Actions Container */
 .file-tree-actions {
   flex: 1;
   overflow-y: auto;
-  scroll-behavior: smooth;
-  max-height: 100%; /* Certifique-se que está limitado */
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-hover) var(--bg-secondary);
 }
 
-/* Caso .file-tree precise também */
+/* Scrollbar Styling */
+.file-tree-actions::-webkit-scrollbar {
+  width: 8px;
+}
+
+.file-tree-actions::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.file-tree-actions::-webkit-scrollbar-thumb {
+  background-color: var(--bg-hover);
+  border-radius: 4px;
+}
+
+.file-tree-actions::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-primary);
+}
+
+/* File Tree */
 .file-tree {
-  overflow-y: auto;
-  scroll-behavior: smooth;
+  padding: 8px;
 }
 
+/* File Tree Item */
+.file-tree-item {
+  position: relative;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 
+    background-color 0.2s ease,
+    color 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.file-tree-item.active > .file-item {
+  background-color: var(--bg-active);
+  color: var(--accent-primary);
+  transform: translateX(8px);
+  transition: 
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* Folder Toggle */
+.folder-toggle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.folder-toggle:hover {
+  color: var(--accent-primary);
+}
+
+.folder-toggle.rotated {
+  transform: rotate(90deg);
+}
+
+/* File Item Icon */
+.file-tree-item .file-item-icon {
+  margin-right: 8px;
+  color: var(--icon-secondary);
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+  transition: color 0.2s ease;
+}
+
+.file-item:hover .file-item-icon {
+  color: var(--text-primary);
+}
+
+/* Folder Content Animation */
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+.folder-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: 
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease;
+}
+
+.folder-content:not(.hidden) {
+  animation: smoothFadeIn 0.3s ease-out forwards;
+}
+
+/* Item Enter Animation */
 @keyframes fadeInDown {
   from {
     opacity: 0;
@@ -82,190 +237,96 @@
   }
 }
 
-.folder-content {
-  overflow: hidden;
-}
-
 .folder-content:not(.hidden) > .file-tree-item {
   opacity: 0;
   animation: fadeInDown 0.3s ease forwards;
+  animation-delay: calc(var(--index) * 0.05s);
 }
 
-/* Rotação suave do ícone de pasta */
-.folder-toggle {
-  transition: transform 0.2s ease;
+/* File Selection and Interaction States */
+.file-tree-item.multi-selected > .file-item {
+  background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  color: var(--text-primary);
 }
 
-.folder-toggle.rotated {
-  transform: rotate(90deg);
+.file-tree-item.disabled > .file-item {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
+/* Drag and Drop States */
+.file-tree-item.dragging > .file-item {
+  opacity: 0.6;
+  background-color: color-mix(in srgb, var(--bg-hover) 50%, transparent);
+}
 
-  /* Improved File Tree Container */
+.file-tree-item.drag-over > .file-item {
+  background-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  outline: 2px dashed var(--accent-primary);
+  outline-offset: -2px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
   .file-tree-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    border-right: 1px solid var(--border-primary);
-    background-color: var(--bg-secondary);
-    user-select: none;
+    width: 250px;
+  }
+
+  .file-item {
+    padding: 6px 10px;
+  }
+
+  .file-item-icon {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-tree-container {
+    width: 200px;
   }
 
   .file-tree-header {
     padding: 12px;
-    border-bottom: 1px solid var(--border-primary);
-    background-color: var(--bg-secondary);
-    flex-direction: column;
-    gap: 10px;
   }
+}
 
-  .file-tree-header > span:first-child {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-  }
+/* Resizer */
+.resizer-vertical {
+  width: 5px;
+  background-color: var(--border-primary);
+  cursor: col-resize;
+  transition: background-color 0.2s ease;
+}
 
-  .file-tree {
-    flex: 1;
-    overflow: auto;
-    padding: 8px 0;
-  }
+.resizer-vertical:hover {
+  background-color: var(--accent-primary);
+}
 
-  /* File and Folder Items */
-  .file-tree-item {
-    position: relative;
+/* Refresh Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-  .file-item {
-    display: flex;
-    align-items: center;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.1s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+#refresh-button.spinning i {
+  animation: spin 1s linear infinite;
+}
 
-  .file-item:hover {
-    background-color: var(--bg-hover);
+/* Subtle Interaction Pulse */
+@keyframes selectPulse {
+  0%, 100% {
+    transform: scale(1);
   }
+  50% {
+    transform: scale(1.02);
+  }
+}
 
-  .file-tree-item.active > .file-item {
-    background-color: var(--bg-active);
-  }
-
-  .folder-toggle {
-    width: 16px;
-    height: 16px;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    transition: transform 0.2s ease;
-  }
-
-  .file-tree-item .file-item-icon {
-    margin-right: 8px;
-    color: var(--icon-secondary);
-    font-size: 14px;
-    width: 16px;
-    text-align: center;
-  }
-
-  .file-tree-item .fa-folder,
-  .file-tree-item .fa-folder-open {
-    color: #e3a400;
-  }
-
-  .file-tree-item .fa-file-alt,
-  .file-tree-item .fa-file-lines {
-    color: #89b4f7;
-  }
-
-  .file-tree-item .fa-file-code,
-  .file-tree-item .fa-vial {
-    color: #7dcfff;
-  }
-
-  /* Folder content animation */
-  .folder-content {
-    overflow: hidden;
-    max-height: 1000px; /* Arbitrary large number */
-    transition: max-height 0.3s ease-out;
-  }
-
-  .folder-content.hidden {
-    max-height: 0;
-  }
-
-  /* Animations */
-  @keyframes fadeInDown {
-    from {
-      opacity: 0;
-      transform: translateY(-5px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .dragging {
-    opacity: 0.6;
-  }
-
-  .drag-over > .file-item {
-    background-color: var(--accent-primary);
-    color: white;
-    outline: 2px dashed var(--accent-hover);
-    outline-offset: -2px;
-  }
-
-  /* Action Buttons */
-  .file-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 5px;
-  }
-
-  .file-actions button {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: none;
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background-color 0.2s;
-  }
-
-  .file-actions button:hover {
-    background-color: var(--bg-hover);
-  }
-
-  .file-actions button i {
-    font-size: 12px;
-  }
-
-  /* Context Menu Animation */
-  @keyframes scaleIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .context-menu {
-    animation: scaleIn 0.1s ease-out;
-  }
+.file-tree-item.selected {
+  animation: selectPulse 0.3s ease;
+}

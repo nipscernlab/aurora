@@ -42,7 +42,6 @@
 .tab.active {
   background-color: #0078d4; /* Cor de fundo para aba ativa */
   color: white; /* Cor do texto na aba ativa */
-  border-bottom: 2px solid #005a8d; /* Bordas para destacar a aba ativa */
 }
 
 /* Efeito de hover para outras abas */

@@ -619,9 +619,9 @@ const FileOperations = (function() {
           
           // Chamar a API para renomear
           await window.electronAPI.renameFileOrDirectory(currentPath, newPath);
-          
+
           showNotification(`Renamed successfully to "${newName}"`, 'success');
-          
+
           // Atualizar a árvore de arquivos
           if (typeof refreshFileTreeFn === 'function') {
             await refreshFileTreeFn();

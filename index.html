@@ -114,7 +114,7 @@
   </div>
   <div id="processor-visualization"></div>
 
-  <!-- Modal NotPad -->
+ <!-- NotPad HTML - Improved version -->
 <div id="modal-notpad" class="modal-notpad">
   <div class="modal-notpad-content">
     <!-- NotPad Content -->
@@ -140,84 +140,77 @@
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="toolbar-group">
-        <button id="save-btn" class="toolbar-button" title="Salvar (Ctrl+S)">
+        <button id="save-btn" class="toolbar-button" title="Save (Ctrl+S)">
           <i class="fa-solid fa-floppy-disk"></i>
         </button>
         <div class="toolbar-separator"></div>
-        <button id="undo-btn" class="toolbar-button" title="Desfazer (Ctrl+Z)">
+        <button id="undo-btn" class="toolbar-button" title="Undo (Ctrl+Z)">
           <i class="fa-solid fa-rotate-left"></i>
         </button>
-        <button id="redo-btn" class="toolbar-button" title="Refazer (Ctrl+Y)">
+        <button id="redo-btn" class="toolbar-button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
       </div>
 
       <div class="toolbar-search">
         <i class="fa-solid fa-search"></i>
-        <input type="text" id="search-input" placeholder="Pesquisar...">
+        <input type="text" id="search-input" placeholder="Search...">
+        <span id="search-count" style="display: none;"></span>
       </div>
       <div class="search-buttons">
-        <button id="search-prev" class="toolbar-button" title="Anterior">
+        <button id="search-prev" class="toolbar-button" title="Previous">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
-        <button id="search-next" class="toolbar-button" title="Próximo">
+        <button id="search-next" class="toolbar-button" title="Next">
           <i class="fa-solid fa-chevron-down"></i>
         </button>
       </div>
 
       <div class="font-size-control">
-        <button id="font-decrease" class="toolbar-button" title="Diminuir fonte">
+        <button id="font-decrease" class="toolbar-button" title="Decrease font size (Ctrl+Wheel down)">
           <i class="fa-solid fa-text-height fa-xs"></i>
         </button>
         <span class="font-size-value" id="font-size">14px</span>
-        <button id="font-increase" class="toolbar-button" title="Aumentar fonte">
+        <button id="font-increase" class="toolbar-button" title="Increase font size (Ctrl+Wheel up)">
           <i class="fa-solid fa-text-height"></i>
         </button>
       </div>
     </div>
-
-    <!-- Editor section -->
+    
+    <!-- Editor -->
     <div class="editor-container">
-      <div class="line-numbers" id="line-numbers"></div>
-      <textarea id="editor" class="editor" spellcheck="false"></textarea>
+      <!-- Editor
+      <div id="line-numbers" class="line-numbers"></div> -->
+      <textarea id="editor" spellcheck="false"></textarea>
     </div>
-
-    <!-- Status bar -->
+    
+    <!-- Status Bar -->
     <div class="status-bar">
-      <div class="status-item">
-        <i class="fa-solid fa-file-lines"></i>
-        <span id="stats">Linha: 1, Coluna: 1</span>
-        <span id="word-count" class="word-count">0 palavras</span>
-      </div>
-      <div class="status-item">
-        <i class="fa-solid fa-clock"></i>
-        <span id="last-saved">Não salvo</span>
-      </div>
+      <div id="stats">Line: 1, Column: 1</div>
+      <div id="word-count">0 words</div>
+      <div id="last-saved">Not saved yet</div>
     </div>
-
-    <!-- Save confirmation modal -->
-    <div class="modal-overlay" id="save-modal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">Salvar alterações</h3>
-          <button class="modal-close" id="save-modal-close">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+      <div id="toast-message"></div>
+    </div>
+    
+    <!-- Save Confirmation Modal -->
+    <div id="save-modal" class="save-modal">
+      <div class="save-modal-content">
+        <div class="save-modal-header">
+          <span class="save-modal-title">Save Changes?</span>
+          <button id="save-modal-close" class="save-modal-close">&times;</button>
         </div>
-        <div class="modal-body">
-          <p>Deseja salvar as alterações antes de fechar?</p>
+        <div class="save-modal-body">
+          <p>You have unsaved changes. Would you like to save them before closing?</p>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="discard-btn">Não salvar</button>
-          <button class="btn btn-primary" id="save-confirm-btn">Salvar</button>
+        <div class="save-modal-footer">
+          <button id="discard-btn" class="modal-btn discard">Discard</button>
+          <button id="save-confirm-btn" class="modal-btn save">Save</button>
         </div>
       </div>
-    </div>
-
-    <!-- Toast notification -->
-    <div class="toast" id="toast">
-      <i class="fa-solid fa-circle-check"></i>
-      <span id="toast-message">Nota salva com sucesso!</span>
     </div>
   </div>
 </div>

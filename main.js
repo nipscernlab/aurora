@@ -2162,21 +2162,30 @@ ipcMain.handle('dialog:confirm', async (event, title, message) => {
   return result.response === 1; // true se clicou em "Yes"
 });
 
-
-
-// Handler para salvar o arquivo notpad.txt
+// NotPad file handling
 ipcMain.on('save-notpad', (event, data) => {
   try {
     const filePath = path.join(app.getAppPath(), data.filePath);
+    
+    // Ensure directory exists (in case it doesn't)
+    const directory = path.dirname(filePath);
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory, { recursive: true });
+    }
+    
+    // Write the file
     fs.writeFileSync(filePath, data.content, 'utf8');
+    
+    // Send success response
     event.reply('save-notpad-reply', true);
+    
+    console.log(`NotPad file saved successfully to: ${filePath}`);
   } catch (error) {
-    console.error('Erro ao salvar arquivo:', error);
+    console.error('Error saving NotPad file:', error);
     event.reply('save-notpad-reply', false);
   }
 });
 
-// Handler para carregar o arquivo notpad.txt
 ipcMain.on('load-notpad', (event, data) => {
   try {
     const filePath = path.join(app.getAppPath(), data.filePath);
@@ -2187,14 +2196,16 @@ ipcMain.on('load-notpad', (event, data) => {
         success: true, 
         content: content 
       });
+      console.log(`NotPad file loaded successfully from: ${filePath}`);
     } else {
       event.reply('load-notpad-reply', { 
         success: false, 
-        message: 'Arquivo não encontrado' 
+        message: 'File not found' 
       });
+      console.log(`NotPad file not found at: ${filePath}`);
     }
   } catch (error) {
-    console.error('Erro ao carregar arquivo:', error);
+    console.error('Error loading NotPad file:', error);
     event.reply('load-notpad-reply', { 
       success: false, 
       message: error.message 
@@ -2213,3 +2224,14 @@ ipcMain.on('notpad-minimize', () => {
   }
 });
 
+// For maximize functionality (optional)
+ipcMain.on('notpad-maximize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});

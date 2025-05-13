@@ -2162,3 +2162,54 @@ ipcMain.handle('dialog:confirm', async (event, title, message) => {
   return result.response === 1; // true se clicou em "Yes"
 });
 
+
+
+// Handler para salvar o arquivo notpad.txt
+ipcMain.on('save-notpad', (event, data) => {
+  try {
+    const filePath = path.join(app.getAppPath(), data.filePath);
+    fs.writeFileSync(filePath, data.content, 'utf8');
+    event.reply('save-notpad-reply', true);
+  } catch (error) {
+    console.error('Erro ao salvar arquivo:', error);
+    event.reply('save-notpad-reply', false);
+  }
+});
+
+// Handler para carregar o arquivo notpad.txt
+ipcMain.on('load-notpad', (event, data) => {
+  try {
+    const filePath = path.join(app.getAppPath(), data.filePath);
+    
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      event.reply('load-notpad-reply', { 
+        success: true, 
+        content: content 
+      });
+    } else {
+      event.reply('load-notpad-reply', { 
+        success: false, 
+        message: 'Arquivo não encontrado' 
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar arquivo:', error);
+    event.reply('load-notpad-reply', { 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+ipcMain.on('notpad-minimize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    if (win.isMinimized()) {
+      win.restore();
+    } else {
+      win.minimize();
+    }
+  }
+});
+

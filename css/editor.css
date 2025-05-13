@@ -214,7 +214,7 @@ body {
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
   transition: transform 0.3s ease;
   filter: grayscale(100%);
-
+  opacity: 50%;
 }
 
 #editor-overlay.visible .overlay-icon {
@@ -227,12 +227,16 @@ body {
   font-weight: 300;
   color: var(--accent-primary);
   font-family: var(--font-sans);
+  filter: grayscale(100%);
+  opacity: 80%;
 }
 
 #editor-overlay .overlay-subtitle {
   font-size: 1rem;
   color: var(--text-secondary);
   line-height: 1.6;
+  filter: grayscale(100%);
+  opacity: 80%;
 }
 
 /* Responsive Adjustments */

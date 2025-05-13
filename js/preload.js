@@ -179,6 +179,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),
 
+    // Funções para controle da janela
+    minimizeWindow: () => ipcRenderer.send('notpad-minimize'),
+    maximizeWindow: () => ipcRenderer.send('notpad-maximize'),
+    closeWindow: () => ipcRenderer.send('notpad-close'),
+    
+    // Funções para gerenciamento de conteúdo
+    saveContent: (content) => ipcRenderer.send('notpad-save', content),
+    loadContent: () => ipcRenderer.send('notpad-load'),
+    
+    // Listeners
+    onSaveReply: (callback) => ipcRenderer.on('notpad-save-reply', (_, success) => callback(success)),
+    onLoadReply: (callback) => ipcRenderer.on('notpad-load-reply', (_, content) => callback(content)),
+    onAppClosing: (callback) => ipcRenderer.on('app-closing', () => callback()),
+
+    openNotpad: () => ipcRenderer.send('open-notpad'),
+    
    // Funções relacionadas à simulação e configuração do processador
   getSimulationFiles: (processorName) => {
     return ipcRenderer.invoke('get-simulation-files', processorName);

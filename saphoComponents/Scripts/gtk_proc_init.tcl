@@ -38,7 +38,7 @@ proc addVar {padrao tipo dataFormat filter} {
         regexp {_f_(.*?)_v_} $facname -> funcao
         regexp {_v_(.*?)_e_} $facname -> var
         if {[string compare $funcao global]!=0} {append funcao "()"}
-        addFac $facname $dataFormat "Orange" [list $tipo $var in $funcao] "" $filter
+        addFac $facname $dataFormat "Orange" "$tipo $var in $funcao" "" $filter
     }
 }
 
@@ -49,18 +49,12 @@ gets  $fileID tmp_dir
 gets  $fileID bin_dir
 close $fileID
 
-# Separador de Sinais ---------------------------------------------------------
-
-gtkwave::/Edit/Insert_Comment {Signals ************}
-
 # Insere sinais basicos -------------------------------------------------------
 
 set clk      [getFac "core.clk" ]
 set rst      [getFac "core.rst" ]
-set f_req_in [getFac "id.req_in"]
-set f_out_en [getFac "id.out_en"]
 
-gtkwave::addSignalsFromList [list $clk $rst $f_req_in $f_out_en]
+gtkwave::addSignalsFromList [list $clk $rst]
 
 # Separador de I/O ------------------------------------------------------------
 
@@ -72,8 +66,8 @@ set req_in  [listFac "tb.req_in"]
 set entrada [listFac "tb.in_"   ]
 
 for {set i 0} {$i < [llength $req_in] } {incr i} {
-    addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" [list req_in $i] "" ""
-    addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" [list Input  $i] "" ""
+    addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
+    addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
 }
 
 # Sinais de saida -------------------------------------------------------------
@@ -82,8 +76,8 @@ set out_en [listFac "tb.out_en" ]
 set saida  [listFac "tb.out_sig"]
 
 for {set i 0} {$i < [llength $out_en] } {incr i} {
-    addFac [list [lindex $out_en $i]] "Binary"         "Yellow" [list out_en $i] "" ""
-    addFac [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" [list Output $i] "" ""
+    addFac [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""
+    addFac [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
 }
 
 # Separador de Instrucoes -----------------------------------------------------

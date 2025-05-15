@@ -78,8 +78,8 @@ set req_in  [listFac "$proc.req_in_sim" $proc]
 set entrada [listFac "$proc.in_sim"     $proc]
 
 for {set i 0} {$i < [llength $req_in] } {incr i} {
-    addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" [list req_in $i] "" ""
-    addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" [list Input  $i] "" ""
+    addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
+    addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
 }
 
 # Sinais de saida -------------------------------------------------------------
@@ -88,8 +88,8 @@ set out_en  [listFac "$proc.out_en_sim" $proc]
 set saida  [listFac "$proc.out_sig"     $proc]
 
 for {set i 0} {$i < [llength $out_en] } {incr i} {
-    addFac [list [lindex $out_en  $i]] "Binary"         "Yellow" [list out_en $i] "" ""
-    addFac [list [lindex $saida   $i]] "Signed_Decimal" "Yellow" [list Output $i] "" ""
+    addFac [list [lindex $out_en  $i]] "Binary"         "Yellow" "out_en $i" "" ""
+    addFac [list [lindex $saida   $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
 }
 
 # Separador de Instrucoes -----------------------------------------------------

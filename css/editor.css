@@ -63,7 +63,7 @@ body {
 
 .resizer-horizontal {
   height: 5px;
-  background-color: transparent;
+  background-color: var(--border-primary);
   cursor: row-resize;
   transition: background-color 0.2s ease;
 }

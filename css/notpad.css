@@ -210,18 +210,6 @@
     position: relative;
   }
 
-  .line-numbers {
-    background-color: var(--bg-tertiary);
-    padding: 10px 8px;
-    font-family: var(--font-mono);
-    font-size: 14px;
-    color: var(--text-muted);
-    text-align: right;
-    overflow-y: hidden;
-    border-right: 1px solid var(--border-primary);
-    user-select: none;
-  }
-
   .editor {
     flex-grow: 1;
     padding: 10px;

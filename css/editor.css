@@ -125,8 +125,13 @@ body {
 .tab.active {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* Aplica o estilo SOMENTE para .tab.active DENTRO de #tabs-container */
+#tabs-container .tab.active {
   box-shadow: 0 -2px 0 var(--accent-primary);
 }
+
 
 .tab:hover {
   background-color: var(--bg-hover);

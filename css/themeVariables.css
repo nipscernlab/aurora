@@ -208,12 +208,6 @@ body.theme-light-high-contrast {
   --shadow-focus: 0 0 0 3px rgba(95, 50, 209, 0.7);
 }
 
-/* Media queries for dark mode preference */
-@media (prefers-color-scheme: dark) {
-  body:not(.theme-light) {
-    /* Dark theme variables will be applied by default */
-  }
-}
 
 @media (prefers-color-scheme: light) {
   body:not(.theme-dark):not(.theme-dark-high-contrast) {

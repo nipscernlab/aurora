@@ -24,7 +24,7 @@
 }
 
 .file-tree-header > span:first-child {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -91,7 +91,7 @@
 
 /* Current Project Name */
 #current-spf-name {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-primary);
   max-width: 100%;
   white-space: nowrap;

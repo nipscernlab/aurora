@@ -56,6 +56,7 @@ const projectOperations = {
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   getHardwareFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-hardware-folder-path', processorName, inputDir),
+  getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
   saveCompilationResult: (hardwareFolderPath, fileName, content) => ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
   moveFilesToHardwareFolder: (inputDir, hardwareFolderPath) => ipcRenderer.invoke('move-files-to-hardware-folder', inputDir, hardwareFolderPath),
   readDir: (dirPath) => ipcRenderer.invoke('readDir', dirPath),
@@ -187,7 +188,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Funções para gerenciamento de conteúdo
     saveContent: (content) => ipcRenderer.send('notpad-save', content),
     loadContent: () => ipcRenderer.send('notpad-load'),
-    
+    listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath),
     // Listeners
     onSaveReply: (callback) => ipcRenderer.on('notpad-save-reply', (_, success) => callback(success)),
     onLoadReply: (callback) => ipcRenderer.on('notpad-load-reply', (_, content) => callback(content)),

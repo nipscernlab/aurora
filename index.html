@@ -34,7 +34,6 @@
   <link rel="stylesheet" href="./css/statusUpdater.css">
   <link rel="stylesheet" href="./css/blockmodal.css">
   <link rel="stylesheet" href="./css/hourglass.css">
-  <link rel="stylesheet" href="./css/notpad.css">
 
 </head>
 
@@ -114,141 +113,6 @@
   </div>
   <div id="processor-visualization"></div>
 
- <!-- NotPad HTML - Improved version -->
-<div id="modal-notpad" class="modal-notpad">
-  <div class="modal-notpad-content">
-    <!-- NotPad Content -->
-    <div class="titlebar">
-      <div class="titlebar-title">
-        <i class="fa-solid fa-pen-nib"></i>
-        <span id="title-filename">¬ NotPad</span>
-        <span id="title-modified" style="margin-left: 5px; display: none;">*</span>
-      </div>
-      <div class="window-controls">
-        <button id="minimize-btn" class="window-control-button">
-          <i class="fa-solid fa-minus"></i>
-        </button>
-        <button id="maximize-btn" class="window-control-button">
-          <i class="fa-solid fa-expand"></i>
-        </button>
-        <button id="close-notpad-modal" class="window-control-button close">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="toolbar-group">
-        <button id="save-btn" class="toolbar-button" title="Save (Ctrl+S)">
-          <i class="fa-solid fa-floppy-disk"></i>
-        </button>
-        <div class="toolbar-separator"></div>
-        <button id="undo-btn" class="toolbar-button" title="Undo (Ctrl+Z)">
-          <i class="fa-solid fa-rotate-left"></i>
-        </button>
-        <button id="redo-btn" class="toolbar-button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)">
-          <i class="fa-solid fa-rotate-right"></i>
-        </button>
-      </div>
-
-      <div class="toolbar-search">
-        <i class="fa-solid fa-search"></i>
-        <input type="text" id="search-input" placeholder="Search...">
-        <span id="search-count" style="display: none;"></span>
-      </div>
-      <div class="search-buttons">
-        <button id="search-prev" class="toolbar-button" title="Previous">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button id="search-next" class="toolbar-button" title="Next">
-          <i class="fa-solid fa-chevron-down"></i>
-        </button>
-      </div>
-
-      <div class="font-size-control">
-        <button id="font-decrease" class="toolbar-button" title="Decrease font size (Ctrl+Wheel down)">
-          <i class="fa-solid fa-text-height fa-xs"></i>
-        </button>
-        <span class="font-size-value" id="font-size">14px</span>
-        <button id="font-increase" class="toolbar-button" title="Increase font size (Ctrl+Wheel up)">
-          <i class="fa-solid fa-text-height"></i>
-        </button>
-      </div>
-    </div>
-    
-    <!-- Editor -->
-    <div class="editor-container">
-      <!-- Editor
-      <div id="line-numbers" class="line-numbers"></div> -->
-      <textarea id="editor" spellcheck="false"></textarea>
-    </div>
-    
-    <!-- Status Bar -->
-    <div class="status-bar">
-      <div id="stats">Line: 1, Column: 1</div>
-      <div id="word-count">0 words</div>
-      <div id="last-saved">Not saved yet</div>
-    </div>
-    
-    <!-- Toast Notification -->
-    <div id="toast" class="toast">
-      <div id="toast-message"></div>
-    </div>
-    
-    <!-- Save Confirmation Modal -->
-    <div id="save-modal" class="save-modal">
-      <div class="save-modal-content">
-        <div class="save-modal-header">
-          <span class="save-modal-title">Save Changes?</span>
-          <button id="save-modal-close" class="save-modal-close">&times;</button>
-        </div>
-        <div class="save-modal-body">
-          <p>You have unsaved changes. Would you like to save them before closing?</p>
-        </div>
-        <div class="save-modal-footer">
-          <button id="discard-btn" class="modal-btn discard">Discard</button>
-          <button id="save-confirm-btn" class="modal-btn save">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal with specific classes -->
-<div id="aurora-info-modal" class="aurora-modal aurora-modal--hidden">
-  <div class="aurora-modal__overlay">
-    <div class="aurora-modal__content">
-      <div class="aurora-modal__header">
-        <h2 class="aurora-modal__title">System Information</h2>
-        <button class="aurora-modal__close">&times;</button>
-      </div>
-      <div class="aurora-modal__body">
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Aurora Version:</span>
-          <span id="aurora-app-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Electron:</span>
-          <span id="aurora-electron-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Chrome:</span>
-          <span id="aurora-chrome-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Node.js:</span>
-          <span id="aurora-node-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Operating System:</span>
-          <span id="aurora-os-info" class="aurora-info-item__value"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Sidebar -->
 <div id="sidebar" class="sidebar">
   <ul class="sidebar-menu">
@@ -289,59 +153,6 @@
 
 <div class="modal-backdrop" id="modalBackdrop"></div>
 
-<!-- Sliding News Modal -->
-<div class="news-modal" id="newsModal">
-  <button id="closeNewsModal" class="news-close-btn" aria-label="Close">
-    <i class="fa-solid fa-times"></i>
-  </button>
-  
-  <div class="news-modal-content">
-    <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
-    
-    <!-- Update 2.19.0 -->
-    <div class="news-section new">
-      <h4>
-        <i class="fa-solid fa-bolt update-improvement"></i> 
-        Update 2.19.0
-        <span class="version-tag">Latest</span>
-      </h4>
-      <ul class="update-list">
-        <li>Improved design of 'Processor Config' buttons</li>
-        <li>Enhanced overall interface responsiveness</li>
-        <li>Added support for new file formats</li>
-      </ul>
-    </div>
-    
-    <hr class="news-divider">
-    
-    <!-- Update 2.18.1 -->
-    <div class="news-section">
-      <h4><i class="fa-solid fa-wrench update-fix"></i> Update 2.18.1</h4>
-      <ul class="update-list">
-        <li>Performance improvements and critical bug fixes</li>
-        <li>Interface adjustments for better usability</li>
-        <li>Added /saphoComponents/<br>Packages/iverilog folder</li>
-        <li>Improved add-to-path script</li>
-        <li>Removed standard compilation (all compilations are std now)</li>
-        <li>Added syntax highlighting for .cmm and .asm files</li>
-      </ul>
-    </div>
-    
-    <hr class="news-divider">
-    
-    <!-- Update 2.17.0 -->
-    <div class="news-section">
-      <h4><i class="fa-solid fa-paint-brush update-feature"></i> Update 2.17.0</h4>
-      <ul class="update-list">
-        <li>New 'Float or Int' parameter in processor compilation configuration</li>
-        <li>Added welcome presentation when opening the IDE</li>
-        <li>Improved README.md in AURORA IDE GitHub</li>
-        <li>Added 'System Information' button</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
 <!-- Configuration Modal -->
 <div id="modalConfig" class="mconfig-modal">
   <div class="mconfig-modal-content">
@@ -372,6 +183,26 @@
           <div class="mconfig-form-group">
             <label for="processorNumClocks" class="mconfig-label">Number of Clocks</label>
             <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks">
+          </div>
+        </div>
+
+         <div class="mconfig-form-group">
+          <label for="testbenchSelect" class="mconfig-label">Testbench File:</label>
+          <div class="mconfig-select-container">
+            <select id="processortestbenchSelect" class="mconfig-select">
+              <!-- Testbench files will be dynamically added here -->
+              <option value="">Select Testbench File</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mconfig-form-group">
+          <label for="gtkwaveSelect" class="mconfig-label">GTKWave File:</label>
+          <div class="mconfig-select-container">
+            <select id="processorgtkwaveSelect" class="mconfig-select">
+              <!-- GTKWave files will be dynamically added here -->
+              <option value="">Select GTKWave File</option>
+            </select>
           </div>
         </div>
         
@@ -495,16 +326,11 @@
           <!-- Processor rows will be added here -->
           <div class="mconfig-processor-row">
             <div class="mconfig-select-container">
-              <select class="processor-select mconfig-select">
-                <!-- Processor options will be dynamically added here -->
-              </select>
+            
             </div>
             <div class="mconfig-form-group instance-name-group">
-              <input type="text" class="processor-instance mconfig-input" placeholder="Instance name">
             </div>
-            <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
-              <i class="fa-solid fa-trash"></i>
-            </button>
+
           </div>
         </div>
         
@@ -547,38 +373,6 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- Modal Window for Bug Report -->
-<div id="bug-report-modal" class="modal hidden">
-  <div class="modal-content">
-    <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
-    <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
-      <label for="bug-title">Title</label>
-      <input type="text" id="bug-title" name="bug-title" placeholder="Enter the bug title" required />
-
-      <label for="bug-body">Description</label>
-      <textarea id="bug-body" name="bug-body" placeholder="Describe the issue and praise the developer!" required></textarea>
-
-      <label>Severity</label>
-      <div class="severity-options">
-        <label>
-          <input type="radio" name="severity" value="low" required />
-          <span class="severity-dot low"></span> Low
-        </label>
-        <label>
-          <input type="radio" name="severity" value="medium" required />
-          <span class="severity-dot medium"></span> Medium
-        </label>
-        <label>
-          <input type="radio" name="severity" value="high" required />
-          <span class="severity-dot high"></span> High
-        </label>
-      </div>
-      <button type="submit">Submit</button>
-      <button type="button" id="close-bug-report">Cancel</button>
-    </form>
   </div>
 </div>
 
@@ -698,6 +492,128 @@
     </div>
   </div>
 
+  
+  <!-- Sliding News Modal -->
+<div class="news-modal" id="newsModal">
+  <button id="closeNewsModal" class="news-close-btn" aria-label="Close">
+    <i class="fa-solid fa-times"></i>
+  </button>
+  
+  <div class="news-modal-content">
+    <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
+    
+    <!-- Update 2.19.0 -->
+    <div class="news-section new">
+      <h4>
+        <i class="fa-solid fa-bolt update-improvement"></i> 
+        Update 2.19.0
+        <span class="version-tag">Latest</span>
+      </h4>
+      <ul class="update-list">
+        <li>Improved design of 'Processor Config' buttons</li>
+        <li>Enhanced overall interface responsiveness</li>
+        <li>Added support for new file formats</li>
+      </ul>
+    </div>
+    
+    <hr class="news-divider">
+    
+    <!-- Update 2.18.1 -->
+    <div class="news-section">
+      <h4><i class="fa-solid fa-wrench update-fix"></i> Update 2.18.1</h4>
+      <ul class="update-list">
+        <li>Performance improvements and critical bug fixes</li>
+        <li>Interface adjustments for better usability</li>
+        <li>Added /saphoComponents/<br>Packages/iverilog folder</li>
+        <li>Improved add-to-path script</li>
+        <li>Removed standard compilation (all compilations are std now)</li>
+        <li>Added syntax highlighting for .cmm and .asm files</li>
+      </ul>
+    </div>
+    
+    <hr class="news-divider">
+    
+    <!-- Update 2.17.0 -->
+    <div class="news-section">
+      <h4><i class="fa-solid fa-paint-brush update-feature"></i> Update 2.17.0</h4>
+      <ul class="update-list">
+        <li>New 'Float or Int' parameter in processor compilation configuration</li>
+        <li>Added welcome presentation when opening the IDE</li>
+        <li>Improved README.md in AURORA IDE GitHub</li>
+        <li>Added 'System Information' button</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Window for Bug Report -->
+<div id="bug-report-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
+    <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
+      <label for="bug-title">Title</label>
+      <input type="text" id="bug-title" name="bug-title" placeholder="Enter the bug title" required />
+
+      <label for="bug-body">Description</label>
+      <textarea id="bug-body" name="bug-body" placeholder="Describe the issue and praise the developer!" required></textarea>
+
+      <label>Severity</label>
+      <div class="severity-options">
+        <label>
+          <input type="radio" name="severity" value="low" required />
+          <span class="severity-dot low"></span> Low
+        </label>
+        <label>
+          <input type="radio" name="severity" value="medium" required />
+          <span class="severity-dot medium"></span> Medium
+        </label>
+        <label>
+          <input type="radio" name="severity" value="high" required />
+          <span class="severity-dot high"></span> High
+        </label>
+      </div>
+      <button type="submit">Submit</button>
+      <button type="button" id="close-bug-report">Cancel</button>
+    </form>
+  </div>
+</div>
+
+
+<!-- Modal with specific classes -->
+<div id="aurora-info-modal" class="aurora-modal aurora-modal--hidden">
+  <div class="aurora-modal__overlay">
+    <div class="aurora-modal__content">
+      <div class="aurora-modal__header">
+        <h2 class="aurora-modal__title">System Information</h2>
+        <button class="aurora-modal__close">&times;</button>
+      </div>
+      <div class="aurora-modal__body">
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Aurora Version:</span>
+          <span id="aurora-app-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Electron:</span>
+          <span id="aurora-electron-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Chrome:</span>
+          <span id="aurora-chrome-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Node.js:</span>
+          <span id="aurora-node-version" class="aurora-info-item__value"></span>
+        </div>
+        <div class="aurora-info-item">
+          <span class="aurora-info-item__label">Operating System:</span>
+          <span id="aurora-os-info" class="aurora-info-item__value"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Info Box Structure -->
 <div id="infoBox" class="info-box hidden">
   <div class="info-box-header">
@@ -742,299 +658,8 @@
   <div class="status-item"><i class="fa-solid fa-check"></i> Ready</div>
   <div  id="processorProjectOriented"><i class="fa-solid fa-water"></i> Processor Oriented</div>
   <div class="status-item"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
-  <div class="status-item" id="processorName" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
+  <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
   <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Line 1, Column 1</div>
-</div>
-
-  <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-  <script src="node_modules/sortablejs/Sortable.min.js"></script>
-  <script>
-    require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
-  </script>
-
-<div id="multicoreModal" class="modal modal-multicore">
-  <div class="modal-content modal-multicore-content">
-    <div class="modal-header">
-      <h2>Multicore Configuration</h2>
-      <button id="closeMulticoreModal" class="close-modal-btn">&times;</button>
-    </div>
-    <div id="multicoreModalBody" class="modal-body">
-      <!-- Content from multicore.html will be loaded here -->
-    </div>
-  </div>
-</div>
-
-<!-- Modal Container for Multicore -->
-<div id="multicore-modal" class="modal hidden">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2><i class="fa-solid fa-star-of-life"></i> Multicore Configuration</h2>
-      <button type="button" id="close-multicore-modal" class="modal-close-btn">&times;</button>
-    </div>
-    <div id="multicore-modal-body">
-      <!-- Content from multicore.html will be loaded here -->
-    </div>
-  </div>
-</div>
-
-<!-- Modal principal -->
-<div id="verilog-modal" class="modal-wrapper hidden">
-  <div class="modal-container">
-    <div class="modal-header">
-      <h2>Módulos Verilog</h2>
-      <div class="search-container">
-        <input type="text" id="module-search" placeholder="Pesquisar módulos..." class="search-input">
-        <i class="fa-solid fa-search search-icon"></i>
-      </div>
-      <button id="close-modal" class="modal-close-btn">
-        <i class="fa-solid fa-times"></i>
-      </button>
-    </div>
-    
-    <div class="modal-body">
-      <!-- Categorias de módulos -->
-      <div class="categories-container">
-        <h3>Categorias</h3>
-        <ul class="categories-list">
-          <li class="category-item active" data-category="all">Todos</li>
-          <li class="category-item" data-category="timing">Timing & Sincronização</li>
-          <li class="category-item" data-category="memory">Memória & Registros</li>
-          <li class="category-item" data-category="math">Matemática & Cálculo</li>
-          <li class="category-item" data-category="communication">Comunicação</li>
-          <li class="category-item" data-category="utility">Utilitários</li>
-        </ul>
-      </div>
-      
-      <!-- Lista de módulos -->
-      <div class="modules-container">
-        <div class="modules-list">
-          <!-- Timing & Sincronização -->
-          <div class="module-card" data-category="timing">
-            <div class="module-header">
-              <h4>button_debounce.v</h4>
-              <span class="module-tag">Timing</span>
-            </div>
-            <p class="module-description">Timing-based button debouncing circuit.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="button_debounce">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="timing">
-            <div class="module-header">
-              <h4>reset.v</h4>
-              <span class="module-tag">Timing</span>
-            </div>
-            <p class="module-description">Implements a "good" reset with asynchronous assertion and synchronous de-assertion.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="reset">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <!-- Memória & Registros -->
-          <div class="module-card" data-category="memory">
-            <div class="module-header">
-              <h4>pipeline_registers.v</h4>
-              <span class="module-tag">Registros</span>
-            </div>
-            <p class="module-description">A parameterized number of pipeline registers of some depth and width. Útil como bloco para outros módulos.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="pipeline_registers">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="memory">
-            <div class="module-header">
-              <h4>pipeline_registers_set.v</h4>
-              <span class="module-tag">Registros</span>
-            </div>
-            <p class="module-description">Pipeline registers with the ability to set the value of the registers.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="pipeline_registers_set">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="memory">
-            <div class="module-header">
-              <h4>ram_infer.v</h4>
-              <span class="module-tag">Memória</span>
-            </div>
-            <p class="module-description">Xilinx standard module that will infer RAM during FPGA synthesis.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="ram_infer">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <!-- Matemática & Cálculo -->
-          <div class="module-card" data-category="math">
-            <div class="module-header">
-              <h4>sign_extender.v</h4>
-              <span class="module-tag">Matemática</span>
-            </div>
-            <p class="module-description">Explicit sign extender (necessário em Verilog)</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="sign_extender">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="math">
-            <div class="module-header">
-              <h4>sqrt_pipelined.v</h4>
-              <span class="module-tag">Matemática</span>
-              <span class="module-deprecated">Deprecated</span>
-            </div>
-            <p class="module-description">A pipelined implementation of a fixed point square root. Deprecated devido à complexidade e arredondamento incorreto.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="sqrt_pipelined">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="math">
-            <div class="module-header">
-              <h4>sqrt_generic.v</h4>
-              <span class="module-tag">Matemática</span>
-            </div>
-            <p class="module-description">A refactor of sqrt_pipelined.v com sintaxe mais limpa. Usa truncamento implícito e tende para infinito negativo.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="sqrt_generic">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="math">
-            <div class="module-header">
-              <h4>div_pipelined.v</h4>
-              <span class="module-tag">Matemática</span>
-              <span class="module-warning">Em teste</span>
-            </div>
-            <p class="module-description">Pipelined division module (largely untested)</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="div_pipelined">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <!-- Comunicação -->
-          <div class="module-card" data-category="communication">
-            <div class="module-header">
-              <h4>uart_rx.v</h4>
-              <span class="module-tag">UART</span>
-            </div>
-            <p class="module-description">UART receiver.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="uart_rx">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="module-card" data-category="communication">
-            <div class="module-header">
-              <h4>uart_tx.v</h4>
-              <span class="module-tag">UART</span>
-            </div>
-            <p class="module-description">UART transmitter.</p>
-            <div class="module-actions">
-              <button class="module-select-btn">
-                <i class="fa-solid fa-plus"></i> Selecionar
-              </button>
-              <button class="module-info-btn" data-module="uart_tx">
-                <i class="fa-solid fa-info-circle"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Mensagem quando nenhum módulo é encontrado -->
-        <div id="no-modules-message" class="hidden">
-          <div class="no-results">
-            <i class="fa-solid fa-search"></i>
-            <p>Nenhum módulo encontrado.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="modal-footer">
-      <div class="modal-stats">
-        <span id="modules-count">10 módulos encontrados</span>
-      </div>
-      <button id="modal-cancel" class="modal-btn modal-btn-secondary">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal para visualização de código Verilog -->
-<div id="verilog-code-modal" class="code-modal-wrapper hidden">
-  <div class="code-modal-container">
-    <div class="code-modal-header">
-      <h2 id="code-modal-title">Verilog Module</h2>
-      <div class="modal-actions">
-        <button id="copy-code-btn" class="icon-btn" title="Copiar código">
-          <i class="fa-solid fa-copy"></i>
-        </button>
-        <button id="close-code-modal" class="modal-close-btn">
-          <i class="fa-solid fa-times"></i>
-        </button>
-      </div>
-    </div>
-    
-    <div class="code-modal-body">
-      <div class="code-container">
-        <pre><code id="verilog-code-content" class="verilog-code"></code></pre>
-      </div>
-    </div>
-    
-    <div class="code-modal-footer">
-      <button id="code-modal-close" class="modal-btn modal-btn-secondary">Fechar</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -1157,6 +782,12 @@
   });
 </script>
 
+  <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="node_modules/sortablejs/Sortable.min.js"></script>
+  <script>
+    require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
+  </script>
+
   <script src="./js/buttons.js" ></script>
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
@@ -1174,7 +805,6 @@
   <script src="./js/blockModal.js"></script>
   <script src="./js/hourglass.js"></script>
   <script src="./js/projectState.js" type="module"></script>
-  <script src="./js/notpad.js"></script>
     </script>
   </body>
 </html>

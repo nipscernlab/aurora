@@ -839,6 +839,25 @@ ipcMain.handle('get-hardware-folder-path', async (event, processorName, inputDir
   return hardwareFolderPath;
 });
 
+// Handler to get the hardware folder path
+ipcMain.handle('get-simulation-folder-path', async (event, processorName, inputDir) => {
+  const processorDir = path.join(inputDir);
+  const simulationFolderPath = path.join(processorDir,processorName, 'Simulation');
+  return simulationFolderPath;
+});
+
+ipcMain.handle('list-files-directory', async (event, directoryPath) => {
+  try {
+    const files = await fs.readdir(directoryPath);
+    return files;
+  } catch (error) {
+    console.error('Error listing files:', error);
+    return [];
+  }
+});
+
+
+
 // Handler to move compiled files to the hardware folder, filtering only output files
 ipcMain.handle('move-files-to-hardware-folder', async (event, inputDir, hardwareFolderPath) => {
   try {

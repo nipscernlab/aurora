@@ -203,7 +203,7 @@ body {
 
 #editor-overlay .overlay-content {
   text-align: center;
-  padding: 10rem;
+  padding: 8rem;
   background-color: var(--bg-secondary);
   border-radius: 12px;
   transition: transform 0.3s ease, filter 0.3s ease;

@@ -14,8 +14,8 @@ const processorNumClocksInput = document.getElementById("processorNumClocks");
 const iverilogFlagsInput = document.getElementById("iverilogFlags");
 const cmmCompFlagsInput = document.getElementById("cmmCompFlags");
 const asmCompFlagsInput = document.getElementById("asmCompFlags");
-const testbenchSelect = document.getElementById("testbenchSelect");
-const gtkwSelect = document.getElementById("gtkwSelect");
+const testbenchSelect = document.getElementById("processortestbenchSelect");
+const gtkwSelect = document.getElementById("processorgtkwaveSelect");
 
 // Store available processors and current configuration
 let availableProcessors = [];
@@ -332,13 +332,12 @@ function updateProcessorSelect() {
 }
 
 // Update the saveCurrentProcessorToTemp function to save simulation file selections
-// Update the saveCurrentProcessorToTemp function to correctly save simulation file selections
 function saveCurrentProcessorToTemp() {
   if (selectedProcessor) {
     const clk = processorClkInput.value.trim();
     const numClocks = processorNumClocksInput.value.trim();
-    const testbenchFile = testbenchSelect.value;
-    const gtkwFile = gtkwSelect.value;
+    const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
+    const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
     
     tempProcessorConfigs[selectedProcessor] = {
       name: selectedProcessor,
@@ -354,6 +353,12 @@ function saveCurrentProcessorToTemp() {
 
 
 async function loadSimulationFiles(processorName) {
+  // Check if elements exist before manipulating them
+  if (!testbenchSelect || !gtkwSelect) {
+    console.error("Required DOM elements testbenchSelect or gtkwSelect not found");
+    return;
+  }
+
   if (!processorName) {
     // Reset and disable selects if no processor is selected
     testbenchSelect.innerHTML = '<option value="standard" selected>Standard Testbench</option>';
@@ -370,36 +375,39 @@ async function loadSimulationFiles(processorName) {
     console.log(`Loading simulation files for processor: ${processorName}`);
     
     // Get current project path from various possible sources
-    const currentProjectPath = 
+    const projectInfo = await window.electronAPI.getCurrentProject();
+    const currentProjectPath = projectInfo.projectPath || 
       window.currentProjectPath || 
       localStorage.getItem('currentProjectPath');
     
-    console.log(`Current project path from local storage: ${currentProjectPath}`);
+    console.log(`Current project path: ${currentProjectPath}`);
     
-    if (currentProjectPath) {
-      // Set the current project in the main process (for future reference)
-      await window.electronAPI.setCurrentProject(currentProjectPath);
-      console.log(`Set current project path to: ${currentProjectPath}`);
-    } else {
-      console.warn("No current project path available in local storage");
-    }
-    
-    // Pass the project path directly when calling getSimulationFiles
-    const result = await window.electronAPI.getSimulationFiles(processorName, currentProjectPath);
-    
-    if (!result.success) {
-      console.warn(`Failed to get simulation files: ${result.message || 'Unknown error'}`);
-      // Still allow default selection even in case of error
+    if (!currentProjectPath) {
+      console.warn("No current project path available");
       testbenchSelect.disabled = false;
       gtkwSelect.disabled = false;
       return;
     }
     
-    const { testbenchFiles, gtkwFiles } = result;
+    // Get the simulation folder path for this processor
+    const simulationFolderPath = await window.electronAPI.getSimulationFolderPath(
+      processorName, 
+      currentProjectPath
+    );
+    
+    console.log(`Simulation folder path: ${simulationFolderPath}`);
+    
+    // Get all .v and .gtkw files from the simulation folder
+    const files = await window.electronAPI.listFilesInDirectory(simulationFolderPath);
+    
+    const verilogFiles = files.filter(file => file.toLowerCase().endsWith('.v'));
+    const gtkwFiles = files.filter(file => file.toLowerCase().endsWith('.gtkw'));
+    
+    console.log(`Found ${verilogFiles.length} Verilog files and ${gtkwFiles.length} GTKWave files`);
     
     // Update testbench select
     testbenchSelect.innerHTML = '<option value="standard">Standard Testbench</option>';
-    testbenchFiles.forEach(file => {
+    verilogFiles.forEach(file => {
       const option = document.createElement('option');
       option.value = file;
       option.textContent = file;
@@ -433,18 +441,15 @@ async function loadSimulationFiles(processorName) {
     testbenchSelect.disabled = false;
     gtkwSelect.disabled = false;
     
-    console.log(`Loaded ${testbenchFiles.length} testbench files and ${gtkwFiles.length} GTKWave files`);
-    
   } catch (error) {
     console.error("Failed to load simulation files:", error);
     showNotification("Failed to load simulation files", 'error');
     
     // Still allow default selection even in case of error
-    testbenchSelect.disabled = false;
-    gtkwSelect.disabled = false;
+    if (testbenchSelect) testbenchSelect.disabled = false;
+    if (gtkwSelect) gtkwSelect.disabled = false;
   }
 }
-
 
 // Update the processor selection change event to load simulation files
 processorSelect.addEventListener("change", function() {
@@ -465,15 +470,15 @@ processorSelect.addEventListener("change", function() {
     processorNumClocksInput.value = tempConfig.numClocks || '';
     
     // Set simulation file selections if available in temp config
-    if (tempConfig.testbenchFile) {
+    if (tempConfig.testbenchFile && testbenchSelect) {
       testbenchSelect.value = tempConfig.testbenchFile;
-    } else {
+    } else if (testbenchSelect) {
       testbenchSelect.value = "standard";
     }
     
-    if (tempConfig.gtkwFile) {
+    if (tempConfig.gtkwFile && gtkwSelect) {
       gtkwSelect.value = tempConfig.gtkwFile;
-    } else {
+    } else if (gtkwSelect) {
       gtkwSelect.value = "standard";
     }
     
@@ -489,22 +494,22 @@ processorSelect.addEventListener("change", function() {
     processorNumClocksInput.value = processorConfig.numClocks || '';
     
     // Set simulation file selections if available in processor config
-    if (processorConfig.testbenchFile) {
+    if (processorConfig.testbenchFile && testbenchSelect) {
       testbenchSelect.value = processorConfig.testbenchFile;
-    } else {
+    } else if (testbenchSelect) {
       testbenchSelect.value = "standard";
     }
     
-    if (processorConfig.gtkwFile) {
+    if (processorConfig.gtkwFile && gtkwSelect) {
       gtkwSelect.value = processorConfig.gtkwFile;
-    } else {
+    } else if (gtkwSelect) {
       gtkwSelect.value = "standard";
     }
   } else {
     processorClkInput.value = '';
     processorNumClocksInput.value = '';
-    testbenchSelect.value = "standard";
-    gtkwSelect.value = "standard";
+    if (testbenchSelect) testbenchSelect.value = "standard";
+    if (gtkwSelect) gtkwSelect.value = "standard";
   }
 });
 
@@ -664,21 +669,22 @@ async function loadConfiguration() {
         tempProcessorConfigs[proc.name] = {...proc};
       });
       
-      const lastActiveProcessor = config.processors[0]; // Assume first processor is the active one
+      const lastActiveProcessor = config.processors.find(p => p.isActive) || config.processors[0];
       selectedProcessor = lastActiveProcessor.name;
       
       processorClkInput.value = lastActiveProcessor.clk || '';
       processorNumClocksInput.value = lastActiveProcessor.numClocks || '';
       
-      // Load simulation files for the selected processor
-      loadSimulationFiles(selectedProcessor);
+      // Check if simulation file references exist and load files
+      await loadSimulationFiles(selectedProcessor);
     } else {
       selectedProcessor = null;
       processorClkInput.value = '';
       processorNumClocksInput.value = '';
       
       // Disable simulation file selects
-      loadSimulationFiles(null);
+      if (testbenchSelect) testbenchSelect.disabled = true;
+      if (gtkwSelect) gtkwSelect.disabled = true;
     }
     
     // Populate compiler flags inputs
@@ -715,6 +721,12 @@ settingsButton.addEventListener("click", async () => {
     
     await loadAvailableProcessors();
     await loadConfiguration();
+    
+    // After loading configuration, if there's a selected processor, load its simulation files
+    if (selectedProcessor) {
+      await loadSimulationFiles(selectedProcessor);
+    }
+    
     modal.hidden = false;
     modal.classList.add("active");
   } catch (error) {
@@ -749,7 +761,6 @@ clearTempButton.addEventListener("click", async () => {
 });
 
 // Saves the current configuration
-// Saves the current configuration
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();
 
@@ -777,11 +788,17 @@ saveConfigButton.addEventListener("click", async () => {
     .map(flag => flag.trim())
     .filter(flag => flag);
 
+  // Get the current simulation file selections
+  const selectedTestbench = testbenchSelect ? testbenchSelect.value : "standard";
+  const selectedGtkw = gtkwSelect ? gtkwSelect.value : "standard";
+
   const config = {
     processors,
     iverilogFlags,
     cmmCompFlags,
-    asmCompFlags
+    asmCompFlags,
+    testbenchFile: selectedTestbench,
+    gtkwFile: selectedGtkw
   };
 
   console.log("Saving Configuration:", config);
@@ -825,7 +842,6 @@ saveConfigButton.addEventListener("click", async () => {
     showNotification("Failed to save configuration: " + error.message, 'error');
   }
 });
-
 
 // Cancels the configuration changes and closes the modal
 cancelConfigButton.addEventListener("click", () => {

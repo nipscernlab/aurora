@@ -63,7 +63,7 @@ body {
 
 .resizer-horizontal {
   height: 3px;
-  background-color: var(--border-primary);
+  background-color: transparent;
   cursor: row-resize;
   transition: background-color 0.2s ease;
 }
@@ -207,6 +207,8 @@ body {
   background-color: var(--bg-secondary);
   border-radius: 12px;
   transition: transform 0.3s ease, filter 0.3s ease;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 #editor-overlay.visible .overlay-content {
@@ -218,12 +220,15 @@ body {
   margin-bottom: 1.5rem;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
   transition: transform 0.3s ease;
-  filter: saturate(60%);
   opacity: 60%;
+  border-radius: 5%;
 }
 
 #editor-overlay.visible .overlay-icon {
   transform: scale(1.05);
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: saturate(0.5);
 }
 
 #editor-overlay .overlay-title {
@@ -234,6 +239,8 @@ body {
   font-family: var(--font-sans);
   filter: grayscale(100%);
   opacity: 80%;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 #editor-overlay .overlay-subtitle {
@@ -242,6 +249,8 @@ body {
   line-height: 1.6;
   filter: grayscale(100%);
   opacity: 80%;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Responsive Adjustments */

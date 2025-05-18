@@ -2,11 +2,23 @@
 body {
     margin: 0;
     font-family: var(--font-sans);
-    background-color: var(--bg-primary);
+    background-color: transparent;
     color: var(--text-primary);
     line-height: 1.5;
   }
   
+  button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #9b5de5;
+  outline-offset: 2px;
+  border-radius: 6px;
+  transition: outline 0.2s ease-in-out;
+}
+
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;

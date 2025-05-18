@@ -1,14 +1,28 @@
 // Notepad Modal JavaScript
 document.addEventListener('DOMContentLoaded', () => {
-  // Check if we're in Electron
-  if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
-    // If in Electron, require the electron module
-    window.electron = require('electron');
+  // DOM Elements
+  const notepadButton = document.getElementById('notpad');
+  const notepadModal = document.getElementById('notepad-modal');
+  
+  // Verificar se o modal está visível no início e desabilitar suas funções se não estiver
+  if (notepadModal) {
+    // Certifique-se de que o modal comece oculto e desativado
+    notepadModal.classList.remove('visible');
+    
+    // Certifique-se de que o editor não receba foco quando o modal não está visível
+    const editor = document.getElementById('notepad-editor');
+    if (editor) {
+      editor.disabled = true;
+    }
+  }
+  
+  // Configurar o botão de abrir o notepad
+  if (notepadButton) {
+    notepadButton.addEventListener('click', showNotepad);
   }
 
   // DOM Elements
   const notpadButton = document.getElementById('notpad');
-  let notepadModal = document.getElementById('notepad-modal');
   let editor = document.getElementById('notepad-editor');
   let lineNumbers = document.getElementById('notepad-line-numbers');
   let saveTimeout = null;
@@ -78,68 +92,66 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Load content from file
-  function loadContent() {
-    // Check if electron is available
-    if (typeof electron !== 'undefined') {
-      console.log('Loading content from file:', NOTEPAD_FILE_PATH);
-      
-      electron.ipcRenderer.invoke('file:read', NOTEPAD_FILE_PATH)
-        .then(content => {
-          if (editor) {
-            editor.value = content;
-            updateLineNumbers();
-            updateStats();
-            console.log('Content loaded successfully');
-          }
-        })
-        .catch(err => {
-          // File might not exist yet, which is fine
-          console.log('Note file not found, creating new...', err);
-        });
-    } else {
-      console.log('Electron API not available, skipping file load');
-    }
+  // Load content from file via preload API
+function loadContent() {
+  if (window.notepadAPI && typeof window.notepadAPI.load === 'function') {
+    window.notepadAPI.load()
+      .then(result => {
+        if (result.success && editor) {
+          editor.value = result.content;
+          updateLineNumbers();
+          updateStats();
+          console.log('Conteúdo carregado de notepad.txt');
+        } else if (!result.success) {
+          console.error('Falha ao carregar notepad.txt:', result.error);
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao invocar notepadAPI.load:', err);
+      });
+  } else {
+    console.log('notepadAPI não disponível, ignorando load');
   }
-  
-  // Save content to file
-  function saveContent() {
-    const saveStatus = document.getElementById('notepad-save-status');
-    if (!saveStatus) {
-      console.error('Save status element not found');
-      return;
-    }
-    
-    saveStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
-    saveStatus.classList.remove('unsaved');
-    saveStatus.classList.add('saving');
-    
-    if (typeof electron !== 'undefined') {
-      console.log('Saving content to file:', NOTEPAD_FILE_PATH);
-      
-      electron.ipcRenderer.invoke('file:write', NOTEPAD_FILE_PATH, editor.value)
-        .then(() => {
+}
+
+// Salvar conteúdo em notepad.txt via preload API
+function saveContent() {
+  const saveStatus = document.getElementById('notepad-save-status');
+  if (!saveStatus) {
+    console.error('Save status element not found');
+    return;
+  }
+
+  saveStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+  saveStatus.classList.remove('unsaved');
+  saveStatus.classList.add('saving');
+
+  if (window.notepadAPI && typeof window.notepadAPI.save === 'function') {
+    window.notepadAPI.save(editor.value)
+      .then(result => {
+        if (result.success) {
           saveStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
           saveStatus.classList.remove('saving', 'unsaved');
           isDirty = false;
-          
-          // Brief animation to indicate successful save
+
           saveStatus.classList.add('saving-pulse');
-          setTimeout(() => {
-            saveStatus.classList.remove('saving-pulse');
-          }, 1500);
-          
-          console.log('Content saved successfully');
-        })
-        .catch(err => {
-          saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
-          console.error('Failed to save notepad:', err);
-        });
-    } else {
-      console.log('Electron API not available for saving');
-      saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
-    }
+          setTimeout(() => saveStatus.classList.remove('saving-pulse'), 1500);
+
+          console.log('Conteúdo salvo com sucesso em notepad.txt');
+        } else {
+          throw new Error(result.error);
+        }
+      })
+      .catch(err => {
+        saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
+        console.error('Falha ao salvar notepad.txt:', err);
+      });
+  } else {
+    console.error('notepadAPI não disponível para save');
+    saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
   }
+}
+
   
   // Start autosave timer
   function startAutosaveTimer() {
@@ -169,28 +181,30 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Show the notepad
   function showNotepad() {
-    console.log('Showing notepad');
-    if (notepadModal) {
-      notepadModal.classList.add('visible');
+  const notepadModal = document.getElementById('notepad-modal');
+  const editor = document.getElementById('notepad-editor');
+  
+  if (notepadModal) {
+    notepadModal.classList.add('visible');
+    
+    // Habilitar o editor quando o modal estiver visível
+    if (editor) {
+      editor.disabled = false;
       
-      // Set up events if not already done
-      setupEventListeners();
-      
-      // Load content
-      loadContent();
-      
-      // Start autosave timer
-      startAutosaveTimer();
-      
-      // Set initial font size
-      if (editor) editor.style.fontSize = `${fontSize}px`;
-      if (lineNumbers) lineNumbers.style.fontSize = `${fontSize}px`;
-      
-      console.log('Notepad modal displayed');
-    } else {
-      console.error('Notepad modal not found');
+      // Opcional: dar foco ao editor
+      setTimeout(() => editor.focus(), 100);
     }
+    
+    // Configurar eventos, carregar conteúdo, etc.
+    setupEventListeners();
+    loadContent();
+    startAutosaveTimer();
+    
+    if (editor) editor.style.fontSize = `${fontSize}px`;
+    const lineNumbers = document.getElementById('notepad-line-numbers');
+    if (lineNumbers) lineNumbers.style.fontSize = `${fontSize}px`;
   }
+}
   
   // Close the notepad
   function closeNotepad() {
@@ -217,17 +231,23 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Hide the notepad modal
   function hideNotepadModal() {
-    if (notepadModal) {
-      notepadModal.classList.remove('visible');
-      
-      // Clean up
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
-      }
-      
-      console.log('Notepad modal hidden');
+  const notepadModal = document.getElementById('notepad-modal');
+  const editor = document.getElementById('notepad-editor');
+  
+  if (notepadModal) {
+    notepadModal.classList.remove('hidden', 'visible');
+    
+    // Desabilitar o editor quando o modal não estiver visível
+    if (editor) {
+      editor.disabled = true;
+    }
+    
+    // Limpar o autosave
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
     }
   }
+}
   
   // Update line numbers
   function updateLineNumbers() {

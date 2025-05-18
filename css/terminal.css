@@ -1,7 +1,7 @@
 /* Terminal Container */
 .terminal-container {
   background-color: var(--bg-tertiary);
-  border-top: 1px solid var(--border-primary);
+ /* border-top: 1px solid var(--border-primary);*/
   min-height: inherit;
   display: flex;
   flex-direction: column;
@@ -317,7 +317,7 @@
 
  /* Terminal styles */
  .terminal-content {
-  background-color: var(--bg-tertiary);
+  background-color: transparent;
   border-radius: 6px;
   overflow: hidden;
   font-family: var(--font-mono);
@@ -329,6 +329,7 @@
   color: var(--text-primary);
   font-weight: bold;
   border-bottom: 1px solid var(--border-primary);
+  padding: 10px 10px;
 }
 
 .terminal-body {

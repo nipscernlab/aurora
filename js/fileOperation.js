@@ -623,7 +623,6 @@ const FileOperations = (function() {
           await window.electronAPI.renameFileOrDirectory(currentPath, newPath);
 
           showNotification(`Renamed successfully to "${newName}"`, 'success');
-          refreshFileTreeFn();
 
           // Atualizar a árvore de arquivos
           if (typeof refreshFileTreeFn === 'function') {
@@ -685,59 +684,47 @@ const FileOperations = (function() {
     }
   }
   // Tratar exclusão de arquivo/pasta
-  async function handleDelete() {
-    hideContextMenu();
+  // Update the handleDelete function in fileOperations.js
+async function handleDelete() {
+  hideContextMenu();
+  
+  if (!currentPath) {
+    showNotification(`Error: No path selected`, 'error');
+    return;
+  }
+  
+  try {
+    console.log(`Attempting to delete: ${currentPath}`);
     
-    if (!currentPath) {
-      showNotification(`Error: No path selected`, 'error');
-      return;
+    // Ask for confirmation first
+    const itemName = currentPath.split(/[\/\\]/).pop();
+    const confirmed = await window.electronAPI.showConfirmDialog(
+      `Delete ${isFolder ? 'Folder' : 'File'}`,
+      `Are you sure you want to delete "${itemName}"${isFolder ? ' and all its contents' : ''}?`
+    );
+    
+    if (!confirmed) return;
+    
+    // Try the deletion directly without checking existence first
+    console.log(`Sending delete command for: ${currentPath}`);
+    await window.electronAPI.deleteFileOrDirectory(currentPath);
+    
+    showNotification(`"${itemName}" deleted successfully`, 'success');
+    
+    // Make sure to await the refresh
+    if (typeof refreshFileTreeFn === 'function') {
+      await refreshFileTreeFn();
     }
+  } catch (error) {
+    console.error('Error deleting:', error);
+    showNotification(`Error deleting: ${error.message}`, 'error');
     
-    try {
-      console.log(`Tentando excluir: ${currentPath}`);
-      
-      // Verificar se o arquivo existe antes de tentar excluir
-      const exists = await window.electronAPI.fileExists(currentPath);
-      
-      if (!exists) {
-        showNotification(`Error: The file or folder no longer exists: ${currentPath}`, 'error');
-        
-        // Atualizar a árvore para refletir a exclusão
-        if (typeof refreshFileTreeFn === 'function') {
-          await refreshFileTreeFn();
-        }
-        return;
-      }
-      
-      // Perguntar ao usuário para confirmar
-      const itemName = currentPath.split(/[\/\\]/).pop();
-      const confirmed = await window.electronAPI.showConfirmDialog(
-        `Delete ${isFolder ? 'Folder' : 'File'}`,
-        `Are you sure you want to delete "${itemName}"${isFolder ? ' and all its contents' : ''}?`
-      );
-      
-      if (!confirmed) return;
-      
-      // Chamar a API para excluir
-      console.log(`Enviando comando para excluir: ${currentPath}`);
-      await window.electronAPI.deleteFileOrDirectory(currentPath);
-      
-      showNotification(`"${itemName}" deleted successfully`, 'success');
-      
-      // Atualizar a árvore de arquivos
-      if (typeof refreshFileTreeFn === 'function') {
-        await refreshFileTreeFn();
-      }
-    } catch (error) {
-      console.error('Error deleting:', error);
-      showNotification(`Error deleting: ${error.message}`, 'error');
-      
-      // Mesmo em caso de erro, atualiza a árvore
-      if (typeof refreshFileTreeFn === 'function') {
-        await refreshFileTreeFn();
-      }
+    // Still update the tree
+    if (typeof refreshFileTreeFn === 'function') {
+      await refreshFileTreeFn();
     }
   }
+}
   
   // Função auxiliar para encontrar um elemento pelo caminho
   function findElementByPath(path) {

@@ -300,7 +300,7 @@
 /* Resizer */
 .resizer-vertical {
   width: 3px;
-  background-color: var(--border-primary);
+  background-color: transparent;
   cursor: col-resize;
   transition: background-color 0.2s ease;
   right: 0;

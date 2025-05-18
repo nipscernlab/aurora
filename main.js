@@ -2100,42 +2100,45 @@ ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
   }
 });
 
-// Excluir arquivo ou pasta
+// Update the 'file:delete' handler for better debugging and error handling
+// Update the 'file:delete' handler in main.js
 ipcMain.handle('file:delete', async (event, filePath) => {
   try {
     console.log(`Attempting to delete: ${filePath}`);
 
-    // Normalize the file path to handle different path formats
+    // Normalize the file path
     const normalizedPath = path.normalize(filePath);
+    console.log(`Normalized path: ${normalizedPath}`);
 
+    // Make sure to use fs.promises explicitly and consistently
+    const fsPromises = require('fs').promises;
+    
     // Check if the path exists
     try {
-      await fs.access(normalizedPath);
-    } catch (err) {
-      console.error(`File or folder does not exist: ${normalizedPath}`);
-      throw new Error(`File or folder does not exist: ${normalizedPath}`);
+      const stats = await fsPromises.stat(normalizedPath);
+      console.log(`File exists. Is directory: ${stats.isDirectory()}`);
+      
+      if (stats.isDirectory()) {
+        // Remove directory recursively
+        console.log(`Deleting directory: ${normalizedPath}`);
+        await fsPromises.rm(normalizedPath, { 
+          recursive: true, 
+          force: true 
+        });
+      } else {
+        // Remove file
+        console.log(`Deleting file: ${normalizedPath}`);
+        await fsPromises.unlink(normalizedPath);
+      }
+      
+      console.log(`Successfully deleted: ${normalizedPath}`);
+      return { success: true };
+    } catch (statError) {
+      console.error(`Error accessing file: ${normalizedPath}`, statError);
+      throw new Error(`File could not be accessed: ${statError.message}`);
     }
-
-    // Get file/directory stats
-    const stats = await fs.stat(normalizedPath);
-
-    if (stats.isDirectory()) {
-      // Remove directory recursively
-      await fs.rm(normalizedPath, { 
-        recursive: true, 
-        force: true 
-      });
-    } else {
-      // Remove file
-      await fs.unlink(normalizedPath);
-    }
-
-    console.log(`Successfully deleted: ${normalizedPath}`);
-    return { success: true };
   } catch (error) {
     console.error(`Error deleting ${filePath}:`, error);
-    
-    // Provide more detailed error information
     throw new Error(`Failed to delete: ${error.message}`);
   }
 });
@@ -2143,13 +2146,20 @@ ipcMain.handle('file:delete', async (event, filePath) => {
 // Adicionar um handler para verificar se arquivo/pasta existe
 ipcMain.handle('file:exists', async (event, filePath) => {
   try {
-    await fsPromises.access(filePath);
+    // Normalize the file path
+    const normalizedPath = path.normalize(filePath);
+    const fsPromises = require('fs').promises;
+
+    // Use fs.promises.access instead of fsPromises.access for consistency
+    await fsPromises.access(normalizedPath, fs.constants.F_OK);
+    console.log(`File exists check: ${normalizedPath} - EXISTS`);
     return true;
   } catch (error) {
-    console.log(`Arquivo não existe: ${filePath}`);
+    console.log(`File exists check: ${filePath} - DOES NOT EXIST (${error.code})`);
     return false;
   }
 });
+
 
 // Obter diretório pai
 ipcMain.handle('file:get-parent', async (event, filePath) => {
@@ -2192,36 +2202,46 @@ ipcMain.handle('file:read', async (event, filePath) => {
   }
 });
 
-// File write handler
-ipcMain.handle('file:write', async (event, filePath, content) => {
+// Adicione este código ao seu main.js
+ipcMain.handle('notepad:save', async (event, content) => {
   try {
-    // Write to project root
-    const projectRoot = path.resolve(__dirname);
-    const fullPath = path.join(projectRoot, filePath);
-    
-    console.log('Writing file to:', fullPath);
-    
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(fullPath), { recursive: true }).catch(() => {});
-    
-    await fs.writeFile(fullPath, content, 'utf8');
-    return true;
+    const filePath = path.join(app.getPath('userData'), 'notpad.txt');
+    fs.writeFileSync(filePath, content, 'utf8');
+    return { success: true };
   } catch (error) {
-    console.error('Error writing file:', error);
-    throw error;
+    console.error('Erro ao salvar arquivo notepad:', error);
+    return { success: false, error: error.message };
   }
 });
 
-// Confirmation dialog handler
+ipcMain.handle('notepad:load', async (event) => {
+  try {
+    const filePath = path.join(app.getPath('userData'), 'notpad.txt');
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return { success: true, content };
+    } else {
+      // Arquivo não existe ainda, retornar string vazia
+      return { success: true, content: '' };
+    }
+  } catch (error) {
+    console.error('Erro ao carregar arquivo notepad:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Adicione também o handler para o diálogo de confirmação
 ipcMain.handle('dialog:confirm', async (event, title, message) => {
-  const result = await dialog.showMessageBox({
+  const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Cancel', 'Yes'],
-    defaultId: 1,
+    buttons: ['Não', 'Sim'],
     title: title,
-    message: message,
-    cancelId: 0,
+    message: message
   });
-  
-  return result.response === 1; // true if clicked "Yes"
+  return response === 1; // Retorna true se o usuário clicar em "Sim"
+});
+
+ipcMain.on('app:reload', () => {
+  app.relaunch();
+  app.exit(0);
 });

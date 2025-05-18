@@ -3034,7 +3034,7 @@ class CompilationModule {
       // %IVERILOG% -s %TB_MOD% -o %TMP_PRO%\%PROC%.vvp %SIMU_DIR%\%TB_MOD%.v %UPROC%.v addr_dec.v instr_dec.v processor.v core.v ula.v
       const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
       
-      const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}.vvp" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
+      const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       
@@ -3065,7 +3065,7 @@ class CompilationModule {
       
       // Run VVP simulation
       this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation...');
-      const vvpCmd = `cd "${tempPath}" && vvp ${name}.vvp -fst`;
+      const vvpCmd = `cd "${tempPath}" && vvp ${name} -fst`;
       this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
       
       const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -3162,7 +3162,7 @@ class CompilationModule {
       // Build the iverilog command for the project
       // %IVERILOG% -s %TB% -o %TMP_DIR%\%PROJET%.vvp %HDL_V% %PRO_V% %TOP_V%
       const projectName = this.projectPath.split(/[\/\\]/).pop();
-      const cmd = `cd "${tempBaseDir}" && iverilog ${flags} -s ${testbenchFile.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`)}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
+      const cmd = `cd "${tempBaseDir}" && iverilog ${flags} -s ${testbenchFile.replace('.v', '')} -o "${await window.electronAPI.joinPath(tempBaseDir, `${projectName}`)}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       
@@ -3226,7 +3226,7 @@ class CompilationModule {
       
       // Run VVP simulation
       this.terminalManager.appendToTerminal('tveri', 'Running VVP simulation for project...');
-      const vvpCmd = `cd "${tempBaseDir}" && vvp ${projectName}.vvp -fst`;
+      const vvpCmd = `cd "${tempBaseDir}" && vvp ${projectName} -fst`;
       this.terminalManager.appendToTerminal('tveri', `Executing command: ${vvpCmd}`);
       
       const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -3606,23 +3606,24 @@ window.addEventListener('load', () => {
 //TERMINAL =============================================================================================================================================================
 class TerminalManager {
   constructor() {
-    this.terminals = {
-      tcmm: document.querySelector('#terminal-tcmm .terminal-body'),
-      tasm: document.querySelector('#terminal-tasm .terminal-body'),
-      tveri: document.querySelector('#terminal-tveri .terminal-body'),
-      twave: document.querySelector('#terminal-twave .terminal-body'),
-      tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
-    };
-    
-    this.setupTerminalTabs();
-    this.setupAutoScroll();
-
-    if (!TerminalManager.clearButtonInitialized) {
-      this.setupClearButton();
-      TerminalManager.clearButtonInitialized = true;
-    }
-      
+  this.terminals = {
+    tcmm: document.querySelector('#terminal-tcmm .terminal-body'),
+    tasm: document.querySelector('#terminal-tasm .terminal-body'),
+    tveri: document.querySelector('#terminal-tveri .terminal-body'),
+    twave: document.querySelector('#terminal-twave .terminal-body'),
+    tprism: document.querySelector('#terminal-tprism .terminal-body'),
+    tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
+  };
+  
+  this.setupTerminalTabs();
+  this.setupAutoScroll();
+  this.setupGoDownButton(); // Add this line
+  
+  if (!TerminalManager.clearButtonInitialized) {
+    this.setupClearButton();
+    TerminalManager.clearButtonInitialized = true;
   }
+}
 
   setupTerminalTabs() {
     const tabs = document.querySelectorAll('.terminal-tabs .tab');
@@ -3643,6 +3644,73 @@ class TerminalManager {
       });
     });
   }
+
+  // Add this to your TerminalManager class
+
+setupGoDownButton() {
+  const goDownButton = document.getElementById('godown-terminal');
+  const goUpButton   = document.getElementById('goup-terminal');
+
+  if (!goDownButton && !goUpButton) return;
+
+  let isScrolling = false;
+  let animationFrameId = null;
+  const STEP = 200; // pixels por frame
+
+  const startScrolling = (direction, e) => {
+    if (e.type === 'touchstart') e.preventDefault();
+    if (isScrolling) return;
+    isScrolling = true;
+
+    const activeTab = document.querySelector('.terminal-tabs .tab.active');
+    if (!activeTab) return;
+    const termId = activeTab.getAttribute('data-terminal');
+    const terminal = this.terminals[termId];
+    if (!terminal) return;
+
+    const scrollLoop = () => {
+      if (!isScrolling) return;
+
+      // calcula nova posição
+      const maxScroll = terminal.scrollHeight - terminal.clientHeight;
+      let next = terminal.scrollTop + direction;
+      next = Math.max(0, Math.min(next, maxScroll));
+      terminal.scrollTop = next;
+
+      // continua enquanto não chegar ao fim/início
+      if ((direction > 0 && next < maxScroll) || (direction < 0 && next > 0)) {
+        animationFrameId = requestAnimationFrame(scrollLoop);
+      } else {
+        stopScrolling();
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(scrollLoop);
+  };
+
+  const stopScrolling = () => {
+    cancelAnimationFrame(animationFrameId);
+    isScrolling = false;
+  };
+
+  // mapeia eventos de mouse/touch
+  if (goDownButton) {
+    goDownButton.addEventListener('mousedown', e => startScrolling(+STEP, e));
+    goDownButton.addEventListener('touchstart', e => startScrolling(+STEP, e), { passive: false });
+  }
+  if (goUpButton) {
+    goUpButton.addEventListener('mousedown', e => startScrolling(-STEP, e));
+    goUpButton.addEventListener('touchstart', e => startScrolling(-STEP, e), { passive: false });
+  }
+
+  // término do scroll
+  document.addEventListener('mouseup',   stopScrolling);
+  document.addEventListener('touchend',  stopScrolling);
+  document.addEventListener('mouseleave', stopScrolling);
+  document.addEventListener('touchcancel',stopScrolling);
+}
+
+
 
   setupClearButton() {
   const clearButton = document.getElementById('clear-terminal');

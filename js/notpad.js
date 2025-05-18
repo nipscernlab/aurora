@@ -1,665 +1,430 @@
-// NotPad Modal Control
+// Notepad Modal JavaScript
 document.addEventListener('DOMContentLoaded', () => {
-    const notpadButton = document.getElementById('notpad');
-    const modalNotpad = document.getElementById('modal-notpad');
-    const closeNotpadModal = document.getElementById('close-notpad-modal');
-    
-    // Open NotPad modal
-    notpadButton.addEventListener('click', () => {
-      modalNotpad.classList.add('active');
-      initializeNotpad();
-    });
-    
-    // Close NotPad modal
-    closeNotpadModal.addEventListener('click', () => {
-      if (window.isModified) {
-        showSaveModal();
-      } else {
-        modalNotpad.classList.remove('active');
-      }
-    });
-    
-    // Close modal when clicking outside
-    modalNotpad.addEventListener('click', (e) => {
-      if (e.target === modalNotpad) {
-        if (window.isModified) {
-          showSaveModal();
-        } else {
-          modalNotpad.classList.remove('active');
-        }
-      }
-    });
-    
-    // Prevent propagation of clicks inside the modal content
-    document.querySelector('.modal-notpad-content').addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-    
-    // Initialize NotPad functions
-    function initializeNotpad() {
-      // Only initialize if not already initialized
-      if (!window.notpadInitialized) {
-        // Get DOM elements
-        const editor = document.getElementById('editor');
-        const lineNumbers = document.getElementById('line-numbers');
-        const stats = document.getElementById('stats');
-        const wordCount = document.getElementById('word-count');
-        const lastSaved = document.getElementById('last-saved');
-        const titleFilename = document.getElementById('title-filename');
-        const titleModified = document.getElementById('title-modified');
-        const fontSizeDisplay = document.getElementById('font-size');
-        const searchInput = document.getElementById('search-input');
-        const searchCount = document.getElementById('search-count');
-        const toast = document.getElementById('toast');
-        const saveModal = document.getElementById('save-modal');
-  
-        // Track state
-        window.isModified = false;
-        let fontSize = 14;
-        let searchMatches = [];
-        let currentMatch = -1;
-        let lastSearchText = '';
-        let undoStack = [];
-        let redoStack = [];
-        const MAX_UNDO_STEPS = 100;
-        let autoSaveInterval = null;
-        const AUTO_SAVE_INTERVAL_MS = 300000; // 5 minutes
-        const FILENAME = 'notpad.txt';
-        const FILEPATH = FILENAME; // Save in the project root
-  
-        // Initialize
-        initUndoState();
-        updateLineNumbers();
-        updateWordCount();
-        setupMouseWheelZoom();
-        
-        // Start auto-save timer
-        startAutoSaveInterval();
-  
-        // Load content on startup
-        loadContent();
-  
-        // Handle editor events
-        editor.addEventListener('input', () => {
-          updateLineNumbers();
-          updateWordCount();
-          updateCursorPosition();
-          trackModification();
-          pushToUndoStack();
-        });
-  
-        editor.addEventListener('keydown', (e) => {
-          // Tab key handling
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = editor.selectionStart;
-            const end = editor.selectionEnd;
-            
-            // Insert tab
-            editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-            
-            // Put cursor after tab
-            editor.selectionStart = editor.selectionEnd = start + 4;
-            pushToUndoStack();
-            trackModification();
-          }
-          
-          // Save shortcut (Ctrl+S)
-          if (e.ctrlKey && e.key === 's') {
-            e.preventDefault();
-            saveContent();
-          }
-          
-          // Undo shortcut (Ctrl+Z)
-          if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
-            e.preventDefault();
-            undo();
-          }
-          
-          // Redo shortcut (Ctrl+Shift+Z or Ctrl+Y)
-          if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
-            e.preventDefault();
-            redo();
-          }
-          
-          // Strike through text (Ctrl+X for selected text)
-          if (e.ctrlKey && e.key === 'x' && editor.selectionStart !== editor.selectionEnd) {
-            e.preventDefault();
-            strikeText();
-          }
-          
-          // Escape key closes the modal
-          if (e.key === 'Escape') {
-            if (window.isModified) {
-              showSaveModal();
-            } else {
-              modalNotpad.classList.remove('active');
-            }
-          }
-        });
-  
-        editor.addEventListener('scroll', () => {
-          lineNumbers.scrollTop = editor.scrollTop;
-        });
-  
-        editor.addEventListener('click', updateCursorPosition);
-        editor.addEventListener('keyup', (e) => {
-          if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') {
-            updateCursorPosition();
-          }
-        });
-        
-        // Selection and cursor movement
-        editor.addEventListener('select', updateCursorPosition);
-        editor.addEventListener('mouseup', updateCursorPosition);
-  
-        // Font size controls
-        document.getElementById('font-decrease').addEventListener('click', () => {
-          if (fontSize > 8) {
-            fontSize -= 2;
-            updateFontSize();
-          }
-        });
-  
-        document.getElementById('font-increase').addEventListener('click', () => {
-          if (fontSize < 32) {
-            fontSize += 2;
-            updateFontSize();
-          }
-        });
-  
-        // Search functionality
-        searchInput.addEventListener('input', () => {
-          const searchText = searchInput.value.trim();
-          if (searchText && searchText !== lastSearchText) {
-            performSearch(searchText);
-            lastSearchText = searchText;
-          } else if (!searchText) {
-            clearSearch();
-            lastSearchText = '';
-          }
-        });
-  
-        document.getElementById('search-prev').addEventListener('click', () => {
-          navigateSearch('prev');
-        });
-  
-        document.getElementById('search-next').addEventListener('click', () => {
-          navigateSearch('next');
-        });
-  
-        // Save button
-        document.getElementById('save-btn').addEventListener('click', saveContent);
-  
-        // Undo/Redo buttons
-        document.getElementById('undo-btn').addEventListener('click', undo);
-        document.getElementById('redo-btn').addEventListener('click', redo);
-  
-        // Save modal buttons
-        document.getElementById('save-modal-close').addEventListener('click', hideSaveModal);
-        document.getElementById('discard-btn').addEventListener('click', () => {
-          hideSaveModal();
-          modalNotpad.classList.remove('active');
-        });
-        document.getElementById('save-confirm-btn').addEventListener('click', () => {
-          saveContent();
-          hideSaveModal();
-          setTimeout(() => {
-            modalNotpad.classList.remove('active');
-          }, 200);
-        });
-  
-        // Functions
-        function updateLineNumbers() {
-          // Clear current line numbers
-          lineNumbers.innerHTML = '';
-          
-          // Get line count
-          const lines = editor.value.split('\n');
-          const lineCount = lines.length;
-          
-          // Generate line numbers
-          for (let i = 0; i < lineCount; i++) {
-            const lineNumber = document.createElement('div');
-            lineNumber.textContent = (i + 1).toString();
-            lineNumber.classList.add('line-number');
-            lineNumbers.appendChild(lineNumber);
-          }
-          
-          // Add an extra line if the last character is a newline
-          if (editor.value.endsWith('\n')) {
-            const lineNumber = document.createElement('div');
-            lineNumber.textContent = (lineCount + 1).toString();
-            lineNumber.classList.add('line-number');
-            lineNumbers.appendChild(lineNumber);
-          }
-        }
-  
-        function updateWordCount() {
-          const text = editor.value.trim();
-          const wordCount = text ? text.split(/\s+/).length : 0;
-          document.getElementById('word-count').innerText = `${wordCount} words`;
-        }
-  
-        function updateCursorPosition() {
-          const cursorPos = editor.selectionStart;
-          const text = editor.value.substring(0, cursorPos);
-          const lineCount = (text.match(/\n/g) || []).length + 1;
-          
-          // Calculate column (considering tab as 4 spaces)
-          const lastNewLine = text.lastIndexOf('\n');
-          const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
-          const column = cursorPos - lineStart + 1;
-          
-          stats.innerText = `Line: ${lineCount}, Column: ${column}`;
-          
-          // Show selection info if text is selected
-          if (editor.selectionStart !== editor.selectionEnd) {
-            const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
-            const selectedLength = selectedText.length;
-            const selectedWords = selectedText.trim() ? selectedText.trim().split(/\s+/).length : 0;
-            stats.innerText += ` | Selected: ${selectedLength} chars, ${selectedWords} words`;
-          }
-        }
-  
-        function trackModification() {
-          if (!window.isModified) {
-            window.isModified = true;
-            titleModified.style.display = 'inline';
-          }
-        }
-  
-        function updateFontSize() {
-          editor.style.fontSize = `${fontSize}px`;
-          lineNumbers.style.fontSize = `${fontSize}px`;
-          fontSizeDisplay.innerText = `${fontSize}px`;
-        }
-        
-        function setupMouseWheelZoom() {
-          editor.addEventListener('wheel', (e) => {
-            // Check for Ctrl key held down while scrolling
-            if (e.ctrlKey) {
-              e.preventDefault();
-              
-              // Zoom in or out based on scroll direction
-              if (e.deltaY < 0 && fontSize < 32) {
-                // Scroll up - zoom in
-                fontSize += 2;
-                updateFontSize();
-              } else if (e.deltaY > 0 && fontSize > 8) {
-                // Scroll down - zoom out
-                fontSize -= 2;
-                updateFontSize();
-              }
-            }
-          });
-        }
-  
-        function performSearch(searchText) {
-          clearSearch();
-          
-          if (!searchText) return;
-          
-          // Find all matches
-          const text = editor.value;
-          const regex = new RegExp(escapeRegExp(searchText), 'gi');
-          let match;
-          
-          // Store matches with indices
-          while ((match = regex.exec(text)) !== null) {
-            searchMatches.push({
-              start: match.index,
-              end: match.index + match[0].length
-            });
-          }
-          
-          // Update search count display
-          if (searchCount) {
-            searchCount.textContent = searchMatches.length > 0 ? 
-              `${searchMatches.length} matches` : 
-              'No matches';
-            searchCount.style.display = 'inline';
-          }
-          
-          // Highlight all matches
-          highlightAllMatches();
-          
-          // Focus on first match if found
-          if (searchMatches.length > 0) {
-            currentMatch = 0;
-            navigateToMatch(currentMatch);
-          }
-        }
-        
-        function highlightAllMatches() {
-          // This function would ideally highlight all matches in a real editor
-          // But since we're using a textarea, we can only visually highlight one at a time
-          // by setting the selection
-          
-          // In a real implementation, you'd need to use a code editor library like 
-          // CodeMirror or Monaco Editor to highlight multiple matches simultaneously
-        }
-  
-        function navigateSearch(direction) {
-          if (searchMatches.length === 0) return;
-          
-          if (direction === 'next') {
-            currentMatch = (currentMatch + 1) % searchMatches.length;
-          } else {
-            currentMatch = (currentMatch - 1 + searchMatches.length) % searchMatches.length;
-          }
-          
-          navigateToMatch(currentMatch);
-        }
-  
-        function navigateToMatch(index) {
-          const match = searchMatches[index];
-          
-          // Set selection to the match
-          editor.focus();
-          editor.setSelectionRange(match.start, match.end);
-          
-          // Update search count to show current position
-          if (searchCount) {
-            searchCount.textContent = `${index + 1}/${searchMatches.length} matches`;
-          }
-          
-          // Ensure the match is visible by scrolling to it
-          const lineHeight = parseInt(getComputedStyle(editor).lineHeight);
-          const lines = editor.value.substring(0, match.start).split('\n').length - 1;
-          const approximatePosition = lines * lineHeight;
-          
-          // Calculate if the selection is in view
-          const editorHeight = editor.clientHeight;
-          const scrollTop = editor.scrollTop;
-          
-          if (approximatePosition < scrollTop || approximatePosition > scrollTop + editorHeight - lineHeight * 2) {
-            editor.scrollTop = Math.max(0, approximatePosition - editorHeight / 2);
-          }
-        }
-  
-        function clearSearch() {
-          searchMatches = [];
-          currentMatch = -1;
-          if (searchCount) {
-            searchCount.style.display = 'none';
-          }
-        }
-  
-        function escapeRegExp(string) {
-          return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-        
-        function strikeText() {
-          const start = editor.selectionStart;
-          const end = editor.selectionEnd;
-          
-          if (start !== end) {
-            const selectedText = editor.value.substring(start, end);
-            const struckText = selectedText.split('').map(char => 
-              char === ' ' ? ' ' : char + '\u0336'
-            ).join('');
-            
-            editor.value = editor.value.substring(0, start) + struckText + editor.value.substring(end);
-            editor.setSelectionRange(start, start + struckText.length);
-            
-            pushToUndoStack();
-            trackModification();
-          }
-        }
-  
-        function saveContent() {
-          const content = editor.value;
-          
-          // Send content to main process to save
-          if (window.ipcRenderer) {
-            window.ipcRenderer.send('save-notpad', {
-              filePath: FILEPATH,
-              content: content
-            });
-            
-            // Listen for save result
-            window.ipcRenderer.once('save-notpad-reply', (event, success) => {
-              if (success) {
-                updateSavedState();
-                showToast('Note saved successfully!', 'success');
-              } else {
-                showToast('Failed to save note', 'error');
-              }
-            });
-          } else {
-            // If not in Electron, use localStorage as fallback
-            try {
-              localStorage.setItem('notpad-content', content);
-              updateSavedState();
-              showToast('Note saved successfully!', 'success');
-            } catch (error) {
-              showToast('Failed to save note: ' + error.message, 'error');
-            }
-          }
-        }
-        
-        function updateSavedState() {
-          // Update UI
-          window.isModified = false;
-          titleModified.style.display = 'none';
-          const now = new Date();
-          const timeStr = now.toLocaleTimeString();
-          lastSaved.innerText = `Saved at ${timeStr}`;
-        }
-  
-        function loadContent() {
-          // Check if we're in Electron or browser
-          if (window.ipcRenderer) {
-            // Request content from main process
-            window.ipcRenderer.send('load-notpad', {
-              filePath: FILEPATH
-            });
-            
-            // Listen for the response
-            window.ipcRenderer.once('load-notpad-reply', (event, response) => {
-              if (response.success) {
-                editor.value = response.content || '';
-              } else {
-                // If file doesn't exist or there's an error, start with empty content
-                editor.value = '';
-                showToast('Starting with empty note: ' + (response.message || ''), 'info');
-              }
-              
-              completeContentLoad();
-            });
-          } else {
-            // In browser mode, use localStorage
-            const content = localStorage.getItem('notpad-content') || '';
-            editor.value = content;
-            completeContentLoad();
-          }
-        }
-        
-        function completeContentLoad() {
-          updateLineNumbers();
-          updateWordCount();
-          updateCursorPosition();
-          initUndoState();
-          
-          // Reset modification state
-          window.isModified = false;
-          titleModified.style.display = 'none';
-          
-          if (editor.value) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString();
-            lastSaved.innerText = `Loaded at ${timeStr}`;
-          }
-        }
-  
-        function showToast(message, type = 'success') {
-          document.getElementById('toast-message').innerText = message;
-          toast.className = `toast ${type} show`;
-          
-          setTimeout(() => {
-            toast.className = toast.className.replace('show', '');
-          }, 3000);
-        }
-  
-        function showSaveModal() {
-          saveModal.classList.add('active');
-        }
-  
-        function hideSaveModal() {
-          saveModal.classList.remove('active');
-        }
-  
-        // Undo/Redo functionality
-        function initUndoState() {
-          const currentContent = editor.value;
-          undoStack = [currentContent];
-          redoStack = [];
-        }
-  
-        function pushToUndoStack() {
-          const currentContent = editor.value;
-          const lastState = undoStack[undoStack.length - 1];
-          
-          // Only push if state has changed
-          if (currentContent !== lastState) {
-            undoStack.push(currentContent);
-            
-            // Limit undo stack size
-            if (undoStack.length > MAX_UNDO_STEPS) {
-              undoStack.shift();
-            }
-            
-            // Clear redo stack since a new action was performed
-            redoStack = [];
-          }
-        }
-  
-        function undo() {
-          if (undoStack.length <= 1) return; // Keep at least one state
-          
-          // Move current state to redo stack
-          redoStack.push(undoStack.pop());
-          
-          // Apply previous state
-          const previousState = undoStack[undoStack.length - 1];
-          editor.value = previousState;
-          
-          // Update UI
-          updateLineNumbers();
-          updateWordCount();
-          updateCursorPosition();
-          trackModification();
-        }
-  
-        function redo() {
-          if (redoStack.length === 0) return;
-          
-          // Get state from redo stack
-          const nextState = redoStack.pop();
-          
-          // Apply and push to undo stack
-          editor.value = nextState;
-          undoStack.push(nextState);
-          
-          // Update UI
-          updateLineNumbers();
-          updateWordCount();
-          updateCursorPosition();
-          trackModification();
-        }
-  
-        // Auto-save functionality - on typing
-        let autoSaveTimeout;
-        editor.addEventListener('input', () => {
-          // Clear previous timeout
-          if (autoSaveTimeout) {
-            clearTimeout(autoSaveTimeout);
-          }
-          
-          // Set new timeout for auto-save (3 seconds after typing stops)
-          autoSaveTimeout = setTimeout(() => {
-            if (window.isModified) {
-              saveContent();
-            }
-          }, 30000);
-        });
-        
-        // Auto-save functionality - on interval
-        function startAutoSaveInterval() {
-          // Clear any existing interval
-          if (autoSaveInterval) {
-            clearInterval(autoSaveInterval);
-          }
-          
-          // Set new interval for periodic auto-save
-          autoSaveInterval = setInterval(() => {
-            if (window.isModified) {
-              saveContent();
-              showToast('Auto-saved note', 'info');
-            }
-          }, AUTO_SAVE_INTERVAL_MS);
-        }
-        
-        // Mark NotPad as initialized
-        window.notpadInitialized = true;
-      }
-    }
-    
-    // Handler for minimize button
-    document.getElementById('minimize-btn').addEventListener('click', () => {
-      if (window.ipcRenderer) {
-        window.ipcRenderer.send('notpad-minimize');
-      } else {
-        // In browser context, minimize visual effect
-        modalNotpad.style.opacity = '0.3';
-        setTimeout(() => {
-          modalNotpad.style.opacity = '1';
-        }, 300);
-      }
-    });
-    
-    // Handler for maximize button
-    document.getElementById('maximize-btn').addEventListener('click', () => {
-      const modalContent = document.querySelector('.modal-notpad-content');
-      if (modalContent.classList.contains('maximized')) {
-        modalContent.classList.remove('maximized');
-        modalContent.style.width = '80%';
-        modalContent.style.height = '80%';
-        modalContent.style.margin = '50px auto';
-      } else {
-        modalContent.classList.add('maximized');
-        modalContent.style.width = '98%';
-        modalContent.style.height = '96%';
-        modalContent.style.margin = '10px auto';
-      }
-    });
-    
-    // Ensure ipcRenderer is available if in Electron
-    if (window.require) {
-      try {
-        window.ipcRenderer = require('electron').ipcRenderer;
-      } catch (e) {
-        console.log('ipcRenderer not available, running in browser mode');
-      }
-    }
-  
-    // Global keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      // Ctrl+N to open NotPad
-      if (e.ctrlKey && e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        modalNotpad.classList.add('active');
-        initializeNotpad();
-      }
-    });
-    
-  });
-  
-  // Expose isModified globally for modal close handlers
-  window.isModified = false;
-  
-  // Global function to show save modal
-  function showSaveModal() {
-    document.getElementById('save-modal').classList.add('active');
+  // Check if we're in Electron
+  if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+    // If in Electron, require the electron module
+    window.electron = require('electron');
   }
+
+  // DOM Elements
+  const notpadButton = document.getElementById('notpad');
+  let notepadModal = document.getElementById('notepad-modal');
+  let editor = document.getElementById('notepad-editor');
+  let lineNumbers = document.getElementById('notepad-line-numbers');
+  let saveTimeout = null;
+  let isDirty = false;
+  let fontSize = 14; // Default font size in pixels
+  
+  // Constants
+  const AUTOSAVE_INTERVAL = 120000; // 2 minutes in milliseconds
+  const NOTEPAD_FILE_PATH = 'notpad.txt';
+  
+  // Setup all event listeners for the notepad
+  function setupEventListeners() {
+    // Close button
+    const closeButton = document.getElementById('notepad-close');
+    if (closeButton) {
+      closeButton.addEventListener('click', closeNotepad);
+      console.log('Close button event listener attached');
+    } else {
+      console.error('Close button not found in DOM');
+    }
+    
+    // Save button
+    const saveButton = document.getElementById('notepad-save');
+    if (saveButton) {
+      saveButton.addEventListener('click', saveContent);
+      console.log('Save button event listener attached');
+    }
+    
+    // Font size buttons
+    const increaseButton = document.getElementById('notepad-font-increase');
+    const decreaseButton = document.getElementById('notepad-font-decrease');
+    
+    if (increaseButton) {
+      increaseButton.addEventListener('click', increaseFontSize);
+      console.log('Font increase button event listener attached');
+    }
+    
+    if (decreaseButton) {
+      decreaseButton.addEventListener('click', decreaseFontSize);
+      console.log('Font decrease button event listener attached');
+    }
+    
+    // Formatting buttons
+    const boldButton = document.getElementById('notepad-bold');
+    const italicButton = document.getElementById('notepad-italic');
+    const strikeButton = document.getElementById('notepad-strikethrough');
+    
+    if (boldButton) boldButton.addEventListener('click', applyBold);
+    if (italicButton) italicButton.addEventListener('click', applyItalic);
+    if (strikeButton) strikeButton.addEventListener('click', applyStrikethrough);
+    
+    // Editor events
+    if (editor) {
+      editor.addEventListener('input', () => {
+        updateStats();
+        markUnsaved();
+      });
+      
+      editor.addEventListener('keydown', handleKeyDown);
+      editor.addEventListener('scroll', syncScroll);
+      editor.addEventListener('keyup', updateCursorPosition);
+      editor.addEventListener('click', updateCursorPosition);
+      
+      console.log('Editor event listeners attached');
+    } else {
+      console.error('Editor not found in DOM');
+    }
+  }
+  
+  // Load content from file
+  function loadContent() {
+    // Check if electron is available
+    if (typeof electron !== 'undefined') {
+      console.log('Loading content from file:', NOTEPAD_FILE_PATH);
+      
+      electron.ipcRenderer.invoke('file:read', NOTEPAD_FILE_PATH)
+        .then(content => {
+          if (editor) {
+            editor.value = content;
+            updateLineNumbers();
+            updateStats();
+            console.log('Content loaded successfully');
+          }
+        })
+        .catch(err => {
+          // File might not exist yet, which is fine
+          console.log('Note file not found, creating new...', err);
+        });
+    } else {
+      console.log('Electron API not available, skipping file load');
+    }
+  }
+  
+  // Save content to file
+  function saveContent() {
+    const saveStatus = document.getElementById('notepad-save-status');
+    if (!saveStatus) {
+      console.error('Save status element not found');
+      return;
+    }
+    
+    saveStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+    saveStatus.classList.remove('unsaved');
+    saveStatus.classList.add('saving');
+    
+    if (typeof electron !== 'undefined') {
+      console.log('Saving content to file:', NOTEPAD_FILE_PATH);
+      
+      electron.ipcRenderer.invoke('file:write', NOTEPAD_FILE_PATH, editor.value)
+        .then(() => {
+          saveStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
+          saveStatus.classList.remove('saving', 'unsaved');
+          isDirty = false;
+          
+          // Brief animation to indicate successful save
+          saveStatus.classList.add('saving-pulse');
+          setTimeout(() => {
+            saveStatus.classList.remove('saving-pulse');
+          }, 1500);
+          
+          console.log('Content saved successfully');
+        })
+        .catch(err => {
+          saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
+          console.error('Failed to save notepad:', err);
+        });
+    } else {
+      console.log('Electron API not available for saving');
+      saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Save failed';
+    }
+  }
+  
+  // Start autosave timer
+  function startAutosaveTimer() {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    
+    saveTimeout = setTimeout(() => {
+      if (isDirty) {
+        saveContent();
+      }
+      startAutosaveTimer(); // Restart the timer
+    }, AUTOSAVE_INTERVAL);
+    
+    console.log('Autosave timer started');
+  }
+  
+  // Mark content as unsaved
+  function markUnsaved() {
+    const saveStatus = document.getElementById('notepad-save-status');
+    if (saveStatus) {
+      saveStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Unsaved changes';
+      saveStatus.classList.add('unsaved');
+      isDirty = true;
+    }
+  }
+  
+  // Show the notepad
+  function showNotepad() {
+    console.log('Showing notepad');
+    if (notepadModal) {
+      notepadModal.classList.add('visible');
+      
+      // Set up events if not already done
+      setupEventListeners();
+      
+      // Load content
+      loadContent();
+      
+      // Start autosave timer
+      startAutosaveTimer();
+      
+      // Set initial font size
+      if (editor) editor.style.fontSize = `${fontSize}px`;
+      if (lineNumbers) lineNumbers.style.fontSize = `${fontSize}px`;
+      
+      console.log('Notepad modal displayed');
+    } else {
+      console.error('Notepad modal not found');
+    }
+  }
+  
+  // Close the notepad
+  function closeNotepad() {
+    console.log('Closing notepad');
+    
+    if (isDirty && typeof electron !== 'undefined') {
+      electron.ipcRenderer.invoke('dialog:confirm', 'Save Changes?', 'You have unsaved changes. Would you like to save before closing?')
+        .then(shouldSave => {
+          if (shouldSave) {
+            saveContent();
+            setTimeout(hideNotepadModal, 500);
+          } else {
+            hideNotepadModal();
+          }
+        })
+        .catch(err => {
+          console.error('Error showing confirm dialog:', err);
+          hideNotepadModal();
+        });
+    } else {
+      hideNotepadModal();
+    }
+  }
+  
+  // Hide the notepad modal
+  function hideNotepadModal() {
+    if (notepadModal) {
+      notepadModal.classList.remove('visible');
+      
+      // Clean up
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+      }
+      
+      console.log('Notepad modal hidden');
+    }
+  }
+  
+  // Update line numbers
+  function updateLineNumbers() {
+    if (!editor || !lineNumbers) return;
+    
+    const lines = editor.value.split('\n');
+    let lineNumbersHTML = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      lineNumbersHTML += `<div>${i + 1}</div>`;
+    }
+    
+    // Ensure there's at least one line number
+    if (lineNumbersHTML === '') {
+      lineNumbersHTML = '<div>1</div>';
+    }
+    
+    lineNumbers.innerHTML = lineNumbersHTML;
+  }
+  
+  // Keep line numbers synced with editor scroll
+  function syncScroll() {
+    if (lineNumbers && editor) {
+      lineNumbers.scrollTop = editor.scrollTop;
+    }
+  }
+  
+  // Update text statistics (word count, character count)
+  function updateStats() {
+    if (!editor) return;
+    
+    const text = editor.value;
+    const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+    const charCount = text.length;
+    
+    const wordCountElement = document.getElementById('notepad-word-count');
+    const charCountElement = document.getElementById('notepad-char-count');
+    
+    if (wordCountElement) {
+      wordCountElement.innerHTML = 
+        `<i class="fa-solid fa-font"></i> ${wordCount} word${wordCount !== 1 ? 's' : ''}`;
+    }
+    
+    if (charCountElement) {
+      charCountElement.innerHTML = 
+        `<i class="fa-solid fa-keyboard"></i> ${charCount} character${charCount !== 1 ? 's' : ''}`;
+    }
+    
+    updateLineNumbers();
+  }
+  
+  // Update cursor position indicator
+  function updateCursorPosition() {
+    if (!editor) return;
+    
+    const cursorPos = editor.selectionStart;
+    const text = editor.value.substring(0, cursorPos);
+    const lineBreaks = text.match(/\n/g) || [];
+    const currentLine = lineBreaks.length + 1;
+    
+    // Calculate column (considering tab characters as 4 spaces)
+    const lastLineBreak = text.lastIndexOf('\n');
+    const currentLineText = lastLineBreak >= 0 ? text.substring(lastLineBreak + 1) : text;
+    const currentColumn = currentLineText.length + 1;
+    
+    const positionElement = document.getElementById('notepad-position');
+    if (positionElement) {
+      positionElement.innerHTML = 
+        `<i class="fa-solid fa-location-dot"></i> Ln: ${currentLine}, Col: ${currentColumn}`;
+    }
+  }
+  
+  // Increase font size
+  function increaseFontSize() {
+    if (fontSize < 36) { // Max font size
+      fontSize += 2;
+      if (editor) editor.style.fontSize = `${fontSize}px`;
+      if (lineNumbers) lineNumbers.style.fontSize = `${fontSize}px`;
+      console.log('Font size increased to', fontSize);
+    }
+  }
+  
+  // Decrease font size
+  function decreaseFontSize() {
+    if (fontSize > 10) { // Min font size
+      fontSize -= 2;
+      if (editor) editor.style.fontSize = `${fontSize}px`;
+      if (lineNumbers) lineNumbers.style.fontSize = `${fontSize}px`;
+      console.log('Font size decreased to', fontSize);
+    }
+  }
+  
+  // Apply bold formatting to selected text
+  function applyBold() {
+    applyFormatting('**', '**');
+    console.log('Bold formatting applied');
+  }
+  
+  // Apply italic formatting to selected text
+  function applyItalic() {
+    applyFormatting('*', '*');
+    console.log('Italic formatting applied');
+  }
+  
+  // Apply strikethrough formatting to selected text
+  function applyStrikethrough() {
+    applyFormatting('~~', '~~');
+    console.log('Strikethrough formatting applied');
+  }
+  
+  // Helper function to apply formatting
+  function applyFormatting(prefix, suffix) {
+    if (!editor) return;
+    
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const selectedText = editor.value.substring(start, end);
+    const replacement = prefix + selectedText + suffix;
+    
+    editor.value = editor.value.substring(0, start) + replacement + editor.value.substring(end);
+    editor.selectionStart = start + prefix.length;
+    editor.selectionEnd = end + prefix.length;
+    editor.focus();
+    
+    updateStats();
+    markUnsaved();
+  }
+  
+  // Handle keyboard shortcuts
+  function handleKeyDown(e) {
+    // Save - Ctrl+S
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      saveContent();
+    }
+    
+    // Bold - Ctrl+B
+    if (e.ctrlKey && e.key === 'b') {
+      e.preventDefault();
+      applyBold();
+    }
+    
+    // Italic - Ctrl+I
+    if (e.ctrlKey && e.key === 'i') {
+      e.preventDefault();
+      applyItalic();
+    }
+    
+    // Strikethrough - Ctrl+Shift+S
+    if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+      e.preventDefault();
+      applyStrikethrough();
+    }
+    
+    // Increase font size - Ctrl++
+    if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+      e.preventDefault();
+      increaseFontSize();
+    }
+    
+    // Decrease font size - Ctrl+-
+    if (e.ctrlKey && e.key === '-') {
+      e.preventDefault();
+      decreaseFontSize();
+    }
+    
+    // Tab key handling (insert spaces instead of changing focus)
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      
+      // Insert 2 spaces at cursor position
+      editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+      
+      // Move cursor after inserted spaces
+      editor.selectionStart = editor.selectionEnd = start + 2;
+    }
+  }
+  
+  // Set up the notepad button click handler
+  if (notpadButton) {
+    notpadButton.addEventListener('click', function() {
+      showNotepad();
+    });
+    console.log('Notepad button click handler attached');
+  } else {
+    console.warn('Notepad button not found in DOM');
+  }
+  
+  // Expose functions to window for debugging
+  window.notepadDebug = {
+    showNotepad,
+    closeNotepad,
+    saveContent,
+    updateStats
+  };
+  
+  console.log('Notepad module initialized');
+});

@@ -303,6 +303,9 @@
   background-color: var(--border-primary);
   cursor: col-resize;
   transition: background-color 0.2s ease;
+  right: 0;
+  top: 0;
+  height: 100%;
 }
 
 .resizer-vertical:hover {

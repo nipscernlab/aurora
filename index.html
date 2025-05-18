@@ -34,6 +34,7 @@
   <link rel="stylesheet" href="./css/statusUpdater.css">
   <link rel="stylesheet" href="./css/blockmodal.css">
   <link rel="stylesheet" href="./css/hourglass.css">
+  <link rel="stylesheet" href="./css/notpad.css">
 
 </head>
 
@@ -112,6 +113,71 @@
     </div>
   </div>
   <div id="processor-visualization"></div>
+
+ <!-- Notepad Modal -->
+<div id="notepad-modal" class="notepad-modal">
+  <!-- Modal Header/Title Bar -->
+  <div class="notepad-modal-header">
+    <div class="notepad-modal-title">
+      <i class="fa-solid fa-pen-nib"></i>
+      <span>NotePad</span>
+    </div>
+    <div class="notepad-modal-controls">
+      <button class="notepad-btn" id="notepad-close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Toolbar -->
+  <div class="notepad-toolbar">
+    <div class="notepad-toolbar-group">
+      <button class="notepad-tool-btn" id="notepad-save" title="Save (Ctrl+S)">
+        <i class="fa-solid fa-floppy-disk"></i>
+      </button>
+      <button class="notepad-tool-btn" id="notepad-bold" title="Bold (Ctrl+B)">
+        <i class="fa-solid fa-bold"></i>
+      </button>
+      <button class="notepad-tool-btn" id="notepad-italic" title="Italic (Ctrl+I)">
+        <i class="fa-solid fa-italic"></i>
+      </button>
+      <button class="notepad-tool-btn" id="notepad-strikethrough" title="Strikethrough (Ctrl+Shift+S)">
+        <i class="fa-solid fa-strikethrough"></i>
+      </button>
+    </div>
+    
+    <div class="notepad-toolbar-group">
+      <button class="notepad-tool-btn" id="notepad-font-decrease" title="Decrease Font Size (Ctrl+-)">
+        <i class="fa-solid fa-text-height fa-sm"></i>
+      </button>
+      <button class="notepad-tool-btn" id="notepad-font-increase" title="Increase Font Size (Ctrl++)">
+        <i class="fa-solid fa-text-height"></i>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Editor Area -->
+  <div class="notepad-editor-container">
+    <div class="notepad-line-numbers" id="notepad-line-numbers"></div>
+    <textarea id="notepad-editor" spellcheck="false"></textarea>
+  </div>
+  
+  <!-- Status Bar -->
+  <div class="notepad-status-bar">
+    <div class="notepad-status-item" id="notepad-word-count">
+      <i class="fa-solid fa-font"></i> 0 words
+    </div>
+    <div class="notepad-status-item" id="notepad-char-count">
+      <i class="fa-solid fa-keyboard"></i> 0 characters
+    </div>
+    <div class="notepad-status-item" id="notepad-position">
+      <i class="fa-solid fa-location-dot"></i> Ln: 1, Col: 1
+    </div>
+    <div class="notepad-status-item" id="notepad-save-status">
+      <i class="fa-solid fa-circle-check"></i> Saved
+    </div>
+  </div>
+</div>
 
 <!-- Sidebar -->
 <div id="sidebar" class="sidebar">
@@ -413,7 +479,8 @@
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
       <div class="resizer-vertical"></div>
-    </div>
+  </div>
+
   </div>
 
     <!-- Editor and Terminal Section -->
@@ -817,6 +884,7 @@
   <script src="./js/hourglass.js"></script>
   <script src="./js/fileOperation.js" type="module"></script>
   <script src="./js/iconAurora.js" type="module"></script>
+  <script src="./js/notpad.js" type="module"></script>
     </script>
   </body>
 </html>

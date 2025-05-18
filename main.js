@@ -2167,7 +2167,52 @@ ipcMain.handle('file:is-directory', async (event, filePath) => {
   }
 });
 
-// Mostrar diálogo de confirmação
+// File path constants
+const USER_DATA_PATH = app.getPath('userData');
+
+// File read handler
+ipcMain.handle('file:read', async (event, filePath) => {
+  try {
+    // Try first to read from project root
+    const projectRoot = path.resolve(__dirname);
+    const fullPath = path.join(projectRoot, filePath);
+    
+    console.log('Reading file from:', fullPath);
+    
+    const content = await fs.readFile(fullPath, 'utf8');
+    return content;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist yet
+      console.log('File not found, returning empty string');
+      return '';
+    }
+    console.error('Error reading file:', error);
+    throw error;
+  }
+});
+
+// File write handler
+ipcMain.handle('file:write', async (event, filePath, content) => {
+  try {
+    // Write to project root
+    const projectRoot = path.resolve(__dirname);
+    const fullPath = path.join(projectRoot, filePath);
+    
+    console.log('Writing file to:', fullPath);
+    
+    // Ensure directory exists
+    await fs.mkdir(path.dirname(fullPath), { recursive: true }).catch(() => {});
+    
+    await fs.writeFile(fullPath, content, 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing file:', error);
+    throw error;
+  }
+});
+
+// Confirmation dialog handler
 ipcMain.handle('dialog:confirm', async (event, title, message) => {
   const result = await dialog.showMessageBox({
     type: 'question',
@@ -2178,79 +2223,5 @@ ipcMain.handle('dialog:confirm', async (event, title, message) => {
     cancelId: 0,
   });
   
-  return result.response === 1; // true se clicou em "Yes"
-});
-
-// NotPad file handling
-ipcMain.on('save-notpad', (event, data) => {
-  try {
-    const filePath = path.join(app.getAppPath(), data.filePath);
-    
-    // Ensure directory exists (in case it doesn't)
-    const directory = path.dirname(filePath);
-    if (!fs.existsSync(directory)) {
-      fs.mkdirSync(directory, { recursive: true });
-    }
-    
-    // Write the file
-    fs.writeFileSync(filePath, data.content, 'utf8');
-    
-    // Send success response
-    event.reply('save-notpad-reply', true);
-    
-    console.log(`NotPad file saved successfully to: ${filePath}`);
-  } catch (error) {
-    console.error('Error saving NotPad file:', error);
-    event.reply('save-notpad-reply', false);
-  }
-});
-
-ipcMain.on('load-notpad', (event, data) => {
-  try {
-    const filePath = path.join(app.getAppPath(), data.filePath);
-    
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      event.reply('load-notpad-reply', { 
-        success: true, 
-        content: content 
-      });
-      console.log(`NotPad file loaded successfully from: ${filePath}`);
-    } else {
-      event.reply('load-notpad-reply', { 
-        success: false, 
-        message: 'File not found' 
-      });
-      console.log(`NotPad file not found at: ${filePath}`);
-    }
-  } catch (error) {
-    console.error('Error loading NotPad file:', error);
-    event.reply('load-notpad-reply', { 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-
-ipcMain.on('notpad-minimize', () => {
-  const win = BrowserWindow.getFocusedWindow();
-  if (win) {
-    if (win.isMinimized()) {
-      win.restore();
-    } else {
-      win.minimize();
-    }
-  }
-});
-
-// For maximize functionality (optional)
-ipcMain.on('notpad-maximize', () => {
-  const win = BrowserWindow.getFocusedWindow();
-  if (win) {
-    if (win.isMaximized()) {
-      win.unmaximize();
-    } else {
-      win.maximize();
-    }
-  }
+  return result.response === 1; // true if clicked "Yes"
 });

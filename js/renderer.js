@@ -2023,8 +2023,6 @@ async function createProcessor(formData) {
   }
 }
 
-
-
 document.getElementById('open-folder-button').addEventListener('click', async () => {
     if (currentProjectPath) {
         try {
@@ -2034,6 +2032,18 @@ document.getElementById('open-folder-button').addEventListener('click', async ()
         }
     }
 }); 
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'F2' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    if (currentProjectPath) {
+      try {
+        window.electronAPI.openFolder(currentProjectPath);
+      } catch (error) {
+        console.error('Error opening folder:', error);
+      }
+    }
+  }
+});
 
 // Função para atualizar o nome do projeto na UI
 function updateProjectNameUI(projectData) {
@@ -3402,6 +3412,78 @@ class CompilationModule {
       throw error;
     }
   }
+
+  async compileAll() {
+  try {
+    // Load configurations
+    await this.loadConfig();
+    
+    // Ensure temp directories exist for all processors
+    if (this.isProjectOriented) {
+      // For project-oriented, ensure temp directories for all processors in the project
+      if (this.projectConfig && this.projectConfig.processors) {
+        for (const processor of this.projectConfig.processors) {
+          await this.ensureDirectories(processor.name);
+        }
+      }
+    } else {
+      // For processor-oriented, ensure temp directory for the current processor
+      const processor = this.config.processors[0];
+      await this.ensureDirectories(processor.name);
+    }
+    
+    // Different compilation flow based on mode
+    if (this.isProjectOriented) {
+      // Project-oriented mode: compile all processors, then run project verilog and GTKWave
+      if (this.projectConfig && this.projectConfig.processors) {
+        // Compile each processor
+        for (const processor of this.projectConfig.processors) {
+          try {
+            // First compile CMM
+            this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.name}...`);
+            const asmPath = await this.cmmCompilation(processor);
+            
+            // Then compile ASM
+            await this.asmCompilation(processor, asmPath);
+          } catch (error) {
+            this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.name}: ${error.message}`, 'error');
+            // Continue with next processor rather than stopping entire compilation
+          }
+        }
+      }
+      
+      // Run project-level iverilog compilation
+      await this.iverilogProjectCompilation();
+      
+      // Run project-level GTKWave
+      await this.runProjectGtkWave();
+      
+    } else {
+      // Processor-oriented mode: run full pipeline for single processor
+      const processor = this.config.processors[0];
+      
+      // CMM compilation
+      const asmPath = await this.cmmCompilation(processor);
+      
+      // ASM compilation
+      await this.asmCompilation(processor, asmPath);
+      
+      // Verilog compilation
+      await this.iverilogCompilation(processor);
+      
+      // Run GTKWave
+      await this.runGtkWave(processor);
+    }
+    
+    this.terminalManager.appendToTerminal('tcmm', 'All compilation steps completed successfully.');
+    return true;
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tcmm', `Error in compilation process: ${error.message}`, 'error');
+    console.error('Complete compilation failed:', error);
+    return false;
+  }
+}
+
 }
 
 
@@ -3503,7 +3585,8 @@ class CompilationButtonManager {
         
         await this.compiler.loadConfig();
         const processor = this.compiler.config.processors[0];
-          
+        
+        await this.compiler.runGtkWave(processor);
         // Atualiza a file tree após a compilação
         await refreshFileTree();
       } catch (error) {

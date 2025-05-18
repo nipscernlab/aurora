@@ -475,39 +475,42 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Popular uma lista suspensa com opções
   function populateSelectOptions(selectElement, files) {
-    if (!selectElement) return;
+  if (!selectElement) return;
+  
+  // Save current selected value (if any)
+  const currentSelectedValue = selectElement.value;
+  
+  // Clear all existing options
+  selectElement.innerHTML = '';
+
+  // Cria a opção "Standard" e define como selecionada por padrão
+  const standardOption = document.createElement('option');
+  standardOption.value = 'Standard File';
+  standardOption.textContent = 'Standard File';
+  standardOption.selected = true; // <- define como default
+  selectElement.appendChild(standardOption);
+
     
-    // Salvar seleção atual (se houver)
-    const currentSelectedValue = selectElement.value;
+  // Add new options from files
+  files.forEach(file => {
+    const option = document.createElement('option');
     
-    // Limpar todas as opções existentes
-    selectElement.innerHTML = '';
+    // Extract only the filename from the full path
+    const fileName = file.split('/').pop().split('\\').pop();
     
-    // Adicionar opção padrão/placeholder
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Selecione um arquivo';
-    selectElement.appendChild(defaultOption);
-    
-    // Adicionar novas opções
-    files.forEach(file => {
-      const option = document.createElement('option');
-      
-      // Extrair apenas o nome do arquivo do caminho completo
-      const fileName = file.split('/').pop().split('\\').pop();
-      
-      option.value = fileName;
-      option.textContent = fileName;
-      selectElement.appendChild(option);
-    });
-    
-    // Tentar restaurar seleção anterior
-    if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
-      selectElement.value = currentSelectedValue;
-    } else {
-      selectElement.selectedIndex = 0;
-    }
+    option.value = fileName;
+    option.textContent = fileName;
+    selectElement.appendChild(option);
+  });
+  
+  // Try to restore previous selection
+  if (currentSelectedValue && Array.from(selectElement.options).some(opt => opt.value === currentSelectedValue)) {
+    selectElement.value = currentSelectedValue;
+  } else {
+    selectElement.selectedIndex = 0;
   }
+}
+
   
   // Antes de abrir o modal, carregar arquivos e configuração atual
   async function prepareModalBeforeOpen() {

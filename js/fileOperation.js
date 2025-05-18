@@ -74,6 +74,7 @@ const FileOperations = (function() {
         <li id="context-new-folder"><i class="fa-regular fa-folder"></i> New Folder</li>
         <li class="context-separator"></li>
         <li id="context-rename"><i class="fa-solid fa-i-cursor"></i> Rename</li>
+        <li id="context-location"><i class="fa-solid fa-location-crosshairs"></i> Location</li>
         <li id="context-delete" class="context-danger"><i class="fa-regular fa-trash-can"></i> Delete</li>
       </ul>
     `;
@@ -173,6 +174,7 @@ const FileOperations = (function() {
     document.getElementById('context-new-file').addEventListener('click', () => handleNewFile());
     document.getElementById('context-new-folder').addEventListener('click', () => handleNewFolder());
     document.getElementById('context-rename').addEventListener('click', () => handleRename());
+    document.getElementById('context-location').addEventListener('click', () => handleLocation());
     document.getElementById('context-delete').addEventListener('click', () => handleDelete());
   }
   
@@ -536,7 +538,7 @@ const FileOperations = (function() {
     // Garantir que o caminho seja absoluto
     currentPath = normalizePath(currentPath);
     console.log(`Tentando renomear: ${currentPath}`);
-    
+
     // Encontrar o elemento correspondente ao caminho
     const element = findElementByPath(currentPath);
     if (!element) {
@@ -616,11 +618,12 @@ const FileOperations = (function() {
           const newPath = `${parentDir}${fileSeparator}${newName}`;
           
           console.log(`Renomeando de "${currentPath}" para "${newPath}"`);
-          
+
           // Chamar a API para renomear
           await window.electronAPI.renameFileOrDirectory(currentPath, newPath);
 
           showNotification(`Renamed successfully to "${newName}"`, 'success');
+          refreshFileTreeFn();
 
           // Atualizar a árvore de arquivos
           if (typeof refreshFileTreeFn === 'function') {
@@ -670,7 +673,17 @@ const FileOperations = (function() {
       }, 100);
     });
   }
-  
+
+  async function handleLocation() {
+    hideContextMenu();
+    if (currentProjectPath) {
+        try {
+            await window.electronAPI.openFolder(currentProjectPath);
+        } catch (error) {
+            console.error('Error opening folder:', error);
+        }
+    }
+  }
   // Tratar exclusão de arquivo/pasta
   async function handleDelete() {
     hideContextMenu();

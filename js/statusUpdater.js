@@ -2,7 +2,7 @@
 
 class StatusUpdater {
     constructor() {
-      this.statusItem = document.querySelector('.status-item:nth-child(2)'); // Place Holder element
+      this.statusItem = document.querySelector('.status-item:nth-child(3)'); // Place Holder element
       this.defaultStatus = '<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation';
       this.isCompiling = false;
       

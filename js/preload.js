@@ -185,6 +185,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximizeWindow: () => ipcRenderer.send('notpad-maximize'),
     closeWindow: () => ipcRenderer.send('notpad-close'),
     
+    
     // Funções para gerenciamento de conteúdo
     saveContent: (content) => ipcRenderer.send('notpad-save', content),
     loadContent: () => ipcRenderer.send('notpad-load'),

@@ -62,7 +62,7 @@ body {
 }
 
 .resizer-horizontal {
-  height: 5px;
+  height: 3px;
   background-color: var(--border-primary);
   cursor: row-resize;
   transition: background-color 0.2s ease;
@@ -218,8 +218,8 @@ body {
   margin-bottom: 1.5rem;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
   transition: transform 0.3s ease;
-  filter: grayscale(100%);
-  opacity: 50%;
+  filter: saturate(60%);
+  opacity: 60%;
 }
 
 #editor-overlay.visible .overlay-icon {

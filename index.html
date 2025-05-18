@@ -48,7 +48,7 @@
         <i class="fas fa-folder-plus"></i>
         <span>New Project</span>
       </button>
-      <button id="backupFolderBtn" class="toolbar-button">
+      <button id="backupFolderBtn" class="toolbar-button" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-box-archive"></i>
         <span>Backup</span>
       </button>
@@ -56,7 +56,7 @@
         <i class="fa-solid fa-box-open"></i>
         <span>Open Project</span>
       </button>
-      <button id="saveFileBtn" class="toolbar-button">
+      <button id="saveFileBtn" class="toolbar-button" disabled style="cursor: not-allowed;">
         <i class="fas fa-save"></i>
         <span>Save</span>
       </button>
@@ -95,7 +95,7 @@
       <button id="themeToggle" class="toolbar-button">
         <i class="fas fa-sun" titles="Theme Toggle"></i>
       </button>
-      <button id="settings" class="toolbar-button">
+      <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-gears" titles="Processor Configuration"></i>
       </button>
       <button id="info-aurora" class="toolbar-button">
@@ -286,7 +286,7 @@
     </div>
     <div class="mconfig-modal-body">
       <section class="mconfig-section" id="verilogFiles">
-        <h3 class="mconfig-section-title">Verilog Files</h3>
+        <h3 class="mconfig-section-title">Verilog & GTKW Files</h3>
         
         <div class="mconfig-form-group">
           <label for="topLevelSelect" class="mconfig-label">Top Level File:</label>
@@ -423,16 +423,26 @@
           <!-- Tabs will be dynamically inserted here -->
         </div>
         <div id="monaco-editor" class="monaco-editor">
-
-          <div id="editor-overlay" class="visible">
-            <div class="overlay-content">
-              <img src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
-              <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
-              <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+        <div id="editor-overlay" class="visible">
+          <div class="overlay-content">
+            <div id="icon-container">
+              <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
+              <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
             </div>
+
+            <!-- Botão de alterar imagem -->
+            <button class="change-icon-btn" id="change-icon-btn" titles="Change Icon">
+              <i class="fa-solid fa-image"></i>
+            </button>
+            <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
+
+            <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
+            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+            <p class="overlay-subtitle">nipscern.com</p>
           </div>
         </div>
-        
+        </div>
+
       </div>
       <div class="resizer-horizontal"></div>
       <div id="terminal-container" class="terminal-container">
@@ -655,9 +665,9 @@
 </div>
 
 <div class="status-bar">
-  <div class="status-item"><i class="fa-solid fa-check"></i> Ready</div>
-  <div  id="processorProjectOriented"><i class="fa-solid fa-water"></i> Processor Oriented</div>
-  <div class="status-item"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
+  <div class="status-item" id="ready"><i class="fa-solid fa-check"></i> Ready</div>
+  <div class="status-item" id="processorProjectOriented"><i class="fa-solid fa-water"></i> Processor Oriented</div>
+  <div class="status-item" id="statusUpdater"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
   <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
   <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Line 1, Column 1</div>
 </div>
@@ -700,7 +710,8 @@
       'newProjectBtn', 'processorHub', 'openProjectBtn', 'saveFileBtn', 
       'settings', 'allcomp', 'clear-terminal', 'backupFolderBtn', 
       'aiAssistant', 'themeToggle', 'projectInfo', 'info-aurora', 
-      'sidebarMenu'
+      'sidebarMenu', 'change-icon-btn', 'saveConfig', 'cancelConfig',
+      'saveProjectConfig', 'cancelProjectConfig', 'clearAll',
     ];
     
     // Add to buttons
@@ -804,7 +815,8 @@
   <script src="./js/statusUpdater.js"></script>
   <script src="./js/blockModal.js"></script>
   <script src="./js/hourglass.js"></script>
-  <script src="./js/projectState.js" type="module"></script>
+  <script src="./js/fileOperation.js" type="module"></script>
+  <script src="./js/iconAurora.js" type="module"></script>
     </script>
   </body>
 </html>

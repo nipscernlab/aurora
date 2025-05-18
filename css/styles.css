@@ -240,7 +240,7 @@ body.dark-mode .resizer-horizontal {
   cursor: not-allowed;
 }
 
-#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp {
+#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #settings {
   background-color: var(--bg-hover);
   cursor: pointer;
   transition: background-color 0.2s;

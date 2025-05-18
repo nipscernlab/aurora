@@ -120,3 +120,27 @@
   body:not(.theme-light) .custom-tooltip {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
+
+  .change-icon-btn {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: var(--text-xl);
+  color: var(--icon-secondary);
+  background-color: var(--hover-overlay);
+  transition: color var(--transition-normal), transform var(--transition-fast);
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.change-icon-btn:hover {
+  color: var(--icon-primary);
+  background-color: var(--hover-overlay);
+  transform: scale(1.05);
+}
+
+.change-icon-btn:active {
+  color: var(--icon-muted);
+  background-color: var(--active-overlay);
+  transform: scale(0.95);
+}

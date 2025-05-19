@@ -2100,7 +2100,6 @@ ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
   }
 });
 
-// Update the 'file:delete' handler for better debugging and error handling
 // Update the 'file:delete' handler in main.js
 ipcMain.handle('file:delete', async (event, filePath) => {
   try {

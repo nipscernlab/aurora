@@ -1499,54 +1499,219 @@ async function refreshFileTree() {
   }
 }
 
-
-function showNotification(message, type = 'info') {
-  console.log(`[${type}] ${message}`);
-  
-  const notification = document.createElement('div');
-  notification.textContent = message;
-  notification.style.position = 'fixed';
-  notification.style.bottom = '30px';
-  notification.style.right = '30px';
-  notification.style.maxWidth = '400px';
-  notification.style.padding = '12px 20px';
-  notification.style.borderRadius = '8px';
-  notification.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
-  notification.style.fontSize = '14px';
-  notification.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-  notification.style.color = 'white';
-  notification.style.zIndex = '9999';
-  notification.style.opacity = '0';
-  notification.style.transform = 'translateY(20px)';
-  notification.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-  
-  // Estilo baseado no tipo de notificação
-  if (type === 'error') {
-    notification.style.backgroundColor = '#e74c3c'; // vermelho suave
-  } else if (type === 'success') {
-    notification.style.backgroundColor = '#2ecc71'; // verde suave
-  } else {
-    notification.style.backgroundColor = '#3498db'; // azul suave
-  }
-
-  document.body.appendChild(notification);
-
-  // Forçar reflow para ativar a transição
-  requestAnimationFrame(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateY(0)';
-  });
-
-  // Remover a notificação após 3 segundos
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateY(20px)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
+function showCardNotification(message, type = 'info', duration = 3000) {
+  // Crie um container para as notificações, se não existir
+  let cardContainer = document.getElementById('card-notification-container');
+  if (!cardContainer) {
+    cardContainer = document.createElement('div');
+    cardContainer.id = 'card-notification-container';
+    cardContainer.style.position = 'fixed';
+    cardContainer.style.bottom = '20px';
+    cardContainer.style.left = '20px';
+    cardContainer.style.maxWidth = '100%';
+    cardContainer.style.width = '350px';
+    cardContainer.style.zIndex = 'var(--z-max)';
+    cardContainer.style.display = 'flex';
+    cardContainer.style.flexDirection = 'column-reverse'; // Novas notificações aparecem embaixo
+    cardContainer.style.gap = 'var(--space-3)';
+    
+    // Torna responsivo em telas pequenas
+    const mediaQuery = `
+      @media (max-width: 480px) {
+        #card-notification-container {
+          width: calc(100% - 40px) !important;
+          left: 20px !important;
+          bottom: 10px !important;
+        }
       }
-    }, 400); // deve combinar com o tempo de transição
-  }, 3000);
+    `;
+    const style = document.createElement('style');
+    style.textContent = mediaQuery;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(cardContainer);
+  }
+  
+  // Verificar se o FontAwesome está carregado, caso contrário, carregar
+  if (!document.querySelector('link[href*="fontawesome"]')) {
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.rel = 'stylesheet';
+    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeLink);
+  }
+  
+  // Definir aparência e ícone com base no tipo
+  let iconClass, accentColor, title;
+  
+  switch (type) {
+    case 'error':
+      iconClass = 'fa-bolt';
+      accentColor = 'var(--error)';
+      title = 'Erro';
+      break;
+    case 'success':
+      iconClass = 'fa-check-double';
+      accentColor = 'var(--success)';
+      title = 'Sucesso';
+      break;
+    case 'warning':
+      iconClass = 'fa-bell';
+      accentColor = 'var(--warning)';
+      title = 'Atenção';
+      break;
+    default: // info
+      iconClass = 'fa-info';
+      accentColor = 'var(--info)';
+      title = 'Informação';
+      break;
+  }
+  
+  // Criar o cartão de notificação
+  const card = document.createElement('div');
+  card.style.backgroundColor = 'var(--bg-secondary)';
+  card.style.color = 'var(--text-primary)';
+  card.style.borderRadius = 'var(--radius-lg)';
+  card.style.boxShadow = 'var(--shadow-lg)';
+  card.style.overflow = 'hidden';
+  card.style.display = 'flex';
+  card.style.flexDirection = 'column';
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(20px) scale(0.95)';
+  card.style.transition = 'var(--transition-normal)';
+  
+  // Conteúdo do cartão
+  card.innerHTML = `
+    <div style="display: flex; padding: var(--space-4); gap: var(--space-4); position: relative;">
+      <div style="
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border-radius: var(--radius-full);
+        background-color: ${accentColor};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: var(--text-lg);
+      ">
+        <i class="fa-solid ${iconClass}"></i>
+      </div>
+      
+      <div style="flex-grow: 1;">
+        <div style="font-weight: var(--font-semibold); margin-bottom: var(--space-1); font-size: var(--text-base);">
+          ${title}
+        </div>
+        <div style="font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-relaxed);">
+          ${message}
+        </div>
+      </div>
+      
+      <div class="close-btn" style="
+        position: absolute;
+        top: var(--space-4);
+        right: var(--space-4);
+        cursor: pointer;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-full);
+        background-color: var(--bg-hover);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition-fast);
+      ">
+        <i class="fa-solid fa-xmark" style="font-size: var(--text-sm);"></i>
+      </div>
+    </div>
+    
+    <div class="progress-container" style="
+      width: 100%;
+      height: 4px;
+      background-color: var(--bg-hover);
+      overflow: hidden;
+    ">
+      <div class="progress-bar" style="
+        height: 100%;
+        width: 100%;
+        background-color: ${accentColor};
+        transform-origin: left;
+        transform: scaleX(1);
+      "></div>
+    </div>
+  `;
+  
+  // Adicionar efeito hover ao botão fechar
+  const closeBtn = card.querySelector('.close-btn');
+  closeBtn.addEventListener('mouseenter', () => {
+    closeBtn.style.backgroundColor = 'var(--bg-active)';
+  });
+  closeBtn.addEventListener('mouseleave', () => {
+    closeBtn.style.backgroundColor = 'var(--bg-hover)';
+  });
+  
+  // Anexar ao container
+  cardContainer.appendChild(card);
+  
+  // Animação de entrada
+  requestAnimationFrame(() => {
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0) scale(1)';
+  });
+  
+  // Configurar barra de progresso
+  const progressBar = card.querySelector('.progress-bar');
+  progressBar.style.transition = `transform ${duration}ms linear`;
+  
+  // Iniciar a contagem regressiva
+  setTimeout(() => {
+    progressBar.style.transform = 'scaleX(0)';
+  }, 10);
+  
+  // Configurar botão de fechar
+  closeBtn.addEventListener('click', () => closeCard(card));
+  
+  // Fechar automaticamente após a duração
+  const timeoutId = setTimeout(() => closeCard(card), duration);
+  
+  // Pausar o tempo quando passar o mouse por cima
+  card.addEventListener('mouseenter', () => {
+    progressBar.style.transitionProperty = 'none';
+    clearTimeout(timeoutId);
+  });
+  
+  // Continuar quando tirar o mouse
+  card.addEventListener('mouseleave', () => {
+    const remainingTime = duration * (parseFloat(getComputedStyle(progressBar).transform.split(', ')[0].split('(')[1]) || 0);
+    if (remainingTime > 0) {
+      progressBar.style.transition = `transform ${remainingTime}ms linear`;
+      progressBar.style.transform = 'scaleX(0)';
+      setTimeout(() => closeCard(card), remainingTime);
+    } else {
+      closeCard(card);
+    }
+  });
+  
+  // Função para fechar o cartão com animação
+  function closeCard(element) {
+    element.style.opacity = '0';
+    element.style.transform = 'translateY(20px) scale(0.95)';
+    
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+        
+        // Remover o container se não houver mais cartões
+        if (cardContainer.children.length === 0) {
+          cardContainer.remove();
+        }
+      }
+    }, 300);
+  }
+  
+  // Retornar um identificador que permite fechar o cartão programaticamente
+  return {
+    close: () => closeCard(card)
+  };
 }
 
 // Listener para o botão de excluir backup
@@ -3412,12 +3577,34 @@ class CompilationModule {
       throw error;
     }
   }
+  
 
   async compileAll() {
   try {
+
+      // Function to switch between terminal tabs
+      function switchTerminal(targetId) {
+      // Hide all terminal content sections
+      const terminalContents = document.querySelectorAll('.terminal-content');
+      terminalContents.forEach(content => content.classList.add('hidden'));
+
+      // Remove the 'active' class from all tabs
+      const allTabs = document.querySelectorAll('.tab');
+      allTabs.forEach(tab => tab.classList.remove('active'));
+
+      // Show the selected terminal content
+      const targetContent = document.getElementById(targetId);
+      targetContent.classList.remove('hidden');
+
+      // Mark the corresponding tab as active
+      const activeTab = document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`);
+      if (activeTab) {
+        activeTab.classList.add('active');
+      }
+    }
+
     // Load configurations
     await this.loadConfig();
-    
     // Ensure temp directories exist for all processors
     if (this.isProjectOriented) {
       // For project-oriented, ensure temp directories for all processors in the project
@@ -3441,9 +3628,10 @@ class CompilationModule {
           try {
             // First compile CMM
             this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.name}...`);
+            switchTerminal('terminal-tcmm');
             const asmPath = await this.cmmCompilation(processor);
-            
             // Then compile ASM
+            switchTerminal('terminal-tasm');
             await this.asmCompilation(processor, asmPath);
           } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.name}: ${error.message}`, 'error');
@@ -3452,9 +3640,11 @@ class CompilationModule {
         }
       }
       
+      switchTerminal('terminal-tveri');
       // Run project-level iverilog compilation
       await this.iverilogProjectCompilation();
-      
+
+      switchTerminal('terminal-twave');
       // Run project-level GTKWave
       await this.runProjectGtkWave();
       

@@ -9,7 +9,7 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg-primary);
+  background-color: transparent;
   color: var(--text-primary);
   line-height: 1.6;
   overflow: hidden;
@@ -63,7 +63,7 @@ body {
 
 .resizer-horizontal {
   height: 3px;
-  background-color: transparent;
+  background-color: var(--bg-secondary);
   cursor: row-resize;
   transition: background-color 0.2s ease;
 }
@@ -105,8 +105,9 @@ body {
 .tab {
   padding: 0 15px;
   height: 35px;
-  background-color: var(--bg-tertiary);
   border: none;
+  background-color: var(--bg-tertiary);
+  border-bottom: 4px solid var(--border-primary);
   border-right: 1px solid var(--border-primary);
   color: var(--text-secondary);
   font-size: 13px;
@@ -115,7 +116,7 @@ body {
   gap: 10px;
   cursor: pointer;
   min-width: 120px;
-  max-width: 200px;
+  max-width: 150px;
   transition: all 0.2s ease;
   margin-right: 5px;
   border-radius: 4px 4px 0 0;
@@ -123,8 +124,10 @@ body {
 }
 
 .tab.active {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-active);
+  border-bottom: 4px solid var(--accent-primary);
   color: var(--text-primary);
+  transition: background-color 0.3s ease, border-bottom 0.3s ease, color 0.3s ease;
 }
 
 /* Aplica o estilo SOMENTE para .tab.active DENTRO de #tabs-container */

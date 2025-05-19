@@ -924,53 +924,309 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadAvailableProcessors();
 });
 
-function showNotification(message, type = 'info') {
-  console.log(`[${type}] ${message}`);
-  
-  const notification = document.createElement('div');
-  notification.textContent = message;
-  notification.style.position = 'fixed';
-  notification.style.bottom = '30px';
-  notification.style.right = '30px';
-  notification.style.maxWidth = '400px';
-  notification.style.padding = '12px 20px';
-  notification.style.borderRadius = '8px';
-  notification.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
-  notification.style.fontSize = '14px';
-  notification.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-  notification.style.color = 'white';
-  notification.style.zIndex = '9999';
-  notification.style.opacity = '0';
-  notification.style.transform = 'translateY(20px)';
-  notification.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-  
-  // Estilo baseado no tipo de notificação
-  if (type === 'error') {
-    notification.style.backgroundColor = '#e74c3c'; // vermelho suave
-  } else if (type === 'success') {
-    notification.style.backgroundColor = '#2ecc71'; // verde suave
-  } else {
-    notification.style.backgroundColor = '#3498db'; // azul suave
+// Função 1: Notificação Moderna com Barra de Progresso
+function showNotification(message, type = 'info', duration = 3000) {
+  // Verificar se a função global já existe
+  if (typeof window.showNotification === 'function' && window.showNotification !== showNotification) {
+    window.showNotification(message, type, duration);
+    return;
   }
-
-  document.body.appendChild(notification);
-
-  // Forçar reflow para ativar a transição
+  
+  // Crie um container para a notificação se não existir
+  let notificationContainer = document.getElementById('notification-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    notificationContainer.style.position = 'fixed';
+    notificationContainer.style.bottom = '20px';
+    notificationContainer.style.right = '20px';
+    notificationContainer.style.maxWidth = '100%';
+    notificationContainer.style.width = '350px';
+    notificationContainer.style.zIndex = 'var(--z-max)';
+    notificationContainer.style.display = 'flex';
+    notificationContainer.style.flexDirection = 'column';
+    notificationContainer.style.gap = 'var(--space-3)';
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Verificar se o FontAwesome está carregado, caso contrário, carregar
+  if (!document.querySelector('link[href*="fontawesome"]')) {
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.rel = 'stylesheet';
+    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeLink);
+  }
+  
+  // Determinar ícone e cor com base no tipo
+  let icon, color, bgColor, iconClass;
+  
+  switch (type) {
+    case 'error':
+      iconClass = 'fa-circle-exclamation';
+      color = 'var(--error)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    case 'success':
+      iconClass = 'fa-circle-check';
+      color = 'var(--success)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    case 'warning':
+      iconClass = 'fa-triangle-exclamation';
+      color = 'var(--warning)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    default: // info
+      iconClass = 'fa-circle-info';
+      color = 'var(--info)';
+      bgColor = 'var(--bg-primary)';
+      break;
+  }
+  
+  // Criar a notificação
+  const notification = document.createElement('div');
+  notification.style.backgroundColor = bgColor;
+  notification.style.borderLeft = `4px solid ${color}`;
+  notification.style.color = 'var(--text-primary)';
+  notification.style.padding = 'var(--space-4)';
+  notification.style.borderRadius = 'var(--radius-md)';
+  notification.style.boxShadow = 'var(--shadow-md)';
+  notification.style.display = 'flex';
+  notification.style.flexDirection = 'column';
+  notification.style.position = 'relative';
+  notification.style.overflow = 'hidden';
+  notification.style.opacity = '0';
+  notification.style.transform = 'translateX(20px)';
+  notification.style.transition = 'var(--transition-normal)';
+  notification.style.marginTop = '0px';
+  
+  // Conteúdo da notificação
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+      <i class="fa-solid ${iconClass}" style="color: ${color}; font-size: var(--text-xl);"></i>
+      <div style="flex-grow: 1;">
+        <div style="font-weight: var(--font-semibold); font-size: var(--text-base);">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+      </div>
+      <div class="close-btn" style="cursor: pointer; font-size: var(--text-lg);">
+        <i class="fa-solid fa-xmark" style="opacity: 0.7;"></i>
+      </div>
+    </div>
+    <div style="padding-left: calc(var(--text-xl) + var(--space-3)); font-size: var(--text-sm);">
+      ${message}
+    </div>
+    <div class="progress-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background-color: ${color}; transform-origin: left; transform: scaleX(1);"></div>
+  `;
+  
+  // Anexar ao container
+  notificationContainer.prepend(notification);
+  
+  // Animação de entrada
   requestAnimationFrame(() => {
     notification.style.opacity = '1';
-    notification.style.transform = 'translateY(0)';
+    notification.style.transform = 'translateX(0)';
   });
-
-  // Remover a notificação após 3 segundos
+  
+  // Configurar barra de progresso
+  const progressBar = notification.querySelector('.progress-bar');
+  progressBar.style.transition = `transform ${duration}ms linear`;
+  
+  // Iniciar a contagem regressiva
   setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateY(20px)';
+    progressBar.style.transform = 'scaleX(0)';
+  }, 10);
+  
+  // Configurar botão de fechar
+  const closeBtn = notification.querySelector('.close-btn');
+  closeBtn.addEventListener('click', () => closeNotification(notification));
+  
+  // Fechar automaticamente após a duração
+  const timeoutId = setTimeout(() => closeNotification(notification), duration);
+  
+  // Pausar o tempo quando passar o mouse por cima
+  notification.addEventListener('mouseenter', () => {
+    progressBar.style.transitionProperty = 'none';
+    clearTimeout(timeoutId);
+  });
+  
+  // Continuar quando tirar o mouse
+  notification.addEventListener('mouseleave', () => {
+    const remainingTime = duration * (parseFloat(getComputedStyle(progressBar).transform.split(', ')[0].split('(')[1]) || 0);
+    if (remainingTime > 0) {
+      progressBar.style.transition = `transform ${remainingTime}ms linear`;
+      progressBar.style.transform = 'scaleX(0)';
+      setTimeout(() => closeNotification(notification), remainingTime);
+    } else {
+      closeNotification(notification);
+    }
+  });
+  
+  // Função para fechar notificação com animação
+  function closeNotification(element) {
+    element.style.opacity = '0';
+    element.style.marginTop = `-${element.offsetHeight}px`;
+    element.style.transform = 'translateX(20px)';
+    
     setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+        
+        // Remover o container se não houver mais notificações
+        if (notificationContainer.children.length === 0) {
+          notificationContainer.remove();
+        }
       }
-    }, 400); // deve combinar com o tempo de transição
-  }, 3000);
+    }, 300);
+  }
+  
+  // Retornar um identificador que permite fechar a notificação programaticamente
+  return {
+    close: () => closeNotification(notification)
+  };
+}
+
+// Função 2: Notificação com Toast Animado
+function showToastNotification(message, type = 'info', duration = 3000) {
+  // Crie um container para a notificação se não existir
+  let toastContainer = document.getElementById('toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.top = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.maxWidth = '100%';
+    toastContainer.style.width = '350px';
+    toastContainer.style.zIndex = 'var(--z-max)';
+    toastContainer.style.display = 'flex';
+    toastContainer.style.flexDirection = 'column';
+    toastContainer.style.gap = 'var(--space-3)';
+    
+    // Torna responsivo em telas pequenas
+    const mediaQuery = `
+      @media (max-width: 480px) {
+        #toast-container {
+          width: calc(100% - 40px) !important;
+          top: 10px !important;
+          right: 20px !important;
+        }
+      }
+    `;
+    const style = document.createElement('style');
+    style.textContent = mediaQuery;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(toastContainer);
+  }
+  
+  // Verificar se o FontAwesome está carregado, caso contrário, carregar
+  if (!document.querySelector('link[href*="fontawesome"]')) {
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.rel = 'stylesheet';
+    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeLink);
+  }
+  
+  // Definir aparência com base no tipo
+  let iconClass, bgColor, textColor;
+  
+  switch (type) {
+    case 'error':
+      iconClass = 'fa-circle-xmark';
+      bgColor = 'var(--error)';
+      textColor = '#fff';
+      break;
+    case 'success':
+      iconClass = 'fa-circle-check';
+      bgColor = 'var(--success)';
+      textColor = '#fff';
+      break;
+    case 'warning':
+      iconClass = 'fa-triangle-exclamation';
+      bgColor = 'var(--warning)';
+      textColor = '#fff';
+      break;
+    default: // info
+      iconClass = 'fa-circle-info';
+      bgColor = 'var(--info)';
+      textColor = '#fff';
+      break;
+  }
+  
+  // Criar o toast
+  const toast = document.createElement('div');
+  toast.style.backgroundColor = bgColor;
+  toast.style.color = textColor;
+  toast.style.padding = 'var(--space-4)';
+  toast.style.borderRadius = 'var(--radius-md)';
+  toast.style.boxShadow = 'var(--shadow-md)';
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.justifyContent = 'space-between';
+  toast.style.gap = 'var(--space-3)';
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(-20px)';
+  toast.style.transition = 'var(--transition-normal)';
+  
+  // Conteúdo do toast
+  toast.innerHTML = `
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-grow: 1;">
+      <i class="fa-solid ${iconClass}" style="font-size: var(--text-xl);"></i>
+      <div style="font-weight: var(--font-medium); font-size: var(--text-sm); word-break: break-word;">
+        ${message}
+      </div>
+    </div>
+    <div class="close-btn" style="cursor: pointer; font-size: var(--text-lg);">
+      <i class="fa-solid fa-xmark"></i>
+    </div>
+  `;
+  
+  // Anexar ao container
+  toastContainer.appendChild(toast);
+  
+  // Animação de entrada
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+  
+  // Configurar botão de fechar
+  const closeBtn = toast.querySelector('.close-btn');
+  closeBtn.addEventListener('click', () => closeToast(toast));
+  
+  // Fechar automaticamente após a duração
+  const timeoutId = setTimeout(() => closeToast(toast), duration);
+  
+  // Pausar o tempo quando passar o mouse por cima
+  toast.addEventListener('mouseenter', () => {
+    clearTimeout(timeoutId);
+  });
+  
+  // Continuar quando tirar o mouse
+  toast.addEventListener('mouseleave', () => {
+    setTimeout(() => closeToast(toast), duration / 2);
+  });
+  
+  // Função para fechar o toast com animação
+  function closeToast(element) {
+    element.style.opacity = '0';
+    element.style.transform = 'translateY(-20px)';
+    
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+        
+        // Remover o container se não houver mais toasts
+        if (toastContainer.children.length === 0) {
+          toastContainer.remove();
+        }
+      }
+    }, 300);
+  }
+  
+  // Retornar um identificador que permite fechar o toast programaticamente
+  return {
+    close: () => closeToast(toast)
+  };
 }
 
 // Add the style for the simulation selectors

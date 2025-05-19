@@ -322,7 +322,6 @@
   overflow: hidden;
   font-family: var(--font-mono);
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-primary);
 }
 
 .terminal-header {

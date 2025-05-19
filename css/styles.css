@@ -2,7 +2,7 @@
   body {
     margin: 0;
     padding: 0;
-    background-color: var(--bg-primary);
+    background-color: transparent;
     color: var(--text-primary);
     height: 100vh;
     display: flex;
@@ -170,6 +170,7 @@
 .resizer-horizontal {
   height: 5px;
   cursor: ns-resize;
+  background-color: transparent;
 }
 
 /* Light Mode */
@@ -177,19 +178,10 @@ body.light-mode .resizer-vertical {
   background-color: #c9c9c9;
 }
 
-body.light-mode .resizer-horizontal {
-  background-color: #e0e0e0;
-}
-
 /* Dark Mode */
 body.dark-mode .resizer-vertical {
   background-color: #444;
 }
-
-body.dark-mode .resizer-horizontal {
-  background-color: #333;
-}
-
 
 /*CONTEXT MENU*/
 

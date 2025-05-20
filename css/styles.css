@@ -232,7 +232,7 @@ body.dark-mode .resizer-vertical {
   cursor: not-allowed;
 }
 
-#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #settings {
+#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #settings, #settings-project {
   background-color: var(--bg-hover);
   cursor: pointer;
   transition: background-color 0.2s;
@@ -248,6 +248,11 @@ body.dark-mode .resizer-vertical {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+#processorNameID {
+  transition: opacity 0.3s ease; /* tempo e suavização do fade */
+  display: inline-block;         /* para que opacity funcione direitinho */
 }
 
 

@@ -123,6 +123,26 @@ body {
   position: relative;
 }
 
+.tabs-container .tab {
+  border-bottom: none !important; /* Use !important to ensure it overrides any other styles */
+}
+
+/* Apply the accent border only to terminal tabs */
+.terminal-tabs .tab {
+  border-bottom: 4px solid transparent; /* Start with transparent border */
+}
+
+/* Active terminal tab */
+.terminal-tabs .tab.active {
+  border-bottom: 4px solid var(--accent-primary);
+  background-color: var(--bg-secondary); /* Optional: different background for active tab */
+}
+
+/* Make sure toolbar buttons in terminal tabs don't get the border */
+.terminal-tabs .toolbar-button {
+  border-bottom: none !important;
+}
+
 .tab.active {
   background-color: var(--bg-active);
   border-bottom: 4px solid var(--accent-primary);

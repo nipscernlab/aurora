@@ -142,7 +142,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: false,
     webPreferences: {
       nodeIntegration: true,
@@ -222,7 +222,7 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
       contextIsolation: true,
       nodeIntegration: false
     },
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: true
   });
 
@@ -315,7 +315,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -388,6 +388,7 @@ app.on('before-quit', () => {
     tray = null;
   }
 });
+
 // IPC handlers for settings management
 ipcMain.handle('get-settings', async () => {
   return await loadSettings();
@@ -2237,3 +2238,4 @@ ipcMain.on('app:reload', () => {
   app.relaunch();
   app.exit(0);
 });
+

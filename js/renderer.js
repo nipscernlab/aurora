@@ -1837,7 +1837,13 @@ document.head.appendChild(style);
 
 function renderFileTree(files, container, level = 0, parentPath = '') {
   const filteredFiles = files.filter(file => {
+    // sempre mostrar diretórios
     if (file.type === 'directory') return true;
+    
+    // esconder projectConfig.json
+    if (file.name === 'projectOriented.json') return false;
+    
+    // esconder .spf
     const extension = file.name.split('.').pop().toLowerCase();
     return extension !== 'spf';
   });
@@ -2332,62 +2338,328 @@ projectInfoButton.addEventListener('click', async () => {
   }
 });
 
-// Function to show project info in a modal dialog
 function showProjectInfoDialog(projectData) {
-  const dialog = document.createElement('dialog');
-  dialog.style.cssText = `
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    max-width: 500px;
-    background: var(--background-color, #fff);
-    color: var(--text-color, #000);
-  `;
-
-  const metadata = projectData.metadata;
-  const folderStatus = projectData.structure.folders
-    .map(folder => `
-      <div style="margin: 5px 0;">
-        <span>${folder.path}</span>
-        <span style="color: ${folder.exists ? '#4CAF50' : '#F44336'}">
-          ${folder.exists ? '<i class="fa-solid fa-check" style="color: #4dff00;"></i>' : '<i class="fa-solid fa-x" style="color: #ff0000;"></i>'}
-        </span>
-      </div>
-    `)
-    .join('');
-
-  dialog.innerHTML = `
-    <div class="project-info-dialog">
-  <h2 class="dialog-title">Project Information</h2>
-  <button id="closeDialog" class="close-button">×</button>
+  // Create the modal backdrop and container
+  const modalBackdrop = document.createElement('div');
+  modalBackdrop.className = 'aurora-modal-backdrop';
   
-  <div class="info-section">
-    <h3 class="section-title">Project Details</h3>
-    <p class="info-item"><strong>Name:</strong> ${metadata.projectName}</p>
-    <p class="info-item"><strong>Created:</strong> ${new Date(metadata.createdAt).toLocaleString()}</p>
-    <p class="info-item"><strong>Last Modified:</strong> ${new Date(metadata.lastModified).toLocaleString()}</p>
-    <p class="info-item"><strong>Computer:</strong> ${metadata.computerName}</p>
-    <p class="info-item"><strong>App Version:</strong> ${metadata.appVersion}</p>
-  </div>
+  const modalContainer = document.createElement('div');
+  modalContainer.className = 'aurora-modal-container';
+  
+  // Extract project metadata and folder structure
+  const metadata = projectData.metadata;
+  const folderStructure = projectData.structure.folders;
+  
+  // Function to list all files and folders in the project
+  const loadProjectStructure = async () => {
+    try {
+      if (window.electronAPI && window.electronAPI.listProjectFiles) {
+        const projectFiles = await window.electronAPI.listProjectFiles(metadata.projectPath || '.');
+        updateFileStructureDisplay(projectFiles);
+      }
+    } catch (error) {
+      console.error('Failed to load project structure:', error);
+      const structureContainer = document.getElementById('project-structure');
+      if (structureContainer) {
+        structureContainer.innerHTML = `
+          <div class="aurora-modal-empty-state">
+            Error loading files: ${error.message}
+          </div>
+        `;
+      }
+    }
+  };
+  
+  // Format timestamps
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp);
+    return new Intl.DateTimeFormat('default', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
 
-  <div class="info-section">
-    <h3 class="section-title">Project Structure</h3>
-    ${folderStatus}
-  </div>
-</div>
+  // Calculate project age
+  const calculateAge = (createdAt) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - created);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 1) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return `${Math.floor(diffDays / 365)} years ago`;
+  };
+
+  // Render the modal content
+  modalContainer.innerHTML = `
+    <div class="aurora-modal">
+      <div class="aurora-modal-header">
+        <h2 class="aurora-modal-title">Project Information</h2>
+        <button class="aurora-modal-close" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="aurora-modal-body">
+        <div class="aurora-modal-section">
+          <div class="aurora-modal-section-header">
+            <h3>Project Details</h3>
+            <div class="aurora-modal-badge">${metadata.appVersion}</div>
+          </div>
+          
+          <div class="aurora-modal-grid">
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Project Name</div>
+              <div class="aurora-modal-info-value">${metadata.projectName}</div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Created</div>
+              <div class="aurora-modal-info-value" title="${formatDate(metadata.createdAt)}">
+                ${calculateAge(metadata.createdAt)}
+              </div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Last Modified</div>
+              <div class="aurora-modal-info-value" title="${formatDate(metadata.lastModified)}">
+                ${calculateAge(metadata.lastModified)}
+              </div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Computer</div>
+              <div class="aurora-modal-info-value">${metadata.computerName}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="aurora-modal-section">
+          <div class="aurora-modal-section-header">
+            <h3>Project Structure</h3>
+            <div class="aurora-modal-folder-status">
+              <span id="folder-count">${folderStructure.filter(folder => folder.exists).length} / ${folderStructure.length} folders</span>
+              <button class="aurora-modal-refresh-btn" id="refresh-structure" title="Refresh Structure">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.37-2.97M22 12.5a10 10 0 0 1-18.37 2.97"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="aurora-modal-folder-list" id="project-structure">
+            <div class="aurora-modal-loading">
+              <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle class="path" cx="12" cy="12" r="10" stroke-width="4"></circle>
+              </svg>
+              <span>Loading project structure...</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="aurora-modal-section">
+          <div class="aurora-modal-section-header">
+            <h3>System Information</h3>
+          </div>
+          
+          <div class="aurora-modal-grid">
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">App Version</div>
+              <div class="aurora-modal-info-value">${metadata.appVersion}</div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Operating System</div>
+              <div class="aurora-modal-info-value" id="aurora-os-info">Loading...</div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Node Version</div>
+              <div class="aurora-modal-info-value" id="aurora-node-version">Loading...</div>
+            </div>
+            
+            <div class="aurora-modal-info-item">
+              <div class="aurora-modal-info-label">Electron Version</div>
+              <div class="aurora-modal-info-value" id="aurora-electron-version">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="aurora-modal-footer">
+        <button class="aurora-modal-button aurora-modal-button-primary">Close</button>
+      </div>
+    </div>
   `;
 
-  const closeButton = dialog.querySelector('#closeDialog');
-  closeButton.onclick = () => dialog.close();
-
-  // Close on click outside
-  dialog.addEventListener('click', (e) => {
-    if (e.target === dialog) dialog.close();
+  // Append the modal to the document body
+  document.body.appendChild(modalBackdrop);
+  document.body.appendChild(modalContainer);
+  
+  // Function to update the file structure display
+  const updateFileStructureDisplay = (fileStructure) => {
+    const structureContainer = document.getElementById('project-structure');
+    if (!structureContainer) return;
+    
+    // Clear loading indicator
+    structureContainer.innerHTML = '';
+    
+    if (!fileStructure) {
+      structureContainer.innerHTML = '<div class="aurora-modal-empty-state">No file structure data available</div>';
+      return;
+    }
+    
+    // Check if fileStructure is an array
+    if (!Array.isArray(fileStructure)) {
+      console.error('Expected array for file structure but received:', typeof fileStructure, fileStructure);
+      
+      // If it's an object with properties, try to convert it to array
+      if (typeof fileStructure === 'object' && fileStructure !== null) {
+        // Try to convert object to array if possible
+        try {
+          if (Object.keys(fileStructure).length > 0) {
+            const fileArray = Object.values(fileStructure);
+            if (Array.isArray(fileArray)) {
+              fileStructure = fileArray;
+            } else {
+              fileStructure = [fileStructure]; // Make it a single item array
+            }
+          } else {
+            fileStructure = []; // Empty object becomes empty array
+          }
+        } catch (e) {
+          fileStructure = [fileStructure]; // Make it a single item array as fallback
+        }
+      } else {
+        fileStructure = []; // Default to empty array if conversion isn't possible
+      }
+    }
+    
+    if (fileStructure.length === 0) {
+      structureContainer.innerHTML = '<div class="aurora-modal-empty-state">No files found</div>';
+      return;
+    }
+    
+    // Create a tree structure
+    const createTreeItem = (item, level = 0) => {
+      // Add defensive checks
+      if (!item) return '';
+      
+      const isFolder = item.type === 'directory';
+      const itemName = item.name || 'Unnamed item';
+      const indentation = level * 16; // 16px per level
+      
+      return `
+        <div class="aurora-modal-file-item" style="padding-left: ${indentation}px">
+          <div class="aurora-modal-file-icon ${isFolder ? 'folder' : 'file'}">
+            ${isFolder ? 
+              `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>` : 
+              `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>`
+            }
+          </div>
+          <div class="aurora-modal-file-name">${itemName}</div>
+          ${isFolder ? `<div class="aurora-modal-file-count">${item.children && Array.isArray(item.children) ? item.children.length : 0} items</div>` : ''}
+        </div>
+        ${isFolder && item.children && Array.isArray(item.children) && item.children.length > 0 
+          ? item.children.map(child => createTreeItem(child, level + 1)).join('') 
+          : ''}
+      `;
+    };
+    
+    try {
+      // Render the file structure with error handling
+      structureContainer.innerHTML = fileStructure.map(item => createTreeItem(item)).join('');
+    } catch (error) {
+      console.error('Error rendering file structure:', error);
+      structureContainer.innerHTML = `<div class="aurora-modal-empty-state">Error rendering files: ${error.message}</div>`;
+    }
+  };
+  
+  // Load the project structure
+  loadProjectStructure();
+  
+  // Add refresh button event listener
+  const refreshButton = modalContainer.querySelector('#refresh-structure');
+  if (refreshButton) {
+    refreshButton.addEventListener('click', () => {
+      const structureContainer = document.getElementById('project-structure');
+      if (structureContainer) {
+        structureContainer.innerHTML = `
+          <div class="aurora-modal-loading">
+            <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle class="path" cx="12" cy="12" r="10" stroke-width="4"></circle>
+            </svg>
+            <span>Loading project structure...</span>
+          </div>
+        `;
+      }
+      loadProjectStructure();
+    });
+  }
+  
+  // Load system information
+  if (window.electronAPI && window.electronAPI.getAppInfo) {
+    window.electronAPI.getAppInfo().then((info) => {
+      const osInfoElement = document.getElementById('aurora-os-info');
+      const nodeVersionElement = document.getElementById('aurora-node-version');
+      const electronVersionElement = document.getElementById('aurora-electron-version');
+      
+      if (osInfoElement) osInfoElement.textContent = info.osInfo || 'Unknown';
+      if (nodeVersionElement) nodeVersionElement.textContent = info.nodeVersion || 'Unknown';
+      if (electronVersionElement) electronVersionElement.textContent = info.electronVersion || 'Unknown';
+    }).catch((error) => {
+      // Handle error with more information
+      console.error('Failed to get app info:', error);
+      
+      const osInfoElement = document.getElementById('aurora-os-info');
+      const nodeVersionElement = document.getElementById('aurora-node-version');
+      const electronVersionElement = document.getElementById('aurora-electron-version');
+      
+      if (osInfoElement) osInfoElement.textContent = 'Error loading';
+      if (nodeVersionElement) nodeVersionElement.textContent = 'Error loading';
+      if (electronVersionElement) electronVersionElement.textContent = 'Error loading';
+    });
+  }
+  
+  // Add event listeners for closing the modal
+  const closeModal = () => {
+    modalBackdrop.classList.add('aurora-modal-fade-out');
+    modalContainer.classList.add('aurora-modal-fade-out');
+    
+    setTimeout(() => {
+      document.body.removeChild(modalBackdrop);
+      document.body.removeChild(modalContainer);
+    }, 300);
+  };
+  
+  modalBackdrop.addEventListener('click', closeModal);
+  
+  modalContainer.querySelector('.aurora-modal-close').addEventListener('click', closeModal);
+  modalContainer.querySelector('.aurora-modal-button').addEventListener('click', closeModal);
+  
+  modalContainer.querySelector('.aurora-modal').addEventListener('click', (e) => {
+    e.stopPropagation();
   });
-
-  document.body.appendChild(dialog);
-  dialog.showModal();
+  
+  // Trigger entrance animation
+  setTimeout(() => {
+    modalBackdrop.classList.add('aurora-modal-fade-in');
+    modalContainer.classList.add('aurora-modal-fade-in');
+  }, 10);
 }
 
 // Update loadProject function to store the current project path
@@ -2450,7 +2722,10 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'allcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'allcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+      const projectSettingsButton = document.createElement('button');
+    projectSettingsButton.disabled = false; // <-- ESSENCIAL
+
   buttons.forEach(id => {
     const button = document.getElementById(id);
     if (button) {
@@ -3026,6 +3301,21 @@ class CompilationModule {
     }
   }
 
+    startLoadingSpinner(terminal, message) {
+    const spinIcons = ['fa-circle-notch fa-spin', 'fa-spinner fa-spin', 'fa-sync fa-spin'];
+    const spinIcon = spinIcons[0]; // Usando circle-notch como solicitado
+    let dots = '';
+    
+    const interval = setInterval(() => {
+      dots = dots.length >= 3 ? '' : dots + '.';
+      this.terminalManager.updateLastLine(terminal, 
+        `<i class="fas ${spinIcon}"></i> ${message}${dots}`, 
+        'processing');
+    }, 300);
+    
+    return interval;
+  }
+
   async ensureDirectories(name) {
     try {
       // First ensure the saphoComponents directory exists
@@ -3099,8 +3389,6 @@ class CompilationModule {
   
   async asmCompilation(processor, asmPath) {
     const { name, clk, numClocks } = processor;
-    const multicoreCheckbox = document.querySelector('input[id="multicore"]');
-    const multicoreEnabled = multicoreCheckbox ? multicoreCheckbox.checked : false;
     
     try {
       // Get all required paths
@@ -3134,9 +3422,9 @@ class CompilationModule {
       
       // Then run the ASM compiler as per the batch file
       // ASM.exe %ASM_FILE% %PROC_DIR% %HDL_DIR% %TMP_PRO% %FRE_CLK% %NUM_CLK% 0
-      // The last parameter is multicore mode (0 or 1)
-      const multicoreParam = this.isProjectOriented || multicoreEnabled ? "1" : "0";
-      cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${multicoreParam}`;
+      // The last parameter is project mode (0 or 1)
+      const projectParam = this.isProjectOriented ? "1" : "0";
+      cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
 
       this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.');
       this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...`);
@@ -3653,18 +3941,29 @@ async runProjectGtkWave() {
     const vvpCmd = `cd "${tempBaseDir}" && vvp "${projectName}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
     
-    const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-    
-    if (vvpResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-    }
-    if (vvpResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-    }
-    
-    if (vvpResult.code !== 0) {
-      statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
-      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+    const spinnerInterval = this.startLoadingSpinner('twave', 'VVP simulation in progress');
+    try {
+      const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+      
+      // Parar o spinner quando terminar
+      clearInterval(spinnerInterval);
+      this.terminalManager.appendToTerminal('twave', 'VVP simulation completed', 'success');
+      
+      if (vvpResult.stdout) {
+        this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+      }
+      if (vvpResult.stderr) {
+        this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+      }
+      
+      if (vvpResult.code !== 0) {
+        statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
+        throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+      }
+    } catch (error) {
+      // Garantir que o spinner seja parado em caso de erro
+      clearInterval(spinnerInterval);
+      throw error;
     }
     
     // 5. Launch GTKWave - resolve paths properly and include working directory
@@ -3692,7 +3991,7 @@ async runProjectGtkWave() {
     if (gtkwResult.stderr) {
       this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
     }
-    
+     
     if (gtkwResult.code !== 0) {
       statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
@@ -3739,18 +4038,39 @@ async runProjectGtkWave() {
     if (this.isProjectOriented) {
       // Project-oriented mode: compile all processors, then run project verilog and GTKWave
       if (this.projectConfig && this.projectConfig.processors) {
-        // Compile each processor
+        // Track processed processor types to avoid duplicates
+        const processedTypes = new Set();
+        
+        // Compile each unique processor type
         for (const processor of this.projectConfig.processors) {
+          // Skip if we've already processed this processor type
+          if (processedTypes.has(processor.type)) {
+            this.terminalManager.appendToTerminal('tcmm', `Skipping duplicate processor type: ${processor.type}`);
+            continue;
+          }
+          
+          // Add to processed set
+          processedTypes.add(processor.type);
+          
           try {
+            // Create processor object with correct structure for compilation functions
+            const processorObj = {
+              name: processor.type,
+              type: processor.type,
+              instance: processor.instance
+            };
+            
             // First compile CMM
-            this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.name}...`);
+            this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
             switchTerminal('terminal-tcmm');
-            const asmPath = await this.cmmCompilation(processor);
-            // Then compile ASM
+            await this.ensureDirectories(processor.type);
+            const asmPath = await this.cmmCompilation(processorObj);
+            
+            // Then compile ASM - pass 1 as the project parameter
             switchTerminal('terminal-tasm');
-            await this.asmCompilation(processor, asmPath);
+            await this.asmCompilation(processorObj, asmPath);
           } catch (error) {
-            this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.name}: ${error.message}`, 'error');
+            this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
             // Continue with next processor rather than stopping entire compilation
           }
         }
@@ -3979,6 +4299,20 @@ class TerminalManager {
     });
   }
 
+  // No seu TerminalManager
+updateLastLine(terminalId, content, type = 'info') {
+  const terminal = this.terminals[terminalId];
+  if (terminal) {
+    // Remove a última linha e adiciona uma nova com o conteúdo atualizado
+    const lastLine = terminal.element.lastChild;
+    if (lastLine) {
+      lastLine.innerHTML = content;
+      lastLine.className = `terminal-line ${type}`;
+    } else {
+      this.appendToTerminal(terminalId, content, type);
+    }
+  }
+}
   // Add this to your TerminalManager class
 
 setupGoDownButton() {
@@ -4381,4 +4715,46 @@ document.getElementById('create-toplevel-folder')?.addEventListener('click', asy
     console.error("Failed to create Top Level folder:", result?.message);
     alert(result?.message || "Unknown error occurred.");
   }
+});
+
+// renderer.js
+// renderer.js
+
+// Função que limpa os dois arquivos com a config padrão
+async function clearConfigs() {
+  try {
+    // monta os caminhos
+    const projectConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
+    const processorConfigPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts', 'processorConfig.json');
+
+    // JSONs padrão
+    const defaultProjectOriented = {
+      topLevelFile: "Standard",
+      testbenchFile: "Standard",
+      gtkwaveFile: "Standard",
+      processors: [],
+      iverilogFlags: ""
+    };
+    const defaultProcessorConfig = {
+      processors: [],
+      iverilogFlags: [],
+      cmmCompFlags: [],
+      asmCompFlags: [],
+      testbenchFile: "standard",
+      gtkwFile: "standard"
+    };
+
+    // escreve os arquivos (supondo que writeFile foi exposto)
+    await window.electronAPI.writeFile(projectConfigPath, JSON.stringify(defaultProjectOriented, null, 2));
+    await window.electronAPI.writeFile(processorConfigPath, JSON.stringify(defaultProcessorConfig,  null, 2));
+
+  } catch (err) {
+    console.error('Erro ao limpar configs:', err);
+  }
+}
+
+// Antes de a janela fechar, limpa configs
+window.addEventListener('beforeunload', () => {
+  // não blocque o unload, só disparar a limpeza
+  clearConfigs();
 });

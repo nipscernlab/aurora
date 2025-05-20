@@ -191,3 +191,40 @@
 .saving-pulse {
   animation: pulse 1s infinite;
 }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;               /* permite quebrar linhas */
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;                  /* espaço entre grupos */
+  transition: all 0.3s ease;    /* transição suave */
+  padding: 0.5rem;
+}
+
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+  display: flex;
+  flex-wrap: wrap;              /* cada grupo também pode quebrar */
+  align-items: center;
+  gap: 0.5rem;                  /* espaçamento interno */
+  transition: all 0.3s ease;
+}
+
+/* Faz cada grupo ocupar linha inteira quando a largura for muito pequena */
+@media (max-width: 800px) {
+  .toolbar-left,
+  .toolbar-center,
+  .toolbar-right {
+    flex: 1 1 100%;             /* flex-grow, flex-shrink, flex-basis */
+  }
+}
+
+/* Ajuste intermediário: centralização do centro em telas médias */
+@media (min-width: 801px) and (max-width: 1100px) {
+  .toolbar-center {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

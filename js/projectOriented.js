@@ -178,13 +178,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Criar um novo botão para configuração de projeto (oculto por padrão)
     const projectSettingsButton = document.createElement('button');
     projectSettingsButton.id = 'settings-project';
-    projectSettingsButton.className = 'toolbar-button';
+    projectSettingsButton.className = 'toolbar-button disabled style="cursor: not-allowed;"';
     projectSettingsButton.setAttribute('titles', 'Project Configuration');
     projectSettingsButton.style.display = 'none'; // Início oculto
     
     // Adicionar ícone ao botão de projeto
     const projectIcon = document.createElement('i');
-    projectIcon.className = 'fa-solid fa-gear';
+    projectIcon.className = 'fa-solid fa-gear disabled style="cursor: not-allowed;"';
     projectSettingsButton.appendChild(projectIcon);
     
     // Inserir o novo botão após o botão original
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     newRow.innerHTML = `
       <div class="mconfig-select-container">
         <select class="processor-select mconfig-select">
-          <option value="">Selecione um Processador</option>
+          <option value="">Select Processor</option>
           ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
         </select>
       </div>
@@ -708,7 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
           newRow.innerHTML = `
             <div class="mconfig-select-container">
               <select class="processor-select mconfig-select">
-                <option value="">Selecione um Processador</option>
+                <option value="">Select Processor</option>
                 ${availableProcessors.map(proc => 
                   `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
                 ).join('')}
@@ -751,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Adicionar opção padrão
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Selecione um Processador';
+    defaultOption.textContent = 'Select Processor';
     selectElement.appendChild(defaultOption);
     
     // Adicionar processadores disponíveis
@@ -797,30 +797,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Função para atualizar a exibição dos tipos de processadores
-function updateProcessorStatus() {
-  const processorStatus = document.getElementById('processorNameID');
-  if (!processorStatus) {
+async function updateProcessorStatus() {
+  const el = document.getElementById('processorNameID');
+  if (!el) {
     console.warn('Processor status element not found in DOM');
     return;
   }
-  
-  // Verificar se temos processadores configurados
-  if (currentConfig && currentConfig.processors && currentConfig.processors.length > 0) {
-    // Criar uma string com todos os tipos de processadores
-    processorStatus.style.opacity = "0";
-    const processorTypes = currentConfig.processors.map(processor => processor.type);
-    const uniqueTypes = [...new Set(processorTypes)]; // Remover duplicatas
-    
-    // Criar o HTML para exibir os tipos
-    processorStatus.innerHTML = `<i class="fa-solid fa-gear"></i> ${uniqueTypes.join(' | ')}`;
-    processorStatus.classList.add('has-processors');
-    processorStatus.style.opacity = "1";
+
+  // Função auxiliar que retorna uma Promise resolvida após X milissegundos
+  const delay = ms => new Promise(res => setTimeout(res, ms));
+
+  // dispara fade-out
+  el.style.opacity = '0';
+
+  // espera o tempo da transição (300ms aqui, caso você use 0.3s no CSS)
+  await delay(300);
+
+  // agora troca o conteúdo
+  if (currentConfig?.processors?.length > 0) {
+    const types = currentConfig.processors.map(p => p.type);
+    const unique = [...new Set(types)];
+    el.innerHTML = `<i class="fa-solid fa-gear"></i> ${unique.join(' | ')}`;
+    el.classList.add('has-processors');
   } else {
-    // Caso não tenha processadores configurados
-    processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
-    processorStatus.classList.remove('has-processors');
+    el.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
+    el.classList.remove('has-processors');
   }
+
+  // dispara fade-in
+  el.style.opacity = '1';
 }
+
 
 // Modificar a função saveProjectConfiguration para chamar updateProcessorStatus após salvar
 async function saveProjectConfiguration() {

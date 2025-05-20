@@ -72,7 +72,29 @@ const projectOperations = {
   getProjectName: () => ipcRenderer.invoke("getProjectName"),
   createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  listProjectFiles: async (projectPath) => {
+    try {
+      return await ipcRenderer.invoke('list-project-files', projectPath);
+    } catch (error) {
+      console.error('Error listing project files:', error);
+      return { error: 'Failed to list project files' };
+    }
+  },
+  
+  getAppInfo: async () => {
+    try {
+      return await ipcRenderer.invoke('get-app-info');
+    } catch (error) {
+      console.error('Error getting app info:', error);
+      return {
+        appVersion: 'Unknown',
+        electronVersion: 'Unknown',
+        chromeVersion: 'Unknown',
+        nodeVersion: 'Unknown',
+        osInfo: 'Unknown'
+      };
+    }
+  },
   joinPath: (...args) => require('path').join(...args),
   deleteFolder: (path) => ipcRenderer.invoke('delete-folder', path),
   onSimulateOpenProject: (callback) => {

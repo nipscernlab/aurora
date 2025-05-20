@@ -3,271 +3,154 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aurora IDE</title>
-  <!-- Importing modern fonts from Google Fonts -->
+  <title>AURORA IDE - Splash</title>
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
+    /* Theme variables (root) */
     :root {
-      /* Color variables */
-      --aurora-primary: #6a11cb;
-      --aurora-secondary: #2575fc;
-      --aurora-accent-1: #a45fff;
-      --aurora-accent-2: #feb47b;
-      --bg-dark: #121212;
-      --text-light: #ffffff;
-      --text-dim: rgba(255, 255, 255, 0.7);
+      /* Dark theme (default) - Elegant Purple */
+      /* Base colors */
+      --bg-primary: #17151f;
+      --bg-secondary: #1e1b2c;
+      --bg-tertiary: #252236;
+      --bg-hover: #2d2a40;
+      --bg-active: #363150;
       
-      /* Animation durations */
-      --anim-duration-short: 0.5s;
-      --anim-duration-medium: 1.5s;
-      --anim-duration-long: 3s;
+      /* Purple accent palette */
+      --accent-primary: #9d7fff;
+      --accent-secondary: #7b5cd6;
+      --accent-hover: #b18fff;
+      --accent-focus: #cbb2ff;
+      --accent-muted: #6842c2;
+      
+      /* Text colors */
+      --text-primary: #e2dcff;
+      --text-secondary: #bbb2e0;
+      --text-muted: #776f97;
+      
+      /* Shadows */
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-glow: 0 0 30px rgba(157,127,255,0.6);
+      
+      /* Font families */
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
-    /* General page styling */
+    /* Reset & base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background-color: var(--bg-dark);
-      font-family: 'Inter', sans-serif;
+      width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
       overflow: hidden;
-      position: relative;
     }
 
-    /* Main container styling */
-    .splash-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    /* Splash container */
+    .splash {
+      position: relative;
       text-align: center;
-      position: relative;
-      z-index: 2;
+      padding: 2rem;
+      background: var(--bg-secondary);
+      border-radius: 1rem;
+      box-shadow: var(--shadow-md);
+      max-width: 400px;
+      width: 90%;
     }
-
-    /* Logo container with animation */
-    .logo-container {
-      position: relative;
-      width: 300px;
-      height: 300px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-
-    /* Logo styling */
-    .logo {
-      width: 180px;
-      height: auto;
-      z-index: 2;
-    }
-
-    /* Glow effect behind the logo */
-    .logo-glow {
+    .splash::before {
+      content: '';
       position: absolute;
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(106, 17, 203, 0.4) 0%, rgba(37, 117, 252, 0.2) 50%, rgba(18, 18, 18, 0) 70%);
-      animation: glow var(--anim-duration-medium) infinite alternate ease-in-out;
+      top: -50%; left: -50%; right: -50%; bottom: -50%;
+      filter: blur(100px);
+      z-index: -1;
     }
 
-    /* Animated title */
+    /* Logo */
+    .logo {
+      width: 120px; height: auto;
+      margin-bottom: 1.5rem;
+      filter: drop-shadow(var(--shadow-glow));
+    }
+
+    /* Title */
     .title {
-      color: transparent;
-      background-image: linear-gradient(135deg, var(--aurora-accent-1), var(--aurora-secondary), var(--aurora-accent-2), var(--aurora-primary));
-      background-size: 300% 300%;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
       -webkit-background-clip: text;
       background-clip: text;
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin: 0;
-      animation: gradient-shift var(--anim-duration-long) infinite alternate ease-in-out;
+      color: transparent;
+      margin-bottom: 1rem;
+      animation: shine 2s ease-in-out infinite;
     }
 
-    /* Loading indicator */
-    .loading {
-      margin-top: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .loading-text {
-      color: var(--text-light);
-      font-size: 1.1rem;
+    /* Subtitle */
+    .subtitle {
+      font-size: 1rem;
       font-weight: 300;
-      margin-bottom: 0.8rem;
-      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      letter-spacing: 0.5px;
     }
 
-    /* Progress bar container */
-    .progress-container {
-      width: 200px;
-      height: 4px;
-      background-color: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
+    /* Progress bar wrapper */
+    .progress {
+      width: 100%; height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
       overflow: hidden;
-      position: relative;
     }
-
-    /* Progress bar animation */
     .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--aurora-primary), var(--aurora-secondary));
-      border-radius: 2px;
-      animation: loading 3s infinite;
+      width: 0%; height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-focus));
+      border-radius: 4px;
+      animation: load 3s forwards;
     }
 
-    /* Background aurora effect */
-    .aurora-bg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      opacity: 0.1;
-      overflow: hidden;
-    }
-
-    .aurora-wave {
-      position: absolute;
-      width: 200%;
-      height: 200%;
-      top: -50%;
-      left: -50%;
-      background: radial-gradient(ellipse at center, rgba(106, 17, 203, 0.4) 0%, rgba(37, 117, 252, 0.2) 40%, rgba(164, 95, 255, 0.1) 60%, rgba(254, 180, 123, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
-      animation: aurora-wave var(--anim-duration-long) infinite linear;
-    }
-
-    .aurora-wave:nth-child(2) {
-      background: radial-gradient(ellipse at center, rgba(37, 117, 252, 0.3) 0%, rgba(164, 95, 255, 0.2) 40%, rgba(254, 180, 123, 0.1) 60%, rgba(106, 17, 203, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
-      animation-delay: -1s;
-      animation-duration: 4s;
-    }
-
-    .aurora-wave:nth-child(3) {
-      background: radial-gradient(ellipse at center, rgba(254, 180, 123, 0.2) 0%, rgba(106, 17, 203, 0.2) 40%, rgba(37, 117, 252, 0.1) 60%, rgba(164, 95, 255, 0.05) 80%, rgba(18, 18, 18, 0) 100%);
-      animation-delay: -2s;
-      animation-duration: 5s;
-    }
-
-    /* Version text */
+    /* Version */
     .version {
-      color: var(--text-dim);
-      font-size: 0.8rem;
-      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1.5rem;
     }
 
-    /* Keyframe animations */
-    @keyframes pulse {
-      0% {
-        transform: scale(0.95);
-      }
-      50% {
-        transform: scale(1.05);
-      }
-      100% {
-        transform: scale(0.95);
-      }
+    /* Animations */
+    @keyframes load {
+      0% { width: 0%; }
+      80% { width: 80%; }
+      100% { width: 100%; }
     }
-
-    @keyframes glow {
-      0% {
-        opacity: 0.5;
-        transform: scale(0.9);
-      }
-      100% {
-        opacity: 0.8;
-        transform: scale(1.1);
-      }
-    }
-
-    @keyframes gradient-shift {
-      0% {
-        background-position: 0% 50%;
-      }
-      100% {
-        background-position: 100% 50%;
-      }
-    }
-
-    @keyframes loading {
-      0% {
-        width: 0%;
-      }
-      50% {
-        width: 70%;
-      }
-      80% {
-        width: 80%;
-      }
-      100% {
-        width: 100%;
-      }
-    }
-
-    @keyframes aurora-wave {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+    @keyframes shine {
+      0%,100% { filter: brightness(1); }
+      50% { filter: brightness(1.2); }
     }
   </style>
 </head>
 <body>
-  <!-- Background aurora effect -->
-  <div class="aurora-bg">
-    <div class="aurora-wave"></div>
-    <div class="aurora-wave"></div>
-    <div class="aurora-wave"></div>
-  </div>
-
-  <!-- Main container for the splash screen -->
-  <div class="splash-container">
-    <div class="logo-container">
-      <div class="logo-glow"></div>
-      <img class="logo" src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE Logo">
-    </div>
-    
+  <div class="splash">
+    <img class="logo" src="../assets/icons/aurora_borealis-2.svg" alt="Aurora IDE Logo">
     <h1 class="title">AURORA IDE</h1>
-    
-    <div class="loading">
-      <p class="loading-text">Initializing environment...</p>
-      <div class="progress-container">
-        <div class="progress-bar"></div>
-      </div>
-    </div>
-    
-    <p class="version">v2.43.0</p>
+    <p class="subtitle">Empowering your next-gen projects</p>
+    <div class="progress"><div class="progress-bar"></div></div>
+    <div class="version">v2.43.0</div>
   </div>
 
-  <!-- Optional: You can add a simple script to simulate loading progress -->
+  <!-- Optional: JS to loop subtitle hints -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const loadingTextElement = document.querySelector('.loading-text');
-      const loadingTexts = [
-        'Initializing environment...',
-        'Loading components...',
-        'Preparing workspace...',
-        'Almost ready...'
-      ];
-      
-      let currentTextIndex = 0;
-      
-      setInterval(() => {
-        currentTextIndex = (currentTextIndex + 1) % loadingTexts.length;
-        loadingTextElement.textContent = loadingTexts[currentTextIndex];
-      }, 2000);
-    });
+    const hints = [
+      'Welcome to AURORA IDE!',
+      'Initializing modules...',
+      'Loading interface...',
+      'Preparing environment...',
+      'Almost there...'
+    ];
+    let idx = 0;
+    const subtitle = document.querySelector('.subtitle');
+    setInterval(() => {
+      subtitle.textContent = hints[idx++ % hints.length];
+    }, 2000);
   </script>
 </body>
 </html>

@@ -142,7 +142,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     webPreferences: {
       nodeIntegration: true,
@@ -222,7 +222,7 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
       contextIsolation: true,
       nodeIntegration: false
     },
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: true
   });
 
@@ -315,7 +315,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -425,7 +425,7 @@ function createSplashScreen() {
     splashWindow.close(); // Close splash screen
     createMainWindow(); // Create main application window
     setTimeout(checkForUpdates, 2000); // Check for updates after a delay
-  }, 1000);
+  }, 4000);
 }
 
 // Function to clear application cache

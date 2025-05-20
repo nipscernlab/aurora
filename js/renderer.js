@@ -3943,6 +3943,7 @@ async runProjectGtkWave() {
     
     const spinnerInterval = this.startLoadingSpinner('twave', 'VVP simulation in progress');
     try {
+      this.terminalManager.appendToTerminal('twave', 'VVP simulation started. Wait patiently...', 'warning');
       const vvpResult = await window.electronAPI.execCommand(vvpCmd);
       
       // Parar o spinner quando terminar

@@ -3191,24 +3191,6 @@ class CompilationModule {
       // Get the flags from config
       const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
       
-      // Check for testbench files as in the bat
-      let tbFile = this.config.testbenchFile;
-      let tbMod;
-      
-      if (tbFile && tbFile !== "standard") {
-        // Use the specified testbench file
-        const simulationFiles = await window.electronAPI.readDir(simulationPath);
-        if (simulationFiles.includes(`${tbFile}`)) {
-          tbMod = tbFile;
-        } else {
-          this.terminalManager.appendToTerminal('tveri', `Warning: Specified testbench file ${tbFile} not found. Using default.`, 'warning');
-          tbMod = `${name}_tb`;
-        }
-      } else {
-        // Copy the generated testbench to the simulation folder and use it
-        tbMod = `${name}_tb`;
-      }
-      
       // Build the list of verilog files to compile
       const verilogFiles = [
         'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
@@ -3272,7 +3254,7 @@ async iverilogProjectCompilation() {
     
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
+    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
     
     // Get processors from project configuration
     const processors = this.projectConfig.processors || [];
@@ -3326,7 +3308,7 @@ async iverilogProjectCompilation() {
     const projectName = this.projectPath.split(/[\/\\]/).pop();
     let topModuleName = testbenchFile.replace('.v', '');
     
-    if (topLevelFile && topLevelFile !== "Standard File") {
+    if (topLevelFile && topLevelFile !== "Standard") {
       topModuleName = topLevelFile.replace('.v', '');
     }
     
@@ -3393,20 +3375,24 @@ async runGtkWave(processor) {
     await window.electronAPI.writeFile(tclFilePath, tclContent);
     
     // Check for custom testbench file from config
-    let tbFile = processor.testbenchFile || "standard";
-    let tbMod;
-    
-    if (tbFile && tbFile !== "standard") {
-      // Use the specified testbench file
+          // Check for testbench files as in the bat
+      let tbFile = this.config.testbenchFile;
+       let tbMod;
+    if (this.config.testbenchFile && this.config.testbenchFile !== 'standard') {
+      // User-specified testbench
       const simulationFiles = await window.electronAPI.readDir(simulationPath);
-      if (simulationFiles.includes(`${tbFile}`)) {
-        tbMod = tbFile.replace('.v', '');
+      if (simulationFiles.includes(this.config.testbenchFile)) {
+        tbMod = this.config.testbenchFile.replace(/\.v$/i, '');
       } else {
-        this.terminalManager.appendToTerminal('twave', `Warning: Specified testbench file ${tbFile} not found. Using default.`, 'warning');
+        this.terminalManager.appendToTerminal(
+          'tveri',
+          `Warning: Specified testbench ${this.config.testbenchFile} not found in Simulation. Falling back to standard.`,
+          'warning'
+        );
         tbMod = `${name}_tb`;
       }
     } else {
-      // Use the generated testbench
+      // Standard testbench: name_tb.v
       tbMod = `${name}_tb`;
     }
     
@@ -3425,7 +3411,7 @@ async runGtkWave(processor) {
     const procFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
     
     // 1. First compile with iverilog including testbench
-    const iverilogCmd = `cd "${hdlPath}" && iverilog -s ${tbMod} -o "${outputFile}" "${await window.electronAPI.joinPath(simulationPath, tbFile)}" "${procFile}" ${verilogFilesString}`;
+    const iverilogCmd = `cd "${hdlPath}" && iverilog -s ${tbMod} -o "${outputFile}" "${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" "${procFile}" ${verilogFilesString}`;
     
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog and testbench:\n${iverilogCmd}`);
     
@@ -3530,7 +3516,7 @@ async runProjectGtkWave() {
     const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const binDir = await window.electronAPI.joinPath('saphoComponents', 'bin');
     const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
+    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
     
     // Get processors from project configuration
     const processors = this.projectConfig.processors || [];
@@ -3683,7 +3669,7 @@ async runProjectGtkWave() {
     // 5. Launch GTKWave - resolve paths properly
     let gtkwCmd;
     
-    if (gtkwaveFile && gtkwaveFile !== "Standard File") {
+    if (gtkwaveFile && gtkwaveFile !== "Standard") {
       // Use custom gtkw file
       const gtkwPath = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
       const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');

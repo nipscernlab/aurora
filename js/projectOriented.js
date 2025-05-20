@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Cria a opção "Standard" e define como selecionada por padrão
   const standardOption = document.createElement('option');
-  standardOption.value = 'Standard File';
+  standardOption.value = 'Standard';
   standardOption.textContent = 'Standard File';
   standardOption.selected = true; // <- define como default
   selectElement.appendChild(standardOption);

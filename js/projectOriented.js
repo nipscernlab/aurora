@@ -511,7 +511,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 }
 
-  
   // Antes de abrir o modal, carregar arquivos e configuração atual
   async function prepareModalBeforeOpen() {
     // Carregar processadores disponíveis
@@ -797,49 +796,78 @@ document.addEventListener('DOMContentLoaded', () => {
     return config;
   }
   
-  // Função para salvar configurações do projeto em arquivo JSON
-  async function saveProjectConfiguration() {
-    try {
-      // Verificar se temos o caminho do projeto
-      let projectPath = window.currentProjectPath;
+  // Função para atualizar a exibição dos tipos de processadores
+function updateProcessorStatus() {
+  const processorStatus = document.getElementById('processorNameID');
+  if (!processorStatus) {
+    console.warn('Processor status element not found in DOM');
+    return;
+  }
+  
+  // Verificar se temos processadores configurados
+  if (currentConfig && currentConfig.processors && currentConfig.processors.length > 0) {
+    // Criar uma string com todos os tipos de processadores
+    processorStatus.style.opacity = "0";
+    const processorTypes = currentConfig.processors.map(processor => processor.type);
+    const uniqueTypes = [...new Set(processorTypes)]; // Remover duplicatas
     
-    // Se não estiver definido, tenta obtê-lo via API
-    if (!projectPath) {
-      try {
-        projectPath = await window.electronAPI.getCurrentProject();
-        // Atualiza a variável global se encontrado
-        if (projectPath) {
-          window.currentProjectPath = projectPath;
-        }
-      } catch (err) {
-        console.warn('Falha ao obter caminho do projeto via API:', err);
-      }
+    // Criar o HTML para exibir os tipos
+    processorStatus.innerHTML = `<i class="fa-solid fa-gear"></i> ${uniqueTypes.join(' | ')}`;
+    processorStatus.classList.add('has-processors');
+    processorStatus.style.opacity = "1";
+  } else {
+    // Caso não tenha processadores configurados
+    processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
+    processorStatus.classList.remove('has-processors');
+  }
+}
+
+// Modificar a função saveProjectConfiguration para chamar updateProcessorStatus após salvar
+async function saveProjectConfiguration() {
+  try {
+    // Check if we have the project path
+    let projectPath;
+    
+    try {
+      // Use the correct API call that returns an object with projectPath
+      const projectInfo = await window.electronAPI.getCurrentProject();
+      projectPath = projectInfo.projectPath || window.currentProjectPath || localStorage.getItem('currentProjectPath');
+    } catch (err) {
+      console.warn('Failed to get project path via API:', err);
     }
     
-    // Verifica novamente se o caminho do projeto está disponível
+    // Check again if project path is available
     if (!projectPath) {
-      console.error('Caminho do projeto não disponível. Impossível salvar configuração.');
-      alert('Falha ao salvar: nenhum projeto aberto.');
+      console.error('Project path not available. Cannot save configuration.');
+      alert('Failed to save: no project open.');
       return;
     }
     
-    // Coletar dados do formulário
+    // Collect form data
     const formData = collectFormData();
     currentConfig = formData;
     
-    // Usar a função joinPath da API electron
+    // Use the joinPath function from the electron API
     const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
     
-    // Salvar em arquivo JSON
+    // Save to JSON file
     await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
     
-    console.log('Configuração do projeto salva em:', configPath);
-    console.log('Configuração salva:', currentConfig);
+    console.log('Project configuration saved at:', configPath);
+    console.log('Saved configuration:', currentConfig);
+    
+    // Atualizar a exibição dos tipos de processadores
+    updateProcessorStatus();
+    
+    // Show success notification and close modal
+    showNotification("Configuration saved successfully", 'success');
+    
   } catch (error) {
-    console.error('Erro ao salvar configuração do projeto:', error);
-    alert('Erro ao salvar configuração: ' + error.message);
+    console.error("Failed to save configuration:", error);
+    showNotification("Failed to save configuration: " + error.message, 'error');
   }
 }
+
   // Limpar todas as configurações
   function clearAllSettings() {
     // Limpar selects
@@ -891,6 +919,311 @@ document.addEventListener('DOMContentLoaded', () => {
       await prepareModalBeforeOpen();
     }
   }
+
+  // Função 1: Notificação Moderna com Barra de Progresso
+function showNotification(message, type = 'info', duration = 3000) {
+  // Verificar se a função global já existe
+  if (typeof window.showNotification === 'function' && window.showNotification !== showNotification) {
+    window.showNotification(message, type, duration);
+    return;
+  }
+  
+  // Crie um container para a notificação se não existir
+  let notificationContainer = document.getElementById('notification-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    notificationContainer.style.position = 'fixed';
+    notificationContainer.style.bottom = '20px';
+    notificationContainer.style.right = '20px';
+    notificationContainer.style.maxWidth = '100%';
+    notificationContainer.style.width = '350px';
+    notificationContainer.style.zIndex = 'var(--z-max)';
+    notificationContainer.style.display = 'flex';
+    notificationContainer.style.flexDirection = 'column';
+    notificationContainer.style.gap = 'var(--space-3)';
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Verificar se o FontAwesome está carregado, caso contrário, carregar
+  if (!document.querySelector('link[href*="fontawesome"]')) {
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.rel = 'stylesheet';
+    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeLink);
+  }
+  
+  // Determinar ícone e cor com base no tipo
+  let icon, color, bgColor, iconClass;
+  
+  switch (type) {
+    case 'error':
+      iconClass = 'fa-circle-exclamation';
+      color = 'var(--error)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    case 'success':
+      iconClass = 'fa-circle-check';
+      color = 'var(--success)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    case 'warning':
+      iconClass = 'fa-triangle-exclamation';
+      color = 'var(--warning)';
+      bgColor = 'var(--bg-primary)';
+      break;
+    default: // info
+      iconClass = 'fa-circle-info';
+      color = 'var(--info)';
+      bgColor = 'var(--bg-primary)';
+      break;
+  }
+  
+  // Criar a notificação
+  const notification = document.createElement('div');
+  notification.style.backgroundColor = bgColor;
+  notification.style.borderLeft = `4px solid ${color}`;
+  notification.style.color = 'var(--text-primary)';
+  notification.style.padding = 'var(--space-4)';
+  notification.style.borderRadius = 'var(--radius-md)';
+  notification.style.boxShadow = 'var(--shadow-md)';
+  notification.style.display = 'flex';
+  notification.style.flexDirection = 'column';
+  notification.style.position = 'relative';
+  notification.style.overflow = 'hidden';
+  notification.style.opacity = '0';
+  notification.style.transform = 'translateX(20px)';
+  notification.style.transition = 'var(--transition-normal)';
+  notification.style.marginTop = '0px';
+  
+  // Conteúdo da notificação
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+      <i class="fa-solid ${iconClass}" style="color: ${color}; font-size: var(--text-xl);"></i>
+      <div style="flex-grow: 1;">
+        <div style="font-weight: var(--font-semibold); font-size: var(--text-base);">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+      </div>
+      <div class="close-btn" style="cursor: pointer; font-size: var(--text-lg);">
+        <i class="fa-solid fa-xmark" style="opacity: 0.7;"></i>
+      </div>
+    </div>
+    <div style="padding-left: calc(var(--text-xl) + var(--space-3)); font-size: var(--text-sm);">
+      ${message}
+    </div>
+    <div class="progress-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background-color: ${color}; transform-origin: left; transform: scaleX(1);"></div>
+  `;
+  
+  // Anexar ao container
+  notificationContainer.prepend(notification);
+  
+  // Animação de entrada
+  requestAnimationFrame(() => {
+    notification.style.opacity = '1';
+    notification.style.transform = 'translateX(0)';
+  });
+  
+  // Configurar barra de progresso
+  const progressBar = notification.querySelector('.progress-bar');
+  progressBar.style.transition = `transform ${duration}ms linear`;
+  
+  // Iniciar a contagem regressiva
+  setTimeout(() => {
+    progressBar.style.transform = 'scaleX(0)';
+  }, 10);
+  
+  // Configurar botão de fechar
+  const closeBtn = notification.querySelector('.close-btn');
+  closeBtn.addEventListener('click', () => closeNotification(notification));
+  
+  // Fechar automaticamente após a duração
+  const timeoutId = setTimeout(() => closeNotification(notification), duration);
+  
+  // Pausar o tempo quando passar o mouse por cima
+  notification.addEventListener('mouseenter', () => {
+    progressBar.style.transitionProperty = 'none';
+    clearTimeout(timeoutId);
+  });
+  
+  // Continuar quando tirar o mouse
+  notification.addEventListener('mouseleave', () => {
+    const remainingTime = duration * (parseFloat(getComputedStyle(progressBar).transform.split(', ')[0].split('(')[1]) || 0);
+    if (remainingTime > 0) {
+      progressBar.style.transition = `transform ${remainingTime}ms linear`;
+      progressBar.style.transform = 'scaleX(0)';
+      setTimeout(() => closeNotification(notification), remainingTime);
+    } else {
+      closeNotification(notification);
+    }
+  });
+  
+  // Função para fechar notificação com animação
+  function closeNotification(element) {
+    element.style.opacity = '0';
+    element.style.marginTop = `-${element.offsetHeight}px`;
+    element.style.transform = 'translateX(20px)';
+    
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+        
+        // Remover o container se não houver mais notificações
+        if (notificationContainer.children.length === 0) {
+          notificationContainer.remove();
+        }
+      }
+    }, 300);
+  }
+  
+  // Retornar um identificador que permite fechar a notificação programaticamente
+  return {
+    close: () => closeNotification(notification)
+  };
+}
+
+// Função 2: Notificação com Toast Animado
+function showToastNotification(message, type = 'info', duration = 3000) {
+  // Crie um container para a notificação se não existir
+  let toastContainer = document.getElementById('toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.top = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.maxWidth = '100%';
+    toastContainer.style.width = '350px';
+    toastContainer.style.zIndex = 'var(--z-max)';
+    toastContainer.style.display = 'flex';
+    toastContainer.style.flexDirection = 'column';
+    toastContainer.style.gap = 'var(--space-3)';
+    
+    // Torna responsivo em telas pequenas
+    const mediaQuery = `
+      @media (max-width: 480px) {
+        #toast-container {
+          width: calc(100% - 40px) !important;
+          top: 10px !important;
+          right: 20px !important;
+        }
+      }
+    `;
+    const style = document.createElement('style');
+    style.textContent = mediaQuery;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(toastContainer);
+  }
+  
+  // Verificar se o FontAwesome está carregado, caso contrário, carregar
+  if (!document.querySelector('link[href*="fontawesome"]')) {
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.rel = 'stylesheet';
+    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeLink);
+  }
+  
+  // Definir aparência com base no tipo
+  let iconClass, bgColor, textColor;
+  
+  switch (type) {
+    case 'error':
+      iconClass = 'fa-circle-xmark';
+      bgColor = 'var(--error)';
+      textColor = '#fff';
+      break;
+    case 'success':
+      iconClass = 'fa-circle-check';
+      bgColor = 'var(--success)';
+      textColor = '#fff';
+      break;
+    case 'warning':
+      iconClass = 'fa-triangle-exclamation';
+      bgColor = 'var(--warning)';
+      textColor = '#fff';
+      break;
+    default: // info
+      iconClass = 'fa-circle-info';
+      bgColor = 'var(--info)';
+      textColor = '#fff';
+      break;
+  }
+  
+  // Criar o toast
+  const toast = document.createElement('div');
+  toast.style.backgroundColor = bgColor;
+  toast.style.color = textColor;
+  toast.style.padding = 'var(--space-4)';
+  toast.style.borderRadius = 'var(--radius-md)';
+  toast.style.boxShadow = 'var(--shadow-md)';
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.justifyContent = 'space-between';
+  toast.style.gap = 'var(--space-3)';
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(-20px)';
+  toast.style.transition = 'var(--transition-normal)';
+  
+  // Conteúdo do toast
+  toast.innerHTML = `
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-grow: 1;">
+      <i class="fa-solid ${iconClass}" style="font-size: var(--text-xl);"></i>
+      <div style="font-weight: var(--font-medium); font-size: var(--text-sm); word-break: break-word;">
+        ${message}
+      </div>
+    </div>
+    <div class="close-btn" style="cursor: pointer; font-size: var(--text-lg);">
+      <i class="fa-solid fa-xmark"></i>
+    </div>
+  `;
+  
+  // Anexar ao container
+  toastContainer.appendChild(toast);
+  
+  // Animação de entrada
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+  
+  // Configurar botão de fechar
+  const closeBtn = toast.querySelector('.close-btn');
+  closeBtn.addEventListener('click', () => closeToast(toast));
+  
+  // Fechar automaticamente após a duração
+  const timeoutId = setTimeout(() => closeToast(toast), duration);
+  
+  // Pausar o tempo quando passar o mouse por cima
+  toast.addEventListener('mouseenter', () => {
+    clearTimeout(timeoutId);
+  });
+  
+  // Continuar quando tirar o mouse
+  toast.addEventListener('mouseleave', () => {
+    setTimeout(() => closeToast(toast), duration / 2);
+  });
+  
+  // Função para fechar o toast com animação
+  function closeToast(element) {
+    element.style.opacity = '0';
+    element.style.transform = 'translateY(-20px)';
+    
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+        
+        // Remover o container se não houver mais toasts
+        if (toastContainer.children.length === 0) {
+          toastContainer.remove();
+        }
+      }
+    }, 300);
+  }
+  
+  // Retornar um identificador que permite fechar o toast programaticamente
+  return {
+    close: () => closeToast(toast)
+  };
+}
   
   // Exportar funções que precisam ser acessadas externamente
   window.projectOrientedConfig = {

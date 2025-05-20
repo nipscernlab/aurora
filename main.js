@@ -142,7 +142,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     webPreferences: {
       nodeIntegration: true,
@@ -222,7 +222,7 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
       contextIsolation: true,
       nodeIntegration: false
     },
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: true
   });
 
@@ -315,7 +315,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -1745,7 +1745,6 @@ ipcMain.handle('delete-folder', async (_, folderPath) => {
 });
 
 
-// Handler to create a "TopLevel" folder and a Verilog (.v) file
 ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
   if (!projectPath) {
     console.error("No project open");
@@ -1756,32 +1755,25 @@ ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
   }
 
   try {
-    const topLevelFolderPath = path.join(projectPath, "TopLevel");
+    const topLevelFolderPath = path.join(projectPath, "Top Level");
     const topLevelExists = await fse.pathExists(topLevelFolderPath);
 
     if (!topLevelExists) {
       await fse.ensureDir(topLevelFolderPath);
     }
 
-    const result = await dialog.showSaveDialog({
-      title: 'Create Verilog File',
-      defaultPath: path.join(topLevelFolderPath, ''),
-      filters: [{ name: 'Verilog Files', extensions: ['v'] }]
-    });
+    // Crie um arquivo .v padrão dentro da pasta
+    const defaultFile = path.join(topLevelFolderPath, "top_module.v");
+    const defaultContent = `// Top-level Verilog module\nmodule top_module();\n\nendmodule\n`;
 
-    if (!result.canceled && result.filePath) {
-      await fse.writeFile(result.filePath, '');
-      return { 
-        success: true, 
-        message: `Verilog file created at: ${result.filePath}`,
-        filePath: result.filePath
-      };
-    } else {
-      return { 
-        success: false, 
-        message: 'File creation canceled'
-      };
+    if (!await fse.pathExists(defaultFile)) {
+      await fse.writeFile(defaultFile, defaultContent);
     }
+
+    return { 
+      success: true,
+      message: "Top Level folder and file created successfully."
+    };
 
   } catch (error) {
     console.error("Error in process:", error);
@@ -1791,6 +1783,7 @@ ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
     };
   }
 });
+
 
 
 // Handler to start a terminal (CMD) process

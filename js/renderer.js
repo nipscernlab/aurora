@@ -2161,6 +2161,7 @@ document.addEventListener('refresh-file-tree', () => {
   refreshFileTree();
 });
 
+
 //PROJECT BUTTON ==========================================================================================================================================================
 
 let currentProjectPath = null; // Store the current project path
@@ -3313,7 +3314,7 @@ async iverilogProjectCompilation() {
     }
     
     // Resolve output path
-    const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}_verify.out`);
+    const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}`);
     
     const cmd = `cd "${tempBaseDir}" && iverilog ${flags} -s ${topModuleName} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
     
@@ -3666,19 +3667,19 @@ async runProjectGtkWave() {
       throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
     }
     
-    // 5. Launch GTKWave - resolve paths properly
+    // 5. Launch GTKWave - resolve paths properly and include working directory
     let gtkwCmd;
     
     if (gtkwaveFile && gtkwaveFile !== "Standard") {
       // Use custom gtkw file
       const gtkwPath = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
       const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `gtkwave --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
+      gtkwCmd = `cd "${tempBaseDir}" && gtkwave --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
     } else {
       // Use standard project init script
       const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
       const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-      gtkwCmd = `gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+      gtkwCmd = `cd "${tempBaseDir}" && gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
     }
     
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
@@ -3708,11 +3709,10 @@ async runProjectGtkWave() {
 }
   
 
-  async compileAll() {
+ async compileAll() {
   try {
-
-      // Function to switch between terminal tabs
-      function switchTerminal(targetId) {
+    // Function to switch between terminal tabs
+    function switchTerminal(targetId) {
       // Hide all terminal content sections
       const terminalContents = document.querySelectorAll('.terminal-content');
       terminalContents.forEach(content => content.classList.add('hidden'));
@@ -3734,19 +3734,6 @@ async runProjectGtkWave() {
 
     // Load configurations
     await this.loadConfig();
-    // Ensure temp directories exist for all processors
-    if (this.isProjectOriented) {
-      // For project-oriented, ensure temp directories for all processors in the project
-      if (this.projectConfig && this.projectConfig.processors) {
-        for (const processor of this.projectConfig.processors) {
-          await this.ensureDirectories(processor.name);
-        }
-      }
-    } else {
-      // For processor-oriented, ensure temp directory for the current processor
-      const processor = this.config.processors[0];
-      await this.ensureDirectories(processor.name);
-    }
     
     // Different compilation flow based on mode
     if (this.isProjectOriented) {
@@ -3778,8 +3765,16 @@ async runProjectGtkWave() {
       await this.runProjectGtkWave();
       
     } else {
-      // Processor-oriented mode: run full pipeline for single processor
-      const processor = this.config.processors[0];
+      // Processor-oriented mode: run full pipeline for active processor only
+      const activeProcessor = this.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
+      }
+      
+      const processor = activeProcessor;
+      
+      // Ensure temp directory for the active processor
+      await this.ensureDirectories(processor.name);
       
       // CMM compilation
       const asmPath = await this.cmmCompilation(processor);
@@ -3835,86 +3830,106 @@ class CompilationButtonManager {
   }
 
   async setupEventListeners() {
-    // CMM Compilation
-    document.getElementById('cmmcomp').addEventListener('click', async () => {
-      try {
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        const processor = this.compiler.config.processors[0]; // Assumindo primeiro processador
-        await this.compiler.ensureDirectories(processor.name);
-        const asmPath = await this.compiler.cmmCompilation(processor);
-        
-        // Atualiza a file tree após a compilação
-        await refreshFileTree();
-      } catch (error) {
-        console.error('CMM compilation error:', error);
+  // CMM Compilation
+  document.getElementById('cmmcomp').addEventListener('click', async () => {
+    try {
+      if (!this.compiler) this.initializeCompiler();
+      
+      await this.compiler.loadConfig();
+      // Get the active processor instead of the first one
+      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
       }
-    });
+      
+      const processor = activeProcessor;
+      await this.compiler.ensureDirectories(processor.name);
+      const asmPath = await this.compiler.cmmCompilation(processor);
+      
+      // Atualiza a file tree após a compilação
+      await refreshFileTree();
+    } catch (error) {
+      console.error('CMM compilation error:', error);
+    }
+  });
 
-    // ASM Compilation
-    document.getElementById('asmcomp').addEventListener('click', async () => {
-      try {
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        const processor = this.compiler.config.processors[0];
-        
-        // Encontrar o arquivo .asm mais recente
-        const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
-        const files = await window.electronAPI.readDir(softwarePath);
-        const asmFile = files.find(file => file.endsWith('.asm'));
-        
-        if (!asmFile) {
-          throw new Error('No .asm file found. Please compile CMM first.');
-        }
-
-        const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
-        await this.compiler.asmCompilation(processor, asmPath);
-        
-        // Atualiza a file tree após a compilação
-        await refreshFileTree();
-      } catch (error) {
-        console.error('ASM compilation error:', error);
+  // ASM Compilation
+  document.getElementById('asmcomp').addEventListener('click', async () => {
+    try {
+      if (!this.compiler) this.initializeCompiler();
+      
+      await this.compiler.loadConfig();
+      // Get the active processor instead of the first one
+      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
       }
-    });
-
-    // Verilog Compilation
-    document.getElementById('vericomp').addEventListener('click', async () => {
-      try {
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        const processor = this.compiler.config.processors[0];
-    
-
-        await this.compiler.iverilogCompilation(processor);
-        
-        // Atualiza a file tree após a compilação
-        await refreshFileTree();
-      } catch (error) {
-        console.error('Verilog compilation error:', error);
+      
+      const processor = activeProcessor;
+      
+      // Encontrar o arquivo .asm mais recente
+      const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
+      const files = await window.electronAPI.readDir(softwarePath);
+      const asmFile = files.find(file => file.endsWith('.asm'));
+      
+      if (!asmFile) {
+        throw new Error('No .asm file found. Please compile CMM first.');
       }
-    });
 
-    // Simulation Compilation
-    document.getElementById('wavecomp').addEventListener('click', async () => {
-      try {
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        const processor = this.compiler.config.processors[0];
-        
-        await this.compiler.runGtkWave(processor);
-        // Atualiza a file tree após a compilação
-        await refreshFileTree();
-      } catch (error) {
-        console.error('Verilog compilation error:', error);
+      const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
+      await this.compiler.asmCompilation(processor, asmPath);
+      
+      // Atualiza a file tree após a compilação
+      await refreshFileTree();
+    } catch (error) {
+      console.error('ASM compilation error:', error);
+    }
+  });
+
+  // Verilog Compilation
+  document.getElementById('vericomp').addEventListener('click', async () => {
+    try {
+      if (!this.compiler) this.initializeCompiler();
+      
+      await this.compiler.loadConfig();
+      // Get the active processor instead of the first one
+      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
       }
-    });
-   
+      
+      const processor = activeProcessor;
+      await this.compiler.iverilogCompilation(processor);
+      
+      // Atualiza a file tree após a compilação
+      await refreshFileTree();
+    } catch (error) {
+      console.error('Verilog compilation error:', error);
+    }
+  });
 
-  }
+  // Simulation Compilation
+  document.getElementById('wavecomp').addEventListener('click', async () => {
+    try {
+      if (!this.compiler) this.initializeCompiler();
+      
+      await this.compiler.loadConfig();
+      // Get the active processor instead of the first one
+      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
+      }
+      
+      const processor = activeProcessor;
+      await this.compiler.runGtkWave(processor);
+      
+      // Atualiza a file tree após a compilação
+      await refreshFileTree();
+    } catch (error) {
+      console.error('GTKWave execution error:', error);
+    }
+  });
+}
 }
 
 // Inicializa o gerenciador quando a janela carregar
@@ -4356,3 +4371,14 @@ async function refactorCode(code) {
   }
 }
 
+document.getElementById('create-toplevel-folder')?.addEventListener('click', async () => {
+  const result = await window.electronAPI.createTopLevel(currentProjectPath);
+
+  if (result?.success) {
+    console.log("Top Level folder created successfully.");
+    refreshFileTree();
+  } else {
+    console.error("Failed to create Top Level folder:", result?.message);
+    alert(result?.message || "Unknown error occurred.");
+  }
+});

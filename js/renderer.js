@@ -1547,22 +1547,22 @@ function showCardNotification(message, type = 'info', duration = 3000) {
     case 'error':
       iconClass = 'fa-bolt';
       accentColor = 'var(--error)';
-      title = 'Erro';
+      title = 'Error';
       break;
     case 'success':
       iconClass = 'fa-check-double';
       accentColor = 'var(--success)';
-      title = 'Sucesso';
+      title = 'Success';
       break;
     case 'warning':
       iconClass = 'fa-bell';
       accentColor = 'var(--warning)';
-      title = 'Atenção';
+      title = 'Warning';
       break;
     default: // info
       iconClass = 'fa-info';
       accentColor = 'var(--info)';
-      title = 'Informação';
+      title = 'Information';
       break;
   }
   
@@ -3302,15 +3302,15 @@ class CompilationModule {
   }
 
     startLoadingSpinner(terminal, message) {
-    const spinIcons = ['fa-circle-notch fa-spin', 'fa-spinner fa-spin', 'fa-sync fa-spin'];
-    const spinIcon = spinIcons[0]; // Usando circle-notch como solicitado
+    const spinIcons = [''];
+    const spinIcon = spinIcons[1]; // Usando circle-notch como solicitado
     let dots = '';
     
     const interval = setInterval(() => {
       dots = dots.length >= 3 ? '' : dots + '.';
       this.terminalManager.updateLastLine(terminal, 
         `<i class="fas ${spinIcon}"></i> ${message}${dots}`, 
-        'processing');
+        'processing', 'warning');
     }, 300);
     
     return interval;
@@ -3377,7 +3377,7 @@ class CompilationModule {
         throw new Error(`CMM compilation failed with code ${result.code}`);
       }
 
-      this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.');
+      this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('cmm');
       return asmPath;
     } catch (error) {
@@ -3426,7 +3426,7 @@ class CompilationModule {
       const projectParam = this.isProjectOriented ? "1" : "0";
       cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
 
-      this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.');
+      this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
       this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...`);
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
       
@@ -3449,7 +3449,7 @@ class CompilationModule {
         await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
       }
       
-      this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.');
+      this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.','success');
       statusUpdater.compilationSuccess('asm');
     } catch (error) {
       this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
@@ -3476,7 +3476,8 @@ class CompilationModule {
       const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
       const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
       const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      
+      const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
+
       // Get the flags from config
       const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
       
@@ -3491,7 +3492,7 @@ class CompilationModule {
       // %IVERILOG% -s %TB_MOD% -o %TMP_PRO%\%PROC%.vvp %SIMU_DIR%\%TB_MOD%.v %UPROC%.v addr_dec.v instr_dec.v processor.v core.v ula.v
       const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
       
-      const cmd = `cd "${hdlPath}" && iverilog ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
+      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       
@@ -3520,7 +3521,7 @@ class CompilationModule {
         await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
       );
       
-      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.');
+      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('verilog');
 
       await refreshFileTree();
@@ -3544,7 +3545,8 @@ async iverilogProjectCompilation() {
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
-    
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
+
     // Get processors from project configuration
     const processors = this.projectConfig.processors || [];
     if (processors.length === 0) {
@@ -3604,7 +3606,7 @@ async iverilogProjectCompilation() {
     // Resolve output path
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}`);
     
-    const cmd = `cd "${tempBaseDir}" && iverilog ${flags} -s ${topModuleName} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
+    const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
     
     this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
     
@@ -3622,7 +3624,7 @@ async iverilogProjectCompilation() {
       throw new Error(`Icarus Verilog verification failed with code ${result.code}`);
     }
     
-    this.terminalManager.appendToTerminal('tveri', 'Project Verilog verification completed successfully.');
+    this.terminalManager.appendToTerminal('tveri', 'Project Verilog verification completed successfully.', 'success');
     statusUpdater.compilationSuccess('verilog');
 
     await refreshFileTree();
@@ -3652,7 +3654,10 @@ async runGtkWave(processor) {
     const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
     const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
     const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-    
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
+    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'vvp.exe');
+    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave' ,'bin', 'gtkwave.exe');
+
     // Create tcl_infos.txt
     const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
@@ -3700,7 +3705,7 @@ async runGtkWave(processor) {
     const procFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
     
     // 1. First compile with iverilog including testbench
-    const iverilogCmd = `cd "${hdlPath}" && iverilog -s ${tbMod} -o "${outputFile}" "${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" "${procFile}" ${verilogFilesString}`;
+    const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbMod} -o "${outputFile}" "${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" "${procFile}" ${verilogFilesString}`;
     
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog and testbench:\n${iverilogCmd}`);
     
@@ -3729,7 +3734,7 @@ async runGtkWave(processor) {
     
     // 3. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
-    const vvpCmd = `cd "${tempPath}" && vvp "${name}" -fst`;
+    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
     
     const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -3756,14 +3761,14 @@ async runGtkWave(processor) {
       const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
       const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
       
-      gtkwCmd = `cd "${tempPath}" && gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
     } else {
       // Use custom gtkw file
       const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
       const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
       const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
       
-      gtkwCmd = `gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScriptPath}"`;
+      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScriptPath}"`;
     }
     
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
@@ -3782,7 +3787,7 @@ async runGtkWave(processor) {
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
     }
     
-    this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.');
+    this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.', 'success');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
@@ -3806,7 +3811,10 @@ async runProjectGtkWave() {
     const binDir = await window.electronAPI.joinPath('saphoComponents', 'bin');
     const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
     const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
-    
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
+    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'vvp.exe');
+    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave' ,'bin', 'gtkwave.exe');
+
     // Get processors from project configuration
     const processors = this.projectConfig.processors || [];
     if (processors.length === 0) {
@@ -3864,7 +3872,7 @@ async runProjectGtkWave() {
     const projectName = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
     
-    const iverilogCmd = `cd "${tempBaseDir}" && iverilog ${flags} -s ${tbModule} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
+    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
     
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
     
@@ -3938,10 +3946,10 @@ async runProjectGtkWave() {
     
     // 4. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    const vvpCmd = `cd "${tempBaseDir}" && vvp "${projectName}" -fst`;
+    const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
     
-    const spinnerInterval = this.startLoadingSpinner('twave', 'VVP simulation in progress');
+    const spinnerInterval = this.startLoadingSpinner('twave', 'VVP simulation in progress', 'warning');
     try {
       this.terminalManager.appendToTerminal('twave', 'VVP simulation started. Wait patiently...', 'warning');
       const vvpResult = await window.electronAPI.execCommand(vvpCmd);
@@ -3974,12 +3982,12 @@ async runProjectGtkWave() {
       // Use custom gtkw file
       const gtkwPath = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
       const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `cd "${tempBaseDir}" && gtkwave --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
+      gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
     } else {
       // Use standard project init script
       const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
       const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-      gtkwCmd = `cd "${tempBaseDir}" && gtkwave --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+      gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
     }
     
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
@@ -3998,7 +4006,7 @@ async runProjectGtkWave() {
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
     }
     
-    this.terminalManager.appendToTerminal('twave', 'Project GTKWave completed successfully.');
+    this.terminalManager.appendToTerminal('twave', 'Project GTKWave completed successfully.', 'success');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
@@ -4031,7 +4039,7 @@ async runProjectGtkWave() {
         activeTab.classList.add('active');
       }
     }
-
+    startCompilation();
     // Load configurations
     await this.loadConfig();
     
@@ -4063,12 +4071,10 @@ async runProjectGtkWave() {
             
             // First compile CMM
             this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
-            switchTerminal('terminal-tcmm');
             await this.ensureDirectories(processor.type);
             const asmPath = await this.cmmCompilation(processorObj);
             
             // Then compile ASM - pass 1 as the project parameter
-            switchTerminal('terminal-tasm');
             await this.asmCompilation(processorObj, asmPath);
           } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
@@ -4089,7 +4095,7 @@ async runProjectGtkWave() {
       // Processor-oriented mode: run full pipeline for active processor only
       const activeProcessor = this.config.processors.find(p => p.isActive === true);
       if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
+        throw new Error("No active processor found. Please set one processor as active.");
       }
       
       const processor = activeProcessor;
@@ -4109,8 +4115,7 @@ async runProjectGtkWave() {
       // Run GTKWave
       await this.runGtkWave(processor);
     }
-    
-    this.terminalManager.appendToTerminal('tcmm', 'All compilation steps completed successfully.');
+    endCompilation();
     return true;
   } catch (error) {
     this.terminalManager.appendToTerminal('tcmm', `Error in compilation process: ${error.message}`, 'error');
@@ -4121,20 +4126,115 @@ async runProjectGtkWave() {
 
 }
 
+// Function to disable/enable all compilation buttons
+function setCompilationButtonsState(disabled) {
+  const buttons = [
+    'cmmcomp',
+    'asmcomp', 
+    'vericomp',
+    'wavecomp',
+    'allcomp'
+  ];
+  
+  buttons.forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.disabled = disabled;
+    }
+  });
+}
 
+// Update the compilation flags management
+function startCompilation() {
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  setCompilationButtonsState(true); // Disable all buttons
+}
+
+function endCompilation() {
+  isCompilationRunning = false;
+  compilationCanceled = false;
+  setCompilationButtonsState(false); // Enable all buttons
+}
+
+// Global flag to track compilation status
+let isCompilationRunning = false;
+let compilationCanceled = false;
+
+// Function to check if processor is configured
+function isProcessorConfigured() {
+  const processorElement = document.getElementById('processorNameID');
+  if (!processorElement) {
+    return false;
+  }
+  
+  const processorText = processorElement.textContent || processorElement.innerText;
+  return !processorText.includes('No Processor Configured');
+}
+
+
+// Pause button event listener with fixed terminal access
+document.getElementById('pause-everything').addEventListener('click', () => {
+  if (isCompilationRunning) {
+    // Cancel the compilation
+    compilationCanceled = true;
+    isCompilationRunning = false;
+    
+    // Show cancellation messages in all terminals using the global instance
+    if (terminalManager) {
+      terminalManager.appendToTerminal('tcmm', 'Compilation canceled by user', 'error');
+      terminalManager.appendToTerminal('tasm', 'Compilation canceled by user', 'error');
+      terminalManager.appendToTerminal('tveri', 'Compilation canceled by user', 'error');
+      terminalManager.appendToTerminal('twave', 'Compilation canceled by user', 'error');
+    }
+    
+    // Show notification
+    showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
+    
+    console.log('Compilation canceled by user');
+  } else {
+    // No compilation running, show info message
+    showCardNotification('No compilation process is currently running.', 'info', 3000);
+  }
+});
+
+// Updated All Compilation Handler
 document.getElementById('allcomp').addEventListener('click', async () => {
+  // Check if processor is configured
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
+    return;
+  }
+  
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
   }
-  const compiler = new CompilationModule(currentProjectPath);
-  const success = await compiler.compileAll();
-  if (success) {
-    console.log('All compilations completed successfully');
+  
+  // Set compilation flags
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  
+  try {
+    const compiler = new CompilationModule(currentProjectPath);
+    const success = await compiler.compileAll();
+    
+    if (!compilationCanceled && success) {
+      console.log('All compilations completed successfully', 'success');
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Compilation error:', error);
+      showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    // Reset compilation flags
+    isCompilationRunning = false;
+    compilationCanceled = false;
   }
 });
 
-// Gerenciador para as compilações individuais
+// Updated Compilation Button Manager
 class CompilationButtonManager {
   constructor() {
     this.compiler = null;
@@ -4151,106 +4251,225 @@ class CompilationButtonManager {
   }
 
   async setupEventListeners() {
-  // CMM Compilation
-  document.getElementById('cmmcomp').addEventListener('click', async () => {
-    try {
-      if (!this.compiler) this.initializeCompiler();
-      
-      await this.compiler.loadConfig();
-      // Get the active processor instead of the first one
-      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
+    // CMM Compilation
+    document.getElementById('cmmcomp').addEventListener('click', async () => {
+      try {
+        // Check if processor is configured
+        if (!isProcessorConfigured()) {
+          showCardNotification('Please configure a processor first before CMM compilation.', 'warning', 4000);
+          return;
+        }
+        startCompilation();
+        
+        // Set compilation flags
+        isCompilationRunning = true;
+        compilationCanceled = false;
+        
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        // Get the active processor instead of the first one
+        const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+        if (!activeProcessor) {
+          throw new Error("No active processor found. Please set isActive: true for one processor.");
+        }
+        
+        const processor = activeProcessor;
+        await this.compiler.ensureDirectories(processor.name);
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        const asmPath = await this.compiler.cmmCompilation(processor);
+        
+        // Check if canceled before completing
+        if (!compilationCanceled) {
+          // Update file tree after compilation
+          await refreshFileTree();
+        }
+      } catch (error) {
+        if (!compilationCanceled) {
+          console.error('CMM compilation error:', error);
+          showCardNotification('CMM compilation failed. Check terminal for details.', 'error', 4000);
+        }
+      } finally {
+        // Reset compilation flags
+        isCompilationRunning = false;
+        compilationCanceled = false;
+         endCompilation();
       }
-      
-      const processor = activeProcessor;
-      await this.compiler.ensureDirectories(processor.name);
-      const asmPath = await this.compiler.cmmCompilation(processor);
-      
-      // Atualiza a file tree após a compilação
-      await refreshFileTree();
-    } catch (error) {
-      console.error('CMM compilation error:', error);
-    }
-  });
+    });
 
-  // ASM Compilation
-  document.getElementById('asmcomp').addEventListener('click', async () => {
-    try {
-      if (!this.compiler) this.initializeCompiler();
-      
-      await this.compiler.loadConfig();
-      // Get the active processor instead of the first one
-      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
-      }
-      
-      const processor = activeProcessor;
-      
-      // Encontrar o arquivo .asm mais recente
-      const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
-      const files = await window.electronAPI.readDir(softwarePath);
-      const asmFile = files.find(file => file.endsWith('.asm'));
-      
-      if (!asmFile) {
-        throw new Error('No .asm file found. Please compile CMM first.');
-      }
+    // ASM Compilation
+    document.getElementById('asmcomp').addEventListener('click', async () => {
+      try {
+        // Check if processor is configured
+        if (!isProcessorConfigured()) {
+          showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
+          return;
+        }
+        startCompilation();
+        
+        // Set compilation flags
+        isCompilationRunning = true;
+        compilationCanceled = false;
+        
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        // Get the active processor instead of the first one
+        const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+        if (!activeProcessor) {
+          throw new Error("No active processor found. Please set isActive: true for one processor.");
+        }
+        
+        const processor = activeProcessor;
+        
+        // Find the most recent .asm file
+        const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
+        const files = await window.electronAPI.readDir(softwarePath);
+        const asmFile = files.find(file => file.endsWith('.asm'));
+        
+        if (!asmFile) {
+          throw new Error('No .asm file found. Please compile CMM first.');
+        }
 
-      const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
-      await this.compiler.asmCompilation(processor, asmPath);
-      
-      // Atualiza a file tree após a compilação
-      await refreshFileTree();
-    } catch (error) {
-      console.error('ASM compilation error:', error);
-    }
-  });
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
 
-  // Verilog Compilation
-  document.getElementById('vericomp').addEventListener('click', async () => {
-    try {
-      if (!this.compiler) this.initializeCompiler();
-      
-      await this.compiler.loadConfig();
-      // Get the active processor instead of the first one
-      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
+        const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
+        await this.compiler.asmCompilation(processor, asmPath);
+        
+        // Check if canceled before completing
+        if (!compilationCanceled) {
+          // Update file tree after compilation
+          await refreshFileTree();
+        }
+      } catch (error) {
+        if (!compilationCanceled) {
+          console.error('ASM compilation error:', error);
+          showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
+        }
+      } finally {
+        // Reset compilation flags
+        isCompilationRunning = false;
+        compilationCanceled = false;
+        endCompilation();
       }
-      
-      const processor = activeProcessor;
-      await this.compiler.iverilogCompilation(processor);
-      
-      // Atualiza a file tree após a compilação
-      await refreshFileTree();
-    } catch (error) {
-      console.error('Verilog compilation error:', error);
-    }
-  });
+    });
 
-  // Simulation Compilation
-  document.getElementById('wavecomp').addEventListener('click', async () => {
-    try {
-      if (!this.compiler) this.initializeCompiler();
-      
-      await this.compiler.loadConfig();
-      // Get the active processor instead of the first one
-      const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
+    // Verilog Compilation
+    document.getElementById('vericomp').addEventListener('click', async () => {
+      try {
+        // Check if processor is configured
+        if (!isProcessorConfigured()) {
+          showCardNotification('Please configure a processor first before Verilog compilation.', 'warning', 4000);
+          return;
+        }
+        
+        startCompilation();
+
+        // Set compilation flags
+        isCompilationRunning = true;
+        compilationCanceled = false;
+        
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        // Get the active processor instead of the first one
+        const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+        if (!activeProcessor) {
+          throw new Error("No active processor found. Please set isActive: true for one processor.");
+        }
+        
+        const processor = activeProcessor;
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        await this.compiler.iverilogCompilation(processor);
+        
+        // Check if canceled before completing
+        if (!compilationCanceled) {
+          // Update file tree after compilation
+          await refreshFileTree();
+        }
+      } catch (error) {
+        if (!compilationCanceled) {
+          console.error('Verilog compilation error:', error);
+          showCardNotification('Verilog compilation failed. Check terminal for details.', 'error', 4000);
+        }
+      } finally {
+        // Reset compilation flags
+        isCompilationRunning = false;
+        compilationCanceled = false;
+        endCompilation();
       }
-      
-      const processor = activeProcessor;
-      await this.compiler.runGtkWave(processor);
-      
-      // Atualiza a file tree após a compilação
-      await refreshFileTree();
-    } catch (error) {
-      console.error('GTKWave execution error:', error);
-    }
-  });
-}
+    });
+
+    // Simulation Compilation
+    document.getElementById('wavecomp').addEventListener('click', async () => {
+      try {
+        // Check if processor is configured
+        if (!isProcessorConfigured()) {
+          showCardNotification('Please configure a processor first before running GTKWave.', 'warning', 4000);
+          return;
+        }
+        startCompilation();
+        // Set compilation flags
+        isCompilationRunning = true;
+        compilationCanceled = false;
+        
+        if (!this.compiler) this.initializeCompiler();
+        
+        await this.compiler.loadConfig();
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        // Get the active processor instead of the first one
+        const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+        if (!activeProcessor) {
+          throw new Error("No active processor found. Please set isActive: true for one processor.");
+        }
+        
+        const processor = activeProcessor;
+        
+        // Check if canceled before proceeding
+        if (compilationCanceled) return;
+        
+        await this.compiler.runGtkWave(processor);
+        
+        // Check if canceled before completing
+        if (!compilationCanceled) {
+          // Update file tree after compilation
+          await refreshFileTree();
+        }
+      } catch (error) {
+        if (!compilationCanceled) {
+          console.error('GTKWave execution error:', error);
+          showCardNotification('GTKWave execution failed. Check terminal for details.', 'error', 4000);
+        }
+      } finally {
+        // Reset compilation flags
+        isCompilationRunning = false;
+        compilationCanceled = false;
+        endCompilation();
+      }
+    });
+  }
 }
 
 // Inicializa o gerenciador quando a janela carregar
@@ -4300,18 +4519,17 @@ class TerminalManager {
     });
   }
 
-  // No seu TerminalManager
+// Fixed updateLastLine method
 updateLastLine(terminalId, content, type = 'info') {
   const terminal = this.terminals[terminalId];
-  if (terminal) {
-    // Remove a última linha e adiciona uma nova com o conteúdo atualizado
-    const lastLine = terminal.element.lastChild;
-    if (lastLine) {
-      lastLine.innerHTML = content;
-      lastLine.className = `terminal-line ${type}`;
-    } else {
-      this.appendToTerminal(terminalId, content, type);
-    }
+  if (terminal && terminal.lastChild) {
+    // Update the last line with new content
+    const lastLine = terminal.lastChild;
+    lastLine.innerHTML = content;
+    lastLine.className = `terminal-line ${type}`;
+  } else if (terminal) {
+    // If no last child exists, append new content
+    this.appendToTerminal(terminalId, content, type);
   }
 }
   // Add this to your TerminalManager class
@@ -4705,37 +4923,18 @@ async function refactorCode(code) {
     return code; // Fallback para código original
   }
 }
-
-document.getElementById('create-toplevel-folder')?.addEventListener('click', async () => {
-  const result = await window.electronAPI.createTopLevel(currentProjectPath);
-
-  if (result?.success) {
-    console.log("Top Level folder created successfully.");
-    refreshFileTree();
-  } else {
-    console.error("Failed to create Top Level folder:", result?.message);
-    alert(result?.message || "Unknown error occurred.");
-  }
-});
-
 // renderer.js
-// renderer.js
+// --- CONFIG CLEARS ---
 
-// Função que limpa os dois arquivos com a config padrão
-async function clearConfigs() {
+// 1. Clear only processorConfig.json
+async function clearProcessorConfig() {
   try {
-    // monta os caminhos
-    const projectConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
-    const processorConfigPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts', 'processorConfig.json');
+    const processorConfigPath = await window.electronAPI.joinPath(
+      'saphoComponents',
+      'Scripts',
+      'processorConfig.json'
+    );
 
-    // JSONs padrão
-    const defaultProjectOriented = {
-      topLevelFile: "Standard",
-      testbenchFile: "Standard",
-      gtkwaveFile: "Standard",
-      processors: [],
-      iverilogFlags: ""
-    };
     const defaultProcessorConfig = {
       processors: [],
       iverilogFlags: [],
@@ -4745,17 +4944,56 @@ async function clearConfigs() {
       gtkwFile: "standard"
     };
 
-    // escreve os arquivos (supondo que writeFile foi exposto)
-    await window.electronAPI.writeFile(projectConfigPath, JSON.stringify(defaultProjectOriented, null, 2));
-    await window.electronAPI.writeFile(processorConfigPath, JSON.stringify(defaultProcessorConfig,  null, 2));
-
+    await window.electronAPI.writeFile(
+      processorConfigPath,
+      JSON.stringify(defaultProcessorConfig, null, 2)
+    );
+    console.log('processorConfig.json was reset to defaults');
   } catch (err) {
-    console.error('Erro ao limpar configs:', err);
+    console.error('Error clearing processorConfig.json:', err);
   }
 }
 
-// Antes de a janela fechar, limpa configs
-window.addEventListener('beforeunload', () => {
-  // não blocque o unload, só disparar a limpeza
-  clearConfigs();
-});
+// 2. Clear only projectOriented.json
+async function clearProjectConfig(projectPath) {
+  try {
+    const projectConfigPath = await window.electronAPI.joinPath(
+      projectPath,
+      'projectOriented.json'
+    );
+
+    const defaultProjectOriented = {
+      topLevelFile: "Standard",
+      testbenchFile: "Standard",
+      gtkwaveFile: "Standard",
+      processors: [],
+      iverilogFlags: ""
+    };
+
+    await window.electronAPI.writeFile(
+      projectConfigPath,
+      JSON.stringify(defaultProjectOriented, null, 2)
+    );
+    console.log('projectOriented.json was reset to defaults');
+  } catch (err) {
+    console.error('Error clearing projectOriented.json:', err);
+  }
+}
+
+// --- WIRING UP THE BUTTON ---
+
+document.getElementById('clearAll')
+  .addEventListener('click', async () => {
+    const fanBtn = document.getElementById('toggle-ui');
+
+    // Replace this with however you know "fan" is on/off
+    const fanIsActive = fanBtn.classList.contains('active');
+
+    if (fanIsActive) {
+      // Fan is ON ⇒ clear the project config
+      await clearProjectConfig(window.currentProjectPath);
+    } else {
+      // Fan is OFF ⇒ clear the processor config
+      await clearProcessorConfig();
+    }
+  });

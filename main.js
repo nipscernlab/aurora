@@ -142,7 +142,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: false,
     webPreferences: {
       nodeIntegration: true,
@@ -222,7 +222,7 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
       contextIsolation: true,
       nodeIntegration: false
     },
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: true
   });
 
@@ -315,7 +315,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -1745,48 +1745,6 @@ ipcMain.handle('delete-folder', async (_, folderPath) => {
   });
 });
 
-
-ipcMain.handle("create-toplevel-folder", async (_, projectPath) => {
-  if (!projectPath) {
-    console.error("No project open");
-    return { 
-      success: false, 
-      message: "No project open. Please open a project first." 
-    };
-  }
-
-  try {
-    const topLevelFolderPath = path.join(projectPath, "Top Level");
-    const topLevelExists = await fse.pathExists(topLevelFolderPath);
-
-    if (!topLevelExists) {
-      await fse.ensureDir(topLevelFolderPath);
-    }
-
-    // Crie um arquivo .v padrão dentro da pasta
-    const defaultFile = path.join(topLevelFolderPath, "top_module.v");
-    const defaultContent = `// Top-level Verilog module\nmodule top_module();\n\nendmodule\n`;
-
-    if (!await fse.pathExists(defaultFile)) {
-      await fse.writeFile(defaultFile, defaultContent);
-    }
-
-    return { 
-      success: true,
-      message: "Top Level folder and file created successfully."
-    };
-
-  } catch (error) {
-    console.error("Error in process:", error);
-    return { 
-      success: false, 
-      message: `Error: ${error.message}`
-    };
-  }
-});
-
-
-
 // Handler to start a terminal (CMD) process
 ipcMain.on('start-terminal', (event) => {
   const shell = spawn('cmd.exe', [], {
@@ -2061,90 +2019,142 @@ const fsPromises = {
 
 // Handlers
 
-// Criar arquivo
+// Create file handler
 ipcMain.handle('file:create', async (event, filePath) => {
   try {
-    await fsPromises.writeFile(filePath, '', 'utf8');
-    return { success: true };
+    console.log(`Creating file: ${filePath}`);
+    
+    // Normalize and resolve the path
+    const normalizedPath = path.resolve(path.normalize(filePath));
+    console.log(`Normalized path: ${normalizedPath}`);
+    
+    // Ensure parent directory exists
+    const parentDir = path.dirname(normalizedPath);
+    await fs.mkdir(parentDir, { recursive: true });
+    
+    // Create the file with empty content
+    await fs.writeFile(normalizedPath, '', 'utf8');
+    
+    console.log(`File created successfully: ${normalizedPath}`);
+    return { success: true, path: normalizedPath };
   } catch (error) {
     console.error('Error creating file:', error);
     throw new Error(`Failed to create file: ${error.message}`);
   }
 });
 
-// Criar diretório
+// Create directory handler
 ipcMain.handle('directory:create', async (event, dirPath) => {
   try {
-    await fsPromises.mkdir(dirPath, { recursive: true });
-    return { success: true };
+    console.log(`Creating directory: ${dirPath}`);
+    
+    // Normalize and resolve the path
+    const normalizedPath = path.resolve(path.normalize(dirPath));
+    console.log(`Normalized path: ${normalizedPath}`);
+    
+    // Create directory recursively
+    await fs.mkdir(normalizedPath, { recursive: true });
+    
+    console.log(`Directory created successfully: ${normalizedPath}`);
+    return { success: true, path: normalizedPath };
   } catch (error) {
     console.error('Error creating directory:', error);
     throw new Error(`Failed to create directory: ${error.message}`);
   }
 });
 
-// Renomear arquivo ou pasta
+// Rename file or directory handler
 ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
   try {
-    await fsPromises.rename(oldPath, newPath);
-    return { success: true };
+    console.log(`Renaming from: ${oldPath} to: ${newPath}`);
+    
+    // Normalize and resolve paths
+    const normalizedOldPath = path.resolve(path.normalize(oldPath));
+    const normalizedNewPath = path.resolve(path.normalize(newPath));
+    
+    console.log(`Normalized old path: ${normalizedOldPath}`);
+    console.log(`Normalized new path: ${normalizedNewPath}`);
+    
+    // Check if old path exists
+    try {
+      await fs.access(normalizedOldPath);
+    } catch (error) {
+      throw new Error(`Source path does not exist: ${normalizedOldPath}`);
+    }
+    
+    // Check if new path already exists
+    try {
+      await fs.access(normalizedNewPath);
+      throw new Error(`Destination path already exists: ${normalizedNewPath}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      // ENOENT is expected - the new path should not exist
+    }
+    
+    // Ensure parent directory exists for new path
+    const parentDir = path.dirname(normalizedNewPath);
+    await fs.mkdir(parentDir, { recursive: true });
+    
+    // Perform the rename
+    await fs.rename(normalizedOldPath, normalizedNewPath);
+    
+    console.log(`Rename completed successfully`);
+    return { success: true, oldPath: normalizedOldPath, newPath: normalizedNewPath };
   } catch (error) {
     console.error('Error renaming:', error);
     throw new Error(`Failed to rename: ${error.message}`);
   }
 });
 
-// Update the 'file:delete' handler in main.js
+// Delete file or directory handler
 ipcMain.handle('file:delete', async (event, filePath) => {
   try {
     console.log(`Attempting to delete: ${filePath}`);
-
-    // Normalize the file path
-    const normalizedPath = path.normalize(filePath);
-    console.log(`Normalized path: ${normalizedPath}`);
-
-    // Make sure to use fs.promises explicitly and consistently
-    const fsPromises = require('fs').promises;
     
-    // Check if the path exists
+    // Normalize and resolve the path
+    const normalizedPath = path.resolve(path.normalize(filePath));
+    console.log(`Normalized path: ${normalizedPath}`);
+    
+    // Check if the path exists and get stats
+    let stats;
     try {
-      const stats = await fsPromises.stat(normalizedPath);
-      console.log(`File exists. Is directory: ${stats.isDirectory()}`);
-      
-      if (stats.isDirectory()) {
-        // Remove directory recursively
-        console.log(`Deleting directory: ${normalizedPath}`);
-        await fsPromises.rm(normalizedPath, { 
-          recursive: true, 
-          force: true 
-        });
-      } else {
-        // Remove file
-        console.log(`Deleting file: ${normalizedPath}`);
-        await fsPromises.unlink(normalizedPath);
-      }
-      
-      console.log(`Successfully deleted: ${normalizedPath}`);
-      return { success: true };
+      stats = await fs.stat(normalizedPath);
     } catch (statError) {
-      console.error(`Error accessing file: ${normalizedPath}`, statError);
-      throw new Error(`File could not be accessed: ${statError.message}`);
+      if (statError.code === 'ENOENT') {
+        console.log(`Path does not exist (already deleted?): ${normalizedPath}`);
+        return { success: true, alreadyDeleted: true };
+      }
+      throw new Error(`Cannot access path: ${statError.message}`);
     }
+    
+    if (stats.isDirectory()) {
+      console.log(`Deleting directory: ${normalizedPath}`);
+      await fs.rm(normalizedPath, { 
+        recursive: true, 
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100
+      });
+    } else {
+      console.log(`Deleting file: ${normalizedPath}`);
+      await fs.unlink(normalizedPath);
+    }
+    
+    console.log(`Successfully deleted: ${normalizedPath}`);
+    return { success: true, path: normalizedPath };
   } catch (error) {
     console.error(`Error deleting ${filePath}:`, error);
     throw new Error(`Failed to delete: ${error.message}`);
   }
 });
 
-// Adicionar um handler para verificar se arquivo/pasta existe
+// Check if file/directory exists
 ipcMain.handle('file:exists', async (event, filePath) => {
   try {
-    // Normalize the file path
-    const normalizedPath = path.normalize(filePath);
-    const fsPromises = require('fs').promises;
-
-    // Use fs.promises.access instead of fsPromises.access for consistency
-    await fsPromises.access(normalizedPath, fs.constants.F_OK);
+    const normalizedPath = path.resolve(path.normalize(filePath));
+    await fs.access(normalizedPath, fs.constants.F_OK);
     console.log(`File exists check: ${normalizedPath} - EXISTS`);
     return true;
   } catch (error) {
@@ -2153,16 +2163,19 @@ ipcMain.handle('file:exists', async (event, filePath) => {
   }
 });
 
-
-// Obter diretório pai
+// Get parent directory
 ipcMain.handle('file:get-parent', async (event, filePath) => {
-  return path.dirname(filePath);
+  const normalizedPath = path.resolve(path.normalize(filePath));
+  const parentPath = path.dirname(normalizedPath);
+  console.log(`Parent of ${normalizedPath} is ${parentPath}`);
+  return parentPath;
 });
 
-// Verificar se é um diretório
+// Check if path is directory
 ipcMain.handle('file:is-directory', async (event, filePath) => {
   try {
-    const stats = await fsPromises.stat(filePath);
+    const normalizedPath = path.resolve(path.normalize(filePath));
+    const stats = await fs.stat(normalizedPath);
     return stats.isDirectory();
   } catch (error) {
     console.error('Error checking if path is directory:', error);

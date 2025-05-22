@@ -61,7 +61,6 @@
 /* Smooth Header Hover Effect */
 #refresh-button,
 #open-folder-button,
-#create-toplevel-folder,
 #backup-trash-button {
   position: relative;
   transition: color 0.3s ease;
@@ -69,7 +68,6 @@
 
 #refresh-button::after,
 #open-folder-button::after,
-#create-toplevel-folder::after,
 #backup-trash-button::after {
   content: '';
   position: absolute;
@@ -84,7 +82,6 @@
 
 #refresh-button:hover::after,
 #open-folder-button:hover::after,
-#create-toplevel-folder:hover::after,
 #backup-trash-button:hover::after {
   transform: scaleX(1);
 }

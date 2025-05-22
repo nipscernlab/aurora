@@ -48,7 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'toggle-ui' : 'Switch the IDE\'s GUI between Processor Oriented and Project Oriented modes.',
         'notpad': 'Not NotePad or ¬Pad!',
         'change-icon-btn' : 'Change the icon of the AURORA IDE. You can select any image file from your computer.',
-        'context-refactor-button': 'teste'
+        'context-refactor-button': 'teste',
+        'pause-everything': 'Pause all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
+
       };
   
     // Add mouse events to all buttons

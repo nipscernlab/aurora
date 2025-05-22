@@ -5,9 +5,9 @@ $scriptPath = $PSScriptRoot
 $rootPath = Split-Path -Path $scriptPath -Parent
 
 # Caminhos relativos ao diretório raiz
-$iverilogPath = Join-Path -Path $rootPath -ChildPath "Packages\iverilog\bin"
-$gtkwavePath = Join-Path -Path $rootPath -ChildPath "Packages\iverilog\gtkwave\bin"
-$7zPath = Join-Path -Path $rootPath -ChildPath "Packages\7-Zip"
+$iverilogPath = Join-Path -Path $rootPath -ChildPath "\iverilog\bin"
+$gtkwavePath = Join-Path -Path $rootPath -ChildPath "\iverilog\gtkwave\bin"
+$7zPath = Join-Path -Path $rootPath -ChildPath "\7-Zip"
 
 # Obtém o PATH atual
 $oldPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)

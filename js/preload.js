@@ -138,7 +138,6 @@ const projectOperations = {
     console.log("Requesting SVG:", svgPath);
     return ipcRenderer.invoke("load-svg-file", svgPath);
   },
-  createTopLevel: (folderPath) => ipcRenderer.invoke("create-toplevel-folder", folderPath),
 };
 
 const dialogOperations = {

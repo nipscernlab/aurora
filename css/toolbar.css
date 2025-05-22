@@ -117,6 +117,47 @@
   flex: 1;
 }
 
+.vvp-spinner-line {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(157, 127, 255, 0.1);
+    border-left: 3px solid var(--accent-primary);
+    border-radius: 4px;
+    margin: 8px 0;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.vvp-spinner-line.active {
+    display: flex;
+}
+
+.vvp-spinner-icon {
+    color: var(--accent-primary);
+    animation: spin 1s linear infinite;
+}
+
+.vvp-spinner-text {
+    font-weight: 500;
+}
+
+.vvp-spinner-dots {
+    color: var(--text-muted);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
 /* Estilos responsivos para a toolbar */
 .toolbar {
   display: flex;

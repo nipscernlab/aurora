@@ -8,39 +8,6 @@ let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
 
-
-class SimulationModal {
-  constructor() {
-    this.modal = null;
-    this.tbFiles = [];
-    this.gtkwFiles = [];
-    this.selectedTb = '';
-    this.selectedGtkw = '';
-    this.standardSimulation = false;
-  }
-
-  async show(hardwarePath) {
-    // Read directory contents
-    const files = await window.electronAPI.readDir(hardwarePath);
-    this.tbFiles = files.filter(file => file.endsWith('_tb.v'));
-    this.gtkwFiles = files.filter(file => file.endsWith('.gtkw'));
-
-    return new Promise((resolve) => {
-      this.createModal(resolve);
-    });
-  }
-
-  createModal(resolve) {
-    // Como a compilação será sempre padrão, resolvemos imediatamente
-    resolve({
-      standardSimulation: true,
-      selectedTb: '',    // ou outro valor padrão, se necessário
-      selectedGtkw: ''   // ou outro valor padrão, se necessário
-    });
-  }
-
-}
-
 // SHOW DIALOG =====================================================================================================================
 function showConfirmDialog(title, message) {
   return new Promise((resolve) => {
@@ -77,22 +44,12 @@ function showConfirmDialog(title, message) {
 }
 
 //MONACO EDITOR ========================================================================================================================================================
+// Enhanced EditorManager with improved theme management
 class EditorManager {
   static editors = new Map();
   static activeEditor = null;
   static editorContainer = null;
-  static currentTheme = 'cmm-dark'; // tema padrão
-
-  static initialize() {
-    this.editorContainer = document.getElementById('monaco-editor');
-    if (!this.editorContainer) {
-      console.error('Editor container not found');
-      return;
-    }
-    this.editorContainer.style.position = 'relative';
-    this.editorContainer.style.height = '100%';
-    this.editorContainer.style.width = '100%';
-  }
+  static currentTheme = 'cmm-dark';
 
   static updateOverlayVisibility() {
     const overlay = document.getElementById('editor-overlay');
@@ -123,16 +80,46 @@ class EditorManager {
     this.editorContainer.appendChild(editorDiv);
 
     const editor = monaco.editor.create(editorDiv, {
-      theme: this.currentTheme,  // Use o tema atual
+      theme: this.currentTheme,
       language: this.getLanguageFromPath(filePath),
       automaticLayout: true,
-      minimap: { enabled: true },
+      minimap: { 
+        enabled: true,
+        scale: 2,
+        showSlider: 'mouseover'
+      },
       fontSize: 14,
-      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
-      scrollBeyondLastLine: false,
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+      fontLigatures: true,
+      scrollBeyondLastLine: true,
       renderWhitespace: 'selection',
       mouseWheelZoom: true,
-      padding: { top: 10 }
+      padding: { top: 16, bottom: 16 },
+      cursorStyle: 'line',
+      cursorWidth: 2,
+      cursorBlinking: 'smooth',
+      renderLineHighlight: 'gutter',
+      lineNumbers: 'on',
+      lineNumbersMinChars: 4,
+      glyphMargin: false,
+      folding: true,
+      showFoldingControls: 'mouseover',
+      bracketPairColorization: { enabled: true },
+      guides: {
+        bracketPairs: true,
+        indentation: true
+      },
+      smoothScrolling: true,
+      scrollbar: {
+        vertical: 'auto',
+        horizontal: 'auto',
+        useShadows: false,
+        verticalHasArrows: false,
+        horizontalHasArrows: false,
+        verticalScrollbarSize: 12,
+        horizontalScrollbarSize: 12,
+        arrowSize: 0
+      }
     });
 
     this.editors.set(filePath, {
@@ -143,6 +130,7 @@ class EditorManager {
     this.updateOverlayVisibility();
     return editor;
   }
+
   static toggleEditorReadOnly(isReadOnly) {
     this.editors.forEach(({ editor }) => {
       editor.updateOptions({ readOnly: isReadOnly });
@@ -151,12 +139,20 @@ class EditorManager {
       }
     });
   }
-  // Adicione método para atualizar o tema
+
   static setTheme(isDark) {
     this.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
+    
+    // Apply to body for global theme
+    document.body.className = isDark ? 'theme-dark' : 'theme-light';
+    
+    // Apply to all editors
     this.editors.forEach(({editor}) => {
       editor.updateOptions({ theme: this.currentTheme });
     });
+    
+    // Save theme preference
+    localStorage.setItem('editorTheme', isDark ? 'dark' : 'light');
   }
 
   static initialize() {
@@ -169,10 +165,11 @@ class EditorManager {
     this.editorContainer.style.height = '100%';
     this.editorContainer.style.width = '100%';
     
-    // Forçar o tema escuro na inicialização
-    this.setTheme(true);
+    // Load saved theme preference
+    const savedTheme = localStorage.getItem('editorTheme');
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    this.setTheme(isDark);
   }
-
 
   static getLanguageFromPath(filePath) {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -233,6 +230,138 @@ class EditorManager {
   }
 }
 
+// Enhanced Monaco initialization with custom themes
+async function initMonaco() {
+  require(['vs/editor/editor.main'], function() {
+    setupCMMLanguage();
+    setupASMLanguage();
+    
+    // Define enhanced dark theme
+    monaco.editor.defineTheme('cmm-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+        { token: 'string', foreground: 'CE9178' },
+        { token: 'number', foreground: 'B5CEA8' },
+        { token: 'operator', foreground: 'D4D4D4' },
+        { token: 'delimiter', foreground: 'D4D4D4' }
+      ],
+      colors: {
+        'editor.background': '#17151f',
+        'editor.foreground': '#e2dcff',
+        'editorLineNumber.foreground': '#776f97',
+        'editorLineNumber.activeForeground': '#9d7fff',
+        'editor.selectionBackground': '#363150',
+        'editor.selectionHighlightBackground': '#2d2a40',
+        'editor.lineHighlightBackground': '#1e1b2c',
+        'editorCursor.foreground': '#9d7fff',
+        'editorWhitespace.foreground': '#776f97',
+        'editorIndentGuide.background': '#2f2a45',
+        'editorIndentGuide.activeBackground': '#9d7fff',
+        'editor.findMatchBackground': '#613d7c',
+        'editor.findMatchHighlightBackground': '#4d2d61',
+        'editorBracketMatch.background': '#613d7c',
+        'editorBracketMatch.border': '#9d7fff',
+        'scrollbar.shadow': '#00000000',
+        'scrollbarSlider.background': '#776f9720',
+        'scrollbarSlider.hoverBackground': '#776f9740',
+        'scrollbarSlider.activeBackground': '#9d7fff60',
+        'minimap.background': '#1e1b2c'
+      }
+    });
+    
+    // Define enhanced light theme
+    monaco.editor.defineTheme('cmm-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '7c4dff', fontStyle: 'bold' },
+        { token: 'string', foreground: 'A31515' },
+        { token: 'number', foreground: '098658' },
+        { token: 'operator', foreground: '000000' },
+        { token: 'delimiter', foreground: '000000' }
+      ],
+      colors: {
+        'editor.background': '#faf9ff',
+        'editor.foreground': '#2d2150',
+        'editorLineNumber.foreground': '#7c6da9',
+        'editorLineNumber.activeForeground': '#7c4dff',
+        'editor.selectionBackground': '#d5cbf2',
+        'editor.selectionHighlightBackground': '#e2dbfa',
+        'editor.lineHighlightBackground': '#f4f1ff',
+        'editorCursor.foreground': '#7c4dff',
+        'editorWhitespace.foreground': '#aaa2c3',
+        'editorIndentGuide.background': '#ded7f3',
+        'editorIndentGuide.activeBackground': '#7c4dff',
+        'editor.findMatchBackground': '#b9a3ff',
+        'editor.findMatchHighlightBackground': '#d2c7f0',
+        'editorBracketMatch.background': '#b9a3ff',
+        'editorBracketMatch.border': '#7c4dff',
+        'scrollbar.shadow': '#00000000',
+        'scrollbarSlider.background': '#7c6da920',
+        'scrollbarSlider.hoverBackground': '#7c6da940',
+        'scrollbarSlider.activeBackground': '#7c4dff60',
+        'minimap.background': '#f4f1ff'
+      }
+    });
+    
+    // Initialize with saved theme
+    const savedTheme = localStorage.getItem('editorTheme');
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    EditorManager.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
+    
+    editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), {
+      theme: EditorManager.currentTheme,
+      language: 'cmm',
+      automaticLayout: true,
+      minimap: { 
+        enabled: true,
+        scale: 2,
+        showSlider: 'mouseover'
+      },
+      fontSize: 14,
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+      fontLigatures: true,
+      scrollBeyondLastLine: true,
+      renderWhitespace: 'selection',
+      mouseWheelZoom: true,
+      padding: { top: 16, bottom: 16 },
+      cursorStyle: 'line',
+      cursorWidth: 2,
+      cursorBlinking: 'smooth',
+      renderLineHighlight: 'gutter',
+      lineNumbers: 'on',
+      lineNumbersMinChars: 4,
+      glyphMargin: false,
+      folding: true,
+      showFoldingControls: 'mouseover',
+      bracketPairColorization: { enabled: true },
+      guides: {
+        bracketPairs: true,
+        indentation: true
+      },
+      smoothScrolling: true,
+      scrollbar: {
+        vertical: 'auto',
+        horizontal: 'auto',
+        useShadows: false,
+        verticalHasArrows: false,
+        horizontalHasArrows: false,
+        verticalScrollbarSize: 12,
+        horizontalScrollbarSize: 12,
+        arrowSize: 0
+      }
+    });
+    
+    if (editorInstance) {
+      editorInstance.onDidChangeCursorPosition(updateCursorPosition);
+    }
+  });
+}
+
 
 function setupASMLanguage() {
   monaco.languages.register({ id: 'asm' });
@@ -261,7 +390,7 @@ function setupASMLanguage() {
         'SGN', 'S_SGN', 'F_SGN'  , 'SF_SGN',
         'NEG', 'NEG_M', 'P_NEG_M', 'F_NEG' , 'F_NEG_M', 'PF_NEG_M',
         'ABS', 'ABS_M', 'P_ABS_M', 'F_ABS' , 'F_ABS_M', 'PF_ABS_M',
-        'NRM', 'NRM_M', 'P_NRM_M', 'P_INN',
+        'NRM', 'NRM_M', 'P_NRM_M', 'P_INN', 'NOP',
         'I2F', 'I2F_M', 'P_I2F_M',
         'F2I', 'F2I_M', 'P_F2I_M',
         'AND', 'S_AND', 'ORR'    , 'S_ORR' , 'XOR'    , 'S_XOR'   ,
@@ -461,10 +590,10 @@ function setupCMMLanguage() {
         [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
         // StdLib functions
-        [/\b(in|out|norm|pset|abs|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+        [/\b(in|out|norm|pset|abs|sin|cos|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
         // StdLib functions
-        [/\b(in|out|norm|pset|abs|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+        [/\b(in|out|norm|pset|abs|sin|cos|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
         // Array initialization from file
         [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
@@ -556,113 +685,63 @@ function setupCMMLanguage() {
   });
 }
 
-// Função para atualizar o tema do editor
-function updateEditorTheme(isDark) {
-  const theme = isDark ? 'cmm-dark' : 'cmm-light';
-  EditorManager.editors.forEach(({editor}) => {
-    editor.updateOptions({ theme: theme });
-  });
+// Enhanced theme toggle system
+let isDarkTheme = true;
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('editorTheme');
+  isDarkTheme = savedTheme ? savedTheme === 'dark' : true;
+  
+  // Apply theme to body immediately
+  document.body.className = isDarkTheme ? 'theme-dark' : 'theme-light';
+  
+  const themeToggleBtn = document.getElementById('themeToggle');
+  const themeIcon = themeToggleBtn?.querySelector('i');
+  
+  if (themeIcon) {
+    themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
+    themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
+  }
 }
 
-// Modifique initMonaco para configurar os temas
-async function initMonaco() {
-  require(['vs/editor/editor.main'], function() {
-    // Setup CMM language e temas
-    setupCMMLanguage();
-    setupASMLanguage();
-    
-    // Registrando os temas
-    monaco.editor.defineTheme('cmm-dark', {
-      // Configuração do tema escuro
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {}
-    });
-    
-    monaco.editor.defineTheme('cmm-light', {
-      // Configuração do tema claro
-      base: 'vs',
-      inherit: true,
-      rules: [],
-      colors: {}
-    });
-    
-    // Crie o editor inicial com o tema apropriado
-    editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), {
-      theme: EditorManager.currentTheme,
-      language: 'cmm',
-      automaticLayout: true,
-      minimap: { enabled: true },
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
-      scrollBeyondLastLine: false,
-      renderWhitespace: 'selection',
-      mouseWheelZoom: true,
-      padding: { top: 10 }
-    });
-    
-    // Configura o evento de mudança de posição do cursor
-    if (editorInstance) {
-      editorInstance.onDidChangeCursorPosition(updateCursorPosition);
-    } else {
-      console.error("Editor instance is null");
-    }
-  });
+function toggleTheme() {
+  isDarkTheme = !isDarkTheme;
+  
+  const themeToggleBtn = document.getElementById('themeToggle');
+  const themeIcon = themeToggleBtn?.querySelector('i');
+  
+  if (themeIcon) {
+    themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
+    themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
+  }
+  
+  // Apply theme changes
+  EditorManager.setTheme(isDarkTheme);
 }
+
+// Initialize theme on DOM content loaded
+document.addEventListener('DOMContentLoaded', () => {
+  initializeTheme();
+  
+  const themeToggleBtn = document.getElementById('themeToggle');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+  }
+});
 
 function updateCursorPosition(e) {
-  // e é o evento com a nova posição
   if (!editorInstance) {
     console.warn("Editor ainda não inicializado!");
     return;
   }
   
-  const position = e.position; // Usando a posição do evento
+  const position = e.position;
   const statusElement = document.getElementById('editorStatus');
   
   if (statusElement && position) {
     statusElement.textContent = `Line ${position.lineNumber}, Column ${position.column}`;
   }
 }
-
-// Variável para controlar o estado do tema
-let isDarkTheme = true;
-
-// Elemento do botão
-const themeToggleBtn = document.getElementById('themeToggle');
-const themeIcon = themeToggleBtn.querySelector('i');
-
-// Função para alternar o tema
-function toggleTheme() {
-  isDarkTheme = !isDarkTheme;
-  
-  // Atualiza o ícone
-  themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
-  themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
-  
-  // Atualiza o tema do editor
-  EditorManager.setTheme(isDarkTheme);
-  
-  // Salva a preferência do usuário
-  localStorage.setItem('editorTheme', isDarkTheme ? 'dark' : 'light');
-}
-
-// Adiciona o event listener ao botão
-themeToggleBtn.addEventListener('click', toggleTheme);
-
-// Carrega a preferência salva do tema ao iniciar
-document.addEventListener('DOMContentLoaded', () => {
-  const savedTheme = localStorage.getItem('editorTheme');
-  if (savedTheme) {
-    isDarkTheme = savedTheme === 'dark';
-    // Atualiza o ícone inicial
-    themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
-    themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
-    // Aplica o tema salvo
-    EditorManager.setTheme(isDarkTheme);
-  }
-});
 //TAB MANAGER ========================================================================================================================================================
 
 class TabManager {
@@ -1006,6 +1085,7 @@ static restoreEditorState(filePath) {
       this.initSortableTabs();
 
     }
+    
 
   static addDragListeners(tab) {
     tab.addEventListener('dragstart', (e) => {
@@ -1256,6 +1336,17 @@ static async saveFile(filePath = null) {
 
 }
 
+// Add keyboard shortcut Ctrl+W to close active tab
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'w') {
+    e.preventDefault();
+    
+    if (TabManager.activeTab) {
+      TabManager.closeTab(TabManager.activeTab);
+    }
+  }
+});
+
 // Call initialization when the script loads
 TabManager.initialize();
 
@@ -1425,8 +1516,7 @@ const FileTreeState = {
 const highlightStyles = document.createElement('style');
 highlightStyles.textContent = `
   .file-tree-item.active {
-    background-color: rgba(30, 144, 255, 0.2);
-    border-radius: 4px;
+    border-left: 3px solid var(--accent-primary);
   }
   
   .file-tree-item.active span {
@@ -2350,26 +2440,6 @@ function showProjectInfoDialog(projectData) {
   const metadata = projectData.metadata;
   const folderStructure = projectData.structure.folders;
   
-  // Function to list all files and folders in the project
-  const loadProjectStructure = async () => {
-    try {
-      if (window.electronAPI && window.electronAPI.listProjectFiles) {
-        const projectFiles = await window.electronAPI.listProjectFiles(metadata.projectPath || '.');
-        updateFileStructureDisplay(projectFiles);
-      }
-    } catch (error) {
-      console.error('Failed to load project structure:', error);
-      const structureContainer = document.getElementById('project-structure');
-      if (structureContainer) {
-        structureContainer.innerHTML = `
-          <div class="aurora-modal-empty-state">
-            Error loading files: ${error.message}
-          </div>
-        `;
-      }
-    }
-  };
-  
   // Format timestamps
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
@@ -2442,29 +2512,7 @@ function showProjectInfoDialog(projectData) {
             </div>
           </div>
         </div>
-        
-        <div class="aurora-modal-section">
-          <div class="aurora-modal-section-header">
-            <h3>Project Structure</h3>
-            <div class="aurora-modal-folder-status">
-              <span id="folder-count">${folderStructure.filter(folder => folder.exists).length} / ${folderStructure.length} folders</span>
-              <button class="aurora-modal-refresh-btn" id="refresh-structure" title="Refresh Structure">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.37-2.97M22 12.5a10 10 0 0 1-18.37 2.97"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <div class="aurora-modal-folder-list" id="project-structure">
-            <div class="aurora-modal-loading">
-              <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle class="path" cx="12" cy="12" r="10" stroke-width="4"></circle>
-              </svg>
-              <span>Loading project structure...</span>
-            </div>
-          </div>
-        </div>
+
         
         <div class="aurora-modal-section">
           <div class="aurora-modal-section-header">
@@ -2588,28 +2636,6 @@ function showProjectInfoDialog(projectData) {
       structureContainer.innerHTML = `<div class="aurora-modal-empty-state">Error rendering files: ${error.message}</div>`;
     }
   };
-  
-  // Load the project structure
-  loadProjectStructure();
-  
-  // Add refresh button event listener
-  const refreshButton = modalContainer.querySelector('#refresh-structure');
-  if (refreshButton) {
-    refreshButton.addEventListener('click', () => {
-      const structureContainer = document.getElementById('project-structure');
-      if (structureContainer) {
-        structureContainer.innerHTML = `
-          <div class="aurora-modal-loading">
-            <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle class="path" cx="12" cy="12" r="10" stroke-width="4"></circle>
-            </svg>
-            <span>Loading project structure...</span>
-          </div>
-        `;
-      }
-      loadProjectStructure();
-    });
-  }
   
   // Load system information
   if (window.electronAPI && window.electronAPI.getAppInfo) {
@@ -3301,20 +3327,6 @@ class CompilationModule {
     }
   }
 
-    startLoadingSpinner(terminal, message) {
-    const spinIcons = [''];
-    const spinIcon = spinIcons[1]; // Usando circle-notch como solicitado
-    let dots = '';
-    
-    const interval = setInterval(() => {
-      dots = dots.length >= 3 ? '' : dots + '.';
-      this.terminalManager.updateLastLine(terminal, 
-        `<i class="fas ${spinIcon}"></i> ${message}${dots}`, 
-        'processing', 'warning');
-    }, 300);
-    
-    return interval;
-  }
 
   async ensureDirectories(name) {
     try {
@@ -3639,6 +3651,7 @@ async iverilogProjectCompilation() {
 async runGtkWave(processor) {
   // If we're in project-oriented mode, run the project GTKWave
   if (this.isProjectOriented) {
+    checkCancellation();
     return this.runProjectGtkWave();
   }
   
@@ -3949,13 +3962,12 @@ async runProjectGtkWave() {
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
     
-    const spinnerInterval = this.startLoadingSpinner('twave', 'VVP simulation in progress', 'warning');
-    try {
-      this.terminalManager.appendToTerminal('twave', 'VVP simulation started. Wait patiently...', 'warning');
+    this.terminalManager.appendToTerminal('twave', 'VVP simulation in progress. Wait patiently!', 'warning');
+      try {
+      showVvpSpinner();
+
       const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-      
-      // Parar o spinner quando terminar
-      clearInterval(spinnerInterval);
+       
       this.terminalManager.appendToTerminal('twave', 'VVP simulation completed', 'success');
       
       if (vvpResult.stdout) {
@@ -3970,11 +3982,10 @@ async runProjectGtkWave() {
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
     } catch (error) {
-      // Garantir que o spinner seja parado em caso de erro
-      clearInterval(spinnerInterval);
       throw error;
     }
-    
+    hideVvpSpinner();
+
     // 5. Launch GTKWave - resolve paths properly and include working directory
     let gtkwCmd;
     
@@ -3990,6 +4001,8 @@ async runProjectGtkWave() {
       gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
     }
     
+    statusUpdater.startCompilation('wave');
+
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
     
     const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
@@ -4015,6 +4028,7 @@ async runProjectGtkWave() {
     throw error;
   }
 }
+
   
 
  async compileAll() {
@@ -4068,12 +4082,12 @@ async runProjectGtkWave() {
               type: processor.type,
               instance: processor.instance
             };
-            
+            checkCancellation();
             // First compile CMM
             this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
             await this.ensureDirectories(processor.type);
             const asmPath = await this.cmmCompilation(processorObj);
-            
+            checkCancellation();
             // Then compile ASM - pass 1 as the project parameter
             await this.asmCompilation(processorObj, asmPath);
           } catch (error) {
@@ -4084,10 +4098,12 @@ async runProjectGtkWave() {
       }
       
       switchTerminal('terminal-tveri');
+      checkCancellation();
       // Run project-level iverilog compilation
       await this.iverilogProjectCompilation();
 
       switchTerminal('terminal-twave');
+      checkCancellation();
       // Run project-level GTKWave
       await this.runProjectGtkWave();
       
@@ -4102,16 +4118,16 @@ async runProjectGtkWave() {
       
       // Ensure temp directory for the active processor
       await this.ensureDirectories(processor.name);
-      
+      checkCancellation();
       // CMM compilation
       const asmPath = await this.cmmCompilation(processor);
-      
+      checkCancellation();
       // ASM compilation
       await this.asmCompilation(processor, asmPath);
-      
+      checkCancellation();
       // Verilog compilation
       await this.iverilogCompilation(processor);
-      
+      checkCancellation();
       // Run GTKWave
       await this.runGtkWave(processor);
     }
@@ -4120,13 +4136,14 @@ async runProjectGtkWave() {
   } catch (error) {
     this.terminalManager.appendToTerminal('tcmm', `Error in compilation process: ${error.message}`, 'error');
     console.error('Complete compilation failed:', error);
+    endCompilation();
     return false;
   }
 }
 
 }
 
-// Function to disable/enable all compilation buttons
+// Enhanced compilation button state management
 function setCompilationButtonsState(disabled) {
   const buttons = [
     'cmmcomp',
@@ -4140,28 +4157,44 @@ function setCompilationButtonsState(disabled) {
     const button = document.getElementById(buttonId);
     if (button) {
       button.disabled = disabled;
+      
+      // Add visual feedback with cursor and opacity
+      if (disabled) {
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.6';
+        button.style.pointerEvents = 'none';
+      } else {
+        button.style.cursor = 'pointer';
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
+      }
     }
   });
 }
 
-// Update the compilation flags management
+// Robust compilation state management
 function startCompilation() {
   isCompilationRunning = true;
   compilationCanceled = false;
-  setCompilationButtonsState(true); // Disable all buttons
+  setCompilationButtonsState(true);
+  
+  // Ensure terminal manager is available
+  if (!globalTerminalManager) {
+    initializeGlobalTerminalManager();
+  }
 }
 
 function endCompilation() {
   isCompilationRunning = false;
   compilationCanceled = false;
-  setCompilationButtonsState(false); // Enable all buttons
+  setCompilationButtonsState(false);
 }
 
 // Global flag to track compilation status
 let isCompilationRunning = false;
 let compilationCanceled = false;
 
-// Function to check if processor is configured
+// Enhanced processor configuration check
 function isProcessorConfigured() {
   const processorElement = document.getElementById('processorNameID');
   if (!processorElement) {
@@ -4173,30 +4206,44 @@ function isProcessorConfigured() {
 }
 
 
-// Pause button event listener with fixed terminal access
+
 document.getElementById('pause-everything').addEventListener('click', () => {
   if (isCompilationRunning) {
     // Cancel the compilation
-    compilationCanceled = true;
-    isCompilationRunning = false;
-    
-    // Show cancellation messages in all terminals using the global instance
-    if (terminalManager) {
-      terminalManager.appendToTerminal('tcmm', 'Compilation canceled by user', 'error');
-      terminalManager.appendToTerminal('tasm', 'Compilation canceled by user', 'error');
-      terminalManager.appendToTerminal('tveri', 'Compilation canceled by user', 'error');
-      terminalManager.appendToTerminal('twave', 'Compilation canceled by user', 'error');
-    }
-    
-    // Show notification
-    showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
-    
-    console.log('Compilation canceled by user');
+    cancelCompilation();
   } else {
     // No compilation running, show info message
     showCardNotification('No compilation process is currently running.', 'info', 3000);
   }
 });
+
+// Enhanced cancelCompilation function
+function cancelCompilation() {
+  if (isCompilationRunning) {
+    compilationCanceled = true;
+    isCompilationRunning = false;
+    
+    // Force enable buttons immediately on cancellation
+    setCompilationButtonsState(false);
+    
+
+    
+    showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
+    console.log('Compilation canceled by user');
+    
+    // Call endCompilation to ensure proper cleanup
+    endCompilation();
+  } else {
+    showCardNotification('No compilation process is currently running.', 'info', 3000);
+  }
+}
+
+// Add cancellation checks in compileAll method - insert this check at key points in your compileAll function
+function checkCancellation() {
+  if (compilationCanceled) {
+    throw new Error('Compilation canceled by user');
+  }
+}
 
 // Updated All Compilation Handler
 document.getElementById('allcomp').addEventListener('click', async () => {
@@ -4295,6 +4342,7 @@ class CompilationButtonManager {
         if (!compilationCanceled) {
           console.error('CMM compilation error:', error);
           showCardNotification('CMM compilation failed. Check terminal for details.', 'error', 4000);
+          endCompilation();
         }
       } finally {
         // Reset compilation flags
@@ -4357,6 +4405,7 @@ class CompilationButtonManager {
         if (!compilationCanceled) {
           console.error('ASM compilation error:', error);
           showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
+          endCompilation();
         }
       } finally {
         // Reset compilation flags
@@ -4410,6 +4459,7 @@ class CompilationButtonManager {
         if (!compilationCanceled) {
           console.error('Verilog compilation error:', error);
           showCardNotification('Verilog compilation failed. Check terminal for details.', 'error', 4000);
+          endCompilation();
         }
       } finally {
         // Reset compilation flags
@@ -4461,6 +4511,7 @@ class CompilationButtonManager {
         if (!compilationCanceled) {
           console.error('GTKWave execution error:', error);
           showCardNotification('GTKWave execution failed. Check terminal for details.', 'error', 4000);
+          endCompilation();
         }
       } finally {
         // Reset compilation flags
@@ -4478,26 +4529,39 @@ window.addEventListener('load', () => {
 });
 
 //TERMINAL =============================================================================================================================================================
+
+// Global references and state management
+let globalTerminalManager = null;
+let currentCompiler = null;
+
+// Initialize terminal manager globally
+function initializeGlobalTerminalManager() {
+  if (!globalTerminalManager) {
+    globalTerminalManager = new TerminalManager();
+  }
+  return globalTerminalManager;
+}
+
 class TerminalManager {
   constructor() {
-  this.terminals = {
-    tcmm: document.querySelector('#terminal-tcmm .terminal-body'),
-    tasm: document.querySelector('#terminal-tasm .terminal-body'),
-    tveri: document.querySelector('#terminal-tveri .terminal-body'),
-    twave: document.querySelector('#terminal-twave .terminal-body'),
-    tprism: document.querySelector('#terminal-tprism .terminal-body'),
-    tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
-  };
-  
-  this.setupTerminalTabs();
-  this.setupAutoScroll();
-  this.setupGoDownButton(); // Add this line
-  
-  if (!TerminalManager.clearButtonInitialized) {
-    this.setupClearButton();
-    TerminalManager.clearButtonInitialized = true;
+    this.terminals = {
+      tcmm: document.querySelector('#terminal-tcmm .terminal-body'),
+      tasm: document.querySelector('#terminal-tasm .terminal-body'),
+      tveri: document.querySelector('#terminal-tveri .terminal-body'),
+      twave: document.querySelector('#terminal-twave .terminal-body'),
+      tprism: document.querySelector('#terminal-tprism .terminal-body'),
+      tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
+    };
+    
+    this.setupTerminalTabs();
+    this.setupAutoScroll();
+    this.setupGoDownButton();
+    
+    if (!TerminalManager.clearButtonInitialized) {
+      this.setupClearButton();
+      TerminalManager.clearButtonInitialized = true;
+    }
   }
-}
 
   setupTerminalTabs() {
     const tabs = document.querySelectorAll('.terminal-tabs .tab');
@@ -4513,10 +4577,39 @@ class TerminalManager {
         const terminal = document.getElementById(`terminal-${terminalId}`);
         terminal.classList.remove('hidden');
         
-        // Rola para o final quando troca de aba
+        // Scroll to bottom when switching tabs
         this.scrollToBottom(terminalId);
       });
     });
+  }
+
+  appendToTerminal(terminalId, message, type = 'info') {
+    const terminal = this.terminals[terminalId];
+    if (terminal) {
+      const line = document.createElement('div');
+      line.className = `terminal-line ${type}`;
+      line.innerHTML = message;
+      terminal.appendChild(line);
+      this.scrollToBottom(terminalId);
+    }
+  }
+
+  scrollToBottom(terminalId) {
+    const terminal = this.terminals[terminalId];
+    if (terminal) {
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+  }
+
+  updateLastLine(terminalId, content, type = 'info') {
+    const terminal = this.terminals[terminalId];
+    if (terminal && terminal.lastChild) {
+      const lastLine = terminal.lastChild;
+      lastLine.innerHTML = content;
+      lastLine.className = `terminal-line ${type}`;
+    } else if (terminal) {
+      this.appendToTerminal(terminalId, content, type);
+    }
   }
 
 // Fixed updateLastLine method
@@ -4997,3 +5090,13 @@ document.getElementById('clearAll')
       await clearProcessorConfig();
     }
   });
+
+  // Mostrar spinner quando VVP iniciar
+function showVvpSpinner() {
+    document.getElementById('vvp-spinner').classList.add('active');
+}
+
+// Esconder spinner quando VVP terminar
+function hideVvpSpinner() {
+    document.getElementById('vvp-spinner').classList.remove('active');
+}

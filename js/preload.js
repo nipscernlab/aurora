@@ -72,15 +72,6 @@ const projectOperations = {
   getProjectName: () => ipcRenderer.invoke("getProjectName"),
   createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  listProjectFiles: async (projectPath) => {
-    try {
-      return await ipcRenderer.invoke('list-project-files', projectPath);
-    } catch (error) {
-      console.error('Error listing project files:', error);
-      return { error: 'Failed to list project files' };
-    }
-  },
-  
   getAppInfo: async () => {
     try {
       return await ipcRenderer.invoke('get-app-info');

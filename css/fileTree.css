@@ -296,14 +296,28 @@
 }
 
 /* Resizer */
+.file-tree-actions {
+  position: relative;
+  display: flex;
+  height: 100%;
+}
+
+.file-tree {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 20px; /* espaço para barra de rolagem */
+}
+
 .resizer-vertical {
-  width: 3px;
+  position: absolute;
+  width: 6px;
   background-color: transparent;
   cursor: col-resize;
   transition: background-color 0.2s ease;
   right: 0;
   top: 0;
   height: 100%;
+  z-index: 10;
 }
 
 .resizer-vertical:hover {

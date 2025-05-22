@@ -62,7 +62,7 @@ body {
 }
 
 .resizer-horizontal {
-  height: 3px;
+  height: 6px;
   background-color: var(--bg-secondary);
   cursor: row-resize;
   transition: background-color 0.2s ease;
@@ -194,12 +194,6 @@ body {
   position: relative;
 }
 
-.monaco-editor {
-  flex: 1;
-  position: relative;
-  background-color: var(--bg-primary);
-}
-
 /* Editor Overlay */
 #editor-overlay {
   position: absolute;
@@ -302,12 +296,6 @@ body.theme-light {
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
 }
 
-/* Monaco Editor Theme Overrides */
-.monaco-editor-background,
-.monaco-editor .margin {
-  background-color: var(--bg-primary);
-}
-
 /* Custom Syntax Highlighting */
 .vs-dark .mtk3, 
 .vs-dark .mkt8 {
@@ -318,3 +306,100 @@ body.theme-light {
 .vs-light .mkt8 {
   color: #858500 !important; /* Burnt yellow for light theme */
 }
+
+/* Modern Monaco Editor Scrollbar Styling */
+.monaco-editor .monaco-scrollable-element .scrollbar {
+  background: transparent !important;
+}
+
+.monaco-editor .monaco-scrollable-element .slider {
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Dark theme scrollbar */
+body.theme-dark .monaco-editor .monaco-scrollable-element .slider {
+  background: rgba(119, 111, 151, 0.3) !important;
+}
+
+body.theme-dark .monaco-editor .monaco-scrollable-element .slider:hover {
+  background: rgba(119, 111, 151, 0.5) !important;
+}
+
+body.theme-dark .monaco-editor .monaco-scrollable-element .slider.active {
+  background: rgba(157, 127, 255, 0.7) !important;
+}
+
+/* Light theme scrollbar */
+body.theme-light .monaco-editor .monaco-scrollable-element .slider {
+  background: rgba(124, 109, 169, 0.3) !important;
+}
+
+body.theme-light .monaco-editor .monaco-scrollable-element .slider:hover {
+  background: rgba(124, 109, 169, 0.5) !important;
+}
+
+body.theme-light .monaco-editor .monaco-scrollable-element .slider.active {
+  background: rgba(124, 77, 255, 0.7) !important;
+}
+
+/* Remove scrollbar arrows and shadows */
+.monaco-editor .monaco-scrollable-element .up-arrow,
+.monaco-editor .monaco-scrollable-element .down-arrow,
+.monaco-editor .monaco-scrollable-element .left-arrow,
+.monaco-editor .monaco-scrollable-element .right-arrow {
+  display: none !important;
+}
+
+.monaco-editor .monaco-scrollable-element .shadow {
+  display: none !important;
+}
+
+/* Minimap scrollbar styling */
+.monaco-editor .minimap-slider {
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+}
+
+body.theme-dark .monaco-editor .minimap-slider {
+  background: rgba(157, 127, 255, 0.4) !important;
+}
+
+body.theme-light .monaco-editor .minimap-slider {
+  background: rgba(124, 77, 255, 0.4) !important;
+}
+
+/* Remove the ball/circle from Monaco slider */
+.monaco-editor .monaco-scrollable-element .slider::before,
+.monaco-editor .monaco-scrollable-element .slider::after {
+  display: none !important;
+}
+
+/* Alternative approach - target the slider circle directly */
+.monaco-editor .monaco-scrollable-element .slider > * {
+  display: none !important;
+}
+
+/* More specific targeting for the slider decorations */
+.monaco-editor .scrollbar .slider .slider-decoration {
+  display: none !important;
+}
+
+/* Override any background images or pseudo-elements */
+.monaco-editor .monaco-scrollable-element .slider {
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Clean slider styling without decorations */
+body.theme-dark .monaco-editor .monaco-scrollable-element .slider {
+  background: rgba(119, 111, 151, 0.3) !important;
+  border-radius: 6px !important;
+}
+
+body.theme-light .monaco-editor .monaco-scrollable-element .slider {
+  background: rgba(124, 109, 169, 0.3) !important;
+  border-radius: 6px !important;
+}
+

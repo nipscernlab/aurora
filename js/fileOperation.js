@@ -300,7 +300,8 @@ const FileOperations = (function() {
   // Tratar criação de novo arquivo
 async function handleNewFile() {
   hideContextMenu();
-  
+  hideRootContextMenu();
+
   let targetPath = currentPath;
   console.log(`Original path for new item: ${targetPath}`);
   const isFolder = await window.electronAPI.isDirectory(targetPath);
@@ -495,7 +496,8 @@ async function handleNewFile() {
 // Tratar criação de nova pasta
 async function handleNewFolder() {
   hideContextMenu();
-  
+  hideRootContextMenu();
+
   let targetPath = currentPath;
   console.log(`Original path for new item: ${targetPath}`);
   const isFolder = await window.electronAPI.isDirectory(targetPath);
@@ -689,6 +691,14 @@ async function handleNewFolder() {
   });
 }
 
+// Add this function to hide the root context menu
+function hideRootContextMenu() {
+  const rootContextMenu = document.getElementById('root-context-menu');
+  if (rootContextMenu) {
+    rootContextMenu.style.display = 'none';
+  }
+}
+
   // Tratar renomeação de arquivo/pasta
   async function handleRename() {
   hideContextMenu();
@@ -763,7 +773,7 @@ async function handleNewFolder() {
         new Promise((resolve, reject) => {
           setTimeout(() => {
             resolve(true); // ou reject(new Error('Timeout')) se quiser falhar
-          }, 2000);
+          }, 1000);
         })
       ])
         
@@ -812,7 +822,7 @@ async function handleNewFolder() {
   input.addEventListener('blur', () => {
     setTimeout(() => {
       completeRename();
-    }, 100);
+    }, 50);
   });
 }
 
@@ -950,7 +960,7 @@ function showRootContextMenu(x, y) {
   // Close on click outside
   const closeHandler = (e) => {
     if (!rootContextMenu.contains(e.target)) {
-      rootContextMenu.style.display = 'none';
+      hideRootContextMenu();
       document.removeEventListener('click', closeHandler);
     }
   };

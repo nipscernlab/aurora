@@ -81,7 +81,7 @@ function applyAutoStartSettings(enabled) {
 function createTray() {
   if (tray !== null) return; // Avoid duplicate tray creation
 
-  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.png');
+  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.svg');
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
 

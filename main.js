@@ -1621,43 +1621,6 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
 
 // Path to 7-Zip executable
 const sevenZipPath = "7z";
-// IPC handler para excluir a pasta Backup
-ipcMain.handle("delete-backup-folder", async (_, folderPath) => {
-  if (!folderPath) {
-    return { success: false, message: "No folder open to delete backup!" };
-  }
-  
-  const backupFolderPath = path.join(folderPath, "Backup");
-  
-  return new Promise((resolve) => {
-    // Use process.nextTick to avoid blocking the main thread
-    process.nextTick(async () => {
-      try {
-        // Verify folder exists
-        const exists = await fse.pathExists(backupFolderPath);
-        
-        if (!exists) {
-          resolve({ success: false, message: "Backup folder does not exist" });
-          return;
-        }
-        
-        // Delete the Backup folder recursively
-        await fse.remove(backupFolderPath);
-        
-        resolve({
-          success: true,
-          message: "Backup folder deleted successfully"
-        });
-      } catch (error) {
-        log.error("Error deleting backup folder:", error);
-        resolve({
-          success: false,
-          message: `Error deleting backup folder: ${error.message}`
-        });
-      }
-    });
-  });
-});
 
 app.whenReady().then(() => {
   // Código existente...

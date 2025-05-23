@@ -60,15 +60,13 @@
 
 /* Smooth Header Hover Effect */
 #refresh-button,
-#open-folder-button,
-#backup-trash-button {
+#open-folder-button {
   position: relative;
   transition: color 0.3s ease;
 }
 
 #refresh-button::after,
-#open-folder-button::after,
-#backup-trash-button::after {
+#open-folder-button::after {
   content: '';
   position: absolute;
   bottom: -2px;
@@ -81,8 +79,7 @@
 }
 
 #refresh-button:hover::after,
-#open-folder-button:hover::after,
-#backup-trash-button:hover::after {
+#open-folder-button:hover::after {
   transform: scaleX(1);
 }
 

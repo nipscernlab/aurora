@@ -96,8 +96,6 @@ const projectOperations = {
   deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
-  deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
-
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
   onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),

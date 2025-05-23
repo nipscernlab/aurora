@@ -9,39 +9,75 @@ let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
 
 // SHOW DIALOG =====================================================================================================================
-function showConfirmDialog(title, message) {
-  return new Promise((resolve) => {
-    const dialog = document.createElement('dialog');
-    dialog.innerHTML = `
-      <div class="confirm-dialog">
-        <h3>${title}</h3>
-        <p>${message}</p>
-        <div class="dialog-buttons">
-          <button id="cancelButton">Cancel</button>
-          <button id="confirmButton">Save</button>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(dialog);
-    dialog.showModal();
+ // Simple, reliable confirmation dialog
+        function showUnsavedChangesDialog(fileName) {
+            return new Promise((resolve) => {
+                // Remove any existing modals
+                const existingModal = document.querySelector('.confirm-modal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
 
-    const confirmButton = dialog.querySelector('#confirmButton');
-    const cancelButton = dialog.querySelector('#cancelButton');
+                // Create modal HTML
+                const modalHTML = `
+                    <div class="confirm-modal" id="unsaved-changes-modal">
+                        <div class="confirm-modal-content">
+                            <div class="confirm-modal-header">
+                                <div class="confirm-modal-icon">⚠</div>
+                                <h3 class="confirm-modal-title">Unsaved Changes</h3>
+                            </div>
+                            <div class="confirm-modal-message">
+                                Do you want to save the changes you made to "<strong>${fileName}</strong>"?<br>
+                                Your changes will be lost if you don't save them.
+                            </div>
+                            <div class="confirm-modal-actions">
+                                <button class="confirm-btn cancel" data-action="cancel">Cancel</button>
+                                <button class="confirm-btn dont-save" data-action="dont-save">Don't Save</button>
+                                <button class="confirm-btn save" data-action="save">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
 
-    confirmButton.onclick = () => {
-      dialog.close();
-      dialog.remove();
-      resolve(true);
-    };
+                // Add modal to document
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                const modal = document.getElementById('unsaved-changes-modal');
 
-    cancelButton.onclick = () => {
-      dialog.close();
-      dialog.remove();
-      resolve(false);
-    };
-  });
-}
+                // Handle button clicks
+                modal.addEventListener('click', (e) => {
+                    const action = e.target.getAttribute('data-action');
+                    if (action) {
+                        closeModal(action);
+                    }
+                });
+
+                // Handle escape key
+                const handleEscape = (e) => {
+                    if (e.key === 'Escape') {
+                        closeModal('cancel');
+                    }
+                };
+                document.addEventListener('keydown', handleEscape);
+
+                // Close modal function
+                function closeModal(result) {
+                    document.removeEventListener('keydown', handleEscape);
+                    modal.classList.remove('show');
+                    setTimeout(() => {
+                        modal.remove();
+                        resolve(result);
+                    }, 300);
+                }
+
+                // Show modal with animation
+                setTimeout(() => {
+                    modal.classList.add('show');
+                    // Focus the Save button by default
+                    modal.querySelector('.confirm-btn.save').focus();
+                }, 10);
+            });
+        }
+
 
 //MONACO EDITOR ========================================================================================================================================================
 // Enhanced EditorManager with improved theme management
@@ -85,7 +121,7 @@ class EditorManager {
       automaticLayout: true,
       minimap: { 
         enabled: true,
-        scale: 2,
+        scale: 1,
         showSlider: 'mouseover'
       },
       fontSize: 14,
@@ -319,7 +355,7 @@ async function initMonaco() {
       automaticLayout: true,
       minimap: { 
         enabled: true,
-        scale: 2,
+        scale: 1,
         showSlider: 'mouseover'
       },
       fontSize: 14,
@@ -749,6 +785,7 @@ class TabManager {
   static activeTab = null;
   static editorStates = new Map();
   static unsavedChanges = new Set(); // Track files with unsaved changes
+  static closedTabsStack = [];
 
   // Add this method to close all tabs
 static async closeAllTabs() {
@@ -1203,85 +1240,221 @@ static activateTab(filePath) {
       }
     });
   }
-  
-  // Improved tab closing with unsaved changes handling
-  static async closeTab(filePath) {
-    if (this.unsavedChanges.has(filePath)) {
-      const result = await this.handleUnsavedChanges(filePath);
-      if (!result) return; // User canceled
-    }
+            static isClosingTab = false; // Prevent double closing
 
-    const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-    if (!tab) return;
+            // Fixed closeTab method
+            static async closeTab(filePath) {
+                // Prevent multiple simultaneous closes
+                if (this.isClosingTab) return;
+                this.isClosingTab = true;
 
-    // Remove the tab element
-    tab.remove();
-    
-    // Close the editor
-    EditorManager.closeEditor(filePath);
+                try {
+                    // Check if file has unsaved changes
+                    if (this.unsavedChanges.has(filePath)) {
+                        const fileName = filePath.split(/[\\/]/).pop();
+                        const result = await showUnsavedChangesDialog(fileName);
+                        
+                        switch (result) {
+                            case 'save':
+                                try {
+                                    await this.saveFile(filePath);
+                                } catch (error) {
+                                    console.error('Failed to save file:', error);
+                                    // Continue with closing even if save failed
+                                }
+                                break;
+                            case 'dont-save':
+                                // Continue with closing
+                                break;
+                            case 'cancel':
+                            default:
+                                return; // Don't close the tab
+                        }
+                    }
 
-    // Remove from our tabs map
-    this.tabs.delete(filePath);
-    this.unsavedChanges.delete(filePath);
+                    // Add to closed tabs stack for reopening
+                    const currentContent = this.tabs.get(filePath);
+                    this.closedTabsStack.push({
+                        filePath: filePath,
+                        content: currentContent,
+                        timestamp: Date.now()
+                    });
 
-    // If we're closing the active tab
-    if (this.activeTab === filePath) {
-      
-      this.highlightFileInTree(null);
-      const remainingTabs = Array.from(this.tabs.keys());
-      if (remainingTabs.length > 0) {
-        this.activateTab(remainingTabs[0]);
-      } else {
-        this.activeTab = null;
-        this.updateContextPath(null);
+                    // Keep only last 10 closed tabs
+                    if (this.closedTabsStack.length > 10) {
+                        this.closedTabsStack.shift();
+                    }
 
-        // Reset editor to empty state
-        const mainEditor = EditorManager.activeEditor;
-        if (mainEditor) {
-          mainEditor.setValue('');
-          mainEditor.updateOptions({ language: 'plaintext' });
-        }
-      }
-    }
-  }
+                    // Remove tab from UI
+                    const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+                    if (tab) {
+                        tab.remove();
+                    }
+
+                    // Clean up editor and data
+                    EditorManager.closeEditor(filePath);
+                    this.tabs.delete(filePath);
+                    this.unsavedChanges.delete(filePath);
+                    this.editorStates.delete(filePath);
+
+                    // Handle active tab switching
+                    if (this.activeTab === filePath) {
+                        this.highlightFileInTree(null);
+                        const remainingTabs = Array.from(this.tabs.keys());
+                        
+                        if (remainingTabs.length > 0) {
+                            // Activate the last tab in the list
+                            this.activateTab(remainingTabs[remainingTabs.length - 1]);
+                        } else {
+                            // No tabs left
+                            this.activeTab = null;
+                            this.updateContextPath(null);
+                            
+                            // Clear the editor
+                            const mainEditor = EditorManager.activeEditor;
+                            if (mainEditor) {
+                                mainEditor.setValue('');
+                                const model = mainEditor.getModel();
+                                if (model) {
+                                    monaco.editor.setModelLanguage(model, 'plaintext');
+                                }
+                            }
+                        }
+                    }
+
+                } finally {
+                    this.isClosingTab = false;
+                }
+            }
+          
+  // Enhanced reopenLastClosedTab method
+           static async reopenLastClosedTab() {
+                if (this.closedTabsStack.length === 0) return;
+
+                const closedTab = this.closedTabsStack.pop();
+                const { filePath, content } = closedTab;
+
+                try {
+                    // Check if tab is already open
+                    if (this.tabs.has(filePath)) {
+                        this.activateTab(filePath);
+                        return;
+                    }
+
+                    // Try to read current file content
+                    let currentContent;
+                    try {
+                        currentContent = await window.electronAPI.readFile(filePath);
+                    } catch (error) {
+                        // File might not exist anymore, use stored content
+                        currentContent = content;
+                    }
+
+                    // Recreate the tab
+                    this.addTab(filePath, currentContent);
+
+                    // If content was different when closed, restore it and mark as modified
+                    if (content !== currentContent) {
+                        const editor = EditorManager.getEditorForFile(filePath);
+                        if (editor) {
+                            editor.setValue(content);
+                            this.markFileAsModified(filePath);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Error reopening tab:', error);
+                }
+            }
+        
 
   // Handling unsaved changes with dialog
-  static async handleUnsavedChanges(filePath) {
-    const fileName = filePath.split('\\').pop();
-    const dialogResult = await showConfirmDialog(
-      'Unsaved Changes',
-      `Do you want to save the changes you made to ${fileName}?`,
-      ['Save', "Don't Save", 'Cancel']
-    );
-  
-    switch (dialogResult) {
-      case 'Save':
-        await this.saveFile(filePath); // Aqui é a correção principal
-        return true;
-      case "Don't Save":
-        this.unsavedChanges.delete(filePath);
-        return true;
-      case 'Cancel':
-        return false;
-    }
-  }
-  
+   static async handleUnsavedChanges(filePath) {
+                const fileName = filePath.split(/[\\/]/).pop();
+                const result = await showUnsavedChangesDialog(fileName);
+                
+                switch (result) {
+                    case 'save':
+                        try {
+                            await this.saveFile(filePath);
+                            return true;
+                        } catch (error) {
+                            console.error('Error saving file:', error);
+                            return true; // Continue closing even if save failed
+                        }
+                    case 'dont-save':
+                        this.unsavedChanges.delete(filePath);
+                        return true;
+                    case 'cancel':
+                    default:
+                        return false;
+                }
+            }
+        
+// Enhanced saveFile method
+            // Enhanced saveFile method
+            static async saveFile(filePath = null) {
+                const currentPath = filePath || this.activeTab;
+                if (!currentPath) return;
 
-// Add this method to save the current file
-static async saveFile(filePath = null) {
-  const currentPath = filePath || this.activeTab;
-  if (!currentPath) return;
+                try {
+                    const currentEditor = EditorManager.getEditorForFile(currentPath);
+                    if (!currentEditor) {
+                        throw new Error('Editor not found for file');
+                    }
 
-  try {
-    const content = editor.getValue();
-    await window.electronAPI.writeFile(currentPath, content);
-    this.markFileAsSaved(currentPath);
-    //writeToTerminal(`File saved: ${currentPath}`, 'success');
-  } catch (error) {
-    console.error('Error saving file:', error);
-    //writeToTerminal(`Error saving file: ${error.message}`, 'error');
-  }
-}
+                    const content = currentEditor.getValue();
+                    await window.electronAPI.writeFile(currentPath, content);
+                    
+                    // Mark as saved and update stored content
+                    this.markFileAsSaved(currentPath);
+                    this.tabs.set(currentPath, content);
+                    
+                } catch (error) {
+                    console.error('Error saving file:', error);
+                    throw error;
+                }
+            }
+
+            // Fixed reopenLastClosedTab method
+            static async reopenLastClosedTab() {
+                if (this.closedTabsStack.length === 0) return;
+
+                const closedTab = this.closedTabsStack.pop();
+                const { filePath, content } = closedTab;
+
+                try {
+                    // Check if tab is already open
+                    if (this.tabs.has(filePath)) {
+                        this.activateTab(filePath);
+                        return;
+                    }
+
+                    // Try to read current file content
+                    let currentContent;
+                    try {
+                        currentContent = await window.electronAPI.readFile(filePath);
+                    } catch (error) {
+                        // File might not exist anymore, use stored content
+                        currentContent = content;
+                    }
+
+                    // Recreate the tab
+                    this.addTab(filePath, currentContent);
+
+                    // If content was different when closed, restore it and mark as modified
+                    if (content !== currentContent) {
+                        const editor = EditorManager.getEditorForFile(filePath);
+                        if (editor) {
+                            editor.setValue(content);
+                            this.markFileAsModified(filePath);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Error reopening tab:', error);
+                }
+            }
   
   static updateEditorContent(filePath) {
     const content = this.tabs.get(filePath); // Obtém o conteúdo da aba ativa
@@ -1336,16 +1509,6 @@ static async saveFile(filePath = null) {
 
 }
 
-// Add keyboard shortcut Ctrl+W to close active tab
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.key === 'w') {
-    e.preventDefault();
-    
-    if (TabManager.activeTab) {
-      TabManager.closeTab(TabManager.activeTab);
-    }
-  }
-});
 
 // Call initialization when the script loads
 TabManager.initialize();
@@ -1484,14 +1647,36 @@ window.onload = () => {
     TabManager.saveCurrentFile();
   });
 
-// Setup global save shortcut
-document.addEventListener('keydown', async (e) => {
-  // Ctrl+S (or Cmd+S on Mac)
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    await TabManager.saveCurrentFile();
+document.addEventListener('keydown', (e) => {
+  // Prevent default browser shortcuts that might interfere
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 'w':
+        e.preventDefault();
+        if (TabManager.activeTab) {
+          TabManager.closeTab(TabManager.activeTab);
+        }
+        break;
+      
+      case 't':
+        if (e.shiftKey) {
+          e.preventDefault();
+          TabManager.reopenLastClosedTab();
+        }
+        break;
+      
+      case 's':
+        e.preventDefault();
+        if (e.shiftKey) {
+          TabManager.saveAllFiles();
+        } else {
+          TabManager.saveCurrentFile();
+        }
+        break;
+    }
   }
 });
+
 
 //FILETREE ============================================================================================================================================================
 // Gerenciador de estado para a file tree
@@ -1803,45 +1988,6 @@ function showCardNotification(message, type = 'info', duration = 3000) {
     close: () => closeCard(card)
   };
 }
-
-// Listener para o botão de excluir backup
-document.addEventListener('DOMContentLoaded', () => {
-  const backupTrashButton = document.getElementById('backup-trash-button');
-  
-  if (backupTrashButton) {
-    backupTrashButton.addEventListener('click', async () => {
-      try {
-        // Obter o caminho da pasta atualmente aberta
-        const currentFolderPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
-
-        if (!currentFolderPath) {
-          showNotification('No open project to delete backup!', 'error');
-          return;
-        }
-        
-        // Confirmação antes de excluir
-        const confirmDelete = true;
-        
-        if (!confirmDelete) {
-          return;
-        }
-        
-        // Chamar o handler IPC para excluir a pasta de backup
-        const result = await window.electronAPI.deleteBackupFolder(currentFolderPath);
-        
-        if (result.success) {
-          showNotification('Backup folder deleted successfully', 'success');
-          refreshFileTree();
-        } else {
-          showNotification(`Error deleting backup folder: ${result.message}`, 'error');
-        }
-      } catch (error) {
-        console.error('Error deleting backup folder:', error);
-        showNotification('Error deleting backup folder', 'error');
-      }
-    });
-  }
-});
 
 const style = document.createElement('style');
 style.textContent = `
@@ -4029,8 +4175,6 @@ async runProjectGtkWave() {
   }
 }
 
-  
-
  async compileAll() {
   try {
     // Function to switch between terminal tabs
@@ -4280,6 +4424,57 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     compilationCanceled = false;
   }
 });
+
+// Add this to your existing keyboard event handler or create a new one
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    
+    // Simulate click on the compile all button
+    const compileButton = document.getElementById('allcomp');
+    if (compileButton && !compileButton.disabled) {
+      compileButton.click();
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+    const settingsBtn = document.getElementById('settings');
+    if (settingsBtn && !settingsBtn.disabled) {
+      settingsBtn.click();
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+
+    const toggleUi = document.getElementById('toggle-ui');
+    const settingsBtn = document.getElementById('settings');
+    const settingsModal = document.getElementById('settings-project');
+
+    // Se o botão "fan" estiver ativo (por exemplo, tem a classe "active")
+    if (toggleUi && toggleUi.classList.contains('active')) {
+      // Abre o modal de configurações do projeto
+      if (settingsModal) {
+        if (typeof settingsModal.showModal === 'function') {
+          settingsModal.showModal();       // para <dialog>
+        } else {
+          settingsModal.classList.add('open');  // ou remova .hidden / exiba via CSS
+        }
+      }
+    } else {
+      // Caso contrário, clica no botão de settings, se não estiver desabilitado
+      if (settingsBtn && !settingsBtn.disabled) {
+        settingsBtn.click();
+      }
+    }
+  }
+});
+
 
 // Updated Compilation Button Manager
 class CompilationButtonManager {
@@ -5100,3 +5295,4 @@ function showVvpSpinner() {
 function hideVvpSpinner() {
     document.getElementById('vvp-spinner').classList.remove('active');
 }
+

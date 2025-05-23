@@ -38,6 +38,7 @@
   <link rel="stylesheet" href="./css/theme-modal.css">
   <link rel="stylesheet" href="./css/saveFirst.css">
   <link rel="stylesheet" href="./css/info-box.css">
+  <link rel="stylesheet" href="./css/recentProjects.css">
 
 </head>
 
@@ -437,22 +438,41 @@
         </div>
         <div id="monaco-editor" class="monaco-editor">
         <div id="editor-overlay" class="visible">
-          <div class="overlay-content">
-            <div id="icon-container">
-              <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
-              <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-            </div>
+      <div class="overlay-content">
+        <div id="icon-container">
+          <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
+          <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
 
-            <!-- Botão de alterar imagem -->
-            <button class="change-icon-btn" id="change-icon-btn" titles="Change Icon">
-              <i class="fa-solid fa-image"></i>
-            </button>
-            <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
+          <!-- Existing change icon button -->
+          <button class="change-icon-btn" id="change-icon-btn" title="Change Icon">
+            <i class="fa-solid fa-image"></i>
+          </button>
+          <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
+        </div>
 
-            <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
-            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
-            <p class="overlay-subtitle">nipscern.com</p>
+        <div class="overlay-text-content">
+          <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
+          <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+          <p class="overlay-subtitle">nipscern.com</p>
+        </div>
+
+        <!-- NEW: Recent Projects Section -->
+        <div class="recent-projects-section">
+          <div class="recent-projects-header">
+            <i class="fa-solid fa-clock-rotate-left recent-projects-icon"></i>
+            <h2 class="recent-projects-title">Recent Projects</h2>
+            <span class="recent-projects-count" id="projects-count">0 projects</span>
           </div>
+          
+          <div class="recent-projects-list" id="recent-projects-list">
+            <div class="empty-state" id="empty-state">
+              <i class="fa-solid fa-folder-open empty-state-icon"></i>
+              <p class="empty-state-text">No recent projects</p>
+              <p class="empty-state-subtext">Open a project to see it appear here</p>
+            </div>
+          </div>
+        </div>
+      </div>
         </div>
         </div>
 
@@ -869,44 +889,48 @@
             </div>
         </div>
     </div>
-
-<!-- Info Box Structure -->
-<div id="infoBox" class="info-box hidden">
-  <div class="info-box-header">
-    <h3 class="info-box-title">Keyboard Shortcuts</h3>
-    <i class="fas fa-times info-box-close" title="Close"></i>
-  </div>
-  <div class="info-box-content">
-    <section class="shortcut-section">
-      <h4 class="shortcut-category"><i class="fas fa-file"></i> File Operations</h4>
-      <ul class="shortcut-list">
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + N</span> - New File</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + O</span> - Open File</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + S</span> - Save File</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Shift + S</span> - Save As</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + W</span> - Close Tab</li>
-      </ul>
-    </section>
-    <hr class="section-divider" />
-    <section class="shortcut-section">
-      <h4 class="shortcut-category"><i class="fas fa-edit"></i> Editing</h4>
-      <ul class="shortcut-list">
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Z</span> - Undo</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Y</span> - Redo</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + C</span> - Copy</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + V</span> - Paste</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + X</span> - Cut</li>
-      </ul>
-    </section>
-    <hr class="section-divider" />
-    <section class="shortcut-section">
-      <h4 class="shortcut-category"><i class="fas fa-terminal"></i> Terminal</h4>
-      <ul class="shortcut-list">
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + K</span> - Clear Terminal</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + T</span> - New Terminal Tab</li>
-        <li class="shortcut-item"><span class="shortcut-key">Ctrl + Scroll</span> - Zoom In/Out</li>
-      </ul>
-    </section>
+<!-- Keyboard Shortcuts Modal HTML -->
+<div class="kb-modal">
+  <div class="kb-modal__overlay"></div>
+  <div class="kb-modal__container" role="dialog" aria-labelledby="kb-modal-title">
+    <header class="kb-modal__header">
+      <h2 id="kb-modal-title" class="kb-modal__title">Keyboard Shortcuts</h2>
+      <button class="kb-modal__close" aria-label="Close">
+        <i class="fas fa-times"></i>
+      </button>
+    </header>
+    <div class="kb-modal__body">
+      <section class="kb-modal__section">
+        <h3 class="kb-modal__section-title"><i class="fas fa-file"></i> File Operations</h3>
+        <ul class="kb-modal__list">
+          <li><kbd>Ctrl + N</kbd> New File</li>
+          <li><kbd>Ctrl + O</kbd> Open File</li>
+          <li><kbd>Ctrl + S</kbd> Save File</li>
+          <li><kbd>Ctrl + Shift + S</kbd> Save As</li>
+          <li><kbd>Ctrl + W</kbd> Close Tab</li>
+        </ul>
+      </section>
+      <hr class="kb-modal__divider">
+      <section class="kb-modal__section">
+        <h3 class="kb-modal__section-title"><i class="fas fa-edit"></i> Editing</h3>
+        <ul class="kb-modal__list">
+          <li><kbd>Ctrl + Z</kbd> Undo</li>
+          <li><kbd>Ctrl + Y</kbd> Redo</li>
+          <li><kbd>Ctrl + C</kbd> Copy</li>
+          <li><kbd>Ctrl + V</kbd> Paste</li>
+          <li><kbd>Ctrl + X</kbd> Cut</li>
+        </ul>
+      </section>
+      <hr class="kb-modal__divider">
+      <section class="kb-modal__section">
+        <h3 class="kb-modal__section-title"><i class="fas fa-terminal"></i> Terminal</h3>
+        <ul class="kb-modal__list">
+          <li><kbd>Ctrl + K</kbd> Clear Terminal</li>
+          <li><kbd>Ctrl + T</kbd> New Terminal Tab</li>
+          <li><kbd>Ctrl + Scroll</kbd> Zoom In/Out</li>
+        </ul>
+      </section>
+    </div>
   </div>
 </div>
 
@@ -1069,6 +1093,7 @@ document.getElementById('reload-everything-terminal').addEventListener('click', 
   <script src="./js/iconAurora.js" type="module"></script>
   <script src="./js/notpad.js" type="module"></script>
   <script src="./js/theme-modal.js"></script>
+  <script src="./js/recentProjects.js"></script>
 
     </script>
   </body>

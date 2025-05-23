@@ -131,6 +131,7 @@
   cursor: pointer;
   padding: var(--space-2);
   border-radius: var(--radius-md);
+  top: 70px;
 }
 
 .change-icon-btn:hover {

@@ -798,6 +798,84 @@ static async closeAllTabs() {
   }
 }
 
+static async formatCurrentFile() {
+  if (!this.activeTab) {
+    console.warn('No active tab to format');
+    return;
+  }
+
+  const filePath = this.activeTab;
+  const editor = EditorManager.getEditorForFile(filePath);
+  
+  if (!editor) {
+    console.error('No editor found for active tab');
+    return;
+  }
+
+  // Show loading indicator
+  this.showFormattingIndicator(true);
+
+  try {
+    const originalCode = editor.getValue();
+    
+    if (!originalCode.trim()) {
+      console.warn('No code to format');
+      return;
+    }
+
+    // Format the code
+    const formattedCode = await CodeFormatter.formatCode(originalCode, filePath);
+    
+    if (formattedCode && formattedCode !== originalCode) {
+      // Store cursor position and selection
+      const position = editor.getPosition();
+      const selection = editor.getSelection();
+      
+      // Update editor content
+      editor.setValue(formattedCode);
+      
+      // Try to restore cursor position (approximate)
+      if (position) {
+        const lineCount = editor.getModel().getLineCount();
+        const restoredPosition = {
+          lineNumber: Math.min(position.lineNumber, lineCount),
+          column: Math.min(position.column, editor.getModel().getLineLength(Math.min(position.lineNumber, lineCount)) + 1)
+        };
+        editor.setPosition(restoredPosition);
+      }
+      
+      // Mark file as modified
+      this.markFileAsModified(filePath);
+      
+      // Show success feedback
+      showCardNotification('Code formatted successfully', 'success');
+    } else {
+      showCardNotification('Code is already properly formatted', 'info');
+    }
+    
+  } catch (error) {
+    console.error('Code formatting failed:', error);
+    showCardNotification(`Formatting failed: ${error.message}`, 'error');
+  } finally {
+    // Hide loading indicator
+    this.showFormattingIndicator(false);
+  }
+}
+
+static showFormattingIndicator(show) {
+  const broomIcon = document.querySelector('.context-refactor-button');
+  if (!broomIcon) return;
+  
+  if (show) {
+    broomIcon.classList.add('formatting');
+    broomIcon.title = 'Formatting code...';
+  } else {
+    broomIcon.classList.remove('formatting');
+    broomIcon.style.animation = '';
+    broomIcon.title = 'Format code';
+  }
+}
+
    // New method to make tabs sortable
    static initSortableTabs() {
     const tabContainer = document.getElementById('tabs-container');
@@ -833,8 +911,10 @@ static async closeAllTabs() {
       }
     });
   }
+
   
-  static updateContextPath(filePath) {
+  
+ static updateContextPath(filePath) {
   const contextContainer = document.getElementById('context-path');
   if (!contextContainer) return;
 
@@ -844,14 +924,11 @@ static async closeAllTabs() {
     return;
   }
 
-  // Remover a classe empty e adicionar o conteúdo
   contextContainer.className = 'context-path-container';
 
-  // Separar o caminho em segmentos
   const segments = filePath.split(/[\\/]/);
   const fileName = segments.pop();
 
-  // Criar o HTML para o caminho com ícone mais apropriado
   let html = '<i class="fas fa-folder-open"></i>';
 
   if (segments.length > 0) {
@@ -862,35 +939,22 @@ static async closeAllTabs() {
     html += '<span class="context-path-separator">/</span>';
   }
 
-  // Adicionar ícone específico para o tipo de arquivo
   const fileIcon = TabManager.getFileIcon(fileName);
   html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
   html += `<span class="context-path-filename">${fileName}</span>`;
 
-  // Adicionar botão de refatoração (ícone da vassoura)
-  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" titles="Refatorar código" style="margin-left: auto; cursor: pointer;"></i>`;
+  // Add formatting button (broom icon)
+  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Format code" style="margin-left: auto; cursor: pointer;"></i>`;
 
   contextContainer.innerHTML = html;
 
-  // Adicionar listener de clique na vassoura
+  // Add click listener for formatting
   const broomIcon = contextContainer.querySelector('.context-refactor-button');
-if (broomIcon) {
-  broomIcon.addEventListener('click', async () => {
-    const editor = EditorManager.getEditorForFile(filePath); // Corrigido
-    if (!editor) return;
-
-    const model = editor.getModel();
-    if (!model) return;
-
-    const originalCode = model.getValue();
-    const refactoredCode = await refactorCode(originalCode);
-    if (refactoredCode && refactoredCode !== originalCode) {
-      model.setValue(refactoredCode);
-      TabManager.markFileAsModified(filePath);
-    }
-  });
-}
-
+  if (broomIcon) {
+    broomIcon.addEventListener('click', async () => {
+      await TabManager.formatCurrentFile();
+    });
+  }
 }
 
 
@@ -1184,6 +1248,8 @@ static activateTab(filePath) {
   }
 }
 
+
+
   // Comprehensive save method
   static async saveCurrentFile() {
     const currentPath = this.activeTab;
@@ -1226,6 +1292,7 @@ static activateTab(filePath) {
     }
   }
   
+  
 
    // Add listener for content changes
    static setupContentChangeListener(filePath, editor) {
@@ -1240,6 +1307,8 @@ static activateTab(filePath) {
       }
     });
   }
+
+  
             static isClosingTab = false; // Prevent double closing
 
             // Fixed closeTab method
@@ -1326,6 +1395,8 @@ static activateTab(filePath) {
                     this.isClosingTab = false;
                 }
             }
+
+            
           
   // Enhanced reopenLastClosedTab method
            static async reopenLastClosedTab() {
@@ -1510,6 +1581,7 @@ static activateTab(filePath) {
 }
 
 
+
 // Call initialization when the script loads
 TabManager.initialize();
 
@@ -1677,6 +1749,206 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+
+
+// Enhanced Code Formatter Implementation
+// Add this to your TabManager class or create a separate CodeFormatter class
+
+class CodeFormatter {
+  static async formatCode(code, filePath) {
+    if (!code || !filePath) {
+      throw new Error('Code and file path are required');
+    }
+
+    const fileExtension = this.getFileExtension(filePath);
+    const formatter = this.getFormatterForExtension(fileExtension);
+
+    if (!formatter) {
+      throw new Error(`No formatter available for file type: ${fileExtension}`);
+    }
+
+    try {
+      const formattedCode = await this.executeFormatter(formatter, code, fileExtension);
+      return formattedCode;
+    } catch (error) {
+      console.error('Formatting error:', error);
+      throw new Error(`Failed to format code: ${error.message}`);
+    }
+  }
+
+  static getFileExtension(filePath) {
+    return filePath.split('.').pop().toLowerCase();
+  }
+
+  static getFormatterForExtension(extension) {
+    const formatters = {
+      'v': 'verible',      // Verilog
+      'sv': 'verible',     // SystemVerilog  
+      'vh': 'verible',     // Verilog Header
+      'svh': 'verible',    // SystemVerilog Header
+      'c': 'astyle',       // C
+      'cpp': 'astyle',     // C++
+      'cc': 'astyle',      // C++
+      'cxx': 'astyle',     // C++
+      'h': 'astyle',       // C Header
+      'hpp': 'astyle',     // C++ Header
+      'hxx': 'astyle',     // C++ Header
+      'java': 'astyle',    // Java
+      'cs': 'astyle',      // C#
+      'js': 'astyle',      // JavaScript (basic formatting)
+      'cmm': 'astyle',      // JavaScript (basic formatting)
+    };
+
+    return formatters[extension];
+  }
+
+  static async executeFormatter(formatter, code, extension) {
+    switch (formatter) {
+      case 'verible':
+        return await this.formatWithVerible(code);
+      case 'astyle':
+        return await this.formatWithAstyle(code, extension);
+      default:
+        throw new Error(`Unknown formatter: ${formatter}`);
+    }
+  }
+
+  static async formatWithVerible(code) {
+    try {
+      // Get the packages path
+      const packagesPath = await window.electronAPI.joinPath('saphoComponents', 'Packages');
+      const veriblePath = await window.electronAPI.joinPath(packagesPath, 'verible', 'verible-verilog-format.exe');
+      
+      // Create temporary file path
+      const tempDir = await window.electronAPI.joinPath(packagesPath, 'temp');
+      const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.v`);
+      
+      // Ensure temp directory exists
+      await window.electronAPI.createDirectory(tempDir);
+      
+      // Write code to temporary file
+      await window.electronAPI.writeFile(tempFilePath, code);
+      
+      // Execute verible formatter
+      const command = `"${veriblePath}" --inplace "${tempFilePath}"`;
+      const result = await window.electronAPI.execCommand(command);
+      
+      if (result.error && result.code !== 0) {
+        // If inplace formatting failed, try standard output
+        const stdCommand = `"${veriblePath}" "${tempFilePath}"`;
+        const stdResult = await window.electronAPI.execCommand(stdCommand);
+        
+        if (stdResult.error) {
+          throw new Error(`Verible formatting failed: ${stdResult.stderr || stdResult.error}`);
+        }
+        
+        return stdResult.stdout || code;
+      }
+      
+      // Read the formatted file
+      const formattedCode = await window.electronAPI.readFile(tempFilePath);
+      
+      // Clean up temporary file
+      try {
+        await window.electronAPI.deleteFileOrDirectory(tempFilePath);
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
+      
+      return formattedCode;
+      
+    } catch (error) {
+      console.error('Verible formatting error:', error);
+      throw error;
+    }
+  }
+
+  static async formatWithAstyle(code, extension) {
+    try {
+      // Get the packages path
+      const packagesPath = await window.electronAPI.joinPath('saphoComponents', 'Packages');
+      const astylePath = await window.electronAPI.joinPath(packagesPath, 'astyle', 'astyle.exe');
+      
+      // Create temporary file path
+      const tempDir = await window.electronAPI.joinPath(packagesPath, 'temp');
+      const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.${extension}`);
+      
+      // Ensure temp directory exists
+      await window.electronAPI.createDirectory(tempDir);
+      
+      // Write code to temporary file
+      await window.electronAPI.writeFile(tempFilePath, code);
+      
+      // Build astyle command with appropriate options
+      const astyleOptions = this.getAstyleOptions(extension);
+      const command = `"${astylePath}" ${astyleOptions} "${tempFilePath}"`;
+      
+      // Execute astyle formatter
+      const result = await window.electronAPI.execCommand(command);
+      
+      if (result.error && result.code !== 0) {
+        throw new Error(`Astyle formatting failed: ${result.stderr || result.error}`);
+      }
+      
+      // Read the formatted file
+      const formattedCode = await window.electronAPI.readFile(tempFilePath);
+      
+      // Clean up temporary files (astyle creates .orig backup)
+      try {
+        await window.electronAPI.deleteFileOrDirectory(tempFilePath);
+        await window.electronAPI.deleteFileOrDirectory(tempFilePath + '.orig');
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp files:', cleanupError);
+      }
+      
+      return formattedCode;
+      
+    } catch (error) {
+      console.error('Astyle formatting error:', error);
+      throw error;
+    }
+  }
+
+  static getAstyleOptions(extension) {
+    // Base options for all file types
+    let options = [
+      '--style=allman',        // Allman/BSD/ANSI style
+      '--indent=spaces=4',     // 4-space indentation
+      '--indent-switches',     // Indent switch cases
+      '--indent-cases',        // Indent case statements
+      '--indent-namespaces',   // Indent namespaces
+      '--indent-labels',       // Indent labels
+      '--pad-oper',           // Pad operators with spaces
+      '--pad-comma',          // Pad commas with spaces
+      '--pad-header',         // Pad headers
+      '--unpad-paren',        // Remove padding around parentheses
+      '--align-pointer=type', // Align pointers to type
+      '--align-reference=type', // Align references to type
+      '--break-closing-brackets', // Break closing brackets
+      '--convert-tabs',       // Convert tabs to spaces
+      '--max-code-length=100', // Maximum line length
+      '--break-after-logical', // Break after logical operators
+    ];
+    
+    // Language-specific options
+    switch (extension) {
+      case 'java':
+        options.push('--mode=java');
+        break;
+      case 'cs':
+        options.push('--mode=cs');
+        break;
+      case 'js':
+        options.push('--mode=java'); // Use Java mode for basic JS formatting
+        break;
+      default:
+        options.push('--mode=c'); // Default to C/C++ mode
+        break;
+    }
+    
+    return options.join(' ');
+  }
+}
 
 //FILETREE ============================================================================================================================================================
 // Gerenciador de estado para a file tree
@@ -2881,6 +3153,7 @@ async function loadProject(spfPath) {
       // Update file tree with current structure
       updateFileTree(result.files);
     }
+    addToRecentProjects(currentSpfPath);
 
   } catch (error) {
     //console.error('Error loading project:', error);
@@ -5295,4 +5568,3 @@ function showVvpSpinner() {
 function hideVvpSpinner() {
     document.getElementById('vvp-spinner').classList.remove('active');
 }
-

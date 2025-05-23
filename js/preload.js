@@ -91,11 +91,30 @@ const projectOperations = {
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
+
+  execCommand: (command) => ipcRenderer.invoke('exec-command', command),
+  
+  // Alternative method using spawn for better control
+  runCommand: (command, args = [], options = {}) => 
+    ipcRenderer.invoke('run-command', { command, args, options }),
+    
+  // Get system temp directory
+  getTempDir: () => ipcRenderer.invoke('get-temp-dir'),
+  
+  // Check if file/directory exists
+  pathExists: (path) => ipcRenderer.invoke('path-exists', path),
+
+  createTempFile: (content, extension = 'tmp') => 
+ipcRenderer.invoke('create-temp-file', content, extension),
+  deleteTempFile: (filePath) => 
+     ipcRenderer.invoke('delete-temp-file', filePath),
   
   createTclInfoFile: (filePath, processorType, tempPath, binPath) => ipcRenderer.invoke('create-tcl-info-file', { path: filePath, processorType, tempPath, binPath }),
   deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
+  deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
+
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
   onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),

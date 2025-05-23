@@ -18,8 +18,8 @@ let lastY = 0;
 let rafId = null;
 let minFileTreeWidth = 15; // Minimum width for file tree
 let maxFileTreeWidth = window.innerWidth * 0.5; // Maximum width for file tree
-let minTerminalHeight = 50; // Minimum height for terminal
-let maxTerminalHeight = window.innerHeight * 0.8; // Maximum height for terminal
+let minTerminalHeight = 40; // Minimum height for terminal
+let maxTerminalHeight = window.innerHeight * 0.9; // Maximum height for terminal
 let initialFileTreeWidth = 0;
 let initialTerminalHeight = 0;
 

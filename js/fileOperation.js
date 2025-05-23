@@ -297,200 +297,204 @@ const FileOperations = (function() {
     }
   }
   
-  // Tratar criação de novo arquivo
 async function handleNewFile() {
   hideContextMenu();
   hideRootContextMenu();
 
-  let targetPath = currentPath;
-  console.log(`Original path for new item: ${targetPath}`);
-  const isFolder = await window.electronAPI.isDirectory(targetPath);
-  
-  // If we're creating at the root level of the file tree
-  const fileTree = document.getElementById('file-tree');
-  if (targetPath === getProjectPath()) {
-    // Create directly in file tree div
-    const inputContainer = document.createElement('div');
-    inputContainer.className = 'file-input-container';
+  let targetPath = currentPath || getProjectPath();
+  console.log(`Creating new file - Target path: ${targetPath}`);
+
+  try {
+    // Validate and normalize the target path
+    targetPath = normalizePath(targetPath);
     
-    const input = document.createElement('input');
-    input.className = 'file-input';
-    input.type = 'text';
-    input.placeholder = 'filename.ext';
-    
-    inputContainer.appendChild(input);
-    
-    // Insert at top of file tree
-    fileTree.prepend(inputContainer);
-    input.focus();
-    
-    // Handler for creating the file at root level
-    const handleCreate = async () => {
-      if (!input.isConnected) return;
-      
-      const fileName = input.value.trim();
-      if (!fileName) {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
-        return;
-      }
-      
-      try {
-        // Build the complete file path
-        const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
-        const newFilePath = `${targetPath}${fileSeparator}${fileName}`;
-        console.log(`Trying to create file: ${newFilePath}`);
-        
-        await window.electronAPI.createFile(newFilePath);
-        showNotification(`File "${fileName}" created successfully`, 'success');
-        
-        // Update the file tree after creation
-        if (typeof refreshFileTreeFn === 'function') {
-          await refreshFileTreeFn();
-        }
-      } catch (error) {
-        console.error('Error creating file:', error);
-        showNotification(`Error creating file: ${error.message}`, 'error');
-      } finally {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
-      }
-    };
-    
-    // Setup event listeners for root-level creation
-    let isProcessing = false;
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (!isProcessing) {
-          isProcessing = true;
-          await handleCreate();
-          isProcessing = false;
-        }
-      } else if (e.key === 'Escape') {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
-      }
-    });
-    
-    input.addEventListener('blur', async () => {
-      setTimeout(async () => {
-        if (!isProcessing) {
-          isProcessing = true;
-          await handleCreate();
-          isProcessing = false;
-        }
-      }, 100);
-    });
-    
-    return; // Exit after setting up root-level creation
-  }
-  
-  // Handle subfolder creation - get parent directory if current path is a file
-  if (!isFolder) {
+    // Check if target exists and determine if it's a directory
+    let isTargetDirectory = false;
     try {
-      targetPath = await window.electronAPI.getParentDirectory(targetPath);
-      console.log(`New path (parent folder): ${targetPath}`);
+      isTargetDirectory = await window.electronAPI.isDirectory(targetPath);
     } catch (error) {
-      console.error('Error getting parent directory:', error);
-      showNotification(`Error: Could not determine parent directory`, 'error');
-      return;
+      console.warn('Could not determine if target is directory:', error);
+      // Assume it's a file and get parent directory
+      targetPath = await window.electronAPI.getParentDirectory(targetPath);
+      isTargetDirectory = true;
     }
+
+    // If target is not a directory, get its parent
+    if (!isTargetDirectory) {
+      targetPath = await window.electronAPI.getParentDirectory(targetPath);
+    }
+
+    console.log(`Final target directory: ${targetPath}`);
+
+    // Handle root-level creation
+    const fileTree = document.getElementById('file-tree');
+    const projectPath = getProjectPath();
+    
+    if (targetPath === projectPath) {
+      return await createFileAtRoot(fileTree, targetPath);
+    }
+
+    // Handle subfolder creation
+    return await createFileInFolder(targetPath);
+
+  } catch (error) {
+    console.error('Error in handleNewFile:', error);
+    showNotification(`Error creating file: ${error.message}`, 'error');
   }
+}
+
+async function createFileAtRoot(fileTree, targetPath) {
+  const inputContainer = createInputContainer('filename.ext');
+  fileTree.prepend(inputContainer);
   
-  // Find the target element for the folder where we're creating
+  const input = inputContainer.querySelector('.file-input');
+  input.focus();
+
+  return new Promise((resolve) => {
+    setupFileCreationHandlers(input, targetPath, inputContainer, fileTree, resolve);
+  });
+}
+
+async function createFileInFolder(targetPath) {
   const targetElement = findElementByPath(targetPath);
   if (!targetElement) {
-    console.error(`Element not found for: ${targetPath}`);
-    showNotification(`Error: Could not find target element for path: ${targetPath}`, 'error');
-    return;
+    throw new Error(`Could not find target folder element for: ${getRelativePath(targetPath)}`);
   }
-  
-  const folderContent = targetElement.querySelector('.folder-content');
+
+  // Ensure folder is expanded
+  const folderToggle = targetElement.querySelector('.folder-toggle');
+  if (folderToggle && !targetElement.classList.contains('expanded')) {
+    folderToggle.click();
+    // Wait for expansion animation
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  let folderContent = targetElement.querySelector('.folder-content');
   if (!folderContent) {
-    showNotification(`Error: Could not find folder content for path: ${targetPath}`, 'error');
-    return;
+    // Create folder content if it doesn't exist
+    folderContent = document.createElement('div');
+    folderContent.className = 'folder-content';
+    targetElement.appendChild(folderContent);
   }
+
+  const inputContainer = createInputContainer('filename.ext');
+  folderContent.prepend(inputContainer);
   
-  // Create input element
+  const input = inputContainer.querySelector('.file-input');
+  input.focus();
+
+  return new Promise((resolve) => {
+    setupFileCreationHandlers(input, targetPath, inputContainer, folderContent, resolve);
+  });
+}
+
+function createInputContainer(placeholder) {
   const inputContainer = document.createElement('div');
   inputContainer.className = 'file-input-container';
   
   const input = document.createElement('input');
   input.className = 'file-input';
   input.type = 'text';
-  input.placeholder = 'filename.ext';
+  input.placeholder = placeholder;
   
   inputContainer.appendChild(input);
-  folderContent.prepend(inputContainer);
-  
-  // Focus on input
-  input.focus();
-  
-  // Handler for creating the file
+  return inputContainer;
+}
+
+function setupFileCreationHandlers(input, targetPath, inputContainer, parentElement, resolve) {
+  let isProcessing = false;
+
   const handleCreate = async () => {
-    if (!input.isConnected) return;
-    
+    if (isProcessing || !input.isConnected) return;
+    isProcessing = true;
+
     const fileName = input.value.trim();
-    if (!fileName) {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
-      }
-      return;
-    }
     
     try {
-      // Build the complete file path
-      const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
-      const newFilePath = `${targetPath}${fileSeparator}${fileName}`;
-      console.log(`Trying to create file: ${newFilePath}`);
+      if (!fileName) {
+        return; // Just remove input without showing error
+      }
+
+      // Validate filename
+      if (!isValidFilename(fileName)) {
+        throw new Error('Invalid filename. Please avoid special characters.');
+      }
+
+      // Build complete file path
+      const separator = targetPath.endsWith('\\') ? '' : '\\';
+      const newFilePath = `${targetPath}${separator}${fileName}`;
       
+      // Check if file already exists
+      const fileExists = await window.electronAPI.fileExists(newFilePath);
+      if (fileExists) {
+        throw new Error(`File "${fileName}" already exists`);
+      }
+
+      console.log(`Creating file: ${newFilePath}`);
       await window.electronAPI.createFile(newFilePath);
+      
       showNotification(`File "${fileName}" created successfully`, 'success');
       
-      // Update the file tree after creation
+      // Refresh file tree
       if (typeof refreshFileTreeFn === 'function') {
         await refreshFileTreeFn();
       }
+      
+      resolve(true);
     } catch (error) {
       console.error('Error creating file:', error);
       showNotification(`Error creating file: ${error.message}`, 'error');
+      resolve(false);
     } finally {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
+      // Always clean up
+      if (parentElement.contains(inputContainer)) {
+        parentElement.removeChild(inputContainer);
       }
+      isProcessing = false;
     }
   };
-  
-  // Setup event listeners
-  let isProcessing = false;
+
+  // Event listeners
   input.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (!isProcessing) {
-        isProcessing = true;
-        await handleCreate();
-        isProcessing = false;
-      }
+      await handleCreate();
     } else if (e.key === 'Escape') {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
+      if (parentElement.contains(inputContainer)) {
+        parentElement.removeChild(inputContainer);
       }
+      resolve(false);
     }
   });
-  
+
   input.addEventListener('blur', async () => {
+    // Small delay to allow other events to process
     setTimeout(async () => {
-      if (!isProcessing) {
-        isProcessing = true;
-        await handleCreate();
-        isProcessing = false;
-      }
+      await handleCreate();
     }, 100);
   });
+}
+
+// Filename validation helper
+function isValidFilename(filename) {
+  // Check for invalid characters
+  const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
+  if (invalidChars.test(filename)) {
+    return false;
+  }
+  
+  // Check for reserved names (Windows)
+  const reservedNames = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
+  if (reservedNames.test(filename)) {
+    return false;
+  }
+  
+  // Check length
+  if (filename.length > 255) {
+    return false;
+  }
+  
+  return true;
 }
 
 // Tratar criação de nova pasta
@@ -699,49 +703,82 @@ function hideRootContextMenu() {
   }
 }
 
-  // Tratar renomeação de arquivo/pasta
-  async function handleRename() {
+ async function handleRename() {
   hideContextMenu();
   
-  if (!currentPath) return;
-  
-  // Ensure path is absolute
-  currentPath = normalizePath(currentPath);
-  console.log(`Attempting to rename: ${currentPath}`);
+  if (!currentPath) {
+    showNotification('Error: No item selected for renaming', 'error');
+    return;
+  }
 
-  const element = findElementByPath(currentPath);
-  if (!element) {
-    showNotification(`Error: Could not find element for path: ${getRelativePath(currentPath)}`, 'error');
-    return;
+  try {
+    // Normalize and validate the current path
+    const normalizedPath = normalizePath(currentPath);
+    console.log(`Attempting to rename: ${normalizedPath}`);
+
+    // Verify the item exists
+    const itemExists = await window.electronAPI.fileExists(normalizedPath);
+    if (!itemExists) {
+      showNotification('Item no longer exists', 'error');
+      if (typeof refreshFileTreeFn === 'function') {
+        await refreshFileTreeFn();
+      }
+      return;
+    }
+
+    // Find the DOM element
+    const element = findElementByPath(normalizedPath);
+    if (!element) {
+      showNotification(`Could not find UI element for: ${getRelativePath(normalizedPath)}`, 'error');
+      return;
+    }
+
+    const fileItem = element.querySelector('.file-item');
+    const nameSpan = fileItem?.querySelector('span');
+    
+    if (!fileItem || !nameSpan) {
+      showNotification('Could not find name element to edit', 'error');
+      return;
+    }
+
+    // Start rename process
+    await startRenameProcess(element, fileItem, nameSpan, normalizedPath);
+
+  } catch (error) {
+    console.error('Error in rename handler:', error);
+    showNotification(`Rename operation failed: ${error.message}`, 'error');
   }
-  
-  const fileItem = element.querySelector('.file-item');
-  if (!fileItem) {
-    showNotification(`Error: Could not find file item`, 'error');
-    return;
-  }
-  
-  const nameSpan = fileItem.querySelector('span');
-  if (!nameSpan) {
-    showNotification(`Error: Could not find name element`, 'error');
-    return;
-  }
-  
+}
+
+async function startRenameProcess(element, fileItem, nameSpan, currentPath) {
   const originalName = nameSpan.textContent;
+  const isDirectory = await window.electronAPI.isDirectory(currentPath);
+  
+  // Add editing class
   element.classList.add('editing');
   
+  // Create input element
   const input = document.createElement('input');
   input.className = 'file-input';
   input.value = originalName;
   input.style.width = '100%';
   
+  // Replace span with input
   const spanParent = nameSpan.parentElement;
   spanParent.replaceChild(input, nameSpan);
   
+  // Focus and select appropriate part of filename
   input.focus();
-  input.setSelectionRange(0, originalName.lastIndexOf('.') > 0 && !isFolder ? 
-    originalName.lastIndexOf('.') : originalName.length);
+  if (!isDirectory && originalName.includes('.')) {
+    // For files, select name without extension
+    const lastDotIndex = originalName.lastIndexOf('.');
+    input.setSelectionRange(0, lastDotIndex);
+  } else {
+    // For directories or files without extensions, select all
+    input.select();
+  }
   
+  // Setup completion handler
   let isCompleted = false;
   
   const completeRename = async () => {
@@ -750,58 +787,37 @@ function hideRootContextMenu() {
     
     const newName = input.value.trim();
     
-    // Restore the span first
-    if (spanParent.contains(input)) {
-      spanParent.replaceChild(nameSpan, input);
+    // Always restore the UI first
+    try {
+      if (spanParent.contains(input)) {
+        spanParent.replaceChild(nameSpan, input);
+      }
+      element.classList.remove('editing');
+    } catch (restoreError) {
+      console.error('Error restoring UI:', restoreError);
     }
-    element.classList.remove('editing');
     
-    if (!newName || newName === originalName) return;
+    // Check if name actually changed
+    if (!newName || newName === originalName) {
+      console.log('Rename cancelled - no change in name');
+      return;
+    }
+    
+    // Validate new name
+    if (!isValidFilename(newName)) {
+      showNotification('Invalid filename. Please avoid special characters.', 'error');
+      return;
+    }
     
     try {
-      const parentDir = await window.electronAPI.getParentDirectory(currentPath);
-      const fileSeparator = parentDir.endsWith('\\') ? '' : '\\';
-      const newPath = `${parentDir}${fileSeparator}${newName}`;
-      
-      console.log(`Renaming from "${currentPath}" to "${newPath}"`);
-      
-      // Call the API to rename with a timeout wrapper
-      try {
-        // Use Promise.race to set a timeout on the API call
-        const result = await Promise.race([
-        window.electronAPI.renameFileOrDirectory(currentPath, newPath),
-        new Promise((resolve, reject) => {
-          setTimeout(() => {
-            resolve(true); // ou reject(new Error('Timeout')) se quiser falhar
-          }, 1000);
-        })
-      ])
-        
-        showNotification(`Renamed successfully to "${newName}"`, 'success');
-      } catch (renameError) {
-        console.warn('Rename operation may have completed but had communication issues:', renameError);
-        // Still consider it a potential success if the error is related to reply timing
-        if (renameError.message && renameError.message.includes('reply was never sent')) {
-          showNotification(`Renamed to "${newName}" (with warning: slow response)`, 'warning');
-        } else {
-          throw renameError; // Re-throw if it's a different error
-        }
-      }
-      
-      // Always refresh file tree regardless of error/success
-      if (typeof refreshFileTreeFn === 'function') {
-        await refreshFileTreeFn();
-      }
+      await performRename(currentPath, newName, originalName);
     } catch (error) {
-      console.error('Error renaming:', error);
-      showNotification(`Error renaming: ${error.message}`, 'error');
-      // Still attempt to refresh the tree
-      if (typeof refreshFileTreeFn === 'function') {
-        await refreshFileTreeFn();
-      }
+      console.error('Rename operation failed:', error);
+      showNotification(`Failed to rename: ${error.message}`, 'error');
     }
   };
   
+  // Event listeners
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -814,86 +830,296 @@ function hideRootContextMenu() {
         }
         element.classList.remove('editing');
       } catch (error) {
-        console.error('Error restoring after Escape:', error);
+        console.error('Error cancelling rename:', error);
       }
     }
   });
   
   input.addEventListener('blur', () => {
-    setTimeout(() => {
-      completeRename();
-    }, 50);
+    setTimeout(() => completeRename(), 50);
   });
 }
 
-  async function handleLocation() {
-  hideContextMenu();
-  
-  if (!currentPath) {
-    showNotification(`Error: No path selected`, 'error');
-    return;
-  }
-  
+async function performRename(currentPath, newName, originalName) {
   try {
-    const path = currentPath;
-    let folderPath;
+    // Get parent directory
+    const parentDir = await window.electronAPI.getParentDirectory(currentPath);
+    const separator = parentDir.endsWith('\\') ? '' : '\\';
+    const newPath = `${parentDir}${separator}${newName}`;
     
-    // If it's a file, get its parent directory
-    if (!isFolder) {
-      folderPath = await window.electronAPI.getParentDirectory(path);
-    } else {
-      folderPath = path;
+    console.log(`Renaming from "${currentPath}" to "${newPath}"`);
+    
+    // Check if destination already exists
+    const destinationExists = await window.electronAPI.fileExists(newPath);
+    if (destinationExists) {
+      throw new Error(`An item named "${newName}" already exists in this location`);
     }
     
-    console.log(`Opening folder: ${folderPath}`);
-    await window.electronAPI.openFolder(folderPath);
+    // Perform rename with timeout protection
+    const renamePromise = window.electronAPI.renameFileOrDirectory(currentPath, newPath);
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => resolve({ timeout: true }), 5000);
+    });
+    
+    const result = await Promise.race([renamePromise, timeoutPromise]);
+    
+    if (result && result.timeout) {
+      console.warn('Rename operation timed out, but may have succeeded');
+      showNotification(`Renamed to "${newName}" (operation was slow)`, 'warning');
+    } else {
+      showNotification(`Successfully renamed to "${newName}"`, 'success');
+    }
+    
   } catch (error) {
-    console.error('Error opening folder:', error);
-    showNotification(`Error opening folder: ${error.message}`, 'error');
+    // Check if the rename actually succeeded despite the error
+    const parentDir = await window.electronAPI.getParentDirectory(currentPath);
+    const separator = parentDir.endsWith('\\') ? '' : '\\';
+    const newPath = `${parentDir}${separator}${newName}`;
+    
+    const newPathExists = await window.electronAPI.fileExists(newPath).catch(() => false);
+    const oldPathExists = await window.electronAPI.fileExists(currentPath).catch(() => true);
+    
+    if (newPathExists && !oldPathExists) {
+      // Rename succeeded despite error
+      console.warn('Rename succeeded but with communication error:', error);
+      showNotification(`Renamed to "${newName}" (with warnings)`, 'warning');
+    } else {
+      // Rename truly failed
+      throw error;
+    }
+  } finally {
+    // Always refresh the file tree
+    if (typeof refreshFileTreeFn === 'function') {
+      try {
+        await refreshFileTreeFn();
+      } catch (refreshError) {
+        console.error('Error refreshing file tree:', refreshError);
+      }
+    }
   }
 }
 
-  // Tratar exclusão de arquivo/pasta
-  // Update the handleDelete function in fileOperations.js
-async function handleDelete() {
+ async function handleLocation() {
   hideContextMenu();
   
   if (!currentPath) {
-    showNotification(`Error: No path selected`, 'error');
+    showNotification('Error: No item selected', 'error');
     return;
   }
-  
+
   try {
-    console.log(`Attempting to delete: ${currentPath}`);
+    const normalizedPath = normalizePath(currentPath);
+    console.log(`Opening location for: ${normalizedPath}`);
     
-    // Ask for confirmation first
-    const itemName = currentPath.split(/[\/\\]/).pop();
-    const confirmed = await window.electronAPI.showConfirmDialog(
-      `Delete ${isFolder ? 'Folder' : 'File'}`,
-      `Are you sure you want to delete "${itemName}"${isFolder ? ' and all its contents' : ''}?`
-    );
-    
-    if (!confirmed) return;
-    
-    // Try the deletion directly without checking existence first
-    console.log(`Sending delete command for: ${currentPath}`);
-    await window.electronAPI.deleteFileOrDirectory(currentPath);
-    
-    showNotification(`"${itemName}" deleted successfully`, 'success');
-    
-    // Make sure to await the refresh
-    if (typeof refreshFileTreeFn === 'function') {
-      await refreshFileTreeFn();
+    // Verify the path exists
+    const pathExists = await window.electronAPI.fileExists(normalizedPath);
+    if (!pathExists) {
+      showNotification('The selected item no longer exists', 'error');
+      // Refresh file tree to update UI
+      if (typeof refreshFileTreeFn === 'function') {
+        await refreshFileTreeFn();
+      }
+      return;
     }
-  } catch (error) {
-    console.error('Error deleting:', error);
-    showNotification(`Error deleting: ${error.message}`, 'error');
     
-    // Still update the tree
+    // Determine what folder to open
+    let folderToOpen;
+    
+    try {
+      const isDirectory = await window.electronAPI.isDirectory(normalizedPath);
+      
+      if (isDirectory) {
+        // It's a folder - open the folder itself
+        folderToOpen = normalizedPath;
+      } else {
+        // It's a file - open its parent directory
+        folderToOpen = await window.electronAPI.getParentDirectory(normalizedPath);
+      }
+    } catch (error) {
+      console.warn('Could not determine if path is directory, assuming it is a file:', error);
+      // Fallback: try to get parent directory
+      folderToOpen = await window.electronAPI.getParentDirectory(normalizedPath);
+    }
+    
+    console.log(`Opening folder: ${folderToOpen}`);
+    
+    // Verify the folder to open exists
+    const folderExists = await window.electronAPI.fileExists(folderToOpen);
+    if (!folderExists) {
+      throw new Error(`Parent folder does not exist: ${folderToOpen}`);
+    }
+    
+    // Open the folder
+    await window.electronAPI.openFolder(folderToOpen);
+    
+    // Show success notification
+    const itemName = normalizedPath.split(/[\/\\]/).pop();
+    showNotification(`Opened location for "${itemName}"`, 'success');
+    
+  } catch (error) {
+    console.error('Error opening location:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Could not open location';
+    if (error.message.includes('ENOENT')) {
+      errorMessage = 'The file or folder no longer exists';
+    } else if (error.message.includes('EACCES')) {
+      errorMessage = 'Access denied - insufficient permissions';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    showNotification(`Error: ${errorMessage}`, 'error');
+  }
+}
+
+  async function handleDelete() {
+  hideContextMenu();
+  
+  if (!currentPath) {
+    showNotification('Error: No item selected for deletion', 'error');
+    return;
+  }
+
+  try {
+    // Normalize the path
+    const normalizedPath = normalizePath(currentPath);
+    console.log(`Attempting to delete: ${normalizedPath}`);
+
+    // Validate path exists before attempting deletion
+    let pathExists = false;
+    let itemIsDirectory = false;
+
+    try {
+      pathExists = await window.electronAPI.fileExists(normalizedPath);
+      if (pathExists) {
+        itemIsDirectory = await window.electronAPI.isDirectory(normalizedPath);
+      }
+    } catch (error) {
+      console.warn('Error checking file existence:', error);
+      // Continue with deletion attempt even if check fails
+    }
+
+    if (!pathExists) {
+      showNotification('Item no longer exists', 'warning');
+      // Still refresh the tree to clean up UI
+      if (typeof refreshFileTreeFn === 'function') {
+        await refreshFileTreeFn();
+      }
+      return;
+    }
+
+    // Get item name for confirmation dialog
+    const itemName = normalizedPath.split(/[\/\\]/).pop();
+    const itemType = itemIsDirectory ? 'folder' : 'file';
+    
+    // Show confirmation dialog
+    const confirmMessage = itemIsDirectory
+      ? `Are you sure you want to delete the folder "${itemName}" and all its contents? This action cannot be undone.`
+      : `Are you sure you want to delete the file "${itemName}"? This action cannot be undone.`;
+
+    const confirmed = await window.electronAPI.showConfirmDialog(
+      `Delete ${itemType.charAt(0).toUpperCase() + itemType.slice(1)}`,
+      confirmMessage
+    );
+
+    if (!confirmed) {
+      console.log('Delete operation cancelled by user');
+      return;
+    }
+
+    // Show loading notification for large operations
+    let loadingNotification = null;
+    if (itemIsDirectory) {
+      loadingNotification = showNotification(`Deleting folder "${itemName}"...`, 'info', 10000);
+    }
+
+    try {
+      // Perform the deletion with retry logic
+      await deleteWithRetry(normalizedPath, 3);
+      
+      // Close loading notification
+      if (loadingNotification) {
+        loadingNotification.close();
+      }
+
+      showNotification(`"${itemName}" deleted successfully`, 'success');
+      console.log(`Successfully deleted: ${normalizedPath}`);
+
+    } catch (deleteError) {
+      // Close loading notification
+      if (loadingNotification) {
+        loadingNotification.close();
+      }
+
+      console.error('Delete operation failed:', deleteError);
+      
+      // Check if item still exists after failed deletion
+      const stillExists = await window.electronAPI.fileExists(normalizedPath).catch(() => false);
+      
+      if (!stillExists) {
+        // Item was actually deleted despite the error
+        showNotification(`"${itemName}" was deleted (with warnings)`, 'warning');
+      } else {
+        // Deletion truly failed
+        showNotification(`Failed to delete "${itemName}": ${deleteError.message}`, 'error');
+        return; // Don't refresh tree if deletion failed
+      }
+    }
+
+    // Always refresh the file tree after deletion attempt
     if (typeof refreshFileTreeFn === 'function') {
-      await refreshFileTreeFn();
+      try {
+        await refreshFileTreeFn();
+      } catch (refreshError) {
+        console.error('Error refreshing file tree after deletion:', refreshError);
+        showNotification('File tree refresh failed - please refresh manually', 'warning');
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in delete handler:', error);
+    showNotification(`Delete operation failed: ${error.message}`, 'error');
+  }
+}
+
+// Retry deletion with exponential backoff
+async function deleteWithRetry(filePath, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Delete attempt ${attempt}/${maxRetries} for: ${filePath}`);
+      
+      await window.electronAPI.deleteFileOrDirectory(filePath);
+      console.log(`Delete successful on attempt ${attempt}`);
+      return; // Success
+      
+    } catch (error) {
+      lastError = error;
+      console.warn(`Delete attempt ${attempt} failed:`, error.message);
+      
+      // If it's the last attempt, throw the error
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s...
+      console.log(`Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Check if file still exists before retrying
+      const stillExists = await window.electronAPI.fileExists(filePath).catch(() => false);
+      if (!stillExists) {
+        console.log('File no longer exists - considering deletion successful');
+        return;
+      }
     }
   }
+  
+  // All retries failed
+  throw lastError;
 }
 
 function setupRootContextMenu() {
@@ -1265,6 +1491,116 @@ function showRootContextMenu(x, y) {
 
 // Exportar o módulo
 export default FileOperations;
+
+// Enhanced path normalization with better validation
+function normalizePath(inputPath) {
+  if (!inputPath || typeof inputPath !== 'string') {
+    console.warn('Invalid path provided to normalizePath:', inputPath);
+    return '';
+  }
+  
+  const projectPath = getProjectPath().trim();
+  if (!projectPath) {
+    console.error('Project path is not defined');
+    return inputPath;
+  }
+  
+  // Clean the input path
+  let cleanPath = inputPath.trim().replace(/[\/\\]+/g, '\\');
+  
+  // If already absolute and starts with project path, return as-is
+  if (cleanPath.startsWith(projectPath)) {
+    return cleanPath;
+  }
+  
+  // If it's an absolute Windows path but not in project, return as-is
+  if (/^[A-Za-z]:\\/.test(cleanPath)) {
+    return cleanPath;
+  }
+  
+  // Remove leading separators and combine with project path
+  cleanPath = cleanPath.replace(/^[\/\\]+/, '');
+  const separator = projectPath.endsWith('\\') ? '' : '\\';
+  
+  return `${projectPath}${separator}${cleanPath}`;
+}
+
+// Enhanced element finding with multiple strategies
+function findElementByPath(targetPath) {
+  if (!targetPath) {
+    console.warn('No path provided to findElementByPath');
+    return null;
+  }
+  
+  console.log(`Searching for element with path: ${targetPath}`);
+  
+  // Strategy 1: Direct data-path match
+  const allItems = document.querySelectorAll('.file-tree-item[data-path]');
+  for (const item of allItems) {
+    const itemPath = item.getAttribute('data-path');
+    if (itemPath === targetPath) {
+      console.log('Found element by data-path match');
+      return item;
+    }
+  }
+  
+  // Strategy 2: Normalized path comparison
+  const normalizedTarget = normalizePath(targetPath);
+  for (const item of allItems) {
+    const itemPath = normalizePath(item.getAttribute('data-path'));
+    if (itemPath === normalizedTarget) {
+      console.log('Found element by normalized path match');
+      return item;
+    }
+  }
+  
+  // Strategy 3: Filename and hierarchy matching
+  const targetParts = targetPath.split(/[\/\\]/).filter(part => part.length > 0);
+  const targetFilename = targetParts[targetParts.length - 1];
+  
+  const candidateItems = document.querySelectorAll('.file-tree-item .file-item span');
+  for (const span of candidateItems) {
+    if (span.textContent === targetFilename) {
+      const element = span.closest('.file-tree-item');
+      if (isPathMatchingElement(targetPath, element)) {
+        console.log('Found element by filename and hierarchy match');
+        return element;
+      }
+    }
+  }
+  
+  console.warn(`Element not found for path: ${targetPath}`);
+  return null;
+}
+
+// Enhanced path matching with better hierarchy detection
+function isPathMatchingElement(targetPath, element) {
+  const reconstructedPath = getFilePathFromElement(element);
+  
+  // Direct match
+  if (reconstructedPath === targetPath) {
+    return true;
+  }
+  
+  // Normalized comparison
+  const normalizedTarget = normalizePath(targetPath);
+  const normalizedReconstructed = normalizePath(reconstructedPath);
+  
+  if (normalizedTarget === normalizedReconstructed) {
+    return true;
+  }
+  
+  // Suffix matching (for relative vs absolute paths)
+  const targetParts = normalizedTarget.split('\\').filter(part => part.length > 0);
+  const reconParts = normalizedReconstructed.split('\\').filter(part => part.length > 0);
+  
+  if (reconParts.length <= targetParts.length) {
+    const offset = targetParts.length - reconParts.length;
+    return reconParts.every((part, i) => part === targetParts[i + offset]);
+  }
+  
+  return false;
+}
 
 
 // Quando o DOM estiver carregado, inicializar o módulo de operações de arquivos

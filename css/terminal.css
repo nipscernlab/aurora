@@ -2,6 +2,7 @@
 .terminal-container {
   background-color: var(--bg-tertiary);
  /* border-top: 1px solid var(--border-primary);*/
+  max-height: 1000px !important;
   min-height: inherit;
   display: flex;
   flex-direction: column;

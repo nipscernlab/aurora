@@ -222,7 +222,7 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
       contextIsolation: true,
       nodeIntegration: false
     },
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: true
   });
 
@@ -2219,4 +2219,120 @@ ipcMain.on('app:reload', () => {
 
 ipcMain.handle('save-theme', async (event, themeData) => {
   // Salvar themeData no arquivo CSS
+});
+
+
+//TESTE =====================================================================================
+// Command execution handlers
+
+// Alternative command execution with more control
+ipcMain.handle('run-command', async (event, { command, args = [], options = {} }) => {
+  return new Promise((resolve) => {
+    console.log('Running command:', command, 'with args:', args);
+    
+    const child = spawn(command, args, {
+      ...options,
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    child.on('close', (code) => {
+      resolve({
+        success: code === 0,
+        stdout,
+        stderr,
+        code
+      });
+    });
+    
+    child.on('error', (error) => {
+      resolve({
+        success: false,
+        stdout,
+        stderr: stderr + error.message,
+        code: 1,
+        error: error.message
+      });
+    });
+    
+    // Set timeout
+    setTimeout(() => {
+      if (!child.killed) {
+        child.kill();
+        resolve({
+          success: false,
+          stdout,
+          stderr: stderr + 'Command timed out',
+          code: 1,
+          error: 'Command execution timed out'
+        });
+      }
+    }, options.timeout || 30000);
+  });
+});
+
+ipcMain.handle('path-exists', async (event, filePath) => {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+// Temporary file operations
+ipcMain.handle('get-temp-dir', async () => {
+  return os.tmpdir();
+});
+
+ipcMain.handle('create-temp-file', async (event, content, extension) => {
+  try {
+    const tempDir = os.tmpdir();
+    const fileName = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
+    const filePath = path.join(tempDir, fileName);
+    
+    await fs.writeFile(filePath, content, 'utf8');
+    return filePath;
+  } catch (error) {
+    throw new Error(`Failed to create temp file: ${error.message}`);
+  }
+});
+
+ipcMain.handle('delete-temp-file', async (event, filePath) => {
+  try {
+    await fs.unlink(filePath);
+    return true;
+  } catch (error) {
+    console.warn('Failed to delete temp file:', error.message);
+    return false;
+  }
+});
+
+// Enhanced file deletion
+ipcMain.handle('delete-file-or-directory', async (event, itemPath) => {
+  try {
+    const stats = await fs.stat(itemPath);
+    
+    if (stats.isDirectory()) {
+      await fs.rmdir(itemPath, { recursive: true });
+    } else {
+      await fs.unlink(itemPath);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete item:', error);
+    return { success: false, error: error.message };
+  }
 });

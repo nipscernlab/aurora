@@ -16,6 +16,11 @@ const { promisify } = require('util');
 
 // Path to store user settings
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+// Update system configuration
+let progressWindow = null;
+let updateCheckInProgress = false;
+let downloadInProgress = false;
+
 
 // Global variables for app state
 let tray = null; // Tray icon instance
@@ -172,25 +177,77 @@ function updatePathInElectron() {
 }
 
 updatePathInElectron();
+// Configure auto-updater for better performance and reliability
+function configureAutoUpdater() {
+  // Clear any cached update files
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  
+  // Enable logging for debugging
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger.transports.file.level = 'info';
+  
+  // Configure update server settings for better download performance
+  autoUpdater.requestHeaders = {
+    'Cache-Control': 'no-cache',
+    'User-Agent': `${app.getName()}/${app.getVersion()}`
+  };
+}
 
-// Function to create a progress window for updates
-let progressWindow = null;
-
+// Create a modern progress window for updates
 function createProgressWindow() {
+  if (progressWindow) {
+    progressWindow.close();
+    progressWindow = null;
+  }
+
   progressWindow = new BrowserWindow({
-    width: 400,
-    height: 150,
+    width: 500,
+    height: 400,
     frame: false,
     transparent: true,
+    resizable: false,
+    movable: true,
     alwaysOnTop: true,
+    center: true,
+    show: false,
     webPreferences: {
       contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegration: false,
       preload: path.join(__dirname, 'js', 'preload.js')
     },
   });
 
+  // Load the progress HTML file
   progressWindow.loadFile(path.join(__dirname, 'html', 'progress.html'));
+
+  // Show window when ready to prevent flash
+  progressWindow.once('ready-to-show', () => {
+    progressWindow.show();
+    progressWindow.focus();
+  });
+
+  // Handle window closed event
+  progressWindow.on('closed', () => {
+    progressWindow = null;
+  });
+
+  // Prevent the window from being closed during download
+  progressWindow.on('close', (event) => {
+    if (downloadInProgress) {
+      event.preventDefault();
+      dialog.showMessageBox(progressWindow, {
+        type: 'warning',
+        title: 'Download in Progress',
+        message: 'Please wait for the update download to complete.',
+        buttons: ['OK']
+      });
+    }
+  });
 }
+
+
 // IPC handler to load an SVG file
 ipcMain.handle("load-svg-file", async (event, svgPath) => {
   try {
@@ -245,69 +302,245 @@ ipcMain.on("open-prism-window", (event, svgPath) => {
   });
 });
 
-// Function to check for application updates
-function checkForUpdates() {
-  autoUpdater.checkForUpdatesAndNotify();
 
+// Enhanced update checking with better error handling
+function checkForUpdates() {
+  if (updateCheckInProgress) {
+    console.log('Update check already in progress');
+    return;
+  }
+
+  updateCheckInProgress = true;
+  console.log('Checking for updates...');
+
+  // Clear cache before checking for updates
+  clearUpdateCache().then(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }).catch((error) => {
+    console.error('Failed to clear update cache:', error);
+    autoUpdater.checkForUpdatesAndNotify();
+  });
+}
+
+// Clear update cache for fresh downloads
+async function clearUpdateCache() {
+  try {
+    const { session } = require('electron');
+    const ses = session.defaultSession;
+    
+    // Clear HTTP cache
+    await ses.clearCache();
+    
+    // Clear storage data related to updates
+    await ses.clearStorageData({
+      storages: ['cachestorage', 'filesystem', 'localstorage', 'sessionstorage']
+    });
+    
+    console.log('Update cache cleared successfully');
+  } catch (error) {
+    console.error('Error clearing update cache:', error);
+    throw error;
+  }
+}
+
+// Setup auto-updater event listeners with improved handling
+function setupAutoUpdaterEvents() {
+  // Update available event
   autoUpdater.on('update-available', async (info) => {
+    updateCheckInProgress = false;
+    
     console.log(`New version available: ${info.version}, current version: ${app.getVersion()}`);
+    
+    const releaseNotes = info.releaseNotes || 'No release notes available';
+    const updateSize = info.files && info.files[0] ? 
+      `(${(info.files[0].size / 1048576).toFixed(1)} MB)` : '';
+    
     const { response } = await dialog.showMessageBox({
       type: 'info',
       title: 'Update Available',
-      message: `Current Version: ${app.getVersion()}\nNew Version: ${info.version}\nDo you want to download now?`,
-      buttons: ['Yes', 'Later'],
+      message: `A new version is available!`,
+      detail: `Current Version: ${app.getVersion()}\nNew Version: ${info.version} ${updateSize}\n\nWould you like to download and install it now?`,
+      buttons: ['Download Now', 'Later'],
       defaultId: 0,
       cancelId: 1,
+      icon: null
     });
+
     if (response === 0) {
-      console.log('Starting update download...');
-      createProgressWindow();
-      autoUpdater.downloadUpdate();
+      startUpdateDownload();
     }
   });
 
+  // No update available event
+  autoUpdater.on('update-not-available', (info) => {
+    updateCheckInProgress = false;
+    console.log('No updates available');
+  });
+
+  // Download progress event with enhanced tracking
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.round(progress.percent);
-    const transferred = (progress.transferred / 1048576).toFixed(2); // Convert to MB
-    const total = (progress.total / 1048576).toFixed(2); // Convert to MB
+    const transferred = (progress.transferred / 1048576).toFixed(1);
+    const total = (progress.total / 1048576).toFixed(1);
+    const speed = (progress.bytesPerSecond / 1048576).toFixed(1);
     
-    if (progressWindow) {
+    console.log(`Download progress: ${percent}% (${transferred}/${total} MB) at ${speed} MB/s`);
+    
+    if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.webContents.send('update-progress', {
         percent,
         transferred,
         total,
-        speed: (progress.bytesPerSecond / 1048576).toFixed(2) // Speed in MB/s
+        speed
       });
     }
   });
 
-  autoUpdater.on('update-downloaded', async () => {
-    if (progressWindow) {
+  // Update downloaded event
+  autoUpdater.on('update-downloaded', async (info) => {
+    downloadInProgress = false;
+    
+    console.log('Update downloaded successfully');
+    
+    // Close progress window
+    if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.close();
       progressWindow = null;
     }
 
+    // Show install confirmation dialog
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      title: 'Install Update',
-      message: 'The update has been downloaded. Install now?',
-      buttons: ['Yes', 'Later'],
+      title: 'Update Ready to Install',
+      message: 'The update has been downloaded successfully!',
+      detail: `Version ${info.version} is ready to be installed. The application will restart to complete the installation.`,
+      buttons: ['Install Now', 'Install Later'],
       defaultId: 0,
-      cancelId: 1,
+      cancelId: 1
     });
+
     if (response === 0) {
-      autoUpdater.quitAndInstall(true, true);
-      installExecutables();
+      // Install update immediately
+      setImmediate(() => {
+        autoUpdater.quitAndInstall(false, true);
+      });
     }
   });
 
-  autoUpdater.on('error', (err) => {
-    console.error('Update error:', err);
-    if (progressWindow) {
+  // Error handling with user notification
+  autoUpdater.on('error', async (error) => {
+    updateCheckInProgress = false;
+    downloadInProgress = false;
+    
+    console.error('Update error:', error);
+    
+    // Close progress window if open
+    if (progressWindow && !progressWindow.isDestroyed()) {
+      progressWindow.close();
+      progressWindow = null;
+    }
+
+    // Show user-friendly error message
+    let errorMessage = 'An error occurred while checking for updates.';
+    
+    if (error.message.includes('net::')) {
+      errorMessage = 'Unable to connect to the update server. Please check your internet connection.';
+    } else if (error.message.includes('signature')) {
+      errorMessage = 'Update verification failed. Please try again later.';
+    } else if (error.message.includes('ENOSPC')) {
+      errorMessage = 'Not enough disk space to download the update.';
+    }
+
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Update Error',
+      message: 'Update Failed',
+      detail: `${errorMessage}\n\nError details: ${error.message}`,
+      buttons: ['OK']
+    });
+  });
+
+  // Before quit for update event
+  autoUpdater.on('before-quit-for-update', () => {
+    console.log('Application will quit for update installation');
+  });
+}
+
+// Start the update download process
+function startUpdateDownload() {
+  if (downloadInProgress) {
+    console.log('Download already in progress');
+    return;
+  }
+
+  downloadInProgress = true;
+  console.log('Starting update download...');
+  
+  // Create and show progress window
+  createProgressWindow();
+  
+  // Start the download
+  autoUpdater.downloadUpdate().catch((error) => {
+    console.error('Failed to start download:', error);
+    downloadInProgress = false;
+    
+    if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.close();
       progressWindow = null;
     }
   });
+}
+
+// IPC handlers for renderer process communication
+function setupIpcHandlers() {
+  // Handle manual update check from renderer
+  ipcMain.handle('check-for-updates', () => {
+    checkForUpdates();
+  });
+
+  // Handle cancel download request
+  ipcMain.handle('cancel-update-download', () => {
+    if (downloadInProgress && progressWindow) {
+      downloadInProgress = false;
+      progressWindow.close();
+      progressWindow = null;
+      // Note: electron-updater doesn't have a direct cancel method
+      // The download will continue in background but UI will be hidden
+    }
+  });
+
+  // Get current app version
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+  });
+}
+
+// Initialize the update system
+function initializeUpdateSystem() {
+  console.log('Initializing update system...');
+  
+  configureAutoUpdater();
+  setupAutoUpdaterEvents();
+  setupIpcHandlers();
+  
+  // Check for updates on app start (with delay to let app fully load)
+  setTimeout(() => {
+    if (process.env.NODE_ENV !== 'development') {
+      checkForUpdates();
+    }
+  }, 5000);
+}
+
+// Export the main functions
+module.exports = {
+  initializeUpdateSystem,
+  checkForUpdates,
+  createProgressWindow
+};
+
+// Auto-initialize if this file is required directly
+if (require.main === module) {
+  initializeUpdateSystem();
 }
 
 // Function to create the main application window

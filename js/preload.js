@@ -118,6 +118,30 @@ ipcRenderer.invoke('create-temp-file', content, extension),
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
   onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
+
+    onUpdateProgress: (callback) => {
+    const wrappedCallback = (event, data) => callback(data);
+    ipcRenderer.on('update-progress', wrappedCallback);
+    
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('update-progress', wrappedCallback);
+    };
+  },
+
+  checkForUpdates: () => {
+    return ipcRenderer.invoke('check-for-updates');
+  },
+
+  cancelUpdateDownload: () => {
+    return ipcRenderer.invoke('cancel-update-download');
+  },
+
+  getAppVersion: () => {
+    return ipcRenderer.invoke('get-app-version');
+  },
+
+  
   saveConfig: (data) => ipcRenderer.send('save-config', data),
 
   readDirectory: async (dirPath) => {

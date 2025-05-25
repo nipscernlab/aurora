@@ -1,95 +1,806 @@
+// Importing necessary modules from Electron const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron'); const { autoUpdater } = require('electron-updater'); const { exec } = require('child_process'); const path = require('path'); const fse = require('fs
+
+pasted
+
+
+<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Updating Application</title> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.co
+
+pasted
+
+preload.js: 
+  onUpdateProgress: (callback) => {
+    ipcRenderer.on('update-progress', (event, data) => callback(data));
+  },
+
+package.json: {
+    "name": "aurora-ide",
+    "productName": "Aurora IDE",
+    "description": "Aurora IDE",
+    "author": "NIPSCERN",
+    "version": "3.4.2",
+    "win": {
+        "icon": "./assets/icons/aurora_borealis-2.ico"
+    },
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "electron-builder"
+    },
+    "build": {
+        "appId": "com.nipscern.auroraide",
+        "productName": "Aurora IDE",
+        "fileAssociations": [
+            {
+                "ext": "spf",
+                "name": "SAPHO Project File",
+                "description": "SAPHO Project File",
+                "role": "Editor",
+                "icon": "./assets/icons/aurora_borealis-2.ico"
+            }
+        ],
+        "protocols": [
+            {
+                "name": "SAPHO Project Protocol",
+                "schemes": [
+                    "sapho"
+                ]
+            }
+        ],
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "nipscernlab",
+                "repo": "Aurora",
+                "releaseType": "release"
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "./assets/icons/aurora_borealis-2.ico",
+            "artifactName": "AuroraIDE-Setup-3.4.2.${ext}"
+        },
+        "nsis": {
+            "include": "build/installer.nsh"
+        },
+        "extraResources": [
+            {
+                "from": "saphoComponents",
+                "to": "saphoComponents_tmp"
+            }
+        ],
+        "directories": {
+            "buildResources": "build"
+        }
+    },
+    "keywords": [
+        "Aurora"
+    ],
+    "dependencies": {
+        "@electron/remote": "^2.1.2",
+        "@formspree/react": "^2.5.1",
+        "@fortawesome/fontawesome-free": "^6.6.0",
+        "@radix-ui/react-alert-dialog": "^1.0.5",
+        "@radix-ui/react-slot": "^1.0.2",
+        "@radix-ui/react-tabs": "^1.1.1",
+        "@xterm/addon-fit": "^0.9.0",
+        "@xterm/xterm": "^5.3.0",
+        "chokidar": "^4.0.3",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.0.0",
+        "electron-log": "^5.4.0",
+        "electron-store": "^10.0.0",
+        "electron-updater": "^6.6.2",
+        "fs-extra": "^11.3.0",
+        "lucide": "^0.293.0",
+        "lucide-react": "^0.453.0",
+        "moment": "^2.30.1",
+        "monaco-editor": "^0.45.0",
+        "netlistsvg": "^1.0.2",
+        "perf_hooks": "^0.0.1",
+        "prettier": "^3.5.3",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "sortablejs": "^1.15.3",
+        "tabulator-tables": "^6.3.0",
+        "tailwindcss": "^3.3.0",
+        "tailwindcss-animate": "^1.0.7",
+        "vcd-parser": "^1.0.1",
+        "wavedrom": "^3.5.0"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.26.7",
+        "@babel/preset-react": "^7.26.3",
+        "babel-loader": "^9.2.1",
+        "clang-format": "^1.8.0",
+        "electron": "^28.3.3",
+        "electron-builder": "^25.1.8",
+        "electron-rebuild": "^3.2.9",
+        "webpack": "^5.97.1",
+        "webpack-cli": "^5.1.4"
+    }
+}
+
+Por favor, faca o progress.html abir apos 2s que o meu programa iniciais. Me de um codigo robusto para atualizar meu programa electron. Me de todo codigo necessario, mas somente o codigo estritamente necessario. De o codigo em ingles, eu preciso que o downlad da versao seja pelo github, como descrito no package.json. Faca algo confiavel, que calcule o tempo e o tamanho corretamente, que baixe corretamente, que limpe o cache de download. Deixe o usuario escolher se quer ou nao baixar, se quer instalar agora ou depois. Reinicie o programa corretamente. Por favor, de o codigo em ingles
+
+Edit
+I'll provide you with a robust auto-updater implementation for your Electron app. Here's the complete code needed:
+
+
+Auto-Updater Implementation (main.js)
+Code 
+
+Preload Script Updates (preload.js)
+Code 
+
+Updated Progress Window (progress.html)
+Interactive artifact 
+
+
+
+
+Continue
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Downloading Update</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Updating Aurora IDE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* General styles for the body */
-    body {
-      font-family: Arial, sans-serif;
+    :root {
+      --bg-primary: #17151f;
+      --bg-secondary: #1e1b2c;
+      --bg-tertiary: #252236;
+      --bg-hover: #2d2a40;
+      --bg-active: #363150;
+      
+      --accent-primary: #9d7fff;
+      --accent-secondary: #7b5cd6;
+      --accent-hover: #b18fff;
+      --accent-focus: #cbb2ff;
+      --accent-muted: #6842c2;
+      
+      --text-primary: #e2dcff;
+      --text-secondary: #bbb2e0;
+      --text-muted: #776f97;
+      --text-disabled: #504a68;
+      
+      --border-primary: #2f2a45;
+      --border-secondary: #252236;
+      --border-focus: #9d7fff;
+      
+      --success: #a5e075;
+      --error: #ff7eb6;
+      --warning: #ffb86c;
+      
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
+      --shadow-focus: 0 0 0 3px rgba(157, 127, 255, 0.4);
+      
+      --gradient-primary: linear-gradient(135deg, #9d7fff 0%, #7b5cd6 100%);
+      --gradient-secondary: linear-gradient(135deg, #a47fff 0%, #634bab 100%);
+      
+      --transition-fast: 100ms ease;
+      --transition-normal: 200ms ease;
+      --transition-slow: 300ms ease;
+      
+      --radius-sm: 0.25rem;
+      --radius-md: 0.375rem;
+      --radius-lg: 0.5rem;
+      --radius-xl: 0.75rem;
+      --radius-full: 9999px;
+      
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
       margin: 0;
-      padding: 20px;
-      background-color: rgba(30, 30, 30, 0.9);
-      color: white;
-      border-radius: 8px;
-      overflow: hidden;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
-    /* Container for centering content */
-    .container {
+
+    body {
+      font-family: var(--font-sans);
+      background: transparent;
+      overflow: hidden;
+      -webkit-app-region: drag;
+      user-select: none;
+      width: 100vw;
+      height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
     }
-    
-    /* Styles for the heading */
-    h3 {
-      margin-top: 0;
-      margin-bottom: 15px;
-    }
-    
-    /* Styles for the progress bar container */
-    .progress-container {
+
+    .modal-container {
       width: 100%;
-      height: 20px;
-      background-color: #333;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      overflow: hidden;
-    }
-    
-    /* Styles for the progress bar itself */
-    .progress-bar {
       height: 100%;
-      background-color: #565f89;
-      width: 0%;
-      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    
-    /* Styles for the details section */
-    .details {
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      width: 460px;
+      max-width: 90vw;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+      -webkit-app-region: no-drag;
+      animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--gradient-primary);
+      opacity: 0.6;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .update-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--gradient-primary);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .update-icon::before {
+      content: '';
+      position: absolute;
       width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .update-icon svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+      z-index: 1;
+      animation: rotate 2s linear infinite;
+    }
+
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .header-content h2 {
+      color: var(--text-primary);
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .header-content p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .progress-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .progress-header {
       display: flex;
       justify-content: space-between;
-      font-size: 14px;
-      color: #ccc;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .progress-label {
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .progress-percentage {
+      color: var(--accent-primary);
+      font-weight: 600;
+      font-size: 0.875rem;
+      min-width: 35px;
+      text-align: right;
+    }
+
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--gradient-primary);
+      width: 0%;
+      border-radius: var(--radius-full);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+      );
+      animation: progressShimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes progressShimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-secondary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      transition: all var(--transition-normal);
+    }
+
+    .stat-card:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-primary);
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      word-break: break-word;
+    }
+
+    .speed-indicator {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: var(--radius-full);
+      animation: pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .eta-section {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-secondary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .eta-label {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .eta-value {
+      color: var(--accent-primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .status-indicator {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: var(--radius-full);
+      animation: statusPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.2);
+      }
+    }
+
+    .completion-state {
+      display: none;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .completion-state.show {
+      display: block;
+    }
+
+    .completion-state .checkmark {
+      width: 64px;
+      height: 64px;
+      background: var(--success);
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      animation: checkmarkPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    @keyframes checkmarkPop {
+      0% {
+        opacity: 0;
+        transform: scale(0);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .completion-state .checkmark svg {
+      width: 32px;
+      height: 32px;
+      color: white;
+    }
+
+    .completion-state h3 {
+      color: var(--text-primary);
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .completion-state p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .error-state {
+      display: none;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .error-state.show {
+      display: block;
+    }
+
+    .error-state .error-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--error);
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+    }
+
+    .error-state .error-icon svg {
+      width: 32px;
+      height: 32px;
+      color: white;
+    }
+
+    .error-state h3 {
+      color: var(--error);
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .error-state p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.4;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h3>Downloading Update</h3>
-    <div class="progress-container">
-      <div class="progress-bar" id="progressBar"></div>
-    </div>
-    <div class="details">
-      <span id="progressText">0%</span>
-      <span id="transferInfo">0MB / 0MB</span>
-      <span id="speedInfo">0MB/s</span>
+  <div class="modal-container">
+    <div class="modal">
+      <div class="status-indicator"></div>
+      
+      <div class="header">
+        <div class="update-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M3 21v-5h5"/>
+          </svg>
+        </div>
+        <div class="header-content">
+          <h2>Updating Aurora IDE</h2>
+          <p>Please wait while we download the latest version</p>
+        </div>
+      </div>
+
+      <div id="downloadingState">
+        <div class="progress-section">
+          <div class="progress-header">
+            <span class="progress-label">Download Progress</span>
+            <span class="progress-percentage" id="progressPercentage">0%</span>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Downloaded</div>
+            <div class="stat-value" id="transferredInfo">0 MB / 0 MB</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Speed</div>
+            <div class="stat-value">
+              <span class="speed-indicator"></span>
+              <span id="speedInfo">0 MB/s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="eta-section">
+          <div class="eta-label">Estimated Time Remaining</div>
+          <div class="eta-value" id="etaInfo">Calculating...</div>
+        </div>
+      </div>
+
+      <div id="completionState" class="completion-state">
+        <div class="checkmark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="20,6 9,17 4,12"/>
+          </svg>
+        </div>
+        <h3>Update Downloaded Successfully!</h3>
+        <p>The update is ready to install.<br>Aurora IDE will prompt you to install when ready.</p>
+      </div>
+
+      <div id="errorState" class="error-state">
+        <div class="error-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <h3>Download Failed</h3>
+        <p id="errorMessage">Something went wrong during the download.<br>Please try again later.</p>
+      </div>
     </div>
   </div>
 
   <script>
-    // Context: This script listens for progress updates from the main process
-    // and updates the progress bar and details dynamically.
+    class UpdateProgressManager {
+      constructor() {
+        this.startTime = Date.now();
+        this.lastUpdate = Date.now();
+        this.downloadHistory = [];
+        this.maxHistoryLength = 10;
+        this.isCompleted = false;
+        
+        this.elements = {
+          progressBar: document.getElementById('progressBar'),
+          progressPercentage: document.getElementById('progressPercentage'),
+          transferredInfo: document.getElementById('transferredInfo'),
+          speedInfo: document.getElementById('speedInfo'),
+          etaInfo: document.getElementById('etaInfo'),
+          downloadingState: document.getElementById('downloadingState'),
+          completionState: document.getElementById('completionState'),
+          errorState: document.getElementById('errorState'),
+          errorMessage: document.getElementById('errorMessage')
+        };
 
-    // Listen for progress updates from the main process
-    window.electronAPI.onUpdateProgress((data) => {
-      const progressBar = document.getElementById('progressBar');
-      const progressText = document.getElementById('progressText');
-      const transferInfo = document.getElementById('transferInfo');
-      const speedInfo = document.getElementById('speedInfo');
-      
-      // Update the progress bar width and text
-      progressBar.style.width = `${data.percent}%`;
-      progressText.textContent = `${data.percent}%`;
+        this.initializeEventListeners();
+      }
 
-      // Update the transfer information
-      transferInfo.textContent = `${data.transferred}MB / ${data.total}MB`;
+      initializeEventListeners() {
+        if (window.electronAPI && window.electronAPI.onUpdateProgress) {
+          window.electronAPI.onUpdateProgress((data) => {
+            this.updateProgress(data);
+          });
+        } else {
+          console.warn('Electron API not available');
+          this.simulateProgress(); // For testing
+        }
+      }
 
-      // Update the download speed
-      speedInfo.textContent = `${data.speed}MB/s`;
+      updateProgress(data) {
+        const now = Date.now();
+        const { percent, transferred, total, speed } = data;
+
+        // Update progress bar and percentage
+        this.elements.progressBar.style.width = `${percent}%`;
+        this.elements.progressPercentage.textContent = `${percent}%`;
+
+        // Update transfer information
+        this.elements.transferredInfo.textContent = `${transferred} MB / ${total} MB`;
+
+        // Calculate and display speed with smoothing
+        this.updateDownloadHistory(transferred, now);
+        const smoothedSpeed = this.calculateSmoothSpeed();
+        this.elements.speedInfo.textContent = `${smoothedSpeed.toFixed(1)} MB/s`;
+
+        // Calculate and display ETA
+        const eta = this.calculateETA(transferred, total, smoothedSpeed);
+        this.elements.etaInfo.textContent = eta;
+
+        // Check if download is complete
+        if (percent >= 100) {
+          setTimeout(() => this.showCompletionState(), 500);
+        }
+
+        this.lastUpdate = now;
+      }
+
+      updateDownloadHistory(transferred, timestamp) {
+        this.downloadHistory.push({
+          transferred: parseFloat(transferred),
+          timestamp
+        });
+
+        // Keep only recent history for accurate speed calculation
+        if (this.downloadHistory.length > this.maxHistoryLength) {
+          this.downloadHistory.shift();
+        }
+      }
+
+      calculateSmoothSpeed() {
+        if (this.downloadHistory.length < 2) return 0;
+
+        const recent = this.downloadHistory.slice(-5); // Use last 5 data points
+        let totalSpeed = 0;
+        let validSpeeds = 0;
+
+        for (let i = 1; i < recent.length; i++) {
+          const timeDiff = (recent[i].timestamp - recent[i-1].timestamp) / 1000; // Convert to seconds
+          const dataDiff = recent[i].transferred - recent[i-1].transferred;
+          
+          if (timeDiff > 0) {
+            totalSpeed += dataDiff / timeDiff;
+            validSpeeds++;
+          }
+        }
+
+        return validSpeeds > 0 ? totalSpeed / validSpeeds : 0;
+      }
+
+      calculateETA(transferred, total, speed) {
+        if (speed <= 0) return 'Calculating...';
+        
+        const remaining = parseFloat(total) - parseFloat(transferred);
+        const secondsRemaining = remaining / speed;
+        
+        if (secondsRemaining < 60) {
+          return `${Math.ceil(secondsRemaining)} seconds`;
+        } else if (secondsRemaining < 3600) {
+          const minutes = Math.ceil(secondsRemaining / 60);
+          return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        } else {
+          const hours = Math.floor(secondsRemaining / 3600);
+          const minutes = Math.ceil((secondsRemaining % 3600) / 60);
+          return `${hours}h ${minutes}m`;
+        }
+      }
+
+      showCompletionState() {
+        this.elements.downloadingState.style.display = 'none';
+        this.elements.completionState.classList.add('show');
+      }
+    }
+
+    // Initialize the progress manager when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      new UpdateProgressManager();
     });
+
+    // Fallback for testing without Electron API
+    if (!window.electronAPI) {
+      console.warn('Electron API not available - running in test mode');
+      
+      // Simulate progress for testing
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 5;
+        if (progress > 100) progress = 100;
+        
+        const mockData = {
+          percent: Math.round(progress),
+          transferred: (progress * 2.5).toFixed(1),
+          total: '250.0',
+          speed: (Math.random() * 10 + 5).toFixed(1)
+        };
+        
+        const manager = new UpdateProgressManager();
+        manager.updateProgress(mockData);
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 500);
+    }
   </script>
 </body>
 </html>

@@ -1584,14 +1584,58 @@ ipcMain.handle('create-directory', async (event, dirPath) => {
   }
 });
 
-// IPC handler to write content to a file
+// IPC handler to write content to a file (improved with better error handling)
 ipcMain.handle('write-file', async (event, filePath, content) => {
   try {
+    // Ensure the directory exists
+    const dir = path.dirname(filePath);
+    await fse.ensureDir(dir);
+    
+    // Write the file
     await fse.writeFile(filePath, content);
+    console.log(`File written successfully: ${filePath}`);
     return { success: true };
   } catch (error) {
     console.error('Error writing file:', error);
-    throw error;
+    throw new Error(`Failed to write file: ${error.message}`);
+  }
+});
+
+// IPC handler to ensure directory exists
+ipcMain.handle('ensure-dir', async (event, dirPath) => {
+  try {
+    await fse.ensureDir(dirPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error ensuring directory:', error);
+    throw new Error(`Failed to create directory: ${error.message}`);
+  }
+});
+
+
+// IPC handler to validate path
+ipcMain.handle('validate-path', async (event, filePath) => {
+  try {
+    // Check if path is valid and accessible
+    await fse.access(filePath);
+    const stats = await fse.lstat(filePath);
+    
+    return {
+      exists: true,
+      isDirectory: stats.isDirectory(),
+      isFile: stats.isFile(),
+      readable: true,
+      writable: true // This is a simplified check
+    };
+  } catch (error) {
+    return {
+      exists: false,
+      isDirectory: false,
+      isFile: false,
+      readable: false,
+      writable: false,
+      error: error.message
+    };
   }
 });
 

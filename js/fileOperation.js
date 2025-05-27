@@ -23,9 +23,18 @@ const FileOperations = (function() {
   }
 
   // Função para obter o caminho do projeto atual
-  function getProjectPath() {
-    return window.currentProjectPath || '';
+  async function getProjectPath() {
+  try {
+    // First try to get from global variable (faster)
+    if (window.currentProjectPath) {
+      return window.currentProjectPath;
+    }
+  
+  } catch (error) {
+    console.error('Error getting project path:', error);
+    return '';
   }
+}
 
   // Função para normalizar caminhos
   function normalizePath(path) {
@@ -342,6 +351,528 @@ async function handleNewFile() {
     showNotification(`Error creating file: ${error.message}`, 'error');
   }
 }
+
+// Robust Drag and Drop functionality with proper path construction
+
+const DragDropHandler = (function() {
+  let dragCounter = 0;
+  let currentDropTarget = null;
+
+  function initialize() {
+    setupFileTreeDropZone();
+    setupFolderDropZones();
+  }
+
+  function setupFileTreeDropZone() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) {
+      setTimeout(setupFileTreeDropZone, 500);
+      return;
+    }
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      fileTree.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      fileTree.addEventListener(eventName, handleDragEnter, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      fileTree.addEventListener(eventName, handleDragLeave, false);
+    });
+
+    fileTree.addEventListener('drop', handleDrop, false);
+  }
+
+  function setupFolderDropZones() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+
+    fileTree.addEventListener('dragenter', handleFolderDragEnter);
+    fileTree.addEventListener('dragleave', handleFolderDragLeave);
+    fileTree.addEventListener('dragover', handleFolderDragOver);
+    fileTree.addEventListener('drop', handleFolderDrop);
+  }
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDragEnter(e) {
+    dragCounter++;
+    
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const item = e.dataTransfer.items[0];
+      if (item.kind === 'file') {
+        e.currentTarget.classList.add('drag-over');
+      }
+    }
+  }
+
+  function handleDragLeave(e) {
+    dragCounter--;
+    
+    if (dragCounter === 0) {
+      e.currentTarget.classList.remove('drag-over');
+      clearFolderHighlight();
+    }
+  }
+
+  function handleFolderDragEnter(e) {
+    const folderItem = e.target.closest('.file-tree-item');
+    if (folderItem && isFolderElement(folderItem)) {
+      clearFolderHighlight();
+      currentDropTarget = folderItem;
+      folderItem.classList.add('drop-target');
+    }
+  }
+
+  function handleFolderDragLeave(e) {
+    const folderItem = e.target.closest('.file-tree-item');
+    if (currentDropTarget && (!folderItem || folderItem !== currentDropTarget)) {
+      clearFolderHighlight();
+    }
+  }
+
+  function handleFolderDragOver(e) {
+    const folderItem = e.target.closest('.file-tree-item');
+    if (folderItem && isFolderElement(folderItem)) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }
+
+  function handleFolderDrop(e) {
+    const folderItem = e.target.closest('.file-tree-item');
+    if (folderItem && isFolderElement(folderItem)) {
+      handleDrop(e, folderItem);
+    }
+  }
+
+  function clearFolderHighlight() {
+    if (currentDropTarget) {
+      currentDropTarget.classList.remove('drop-target');
+      currentDropTarget = null;
+    }
+  }
+
+  function isFolderElement(element) {
+    const iconElement = element.querySelector('i.file-item-icon');
+    return iconElement && (
+      iconElement.classList.contains('fa-folder') || 
+      iconElement.classList.contains('fa-folder-open')
+    );
+  }
+
+  async function handleDrop(e, targetFolder = null) {
+  const fileTree = document.getElementById('file-tree');
+  fileTree.classList.remove('drag-over');
+  clearFolderHighlight();
+  dragCounter = 0;
+
+  const files = Array.from(e.dataTransfer.files);
+  if (files.length === 0) return;
+
+  console.log('=== Starting Drop Operation ===');
+  console.log('Files to drop:', files.map(f => f.name));
+  console.log('Current window.currentProjectPath:', window.currentProjectPath);
+  console.log('Current window.currentSpfPath:', window.currentSpfPath);
+    let targetPath;
+    try {
+      targetPath = await determineTargetPath(targetFolder);
+      console.log(`Target path determined: ${targetPath}`);
+
+      // Validate the target path
+      const pathInfo = await window.electronAPI.validatePath(targetPath);
+      if (!pathInfo.exists) {
+        // Try to create the directory
+        await window.electronAPI.ensureDir(targetPath);
+        console.log(`Created directory: ${targetPath}`);
+      } else if (!pathInfo.isDirectory) {
+        throw new Error(`Target is not a directory: ${targetPath}`);
+      }
+
+    } catch (error) {
+      console.error('Error determining target path:', error);
+      showNotification(`Error: ${error.message}`, 'error');
+      return;
+    }
+
+    // Show progress notification
+    const notification = showNotification(
+      `Copying ${files.length} file(s) to ${getDisplayPath(targetPath)}...`, 
+      'info', 
+      15000
+    );
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const file of files) {
+        try {
+          await copyFileToTarget(file, targetPath);
+          successCount++;
+          console.log(`Successfully copied: ${file.name}`);
+        } catch (error) {
+          errorCount++;
+          errors.push(`${file.name}: ${error.message}`);
+          console.error(`Error copying ${file.name}:`, error);
+        }
+      }
+
+      notification.close();
+
+      // Show result notification
+      if (errorCount === 0) {
+        showNotification(
+          `Successfully copied ${successCount} file(s)`, 
+          'success'
+        );
+      } else if (successCount > 0) {
+        showNotification(
+          `Copied ${successCount} file(s), ${errorCount} failed. First error: ${errors[0]}`, 
+          'warning',
+          5000
+        );
+      } else {
+        showNotification(
+          `Failed to copy files. Error: ${errors[0]}`, 
+          'error',
+          5000
+        );
+      }
+
+      // Refresh file tree
+      if (typeof refreshFileTreeFn === 'function') {
+        setTimeout(async () => {
+          try {
+            await refreshFileTreeFn();
+          } catch (refreshError) {
+            console.error('Error refreshing file tree:', refreshError);
+          }
+        }, 500);
+      }
+
+    } catch (error) {
+      notification.close();
+      console.error('Error in drop handler:', error);
+      showNotification(`Error copying files: ${error.message}`, 'error');
+    }
+  }
+
+ async function determineTargetPath(targetFolder) {
+  console.log('=== Determining Target Path ===');
+  
+  const projectPath = await getProjectPath();
+  console.log('Project path result:', projectPath);
+  
+  if (!projectPath) {
+    throw new Error('No project path is set. Please open a project first.');
+  }
+
+  // If no specific folder target, use project root
+  if (!targetFolder) {
+    console.log('Using project root as target:', projectPath);
+    return projectPath;
+  }
+
+  // Get the full path for the target folder
+  const fullPath = await buildFullPathFromElement(targetFolder, projectPath);
+  console.log('Built full path:', fullPath);
+  
+  return fullPath;
+}
+
+  async function buildFullPathFromElement(element, projectPath) {
+    // First, try to get data-path attribute if it exists
+    if (element.hasAttribute('data-path')) {
+      const dataPath = element.getAttribute('data-path');
+      console.log(`Found data-path: ${dataPath}`);
+      
+      // If it's already a full path, use it
+      if (isAbsolutePath(dataPath)) {
+        return normalizePath(dataPath);
+      }
+      
+      // Otherwise, combine with project path
+      return normalizePath(joinPaths(projectPath, dataPath));
+    }
+
+    // Build path from DOM structure
+    const pathParts = [];
+    let current = element;
+
+    // Get the folder name from the current element
+    const folderNameSpan = current.querySelector('.file-item span');
+    if (folderNameSpan) {
+      const folderName = folderNameSpan.textContent.trim();
+      console.log(`Current folder name: ${folderName}`);
+      
+      // Skip "Top Level" as it's just a display name for the root
+      if (folderName !== 'Top Level') {
+        pathParts.unshift(folderName);
+      }
+    }
+
+    // Walk up the DOM tree to build the full path
+    while (current) {
+      const parentContainer = current.parentElement;
+      
+      if (parentContainer && parentContainer.classList.contains('folder-content')) {
+        // Find the parent folder item
+        const parentFolderItem = parentContainer.previousElementSibling;
+        
+        if (parentFolderItem && parentFolderItem.classList.contains('file-item')) {
+          const parentSpan = parentFolderItem.querySelector('span');
+          if (parentSpan) {
+            const parentName = parentSpan.textContent.trim();
+            console.log(`Parent folder name: ${parentName}`);
+            
+            // Skip "Top Level" as it represents the project root
+            if (parentName !== 'Top Level') {
+              pathParts.unshift(parentName);
+            }
+          }
+        }
+        
+        // Move to the parent folder item's container
+        current = parentContainer.closest('.file-tree-item');
+      } else {
+        break;
+      }
+    }
+
+    console.log(`Path parts: [${pathParts.join(', ')}]`);
+
+    // Build the final path
+    let fullPath;
+    if (pathParts.length === 0) {
+      // This is the project root
+      fullPath = projectPath;
+    } else {
+      // Combine project path with the relative path
+      fullPath = pathParts.reduce((path, part) => joinPaths(path, part), projectPath);
+    }
+
+    return normalizePath(fullPath);
+  }
+
+  function isAbsolutePath(path) {
+    // Windows: C:\ or D:\ etc.
+    if (/^[A-Za-z]:[\\\/]/.test(path)) return true;
+    
+    // Unix-like: /
+    if (path.startsWith('/')) return true;
+    
+    return false;
+  }
+
+  function joinPaths(...parts) {
+    if (parts.length === 0) return '';
+    
+    let result = parts[0] || '';
+    
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (!part) continue;
+      
+      // Remove leading slashes/backslashes from the part
+      const cleanPart = part.replace(/^[\\\/]+/, '');
+      
+      // Add separator if needed
+      if (result && !result.endsWith('\\') && !result.endsWith('/')) {
+        // Use the same separator as the base path, or default to backslash on Windows
+        const separator = result.includes('\\') ? '\\' : '/';
+        result += separator;
+      }
+      
+      result += cleanPart;
+    }
+    
+    return result;
+  }
+
+  function normalizePath(path) {
+    if (!path) return '';
+    
+    // Convert forward slashes to backslashes on Windows-style paths
+    if (/^[A-Za-z]:/.test(path)) {
+      path = path.replace(/\//g, '\\');
+    }
+    
+    // Remove duplicate separators
+    path = path.replace(/[\\\/]+/g, path.includes('\\') ? '\\' : '/');
+    
+    // Remove trailing separator (except for root)
+    if (path.length > 1 && (path.endsWith('\\') || path.endsWith('/'))) {
+      path = path.slice(0, -1);
+    }
+    
+    return path;
+  }
+
+  async function copyFileToTarget(file, targetDirectory) {
+    const destinationPath = joinPaths(targetDirectory, file.name);
+    console.log(`Copying ${file.name} to ${destinationPath}`);
+
+    try {
+      // Check if file already exists
+      const fileExists = await window.electronAPI.fileExists(destinationPath);
+      if (fileExists) {
+        const overwrite = await window.electronAPI.showConfirmDialog(
+          'File Exists',
+          `File "${file.name}" already exists in the target directory. Do you want to overwrite it?`
+        );
+        
+        if (!overwrite) {
+          throw new Error('User chose not to overwrite existing file');
+        }
+      }
+
+      // Ensure target directory exists
+      await window.electronAPI.ensureDir(targetDirectory);
+
+      // Read file content
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // Write file
+      await window.electronAPI.writeFile(destinationPath, uint8Array);
+      
+      console.log(`File copied successfully: ${destinationPath}`);
+      
+    } catch (error) {
+      console.error(`Failed to copy ${file.name}:`, error);
+      throw new Error(`Failed to copy ${file.name}: ${error.message}`);
+    }
+  }
+
+  function getProjectPath() {
+    return window.currentProjectPath || '';
+  }
+
+  function getDisplayPath(fullPath) {
+    const projectPath = getProjectPath();
+    if (!projectPath || !fullPath.startsWith(projectPath)) {
+      return fullPath;
+    }
+    
+    const relativePath = fullPath.substring(projectPath.length).replace(/^[\\\/]/, '');
+    return relativePath || 'Project Root';
+  }
+
+  function showNotification(message, type = 'info', duration = 3000) {
+    if (typeof window.showNotification === 'function') {
+      return window.showNotification(message, type, duration);
+    }
+    
+    // Fallback notification
+    console.log(`${type.toUpperCase()}: ${message}`);
+    
+    // Create a simple visual notification if no notification system exists
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#2196f3'};
+      color: white;
+      padding: 12px 20px;
+      border-radius: 4px;
+      z-index: 10000;
+      max-width: 400px;
+      word-wrap: break-word;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    const closeNotification = () => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    };
+    
+    if (duration > 0) {
+      setTimeout(closeNotification, duration);
+    }
+    
+    return { close: closeNotification };
+  }
+
+  // Public API
+  return {
+    initialize,
+    // Expose for debugging
+    determineTargetPath,
+    buildFullPathFromElement
+  };
+})();
+
+// CSS styles for drag and drop visual feedback
+const dragDropStyles = `
+  .file-tree.drag-over {
+    background-color: var(--bg-hover, #f0f0f0);
+    border: 2px dashed var(--accent-primary, #007acc);
+    border-radius: var(--radius-md, 8px);
+    transition: all 0.2s ease;
+  }
+  
+  .file-tree-item.drop-target {
+    background-color: var(--bg-hover, #f0f0f0);
+    border-radius: var(--radius-sm, 4px);
+    transition: all 0.2s ease;
+  }
+  
+  .file-tree-item.drop-target > .file-item {
+    background-color: var(--accent-primary, #007acc);
+    color: var(--text-inverse, white);
+    border-radius: var(--radius-sm, 4px);
+  }
+`;
+
+// Add styles and initialize
+function addDragDropStyles() {
+  if (document.getElementById('drag-drop-styles')) return;
+  
+  const styleElement = document.createElement('style');
+  styleElement.id = 'drag-drop-styles';
+  styleElement.textContent = dragDropStyles;
+  document.head.appendChild(styleElement);
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    addDragDropStyles();
+    DragDropHandler.initialize();
+  });
+} else {
+  addDragDropStyles();
+  DragDropHandler.initialize();
+}
+
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = DragDropHandler;
+}
+
+// Make available globally for debugging
+window.DragDropHandler = DragDropHandler;
+
+
+// Listen for project path updates
+if (window.electronAPI && window.electronAPI.onProjectPathUpdated) {
+  window.electronAPI.onProjectPathUpdated((data) => {
+    window.currentProjectPath = data.projectPath;
+    window.currentSpfPath = data.spfPath;
+    console.log('Project path updated:', data.projectPath);
+  });
+}
+
 
 async function createFileAtRoot(fileTree, targetPath) {
   const inputContainer = createInputContainer('filename.ext');

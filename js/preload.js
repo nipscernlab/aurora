@@ -457,6 +457,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   refactorCode: (code) => ipcRenderer.invoke('refactor-code', code),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
+  validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
+    ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
+
+
+  onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),
 
   scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath),
 

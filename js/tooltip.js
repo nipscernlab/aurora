@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'change-icon-btn' : 'Change the icon of the AURORA IDE. You can select any image file from your computer.',
         'context-refactor-button': 'teste',
         'pause-everything': 'Pause all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
-
+        'palette': 'Add some colors and personalize your AURORA IDE!',
       };
   
     // Add mouse events to all buttons

@@ -4166,6 +4166,7 @@ async runGtkWave(processor) {
     
     // 3. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+    showVvpSpinner();
     const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
     
@@ -4173,13 +4174,16 @@ async runGtkWave(processor) {
     
     if (vvpResult.stdout) {
       this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+      hideVvpSpinner();
     }
     if (vvpResult.stderr) {
       this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+      hideVvpSpinner();
     }
     
     if (vvpResult.code !== 0) {
       statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
+      hideVvpSpinner();
       throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
     }
     
@@ -4483,6 +4487,7 @@ async runProjectGtkWave() {
         
         // Compile each unique processor type
         for (const processor of this.projectConfig.processors) {
+          checkCancellation();
           // Skip if we've already processed this processor type
           if (processedTypes.has(processor.type)) {
             this.terminalManager.appendToTerminal('tcmm', `Skipping duplicate processor type: ${processor.type}`);
@@ -4634,7 +4639,7 @@ document.getElementById('pause-everything').addEventListener('click', () => {
   }
 });
 
-// Enhanced cancelCompilation function
+// Enhanced cancelCompilation function with multi-terminal error display
 function cancelCompilation() {
   if (isCompilationRunning) {
     compilationCanceled = true;
@@ -4643,7 +4648,13 @@ function cancelCompilation() {
     // Force enable buttons immediately on cancellation
     setCompilationButtonsState(false);
     
-
+    // Display cancellation message in all terminals
+    const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
+    terminals.forEach(terminalId => {
+      if (globalTerminalManager) {
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'error');
+      }
+    });
     
     showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
     console.log('Compilation canceled by user');
@@ -4655,9 +4666,16 @@ function cancelCompilation() {
   }
 }
 
-// Add cancellation checks in compileAll method - insert this check at key points in your compileAll function
+// Enhanced checkCancellation function with terminal error display
 function checkCancellation() {
   if (compilationCanceled) {
+    // Display cancellation in current active terminal before throwing error
+    if (globalTerminalManager) {
+      const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
+      terminals.forEach(terminalId => {
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation interrupted by user cancellation.', 'error');
+      });
+    }
     throw new Error('Compilation canceled by user');
   }
 }

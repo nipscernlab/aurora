@@ -1,147 +1,363 @@
-/* Overlay */
-.processor-hub-overlay {
+/* Processor Hub Modal Styles */
+
+/* Container */
+.processor-hub-container {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px); /* Adiciona o efeito de desfoque */
-  z-index: 1000;
+  z-index: var(--z-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Overlay */
+.processor-hub-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  animation: overlayFadeIn var(--transition-slow) ease;
 }
 
 /* Modal */
 .processor-hub-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--bg-primary);
+  position: relative;
+  background: var(--bg-primary);
   color: var(--text-primary);
-  padding: 20px;
-  border-radius: 12px;
-  width: 80%;
-  max-width: 500px; /* Reduz o tamanho máximo */
-  max-height: 80%; /* Limita a altura do modal */
-  overflow-y: auto; /* Adiciona barra de rolagem vertical */
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  width: 90%;
+  max-width: 520px;
+  max-height: 70vh;
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
-  z-index: 1001;
-  animation: slideIn 0.3s ease;
+  border: 1px solid var(--border-primary);
+  transform: translateY(0);
+  animation: slideDown 0.3s ease;
+  z-index: var(--z-50);
 }
 
-/* Título */
+/* Custom scrollbar */
+.processor-hub-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.processor-hub-modal::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+}
+
+.processor-hub-modal::-webkit-scrollbar-thumb {
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+.processor-hub-modal::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* Header */
 .processor-hub-modal h2 {
-  font-size: 22px;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
   color: var(--accent-primary);
-  margin-top: 0;
+  margin: 0 0 var(--space-6) 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-bottom: 2px solid var(--accent-primary);
-  padding-bottom: 10px;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--border-primary);
+  position: relative;
+}
+
+.processor-hub-modal h2::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
 }
 
 .processor-hub-modal h2 i {
-  font-size: 28px;
+  font-size: 1.5em;
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(157, 127, 255, 0.3));
 }
 
 /* Form */
 .processor-hub-form {
-  margin-top: 20px;
+  margin-top: var(--space-6);
+  display: grid;
+  gap: var(--space-6);
 }
 
 .processor-hub-form .form-group {
-  margin-bottom: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .processor-hub-form label {
-  display: block;
-  font-weight: bold;
-  font-size: 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: var(--leading-tight);
 }
 
+/* Input styles */
 .processor-hub-form input,
 .processor-hub-form select {
   width: 100%;
-  padding: 12px;
-  border-radius: 8px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-primary);
-  font-size: 16px;
-  box-sizing: border-box;
-  background-color: var(--bg-secondary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
-  transition: border-color 0.3s ease;
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  transition: all var(--transition-normal);
+  box-sizing: border-box;
+  position: relative;
 }
 
 .processor-hub-form input:focus,
 .processor-hub-form select:focus {
-  border-color: var(--accent-primary);
   outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus);
+  background: var(--bg-tertiary);
+  transform: translateY(-1px);
 }
 
+.processor-hub-form input:hover:not(:focus),
+.processor-hub-form select:hover:not(:focus) {
+  border-color: var(--accent-muted);
+  background: var(--bg-hover);
+}
+
+/* Invalid input styles */
+.processor-hub-form input:invalid {
+  border-color: var(--error);
+  box-shadow: 0 0 0 2px rgba(255, 126, 182, 0.2);
+}
+
+/* Tooltip */
 .processor-hub-form .tooltip {
-  font-size: 18px;
-  cursor: pointer;
+  font-size: var(--text-base);
+  cursor: help;
+  color: var(--accent-primary);
+  transition: transform var(--transition-fast);
+}
+
+.processor-hub-form .tooltip:hover {
+  transform: scale(1.1);
 }
 
 /* Button group */
 .button-group {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-secondary);
 }
 
+/* Button base styles */
 .processor-hub-form button {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  position: relative;
+  overflow: hidden;
 }
 
+.processor-hub-form button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left var(--transition-slow);
+}
+
+.processor-hub-form button:hover::before {
+  left: 100%;
+}
+
+/* Cancel button */
 .cancel-button {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   border: 1px solid var(--border-primary);
 }
 
 .cancel-button:hover {
-  background-color: var(--bg-hover);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
+.cancel-button:active {
+  transform: translateY(0);
+}
+
+/* Generate button */
 .generate-button {
-  background-color: var(--accent-primary);
+  background: var(--gradient-primary);
   color: white;
-  border: none;
+  box-shadow: var(--shadow-sm);
+  position: relative;
 }
 
-.generate-button:hover {
-  background-color: var(--accent-hover);
+.generate-button:hover:not(:disabled) {
+  background: var(--gradient-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.1);
+}
+
+.generate-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 /* Disabled button */
 .generate-button:disabled {
-  background-color: var(--bg-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-disabled);
   cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
+.generate-button:disabled::before {
+  display: none;
+}
+
+/* Loading state */
+.generate-button .fa-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Floating-point options */
 .floating-point-options {
   display: none;
+  animation: slideDown var(--transition-normal) ease;
 }
 
-/* Show floating-point options when Floating Point is selected */
-#pointType[value="floating"]:checked ~ .floating-point-options {
-  display: block;
+.floating-point-options.show {
+  display: flex;
 }
 
-/* Animation */
-@keyframes slideIn {
+/* Grid layout for number inputs */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .processor-hub-modal {
+    width: 95%;
+    padding: var(--space-6);
+    margin: var(--space-4);
+    max-height: 90vh;
+  }
+  
+  .processor-hub-modal h2 {
+    font-size: var(--text-xl);
+  }
+  
+  .button-group {
+    flex-direction: column-reverse;
+  }
+  
+  .processor-hub-form button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
   from {
-    transform: translate(-50%, -60%);
+    opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%);
+    opacity: 1;
   }
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+  }
+}
+
+
+/* Focus management */
+.processor-hub-modal {
+  outline: none;
+}
+
+.processor-hub-form input:focus-visible,
+.processor-hub-form select:focus-visible,
+.processor-hub-form button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast theme adjustments */
+body.theme-dark-high-contrast .processor-hub-modal,
+body.theme-light-high-contrast .processor-hub-modal {
+  border-width: 2px;
+}
+
+body.theme-dark-high-contrast .processor-hub-form input:focus,
+body.theme-light-high-contrast .processor-hub-form input:focus {
+  box-shadow: 0 0 0 3px var(--accent-primary);
 }

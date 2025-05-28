@@ -163,7 +163,7 @@ class RecentProjectsManager {
     
     item.innerHTML = `
       <div class="project-icon">
-        <i class="fa-solid fa-file-code"></i>
+        <i class="fa-solid fa-microchip fa-lg"></i>
       </div>
       <div class="project-details">
         <div class="project-name">${this.escapeHtml(project.name)}</div>

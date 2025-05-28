@@ -1,3 +1,18 @@
+/*
+ * 
+ *    MAIN.JS FILE REQUIRED BY ELECTRON ƒ
+ * 
+ * 
+*/
+
+/*
+ * 
+ *    START: ALL IMPORTS AND CONST ƒ
+ * 
+ * 
+*/
+
+
 const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec } = require('child_process');
@@ -28,6 +43,22 @@ let settingsWindow = null;
 let isQuitting = false;
 
 let mainWindow, splashWindow;
+
+
+/*
+ * 
+ *    END: ALL IMPORTS AND CONST ƒ
+ * 
+ * 
+*/
+
+
+/*
+ * 
+ *    START: DEALING WITH WINDOW CREATION ƒ
+ * 
+ * 
+*/
 
 // Function to create the main application window
 async function createMainWindow() {
@@ -564,117 +595,19 @@ function createSplashScreen() {
 // Initialize the application when ready
 app.whenReady().then(createSplashScreen);
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit(); // Quit app if not on macOS
-});
+/*
+ * 
+ *    END: DEALING WITH WINDOW CREATION ƒ
+ * 
+ * 
+*/
 
-ipcMain.handle('open-folder', async () => {
-  try {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
-    });
-
-    if (!result.canceled) {
-      const folderPath = result.filePaths[0];
-      if (!folderPath) {
-        throw new Error('No folder selected.');
-      }
-      global.currentFolderPath = folderPath; // Store the current folder path
-      const files = await listFiles(folderPath); // List files in the folder
-      return { folderPath, files };
-    }
-    return null; // No folder selected
-  } catch (error) {
-    console.error('Error opening folder:', error.message);
-    throw error; // Propagate error to renderer.js
-  }
-});
-
-ipcMain.handle('read-file', async (event, filePath) => {
-  try {
-    const content = await fs.readFile(filePath, 'utf8'); // Read file content
-    return content;
-  } catch (error) {
-    console.error(`Error reading file: ${error.message}`);
-    throw error;
-  }
-});
-
-ipcMain.handle('save-file', async (event, { filePath, content }) => {
-  try {
-    await fs.writeFile(filePath, content, 'utf8'); // Save file content
-    return true;
-  } catch (error) {
-    console.error('Error saving file:', error.message);
-    return false;
-  }
-});
-
-// Function to list files in a directory recursively
-async function listFiles(dir) {
-  try {
-    const files = await fs.readdir(dir, { withFileTypes: true });
-    const items = await Promise.all(
-      files.map(async (file) => {
-        const filePath = path.join(dir, file.name);
-        if (file.isDirectory()) {
-          const children = await listFiles(filePath); // Recursively list subdirectories
-          return { name: file.name, path: filePath, type: 'directory', children };
-        }
-        return { name: file.name, path: filePath, type: 'file' };
-      })
-    );
-    return items;
-  } catch (error) {
-    console.error('Error listing files:', error.message);
-    throw error; // Propagate error to be handled in `ipcMain.handle`
-  }
-}
-
-// IPC handler to get the current folder path
-ipcMain.handle('getCurrentFolder', () => {
-  return global.currentFolderPath || null;
-});
-
-// Function to scan a directory recursively
-async function scanDirectory(dirPath) {
-  const items = await fse.readdir(dirPath, { withFileTypes: true });
-  const files = await Promise.all(
-    items.map(async item => {
-      const fullPath = path.join(dirPath, item.name);
-      if (item.isDirectory()) {
-        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
-        return {
-          name: item.name,
-          path: fullPath,
-          type: 'directory',
-          children
-        };
-      }
-      return {
-        name: item.name,
-        path: fullPath,
-        type: 'file'
-      };
-    })
-  );
-  return files;
-}
-// Context: IPC handlers for various functionalities in an Electron application
-
-// Handler to refresh the folder structure
-ipcMain.handle('refreshFolder', async (event, projectPath) => {
-  try {
-    if (!projectPath) {
-      throw new Error('No project path provided');
-    }
-    const files = await scanDirectory(projectPath);
-    return { files };
-  } catch (error) {
-    console.error('Error scanning directory:', error);
-    throw error;
-  }
-});
+/*
+ * 
+ *    START: DEALING WITH COMPILATION ƒ
+ * 
+ * 
+*/
 
 // Handler to compile a file using a specified compiler
 ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDir, outputPath }) => {
@@ -711,6 +644,134 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
       console.error(data);
     });
   });
+});
+
+
+// IPC handler to execute a shell command
+ipcMain.handle('exec-command', (event, command) => {
+  return new Promise((resolve, reject) => {
+    const child = exec(command, {
+      maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data;
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data;
+    });
+
+    child.on('close', (code) => {
+      resolve({
+        code,
+        stdout,
+        stderr
+      });
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+});
+
+ipcMain.handle('path-exists', async (event, filePath) => {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+/*
+ * 
+ *    END: DEALING WITH COMPILATION ƒ
+ * 
+ * 
+*/
+
+
+/*
+ * 
+ *    START: FILE TREE ƒ
+ * 
+ * 
+*/
+
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, 'utf8'); // Read file content
+    return content;
+  } catch (error) {
+    console.error(`Error reading file: ${error.message}`);
+    throw error;
+  }
+});
+
+ipcMain.handle('save-file', async (event, { filePath, content }) => {
+  try {
+    await fs.writeFile(filePath, content, 'utf8'); // Save file content
+    return true;
+  } catch (error) {
+    console.error('Error saving file:', error.message);
+    return false;
+  }
+});
+
+/*
+ * 
+ *    END: FILE TREE ƒ
+ * 
+ * 
+*/
+
+// IPC handler to get the current folder path
+ipcMain.handle('getCurrentFolder', () => {
+  return global.currentFolderPath || null;
+});
+
+// Function to scan a directory recursively
+async function scanDirectory(dirPath) {
+  const items = await fse.readdir(dirPath, { withFileTypes: true });
+  const files = await Promise.all(
+    items.map(async item => {
+      const fullPath = path.join(dirPath, item.name);
+      if (item.isDirectory()) {
+        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
+        return {
+          name: item.name,
+          path: fullPath,
+          type: 'directory',
+          children
+        };
+      }
+      return {
+        name: item.name,
+        path: fullPath,
+        type: 'file'
+      };
+    })
+  );
+  return files;
+}
+
+// Handler to refresh the folder structure
+ipcMain.handle('refreshFolder', async (event, projectPath) => {
+  try {
+    if (!projectPath) {
+      throw new Error('No project path provided');
+    }
+    const files = await scanDirectory(projectPath);
+    return { files };
+  } catch (error) {
+    console.error('Error scanning directory:', error);
+    throw error;
+  }
 });
 
 // Handler to get the current working directory
@@ -1046,17 +1107,6 @@ ipcMain.handle('project:getInfo', async (_, spfPath) => {
   }
 });
 
-// Handler to open a directory dialog
-ipcMain.handle('dialog:openDirectory', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory'],
-  });
-
-  if (result.canceled) {
-    return null; // Return null if the user cancels
-  }
-  return result.filePaths[0]; // Return the selected folder path
-});
 
 // Class representing the structure of a .spf project file
 class ProjectFile {
@@ -1388,81 +1438,6 @@ function executePowerShell(commands) {
   });
 }
 
-// IPC handler to select a .cmm file
-ipcMain.handle('select-cmm-file', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'CMM Files', extensions: ['cmm'] }]
-  });
-
-  return result.canceled ? null : result.filePaths[0];
-});
-
-// IPC handler to parse a .cmm file
-ipcMain.handle('parse-cmm-file', async (event, filePath) => {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    return parseProcessor(content);
-  } catch (error) {
-    console.error('Error reading file:', error);
-    throw error;
-  }
-});
-
-// Helper function to parse processor details from a .cmm file
-function parseProcessor(content) {
-  const lines = content.split('\n');
-  const processor = {
-    PRNAME: '',
-    DIRNAM: '',
-    NUBITS: 0,
-    NDSTAC: 0,
-    SDEPTH: 0,
-    NUIOIN: 0,
-    NUIOOU: 0,
-    NBMANT: 0,
-    NBEXPO: 0,
-    FFTSIZ: 0,
-    NUGAIN: 0,
-    ITRAD: 0
-  };
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (trimmedLine.startsWith('#')) {
-      const [directive, ...valueParts] = trimmedLine.split(/\s+/);
-      const directiveName = directive.substring(1);
-      const value = valueParts[0];
-      processor[directiveName] = isNaN(value) ? value : Number(value);
-    }
-  }
-
-  return processor;
-}
-
-// IPC handler to open a dialog for selecting a .vcd file
-ipcMain.handle('open-wave-dialog', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'VCD Files', extensions: ['vcd'] }]
-  });
-
-  return result.filePaths[0] || null;
-});
-
-// IPC handler to open GTKWave with a specified .vcd file
-ipcMain.handle('open-gtkwave', async (event, filePath) => {
-  if (!filePath) return;
-
-  const command = `gtkwave "${filePath}"`;
-
-  exec(command, (error) => {
-    if (error) {
-      console.error(`Error opening GTKWave: ${error.message}`);
-    }
-  });
-});
-
 // IPC handler to create a directory
 ipcMain.handle('create-directory', async (event, dirPath) => {
   try {
@@ -1472,6 +1447,18 @@ ipcMain.handle('create-directory', async (event, dirPath) => {
     console.error('Error creating directory:', error);
     throw error;
   }
+});
+
+// Handler to open a directory dialog
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled) {
+    return null; // Return null if the user cancels
+  }
+  return result.filePaths[0]; // Return the selected folder path
 });
 
 // IPC handler to write content to a file (improved with better error handling)
@@ -1654,37 +1641,6 @@ ipcMain.handle('join-path', (event, ...paths) => {
   return path.join(...paths);
 });
 
-// IPC handler to execute a shell command
-ipcMain.handle('exec-command', (event, command) => {
-  return new Promise((resolve, reject) => {
-    const child = exec(command, {
-      maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (data) => {
-      stdout += data;
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data;
-    });
-
-    child.on('close', (code) => {
-      resolve({
-        code,
-        stdout,
-        stderr
-      });
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-  });
-});
 // Context: IPC handlers for file and directory operations, backup creation, and temporary file management
 
 // IPC handler to create a directory
@@ -2107,37 +2063,6 @@ async function copyDir(src, dest) {
   }
 }
 
-ipcMain.handle('refactor-code', async (event, code) => {
-  return new Promise((resolve, reject) => {
-    const { spawn } = require('child_process');
-
-    const clang = spawn('clang-format', ['-style=LLVM']);
-
-    let formatted = '';
-    let errorOutput = '';
-
-    clang.stdout.on('data', (data) => {
-      formatted += data.toString();
-    });
-
-    clang.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    clang.on('close', (code) => {
-      if (code === 0) {
-        resolve(formatted);
-      } else {
-        console.error('clang-format error:', errorOutput);
-        reject(new Error('clang-format failed'));
-      }
-    });
-
-    clang.stdin.write(code);
-    clang.stdin.end();
-  });
-});
-
 // Converte funções de callback do fs para Promise
 const fsPromises = {
   mkdir: promisify(fs.mkdir),
@@ -2364,71 +2289,7 @@ ipcMain.handle('save-theme', async (event, themeData) => {
 //TESTE =====================================================================================
 // Command execution handlers
 
-// Alternative command execution with more control
-ipcMain.handle('run-command', async (event, { command, args = [], options = {} }) => {
-  return new Promise((resolve) => {
-    console.log('Running command:', command, 'with args:', args);
-    
-    const child = spawn(command, args, {
-      ...options,
-      windowsHide: true,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    
-    let stdout = '';
-    let stderr = '';
-    
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
-    child.on('close', (code) => {
-      resolve({
-        success: code === 0,
-        stdout,
-        stderr,
-        code
-      });
-    });
-    
-    child.on('error', (error) => {
-      resolve({
-        success: false,
-        stdout,
-        stderr: stderr + error.message,
-        code: 1,
-        error: error.message
-      });
-    });
-    
-    // Set timeout
-    setTimeout(() => {
-      if (!child.killed) {
-        child.kill();
-        resolve({
-          success: false,
-          stdout,
-          stderr: stderr + 'Command timed out',
-          code: 1,
-          error: 'Command execution timed out'
-        });
-      }
-    }, options.timeout || 30000);
-  });
-});
 
-ipcMain.handle('path-exists', async (event, filePath) => {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-});
 
 // Temporary file operations
 ipcMain.handle('get-temp-dir', async () => {

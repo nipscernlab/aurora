@@ -1,91 +1,16 @@
 let editor;
 let openFiles = new Map();
-let activeFile = null;
-let compiling = false;
-let terminal = null;
-let aiAssistantVisible = false;
 let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
 
-// SHOW DIALOG =====================================================================================================================
- // Simple, reliable confirmation dialog
-        function showUnsavedChangesDialog(fileName) {
-            return new Promise((resolve) => {
-                // Remove any existing modals
-                const existingModal = document.querySelector('.confirm-modal');
-                if (existingModal) {
-                    existingModal.remove();
-                }
-
-                // Create modal HTML
-                const modalHTML = `
-                    <div class="confirm-modal" id="unsaved-changes-modal">
-                        <div class="confirm-modal-content">
-                            <div class="confirm-modal-header">
-                                <div class="confirm-modal-icon">⚠</div>
-                                <h3 class="confirm-modal-title">Unsaved Changes</h3>
-                            </div>
-                            <div class="confirm-modal-message">
-                                Do you want to save the changes you made to "<strong>${fileName}</strong>"?<br>
-                                Your changes will be lost if you don't save them.
-                            </div>
-                            <div class="confirm-modal-actions">
-                                <button class="confirm-btn cancel" data-action="cancel">Cancel</button>
-                                <button class="confirm-btn dont-save" data-action="dont-save">Don't Save</button>
-                                <button class="confirm-btn save" data-action="save">Save</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                // Add modal to document
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-                const modal = document.getElementById('unsaved-changes-modal');
-
-                // Handle button clicks
-                modal.addEventListener('click', (e) => {
-                    const action = e.target.getAttribute('data-action');
-                    if (action) {
-                        closeModal(action);
-                    }
-                });
-
-                // Handle escape key
-                const handleEscape = (e) => {
-                    if (e.key === 'Escape') {
-                        closeModal('cancel');
-                    }
-                };
-                document.addEventListener('keydown', handleEscape);
-
-                // Close modal function
-                function closeModal(result) {
-                    document.removeEventListener('keydown', handleEscape);
-                    modal.classList.remove('show');
-                    setTimeout(() => {
-                        modal.remove();
-                        resolve(result);
-                    }, 300);
-                }
-
-                // Show modal with animation
-                setTimeout(() => {
-                    modal.classList.add('show');
-                    // Focus the Save button by default
-                    modal.querySelector('.confirm-btn.save').focus();
-                }, 10);
-            });
-        }
-
-
-//MONACO EDITOR ========================================================================================================================================================
-// Enhanced EditorManager with improved theme management
+//MONACO EDITOR ======================================================================================================================================================== ƒ
 class EditorManager {
   static editors = new Map();
   static activeEditor = null;
   static editorContainer = null;
   static currentTheme = 'cmm-dark';
+  static resizeObserver = null;
 
   static updateOverlayVisibility() {
     const overlay = document.getElementById('editor-overlay');
@@ -98,10 +23,17 @@ class EditorManager {
     }
   }
 
+  static setupCursorListener(editor) {
+  if (editor) {
+    editor.onDidChangeCursorPosition(updateCursorPosition);
+  }
+}
+
   static createEditorInstance(filePath) {
     if (!this.editorContainer) {
       this.initialize();
     }
+
 
     const editorDiv = document.createElement('div');
     editorDiv.className = 'editor-instance';
@@ -115,17 +47,25 @@ class EditorManager {
 
     this.editorContainer.appendChild(editorDiv);
 
+    // Enhanced editor configuration for instances
     const editor = monaco.editor.create(editorDiv, {
       theme: this.currentTheme,
       language: this.getLanguageFromPath(filePath),
       automaticLayout: true,
+      
+      // Responsive settings
+      wordWrap: window.innerWidth < 768 ? 'on' : 'off',
       minimap: { 
-        enabled: true,
-        scale: 1,
+        enabled: window.innerWidth > 1024,
+        scale: window.innerWidth > 1200 ? 1 : 0.8,
         showSlider: 'mouseover'
       },
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+      fontSize: window.innerWidth < 768 ? 12 : 14,
+      lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
+      folding: window.innerWidth > 768,
+      
+      // All other enhanced features
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
       fontLigatures: true,
       scrollBeyondLastLine: true,
       renderWhitespace: 'selection',
@@ -134,11 +74,9 @@ class EditorManager {
       cursorStyle: 'line',
       cursorWidth: 2,
       cursorBlinking: 'smooth',
-      renderLineHighlight: 'gutter',
-      lineNumbers: 'on',
+      renderLineHighlight: 'all',
       lineNumbersMinChars: 4,
-      glyphMargin: false,
-      folding: true,
+      glyphMargin: true,
       showFoldingControls: 'mouseover',
       bracketPairColorization: { enabled: true },
       guides: {
@@ -146,14 +84,24 @@ class EditorManager {
         indentation: true
       },
       smoothScrolling: true,
+      autoClosingBrackets: 'always',
+      autoClosingQuotes: 'always',
+      formatOnPaste: true,
+      formatOnType: true,
+      quickSuggestions: true,
+      parameterHints: { enabled: true },
+      hover: { enabled: true, delay: 300 },
+      contextmenu: true,
+      dragAndDrop: true,
+      links: true,
       scrollbar: {
         vertical: 'auto',
         horizontal: 'auto',
         useShadows: false,
         verticalHasArrows: false,
         horizontalHasArrows: false,
-        verticalScrollbarSize: 12,
-        horizontalScrollbarSize: 12,
+        verticalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
+        horizontalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
         arrowSize: 0
       }
     });
@@ -163,18 +111,45 @@ class EditorManager {
       container: editorDiv
     });
 
+    // Setup responsive observer
+    this.setupResponsiveObserver(editor);
     this.updateOverlayVisibility();
+    this.setupCursorListener(editor);
+
     return editor;
   }
 
-  static toggleEditorReadOnly(isReadOnly) {
+  static setupResponsiveObserver(editor) {
+    if (!this.resizeObserver) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.updateResponsiveSettings();
+      });
+      this.resizeObserver.observe(document.body);
+    }
+  }
+
+  static updateResponsiveSettings() {
+    const isMobile = window.innerWidth < 768;
+    const isTablet = window.innerWidth < 1024;
+    
     this.editors.forEach(({ editor }) => {
-      editor.updateOptions({ readOnly: isReadOnly });
-      if (isReadOnly) {
-        editor.blur();
-      }
+      editor.updateOptions({
+        wordWrap: isMobile ? 'on' : 'off',
+        minimap: { 
+          enabled: !isTablet,
+          scale: window.innerWidth > 1200 ? 1 : 0.8
+        },
+        fontSize: isMobile ? 12 : 14,
+        lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
+        folding: !isMobile,
+        scrollbar: {
+          verticalScrollbarSize: isMobile ? 8 : 12,
+          horizontalScrollbarSize: isMobile ? 8 : 12
+        }
+      });
     });
   }
+
 
   static setTheme(isDark) {
     this.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
@@ -197,6 +172,7 @@ class EditorManager {
       console.error('Editor container not found');
       return;
     }
+    
     this.editorContainer.style.position = 'relative';
     this.editorContainer.style.height = '100%';
     this.editorContainer.style.width = '100%';
@@ -205,6 +181,18 @@ class EditorManager {
     const savedTheme = localStorage.getItem('editorTheme');
     const isDark = savedTheme ? savedTheme === 'dark' : true;
     this.setTheme(isDark);
+    
+    // Setup responsive observer
+    this.setupResponsiveObserver(null);
+  }
+
+  static toggleEditorReadOnly(isReadOnly) {
+    this.editors.forEach(({ editor }) => {
+      editor.updateOptions({ readOnly: isReadOnly });
+      if (isReadOnly) {
+        editor.blur();
+      }
+    });
   }
 
   static getLanguageFromPath(filePath) {
@@ -279,10 +267,14 @@ async function initMonaco() {
       rules: [
         { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
         { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+        { token: 'keyword.directive.cmm', foreground: '#569CD6' },
+        { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#DCDCAA' },
         { token: 'string', foreground: 'CE9178' },
         { token: 'number', foreground: 'B5CEA8' },
         { token: 'operator', foreground: 'D4D4D4' },
-        { token: 'delimiter', foreground: 'D4D4D4' }
+        { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#D4D4D4' },
+        { token: 'delimiter', foreground: 'D4D4D4' },
+        { token: 'delimiter.square.inverted', foreground: '#CE9178' }
       ],
       colors: {
         'editor.background': '#17151f',
@@ -303,22 +295,26 @@ async function initMonaco() {
         'scrollbar.shadow': '#00000000',
         'scrollbarSlider.background': '#776f9720',
         'scrollbarSlider.hoverBackground': '#776f9740',
-        'scrollbarSlider.activeBackground': '#9d7fff60',
+        'scrollbarSlider.activeBackground': '#9d7ff760',
         'minimap.background': '#1e1b2c'
       }
     });
     
-    // Define enhanced light theme
+     // Define enhanced light theme
     monaco.editor.defineTheme('cmm-light', {
       base: 'vs',
       inherit: true,
       rules: [
         { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
         { token: 'keyword', foreground: '7c4dff', fontStyle: 'bold' },
+        { token: 'keyword.directive.cmm', fontStyle: 'bold', foreground: '#0000FF' },
+        { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#795E26' },
         { token: 'string', foreground: 'A31515' },
         { token: 'number', foreground: '098658' },
         { token: 'operator', foreground: '000000' },
-        { token: 'delimiter', foreground: '000000' }
+        { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#000000' },
+        { token: 'delimiter', foreground: '000000' },
+        { token: 'delimiter.square.inverted', foreground: '#A31515' }
       ],
       colors: {
         'editor.background': '#faf9ff',
@@ -344,42 +340,132 @@ async function initMonaco() {
       }
     });
     
-    // Initialize with saved theme
-    const savedTheme = localStorage.getItem('editorTheme');
-    const isDark = savedTheme ? savedTheme === 'dark' : true;
-    EditorManager.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
-    
-    editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), {
+    // Enhanced editor configuration with all built-in features
+    const editorConfig = {
       theme: EditorManager.currentTheme,
       language: 'cmm',
       automaticLayout: true,
+      
+      // Font and Display
+      fontSize: 14,
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+      fontLigatures: true,
+      fontWeight: '400',
+      letterSpacing: 0,
+      lineHeight: 1.4,
+      
+      // Minimap
       minimap: { 
         enabled: true,
+        side: 'right',
+        size: 'proportional',
         scale: 1,
-        showSlider: 'mouseover'
+        showSlider: 'mouseover',
+        renderCharacters: true,
+        maxColumn: 120,
+        sectionHeaderFontSize: 9,
+        sectionHeaderLetterSpacing: 1
       },
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
-      fontLigatures: true,
+      
+      // Scrolling
       scrollBeyondLastLine: true,
-      renderWhitespace: 'selection',
+      scrollBeyondLastColumn: 5,
+      smoothScrolling: true,
       mouseWheelZoom: true,
-      padding: { top: 16, bottom: 16 },
+      fastScrollSensitivity: 5,
+      
+      // Cursor
       cursorStyle: 'line',
       cursorWidth: 2,
       cursorBlinking: 'smooth',
-      renderLineHighlight: 'gutter',
+      cursorSmoothCaretAnimation: 'on',
+      
+      // Line Numbers and Gutters
       lineNumbers: 'on',
       lineNumbersMinChars: 4,
-      glyphMargin: false,
+      glyphMargin: true,
       folding: true,
+      foldingStrategy: 'indentation',
       showFoldingControls: 'mouseover',
-      bracketPairColorization: { enabled: true },
+      foldingHighlight: true,
+      unfoldOnClickAfterEndOfLine: false,
+      
+      // Selection and Highlighting
+      renderLineHighlight: 'all',
+      selectionHighlight: true,
+      occurrencesHighlight: true,
+      codeLens: true,
+      
+      // Whitespace and Indentation
+      renderWhitespace: 'selection',
+      renderControlCharacters: true,
+      insertSpaces: true,
+      tabSize: 4,
+      detectIndentation: true,
+      trimAutoWhitespace: true,
+      
+      // Bracket Matching
+      bracketPairColorization: { 
+        enabled: true,
+        independentColorPoolPerBracketType: true
+      },
+      matchBrackets: 'always',
       guides: {
         bracketPairs: true,
-        indentation: true
+        bracketPairsHorizontal: true,
+        highlightActiveBracketPair: true,
+        indentation: true,
+        highlightActiveIndentation: true
       },
-      smoothScrolling: true,
+      
+      // Editor Behavior
+      autoIndent: 'full',
+      autoClosingBrackets: 'always',
+      autoClosingQuotes: 'always',
+      autoSurround: 'languageDefined',
+      wordWrap: 'off',
+      wordWrapColumn: 80,
+      wrappingIndent: 'indent',
+      wordBasedSuggestions: 'matchingDocuments',
+      wordBasedSuggestionsOnlySameLanguage: false,
+      
+      // Find and Replace
+      find: {
+        addExtraSpaceOnTop: true,
+        autoFindInSelection: 'never',
+        seedSearchStringFromSelection: 'always',
+        globalFindClipboard: false
+      },
+      
+      // Hover and Tooltip
+      hover: {
+        enabled: true,
+        delay: 300,
+        sticky: true,
+        above: true
+      },
+      
+      // Parameter Hints
+      parameterHints: {
+        enabled: true,
+        cycle: true
+      },
+      
+      // Suggestions
+      quickSuggestions: {
+        other: 'on',
+        comments: 'off',
+        strings: 'off'
+      },
+      quickSuggestionsDelay: 10,
+      suggestOnTriggerCharacters: true,
+      acceptSuggestionOnEnter: 'on',
+      acceptSuggestionOnCommitCharacter: true,
+      snippetSuggestions: 'top',
+      tabCompletion: 'on',
+      wordBasedSuggestions: 'matchingDocuments',
+      
+      // Scrollbar
       scrollbar: {
         vertical: 'auto',
         horizontal: 'auto',
@@ -388,12 +474,124 @@ async function initMonaco() {
         horizontalHasArrows: false,
         verticalScrollbarSize: 12,
         horizontalScrollbarSize: 12,
-        arrowSize: 0
+        arrowSize: 11,
+        handleMouseWheel: true,
+        alwaysConsumeMouseWheel: true
+      },
+      
+      // Overview Ruler
+      overviewRulerLanes: 3,
+      overviewRulerBorder: false,
+      hideCursorInOverviewRuler: false,
+      
+      // Multi-cursor and Selection
+      multiCursorModifier: 'alt',
+      multiCursorMergeOverlapping: true,
+      multiCursorPaste: 'spread',
+      columnSelection: false,
+      
+      // Accessibility
+      accessibilitySupport: 'auto',
+      accessibilityPageSize: 10,
+      
+      // Performance
+      renderValidationDecorations: 'on',
+      renderFinalNewline: 'on',
+      rulers: [],
+      
+      // Layout
+      padding: { 
+        top: 16, 
+        bottom: 16,
+        left: 0,
+        right: 0
+      },
+      
+      // Links
+      links: true,
+      
+      // Context Menu
+      contextmenu: true,
+      
+      // Drag and Drop
+      dragAndDrop: true,
+      
+      // Copy/Paste
+      emptySelectionClipboard: true,
+      copyWithSyntaxHighlighting: true,
+      
+      // Formatting
+      formatOnPaste: true,
+      formatOnType: true,
+      
+      // Sticky Scroll
+      stickyScroll: {
+        enabled: true,
+        maxLineCount: 5,
+        defaultModel: 'outlineModel'
+      },
+      
+      // Semantic Highlighting
+      'semanticHighlighting.enabled': true,
+      
+      // Inline Suggestions
+      inlineSuggest: {
+        enabled: true,
+        showToolbar: 'onHover'
+      },
+      
+      // Diff Editor
+      enableSplitViewResizing: true,
+      renderSideBySide: true,
+      
+      // Code Actions
+      lightbulb: {
+        enabled: 'on'
+      },
+      
+      // Rename
+      renameOnType: false,
+      
+      // Goto Definition
+      definitionLinkOpensInPeek: false,
+      gotoLocation: {
+        multipleReferences: 'peek',
+        multipleDefinitions: 'peek',
+        multipleDeclarations: 'peek',
+        multipleImplementations: 'peek',
+        multipleTypeDefinitions: 'peek'
       }
-    });
+    };
     
+     editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), editorConfig);
+    
+    // Add event listeners
     if (editorInstance) {
       editorInstance.onDidChangeCursorPosition(updateCursorPosition);
+      
+      // Add command palette actions
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+        editorInstance.getAction('editor.action.quickCommand').run();
+      });
+      
+      // Add find/replace shortcuts
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+        editorInstance.getAction('actions.find').run();
+      });
+      
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+        editorInstance.getAction('editor.action.startFindReplaceAction').run();
+      });
+      
+      // Add format document shortcut
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+        editorInstance.getAction('editor.action.formatDocument').run();
+      });
+      
+      // Add go to line shortcut
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => {
+        editorInstance.getAction('editor.action.gotoLine').run();
+      });
     }
   });
 }
@@ -765,21 +963,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-function updateCursorPosition(e) {
-  if (!editorInstance) {
-    console.warn("Editor ainda não inicializado!");
-    return;
-  }
-  
-  const position = e.position;
+// Enhanced version with smooth animation
+function updateCursorPosition(event) {
+  const position = event.position;
   const statusElement = document.getElementById('editorStatus');
   
   if (statusElement && position) {
-    statusElement.textContent = `Line ${position.lineNumber}, Column ${position.column}`;
+    const lineNumber = position.lineNumber;
+    const columnNumber = position.column;
+    
+    // Add updating class for animation
+    statusElement.classList.add('updating');
+    
+    // Update content
+    statusElement.innerHTML = `<i class="fa-solid fa-align-left"></i> Line ${lineNumber}, Column ${columnNumber}`;
+    
+    // Remove animation class after transition
+    setTimeout(() => {
+      statusElement.classList.remove('updating');
+    }, 150);
   }
 }
-//TAB MANAGER ========================================================================================================================================================
 
+// Initialize everything
+document.addEventListener('DOMContentLoaded', () => {
+  initializeTheme();
+  
+  const themeToggleBtn = document.getElementById('themeToggle');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+  }
+  
+  // Handle window resize for responsive behavior
+  window.addEventListener('resize', () => {
+    if (EditorManager.editors.size > 0) {
+      EditorManager.updateResponsiveSettings();
+    }
+  });
+});
+
+//TAB MANAGER   ======================================================================================================================================================== ƒ
 class TabManager {
   static tabs = new Map(); // Store tab information
   static activeTab = null;
@@ -912,8 +1135,6 @@ static showFormattingIndicator(show) {
     });
   }
 
-  
-  
  static updateContextPath(filePath) {
   const contextContainer = document.getElementById('context-path');
   if (!contextContainer) return;
@@ -1070,7 +1291,6 @@ static showFormattingIndicator(show) {
   }
 }
 
-
   // Add this method to save editor state
   static saveEditorState(filePath) {
     if (!editor || !filePath) return;
@@ -1126,7 +1346,6 @@ static restoreEditorState(filePath) {
   };
   return iconMap[extension] || 'fas fa-file-code';
 }
-
 
     // Improved tab addition method
     static addTab(filePath, content) {
@@ -1247,9 +1466,6 @@ static activateTab(filePath) {
     const editor = EditorManager.setActiveEditor(filePath);
   }
 }
-
-
-
   // Comprehensive save method
   static async saveCurrentFile() {
     const currentPath = this.activeTab;
@@ -1292,8 +1508,6 @@ static activateTab(filePath) {
     }
   }
   
-  
-
    // Add listener for content changes
    static setupContentChangeListener(filePath, editor) {
     editor.onDidChangeModelContent(() => {
@@ -1577,10 +1791,7 @@ static activateTab(filePath) {
       });
     }
   }
-
 }
-
-
 
 // Call initialization when the script loads
 TabManager.initialize();
@@ -1748,8 +1959,6 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
-
-
 
 // Enhanced Code Formatter Implementation
 // Add this to your TabManager class or create a separate CodeFormatter class
@@ -1950,7 +2159,79 @@ class CodeFormatter {
   }
 }
 
-//FILETREE ============================================================================================================================================================
+
+// SHOW DIALOG  ======================================================================================================================================================== ƒ
+ // Simple, reliable confirmation dialog
+function showUnsavedChangesDialog(fileName) {
+    return new Promise((resolve) => {
+        // Remove any existing modals
+        const existingModal = document.querySelector('.confirm-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create modal HTML
+        const modalHTML = `
+            <div class="confirm-modal" id="unsaved-changes-modal">
+                <div class="confirm-modal-content">
+                    <div class="confirm-modal-header">
+                        <div class="confirm-modal-icon">⚠</div>
+                        <h3 class="confirm-modal-title">Unsaved Changes</h3>
+                    </div>
+                    <div class="confirm-modal-message">
+                        Do you want to save the changes you made to "<strong>${fileName}</strong>"?<br>
+                        Your changes will be lost if you don't save them.
+                    </div>
+                    <div class="confirm-modal-actions">
+                        <button class="confirm-btn cancel" data-action="cancel">Cancel</button>
+                        <button class="confirm-btn dont-save" data-action="dont-save">Don't Save</button>
+                        <button class="confirm-btn save" data-action="save">Save</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to document
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        const modal = document.getElementById('unsaved-changes-modal');
+
+        // Handle button clicks
+        modal.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action) {
+                closeModal(action);
+            }
+        });
+
+        // Handle escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal('cancel');
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // Close modal function
+        function closeModal(result) {
+            document.removeEventListener('keydown', handleEscape);
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                resolve(result);
+            }, 300);
+        }
+
+        // Show modal with animation
+        setTimeout(() => {
+            modal.classList.add('show');
+            // Focus the Save button by default
+            modal.querySelector('.confirm-btn.save').focus();
+        }, 10);
+    });
+}
+
+
+//FILETREE      ======================================================================================================================================================== ƒ
 // Gerenciador de estado para a file tree
 const FileTreeState = {
   expandedFolders: new Set(),
@@ -2676,7 +2957,7 @@ document.addEventListener('refresh-file-tree', () => {
 });
 
 
-//PROJECT BUTTON ==========================================================================================================================================================
+//PROJECTBUTTON ======================================================================================================================================================== ƒ
 
 let currentProjectPath = null; // Store the current project path
 let currentSpfPath = null;
@@ -3407,18 +3688,8 @@ processorHubButton.addEventListener('click', () => {
   validateCustomRules();
 });
 
-// BUTTONS ==============================================================================================================================================================
+// BUTTONS      ======================================================================================================================================================== ƒ
 
-const explorerHeader = document.querySelector('.explorer-header') || document.createElement('div');
-explorerHeader.className = 'explorer-header';
-explorerHeader.innerHTML = `
-  <div class="explorer-title">
-    <span>Explorer</span>
-  </div>
-  <i class="fas fa-folder toolbar-icon" id="openExplorerFolder" title="Open in File Explorer"></i>
-`;
-
-// Adicionar ícones na toolbar
 // Event listener para abrir o site no navegador padrão
 const websiteLink = document.getElementById('websiteLink');
 if (websiteLink) {
@@ -3426,14 +3697,6 @@ if (websiteLink) {
         window.electronAPI.openExternal('https://nipscern.com'); // Abra o navegador padrão
     });
 }
-
-// Event listener para abrir o explorador de arquivos
-document.getElementById('openExplorerFolder')?.addEventListener('click', async () => {
-    const currentPath = await window.electronAPI.getCurrentFolder();
-    if (currentPath) {
-        await window.electronAPI.openInExplorer(currentPath);
-    }
-});
 
 // Selecionar elementos do modal
 const showInfoButton = document.getElementById('showInfo'); // Botão para abrir o modal
@@ -3497,267 +3760,7 @@ function initAIAssistant() {
     const style = document.createElement('style');
     style.id = 'ai-assistant-styles';
     style.textContent = `
-      /* Backdrop */
-      .ai-assistant-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.1);
-        z-index: var(--z-40);
-        opacity: 0;
-        visibility: hidden;
-        transition: all var(--transition-normal);
-      }
-      
-      .ai-assistant-backdrop.open {
-        opacity: 1;
-        visibility: visible;
-      }
-
-      /* Main Container */
-      .ai-assistant-container {
-        position: fixed;
-        top: 0;
-        right: 0;
-        transform: translateX(100%);
-        width: 480px;
-        height: 100vh;
-        background: var(--bg-primary);
-        border-left: 1px solid var(--border-primary);
-        overflow: hidden;
-        z-index: 99999;
-        transition: transform var(--transition-normal);
-        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
-        display: flex;
-        flex-direction: column;
-        min-width: 320px;
-        max-width: 80vw;
-      }
-      
-      .ai-assistant-container.open {
-        transform: translateX(0);
-      }
-
-      /* Header */
-      .ai-assistant-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--space-4);
-        background: var(--bg-secondary);
-        border-bottom: 1px solid var(--border-primary);
-        backdrop-filter: blur(12px);
-        position: relative;
-      }
-      
-      .ai-assistant-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: var(--gradient-primary);
-        opacity: 0.6;
-      }
-
-      .ai-assistant-title {
-        font-family: var(--font-sans);
-        font-size: var(--text-lg);
-        font-weight: var(--font-semibold);
-        color: var(--text-primary);
-        margin: 0;
-      }
-
-      .ai-header-left {
-        display: flex;
-        align-items: center;
-        gap: var(--space-3);
-      }
-
-      .ai-toggle-icon {
-        width: 24px;
-        height: 24px;
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        filter: brightness(1.2);
-        border-radius: var(--radius-md);
-        padding: var(--space-1);
-      }
-      
-      .ai-toggle-icon:hover {
-        background: var(--hover-overlay);
-        transform: scale(1.05);
-      }
-
-      /* Provider Selection */
-      .ai-provider-section {
-        display: flex;
-        align-items: center;
-        gap: var(--space-2);
-        background: var(--bg-tertiary);
-        padding: var(--space-2) var(--space-3);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--border-secondary);
-      }
-
-      .ai-provider-icon {
-        width: 20px;
-        height: 20px;
-        transition: all var(--transition-normal);
-        border-radius: var(--radius-sm);
-      }
-
-      .ai-provider-select {
-        appearance: none;
-        background: transparent;
-        color: var(--text-primary);
-        border: none;
-        font-family: var(--font-sans);
-        font-size: var(--text-sm);
-        font-weight: var(--font-medium);
-        cursor: pointer;
-        outline: none;
-        padding: var(--space-1) var(--space-2);
-        border-radius: var(--radius-sm);
-        transition: all var(--transition-fast);
-      }
-      
-      .ai-provider-select:hover {
-        background: var(--hover-overlay);
-      }
-      
-      .ai-provider-select:focus {
-        background: var(--bg-hover);
-        box-shadow: var(--shadow-focus);
-      }
-
-      /* Close Button */
-      .ai-assistant-close {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-secondary);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        color: var(--text-secondary);
-        font-size: var(--text-sm);
-      }
-      
-      .ai-assistant-close:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-        transform: scale(1.05);
-      }
-      
-      .ai-assistant-close:active {
-        transform: scale(0.95);
-        background: var(--bg-active);
-      }
-
-      /* Content Area */
-      .ai-assistant-content {
-        flex: 1;
-        position: relative;
-        background: var(--bg-primary);
-        overflow: hidden;
-      }
-
-      .ai-assistant-webview {
-        width: 100%;
-        height: 100%;
-        border: none;
-        background: var(--bg-primary);
-      }
-
-      /* Loading State */
-      .ai-loading-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: var(--bg-primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: var(--space-4);
-        transition: all var(--transition-normal);
-        z-index: var(--z-10);
-      }
-
-      .ai-loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid var(--border-primary);
-        border-top: 3px solid var(--accent-primary);
-        border-radius: var(--radius-full);
-        animation: ai-spin 1s linear infinite;
-      }
-
-      .ai-loading-text {
-        color: var(--text-secondary);
-        font-family: var(--font-sans);
-        font-size: var(--text-sm);
-        font-weight: var(--font-medium);
-      }
-
-      @keyframes ai-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      /* Resize Handle */
-      .ai-resize-handle {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 6px;
-        height: 100%;
-        cursor: ew-resize;
-        background: transparent;
-        transition: background-color var(--transition-fast);
-        z-index: var(--z-10);
-      }
-
-      .ai-resize-handle:hover {
-        background: var(--accent-primary);
-        opacity: 0.5;
-      }
-
-      /* Responsive Design */
-      @media (max-width: 640px) {
-        .ai-assistant-container {
-          width: 95vw;
-          height: 90vh;
-          border-radius: var(--radius-lg);
-        }
-        
-        .ai-assistant-header {
-          padding: var(--space-3);
-        }
-        
-        .ai-header-left {
-          gap: var(--space-2);
-        }
-        
-        .ai-assistant-title {
-          font-size: var(--text-base);
-        }
-      }
-
-      /* Animation improvements */
-      .ai-assistant-container,
-      .ai-assistant-backdrop {
-        will-change: opacity, transform, visibility;
-      }
+     
     `;
     document.head.appendChild(style);
   }
@@ -4072,7 +4075,7 @@ function setupAIAssistantResize(resizer) {
 }
 
 
-//WINDOW.ONLOAD ===========================================================================================================================================================
+//WINDOW.ONLOAD ======================================================================================================================================================== ƒ
 window.onload = () => {
   initMonaco();
   initAIAssistant();
@@ -4157,7 +4160,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 
-//COMP ========================================================================================================================================================
+//COMP          ======================================================================================================================================================== ƒ
 class CompilationModule {
   constructor(projectPath) {
     this.projectPath = projectPath;
@@ -5459,7 +5462,7 @@ window.addEventListener('load', () => {
   const compilationManager = new CompilationButtonManager();
 });
 
-//TERMINAL =============================================================================================================================================================
+//TERMINAL      ======================================================================================================================================================== ƒ
 
 // Global references and state management
 let globalTerminalManager = null;
@@ -5833,7 +5836,7 @@ document.getElementById('cancelConfig')?.addEventListener('click', () => closeMo
 document.getElementById('open-bug-report')?.addEventListener('click', () => openModal('bug-report-modal'));
 document.getElementById('close-bug-report')?.addEventListener('click', () => closeModal('bug-report-modal'));
 
-//TESTE ========================================================================================================================================================
+//TESTE         ======================================================================================================================================================== ƒ
 document.addEventListener('DOMContentLoaded', () => {
   // Get sidebar elements
   const browseWebItem = document.querySelector('.sidebar-menu li[title="Browse the web"]');
@@ -5867,43 +5870,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Elementos do modal de confirmação
-const confirmDeleteModal = document.getElementById('confirmDeleteModal');
-const confirmDeleteBtn = document.getElementById('confirmDelete');
-const cancelDeleteBtn = document.getElementById('cancelDelete');
-const deleteTempBtn = document.getElementById('deleteTempFolder');
-
-// Handler para o botão de deletar
-deleteTempBtn.addEventListener('click', () => {
-  confirmDeleteModal.classList.add('show');
-});
-
-// Handler para cancelar a deleção
-cancelDeleteBtn.addEventListener('click', () => {
-  confirmDeleteModal.classList.remove('show');
-});
-
-// Handler para confirmar a deleção
-confirmDeleteBtn.addEventListener('click', async () => {
-  try {
-    const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-    const tempPath = await window.electronAPI.joinPath(basePath, 'saphoComponents', 'Temp');
-    await window.electronAPI.deleteFolder(tempPath);
-    
-    // Fechar o modal de confirmação
-    confirmDeleteModal.classList.remove('show');
-    
-    // Opcional: Mostrar mensagem de sucesso
-    // Você pode usar sua própria função de notificação aqui
-  } catch (error) {
-    console.error('Error deleting temp folder:', error);
-    // Opcional: Mostrar mensagem de erro
-  }
-});
-
-
-// Selecionando o ícone de jornal
-const newsIcon = document.querySelector('.fa-newspaper');
 
 // Função para abrir o menu lateral
 function openNewsSidebar() {
@@ -5933,101 +5899,4 @@ function openNewsSidebar() {
             }
         });
     }
-}
-
-// Evento de clique no ícone de jornal
-newsIcon.addEventListener('click', openNewsSidebar);
-
-
-async function refactorCode(code) {
-  try {
-    return await window.electronAPI.refactorCode(code);
-  } catch (err) {
-    console.error('Erro ao refatorar código:', err);
-    return code; // Fallback para código original
-  }
-}
-// renderer.js
-// --- CONFIG CLEARS ---
-
-// 1. Clear only processorConfig.json
-async function clearProcessorConfig() {
-  try {
-    const processorConfigPath = await window.electronAPI.joinPath(
-      'saphoComponents',
-      'Scripts',
-      'processorConfig.json'
-    );
-
-    const defaultProcessorConfig = {
-      processors: [],
-      iverilogFlags: [],
-      cmmCompFlags: [],
-      asmCompFlags: [],
-      testbenchFile: "standard",
-      gtkwFile: "standard"
-    };
-
-    await window.electronAPI.writeFile(
-      processorConfigPath,
-      JSON.stringify(defaultProcessorConfig, null, 2)
-    );
-    console.log('processorConfig.json was reset to defaults');
-  } catch (err) {
-    console.error('Error clearing processorConfig.json:', err);
-  }
-}
-
-// 2. Clear only projectOriented.json
-async function clearProjectConfig(projectPath) {
-  try {
-    const projectConfigPath = await window.electronAPI.joinPath(
-      projectPath,
-      'projectOriented.json'
-    );
-
-    const defaultProjectOriented = {
-      topLevelFile: "Standard",
-      testbenchFile: "Standard",
-      gtkwaveFile: "Standard",
-      processors: [],
-      iverilogFlags: ""
-    };
-
-    await window.electronAPI.writeFile(
-      projectConfigPath,
-      JSON.stringify(defaultProjectOriented, null, 2)
-    );
-    console.log('projectOriented.json was reset to defaults');
-  } catch (err) {
-    console.error('Error clearing projectOriented.json:', err);
-  }
-}
-
-// --- WIRING UP THE BUTTON ---
-
-document.getElementById('clearAll')
-  .addEventListener('click', async () => {
-    const fanBtn = document.getElementById('toggle-ui');
-
-    // Replace this with however you know "fan" is on/off
-    const fanIsActive = fanBtn.classList.contains('active');
-
-    if (fanIsActive) {
-      // Fan is ON ⇒ clear the project config
-      await clearProjectConfig(window.currentProjectPath);
-    } else {
-      // Fan is OFF ⇒ clear the processor config
-      await clearProcessorConfig();
-    }
-  });
-
-  // Mostrar spinner quando VVP iniciar
-function showVvpSpinner() {
-    document.getElementById('vvp-spinner').classList.add('active');
-}
-
-// Esconder spinner quando VVP terminar
-function hideVvpSpinner() {
-    document.getElementById('vvp-spinner').classList.remove('active');
 }

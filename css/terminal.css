@@ -442,3 +442,26 @@
     font-size: 12px;
   }
 }
+
+/* Add this CSS to your stylesheet for smooth line transitions */
+
+#editorStatus {
+  transition: all 0.15s ease-out;
+  transform: translateZ(0); /* Hardware acceleration */
+}
+
+/* Optional: Add a subtle highlight effect when cursor moves */
+#editorStatus.updating {
+  opacity: 0.8;
+}
+
+/* Alternative smooth transition for the entire status bar */
+.status-item {
+  transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+}
+
+/* For even smoother text changes */
+#editorStatus {
+  will-change: contents;
+  backface-visibility: hidden;
+}

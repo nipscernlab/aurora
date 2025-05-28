@@ -41,24 +41,3 @@ function closeInfoBox() {
     }, 300);
 }
 
-// Resizable panel logic
-const resizer = document.querySelector('.ai-resizer');
-const container = document.querySelector('.ai-assistant-container');
-
-// Start resizing when the mouse is pressed
-resizer.addEventListener('mousedown', function (e) {
-  document.addEventListener('mousemove', resizePanel);
-  document.addEventListener('mouseup', stopResize);
-});
-
-// Resize the panel dynamically based on mouse movement
-function resizePanel(e) {
-  const newWidth = window.innerWidth - e.clientX;
-  container.style.width = `${newWidth}px`;
-}
-
-// Stop resizing when the mouse is released
-function stopResize() {
-  document.removeEventListener('mousemove', resizePanel);
-  document.removeEventListener('mouseup', stopResize);
-}

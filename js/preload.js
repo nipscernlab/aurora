@@ -92,10 +92,6 @@ const projectOperations = {
 
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
   
-  // Alternative method using spawn for better control
-  runCommand: (command, args = [], options = {}) => 
-    ipcRenderer.invoke('run-command', { command, args, options }),
-    
   // Get system temp directory
   getTempDir: () => ipcRenderer.invoke('get-temp-dir'),
   
@@ -141,7 +137,7 @@ ipcRenderer.invoke('create-temp-file', content, extension),
 
   
   saveConfig: (data) => ipcRenderer.send('save-config', data),
-
+  listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath), //Processor Config
   readDirectory: async (dirPath) => {
     try {
       const files = await fs.promises.readdir(dirPath);
@@ -166,16 +162,13 @@ ipcRenderer.invoke('create-temp-file', content, extension),
 const dialogOperations = {
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
   getBasename: (fullPath) => path.basename(fullPath),
-  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
-  selectCMMFile: () => ipcRenderer.invoke('select-cmm-file'),
-  openWaveDialog: () => ipcRenderer.invoke('open-wave-dialog')
+  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
 };
 
 const compileOperations = {
   compile: (options) => ipcRenderer.invoke('compile', options),
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
-  runCommand: (command) => ipcRenderer.invoke('run-command', command)
 };
 
 const pathOperations = {
@@ -420,15 +413,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('get-simulation-files', processorName, projectPath),
   setCurrentProject: (projectPath) => 
     ipcRenderer.invoke('set-current-project', projectPath),
-  
-  // File Parsing
-  parseCMMFile: (filePath) => ipcRenderer.invoke('parse-cmm-file', filePath),
-  
+    
   // Event Listeners
   openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
   onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
-
-  refactorCode: (code) => ipcRenderer.invoke('refactor-code', code),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),

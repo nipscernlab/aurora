@@ -3468,72 +3468,517 @@ if (closeInfoButton) {
     });
 }
 
+
+// Toggle function to show/hide assistant
+function toggleAIAssistant() {
+  if (!window.aiAssistantContainer) {
+    initAIAssistant();
+    return;
+  }
+  
+  const container = aiAssistantContainer;
+  const backdrop = document.getElementById('ai-assistant-backdrop');
+  
+  if (container.classList.contains('open')) {
+    container.classList.remove('open');
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  } else {
+    container.classList.add('open');
+    backdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+// Initialize assistant structure (hidden by default)
 function initAIAssistant() {
+  // Inject modern styles using CSS root variables
+  if (!document.getElementById('ai-assistant-styles')) {
+    const style = document.createElement('style');
+    style.id = 'ai-assistant-styles';
+    style.textContent = `
+      /* Backdrop */
+      .ai-assistant-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.1);
+        z-index: var(--z-40);
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-normal);
+      }
+      
+      .ai-assistant-backdrop.open {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      /* Main Container */
+      .ai-assistant-container {
+        position: fixed;
+        top: 0;
+        right: 0;
+        transform: translateX(100%);
+        width: 480px;
+        height: 100vh;
+        background: var(--bg-primary);
+        border-left: 1px solid var(--border-primary);
+        overflow: hidden;
+        z-index: 99999;
+        transition: transform var(--transition-normal);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        min-width: 320px;
+        max-width: 80vw;
+      }
+      
+      .ai-assistant-container.open {
+        transform: translateX(0);
+      }
+
+      /* Header */
+      .ai-assistant-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-4);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        backdrop-filter: blur(12px);
+        position: relative;
+      }
+      
+      .ai-assistant-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--gradient-primary);
+        opacity: 0.6;
+      }
+
+      .ai-assistant-title {
+        font-family: var(--font-sans);
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin: 0;
+      }
+
+      .ai-header-left {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .ai-toggle-icon {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        filter: brightness(1.2);
+        border-radius: var(--radius-md);
+        padding: var(--space-1);
+      }
+      
+      .ai-toggle-icon:hover {
+        background: var(--hover-overlay);
+        transform: scale(1.05);
+      }
+
+      /* Provider Selection */
+      .ai-provider-section {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        background: var(--bg-tertiary);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-secondary);
+      }
+
+      .ai-provider-icon {
+        width: 20px;
+        height: 20px;
+        transition: all var(--transition-normal);
+        border-radius: var(--radius-sm);
+      }
+
+      .ai-provider-select {
+        appearance: none;
+        background: transparent;
+        color: var(--text-primary);
+        border: none;
+        font-family: var(--font-sans);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        cursor: pointer;
+        outline: none;
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-fast);
+      }
+      
+      .ai-provider-select:hover {
+        background: var(--hover-overlay);
+      }
+      
+      .ai-provider-select:focus {
+        background: var(--bg-hover);
+        box-shadow: var(--shadow-focus);
+      }
+
+      /* Close Button */
+      .ai-assistant-close {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-secondary);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+      }
+      
+      .ai-assistant-close:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+        transform: scale(1.05);
+      }
+      
+      .ai-assistant-close:active {
+        transform: scale(0.95);
+        background: var(--bg-active);
+      }
+
+      /* Content Area */
+      .ai-assistant-content {
+        flex: 1;
+        position: relative;
+        background: var(--bg-primary);
+        overflow: hidden;
+      }
+
+      .ai-assistant-webview {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: var(--bg-primary);
+      }
+
+      /* Loading State */
+      .ai-loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--bg-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: var(--space-4);
+        transition: all var(--transition-normal);
+        z-index: var(--z-10);
+      }
+
+      .ai-loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--border-primary);
+        border-top: 3px solid var(--accent-primary);
+        border-radius: var(--radius-full);
+        animation: ai-spin 1s linear infinite;
+      }
+
+      .ai-loading-text {
+        color: var(--text-secondary);
+        font-family: var(--font-sans);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+      }
+
+      @keyframes ai-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* Resize Handle */
+      .ai-resize-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6px;
+        height: 100%;
+        cursor: ew-resize;
+        background: transparent;
+        transition: background-color var(--transition-fast);
+        z-index: var(--z-10);
+      }
+
+      .ai-resize-handle:hover {
+        background: var(--accent-primary);
+        opacity: 0.5;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 640px) {
+        .ai-assistant-container {
+          width: 95vw;
+          height: 90vh;
+          border-radius: var(--radius-lg);
+        }
+        
+        .ai-assistant-header {
+          padding: var(--space-3);
+        }
+        
+        .ai-header-left {
+          gap: var(--space-2);
+        }
+        
+        .ai-assistant-title {
+          font-size: var(--text-base);
+        }
+      }
+
+      /* Animation improvements */
+      .ai-assistant-container,
+      .ai-assistant-backdrop {
+        will-change: opacity, transform, visibility;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Create backdrop
+  const backdrop = document.createElement('div');
+  backdrop.id = 'ai-assistant-backdrop';
+  backdrop.className = 'ai-assistant-backdrop';
+  backdrop.addEventListener('click', toggleAIAssistant);
+  document.body.appendChild(backdrop);
+
+  // Main container
   aiAssistantContainer = document.createElement('div');
   aiAssistantContainer.className = 'ai-assistant-container';
 
-  const resizer = document.createElement('div');
-  resizer.className = 'ai-resizer';
-
-  // Create header with provider selection
+  // Header
   const header = document.createElement('div');
   header.className = 'ai-assistant-header';
   header.innerHTML = `
-  <div style="display: flex; align-items: center; gap: 8px;">
-    <img src="./assets/icons/icon_flare.svg" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;"><span class="ai-assistant-title">AI Assistant</span>
-    <select id="ai-provider-select" style="background: var(--background, #2d2d2d); color: var(--text-color, #ffffff); border: 1px solid var(--border-color, #404040); border-radius: 4px; padding: 2px;">
-      <option value="chatgpt">ChatGPT</option>
-      <option value="claude">Claude</option>
-    </select>
-  </div>
-  <i class="fas fa-times ai-assistant-close"></i>
-`;
+    <div class="ai-header-left">
+      <img src="./assets/icons/icon_flare.svg" 
+           alt="AI Toggle"
+           class="ai-toggle-icon"
+           onclick="toggleAIAssistant()">
+      <h3 class="ai-assistant-title">AI Assistant</h3>
+      <div class="ai-provider-section">
+        <img id="ai-provider-icon" 
+             src="./assets/icons/chatgpt.svg"
+             alt="Provider Icon" 
+             class="ai-provider-icon">
+        <select id="ai-provider-select" class="ai-provider-select">
+          <option value="chatgpt">ChatGPT</option>
+          <option value="claude">Claude</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </div>
+    </div>
+    <button class="ai-assistant-close" aria-label="Close AI Assistant">
+      <i class="fas fa-times"></i>
+    </button>
+  `;
 
-  // Create webview container
-  const webviewContainer = document.createElement('div');
-  webviewContainer.className = 'ai-assistant-content';
-  webviewContainer.style.padding = '0'; // Remove padding for webview
-
-  // Create webview element
+  // Content area with loading state
+  const contentContainer = document.createElement('div');
+  contentContainer.className = 'ai-assistant-content';
+  
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.className = 'ai-loading-overlay';
+  loadingOverlay.innerHTML = `
+    <div class="ai-loading-spinner"></div>
+    <div class="ai-loading-text">Loading AI Assistant...</div>
+  `;
+  
   const webview = document.createElement('webview');
-  webview.style.width = '100%';
-  webview.style.height = '100%';                                                       
-  webview.src = 'https://chatgpt.com/?model=auto'; // Default to ChatGPT
+  webview.className = 'ai-assistant-webview';
+  webview.src = 'https://chatgpt.com/?model=auto';
   webview.nodeintegration = 'false';
-  webviewContainer.appendChild(webview);
+  webview.webSecurity = 'true';
+  
+  // Resize handle
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'ai-resize-handle';
+  
+  contentContainer.appendChild(loadingOverlay);
+  contentContainer.appendChild(webview);
+  contentContainer.appendChild(resizeHandle);
 
-  // Append elements
-  aiAssistantContainer.appendChild(resizer);
+  // Assemble components
   aiAssistantContainer.appendChild(header);
-  aiAssistantContainer.appendChild(webviewContainer);
+  aiAssistantContainer.appendChild(contentContainer);
   document.body.appendChild(aiAssistantContainer);
 
-  // Add event listeners
+  // Event listeners
   const closeButton = header.querySelector('.ai-assistant-close');
   closeButton.addEventListener('click', toggleAIAssistant);
 
+  // Provider selection
   const providerSelect = header.querySelector('#ai-provider-select');
+  const providerIcon = header.querySelector('#ai-provider-icon');
+  
   providerSelect.addEventListener('change', (e) => {
-      currentProvider = e.target.value;
-      const url = currentProvider === 'chatgpt' ?
-          'https://chatgpt.com/?model=auto' :
-          'https://claude.ai';
-      webview.src = url;
+    currentProvider = e.target.value;
+    
+    // Show loading
+    loadingOverlay.style.opacity = '1';
+    loadingOverlay.style.visibility = 'visible';
+    
+    // Fade out icon
+    providerIcon.style.opacity = '0';
+    
+    const urlMap = {
+      chatgpt: 'https://chatgpt.com/?model=auto',
+      claude: 'https://claude.ai',
+      deepseek: 'https://www.deepseek.com/'
+    };
+    
+    const iconMap = {
+      chatgpt: './assets/icons/chatgpt.svg',
+      claude: './assets/icons/claude.svg',
+      deepseek: './assets/icons/deepseek.svg'
+    };
+    
+    // Update webview source
+    webview.src = urlMap[currentProvider] || urlMap.chatgpt;
+    
+    // Update icon with fade in effect
+    setTimeout(() => {
+      providerIcon.src = iconMap[currentProvider] || iconMap.chatgpt;
+      providerIcon.onload = () => {
+        providerIcon.style.opacity = '1';
+      };
+    }, 150);
   });
 
-  // Setup resizing
-  setupAIAssistantResize(resizer);
+  // Webview load event
+  webview.addEventListener('dom-ready', () => {
+    setTimeout(() => {
+      loadingOverlay.style.opacity = '0';
+      loadingOverlay.style.visibility = 'hidden';
+    }, 500);
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // ESC to close
+    if (e.key === 'Escape' && aiAssistantContainer.classList.contains('open')) {
+      toggleAIAssistant();
+    }
+    
+    // Ctrl/Cmd + K to toggle
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      toggleAIAssistant();
+    }
+  });
+
+  // Basic resize functionality
+  setupResizeHandle(resizeHandle, aiAssistantContainer);
+  
+  // Store reference globally
+  window.aiAssistantContainer = aiAssistantContainer;
 }
 
-// Add toggle function
-function toggleAIAssistant() {
-  aiAssistantVisible = !aiAssistantVisible;
-  aiAssistantContainer.classList.toggle('visible');
+// Resize functionality
+function setupResizeHandle(handle, container) {
+  let isResizing = false;
+  let startX, startWidth;
 
-  // Adjust editor layout if needed
-  if (editor) {
-      editor.layout();
+  handle.addEventListener('mousedown', initResize);
+
+  function initResize(e) {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(document.defaultView.getComputedStyle(container).width, 10);
+    
+    // Adicionar listeners no document
+    document.addEventListener('mousemove', handleResize, { passive: false });
+    document.addEventListener('mouseup', stopResize, { once: true });
+    document.addEventListener('mouseleave', stopResize, { once: true });
+    
+    document.body.style.userSelect = 'none';
+    document.body.style.pointerEvents = 'none';
+    handle.style.pointerEvents = 'auto';
+    
+    e.preventDefault();
+    e.stopPropagation();
   }
+
+  function handleResize(e) {
+    if (!isResizing) return;
+    
+    // Calcular nova largura (movimento para esquerda aumenta)
+    const width = startWidth + (startX - e.clientX);
+    
+    // Limites de tamanho
+    const minWidth = 320;
+    const maxWidth = Math.min(window.innerWidth * 0.8, 800);
+    
+    const newWidth = Math.max(minWidth, Math.min(width, maxWidth));
+    container.style.width = newWidth + 'px';
+    
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function stopResize(e) {
+    if (!isResizing) return;
+    
+    isResizing = false;
+    
+    // Remover listeners
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    document.removeEventListener('mouseleave', stopResize);
+    
+    // Restaurar estilos
+    document.body.style.userSelect = '';
+    document.body.style.pointerEvents = '';
+    handle.style.pointerEvents = '';
+    
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+}
+
+// Auto-bind toggle to global scope
+window.toggleAIAssistant = toggleAIAssistant;
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay to ensure all assets are loaded
+  setTimeout(() => {
+    initAIAssistant();
+  }, 100);
+});
+
+// Export for module usage
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { toggleAIAssistant, initAIAssistant };
 }
 
 document.addEventListener('DOMContentLoaded', () => {

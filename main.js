@@ -1,198 +1,112 @@
-// Importing necessary modules from Electron
 const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec } = require('child_process');
 const path = require('path');
-const fse = require('fs-extra'); // Provides extended file system methods
-const fs = require('fs').promises; // Promisified file system module
+const fse = require('fs-extra');
+const fs = require('fs').promises;
 const os = require('os');
-const { spawn } = require('child_process'); // Used for spawning child processes
-const moment = require("moment"); // For generating timestamps
-const electronFs = require('original-fs'); // Original file system module for Electron
+const { spawn } = require('child_process');
+const moment = require("moment");
+const electronFs = require('original-fs');
 const url = require('url');
 const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
 
-// Path to store user settings
-const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-// Update system configuration
+const settingsPath = path.join(__dirname, 'saphoComponents', 'Scripts' ,'settings.json');
+
 let progressWindow = null;
 let updateCheckInProgress = false;
 let downloadInProgress = false;
 
+// Variable to track the current open project path
+let currentOpenProjectPath = null;
 
 // Global variables for app state
-let tray = null; // Tray icon instance
-let settingsWindow = null; // Settings window instance
-let isQuitting = false; // Flag to control app exit behavior
-let projectState = {
-  spfLoaded: false, // Indicates if a project file is loaded
-  projectPath: null // Path to the currently loaded project
-};
-let mainWindow, splashWindow; // Main and splash window instances
-// Function to load user settings from a file
-async function loadSettings() {
-  try {
-    try {
-      await fs.access(settingsPath); // Check if the settings file exists
-      const data = await fs.readFile(settingsPath, 'utf8'); // Read the settings file
-      return JSON.parse(data); // Parse and return the settings
-    } catch (err) {
-      // If the file doesn't exist, return default settings
-      return {
-        startWithWindows: false,
-        minimizeToTray: true,
-        theme: 'dark'
-      };
-    }
-  } catch (error) {
-    console.error('Error loading settings:', error);
-    // Return default settings in case of an error
-    return {
-      startWithWindows: false,
-      minimizeToTray: true,
-      theme: 'dark'
-    };
-  }
-}
+let tray = null;
+let settingsWindow = null;
+let isQuitting = false;
 
-// Function to save user settings to a file
-async function saveSettings(settings) {
-  try {
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8'); // Write settings to file
-    return true;
-  } catch (error) {
-    console.error('Error saving settings:', error);
-    return false;
-  }
-}
+let mainWindow, splashWindow;
 
-// Function to apply auto-start settings for the application
-function applyAutoStartSettings(enabled) {
-  try {
-    app.setLoginItemSettings({
-      openAtLogin: enabled,
-      path: process.execPath
-    });
-    return true;
-  } catch (error) {
-    console.error('Error setting login item:', error);
-    return false;
-  }
-}
-
-// Function to create a system tray icon and menu
-function createTray() {
-  if (tray !== null) return; // Avoid duplicate tray creation
-
-  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.svg');
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(trayIcon);
-
-  const openIconPath = path.join(__dirname, 'assets', 'icons', 'open.png');
-  const settingsIconPath = path.join(__dirname, 'assets', 'icons', 'settings.png');
-  const quitIconPath = path.join(__dirname, 'assets', 'icons', 'close.png');
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Open App',
-      icon: nativeImage.createFromPath(openIconPath).resize({ width: 16, height: 16 }),
-      click: () => {
-        mainWindow.show();
-      }
-    },
-    {
-      label: 'Settings',
-      icon: nativeImage.createFromPath(settingsIconPath).resize({ width: 16, height: 16 }),
-      click: () => {
-        createSettingsWindow();
-      }
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      icon: nativeImage.createFromPath(quitIconPath).resize({ width: 16, height: 16 }),
-      click: () => {
-        isQuitting = true;
-        if (tray) {
-          tray.destroy();
-          tray = null;
-        }
-        app.quit();
-      }
-    }
-  ]);
-
-  tray.setToolTip('AURORA IDE');
-  tray.setContextMenu(contextMenu);
-
-  tray.on('double-click', () => {
-    mainWindow.show();
-  });
-}
-
-// Function to create the settings window
-function createSettingsWindow() {
-  if (settingsWindow) {
-    settingsWindow.focus();
-    return;
-  }
-
-  settingsWindow = new BrowserWindow({
-    width: 490,
-    height: 505,
-    parent: mainWindow,
-    modal: true,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
+// Function to create the main application window
+async function createMainWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
     autoHideMenuBar: false,
-    frame: false,
+    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
+      contextIsolation: true,
       nodeIntegration: true,
-      contextIsolation: false
+      webviewTag: true,
+      preload: path.join(__dirname, 'js', 'preload.js'),
     },
-    title: 'Settings'
+    backgroundColor: '#1e1e1e',
+    show: false,
   });
 
-  settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
+  mainWindow.loadFile('index.html');
 
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-  });
-}
-
-// Function to update the PATH environment variable in Electron
-function updatePathInElectron() {
-  console.log("Updating PATH in Electron...");
-  exec('powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'Machine\')"', (error, stdout) => {
-    if (!error) {
-      process.env.PATH = stdout.trim();
-      console.log("PATH updated in Electron:", process.env.PATH);
-    } else {
-      console.error("Error updating PATH:", error);
+   // Verificar se há um arquivo .spf para abrir
+   mainWindow.webContents.on('did-finish-load', () => {
+    if (fileToOpen) {
+      mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
     }
   });
+
+  // Registrar o protocolo sapho: e a extensão .spf
+if (process.platform === 'win32') {
+  app.setAsDefaultProtocolClient('sapho');
+  app.setAppUserModelId(process.execPath);
 }
 
-updatePathInElectron();
-// Configure auto-updater for better performance and reliability
-function configureAutoUpdater() {
-  // Clear any cached update files
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // Load user settings
+  const settings = await loadSettings();
   
-  // Enable logging for debugging
-  autoUpdater.logger = require('electron-log');
-  autoUpdater.logger.transports.file.level = 'info';
+  // Apply auto-start setting
+  applyAutoStartSettings(settings.startWithWindows);
+
+  // Create tray icon
+  createTray();
+
+  // Handle window close
+  mainWindow.on('close', async (event) => {
+    if (isQuitting) return;
   
-  // Configure update server settings for better download performance
-  autoUpdater.requestHeaders = {
-    'Cache-Control': 'no-cache',
-    'User-Agent': `${app.getName()}/${app.getVersion()}`
-  };
+    try {
+      const settings = await loadSettings();
+      
+      if (settings.minimizeToTray) {
+        event.preventDefault();
+        mainWindow.hide();
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking settings:', error);
+    }
+  });
+  
+  // Handle app quit
+  app.on('before-quit', () => {
+    isQuitting = true;
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+    initializeUpdateSystem();
+  });
 }
+
+// Handle app quit event
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+});
 
 // Create a modern progress window for updates
 function createProgressWindow() {
@@ -246,62 +160,6 @@ function createProgressWindow() {
     }
   });
 }
-
-
-// IPC handler to load an SVG file
-ipcMain.handle("load-svg-file", async (event, svgPath) => {
-  try {
-      console.log("Attempting to load SVG:", svgPath);
-
-      // Check if the file exists asynchronously
-      await fs.access(svgPath);
-
-      const svgContent = await fs.readFile(svgPath, "utf-8");
-      console.log("SVG loaded successfully!");
-      return { 
-          content: svgContent, 
-          filename: path.basename(svgPath) 
-      };
-  } catch (error) {
-      console.error("Error loading SVG:", error);
-      return { error: error.message };
-  }
-});
-
-// IPC handler to open a new window for Prism visualization
-ipcMain.on("open-prism-window", (event, svgPath) => {
-  let prismWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    icon: path.join(__dirname, "assets/icons/prism.png"),
-    webPreferences: {
-      preload: path.join(__dirname, 'js', 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    },
-    autoHideMenuBar: false,
-    frame: true
-  });
-
-  // Construct URL with SVG path as a query parameter
-  const prismUrl = url.format({
-    pathname: path.join(__dirname, 'html/prism.html'),
-    protocol: 'file:',
-    slashes: true,
-    search: `?svgPath=${encodeURIComponent(svgPath)}`
-  });
-
-  prismWindow.loadURL(prismUrl);
-
-  prismWindow.once("ready-to-show", () => {
-    prismWindow.show();
-  });
-
-  prismWindow.on("closed", () => {
-    prismWindow = null;
-  });
-});
-
 
 // Enhanced update checking with better error handling
 function checkForUpdates() {
@@ -519,7 +377,6 @@ function setupIpcHandlers() {
 function initializeUpdateSystem() {
   console.log('Initializing update system...');
   
-  configureAutoUpdater();
   setupAutoUpdaterEvents();
   setupIpcHandlers();
   
@@ -528,99 +385,142 @@ function initializeUpdateSystem() {
     if (process.env.NODE_ENV !== 'development') {
       checkForUpdates();
     }
-  }, 5000);
+  }, 2000);
 }
 
-// Export the main functions
-module.exports = {
-  initializeUpdateSystem,
-  checkForUpdates,
-  createProgressWindow
-};
+// Function to create the settings window
+function createSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.focus();
+    return;
+  }
 
-// Auto-initialize if this file is required directly
-if (require.main === module) {
-  initializeUpdateSystem();
-}
-
-// Function to create the main application window
-async function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+  settingsWindow = new BrowserWindow({
+    width: 520,  // Largura do modal original
+    height: 450, // Altura ajustada para o conteúdo
+    parent: mainWindow,
+    modal: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
     webPreferences: {
-      contextIsolation: true,
       nodeIntegration: true,
-      webviewTag: true,
-      preload: path.join(__dirname, 'js', 'preload.js'),
+      contextIsolation: false
     },
-    backgroundColor: '#1e1e1e',
-    show: false,
+    title: 'Settings'
   });
 
-  mainWindow.loadFile('index.html');
+  settingsWindow.loadFile(path.join(__dirname, 'html', 'settings.html'));
 
-   // Verificar se há um arquivo .spf para abrir
-   mainWindow.webContents.on('did-finish-load', () => {
-    if (fileToOpen) {
-      mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
-    }
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
   });
-
-  // Registrar o protocolo sapho: e a extensão .spf
-if (process.platform === 'win32') {
-  app.setAsDefaultProtocolClient('sapho');
-  app.setAppUserModelId(process.execPath);
 }
 
-  // Load user settings
-  const settings = await loadSettings();
-  
-  // Apply auto-start setting
-  applyAutoStartSettings(settings.startWithWindows);
-
-  // Create tray icon
-  createTray();
-
-  // Handle window close
-  mainWindow.on('close', async (event) => {
-    if (isQuitting) return;
-  
+// Function to load user settings from a file
+async function loadSettings() {
+  try {
     try {
-      const settings = await loadSettings();
-      
-      if (settings.minimizeToTray) {
-        event.preventDefault();
-        mainWindow.hide();
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking settings:', error);
+      await fs.access(settingsPath); // Check if the settings file exists
+      const data = await fs.readFile(settingsPath, 'utf8'); // Read the settings file
+      return JSON.parse(data); // Parse and return the settings
+    } catch (err) {
+      // If the file doesn't exist, return default settings
+      return {
+        startWithWindows: false,
+        minimizeToTray: true,
+        theme: 'dark'
+      };
     }
-  });
-  
-  // Handle app quit
-  app.on('before-quit', () => {
-    isQuitting = true;
-  });
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    // Return default settings in case of an error
+    return {
+      startWithWindows: false,
+      minimizeToTray: true,
+      theme: 'dark'
+    };
+  }
+}
 
-  mainWindow.once('ready-to-show', () => {
-    updatePathInElectron();
-    mainWindow.maximize();
+// Function to save user settings to a file
+async function saveSettings(settings) {
+  try {
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8'); // Write settings to file
+    return true;
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return false;
+  }
+}
+
+// Function to apply auto-start settings for the application
+function applyAutoStartSettings(enabled) {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: process.execPath
+    });
+    return true;
+  } catch (error) {
+    console.error('Error setting login item:', error);
+    return false;
+  }
+}
+
+// Function to create a system tray icon and menu
+function createTray() {
+  if (tray !== null) return; // Avoid duplicate tray creation
+
+  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.png');
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 24, height: 24 });
+  tray = new Tray(trayIcon);
+
+  const openIconPath = path.join(__dirname, 'assets', 'icons', 'open.png');
+  const settingsIconPath = path.join(__dirname, 'assets', 'icons', 'settings.png');
+  const quitIconPath = path.join(__dirname, 'assets', 'icons', 'close.png');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open App',
+      icon: nativeImage.createFromPath(openIconPath).resize({ width: 16, height: 16 }),
+      click: () => {
+        mainWindow.show();
+      }
+    },
+    {
+      label: 'Settings',
+      icon: nativeImage.createFromPath(settingsIconPath).resize({ width: 16, height: 16 }),
+      click: () => {
+        createSettingsWindow();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      icon: nativeImage.createFromPath(quitIconPath).resize({ width: 16, height: 18 }),
+      click: () => {
+        isQuitting = true;
+        if (tray) {
+          tray.destroy();
+          tray = null;
+        }
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('AURORA IDE');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
     mainWindow.show();
   });
 }
-
-// Handle app quit event
-app.on('before-quit', () => {
-  isQuitting = true;
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-});
 
 // IPC handlers for settings management
 ipcMain.handle('get-settings', async () => {
@@ -659,13 +559,6 @@ function createSplashScreen() {
     createMainWindow(); // Create main application window
     setTimeout(checkForUpdates, 2000); // Check for updates after a delay
   }, 4000);
-}
-
-// Function to clear application cache
-function clearCache() {
-  const cachePath = app.getPath('userData');
-  fs.removeSync(path.join(cachePath, 'Cache'));
-  fs.removeSync(path.join(cachePath, 'GPUCache'));
 }
 
 // Initialize the application when ready
@@ -861,8 +754,6 @@ ipcMain.handle('select-directory', async () => {
 
 // Add this to your main.js where your other IPC handlers are defined
 
-// Variable to track the current open project path
-let currentOpenProjectPath = null;
 
 
 // Handler to delete a processor
@@ -1201,7 +1092,6 @@ function updateProjectState(window, projectPath, spfPath) {
 // Context: IPC handlers for project creation, opening, and folder operations in an Electron application
 
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
-  updatePathInElectron();
   try {
     // Create the project structure
     await fse.mkdir(projectPath, { recursive: true });
@@ -2445,34 +2335,6 @@ ipcMain.handle('file:read', async (event, filePath) => {
     }
     console.error('Error reading file:', error);
     throw error;
-  }
-});
-
-// Adicione este código ao seu main.js
-ipcMain.handle('notepad:save', async (event, content) => {
-  try {
-    const filePath = path.join(app.getPath('userData'), 'notpad.txt');
-    fs.writeFileSync(filePath, content, 'utf8');
-    return { success: true };
-  } catch (error) {
-    console.error('Erro ao salvar arquivo notepad:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('notepad:load', async (event) => {
-  try {
-    const filePath = path.join(app.getPath('userData'), 'notpad.txt');
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      return { success: true, content };
-    } else {
-      // Arquivo não existe ainda, retornar string vazia
-      return { success: true, content: '' };
-    }
-  } catch (error) {
-    console.error('Erro ao carregar arquivo notepad:', error);
-    return { success: false, error: error.message };
   }
 });
 

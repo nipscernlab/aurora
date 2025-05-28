@@ -7,9 +7,7 @@ const fileOperations = {
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
-  save: (content) => ipcRenderer.invoke('notepad:save', content),
   reloadApp: () => ipcRenderer.send('app:reload'),
-  load: () => ipcRenderer.invoke('notepad:load'),
   createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
   directoryExists: (dirPath) => ipcRenderer.invoke('directory-exists', dirPath),
   mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
@@ -162,14 +160,7 @@ ipcRenderer.invoke('create-temp-file', content, extension),
   },
   clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder'),
 
-  openPrismWindow: (svgPath) => {
-    console.log("Opening PRISM with SVG:", svgPath);
-    ipcRenderer.send("open-prism-window", svgPath);
-  },
-  loadPrismSvg: async (svgPath) => {
-    console.log("Requesting SVG:", svgPath);
-    return ipcRenderer.invoke("load-svg-file", svgPath);
-  },
+ 
 };
 
 const dialogOperations = {
@@ -235,23 +226,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Config Operations
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),
-
-    // Funções para controle da janela
-    minimizeWindow: () => ipcRenderer.send('notpad-minimize'),
-    maximizeWindow: () => ipcRenderer.send('notpad-maximize'),
-    closeWindow: () => ipcRenderer.send('notpad-close'),
-    
-    
-    // Funções para gerenciamento de conteúdo
-    saveContent: (content) => ipcRenderer.send('notpad-save', content),
-    loadContent: () => ipcRenderer.send('notpad-load'),
-    listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath),
-    // Listeners
-    onSaveReply: (callback) => ipcRenderer.on('notpad-save-reply', (_, success) => callback(success)),
-    onLoadReply: (callback) => ipcRenderer.on('notpad-load-reply', (_, content) => callback(content)),
-    onAppClosing: (callback) => ipcRenderer.on('app-closing', () => callback()),
-
-    openNotpad: () => ipcRenderer.send('open-notpad'),
     
    // Funções relacionadas à simulação e configuração do processador
   getSimulationFiles: (processorName) => {

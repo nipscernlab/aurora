@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Aurora IDE</title>
+  <style>
+    /* Import theme variables */
+    :root {
+      /* Dark theme (default) - Elegant Purple */
+      --bg-primary: #17151f;
+      --bg-secondary: #1e1b2c;
+      --bg-tertiary: #252236;
+      --bg-hover: #2d2a40;
+      --bg-active: #363150;
+      
+      --accent-primary: #9d7fff;
+      --accent-secondary: #7b5cd6;
+      --accent-hover: #b18fff;
+      --accent-focus: #cbb2ff;
+      --accent-muted: #6842c2;
+      
+      --text-primary: #e2dcff;
+      --text-secondary: #bbb2e0;
+      --text-muted: #776f97;
+      --text-disabled: #504a68;
+      
+      --border-primary: #2f2a45;
+      --border-secondary: #252236;
+      --border-focus: #9d7fff;
+      
+      --icon-primary: #9d7fff;
+      --icon-secondary: #bbb2e0;
+      
+      --error: #ff7eb6;
+      --warning: #ffb86c;
+      --success: #a5e075;
+      --info: #82cffb;
+      
+      --hover-overlay: rgba(157, 127, 255, 0.1);
+      --active-overlay: rgba(157, 127, 255, 0.2);
+      
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
+      --shadow-focus: 0 0 0 3px rgba(157, 127, 255, 0.4);
+      
+      --gradient-primary: linear-gradient(135deg, #9d7fff 0%, #7b5cd6 100%);
+      
+      --transition-fast: 100ms ease;
+      --transition-normal: 200ms ease;
+      --transition-slow: 300ms ease;
+      
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      
+      --radius-md: 0.375rem;
+      --radius-lg: 0.5rem;
+      --radius-xl: 0.75rem;
+      
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-medium: 500;
+      --font-semibold: 600;
+    }
+
+    /* Light theme */
+    body.theme-light {
+      --bg-primary: #faf9ff;
+      --bg-secondary: #f4f1ff;
+      --bg-tertiary: #ebe5ff;
+      --bg-hover: #e2dbfa;
+      --bg-active: #d5cbf2;
+      
+      --accent-primary: #7c4dff;
+      --accent-secondary: #6035e0;
+      --accent-hover: #9670ff;
+      --accent-focus: #b18fff;
+      --accent-muted: #9f88e1;
+      
+      --text-primary: #2d2150;
+      --text-secondary: #4a3d73;
+      --text-muted: #7c6da9;
+      --text-disabled: #aaa2c3;
+      
+      --border-primary: #ded7f3;
+      --border-secondary: #e8e3fa;
+      --border-focus: #7c4dff;
+      
+      --icon-primary: #7c4dff;
+      --icon-secondary: #6b5ca7;
+      
+      --hover-overlay: rgba(124, 77, 255, 0.08);
+      --active-overlay: rgba(124, 77, 255, 0.16);
+      
+      --shadow-sm: 0 1px 3px rgba(124, 77, 255, 0.1);
+      --shadow-md: 0 4px 6px rgba(124, 77, 255, 0.12);
+      --shadow-lg: 0 8px 16px rgba(124, 77, 255, 0.14);
+      --shadow-focus: 0 0 0 3px rgba(124, 77, 255, 0.25);
+      
+      --gradient-primary: linear-gradient(135deg, #7c4dff 0%, #6035e0 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: transparent;
+      color: var(--text-primary);
+      transition: all var(--transition-slow);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .settings-container {
+      width: 100vw;
+      height: 100vh;
+      display: block; /* Mudança aqui */
+      background: transparent;
+      padding: 0; /* Remover padding */
+      margin: 0; /* Remover margin */
+    }
+
+    .settings-modal {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      width: 100vw; /* Ocupar toda a largura */
+      height: 100vh; /* Ocupar toda a altura */
+      max-width: none; /* Remover limitação */
+      overflow: hidden;
+      border: 1px solid var(--border-primary);
+      backdrop-filter: blur(20px);
+      transform: scale(1); /* Remover animação de escala */
+      animation: none; /* Remover animação */
+      margin: 0; /* Garantir que não há margin */
+      position: relative;
+    }
+
+    @keyframes modalEnter {
+      to {
+        transform: scale(1);
+      }
+    }
+
+    .modal-header {
+      padding: var(--space-6) var(--space-6) var(--space-4);
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .modal-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-primary);
+    }
+
+    .modal-title {
+      font-size: 1.375rem;
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .settings-icon {
+      width: 24px;
+      height: 24px;
+      color: var(--accent-primary);
+    }
+
+    .close-button {
+      background: var(--bg-hover);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1.125rem;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-normal);
+    }
+
+    .close-button:hover {
+      background: var(--bg-active);
+      color: var(--text-primary);
+      transform: scale(1.05);
+    }
+
+    .close-button:active {
+      transform: scale(0.95);
+    }
+
+    .modal-body {
+      padding: var(--space-6);
+    }
+
+    .settings-section {
+      margin-bottom: var(--space-8);
+    }
+
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .section-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-primary);
+    }
+
+    .settings-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      transition: all var(--transition-normal);
+      border: 1px solid transparent;
+      margin-bottom: var(--space-3);
+    }
+
+    .settings-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-item:hover {
+      background: var(--hover-overlay);
+      border-color: var(--border-primary);
+    }
+
+    .settings-content {
+      flex: 1;
+      margin-right: var(--space-4);
+    }
+
+    .settings-label {
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+      font-size: 1rem;
+    }
+
+    .settings-description {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Modern toggle switch */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-active);
+      transition: all var(--transition-normal);
+      border-radius: 28px;
+      border: 2px solid var(--border-primary);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background: var(--text-primary);
+      transition: all var(--transition-normal);
+      border-radius: 50%;
+      box-shadow: var(--shadow-sm);
+    }
+
+    input:checked + .slider {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+
+    input:focus + .slider {
+      box-shadow: var(--shadow-focus);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+      background: white;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-4) var(--space-6) var(--space-6);
+      background: var(--bg-tertiary);
+      border-top: 1px solid var(--border-primary);
+    }
+
+    .theme-selector {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .theme-label {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      font-weight: var(--font-medium);
+    }
+
+    .theme-buttons {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    .theme-btn {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-primary);
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: var(--font-medium);
+      transition: all var(--transition-normal);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .theme-btn:hover {
+      background: var(--bg-active);
+      color: var(--text-primary);
+    }
+
+    .theme-btn.active {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    .btn {
+      padding: 2px 4px;
+      border-radius: var(--radius-lg);
+      font-weight: var(--font-medium);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      border: none;
+      outline: none;
+    }
+
+    .btn:focus {
+      box-shadow: var(--shadow-focus);
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      color: white;
+      border: 1px solid var(--accent-primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-primary);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-active);
+      color: var(--text-primary);
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: -10px;
+      background: var(--success);
+      color: var(--bg-primary);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      font-weight: var(--font-medium);
+      font-size: 0.875rem;
+      box-shadow: var(--shadow-md);
+      transform: translateX(120%);
+      transition: transform var(--transition-slow);
+      z-index: 1000;
+    }
+
+    .success-message.show {
+      transform: translateX(0);
+    }
+
+    /* Smooth animations */
+    .settings-item, .btn, .toggle-switch .slider {
+      will-change: transform, background-color;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-primary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-container">
+    <div class="settings-modal">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-3.5L19 8l-1.5 1.5M5 16l-1.5-1.5L5 13M16 5l1.5-1.5L16 2M8 19l-1.5 1.5L8 22"></path>
+          </svg>
+          Settings
+        </h2>
+        <button class="close-button" id="closeModal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            Application
+          </h3>
+          
+          <div class="settings-item">
+            <div class="settings-content">
+              <div class="settings-label">Start with Windows</div>
+              <div class="settings-description">Launch Aurora IDE automatically when your computer starts up</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="startWithWindows">
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <div class="settings-item">
+            <div class="settings-content">
+              <div class="settings-label">Minimize to system tray</div>
+              <div class="settings-description">When closing the application, minimize to the system tray instead of completely exiting</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="minimizeToTray">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <div class="theme-selector">
+          <span class="theme-label">Theme:</span>
+          <div class="theme-buttons">
+            <button class="theme-btn" id="darkTheme">Dark</button>
+            <button class="theme-btn" id="lightTheme">Light</button>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-secondary" id="cancelBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Cancel
+          </button>
+          <button class="btn btn-primary" id="saveSettings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17,21 17,13 7,13 7,21"></polyline>
+              <polyline points="7,3 7,8 15,8"></polyline>
+            </svg>
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    Settings saved successfully!
+  </div>
+
+  <script>
+    // Electron imports
+    const { ipcRenderer } = require('electron');
+    
+    // DOM Elements
+    const startWithWindowsToggle = document.getElementById('startWithWindows');
+    const minimizeToTrayToggle = document.getElementById('minimizeToTray');
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const closeModalBtn = document.getElementById('closeModal');
+    const darkThemeBtn = document.getElementById('darkTheme');
+    const lightThemeBtn = document.getElementById('lightTheme');
+    const successMessage = document.getElementById('successMessage');
+
+    let currentSettings = {};
+    
+    // Initialize settings when modal opens
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Request current settings from main process
+        currentSettings = await ipcRenderer.invoke('get-settings');
+        
+        // Update UI with current settings
+        startWithWindowsToggle.checked = currentSettings.startWithWindows || false;
+        minimizeToTrayToggle.checked = currentSettings.minimizeToTray !== false; // Default to true
+        
+        // Set theme based on saved preference
+        updateThemeUI(currentSettings.theme || 'dark');
+        
+        console.log('Settings loaded:', currentSettings);
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        // Set defaults if loading fails
+        minimizeToTrayToggle.checked = true;
+        updateThemeUI('dark');
+      }
+    });
+
+    function updateThemeUI(theme) {
+      // Update body class
+      document.body.className = theme === 'light' ? 'theme-light' : '';
+      
+      // Update button states
+      darkThemeBtn.classList.toggle('active', theme === 'dark');
+      lightThemeBtn.classList.toggle('active', theme === 'light');
+    }
+
+    function getCurrentSettings() {
+      return {
+        startWithWindows: startWithWindowsToggle.checked,
+        minimizeToTray: minimizeToTrayToggle.checked,
+        theme: document.body.classList.contains('theme-light') ? 'light' : 'dark'
+      };
+    }
+
+    function showSuccessMessage() {
+      successMessage.classList.add('show');
+      setTimeout(() => {
+        successMessage.classList.remove('show');
+      }, 3000);
+    }
+    
+    // Save settings
+    saveSettingsBtn.addEventListener('click', async () => {
+      try {
+        const settings = getCurrentSettings();
+        
+        // Send settings to main process
+        const success = await ipcRenderer.invoke('save-settings', settings);
+        
+        if (success) {
+          currentSettings = settings;
+          showSuccessMessage();
+          
+          // Close modal after a short delay
+          setTimeout(() => {
+            ipcRenderer.send('close-settings-modal');
+          }, 1500);
+        } else {
+          console.error('Failed to save settings');
+        }
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+      }
+    });
+    
+    // Cancel/Close modal
+    function closeModal() {
+      // Reset to original settings
+      startWithWindowsToggle.checked = currentSettings.startWithWindows || false;
+      minimizeToTrayToggle.checked = currentSettings.minimizeToTray !== false;
+      updateThemeUI(currentSettings.theme || 'dark');
+      
+      ipcRenderer.send('close-settings-modal');
+    }
+
+    cancelBtn.addEventListener('click', closeModal);
+    closeModalBtn.addEventListener('click', closeModal);
+    
+    // Theme selection
+    darkThemeBtn.addEventListener('click', () => {
+      updateThemeUI('dark');
+    });
+
+    lightThemeBtn.addEventListener('click', () => {
+      updateThemeUI('light');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        saveSettingsBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>

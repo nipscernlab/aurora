@@ -12,7 +12,6 @@ const fileOperations = {
   directoryExists: (dirPath) => ipcRenderer.invoke('directory-exists', dirPath),
   mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
   copyFile: (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
-  watchFolder: (path) => ipcRenderer.invoke('watchFolder', path),
   getFolderFiles: (folderPath) => ipcRenderer.invoke('getFolderFiles', folderPath),
   isDirectory: (path) => ipcRenderer.invoke('isDirectory', path),
   openExternalLink: (url) => shell.openExternal(url),
@@ -56,13 +55,10 @@ const projectOperations = {
   getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
-  getHardwareFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-hardware-folder-path', processorName, inputDir),
   getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
   saveCompilationResult: (hardwareFolderPath, fileName, content) => ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
-  moveFilesToHardwareFolder: (inputDir, hardwareFolderPath) => ipcRenderer.invoke('move-files-to-hardware-folder', inputDir, hardwareFolderPath),
   readDir: (dirPath) => ipcRenderer.invoke('readDir', dirPath),
   showSaveDialog: () => ipcRenderer.invoke('dialog:showSave'),
-  createProcessor: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   onProjectStateChange: (callback) => ipcRenderer.on('project:stateChange', callback),
   onProjectCreated: (callback) => ipcRenderer.on('project:created', callback),
   onProcessorHubStateChange: (callback) => ipcRenderer.on('project:processorHubState', callback),
@@ -85,26 +81,15 @@ const projectOperations = {
     }
   },
   joinPath: (...args) => require('path').join(...args),
-  deleteFolder: (path) => ipcRenderer.invoke('delete-folder', path),
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
 
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
-  
-  // Get system temp directory
-  getTempDir: () => ipcRenderer.invoke('get-temp-dir'),
-  
+    
   // Check if file/directory exists
   pathExists: (path) => ipcRenderer.invoke('path-exists', path),
 
-  createTempFile: (content, extension = 'tmp') => 
-ipcRenderer.invoke('create-temp-file', content, extension),
-  deleteTempFile: (filePath) => 
-     ipcRenderer.invoke('delete-temp-file', filePath),
-  
-  createTclInfoFile: (filePath, processorType, tempPath, binPath) => ipcRenderer.invoke('create-tcl-info-file', { path: filePath, processorType, tempPath, binPath }),
-  deleteTclFile: (filePath) => ipcRenderer.invoke('delete-tcl-file', filePath),
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
   deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
@@ -135,21 +120,7 @@ ipcRenderer.invoke('create-temp-file', content, extension),
     return ipcRenderer.invoke('get-app-version');
   },
 
-  
-  saveConfig: (data) => ipcRenderer.send('save-config', data),
   listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath), //Processor Config
-  readDirectory: async (dirPath) => {
-    try {
-      const files = await fs.promises.readdir(dirPath);
-      return files.filter(file => {
-        const fullPath = path.join(dirPath, file);
-        return fs.existsSync(fullPath) && fs.lstatSync(fullPath).isFile();
-      });
-    } catch (err) {
-      console.error('Error reading directory:', err);
-      return [];
-    }
-  },
 
   onUpdateProgress: (callback) => {
     ipcRenderer.on('update-progress', (event, data) => callback(data));
@@ -200,7 +171,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getParentDirectory: (filePath) => ipcRenderer.invoke('file:get-parent', filePath),
   isDirectory: (path) => ipcRenderer.invoke('file:is-directory', path),
   showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
-    fileExists: (path) => ipcRenderer.invoke('file:exists', path),
+  fileExists: (path) => ipcRenderer.invoke('file:exists', path),
 
   // Store Operations
   getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
@@ -219,29 +190,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Config Operations
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),
-    
-   // Funções relacionadas à simulação e configuração do processador
-  getSimulationFiles: (processorName) => {
-    return ipcRenderer.invoke('get-simulation-files', processorName);
-  },
-  
-  saveConfig: (config) => {
-    return ipcRenderer.invoke('save-config', config);
-  },
-  
-  loadConfig: () => {
-    return ipcRenderer.invoke('load-config');
-  },
-
-  async createFile(filePath, content = '') {
-    try {
-      await fs.promises.writeFile(filePath, content, 'utf8');
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to create file:', error);
-      return { success: false, message: error.message };
-    }
-  },
   
   // Create a new folder
   async createFolder(folderPath) {
@@ -250,28 +198,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: true };
     } catch (error) {
       console.error('Failed to create folder:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
-  // Rename a file or folder
-  async renameItem(oldPath, newPath) {
-    try {
-      // Check if destination already exists
-      try {
-        await fs.promises.access(newPath);
-        return { 
-          success: false, 
-          message: 'A file or folder with that name already exists' 
-        };
-      } catch {
-        // This is good - destination doesn't exist
-      }
-      
-      await fs.promises.rename(oldPath, newPath);
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to rename item:', error);
       return { success: false, message: error.message };
     }
   },
@@ -360,17 +286,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  // Create a new folder
-  async createFolder(folderPath) {
-    try {
-      await fs.promises.mkdir(folderPath, { recursive: true });
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to create folder:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
+
   // Rename a file or folder
   async renameItem(oldPath, newPath) {
     try {
@@ -393,26 +309,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  // Delete a file or folder
-  async deleteItem(itemPath, isDirectory) {
-    try {
-      if (isDirectory) {
-        await fs.promises.rm(itemPath, { recursive: true, force: true });
-      } else {
-        await fs.promises.unlink(itemPath);
-      }
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to delete item:', error);
-      return { success: false, message: error.message };
-    }
-  },
 
-    setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
-      getSimulationFiles: (processorName, projectPath) => 
-    ipcRenderer.invoke('get-simulation-files', processorName, projectPath),
-  setCurrentProject: (projectPath) => 
-    ipcRenderer.invoke('set-current-project', projectPath),
+  setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
     
   // Event Listeners
   openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
@@ -420,7 +318,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
-    ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
+  ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
 
 
   onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),

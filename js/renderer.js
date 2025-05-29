@@ -976,7 +976,7 @@ function updateCursorPosition(event) {
     statusElement.classList.add('updating');
     
     // Update content
-    statusElement.innerHTML = `<i class="fa-solid fa-align-left"></i> Line ${lineNumber}, Column ${columnNumber}`;
+    statusElement.innerHTML = `<i class="fa-solid fa-align-left"></i> Ln ${lineNumber}, Col ${columnNumber}`;
     
     // Remove animation class after transition
     setTimeout(() => {
@@ -5457,6 +5457,16 @@ class CompilationButtonManager {
   }
 }
 
+  // Mostrar spinner quando VVP iniciar
+function showVvpSpinner() {
+    document.getElementById('vvp-spinner').classList.add('active');
+}
+
+// Esconder spinner quando VVP terminar
+function hideVvpSpinner() {
+    document.getElementById('vvp-spinner').classList.remove('active');
+}
+
 // Inicializa o gerenciador quando a janela carregar
 window.addEventListener('load', () => {
   const compilationManager = new CompilationButtonManager();
@@ -5495,6 +5505,9 @@ class TerminalManager {
       this.setupClearButton();
       TerminalManager.clearButtonInitialized = true;
     }
+
+    this.activeFilter = null; // 'error', 'warning', 'tips', or null
+    this.setupFilterButtons()
   }
 
   setupTerminalTabs() {
@@ -5517,15 +5530,167 @@ class TerminalManager {
     });
   }
 
-  appendToTerminal(terminalId, message, type = 'info') {
-    const terminal = this.terminals[terminalId];
-    if (terminal) {
-      const line = document.createElement('div');
-      line.className = `terminal-line ${type}`;
-      line.innerHTML = message;
-      terminal.appendChild(line);
-      this.scrollToBottom(terminalId);
+  setupFilterButtons() {
+    const errorBtn = document.getElementById('filter-error');
+    const warningBtn = document.getElementById('filter-warning');
+    const tipsBtn = document.getElementById('filter-tips');
+    
+    if (!errorBtn || !warningBtn || !tipsBtn) return;
+
+    const filterButtons = [errorBtn, warningBtn, tipsBtn];
+    
+    errorBtn.addEventListener('click', () => this.toggleFilter('error', errorBtn, filterButtons));
+    warningBtn.addEventListener('click', () => this.toggleFilter('warning', warningBtn, filterButtons));
+    tipsBtn.addEventListener('click', () => this.toggleFilter('tips', tipsBtn, filterButtons));
+  }
+
+  toggleFilter(filterType, clickedBtn, allButtons) {
+    // If clicking the same filter, turn it off
+    if (this.activeFilter === filterType) {
+      this.activeFilter = null;
+      clickedBtn.classList.remove('active');
+    } else {
+      // Set new filter
+      this.activeFilter = filterType;
+      
+      // Update button states
+      allButtons.forEach(btn => btn.classList.remove('active'));
+      clickedBtn.classList.add('active');
     }
+    
+    // Apply filter to all terminals
+    this.applyFilterToAllTerminals();
+  }
+
+  applyFilterToAllTerminals() {
+    Object.keys(this.terminals).forEach(terminalId => {
+      this.applyFilter(terminalId);
+    });
+  }
+
+  applyFilter(terminalId) {
+    const terminal = this.terminals[terminalId];
+    if (!terminal) return;
+
+    const logEntries = terminal.querySelectorAll('.log-entry');
+    
+    logEntries.forEach(entry => {
+      if (this.activeFilter === null) {
+        // Show all entries
+        entry.classList.remove('filtered-out');
+      } else {
+        // Show only entries matching the active filter
+        if (entry.classList.contains(this.activeFilter)) {
+          entry.classList.remove('filtered-out');
+        } else {
+          entry.classList.add('filtered-out');
+        }
+      }
+    });
+  }
+
+  appendToTerminal(terminalId, content, type = 'info') {
+    const terminal = this.terminals[terminalId];
+    if (!terminal) return;
+  
+    const logEntry = document.createElement('div');
+    logEntry.classList.add('log-entry', type);
+  
+    // Auto-detect message type based on content
+    const messageType = this.detectMessageType(content);
+    if (messageType) {
+      logEntry.classList.add(messageType);
+    }
+
+    const timestamp = new Date().toLocaleString('pt-BR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  
+    const timestampSpan = document.createElement('span');
+    timestampSpan.classList.add('timestamp');
+    timestampSpan.textContent = `[${timestamp}]`;
+    logEntry.appendChild(timestampSpan);
+  
+    // Process content (existing code)
+    if (typeof content === 'string') {
+      const contentWrapper = document.createElement('div');
+      contentWrapper.style.marginTop = '0.5rem';
+      
+      if (content.toLowerCase().includes('compilação concluída') || 
+          content.toLowerCase().includes('compilation successful')) {
+        logEntry.classList.add('success');
+      }
+      
+      const lines = content.split('\n');
+      contentWrapper.innerHTML = lines
+        .map(line => line.replace(/\s/g, '&nbsp;'))
+        .join('<br>');
+      
+      logEntry.appendChild(contentWrapper);
+    } 
+    else if (content.stdout || content.stderr) {
+      if (content.stdout?.trim()) {
+        const stdoutDiv = document.createElement('div');
+        stdoutDiv.classList.add('stdout');
+        stdoutDiv.innerHTML = this.formatOutput(content.stdout);
+        logEntry.appendChild(stdoutDiv);
+      }
+      
+      if (content.stderr?.trim()) {
+        const stderrDiv = document.createElement('div');
+        stderrDiv.classList.add('stderr');
+        stderrDiv.innerHTML = this.formatOutput(content.stderr);
+        logEntry.appendChild(stderrDiv);
+        // stderr is usually an error
+        logEntry.classList.add('error');
+      }
+    }
+  
+    terminal.appendChild(logEntry);
+
+    // Apply current filter to new entry
+    this.applyFilter(terminalId);
+    this.scrollToBottom(terminalId);
+  }
+
+  detectMessageType(content) {
+    const contentStr = typeof content === 'string' ? content.toLowerCase() : 
+                      (content.stdout + ' ' + content.stderr).toLowerCase();
+    
+    // Error patterns
+    if (contentStr.includes('error') || 
+        contentStr.includes('failed') || 
+        contentStr.includes('exception') ||
+        contentStr.includes('fatal') ||
+        contentStr.includes('critical')) {
+      return 'error';
+    }
+    
+    // Warning patterns
+    if (contentStr.includes('warning') || 
+        contentStr.includes('warn') || 
+        contentStr.includes('caution') ||
+        contentStr.includes('deprecated')) {
+      return 'warning';
+    }
+    
+    // Tips patterns
+    if (contentStr.includes('tip') || 
+        contentStr.includes('hint') || 
+        contentStr.includes('suggestion') ||
+        contentStr.includes('note') ||
+        contentStr.includes('info') ||
+        contentStr.includes('help')) {
+      return 'tips';
+    }
+    
+    return null;
   }
 
   scrollToBottom(terminalId) {
@@ -5773,19 +5938,20 @@ setupGoDownButton() {
       .join('<br>');
   }
 
-  clearTerminal(terminalId) {
+   clearTerminal(terminalId) {
     const terminal = this.terminals[terminalId];
     if (terminal) {
       terminal.innerHTML = '';
     }
   }
 
+  // Override clearAllTerminals to reset filter
   clearAllTerminals() {
     Object.keys(this.terminals).forEach(terminalId => {
       this.clearTerminal(terminalId);
     });
   }
-
+  
   changeClearIcon(clearButton) {
     const icon = clearButton.querySelector('i');
     if (icon.classList.contains('fa-trash-can')) {

@@ -1,8 +1,5 @@
 /*
- * 
  *    MAIN.JS FILE REQUIRED BY ELECTRON ƒ
- * 
- * 
 */
 
 /*
@@ -11,7 +8,6 @@
  * 
  * 
 */
-
 
 const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
@@ -55,7 +51,7 @@ let mainWindow, splashWindow;
 
 /*
  * 
- *    START: DEALING WITH WINDOW CREATION ƒ
+ *    START: WINDOW CREATION ƒ
  * 
  * 
 */
@@ -597,14 +593,14 @@ app.whenReady().then(createSplashScreen);
 
 /*
  * 
- *    END: DEALING WITH WINDOW CREATION ƒ
+ *    END: WINDOW CREATION ƒ
  * 
  * 
 */
 
 /*
  * 
- *    START: DEALING WITH COMPILATION ƒ
+ *    START: COMPILATION ƒ
  * 
  * 
 */
@@ -688,135 +684,6 @@ ipcMain.handle('path-exists', async (event, filePath) => {
   }
 });
 
-/*
- * 
- *    END: DEALING WITH COMPILATION ƒ
- * 
- * 
-*/
-
-
-/*
- * 
- *    START: FILE TREE ƒ
- * 
- * 
-*/
-
-ipcMain.handle('read-file', async (event, filePath) => {
-  try {
-    const content = await fs.readFile(filePath, 'utf8'); // Read file content
-    return content;
-  } catch (error) {
-    console.error(`Error reading file: ${error.message}`);
-    throw error;
-  }
-});
-
-ipcMain.handle('save-file', async (event, { filePath, content }) => {
-  try {
-    await fs.writeFile(filePath, content, 'utf8'); // Save file content
-    return true;
-  } catch (error) {
-    console.error('Error saving file:', error.message);
-    return false;
-  }
-});
-
-/*
- * 
- *    END: FILE TREE ƒ
- * 
- * 
-*/
-
-// IPC handler to get the current folder path
-ipcMain.handle('getCurrentFolder', () => {
-  return global.currentFolderPath || null;
-});
-
-// Function to scan a directory recursively
-async function scanDirectory(dirPath) {
-  const items = await fse.readdir(dirPath, { withFileTypes: true });
-  const files = await Promise.all(
-    items.map(async item => {
-      const fullPath = path.join(dirPath, item.name);
-      if (item.isDirectory()) {
-        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
-        return {
-          name: item.name,
-          path: fullPath,
-          type: 'directory',
-          children
-        };
-      }
-      return {
-        name: item.name,
-        path: fullPath,
-        type: 'file'
-      };
-    })
-  );
-  return files;
-}
-
-// Handler to refresh the folder structure
-ipcMain.handle('refreshFolder', async (event, projectPath) => {
-  try {
-    if (!projectPath) {
-      throw new Error('No project path provided');
-    }
-    const files = await scanDirectory(projectPath);
-    return { files };
-  } catch (error) {
-    console.error('Error scanning directory:', error);
-    throw error;
-  }
-});
-
-// Handler to get the current working directory
-ipcMain.handle('get-current-folder', async () => {
-  return process.cwd();
-});
-
-// Handler to open a folder in the system's file explorer
-ipcMain.handle('open-in-explorer', async (event, folderPath) => {
-  try {
-    await shell.openPath(folderPath);
-    return true;
-  } catch (error) {
-    console.error('Error opening explorer:', error);
-    return false;
-  }
-});
-
-// Handler to open an external URL in the default browser
-ipcMain.handle('open-external', async (event, url) => {
-  try {
-    await shell.openExternal(url);
-    return true;
-  } catch (error) {
-    console.error('Error opening external link:', error);
-    return false;
-  }
-});
-
-// Handler to select a directory
-ipcMain.handle('select-directory', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory'],
-  });
-
-  if (!result.canceled) {
-    return result.filePaths[0];
-  }
-  return null;
-});
-
-// Add this to your main.js where your other IPC handlers are defined
-
-
-
 // Handler to delete a processor
 ipcMain.handle('delete-processor', async (event, processorName) => {
   try {
@@ -866,6 +733,7 @@ ipcMain.handle('delete-processor', async (event, processorName) => {
     throw error;
   }
 });
+
 
 // Add a new IPC handler to check current open project
 ipcMain.handle('get-current-project', async () => {
@@ -1017,20 +885,138 @@ ipcMain.handle('get-available-processors', async (event, projectPath) => {
   }
 });
 
-
-// Handler to get the hardware folder path
-ipcMain.handle('get-hardware-folder-path', async (event, processorName, inputDir) => {
-  const processorDir = path.join(inputDir, '..');
-  const hardwareFolderPath = path.join(processorDir, 'Hardware');
-  return hardwareFolderPath;
-});
-
 // Handler to get the hardware folder path
 ipcMain.handle('get-simulation-folder-path', async (event, processorName, inputDir) => {
   const processorDir = path.join(inputDir);
   const simulationFolderPath = path.join(processorDir,processorName, 'Simulation');
   return simulationFolderPath;
 });
+
+
+/*
+ * 
+ *    END: COMPILATION ƒ
+ * 
+ * 
+*/
+
+
+/*
+ * 
+ *    START: FILE OPERATION ƒ
+ * 
+ * 
+*/
+
+
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, 'utf8'); // Read file content
+    return content;
+  } catch (error) {
+    console.error(`Error reading file: ${error.message}`);
+    throw error;
+  }
+});
+
+ipcMain.handle('save-file', async (event, { filePath, content }) => {
+  try {
+    await fs.writeFile(filePath, content, 'utf8'); // Save file content
+    return true;
+  } catch (error) {
+    console.error('Error saving file:', error.message);
+    return false;
+  }
+});
+
+/*
+ * 
+ *    END: FILE OPERATION ƒ
+ * 
+ * 
+*/
+
+/*
+ * 
+ *    START: FILE TREE ƒ
+ * 
+ * 
+*/
+
+// Function to scan a directory recursively
+async function scanDirectory(dirPath) {
+  const items = await fse.readdir(dirPath, { withFileTypes: true });
+  const files = await Promise.all(
+    items.map(async item => {
+      const fullPath = path.join(dirPath, item.name);
+      if (item.isDirectory()) {
+        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
+        return {
+          name: item.name,
+          path: fullPath,
+          type: 'directory',
+          children
+        };
+      }
+      return {
+        name: item.name,
+        path: fullPath,
+        type: 'file'
+      };
+    })
+  );
+  return files;
+}
+
+// Handler to refresh the folder structure
+ipcMain.handle('refreshFolder', async (event, projectPath) => {
+  try {
+    if (!projectPath) {
+      throw new Error('No project path provided');
+    }
+    const files = await scanDirectory(projectPath);
+    return { files };
+  } catch (error) {
+    console.error('Error scanning directory:', error);
+    throw error;
+  }
+});
+
+/*
+ * 
+ *    END: FILE TREE ƒ
+ * 
+ * 
+*/
+
+/*
+ * 
+ *    START: SIDEBAR MENU ƒ
+ * 
+ * 
+*/
+
+// Handler to open an external URL in the default browser
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return true;
+  } catch (error) {
+    console.error('Error opening external link:', error);
+    return false;
+  }
+});
+
+
+/*
+ * 
+ *    END: SIDEBAR MENU ƒ
+ * 
+ * 
+*/
+
+
+
 
 ipcMain.handle('list-files-directory', async (event, directoryPath) => {
   try {
@@ -1042,42 +1028,6 @@ ipcMain.handle('list-files-directory', async (event, directoryPath) => {
   }
 });
 
-
-
-// Handler to move compiled files to the hardware folder, filtering only output files
-ipcMain.handle('move-files-to-hardware-folder', async (event, inputDir, hardwareFolderPath) => {
-  try {
-    await fs.mkdir(hardwareFolderPath, { recursive: true }); // Ensure the Hardware folder exists
-
-    const compiledFiles = await fs.readdir(inputDir); // Read files in the input directory
-
-    if (!compiledFiles.length) {
-      throw new Error('No compiled files found.');
-    }
-
-    const validExtensions = ['.mif', '.v']; // Define valid output file extensions
-
-    // Filter and move files with valid extensions
-    const movePromises = compiledFiles
-      .filter(file => validExtensions.includes(path.extname(file).toLowerCase()))
-      .map(async (file) => {
-        const filePath = path.join(inputDir, file);
-        const destPath = path.join(hardwareFolderPath, file);
-
-        try {
-          await fs.access(filePath); // Check if the file exists
-          await fs.rename(filePath, destPath); // Move the file
-        } catch (err) {
-          throw new Error(`Error moving file: ${file}`);
-        }
-      });
-
-    await Promise.all(movePromises); // Wait for all files to be moved
-    return 'Files moved successfully';
-  } catch (error) {
-    throw new Error(`Error moving files: ${error.message}`);
-  }
-});
 
 // Handler to show an open file dialog for selecting .spf files
 ipcMain.handle('dialog:showOpen', async () => {
@@ -1516,51 +1466,6 @@ ipcMain.handle('validate-path', async (event, filePath) => {
   }
 });
 
-// Directory watcher instance
-let watcher = null;
-
-// Helper function to recursively read a directory
-function readDirectoryRecursive(dirPath) {
-  const items = fs.readdirSync(dirPath, { withFileTypes: true });
-
-  return items.map(item => {
-    const path = `${dirPath}/${item.name}`;
-    if (item.isDirectory()) {
-      return {
-        name: item.name,
-        type: 'directory',
-        path,
-        children: readDirectoryRecursive(path)
-      };
-    }
-    return {
-      name: item.name,
-      type: 'file',
-      path
-    };
-  });
-}
-// Context: IPC handlers for folder watching, configuration management, and utility functions in an Electron application
-
-// IPC handler to watch a folder for changes
-ipcMain.handle('watchFolder', async (event, folderPath) => {
-  if (watcher) {
-    await watcher.close(); // Close the previous watcher if it exists
-  }
-
-  watcher = chokidar.watch(folderPath, {
-    ignored: /(^|[\/\\])\../, // Ignore hidden files
-    persistent: true
-  });
-
-  watcher
-    .on('add', path => event.sender.send('fileChanged', { type: 'add', path }))
-    .on('unlink', path => event.sender.send('fileChanged', { type: 'unlink', path }))
-    .on('addDir', path => event.sender.send('fileChanged', { type: 'addDir', path }))
-    .on('unlinkDir', path => event.sender.send('fileChanged', { type: 'unlinkDir', path }))
-    .on('change', path => event.sender.send('fileChanged', { type: 'change', path }));
-});
-
 // IPC handler to refresh the file tree
 ipcMain.on('refresh-file-tree', (event) => {
   event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
@@ -1777,32 +1682,6 @@ ipcMain.handle('clear-temp-folder', async () => {
   }
 });
 
-// IPC handler to create a TCL info file
-ipcMain.handle('create-tcl-info-file', async (event, { path: filePath, processorType, tempPath, binPath }) => {
-  try {
-    await fs.mkdir(tempPath, { recursive: true });
-    const content = `${processorType}\n${tempPath}\n${binPath}\n`;
-    await fs.writeFile(filePath, content, 'utf-8');
-    return true;
-  } catch (error) {
-    console.error('Failed to create tcl_infos.txt:', error);
-    throw error;
-  }
-});
-
-// IPC handler to delete a TCL info file
-ipcMain.handle('delete-tcl-file', async (event, filePath) => {
-  try {
-    await fs.unlink(filePath);
-    return true;
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      console.error('Failed to delete tcl_infos.txt:', error);
-      throw error;
-    }
-    return false;
-  }
-});
 // Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
 // Handler to get app information
@@ -1814,21 +1693,6 @@ ipcMain.handle('get-app-info', () => {
     nodeVersion: process.versions.node,
     osInfo: `${os.type()} ${os.release()} (${os.arch()})`
   };
-});
-
-// Handler to delete a folder
-ipcMain.handle('delete-folder', async (_, folderPath) => {
-  return new Promise((resolve, reject) => {
-    process.nextTick(async () => {
-      try {
-        await fs.rm(folderPath, { recursive: true, force: true });
-        resolve(true);
-      } catch (error) {
-        log.error('Error deleting folder:', error);
-        reject(error);
-      }
-    });
-  });
 });
 
 // Handler to start a terminal (CMD) process
@@ -1896,116 +1760,6 @@ ipcMain.on('quit-app', () => {
 });
 
 
-// Update the handler in the main process (main.js)
-// Handler to get simulation files (.v and .gtkw) from the processor's Simulation folder
-ipcMain.handle('get-simulation-files', async (_, processorName, projectPath) => {
-  try {
-    console.log('------- GET SIMULATION FILES -------');
-    console.log(`Received parameters: processorName=${processorName}, projectPath=${projectPath}`);
-    
-    // Check if a valid project path was provided directly
-    if (!projectPath) {
-      console.warn("No project path provided in the function call");
-      
-      // Fall back to global variables
-      if (global.currentProject && global.currentProject.path) {
-        projectPath = global.currentProject.path;
-        console.log(`Using global currentProject.path: ${projectPath}`);
-      } else if (global.currentProjectPath) {
-        projectPath = global.currentProjectPath;
-        console.log(`Using global currentProjectPath: ${projectPath}`);
-      } else {
-        console.error("No project path available from any source");
-        return { 
-          success: false, 
-          message: "No project path available", 
-          testbenchFiles: [], 
-          gtkwFiles: [] 
-        };
-      }
-    }
-    
-    console.log(`Using project path: ${projectPath}`);
-    
-    if (!processorName) {
-      console.warn("No processor name provided");
-      return { 
-        success: false, 
-        message: "No processor name provided", 
-        testbenchFiles: [], 
-        gtkwFiles: [] 
-      };
-    }
-    
-    const processorPath = path.join(projectPath, processorName);
-    console.log(`Processor path: ${processorPath}`);
-    
-    // Check if processor directory exists
-    const processorExists = await fse.pathExists(processorPath);
-    console.log(`Processor directory exists: ${processorExists}`);
-    
-    if (!processorExists) {
-      console.warn(`Processor directory does not exist: ${processorPath}`);
-      return { 
-        success: false, 
-        message: "Processor directory not found", 
-        testbenchFiles: [], 
-        gtkwFiles: [] 
-      };
-    }
-    
-    const simulationPath = path.join(processorPath, "Simulation");
-    console.log(`Looking for simulation files in: ${simulationPath}`);
-    
-    // Check if Simulation directory exists
-    const simulationExists = await fse.pathExists(simulationPath);
-    console.log(`Simulation directory exists: ${simulationExists}`);
-    
-    if (!simulationExists) {
-      console.warn(`Simulation directory does not exist: ${simulationPath}`);
-      
-      // Log all available directories in the processor folder to help with debugging
-      const processorDirs = await fse.readdir(processorPath);
-      console.log(`Available directories in processor folder: ${processorDirs.join(', ')}`);
-      
-      return { 
-        success: false, 
-        message: "Simulation directory not found", 
-        testbenchFiles: [], 
-        gtkwFiles: [] 
-      };
-    }
-    
-    // Read files in the Simulation directory
-    const files = await fse.readdir(simulationPath);
-    console.log(`All files in Simulation directory: ${files.join(', ')}`);
-    
-    // Filter by extension
-    const testbenchFiles = files.filter(file => file.toLowerCase().endsWith('.v'));
-    const gtkwFiles = files.filter(file => file.toLowerCase().endsWith('.gtkw'));
-    
-    console.log(`Found ${testbenchFiles.length} testbench files: ${testbenchFiles.join(', ')}`);
-    console.log(`Found ${gtkwFiles.length} GTKWave files: ${gtkwFiles.join(', ')}`);
-    
-    return { 
-      success: true, 
-      processorPath,
-      simulationPath,
-      testbenchFiles,
-      gtkwFiles
-    };
-  } catch (error) {
-    console.error("Error getting simulation files:", error);
-    return { 
-      success: false, 
-      message: `Error: ${error.message}`,
-      testbenchFiles: [],
-      gtkwFiles: []
-    };
-  }
-});
-
-
 // New handler to set current project path in the main process
 ipcMain.handle('set-current-project', (_, projectPath) => {
   try {
@@ -2039,40 +1793,6 @@ ipcMain.handle('set-current-project', (_, projectPath) => {
     return { success: false, message: `Error: ${error.message}` };
   }
 });
-
-// Helper function to recursively copy directories
-async function copyDir(src, dest) {
-  // Create destination directory
-  await fs.promises.mkdir(dest, { recursive: true });
-  
-  // Read source directory contents
-  const entries = await fs.promises.readdir(src, { withFileTypes: true });
-  
-  // Process each entry
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    
-    if (entry.isDirectory()) {
-      // Recursively copy subdirectories
-      await copyDir(srcPath, destPath);
-    } else {
-      // Copy files
-      await fs.promises.copyFile(srcPath, destPath);
-    }
-  }
-}
-
-// Converte funções de callback do fs para Promise
-const fsPromises = {
-  mkdir: promisify(fs.mkdir),
-  writeFile: promisify(fs.writeFile),
-  rename: promisify(fs.rename),
-  rm: promisify(fs.rm),
-  stat: promisify(fs.stat)
-};
-
-// Handlers
 
 // Create file handler
 ipcMain.handle('file:create', async (event, filePath) => {
@@ -2238,31 +1958,6 @@ ipcMain.handle('file:is-directory', async (event, filePath) => {
   }
 });
 
-// File path constants
-const USER_DATA_PATH = app.getPath('userData');
-
-// File read handler
-ipcMain.handle('file:read', async (event, filePath) => {
-  try {
-    // Try first to read from project root
-    const projectRoot = path.resolve(__dirname);
-    const fullPath = path.join(projectRoot, filePath);
-    
-    console.log('Reading file from:', fullPath);
-    
-    const content = await fs.readFile(fullPath, 'utf8');
-    return content;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist yet
-      console.log('File not found, returning empty string');
-      return '';
-    }
-    console.error('Error reading file:', error);
-    throw error;
-  }
-});
-
 // Adicione também o handler para o diálogo de confirmação
 ipcMain.handle('dialog:confirm', async (event, title, message) => {
   const { response } = await dialog.showMessageBox({
@@ -2277,62 +1972,4 @@ ipcMain.handle('dialog:confirm', async (event, title, message) => {
 ipcMain.on('app:reload', () => {
   app.relaunch();
   app.exit(0);
-});
-
-
-
-ipcMain.handle('save-theme', async (event, themeData) => {
-  // Salvar themeData no arquivo CSS
-});
-
-
-//TESTE =====================================================================================
-// Command execution handlers
-
-
-
-// Temporary file operations
-ipcMain.handle('get-temp-dir', async () => {
-  return os.tmpdir();
-});
-
-ipcMain.handle('create-temp-file', async (event, content, extension) => {
-  try {
-    const tempDir = os.tmpdir();
-    const fileName = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
-    const filePath = path.join(tempDir, fileName);
-    
-    await fs.writeFile(filePath, content, 'utf8');
-    return filePath;
-  } catch (error) {
-    throw new Error(`Failed to create temp file: ${error.message}`);
-  }
-});
-
-ipcMain.handle('delete-temp-file', async (event, filePath) => {
-  try {
-    await fs.unlink(filePath);
-    return true;
-  } catch (error) {
-    console.warn('Failed to delete temp file:', error.message);
-    return false;
-  }
-});
-
-// Enhanced file deletion
-ipcMain.handle('delete-file-or-directory', async (event, itemPath) => {
-  try {
-    const stats = await fs.stat(itemPath);
-    
-    if (stats.isDirectory()) {
-      await fs.rmdir(itemPath, { recursive: true });
-    } else {
-      await fs.unlink(itemPath);
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to delete item:', error);
-    return { success: false, error: error.message };
-  }
 });

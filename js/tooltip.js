@@ -51,6 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'context-refactor-button': 'teste',
         'pause-everything': 'Pause all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
         'palette': 'Add some colors and personalize your AURORA IDE!',
+
+        'filter-error': 'Filter Errors',
+        'filter-warning': 'Filter Warnings',
+        'filter-tips': 'Filter Tips'
       };
   
     // Add mouse events to all buttons
@@ -139,3 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+document.querySelector('.tabs-container').addEventListener('wheel', function(e) {
+  if (e.deltaY !== 0) {
+    e.preventDefault();
+    this.scrollLeft += e.deltaY > 0 ? 50 : -50;
+  }
+});

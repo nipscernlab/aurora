@@ -23,18 +23,9 @@ const FileOperations = (function() {
   }
 
   // Função para obter o caminho do projeto atual
-  async function getProjectPath() {
-  try {
-    // First try to get from global variable (faster)
-    if (window.currentProjectPath) {
-      return window.currentProjectPath;
-    }
-  
-  } catch (error) {
-    console.error('Error getting project path:', error);
-    return '';
+   function getProjectPath() {
+    return window.currentProjectPath || '';
   }
-}
 
   // Função para normalizar caminhos
   function normalizePath(path) {

@@ -455,10 +455,16 @@
         <div class="terminal-tabs">
           <button id="clear-terminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
           
-          <!-- Add these filter buttons to your terminal-tabs div, after the clear button -->
-          <button id="filter-error" titleS="Filter Errors" class="toolbar-button filter-btn"><i style="color: red;" class="fa-solid fa-circle-exclamation"></i></button>
-          <button id="filter-warning" titleS="Filter Warnings" class="toolbar-button filter-btn"><i  style="color: yellow;" class="fa-solid fa-triangle-exclamation"></i></button>
-          <button id="filter-tips" titleS="Filter Tips" class="toolbar-button filter-btn"><i style="color: blue;"  class="fa-solid fa-lightbulb"></i></button>
+          <!-- Botões de filtro no terminal-tabs -->
+          <button id="filter-error" titles="Filter Errors" class="toolbar-button filter-btn filter-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </button>
+          <button id="filter-warning" titles="Filter Warnings" class="toolbar-button filter-btn filter-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </button>
+          <button id="filter-tips" titles="Filter Tips" class="toolbar-button filter-btn filter-tips">
+            <i class="fa-solid fa-circle-question"></i>
+          </button>
 
           <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue;"></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>

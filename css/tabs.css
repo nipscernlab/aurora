@@ -37,6 +37,20 @@
   .tab:hover {
     background-color: #333333;
   }
+
+  .tabs-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.tabs-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Para permitir scroll horizontal com a roda do mouse */
+.tabs-container {
+  scroll-behavior: smooth;
+}
   
 /* Aba ativa */
 .tab.active {
@@ -181,14 +195,28 @@
   overflow-y: none;
 }
 
+
 .tabs-container {
   display: flex;
   flex-direction: row;
-  /* background: #1e1e1e; */
   border-bottom: 1px solid #333;
   height: 46px;
-  overflow-x: auto; /* Allow horizontal scrolling */
-  overflow-y: hidden; /* Prevent vertical scrolling */
+  overflow-x: auto;      /* permite scroll horizontal */
+  overflow-y: hidden;    /* evita scroll vertical */
+  scroll-behavior: smooth;
+  white-space: nowrap;   /* evita quebra de linha entre tabs */
+}
+
+
+/* Cada tab permanece inline-block para respeitar white-space */
+.tabs-container .tab {
+  display: inline-flex;
+}
+
+/* Permite usar a roda do mouse para navegar horizontalmente */
+/* Sem JS: quando não há scroll vertical possível, a roda já aciona o scroll horizontal */
+.tabs-container {
+  overscroll-behavior-y: contain;
 }
 
 .tab-content {

@@ -12,10 +12,13 @@
   transition: all var(--transition-normal);
 }
 
+/*
 .ai-assistant-backdrop.open {
   opacity: 1;
   visibility: visible;
 }
+
+*/
 
 /* Main Container */
 .ai-assistant-container {

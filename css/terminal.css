@@ -366,12 +366,16 @@
   z-index: 1;
 }
 
+/* Botão ativo ao clique: mais saturado e com destaque */
 .button-highlight-active {
   box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary) !important;
   transform: translateY(-1px);
-  filter: brightness(1.1);
+  filter: saturate(1.5) brightness(1.1);
+  background-color: rgba(0, 170, 255, 0.1); /* Exemplo azul claro */
+  backdrop-filter: blur(2px);
 }
 
+/* Efeito de fundo animado ao estado ativo */
 .button-highlight-active::before {
   content: '';
   position: absolute;
@@ -383,22 +387,51 @@
     var(--accent-primary) 100%);
   border-radius: 8px;
   z-index: -1;
-  opacity: 0.6;
+  opacity: 0.8;
   animation: highlight-pulse 2s ease-in-out infinite;
 }
+
+/* --- Estado padrão dos botões --- */
 .filter-btn {
-  opacity: 0.6;
-  transition: all 0.3s ease;
+  background: transparent;
+  border: none;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-normal), filter var(--transition-normal);
+  cursor: pointer;
 }
 
-.filter-btn.active {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
+/* Ícone padrão */
+.filter-btn i {
+  color: currentColor;
+  font-size: 1rem;
+  transition: color var(--transition-normal), filter var(--transition-normal);
 }
 
+/* Cores por tipo */
+.filter-error   { color: var(--error); }
+.filter-warning { color: var(--warning); }
+.filter-tips    { color: var(--info); }
+
+/* Hover/Active rápido */
 .filter-btn:hover {
-  opacity: 0.8;
+  background: var(--hover-overlay);
+}
+
+/* --- Estado ATIVO (clicado) --- */
+.filter-btn.active {
+  background: var(--active-overlay);
+  filter: saturate(1.4) brightness(1.05);
+}
+
+/* Destacar ícone no ativo */
+.filter-btn.active i {
+  filter: saturate(1.6) brightness(1.2);
+}
+
+/* Opcional: borda de destaque */
+.filter-btn.active {
+  box-shadow: 0px 2px 0px 0px var(--border-focus);
 }
 
 /* Message type styles */

@@ -88,7 +88,7 @@ body {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-primary);
   scrollbar-width: thin;
-  padding: 0 10px;
+  padding: 0 8px;
   align-items: center;
 }
 
@@ -103,7 +103,7 @@ body {
 }
 
 .tab {
-  padding: 0 15px;
+  padding: 0 10px;
   height: 35px;
   border: none;
   background-color: var(--bg-tertiary);
@@ -116,7 +116,7 @@ body {
   gap: 10px;
   cursor: pointer;
   min-width: 120px;
-  max-width: 150px;
+  max-width: 170px;
   transition: all 0.2s ease;
   margin-right: 5px;
   border-radius: 4px 4px 0 0;

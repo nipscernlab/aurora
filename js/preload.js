@@ -53,6 +53,7 @@ const projectOperations = {
   createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
+  loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),

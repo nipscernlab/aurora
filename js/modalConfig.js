@@ -27,10 +27,9 @@ let currentConfig = {
   asmCompFlags: [],
   testbenchFile: "standard",
   gtkwFile: "standard",
-  isActive: "false",
+  isActive: false,
 
 };
-
 
 // Create a custom confirmation dialog component
 function createConfirmationDialog() {
@@ -339,13 +338,14 @@ function saveCurrentProcessorToTemp() {
     const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
     const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
     
-    tempProcessorConfigs[selectedProcessor] = {
-      name: selectedProcessor,
-      clk: clk ? Number(clk) : null,
-      numClocks: numClocks ? Number(numClocks) : null,
-      testbenchFile: testbenchFile,
-      gtkwFile: gtkwFile
-    };
+   tempProcessorConfigs[selectedProcessor] = {
+    name: selectedProcessor,
+    clk: clk ? Number(clk) : null,
+    numClocks: numClocks ? Number(numClocks) : null,
+    testbenchFile: testbenchFile,
+    gtkwFile: gtkwFile,
+    isActive: selectedProcessor === selectedProcessor // Será definido corretamente no save
+  };
     
     console.log(`Saved temporary config for ${selectedProcessor}:`, tempProcessorConfigs[selectedProcessor]);
   }
@@ -649,11 +649,20 @@ deleteProcessorButton.addEventListener("click", function() {
   });
 });
 
-
-// Update the loadConfiguration function to load simulation file selections
 async function loadConfiguration() {
   try {
-    const config = await window.electronAPI.loadConfig();
+    // Get current project info
+    const projectInfo = await window.electronAPI.getCurrentProject();
+    
+    if (!projectInfo.projectOpen || !projectInfo.projectPath) {
+      console.warn("No current project available for loading configuration");
+      return;
+    }
+    
+    // Use the joinPath method to get the processorConfig.json path
+    const processorConfigPath = await window.electronAPI.joinPath(projectInfo.projectPath, 'processorConfig.json');
+    const config = await window.electronAPI.loadConfigFromPath(processorConfigPath);
+    
     currentConfig = config;
     
     // Reset temp storage when loading new configuration
@@ -757,7 +766,6 @@ clearTempButton.addEventListener("click", async () => {
   }
 });
 
-// Saves the current configuration
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();
 
@@ -801,8 +809,19 @@ saveConfigButton.addEventListener("click", async () => {
   console.log("Saving Configuration:", config);
 
   try {
-    // Call the IPC method to save the configuration
-    await window.electronAPI.saveConfig(config);
+    // Get current project path
+    const projectInfo = await window.electronAPI.getCurrentProject();
+    const currentProjectPath = projectInfo.projectPath || 
+      window.currentProjectPath || 
+      localStorage.getItem('currentProjectPath');
+    
+    if (!currentProjectPath) {
+      showNotification("No current project path available for saving configuration", 'error');
+      return;
+    }
+    
+    // Call the IPC method to save the configuration with project path
+    await window.electronAPI.saveConfig(config, currentProjectPath);
     
     // Update currentConfig with the new values
     currentConfig = config;

@@ -2632,6 +2632,8 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
     // esconder projectConfig.json
     if (file.name === 'projectOriented.json') return false;
     
+    //if (file.name === 'processorConfig.json') return false;
+
     // esconder .spf
     const extension = file.name.split('.').pop().toLowerCase();
     return extension !== 'spf';
@@ -5074,8 +5076,6 @@ function isProcessorConfigured() {
   const processorText = processorElement.textContent || processorElement.innerText;
   return !processorText.includes('No Processor Configured');
 }
-
-
 
 document.getElementById('pause-everything').addEventListener('click', () => {
   if (isCompilationRunning) {

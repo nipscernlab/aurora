@@ -1471,25 +1471,20 @@ ipcMain.on('refresh-file-tree', (event) => {
   event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
 });
 
+function getProjectConfigPath(projectPath) {
+  if (!projectPath) {
+    throw new Error('Project path is required for configuration operations');
+  }
+  return path.join(projectPath, 'processorConfig.json');
+}
+
 // Define paths for configuration management
 const appPath = app.getAppPath();
 const rootPath = path.join(appPath, '..', '..'); // Navigate to the installation directory
-const configDir = path.join(rootPath, 'saphoComponents', 'Scripts');
-const configFilePath = path.join(configDir, 'processorConfig.json');
-
-// Ensure the configuration directory exists
-async function ensureConfigDir() {
+ipcMain.handle('load-config', async (event, projectPath) => {
   try {
-    await fs.mkdir(configDir, { recursive: true });
-  } catch (error) {
-    console.error('Failed to create configuration directory:', error);
-  }
-}
-
-// IPC handler to load configuration
-ipcMain.handle('load-config', async () => {
-  await ensureConfigDir();
-  try {
+    const configFilePath = getProjectConfigPath(projectPath);
+    
     // Check if config file exists
     try {
       await fs.access(configFilePath);
@@ -1500,14 +1495,41 @@ ipcMain.handle('load-config', async () => {
         iverilogFlags: [],
         cmmCompFlags: [],
         asmCompFlags: [],
-        isActive: []            
+        testbenchFile: "standard",
+        gtkwFile: "standard"
       };
       await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
       return defaultConfig;
     }
 
     const fileContent = await fs.readFile(configFilePath, 'utf-8');
-    return JSON.parse(fileContent);
+    const config = JSON.parse(fileContent);
+    
+    config.processors = config.processors.map((proc, index) => {
+  // Garantir que isActive é sempre um booleano
+      let isActive = false;
+      
+      if (proc.isActive !== undefined) {
+        // Se já existe, converter para booleano se necessário
+        isActive = proc.isActive === true || proc.isActive === "true";
+      } else if (index === 0) {
+        // Se não existe, o primeiro processador é ativo
+        isActive = true;
+      }
+      
+      return {
+        ...proc,
+        isActive: isActive
+      };
+    });
+
+    // Garantir que pelo menos um processador está ativo
+    const hasActiveProcessor = config.processors.some(p => p.isActive === true);
+    if (!hasActiveProcessor && config.processors.length > 0) {
+      config.processors[0].isActive = true;
+    }
+    
+    return config;
   } catch (error) {
     console.error('Failed to read configuration file:', error);
     return { 
@@ -1515,15 +1537,42 @@ ipcMain.handle('load-config', async () => {
       iverilogFlags: [],
       cmmCompFlags: [],
       asmCompFlags: [],
+      testbenchFile: "standard",
+      gtkwFile: "standard"
     };
   }
 });
 
-
-// IPC handler to save configuration
 ipcMain.handle('save-config', async (event, data) => {
-  await ensureConfigDir();
   try {
+    if (!currentOpenProjectPath) {
+      throw new Error('No project is currently open');
+    }
+    
+    // Extrair o projectPath do arquivo .spf
+    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    const projectPath = projectData.structure.basePath;
+
+    // Garantir que os processadores têm a propriedade isActive corretamente definida
+if (data.processors && data.processors.length > 0) {
+  // Garantir que apenas um processador está ativo
+  let hasActive = false;
+  data.processors = data.processors.map(proc => {
+    if (proc.isActive === true && !hasActive) {
+      hasActive = true;
+      return { ...proc, isActive: true };
+    }
+    return { ...proc, isActive: false };
+  });
+  
+  // Se nenhum processador estava ativo, ativar o primeiro
+  if (!hasActive) {
+    data.processors[0].isActive = true;
+  }
+}
+    
+    const configFilePath = getProjectConfigPath(projectPath);
     await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
     console.log('Configuration saved at:', configFilePath);
     return { success: true };
@@ -1546,6 +1595,67 @@ ipcMain.handle('join-path', (event, ...paths) => {
   return path.join(...paths);
 });
 
+// Update the default config structure in main.js
+ipcMain.handle('load-config-from-path', async (event, configFilePath) => {
+  try {
+    // Check if config file exists
+    try {
+      await fs.access(configFilePath);
+    } catch (error) {
+      // If file doesn't exist, create a default config
+      const defaultConfig = { 
+        processors: [], 
+        iverilogFlags: [],
+        cmmCompFlags: [],
+        asmCompFlags: [],
+        testbenchFile: "standard",
+        gtkwFile: "standard"
+      };
+      await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
+      return defaultConfig;
+    }
+
+    const fileContent = await fs.readFile(configFilePath, 'utf-8');
+    const config = JSON.parse(fileContent);
+    
+    // Ensure processors have isActive property
+    config.processors = config.processors.map((proc, index) => {
+  // Garantir que isActive é sempre um booleano
+      let isActive = false;
+      
+      if (proc.isActive !== undefined) {
+        // Se já existe, converter para booleano se necessário
+        isActive = proc.isActive === true || proc.isActive === "true";
+      } else if (index === 0) {
+        // Se não existe, o primeiro processador é ativo
+        isActive = true;
+      }
+      
+      return {
+        ...proc,
+        isActive: isActive
+      };
+    });
+
+    // Garantir que pelo menos um processador está ativo
+    const hasActiveProcessor = config.processors.some(p => p.isActive === true);
+    if (!hasActiveProcessor && config.processors.length > 0) {
+      config.processors[0].isActive = true;
+    }
+    
+    return config;
+  } catch (error) {
+    console.error('Failed to read configuration file:', error);
+    return { 
+      processors: [], 
+      iverilogFlags: [],
+      cmmCompFlags: [],
+      asmCompFlags: [],
+      testbenchFile: "standard",
+      gtkwFile: "standard"
+    };
+  }
+});
 // Context: IPC handlers for file and directory operations, backup creation, and temporary file management
 
 // IPC handler to create a directory

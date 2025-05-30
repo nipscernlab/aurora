@@ -38,16 +38,25 @@
                 "provider": "github",
                 "owner": "nipscernlab",
                 "repo": "Aurora",
-                "releaseType": "release"
+                "releaseType": "release",
+                "publishAutoUpdate": true
             }
         ],
         "win": {
-            "target": "nsis",
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": ["x64"]
+                }
+            ],
             "icon": "./assets/icons/aurora_borealis-2.ico",
             "artifactName": "AuroraIDE-Setup-3.4.2.${ext}"
         },
         "nsis": {
-            "include": "build/installer.nsh"
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": false,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
         },
         "extraResources": [
             {

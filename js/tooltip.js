@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'pause-everything': 'Pause all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
         'palette': 'Add some colors and personalize your AURORA IDE!',
 
+        'goup-terminal': 'Go Up',
+        'godown-terminal': 'Go Down',
+        'reload-everything-terminal': 'Reload Everything',
         'filter-error': 'Filter Errors',
         'filter-warning': 'Filter Warnings',
         'filter-tips': 'Filter Tips'

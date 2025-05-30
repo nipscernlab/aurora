@@ -60,12 +60,12 @@
       </button>
     </div>
 
-      <button id="pause-everything" class="toolbar-button" titles="toggle-ui">
-      <i class="fa-solid fa-pause"></i>
-    </button>
-
     <button id="toggle-ui" class="toolbar-toggle-ui" titles="toggle-ui">
       <i class="fa-solid fa-fan"></i>
+    </button>
+
+    <button id="pause-everything" class="toolbar-button" titles="toggle-ui">
+      <i class="fa-solid fa-pause"></i>
     </button>
 
     <button id="allcomp" class="toolbar-button" titles="Compile All" disabled style="cursor: not-allowed;">
@@ -80,7 +80,7 @@
       <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;">
         <i class="fa-solid fa-gears" titles="Processor Configuration"></i>
       </button>
-      <button id="info-aurora" class="toolbar-button">
+      <button  onclick="openAuroraAboutModal()" id="info-aurora" class="toolbar-button">
         <i class="fa-solid fa-circle-info" titles="Info Aurora"></i>
       </button>
       <button id="palette" class="toolbar-button" onclick="openThemeModal()">
@@ -472,9 +472,9 @@
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
           <button class="tab" data-terminal="tprism" style=" cursor: pointer;"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
           <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
-          <button id="godown-terminal" title="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
-          <button id="goup-terminal" title="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
-          <button id="reload-everything-terminal" title="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
+          <button id="goup-terminal" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
+          <button id="godown-terminal" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
+          <button id="reload-everything-terminal" titles="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
         </div>
         <div class="terminal-content" id="terminal-tcmm">
           <div class="terminal-header">TCMM Terminal</div>
@@ -581,71 +581,6 @@
   </div>
 </div>
 
-<!-- Notepad Modal -->
-<div id="notepad-modal" class="notepad-modal hidden">
-  <!-- Modal Header/Title Bar -->
-  <div class="notepad-modal-header">
-    <div class="notepad-modal-title">
-      <i class="fa-solid fa-pen-nib"></i>
-      <span>NotePad</span>
-    </div>
-    <div class="notepad-modal-controls">
-      <button class="notepad-btn" id="notepad-close">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-  </div>
-  
-  <!-- Toolbar -->
-  <div class="notepad-toolbar">
-    <div class="notepad-toolbar-group">
-      <button class="notepad-tool-btn" id="notepad-save" title="Save (Ctrl+S)">
-        <i class="fa-solid fa-floppy-disk"></i>
-      </button>
-      <button class="notepad-tool-btn" id="notepad-bold" title="Bold (Ctrl+B)">
-        <i class="fa-solid fa-bold"></i>
-      </button>
-      <button class="notepad-tool-btn" id="notepad-italic" title="Italic (Ctrl+I)">
-        <i class="fa-solid fa-italic"></i>
-      </button>
-      <button class="notepad-tool-btn" id="notepad-strikethrough" title="Strikethrough (Ctrl+Shift+S)">
-        <i class="fa-solid fa-strikethrough"></i>
-      </button>
-    </div>
-    
-    <div class="notepad-toolbar-group">
-      <button class="notepad-tool-btn" id="notepad-font-decrease" title="Decrease Font Size (Ctrl+-)">
-        <i class="fa-solid fa-text-height fa-sm"></i>
-      </button>
-      <button class="notepad-tool-btn" id="notepad-font-increase" title="Increase Font Size (Ctrl++)">
-        <i class="fa-solid fa-text-height"></i>
-      </button>
-    </div>
-  </div>
-  
-  <!-- Editor Area -->
-  <div class="notepad-editor-container">
-    <div class="notepad-line-numbers" id="notepad-line-numbers"></div>
-    <textarea id="notepad-editor" spellcheck="false"></textarea>
-  </div>
-  
-  <!-- Status Bar -->
-  <div class="notepad-status-bar">
-    <div class="notepad-status-item" id="notepad-word-count">
-      <i class="fa-solid fa-font"></i> 0 words
-    </div>
-    <div class="notepad-status-item" id="notepad-char-count">
-      <i class="fa-solid fa-keyboard"></i> 0 characters
-    </div>
-    <div class="notepad-status-item" id="notepad-position">
-      <i class="fa-solid fa-location-dot"></i> Ln: 1, Col: 1
-    </div>
-    <div class="notepad-status-item" id="notepad-save-status">
-      <i class="fa-solid fa-circle-check"></i> Saved
-    </div>
-  </div>
-</div>
-
 <!-- Modal Window for Bug Report -->
 <div id="bug-report-modal" class="modal hidden">
   <div class="modal-content">
@@ -679,42 +614,34 @@
 </div>
 
 
-<!-- Modal with specific classes 
-<div id="aurora-info-modal" class="aurora-modal aurora-modal--hidden">
-  <div class="aurora-modal__overlay">
-    <div class="aurora-modal__content">
-      <div class="aurora-modal__header">
-        <h2 class="aurora-modal__title">System Information</h2>
-        <button class="aurora-modal__close">&times;</button>
+<!-- About Modal da Aurora IDE -->
+<div class="aurora-about-modal aurora-about-hidden" id="auroraAboutModal">
+  <div class="aurora-about-overlay" onclick="closeAuroraAboutModal()"></div>
+  <div class="aurora-about-content">
+    <div class="aurora-about-header">
+      <h2 class="aurora-about-title">Sobre a Aurora IDE</h2>
+      <button class="aurora-about-close" onclick="closeAuroraAboutModal()">×</button>
+    </div>
+    <div class="aurora-about-body">
+      <div class="aurora-about-info">
+        <span class="aurora-about-label">Versão</span>
+        <span class="aurora-about-value">1.0.0</span>
       </div>
-      <div class="aurora-modal__body">
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Aurora Version:</span>
-          <span id="aurora-app-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Electron:</span>
-          <span id="aurora-electron-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Chrome:</span>
-          <span id="aurora-chrome-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Node.js:</span>
-          <span id="aurora-node-version" class="aurora-info-item__value"></span>
-        </div>
-        <div class="aurora-info-item">
-          <span class="aurora-info-item__label">Operating System:</span>
-          <span id="aurora-os-info" class="aurora-info-item__value"></span>
-        </div>
+      <div class="aurora-about-info">
+        <span class="aurora-about-label">Desenvolvido por</span>
+        <span class="aurora-about-value">NIPSCERN</span>
+      </div>
+      <div class="aurora-about-info">
+        <span class="aurora-about-label">Colaboração</span>
+        <span class="aurora-about-value">CERN + OpenSource</span>
+      </div>
+      <div class="aurora-about-info">
+        <span class="aurora-about-label">GitHub</span>
+        <span class="aurora-about-value"><a href="https://github.com/nipscern/aurora" target="_blank">/nipscern/aurora</a></span>
       </div>
     </div>
   </div>
 </div>
-
--->
-
     <!-- Theme Customizer Modal -->
     <div id="themeModal" class="theme-modal">
         <div class="theme-modal-content">
@@ -1050,6 +977,15 @@ document.getElementById('reload-everything-terminal').addEventListener('click', 
       });
     });
   });
+
+function openAuroraAboutModal() {
+  document.getElementById("auroraAboutModal").classList.remove("aurora-about-hidden");
+}
+
+function closeAuroraAboutModal() {
+  document.getElementById("auroraAboutModal").classList.add("aurora-about-hidden");
+}
+
 </script>
 
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>

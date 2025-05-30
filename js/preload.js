@@ -87,6 +87,7 @@ const projectOperations = {
   },
 
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
+  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
     
   // Check if file/directory exists
   pathExists: (path) => ipcRenderer.invoke('path-exists', path),
@@ -119,6 +120,72 @@ const projectOperations = {
 
   getAppVersion: () => {
     return ipcRenderer.invoke('get-app-version');
+  },
+
+   // Check for updates manually
+  checkForUpdates: () => {
+    return ipcRenderer.invoke('check-for-updates');
+  },
+
+  // Cancel update download
+  cancelUpdateDownload: () => {
+    return ipcRenderer.invoke('cancel-update-download');
+  },
+
+  // Get current app version
+  getAppVersion: () => {
+    return ipcRenderer.invoke('get-app-version');
+  },
+
+  // Get update status
+  getUpdateStatus: () => {
+    return ipcRenderer.invoke('get-update-status');
+  },
+
+  // Force download update if available
+  downloadUpdate: () => {
+    return ipcRenderer.invoke('download-update');
+  },
+
+  // Listen for update progress events
+  onUpdateProgress: (callback) => {
+    const wrappedCallback = (event, data) => callback(data);
+    ipcRenderer.on('update-progress', wrappedCallback);
+    
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('update-progress', wrappedCallback);
+    };
+  },
+
+  // Listen for update available events
+  onUpdateAvailable: (callback) => {
+    const wrappedCallback = (event, data) => callback(data);
+    ipcRenderer.on('update-available', wrappedCallback);
+    
+    return () => {
+      ipcRenderer.removeListener('update-available', wrappedCallback);
+    };
+  },
+
+  // Listen for update downloaded events
+  onUpdateDownloaded: (callback) => {
+    const wrappedCallback = (event, data) => callback(data);
+    ipcRenderer.on('update-downloaded', wrappedCallback);
+    
+    return () => {
+      ipcRenderer.removeListener('update-downloaded', wrappedCallback);
+    };
+  },
+
+  // Listen for update errors
+  onUpdateError: (callback) => {
+    const wrappedCallback = (event, error) => callback(error);
+    ipcRenderer.on('update-error', wrappedCallback);
+    
+    return () => {
+      ipcRenderer.removeListener('update-error', wrappedCallback);
+    };
   },
 
   listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath), //Processor Config

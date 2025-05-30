@@ -24,11 +24,23 @@ const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const settingsPath = path.join(__dirname, 'saphoComponents', 'Scripts' ,'settings.json');
 
 let progressWindow = null;
-let updateCheckInProgress = false;
 let downloadInProgress = false;
+let updateCheckInProgress = false;
+let updateAvailable = false;
+let updateInfo = null;
+
+// Configure auto-updater logging
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+
+// Configure auto-updater settings
+autoUpdater.autoDownload = false; // We want to ask user first
+autoUpdater.autoInstallOnAppQuit = false; // We want to control installation
 
 // Variable to track the current open project path
 let currentOpenProjectPath = null;
@@ -122,7 +134,11 @@ if (process.platform === 'win32') {
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
     mainWindow.show();
-    initializeUpdateSystem();
+    
+    // Inicializar sistema de updates com delay
+    setTimeout(() => {
+      initializeUpdateSystem();
+    }, 2000);
   });
 }
 
@@ -189,23 +205,39 @@ function createProgressWindow() {
 }
 
 // Enhanced update checking with better error handling
-function checkForUpdates() {
+function checkForUpdates(showNoUpdateDialog = false) {
   if (updateCheckInProgress) {
-    console.log('Update check already in progress');
+    log.info('Update check already in progress');
+    return;
+  }
+
+  if (isDev) {
+    log.info('Skipping update check in development mode');
     return;
   }
 
   updateCheckInProgress = true;
-  console.log('Checking for updates...');
+  log.info('Checking for updates...');
+
+  // Store whether to show "no update" dialog
+  autoUpdater.showNoUpdateDialog = showNoUpdateDialog;
 
   // Clear cache before checking for updates
   clearUpdateCache().then(() => {
-    autoUpdater.checkForUpdatesAndNotify();
+    log.info('Cache cleared, starting update check...');
+    autoUpdater.checkForUpdates().catch((error) => {
+      log.error('Error during update check:', error);
+      updateCheckInProgress = false;
+    });
   }).catch((error) => {
-    console.error('Failed to clear update cache:', error);
-    autoUpdater.checkForUpdatesAndNotify();
+    log.error('Failed to clear update cache:', error);
+    autoUpdater.checkForUpdates().catch((err) => {
+      log.error('Error during update check after cache clear failure:', err);
+      updateCheckInProgress = false;
+    });
   });
 }
+
 
 // Clear update cache for fresh downloads
 async function clearUpdateCache() {
@@ -221,45 +253,124 @@ async function clearUpdateCache() {
       storages: ['cachestorage', 'filesystem', 'localstorage', 'sessionstorage']
     });
     
-    console.log('Update cache cleared successfully');
+    log.info('Update cache cleared successfully');
   } catch (error) {
-    console.error('Error clearing update cache:', error);
+    log.error('Error clearing update cache:', error);
     throw error;
   }
 }
 
-// Setup auto-updater event listeners with improved handling
 function setupAutoUpdaterEvents() {
-  // Update available event
+  // Checking for update event (ADICIONAR)
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+    updateCheckInProgress = true;
+  });
+
+  // Update available event (MELHORAR)
   autoUpdater.on('update-available', async (info) => {
     updateCheckInProgress = false;
+    updateAvailable = true;
+    updateInfo = info;
     
-    console.log(`New version available: ${info.version}, current version: ${app.getVersion()}`);
+    log.info(`New version available: ${info.version}, current version: ${app.getVersion()}`);
     
+    // Garantir que a janela principal existe
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      log.error('Main window not available for update dialog');
+      return;
+    }
+
     const releaseNotes = info.releaseNotes || 'No release notes available';
     const updateSize = info.files && info.files[0] ? 
       `(${(info.files[0].size / 1048576).toFixed(1)} MB)` : '';
     
-    const { response } = await dialog.showMessageBox({
-      type: 'info',
-      title: 'Update Available',
-      message: `A new version is available!`,
-      detail: `Current Version: ${app.getVersion()}\nNew Version: ${info.version} ${updateSize}\n\nWould you like to download and install it now?`,
-      buttons: ['Download Now', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-      icon: null
-    });
+    try {
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update Available',
+        message: `A new version is available!`,
+        detail: `Current Version: ${app.getVersion()}\nNew Version: ${info.version} ${updateSize}\n\nWould you like to download and install it now?\n\nRelease Notes:\n${typeof releaseNotes === 'string' ? releaseNotes : 'Check GitHub for details'}`,
+        buttons: ['Download Now', 'Download Later'],
+        defaultId: 0,
+        cancelId: 1,
+        icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+      });
 
-    if (response === 0) {
-      startUpdateDownload();
+      if (response === 0) {
+        startUpdateDownload();
+      } else {
+        log.info('User chose to download update later');
+      }
+    } catch (error) {
+      log.error('Error showing update dialog:', error);
     }
   });
 
-  // No update available event
+  // No update available event (MELHORAR)
   autoUpdater.on('update-not-available', (info) => {
     updateCheckInProgress = false;
-    console.log('No updates available');
+    updateAvailable = false;
+    log.info('No updates available');
+    
+    // Show dialog only if explicitly requested (manual check)
+    if (autoUpdater.showNoUpdateDialog && mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'No Updates Available',
+        message: 'Aurora IDE is up to date!',
+        detail: `You are running the latest version (${app.getVersion()}).`,
+        buttons: ['OK'],
+        icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+      }).catch((error) => {
+        log.error('Error showing no update dialog:', error);
+      });
+    }
+    autoUpdater.showNoUpdateDialog = false;
+  });
+
+  // Error handling (MELHORAR)
+  autoUpdater.on('error', async (error) => {
+    updateCheckInProgress = false;
+    downloadInProgress = false;
+    
+    log.error('Update error:', error);
+    
+    // Close progress window if open
+    if (progressWindow && !progressWindow.isDestroyed()) {
+      progressWindow.close();
+      progressWindow = null;
+    }
+
+    // Show user-friendly error message only for manual checks
+    if (autoUpdater.showNoUpdateDialog && mainWindow && !mainWindow.isDestroyed()) {
+      let errorMessage = 'An error occurred while checking for updates.';
+      
+      if (error.message.includes('net::')) {
+        errorMessage = 'Unable to connect to the update server. Please check your internet connection.';
+      } else if (error.message.includes('signature')) {
+        errorMessage = 'Update verification failed. Please try again later.';
+      } else if (error.message.includes('ENOSPC')) {
+        errorMessage = 'Not enough disk space to download the update.';
+      } else if (error.message.includes('EACCES')) {
+        errorMessage = 'Permission denied. Please run as administrator or check file permissions.';
+      }
+
+      try {
+        await dialog.showMessageBox(mainWindow, {
+          type: 'error',
+          title: 'Update Error',
+          message: 'Update Failed',
+          detail: `${errorMessage}\n\nError details: ${error.message}`,
+          buttons: ['OK'],
+          icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+        });
+      } catch (dialogError) {
+        log.error('Error showing error dialog:', dialogError);
+      }
+    }
+    
+    autoUpdater.showNoUpdateDialog = false;
   });
 
   // Download progress event with enhanced tracking
@@ -269,7 +380,7 @@ function setupAutoUpdaterEvents() {
     const total = (progress.total / 1048576).toFixed(1);
     const speed = (progress.bytesPerSecond / 1048576).toFixed(1);
     
-    console.log(`Download progress: ${percent}% (${transferred}/${total} MB) at ${speed} MB/s`);
+    log.info(`Download progress: ${percent}% (${transferred}/${total} MB) at ${speed} MB/s`);
     
     if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.webContents.send('update-progress', {
@@ -285,7 +396,7 @@ function setupAutoUpdaterEvents() {
   autoUpdater.on('update-downloaded', async (info) => {
     downloadInProgress = false;
     
-    console.log('Update downloaded successfully');
+    log.info('Update downloaded successfully');
     
     // Close progress window
     if (progressWindow && !progressWindow.isDestroyed()) {
@@ -294,21 +405,26 @@ function setupAutoUpdaterEvents() {
     }
 
     // Show install confirmation dialog
-    const { response } = await dialog.showMessageBox({
+    const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready to Install',
       message: 'The update has been downloaded successfully!',
-      detail: `Version ${info.version} is ready to be installed. The application will restart to complete the installation.`,
+      detail: `Version ${info.version} is ready to be installed. Aurora IDE will restart to complete the installation.`,
       buttons: ['Install Now', 'Install Later'],
       defaultId: 0,
-      cancelId: 1
+      cancelId: 1,
+      icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
     });
 
     if (response === 0) {
       // Install update immediately
+      log.info('User chose to install update now');
       setImmediate(() => {
         autoUpdater.quitAndInstall(false, true);
       });
+    } else {
+      log.info('User chose to install update later');
+      // We could add logic here to remind user about pending update
     }
   });
 
@@ -317,7 +433,7 @@ function setupAutoUpdaterEvents() {
     updateCheckInProgress = false;
     downloadInProgress = false;
     
-    console.error('Update error:', error);
+    log.error('Update error:', error);
     
     // Close progress window if open
     if (progressWindow && !progressWindow.isDestroyed()) {
@@ -334,39 +450,42 @@ function setupAutoUpdaterEvents() {
       errorMessage = 'Update verification failed. Please try again later.';
     } else if (error.message.includes('ENOSPC')) {
       errorMessage = 'Not enough disk space to download the update.';
+    } else if (error.message.includes('EACCES')) {
+      errorMessage = 'Permission denied. Please run as administrator or check file permissions.';
     }
 
-    await dialog.showMessageBox({
+    await dialog.showMessageBox(mainWindow, {
       type: 'error',
       title: 'Update Error',
       message: 'Update Failed',
       detail: `${errorMessage}\n\nError details: ${error.message}`,
-      buttons: ['OK']
+      buttons: ['OK'],
+      icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
     });
   });
 
   // Before quit for update event
   autoUpdater.on('before-quit-for-update', () => {
-    console.log('Application will quit for update installation');
+    log.info('Application will quit for update installation');
   });
 }
 
 // Start the update download process
 function startUpdateDownload() {
   if (downloadInProgress) {
-    console.log('Download already in progress');
+    log.info('Download already in progress');
     return;
   }
 
   downloadInProgress = true;
-  console.log('Starting update download...');
+  log.info('Starting update download...');
   
   // Create and show progress window
   createProgressWindow();
   
   // Start the download
   autoUpdater.downloadUpdate().catch((error) => {
-    console.error('Failed to start download:', error);
+    log.error('Failed to start download:', error);
     downloadInProgress = false;
     
     if (progressWindow && !progressWindow.isDestroyed()) {
@@ -380,7 +499,7 @@ function startUpdateDownload() {
 function setupIpcHandlers() {
   // Handle manual update check from renderer
   ipcMain.handle('check-for-updates', () => {
-    checkForUpdates();
+    checkForUpdates(true); // Show "no update" dialog for manual checks
   });
 
   // Handle cancel download request
@@ -389,6 +508,7 @@ function setupIpcHandlers() {
       downloadInProgress = false;
       progressWindow.close();
       progressWindow = null;
+      log.info('Update download cancelled by user');
       // Note: electron-updater doesn't have a direct cancel method
       // The download will continue in background but UI will be hidden
     }
@@ -398,22 +518,59 @@ function setupIpcHandlers() {
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
+
+  // Get update status
+  ipcMain.handle('get-update-status', () => {
+    return {
+      updateAvailable,
+      updateInfo,
+      downloadInProgress,
+      updateCheckInProgress
+    };
+  });
+
+  // Force download update (if available)
+  ipcMain.handle('download-update', () => {
+    if (updateAvailable && !downloadInProgress) {
+      startUpdateDownload();
+      return { success: true };
+    }
+    return { success: false, reason: 'No update available or download in progress' };
+  });
 }
 
 // Initialize the update system
 function initializeUpdateSystem() {
-  console.log('Initializing update system...');
+  log.info('Initializing update system...');
+  
+  // Configurar o autoUpdater ANTES de configurar os eventos
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  
+  // Configurar URL do servidor de updates (ADICIONAR)
+ 
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'nipscernlab',
+      repo: 'Aurora',
+      releaseType: 'release'
+    });
+  
   
   setupAutoUpdaterEvents();
   setupIpcHandlers();
   
-  // Check for updates on app start (with delay to let app fully load)
+  // Check for updates on app start (com delay maior)
   setTimeout(() => {
-    if (process.env.NODE_ENV !== 'development') {
-      checkForUpdates();
+    if (!isDev) {
+      log.info('Starting initial update check...');
+      checkForUpdates(false);
+    } else {
+      log.info('Skipping update check in development mode');
     }
-  }, 2000);
+  }, 5000); // Aumentar para 5 segundos
 }
+
 
 // Function to create the settings window
 function createSettingsWindow() {
@@ -642,8 +799,7 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
   });
 });
 
-
-// IPC handler to execute a shell command
+// IPC handler to execute a shell command and return process info
 ipcMain.handle('exec-command', (event, command) => {
   return new Promise((resolve, reject) => {
     const child = exec(command, {
@@ -665,7 +821,8 @@ ipcMain.handle('exec-command', (event, command) => {
       resolve({
         code,
         stdout,
-        stderr
+        stderr,
+        pid: child.pid // Return the process ID
       });
     });
 
@@ -674,6 +831,22 @@ ipcMain.handle('exec-command', (event, command) => {
     });
   });
 });
+
+// Handler for killing process by PID
+ipcMain.handle('kill-process', async (event, pid) => {
+  return new Promise((resolve, reject) => {
+    exec(`taskkill /F /PID ${pid}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error killing process ${pid}:`, error);
+        reject(error);
+      } else {
+        console.log(`Process ${pid} killed successfully`);
+        resolve({ stdout, stderr });
+      }
+    });
+  });
+});
+
 
 ipcMain.handle('path-exists', async (event, filePath) => {
   try {
@@ -1483,7 +1656,19 @@ const appPath = app.getAppPath();
 const rootPath = path.join(appPath, '..', '..'); // Navigate to the installation directory
 ipcMain.handle('load-config', async (event, projectPath) => {
   try {
-    const configFilePath = getProjectConfigPath(projectPath);
+    // Se projectPath não foi fornecido, usar o projeto atual
+    let configFilePath;
+    if (projectPath) {
+      configFilePath = getProjectConfigPath(projectPath);
+    } else {
+      // Extrair o projectPath do arquivo .spf atual
+      if (!currentOpenProjectPath) {
+        throw new Error('No project is currently open and no project path provided');
+      }
+      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+      const projectData = JSON.parse(spfData);
+      configFilePath = getProjectConfigPath(projectData.structure.basePath);
+    }
     
     // Check if config file exists
     try {
@@ -1506,14 +1691,11 @@ ipcMain.handle('load-config', async (event, projectPath) => {
     const config = JSON.parse(fileContent);
     
     config.processors = config.processors.map((proc, index) => {
-  // Garantir que isActive é sempre um booleano
       let isActive = false;
       
       if (proc.isActive !== undefined) {
-        // Se já existe, converter para booleano se necessário
         isActive = proc.isActive === true || proc.isActive === "true";
       } else if (index === 0) {
-        // Se não existe, o primeiro processador é ativo
         isActive = true;
       }
       
@@ -1523,7 +1705,6 @@ ipcMain.handle('load-config', async (event, projectPath) => {
       };
     });
 
-    // Garantir que pelo menos um processador está ativo
     const hasActiveProcessor = config.processors.some(p => p.isActive === true);
     if (!hasActiveProcessor && config.processors.length > 0) {
       config.processors[0].isActive = true;
@@ -1657,6 +1838,8 @@ ipcMain.handle('load-config-from-path', async (event, configFilePath) => {
   }
 });
 // Context: IPC handlers for file and directory operations, backup creation, and temporary file management
+
+
 
 // IPC handler to create a directory
 ipcMain.handle('mkdir', (event, dirPath) => {

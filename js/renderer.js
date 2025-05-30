@@ -3,6 +3,9 @@ let openFiles = new Map();
 let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
+let currentVvpProcess = null;
+let isVvpRunning = false;
+let currentVvpPid = null;
 
 //MONACO EDITOR ======================================================================================================================================================== ƒ
 class EditorManager {
@@ -2632,7 +2635,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
     // esconder projectConfig.json
     if (file.name === 'projectOriented.json') return false;
     
-    //if (file.name === 'processorConfig.json') return false;
+    if (file.name === 'processorConfig.json') return false;
 
     // esconder .spf
     const extension = file.name.split('.').pop().toLowerCase();
@@ -4171,31 +4174,38 @@ class CompilationModule {
     this.terminalManager = new TerminalManager();
     this.isProjectOriented = false;
   }
+async loadConfig() {
+  try {
+    // Check if we're in project-oriented mode by checking the toggle button
+    const toggleButton = document.getElementById('toggle-ui');
+    this.isProjectOriented = toggleButton && toggleButton.classList.contains('active');
 
-  async loadConfig() {
-    try {
-      // Check if we're in project-oriented mode by checking the toggle button
-      const toggleButton = document.getElementById('toggle-ui');
-      this.isProjectOriented = toggleButton && toggleButton.classList.contains('active');
-
-      // Load processor configuration
-      const config = await window.electronAPI.loadConfig();
-      this.config = config;
-      console.log("Processor config loaded:", config);
-
-      // Load project configuration if in project-oriented mode
-      if (this.isProjectOriented) {
-        const projectConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
-        const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
-        this.projectConfig = JSON.parse(projectConfigData);
-        console.log("Project config loaded:", this.projectConfig);
-      }
-    } catch (error) {
-      console.error("Failed to load configuration:", error);
-      throw error;
+    // Get current project info to get the correct project path
+    const projectInfo = await window.electronAPI.getCurrentProject();
+    const currentProjectPath = projectInfo.projectPath || this.projectPath;
+    
+    if (!currentProjectPath) {
+      throw new Error('No current project path available for loading configuration');
     }
-  }
 
+    // Load processor configuration with the correct project path
+    const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
+    const config = await window.electronAPI.loadConfigFromPath(configFilePath);
+    this.config = config;
+    console.log("Processor config loaded:", config);
+
+    // Load project configuration if in project-oriented mode
+    if (this.isProjectOriented) {
+      const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
+      const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
+      this.projectConfig = JSON.parse(projectConfigData);
+      console.log("Project config loaded:", this.projectConfig);
+    }
+  } catch (error) {
+    console.error("Failed to load configuration:", error);
+    throw error;
+  }
+}
 
   async ensureDirectories(name) {
     try {
@@ -4290,7 +4300,7 @@ class CompilationModule {
 
       this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
-      
+      /*
       const appResult = await window.electronAPI.execCommand(cmd);
       
       if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
@@ -4299,7 +4309,7 @@ class CompilationModule {
       if (appResult.code !== 0) {
         statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
         throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
-      }
+      } */
       
       // Then run the ASM compiler as per the batch file
       // ASM.exe %ASM_FILE% %PROC_DIR% %HDL_DIR% %TMP_PRO% %FRE_CLK% %NUM_CLK% 0
@@ -4619,8 +4629,22 @@ async runGtkWave(processor) {
     showVvpSpinner();
     const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
-    
+
+    // Track VVP process
+    isVvpRunning = true;
     const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+    currentVvpPid = vvpResult.pid; // Store the PID
+
+    // Check if process was canceled during execution
+    if (compilationCanceled) {
+      isVvpRunning = false;
+      currentVvpPid = null;
+      throw new Error('VVP process canceled by user');
+    }
+
+    // Reset tracking when process completes
+    isVvpRunning = false;
+    currentVvpPid = null;
     
     if (vvpResult.stdout) {
       this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
@@ -4832,32 +4856,44 @@ async runProjectGtkWave() {
     
     // 4. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
+    showVvpSpinner();
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
-    
-    this.terminalManager.appendToTerminal('twave', 'VVP simulation in progress. Wait patiently!', 'warning');
-      try {
-      showVvpSpinner();
 
-      const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-       
-      this.terminalManager.appendToTerminal('twave', 'VVP simulation completed', 'success');
-      
-      if (vvpResult.stdout) {
-        this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-      }
-      if (vvpResult.stderr) {
-        this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-      }
-      
-      if (vvpResult.code !== 0) {
-        statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
-        throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-      }
-    } catch (error) {
-      throw error;
+    // Track VVP process
+    isVvpRunning = true;
+    const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+    currentVvpPid = vvpResult.pid;
+
+    // Check if process was canceled during execution
+    if (compilationCanceled) {
+      isVvpRunning = false;
+      currentVvpPid = null;
+      hideVvpSpinner();
+      this.terminalManager.appendToTerminal('twave', 'Compilation canceled by user.', 'warning');
+      statusUpdater.compilationCanceled('wave'); // Se você tiver essa função
+      return; // Interrompe a execução aqui
     }
+
+    // Reset tracking when process completes
+    isVvpRunning = false;
+    currentVvpPid = null;
+
+    if (vvpResult.stdout) {
+      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+    }
+    if (vvpResult.stderr) {
+      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+    }
+
+    if (vvpResult.code !== 0) {
+      statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
+      hideVvpSpinner();
+      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+    }
+
     hideVvpSpinner();
+
 
     // 5. Launch GTKWave - resolve paths properly and include working directory
     let gtkwCmd;
@@ -5087,11 +5123,17 @@ document.getElementById('pause-everything').addEventListener('click', () => {
   }
 });
 
-// Enhanced cancelCompilation function with multi-terminal error display
+
+// Enhanced cancelCompilation function
 function cancelCompilation() {
-  if (isCompilationRunning) {
+  if (isCompilationRunning || isVvpRunning) {
     compilationCanceled = true;
     isCompilationRunning = false;
+    
+    // Kill VVP process if running
+    if (isVvpRunning && currentVvpPid) {
+      killVvpProcess();
+    }
     
     // Force enable buttons immediately on cancellation
     setCompilationButtonsState(false);
@@ -5101,17 +5143,38 @@ function cancelCompilation() {
     terminals.forEach(terminalId => {
       if (globalTerminalManager) {
         globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'error');
+        hideVvpSpinner();
       }
     });
     
     showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
     console.log('Compilation canceled by user');
     
-    // Call endCompilation to ensure proper cleanup
     endCompilation();
   } else {
     showCardNotification('No compilation process is currently running.', 'info', 3000);
   }
+}
+
+// Function to kill VVP process
+async function killVvpProcess() {
+  if (currentVvpPid && isVvpRunning) {
+    try {
+      await window.electronAPI.killProcess(currentVvpPid);
+      console.log('VVP process killed successfully');
+      
+      hideVvpSpinner();
+      
+      isVvpRunning = false;
+      currentVvpPid = null;
+      
+      return true;
+    } catch (error) {
+      console.error('Error killing VVP process:', error);
+      return false;
+    }
+  }
+  return false;
 }
 
 // Enhanced checkCancellation function with terminal error display
@@ -6036,33 +6099,3 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-
-// Função para abrir o menu lateral
-function openNewsSidebar() {
-    // Verifica se o menu já existe
-    let newsSidebar = document.querySelector('.news-sidebar');
-    if (!newsSidebar) {
-        // Cria o container do menu lateral
-        newsSidebar = document.createElement('div');
-        newsSidebar.classList.add('news-sidebar');
-        newsSidebar.innerHTML = `
-    <webview src="../html/news.html" class="news-webview" nodeintegration></webview>
-`;
-        document.body.appendChild(newsSidebar);
-
-        // Animação para aparecer o menu lateral
-        setTimeout(() => {
-            newsSidebar.classList.add('active');
-        }, 10);
-
-        // Fecha o menu ao clicar fora dele
-        window.addEventListener('click', (event) => {
-            if (!newsSidebar.contains(event.target) && !newsIcon.contains(event.target)) {
-                newsSidebar.classList.remove('active');
-                setTimeout(() => {
-                    newsSidebar.remove();
-                }, 300);
-            }
-        });
-    }
-}

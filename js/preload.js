@@ -168,6 +168,10 @@ const projectOperations = {
     };
   },
 
+  // Add these to your contextBridge.exposeInMainWorld:
+execCommandStream: (command) => ipcRenderer.invoke('exec-command-stream', command),
+onCommandOutputStream: (callback) => ipcRenderer.on('command-output-stream', callback),
+
   // Listen for update downloaded events
   onUpdateDownloaded: (callback) => {
     const wrappedCallback = (event, data) => callback(data);

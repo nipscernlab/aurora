@@ -4,17 +4,26 @@
 @float_sin    SET   sin_x          // pega parametro x
 
               EQU    0.0           // if (x == 0) return 0.0;
+              NOP
               JIZ    L1_sin
               LOD    0.0
               RET
 
 @L1_sin     F_ABS_M sin_x          // while (abs(x) > 3.141592654) x = x - sign(x, 6.283185307);
             F_LES   3.141592654
+              NOP
+              NOP
+              NOP
               JIZ   L1end_sin
               LOD   6.283185307
             F_SGN   sin_x
             F_NEG
             F_ADD   sin_x
+              NOP
+              NOP
+              NOP
+              NOP
+              NOP
               SET   sin_x
               JMP   L1_sin
 
@@ -23,13 +32,22 @@
 
               LOD   sin_x          // float x2 = x * x;
             F_MLT   sin_x
+              NOP
+              NOP
+              NOP
+              NOP
               SET   sin_x2
 
               LOD   sin_termo      // float resultado = termo;
               SET   sin_resultado
 
               LOD   sin_x2         // float tolerancia = epslon/x2;
-            F_DIV   epsilon_taylor
+              CAL   float_inv
+            F_MLT   epsilon_taylor
+              NOP
+              NOP
+              NOP
+              NOP
               SET   sin_tolerancia
 
               LOD   3              // int indiceX = 3;
@@ -37,23 +55,45 @@
 
 @L2_sin     F_ABS_M sin_termo      // while (abs(termo) > tolerancia) {
             F_LES   sin_tolerancia
+              NOP
+              NOP
+              NOP
               JIZ   L2end_sin
 
             F_NEG_M sin_x2         // termo = termo * (- x2) / ((indiceX - 1) * indiceX);
             F_MLT   sin_termo
+              NOP
+              NOP
+              NOP
+              NOP
             P_NEG_M 1
               ADD   sin_indiceX
+              NOP
               MLT   sin_indiceX
+              NOP
               I2F
-           SF_DIV
+              NOP
+              NOP
+              CAL   float_inv
+           SF_MLT
+              NOP
+              NOP
+              NOP
+              NOP
               SET   sin_termo
 
               LOD   sin_resultado  // resultado = resultado + termo;
             F_ADD   sin_termo
+              NOP
+              NOP
+              NOP
+              NOP
+              NOP
               SET   sin_resultado
 
               LOD   sin_indiceX    // indiceX = indiceX + 2;
               ADD   2
+              NOP
               SET   sin_indiceX
 
               JMP   L2_sin         // }

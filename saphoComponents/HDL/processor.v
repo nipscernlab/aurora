@@ -70,11 +70,16 @@ endmodule
 module processor
 #(
 	// -------------------------------------------------------------------------
-	// Parametros de configuracao internos -------------------------------------
+	// Parametrso pre-fixados --------------------------------------------------
+	// -------------------------------------------------------------------------
+
+	parameter NBOPCO = 7,               // Numero de bits de opcode (mudar o comp. assembler de acordo, em eval.c)
+
+	// -------------------------------------------------------------------------
+	// Parametros configurados dinamicamente -----------------------------------
 	// -------------------------------------------------------------------------
 
 	// fluxo de dados
-	parameter NBOPCO = 7,               // Numero de bits de opcode (mudar o comp. assembler de acordo, em eval.c)
 	parameter ITRADD = 0,               // Endereco da interrupcao
 
 	// memorias
@@ -100,15 +105,15 @@ module processor
 	parameter DDEPTH = 10,              // Tamanho da pilha de dados
 
 	// entrada e Saida
-	parameter NUIOIN =  2,              // Numero de portas de entrada
-	parameter NUIOOU =  2,              // Numero de portas de saida
+	parameter NBIOIN =  2,              // Numero de bits de portas de entrada
+	parameter NBIOOU =  2,              // Numero de bits de portas de saida
 
 	// constantes aritmeticas
 	parameter NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
 	parameter FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
 
 	// -------------------------------------------------------------------------
-	// Parametros configurados dinamicamente -----------------------------------
+	// Parametros para alocacao de recursos ------------------------------------
 	// -------------------------------------------------------------------------
 
 	// implementa enderecamento indireto
@@ -116,8 +121,14 @@ module processor
 	parameter   ILI   = 0,
 	parameter   STI   = 0,
 	parameter   ISI   = 0,
+
+	// implementa portas de I/O
+	parameter   INN   = 0,
+	parameter P_INN   = 0,
+	parameter   OUT   = 0,
 	
-	// implementa pilha de subrotinas
+	// implementa saltos
+	parameter   JIZ   = 0,
 	parameter   CAL   = 0,
 
 	// operacoes aritmeticas de dois parametros
@@ -191,13 +202,13 @@ module processor
 	parameter   SHR   = 0,
 	parameter   SRS   = 0)
 (
-	input                       clk     , rst,
-	input  [NUBITS        -1:0] io_in   ,
-	output [NUBITS        -1:0] io_out  ,
-	output [$clog2(NUIOIN)-1:0] addr_in ,
-	output [$clog2(NUIOOU)-1:0] addr_out,
-	output                      req_in  , out_en,
-	input                       itr
+	input               clk     , rst,
+	input  [NUBITS-1:0] io_in   ,
+	output [NUBITS-1:0] io_out  ,
+	output [NBIOIN-1:0] addr_in ,
+	output [NBIOOU-1:0] addr_out,
+	output              req_in  , out_en,
+	input               itr
 
 `ifdef __ICARUS__ // ----------------------------------------------------------
 
@@ -236,15 +247,19 @@ core #(.NBOPCO (NBOPCO ),
        .NBMANT (NBMANT ),
        .NBEXPO (NBEXPO ),
        .SDEPTH (SDEPTH ),
-	   .DDEPTH (DDEPTH ),
-       .NUIOIN (NUIOIN ),
-       .NUIOOU (NUIOOU ),
+       .DDEPTH (DDEPTH ),
+       .NBIOIN (NBIOIN ),
+       .NBIOOU (NBIOOU ),
        .NUGAIN (NUGAIN ),
        .FFTSIZ (FFTSIZ ),
          .LDI  (  LDI  ),
          .ILI  (  ILI  ),
          .STI  (  STI  ),
-		 .ISI  (  ISI  ),
+         .ISI  (  ISI  ),
+		 .INN  (  INN  ),
+       .P_INN  (P_INN  ),
+	     .OUT  (  OUT  ),
+		 .JIZ  (  JIZ  ),
          .CAL  (  CAL  ),
          .ADD  (  ADD  ),
        .F_ADD  (F_ADD  ),

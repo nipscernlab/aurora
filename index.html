@@ -506,12 +506,34 @@
         <div class="terminal-content hidden" id="terminal-twave">
           <div class="terminal-header">TWAVE Terminal</div>
           <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
-          <div class="vvp-spinner-line" id="vvp-spinner">
-          <i class="fas fa-cog vvp-spinner-icon"></i>
-          <span class="vvp-spinner-text">VVP simulation in progress</span>
-          <span class="vvp-spinner-dots"><i class="fa-solid fa-circle fa-2xs"></i> <i class="fa-solid fa-circle fa-2xs"></i> <i class="fa-solid fa-circle fa-2xs"></i></span>
+          <div id="vvp-progress-container" class="vvp-progress-container" style="display: none;">
+  <div class="vvp-progress-info">
+    <i class="fas fa-cog vvp-spinner-icon"></i>
+    <span class="vvp-progress-text">VVP simulation in progress</span>
+  </div>
+  
+  <div class="vvp-progress-bar-wrapper">
+    <div class="vvp-progress-bar">
+      <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
+    </div>
+  </div>
+  
+  <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+  
+  <div class="vvp-progress-stats">
+    <div class="vvp-stat">
+      <span class="vvp-stat-label">Time</span>
+      <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+    </div>
+    <div class="vvp-stat">
+      <span class="vvp-stat-label">Events</span>
+      <span class="vvp-stat-value" id="vvp-events-count">0</span>
+    </div>
+  </div>
+</div>
+
       </div>
-        </div>
+      </div>
         <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header">TPRISM Terminal</div>
           <div class="terminal-body">Welcome to the TPRISM Terminal!</div>

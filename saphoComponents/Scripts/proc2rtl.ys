@@ -1,0 +1,26 @@
+read_verilog @PROC@.v
+read_verilog addr_dec.v
+read_verilog core.v
+read_verilog instr_dec.v
+read_verilog processor.v
+read_verilog ula.v
+
+
+hierarchy -check -top proc_fft
+proc
+write_json hierarchy.json
+
+
+prep -top @PROC@
+
+cd @PROC@
+write_json -selected @PROC@.json
+
+cd p_@PROC@
+write_json -selected p_@PROC@.json
+
+cd core
+write_json -selected core.json
+
+cd ula
+write_json -selected ula.json

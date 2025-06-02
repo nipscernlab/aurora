@@ -810,11 +810,14 @@ ipcMain.handle('exec-command', (event, command) => {
     let stderr = '';
 
     child.stdout.on('data', (data) => {
-      stdout += data;
+      const output = data.toString();
+      stdout += output;
+
     });
 
     child.stderr.on('data', (data) => {
-      stderr += data;
+      const errorOutput = data.toString();
+      stderr += errorOutput;
     });
 
     child.on('close', (code) => {
@@ -829,6 +832,35 @@ ipcMain.handle('exec-command', (event, command) => {
     child.on('error', (err) => {
       reject(err);
     });
+  });
+});
+
+// Replace your existing exec-command handler:
+ipcMain.handle('exec-command-stream', (event, command) => {
+  return new Promise((resolve, reject) => {
+    const child = exec(command, { maxBuffer: 1024 * 1024 * 10 });
+    
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      // Send real-time output for progress parsing
+      event.sender.send('command-output-stream', { type: 'stdout', data: output });
+    });
+
+    child.stderr.on('data', (data) => {
+      const errorOutput = data.toString();
+      stderr += errorOutput;
+      event.sender.send('command-output-stream', { type: 'stderr', data: errorOutput });
+    });
+
+    child.on('close', (code) => {
+      resolve({ code, stdout, stderr, pid: child.pid });
+    });
+
+    child.on('error', (err) => reject(err));
   });
 });
 

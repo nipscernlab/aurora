@@ -4300,7 +4300,7 @@ async loadConfig() {
 
       this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
-      /*
+      
       const appResult = await window.electronAPI.execCommand(cmd);
       
       if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
@@ -4309,7 +4309,7 @@ async loadConfig() {
       if (appResult.code !== 0) {
         statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
         throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
-      } */
+      } 
       
       // Then run the ASM compiler as per the batch file
       // ASM.exe %ASM_FILE% %PROC_DIR% %HDL_DIR% %TMP_PRO% %FRE_CLK% %NUM_CLK% 0
@@ -4627,13 +4627,26 @@ async runGtkWave(processor) {
     // 3. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
     showVvpSpinner();
-    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst`;
-    this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
+    // Replace your VVP execution section:
+showVvpProgressBar(); // New function
+const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
 
-    // Track VVP process
-    isVvpRunning = true;
-    const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-    currentVvpPid = vvpResult.pid; // Store the PID
+// Listen for streaming output
+window.electronAPI.onCommandOutputStream((data) => {
+  if (isVvpRunning) {
+    vvpProgressManager.parseVVPOutput(data.data);
+  }
+});
+
+isVvpRunning = true;
+const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
+isVvpRunning = false;
+
+if (vvpResult.code === 0) {
+  vvpProgressManager.complete();
+} else {
+  hideVvpProgressBar();
+}
 
     // Check if process was canceled during execution
     if (compilationCanceled) {
@@ -4857,13 +4870,28 @@ async runProjectGtkWave() {
     // 4. Run VVP simulation to generate the VCD file
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
     showVvpSpinner();
-    const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst`;
+    showVvpProgressBar(); // New function
+
+    const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
 
     // Track VVP process
-    isVvpRunning = true;
-    const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-    currentVvpPid = vvpResult.pid;
+    // Listen for streaming output
+window.electronAPI.onCommandOutputStream((data) => {
+  if (isVvpRunning) {
+    vvpProgressManager.parseVVPOutput(data.data);
+  }
+});
+
+isVvpRunning = true;
+const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
+isVvpRunning = false;
+
+if (vvpResult.code === 0) {
+  vvpProgressManager.complete();
+} else {
+  hideVvpProgressBar();
+}
 
     // Check if process was canceled during execution
     if (compilationCanceled) {
@@ -5520,15 +5548,323 @@ class CompilationButtonManager {
   }
 }
 
-  // Mostrar spinner quando VVP iniciar
-function showVvpSpinner() {
-    document.getElementById('vvp-spinner').classList.add('active');
+function showVvpProgressBar() {
+  vvpProgressManager.show();
 }
 
-// Esconder spinner quando VVP terminar
-function hideVvpSpinner() {
-    document.getElementById('vvp-spinner').classList.remove('active');
+function hideVvpProgressBar() {
+  vvpProgressManager.hide();
 }
+
+
+
+// Initialize the progress manager
+function initVVPProgress() {
+  if (!vvpProgressManager) {
+    vvpProgressManager = {
+      currentProgress: 0,
+      startTime: null,
+      progressInterval: null,
+      
+      show: function() {
+        const container = document.getElementById('vvp-progress-container');
+        if (container) container.style.display = 'flex';
+        this.startTime = Date.now();
+        this.startProgressSimulation();
+      },
+      
+      hide: function() {
+        const container = document.getElementById('vvp-progress-container');
+        if (container) container.style.display = 'none';
+        if (this.progressInterval) {
+          clearInterval(this.progressInterval);
+          this.progressInterval = null;
+        }
+        this.currentProgress = 0;
+      },
+      
+      updateProgress: function(percentage) {
+      this.currentProgress = Math.min(100, Math.max(0, percentage));
+      const fillElement = document.getElementById('vvp-progress-fill');
+      const percentageElement = document.getElementById('vvp-progress-percentage');
+      
+      if (fillElement) {
+        fillElement.style.width = `${this.currentProgress}%`;
+        // Force repaint
+        fillElement.offsetHeight;
+      }
+      if (percentageElement) {
+        percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
+      }
+      
+      // Debug log para verificar se está funcionando
+      console.log(`Progress updated: ${this.currentProgress}%`);
+    },
+
+    // Substitua também a função startProgressSimulation
+    startProgressSimulation: function() {
+      this.progressInterval = setInterval(() => {
+        if (this.currentProgress < 95) { // Para em 95% para aguardar completion
+          // Incremento mais consistente
+          const increment = Math.random() * 2 + 0.5; // Entre 0.5% e 2.5%
+          this.currentProgress += increment;
+          this.updateProgress(this.currentProgress);
+          
+          // Atualiza stats
+          const elapsed = Date.now() - this.startTime;
+          this.updateStats(elapsed, this.eventCount);
+        }
+      }, 300); // Intervalo menor para updates mais suaves
+},
+      
+      complete: function() {
+        this.updateProgress(100);
+        setTimeout(() => this.hide(), 2000);
+      }
+    };
+  }
+  return vvpProgressManager;
+}
+
+// Replace your showVvpSpinner() function with:
+function showVvpSpinner() {
+  initVVPProgress().show();
+}
+
+// Replace your hideVvpSpinner() function with:
+function hideVvpSpinner() {
+  if (vvpProgressManager) {
+    vvpProgressManager.complete();
+  }
+}
+// GAMBIARRA: Adicione esta função para forçar a atualização da barra
+function forceProgressUpdate() {
+  const fillElement = document.getElementById('vvp-progress-fill');
+  const percentageElement = document.getElementById('vvp-progress-percentage');
+  
+  if (!fillElement || !percentageElement) return;
+  
+  let currentWidth = 0;
+  const targetWidth = parseInt(percentageElement.textContent) || 0;
+  
+  const animateProgress = () => {
+    if (currentWidth < targetWidth) {
+      currentWidth += 1;
+      fillElement.style.width = `${currentWidth}%`;
+      requestAnimationFrame(animateProgress);
+    }
+  };
+  
+  animateProgress();
+}
+
+// GAMBIARRA: Observer para detectar mudanças no texto da porcentagem
+function setupProgressObserver() {
+  const percentageElement = document.getElementById('vvp-progress-percentage');
+  if (!percentageElement) return;
+  
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList' || mutation.type === 'characterData') {
+        const newPercentage = parseInt(percentageElement.textContent) || 0;
+        const fillElement = document.getElementById('vvp-progress-fill');
+        if (fillElement) {
+          fillElement.style.width = `${newPercentage}%`;
+          // Force repaint
+          fillElement.offsetHeight;
+        }
+      }
+    });
+  });
+  
+  observer.observe(percentageElement, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  });
+}
+
+// VVP Progress Management
+class VVPProgressManager {
+  constructor() {
+    this.startTime = null;
+    this.currentProgress = 0;
+    this.estimatedDuration = 30000; // 30 seconds default
+    this.progressInterval = null;
+    this.eventCount = 0;
+    this.timeUnits = 0;
+    this.percentageInterval = null; // ADICIONE ESTA LINHA
+  }
+
+  show() {
+  const container = document.getElementById('vvp-progress-container');
+  const oldSpinner = document.getElementById('vvp-spinner');
+  
+  if (container) container.style.display = 'flex';
+  if (oldSpinner) oldSpinner.classList.add('with-progress');
+  
+  this.startTime = Date.now();
+  
+  // Inicia a animação CSS automática
+  const fillElement = document.getElementById('vvp-progress-fill');
+  if (fillElement) {
+    fillElement.classList.add('auto-progress'); // 30s ou use 'auto-progress-fast' para 15s
+  }
+  
+  // Atualiza o texto da porcentagem automaticamente
+  this.startPercentageUpdate();
+}
+
+hide() {
+  const container = document.getElementById('vvp-progress-container');
+  const oldSpinner = document.getElementById('vvp-spinner');
+  
+  // Fade out suave
+  if (container) {
+    container.classList.add('fade-out');
+    setTimeout(() => {
+      container.style.display = 'none';
+      container.classList.remove('fade-out');
+      
+      // Remove a classe de animação
+      const fillElement = document.getElementById('vvp-progress-fill');
+      if (fillElement) {
+        fillElement.classList.remove('auto-progress', 'auto-progress-fast');
+      }
+    }, 500);
+  }
+  
+  if (oldSpinner) oldSpinner.classList.remove('with-progress');
+  
+  if (this.progressInterval) {
+    clearInterval(this.progressInterval);
+    this.progressInterval = null;
+  }
+  
+  if (this.percentageInterval) {
+    clearInterval(this.percentageInterval);
+    this.percentageInterval = null;
+  }
+  
+  this.reset();
+}
+
+// Nova função para atualizar porcentagem automaticamente
+startPercentageUpdate() {
+  let progress = 0;
+  const percentageElement = document.getElementById('vvp-progress-percentage');
+  const timeElement = document.getElementById('vvp-elapsed-time');
+  const eventsElement = document.getElementById('vvp-events-count');
+  
+  this.percentageInterval = setInterval(() => {
+    progress += 10;
+    
+    // Atualiza porcentagem
+    if (percentageElement) {
+      percentageElement.textContent = `${progress}%`;
+    }
+    
+    // Atualiza tempo decorrido
+    if (timeElement) {
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      timeElement.textContent = `${elapsed}s`;
+    }
+    
+    // Simula eventos processados
+    if (eventsElement) {
+      const events = Math.floor(Math.random() * 1000) + (progress * 50);
+      eventsElement.textContent = events.toLocaleString();
+    }
+    
+    if (progress >= 100) {
+      clearInterval(this.percentageInterval);
+      this.percentageInterval = null;
+    }
+  }, 3000); // A cada 3 segundos para animação de 30s (ou 1500ms para 15s)
+}
+
+  updateProgress(percentage) {
+    this.currentProgress = Math.min(100, Math.max(0, percentage));
+    
+    const fillElement = document.getElementById('vvp-progress-fill');
+    const percentageElement = document.getElementById('vvp-progress-percentage');
+    
+    if (fillElement) fillElement.style.width = `${this.currentProgress}%`;
+    if (percentageElement) percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
+  }
+
+  updateStats(elapsedTime, eventCount) {
+    const timeElement = document.getElementById('vvp-elapsed-time');
+    const eventsElement = document.getElementById('vvp-events-count');
+    
+    if (timeElement) timeElement.textContent = `${Math.round(elapsedTime / 1000)}s`;
+    if (eventsElement) eventsElement.textContent = eventCount.toLocaleString();
+  }
+
+  parseVVPOutput(output) {
+    // Extract simulation time and events from VVP output
+    const timeMatch = output.match(/time\s+(\d+)/i);
+    const eventMatch = output.match(/(\d+)\s+events?/i);
+    const finishMatch = output.match(/\$finish|simulation\s+complete/i);
+    
+    if (timeMatch) {
+      this.timeUnits = parseInt(timeMatch[1]);
+      // Estimate progress based on time units (rough heuristic)
+      const estimatedProgress = Math.min(90, (this.timeUnits / 100000) * 100);
+      this.updateProgress(estimatedProgress);
+    }
+    
+    if (eventMatch) {
+      this.eventCount = parseInt(eventMatch[1]);
+    }
+    
+    if (finishMatch) {
+      this.updateProgress(100);
+    }
+    
+    const elapsed = Date.now() - this.startTime;
+    this.updateStats(elapsed, this.eventCount);
+  }
+
+  startProgressSimulation() {
+    // Fallback progress simulation if no real data
+    this.progressInterval = setInterval(() => {
+      const elapsed = Date.now() - this.startTime;
+      const baseProgress = Math.min(85, (elapsed / this.estimatedDuration) * 100);
+      
+      // Add some randomness to make it feel more realistic
+      const variance = Math.sin(elapsed / 1000) * 5;
+      const adjustedProgress = Math.max(this.currentProgress, baseProgress + variance);
+      
+      this.updateProgress(adjustedProgress);
+      this.updateStats(elapsed, this.eventCount);
+      
+      if (elapsed > this.estimatedDuration * 1.5) {
+        // If taking too long, slow down progress increase
+        clearInterval(this.progressInterval);
+        this.progressInterval = setInterval(() => {
+          this.currentProgress += 0.5;
+          this.updateProgress(this.currentProgress);
+        }, 2000);
+      }
+    }, 500);
+  }
+
+  complete() {
+    this.updateProgress(100);
+    setTimeout(() => this.hide(), 1000);
+  }
+
+  reset() {
+    this.currentProgress = 0;
+    this.eventCount = 0;
+    this.timeUnits = 0;
+    this.startTime = null;
+  }
+}
+
+// Global instance
+const vvpProgressManager = new VVPProgressManager();
 
 // Inicializa o gerenciador quando a janela carregar
 window.addEventListener('load', () => {
@@ -5630,6 +5966,7 @@ class TerminalManager {
       this.applyFilter(terminalId);
     });
   }
+
 
   applyFilter(terminalId) {
     const terminal = this.terminals[terminalId];

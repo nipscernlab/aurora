@@ -219,6 +219,10 @@ function checkForUpdates(showNoUpdateDialog = false) {
   updateCheckInProgress = true;
   log.info('Checking for updates...');
 
+  // **FORCE apenas releases oficiais (padrão “latest”)**
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.channel      = 'latest';
+
   // Store whether to show "no update" dialog
   autoUpdater.showNoUpdateDialog = showNoUpdateDialog;
 

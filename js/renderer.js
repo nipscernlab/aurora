@@ -3512,31 +3512,31 @@ function createProcessorHubModal() {
       <div class="form-group">
       <label for="nBits">Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
 
-        <input type="number" id="nBits" required min="1" value="32">
+        <input type="number" id="nBits" required min="1" value="23">
       </div>
       <div class="form-group floating-point-options">
         <label for="nbMantissa">Nb Mantissa</label>
-        <input type="number" id="nbMantissa" min="1" value="23">
+        <input type="number" id="nbMantissa" min="1" value="16">
       </div>
       <div class="form-group floating-point-options">
         <label for="nbExponent">Nb Exponent</label>
-        <input type="number" id="nbExponent" min="1" value="8">
+        <input type="number" id="nbExponent" min="1" value="6">
       </div>
       <div class="form-group">
         <label for="dataStackSize">Data Stack Size</label>
-        <input type="number" id="dataStackSize" required min="1" value="10">
+        <input type="number" id="dataStackSize" required min="1" value="5">
       </div>
       <div class="form-group">
         <label for="instructionStackSize">Instruction Stack Size</label>
-        <input type="number" id="instructionStackSize" required min="1" value="10">
+        <input type="number" id="instructionStackSize" required min="1" value="5">
       </div>
       <div class="form-group">
         <label for="inputPorts">Number of Input Ports</label>
-        <input type="number" id="inputPorts" required min="0" value="2">
+        <input type="number" id="inputPorts" required min="0" value="1">
       </div>
       <div class="form-group">
         <label for="outputPorts">Number of Output Ports</label>
-        <input type="number" id="outputPorts" required min="0" value="2">
+        <input type="number" id="outputPorts" required min="0" value="1">
       </div>
       <div class="form-group">
         <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
@@ -4528,223 +4528,179 @@ async iverilogProjectCompilation() {
 }
 
 async runGtkWave(processor) {
-  // If we're in project-oriented mode, run the project GTKWave
+  // Se estivermos no modo "projeto orientado", apenas delega:
   if (this.isProjectOriented) {
     checkCancellation();
     return this.runProjectGtkWave();
   }
   
-  // Otherwise, run the standard processor GTKWave
   const { name } = processor;
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
   statusUpdater.startCompilation('wave');
   
   try {
-    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    // Monta vários paths necessários:
+    const tempPath       = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hdlPath        = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const hardwarePath   = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
     const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-    const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-    const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
-    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'vvp.exe');
-    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave' ,'bin', 'gtkwave.exe');
-
-    // Create tcl_infos.txt
+    const binPath        = await window.electronAPI.joinPath('saphoComponents', 'bin');
+    const scriptsPath    = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+    const iveriCompPath  = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','iverilog.exe');
+    const vvpCompPath    = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','vvp.exe');
+    const gtkwCompPath   = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','gtkwave','bin','gtkwave.exe');
+  
+    // Cria o arquivo tcl_infos.txt dentro de tempPath:
     const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
-    
-    // Create file content
     const tclContent = `${tempPath}\n${binPath}\n`;
-    
-    // Write the file
     await window.electronAPI.writeFile(tclFilePath, tclContent);
-    
-    // Check for custom testbench file from config
-          // Check for testbench files as in the bat
-      let tbFile = this.config.testbenchFile;
-       let tbMod;
+  
+    // Decide qual é o testbench (.v) a usar:
+    let tbMod;
     if (this.config.testbenchFile && this.config.testbenchFile !== 'standard') {
-      // User-specified testbench
       const simulationFiles = await window.electronAPI.readDir(simulationPath);
       if (simulationFiles.includes(this.config.testbenchFile)) {
         tbMod = this.config.testbenchFile.replace(/\.v$/i, '');
       } else {
         this.terminalManager.appendToTerminal(
-          'tveri',
+          'twave',
           `Warning: Specified testbench ${this.config.testbenchFile} not found in Simulation. Falling back to standard.`,
           'warning'
         );
         tbMod = `${name}_tb`;
       }
     } else {
-      // Standard testbench: name_tb.v
       tbMod = `${name}_tb`;
     }
-    
+  
     await TabManager.saveAllFiles();
-    
-    // Build the list of verilog files to compile - simply use file names here
-    const verilogFiles = [
-      'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
-    ];
-    
-    // Just use the file names without paths since we're changing directory
-    const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
-    
-    // Resolve all paths before building the command
+  
+    // Lista de arquivos .v para compilar (apenas nomes, pois vamos dar cd em hdlPath)
+    const verilogFiles = [ 'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v' ];
+    const verilogFilesString = verilogFiles.join(' ');
+  
+    // Resolve paths de output (executável VVP) e do módulo principal:
     const outputFile = await window.electronAPI.joinPath(tempPath, name);
-    const procFile = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
-    
-    // 1. First compile with iverilog including testbench
-    const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbMod} -o "${outputFile}" "${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" "${procFile}" ${verilogFilesString}`;
-    
+    const procFile   = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
+  
+    // 1) Compila com iverilog (testbench + hw):
+    const iverilogCmd = `cd "${hdlPath}" && `
+                     + `"${iveriCompPath}" -s ${tbMod} -o "${outputFile}" `
+                     + `"${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" `
+                     + `"${procFile}" ${verilogFilesString}`;
+  
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog and testbench:\n${iverilogCmd}`);
-    
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
-    
-    if (iverilogResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
-    }
-    if (iverilogResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
-    }
-    
+    if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
+    if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
+  
     if (iverilogResult.code !== 0) {
       statusUpdater.compilationError('wave', `Icarus Verilog compilation failed with code ${iverilogResult.code}`);
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
-    
-    // 2. Copy required memory files to the temp directory
+  
+    // 2) Copia arquivos .mif gerados para tempPath:
     const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`);
-    const dataMemDest = await window.electronAPI.joinPath(tempPath, `${name}_data.mif`);
+    const dataMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_data.mif`);
     await window.electronAPI.copyFile(dataMemSource, dataMemDest);
     
     const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`);
-    const instMemDest = await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`);
+    const instMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`);
     await window.electronAPI.copyFile(instMemSource, instMemDest);
-    
-    // 3. Run VVP simulation to generate the VCD file
-   this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
   
-  // Show progress bar instead of spinner
-  showVvpProgressBar();
+    // 3) Agora, roda o VVP para gerar o VCD:
+    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
   
-  const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
-  
-  // Set up output listener for real-time progress
-  let isVvpRunning = true;
-  const outputListener = (data) => {
-    if (isVvpRunning && data && data.data) {
-      vvpProgressManager.parseVVPOutput(data.data);
-      // Also append to terminal
-      this.terminalManager.appendToTerminal('twave', data.data, 'stdout');
-    }
-  };
-  
-  // Listen for streaming output
-  window.electronAPI.onCommandOutputStream(outputListener);
-  
-  try {
-    const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
-    isVvpRunning = false;
-    
-    // Check if process was canceled
-    if (compilationCanceled) {
-      throw new Error('VVP process canceled by user');
-    }
-    
-    // Handle results
-    if (vvpResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-    }
-    if (vvpResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-    }
-    
-    if (vvpResult.code !== 0) {
-      hideVvpProgressBar();
-      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-    }
-    
-    // Complete the progress bar
-    vvpProgressManager.complete();
-    
-  } catch (error) {
-    isVvpRunning = false;
-    hideVvpProgressBar();
-    throw error;
-  } finally {
-    // Clean up listener
-    window.electronAPI.removeCommandOutputListener(outputListener);
-  }
+    // Exibe a barra de progresso antes de registrar listener:
+    vvpProgressManager.show();
+    vvpProgressManager.startProgressTracking();
 
-    // Check if process was canceled during execution
-    if (compilationCanceled) {
+    // Comando VVP (cd em tempPath e executa vvp.exe nome -fst -v)
+    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
+  
+    // === Configura o listener para streaming do stdout/stderr ===
+    let isVvpRunning = true;
+    const outputListener = (event, payload) => {
+      // payload = { type: 'stdout'|'stderr', data: string }
+      if (!isVvpRunning) return;
+      if (payload.type === 'stdout') {
+        vvpProgressManager.parseVVPOutput(payload.data);
+        this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
+      } else if (payload.type === 'stderr') {
+        // Em geral VVP escreve tudo em stdout, mas caso stderr seja usado:
+        this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
+      }
+    };
+  
+    // Registra ANTES de iniciar o execCommandStream:
+    window.electronAPI.onCommandOutputStream(outputListener);
+  
+    let vvpResult;
+    try {
+      // Execução (e aguarda a saída final para obter {code, stdout, stderr})
+      vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
       isVvpRunning = false;
-      currentVvpPid = null;
-      throw new Error('VVP process canceled by user');
+  
+      // Se houver stdout restante, parseia (em geral, execCommandStream só manda tudo de uma vez no final).
+      if (vvpResult.stdout) {
+        vvpProgressManager.parseVVPOutput(vvpResult.stdout);
+        this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+      }
+      if (vvpResult.stderr) {
+        this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+      }
+  
+      if (vvpResult.code !== 0) {
+        // Se VVP falhar, esconde a barra e lança erro
+        vvpProgressManager.hide();
+        throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+      }
+  
+      // Se chegou aqui, simulou com sucesso: finaliza a barra
+      vvpProgressManager.complete();
+  
+    } catch (err) {
+      isVvpRunning = false;
+      vvpProgressManager.hide();
+      throw err;
+    } finally {
+      // Remove listener SEMPRE, tanto em sucesso quanto em erro
+      window.electronAPI.removeCommandOutputListener(outputListener);
     }
-
-    // Reset tracking when process completes
-    isVvpRunning = false;
-    currentVvpPid = null;
-    
-    if (vvpResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-      hideVvpSpinner();
-    }
-    if (vvpResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-      hideVvpSpinner();
-    }
-    
-    if (vvpResult.code !== 0) {
-      statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
-      hideVvpSpinner();
-      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-    }
-    
-    // 4. Launch GTKWave with the generated VCD file
+  
+    // 4) Agora que temos o VCD, chama o GTKWave:
+    // Decide se usa script padrão ou customizado:
+    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
     let gtkwCmd;
-    // Check for custom GTKWave file from config
-    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === "standard";
-    
+    const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
+  
     if (useStandardGtkw) {
-      // Use standard simulation (script-based)
       const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-      const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
-      
-      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+      gtkwCmd = `cd "${tempPath}" && `
+              + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
     } else {
-      // Use custom gtkw file
-      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-      const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
-      const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      
-      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScriptPath}"`;
+      const gtkwPath     = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+      const posScript    = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScript}"`;
     }
-    
+  
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
-    
     const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-    
-    if (gtkwResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-    }
-    if (gtkwResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-    }
-    
+  
+    if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
+    if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
+  
     if (gtkwResult.code !== 0) {
       statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
     }
-    
+  
     this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.', 'success');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
+    // Qualquer erro em qualquer etapa:
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
     statusUpdater.compilationError('wave', error.message);
     throw error;
@@ -4754,248 +4710,252 @@ async runGtkWave(processor) {
 async runProjectGtkWave() {
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for project...`);
   statusUpdater.startCompilation('wave');
-  
+
   try {
     if (!this.projectConfig) {
       throw new Error("Project configuration not loaded");
     }
-    
+
+    // 1) Monta todos os diretórios necessários
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-    const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const binDir = await window.electronAPI.joinPath('saphoComponents', 'bin');
+    const hdlDir      = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const binDir      = await window.electronAPI.joinPath('saphoComponents', 'bin');
     const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
     const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
-    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
-    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'vvp.exe');
-    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave' ,'bin', 'gtkwave.exe');
+    const iveriCompPath = await window.electronAPI.joinPath(
+      'saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe'
+    );
+    const vvpCompPath = await window.electronAPI.joinPath(
+      'saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe'
+    );
+    const gtkwCompPath = await window.electronAPI.joinPath(
+      'saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe'
+    );
 
-    // Get processors from project configuration
+    // 2) Processadores e testbench no projeto
     const processors = this.projectConfig.processors || [];
     if (processors.length === 0) {
       throw new Error("No processors defined in project configuration");
     }
-    
-    // Get testbench and gtkwave file info
+
     const testbenchFile = this.projectConfig.testbenchFile;
     if (!testbenchFile) {
       throw new Error("No testbench file specified in project configuration");
     }
-    
-    const tbModule = testbenchFile.replace('.v', '');
-    const gtkwaveFile = this.projectConfig.gtkwaveFile;
-    
-    // 1. First, compile with iverilog including all files
-    
-    // Build list of HDL files - properly resolve paths
+    const tbModule = testbenchFile.replace(/\.v$/i, '');
+
+    const gtkwaveFile = this.projectConfig.gtkwaveFile; // pode ser "Standard" ou nome custom
+
+    // 3) Compilação com Icarus Verilog (todos os .v)
+    // 3.1) HDL files
     const hdlFiles = await window.electronAPI.readDir(hdlDir);
     let hdlVerilogFiles = "";
     for (const file of hdlFiles) {
       if (file.endsWith('.v')) {
-        const hdlFilePath = await window.electronAPI.joinPath(hdlDir, file);
-        hdlVerilogFiles += `"${hdlFilePath}" `;
+        const path = await window.electronAPI.joinPath(hdlDir, file);
+        hdlVerilogFiles += `"${path}" `;
       }
     }
-    
-    // Build list of TopLevel files - properly resolve paths
-    const topLevelFiles = await window.electronAPI.readDir(topLevelDir);  
+
+    // 3.2) Top Level files
+    const topLevelFiles = await window.electronAPI.readDir(topLevelDir);
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
       if (file.endsWith('.v')) {
-        const topLevelFilePath = await window.electronAPI.joinPath(topLevelDir, file);
-        topLevelVerilogFiles += `"${topLevelFilePath}" `;
+        const path = await window.electronAPI.joinPath(topLevelDir, file);
+        topLevelVerilogFiles += `"${path}" `;
       }
     }
-    
-    // Build list of processor files - properly resolve paths
+
+    // 3.3) Processor files e criação de pastas temporárias
     let processorVerilogFiles = "";
     for (const processor of processors) {
       const procName = processor.type;
-      const procPath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware', `${procName}.v`);
+      const procPath = await window.electronAPI.joinPath(
+        this.projectPath, procName, 'Hardware', `${procName}.v`
+      );
       processorVerilogFiles += `"${procPath}" `;
-      
-      // Ensure processor temp dir exists
+
+      // Garante que diretórios temporários para cada processador existam
       await this.ensureDirectories(procName);
     }
-    
-    // Get flags
+
     const flags = this.projectConfig.iverilogFlags || "";
-    
+
     await TabManager.saveAllFiles();
-    
-    // Run Iverilog compile with testbench
-    const projectName = this.projectPath.split(/[\/\\]/).pop();
+
+    // 3.4) Monta comando iverilog
+    const projectName    = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
-    
-    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
-    
+
+    const iverilogCmd =
+      `cd "${tempBaseDir}" && `
+      + `"${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" `
+      + `${hdlVerilogFiles}${processorVerilogFiles}${topLevelVerilogFiles}`;
+
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
-    
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
-    
-    if (iverilogResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
-    }
-    if (iverilogResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
-    }
-    
+
+    // Log do stdout/stderr do iverilog
+    if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
+    if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
+
     if (iverilogResult.code !== 0) {
       statusUpdater.compilationError('wave', `Icarus Verilog compilation failed with code ${iverilogResult.code}`);
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
-    
-    // 2. Copy memory files for each processor to temp directory
+
+    // 4) Copia arquivos .mif e possíveis arquivos de PC para tempBaseDir
     for (const processor of processors) {
-      const procName = processor.type;
+      const procName     = processor.type;
       const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
-      
-      // Copy data memory file - resolve paths properly
+
       const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`);
-      const dataMemDest = await window.electronAPI.joinPath(tempBaseDir, `${procName}_data.mif`);
+      const dataMemDest   = await window.electronAPI.joinPath(tempBaseDir, `${procName}_data.mif`);
       await window.electronAPI.copyFile(dataMemSource, dataMemDest);
-      
-      // Copy instruction memory file - resolve paths properly
+
       const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`);
-      const instMemDest = await window.electronAPI.joinPath(tempBaseDir, `${procName}_inst.mif`);
+      const instMemDest   = await window.electronAPI.joinPath(tempBaseDir, `${procName}_inst.mif`);
       await window.electronAPI.copyFile(instMemSource, instMemDest);
-      
-      // Copy PC memory file if it exists in temp processor directory
-      const pcMemPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', procName, `pc_${procName}_mem.txt`);
+
+      // PC memory (opcional)
+      const pcMemPath = await window.electronAPI.joinPath(
+        'saphoComponents', 'Temp', procName, `pc_${procName}_mem.txt`
+      );
       const pcMemDest = await window.electronAPI.joinPath(tempBaseDir, `pc_${procName}_mem.txt`);
       try {
         await window.electronAPI.copyFile(pcMemPath, pcMemDest);
-      } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `Warning: Could not copy PC memory file for ${procName}. This may be expected.`, 'warning');
+      } catch {
+        this.terminalManager.appendToTerminal(
+          'twave',
+          `Warning: Could not copy PC memory file for ${procName}. This may be expected.`,
+          'warning'
+        );
       }
     }
-    
-    // Copy any text files from TopLevel to temp directory
+
+    // 5) Copia quaisquer .txt de TopLevel
     for (const file of topLevelFiles) {
       if (file.endsWith('.txt')) {
         const txtSource = await window.electronAPI.joinPath(topLevelDir, file);
-        const txtDest = await window.electronAPI.joinPath(tempBaseDir, file);
+        const txtDest   = await window.electronAPI.joinPath(tempBaseDir, file);
         await window.electronAPI.copyFile(txtSource, txtDest);
       }
     }
-    
-    // 3. Write tcl_infos.txt for project
+
+    // 6) Gera tcl_infos.txt no tempBaseDir para o projeto
     const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
-    
-    // Create the instance list and processor type list
-    let instanceList = "";
+    let instanceList      = "";
     let processorTypeList = "";
-    
     for (const proc of processors) {
       instanceList += `${proc.instance} `;
       processorTypeList += `${proc.type} `;
     }
-    
-    // Create file content
-    const tclContent = `${instanceList.trim()}\n${processorTypeList.trim()}\n${tempBaseDir}\n${binDir}\n`;
-    
-    // Write the file
+    const tclContent =
+      `${instanceList.trim()}\n`
+      + `${processorTypeList.trim()}\n`
+      + `${tempBaseDir}\n`
+      + `${binDir}\n`;
+
+    this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt for project GTKWave.`);
     await window.electronAPI.writeFile(tclFilePath, tclContent);
-    
-    this.terminalManager.appendToTerminal('twave', `tcl_infos.txt created for project GTKWave.`);
-    
-    // 4. Run VVP simulation to generate the VCD file
+
+    // 7) Roda o VVP para gerar o .vcd
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    showVvpSpinner();
-    showVvpProgressBar(); // New function
+    vvpProgressManager.show();
+    vvpProgressManager.startProgressTracking();
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
 
-    // Track VVP process
-    // Listen for streaming output
-window.electronAPI.onCommandOutputStream((data) => {
-  if (isVvpRunning) {
-    vvpProgressManager.parseVVPOutput(data.data);
-  }
-});
+    // 7.1) Configura listener nomeado ANTES de chamar execCommandStream
+    let isVvpRunning = true;
+    const outputListener = (event, payload) => {
+      // payload = { type: 'stdout'|'stderr', data: string }
+      if (!isVvpRunning) return;
+      if (payload.type === 'stdout') {
+        // Passa APENAS a string para parseVVPOutput
+        vvpProgressManager.parseVVPOutput(payload.data);
+        this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
+      } else if (payload.type === 'stderr') {
+        this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
+      }
+    };
+    window.electronAPI.onCommandOutputStream(outputListener);
 
-isVvpRunning = true;
-const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
-isVvpRunning = false;
-
-if (vvpResult.code === 0) {
-  vvpProgressManager.complete();
-} else {
-  hideVvpProgressBar();
-}
-
-    // Check if process was canceled during execution
-    if (compilationCanceled) {
+    let vvpResult;
+    try {
+      // 7.2) Chama execCommandStream – o listener trata cada chunk em tempo real
+      vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
       isVvpRunning = false;
-      currentVvpPid = null;
-      hideVvpSpinner();
-      this.terminalManager.appendToTerminal('twave', 'Compilation canceled by user.', 'warning');
-      statusUpdater.compilationCanceled('wave'); // Se você tiver essa função
-      return; // Interrompe a execução aqui
+
+      // 7.3) No final, parseia qualquer stdout restante (caso haja)
+      if (vvpResult.stdout) {
+        vvpProgressManager.parseVVPOutput(vvpResult.stdout);
+        this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+      }
+      if (vvpResult.stderr) {
+        this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+      }
+
+      if (vvpResult.code !== 0) {
+        vvpProgressManager.hide();
+        statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
+        throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+      }
+
+      // 7.4) Se tudo OK, finaliza a barra em 100%
+      vvpProgressManager.complete();
+
+    } catch (err) {
+      isVvpRunning = false;
+      vvpProgressManager.hide();
+      throw err;
+    } finally {
+      // 7.5) Remove o listener obrigatoriamente
+      window.electronAPI.removeCommandOutputListener(outputListener);
     }
 
-    // Reset tracking when process completes
-    isVvpRunning = false;
-    currentVvpPid = null;
-
-    if (vvpResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-    }
-    if (vvpResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-    }
-
-    if (vvpResult.code !== 0) {
-      statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
-      hideVvpSpinner();
-      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-    }
-
-    hideVvpSpinner();
-
-
-    // 5. Launch GTKWave - resolve paths properly and include working directory
+    // Após a simulação, chama o GTKWave:
+    // 8) Monta comando GTKWave (pode ser padrão ou customizado)
     let gtkwCmd;
-    
     if (gtkwaveFile && gtkwaveFile !== "Standard") {
-      // Use custom gtkw file
-      const gtkwPath = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
-      const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
+      // Customizado
+      const gtkwPath     = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
+      const posScriptPath= await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
     } else {
-      // Use standard project init script
-      const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
+      // Padrão para projeto
+      const vcdPath        = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
       const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-      gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
     }
-    
-    statusUpdater.startCompilation('wave');
 
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
-    
     const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-    
-    if (gtkwResult.stdout) {
-      this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-    }
-    if (gtkwResult.stderr) {
-      this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-    }
-     
+
+    if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
+    if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
+
     if (gtkwResult.code !== 0) {
       statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
     }
-    
+
     this.terminalManager.appendToTerminal('twave', 'Project GTKWave completed successfully.', 'success');
     statusUpdater.compilationSuccess('wave');
-    
+
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
     statusUpdater.compilationError('wave', error.message);
     throw error;
   }
 }
+
 
  async compileAll() {
   try {
@@ -5172,7 +5132,7 @@ function isProcessorConfigured() {
   return !processorText.includes('No Processor Configured');
 }
 
-document.getElementById('pause-everything').addEventListener('click', () => {
+document.getElementById('cancel-everything').addEventListener('click', () => {
   if (isCompilationRunning) {
     // Cancel the compilation
     cancelCompilation();
@@ -5201,12 +5161,12 @@ function cancelCompilation() {
     const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
     terminals.forEach(terminalId => {
       if (globalTerminalManager) {
-        globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'error');
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'warning');
         hideVvpSpinner();
       }
     });
     
-    showCardNotification('Compilation process has been canceled by user.', 'error', 4000);
+    showCardNotification('Compilation process has been canceled by user.', 'warning', 4000);
     console.log('Compilation canceled by user');
     
     endCompilation();
@@ -5243,7 +5203,7 @@ function checkCancellation() {
     if (globalTerminalManager) {
       const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
       terminals.forEach(terminalId => {
-        globalTerminalManager.appendToTerminal(terminalId, 'Compilation interrupted by user cancellation.', 'error');
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation interrupted by user cancellation.', 'warning');
       });
     }
     throw new Error('Compilation canceled by user');
@@ -5724,18 +5684,18 @@ class VVPProgressManager {
   }
 
   show() {
-  const container = document.getElementById('vvp-progress-container');
-  if (container) {
-    container.style.display = 'flex';
-    container.classList.remove('fade-out');
+    const container = document.getElementById('vvp-progress-container');
+    if (container) {
+      container.style.display = 'flex';           // <— aqui tiramos o "display: none"
+      container.classList.remove('fade-out');
+    }
+    this.reset();
+    this.startTime = Date.now();
+    this.isRunning = true;
+    this.updateProgress(0);
+    this.startProgressTracking();
   }
-  
-  this.reset();
-  this.startTime = Date.now();
-  this.isRunning = true;
-  this.updateProgress(0); // Ensure it starts at 0
-  this.startProgressTracking();
-}
+
 
   hide() {
     const container = document.getElementById('vvp-progress-container');
@@ -5746,115 +5706,99 @@ class VVPProgressManager {
         container.classList.remove('fade-out');
       }, 500);
     }
-    
     this.stopProgressTracking();
     this.reset();
   }
-updateProgress(percentage) {
-  this.currentProgress = Math.min(100, Math.max(0, percentage));
-  
-  const fillElement = document.getElementById('vvp-progress-fill');
-  const percentageElement = document.getElementById('vvp-progress-percentage');
-  
-  if (fillElement) {
-    fillElement.style.width = `${this.currentProgress}%`;
-    // Force DOM repaint
-    fillElement.offsetHeight;
-    fillElement.style.display = 'block';
-  }
-  if (percentageElement) {
-    percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
-  }
-}
 
-  updateStats(elapsedTime, eventCount) {
-    const timeElement = document.getElementById('vvp-elapsed-time');
-    const eventsElement = document.getElementById('vvp-events-count');
-    
-    if (timeElement) {
-      timeElement.textContent = `${Math.round(elapsedTime / 1000)}s`;
+  updateProgress(percentage) {
+    // Garante que fique entre 0 e 100
+    this.currentProgress = Math.min(100, Math.max(0, percentage));
+
+    const fillEl = document.getElementById('vvp-progress-fill');
+    const percEl = document.getElementById('vvp-progress-percentage');
+
+    if (fillEl) {
+      fillEl.style.width = `${this.currentProgress}%`;
+      fillEl.style.transition = 'width 0.3s ease';
+      // Força reflow para garantir que a mudança seja aplicada imediatamente
+      void fillEl.offsetWidth;
     }
-    if (eventsElement) {
-      eventsElement.textContent = eventCount.toLocaleString();
+    if (percEl) {
+      percEl.textContent = `${Math.round(this.currentProgress)}%`;
     }
+
+    console.log(`VVP Progress (fallback): ${this.currentProgress}%`);
   }
 
- parseVVPOutput(output) {
-  if (!this.isRunning) return;
+  updateStats(elapsed, events) {
+    const timeEl = document.getElementById('vvp-elapsed-time');
+    const eventsEl = document.getElementById('vvp-events-count');
 
-  // Better event detection patterns
-  const eventPatterns = [
-    /(\d+)\s+events?/gi,
-    /events:\s*(\d+)/gi,
-    /event\s+count:\s*(\d+)/gi,
-    /\$display.*?(\d+)/gi
-  ];
-
-  let maxEvents = this.eventCount;
-  eventPatterns.forEach(pattern => {
-    const matches = output.match(pattern);
-    if (matches) {
-      matches.forEach(match => {
-        const num = parseInt(match.match(/\d+/)[0]);
-        if (!isNaN(num) && num > maxEvents) {
-          maxEvents = num;
-        }
-      });
-    }
-  });
-  
-  if (maxEvents > this.eventCount) {
-    this.eventCount = maxEvents;
+    if (timeEl) timeEl.textContent = `${Math.round(elapsed / 1000)}s`;
+    if (eventsEl) eventsEl.textContent = events.toLocaleString();
   }
 
-  // Time-based progress estimation
-  const timeMatches = output.match(/time\s*[=:]?\s*(\d+)/gi);
-  if (timeMatches) {
-    const timeValue = parseInt(timeMatches[timeMatches.length - 1].match(/\d+/)[0]);
-    const estimatedProgress = Math.min(95, (timeValue / 10000) * 100);
-    if (estimatedProgress > this.currentProgress) {
-      this.updateProgress(estimatedProgress);
+  // Chamado sempre que o VVP emite um chunk de saída
+  parseVVPOutput(output) {
+    if (!output || !this.isRunning) return;
+
+    // Verifica se há “Progress:  XX%” explícito
+    const progressMatch = output.match(/Progress:\s*(\d+)%/);
+    if (progressMatch) {
+      const value = parseInt(progressMatch[1], 10);
+      if (value > this.currentProgress) {
+        this.updateProgress(value);
+      }
+    }
+
+    // Conta eventos: linhas “#123” ou comandos “$…”
+    const timeEvents = output.match(/#\d+/g) || [];
+    const simEvents = output.match(/^\s*\$[a-zA-Z]+/gm) || [];
+    this.eventCount += timeEvents.length + simEvents.length;
+
+    // Atualiza estatísticas de tempo+eventos
+    const elapsed = Date.now() - this.startTime;
+    this.updateStats(elapsed, this.eventCount);
+
+    // Se detectar fim explícito, pula para 100%
+    if (output.includes('$finish') || output.includes('Simulation Complete')) {
+      this.complete();
     }
   }
 
-  // Completion detection
-  if (/(\$finish|\$stop|simulation\s+complete|vcd\s+info|dumping\s+off)/i.test(output)) {
-    this.updateProgress(100);
-  }
-
-  // Update display
-  const elapsed = Date.now() - this.startTime;
-  this.updateStats(elapsed, this.eventCount);
-}
   startProgressTracking() {
-    // Fallback progress simulation
+    // A cada 500ms, se ainda estiver rodando e sem progresso real, vai
+    // aumentar de forma gradual até no máximo 90%, deixando os 10% finais
+    // quando o VVP realmente emitir “100%” ou “$finish”.
     this.progressInterval = setInterval(() => {
       if (!this.isRunning) return;
 
       const elapsed = Date.now() - this.startTime;
-      
-      // Gradual progress increase (slower as it approaches 95%)
+
+      // Somente se o progresso ainda estiver abaixo de 95% (para deixar
+      // margem de transição suave quando o VVP mandar a porcentagem real)
       if (this.currentProgress < 95) {
-        const timeBasedProgress = Math.min(90, (elapsed / 30000) * 100); // 30 seconds to 90%
-        
-        if (timeBasedProgress > this.currentProgress) {
-          const increment = Math.max(0.5, (95 - this.currentProgress) * 0.02);
-          this.currentProgress += increment;
+        // Em 30 segundos o “estimate” chega a 100%, mas limitamos a 90%
+        const estimate = Math.min(90, (elapsed / 30000) * 100);
+
+        if (estimate > this.currentProgress) {
+          // O incremento cai à medida que nos aproximamos de 95%
+          const inc = Math.max(0.5, (95 - this.currentProgress) * 0.02);
+          this.currentProgress += inc;
+
+          // Chama updateProgress para atualizar a largura e o texto “XX%”
           this.updateProgress(this.currentProgress);
         }
       }
 
-      // Update stats even without real events
+      // Atualiza tempo e eventos mesmo no fallback
       this.updateStats(elapsed, this.eventCount);
-      
     }, 500);
   }
 
   stopProgressTracking() {
-    if (this.progressInterval) {
-      clearInterval(this.progressInterval);
-      this.progressInterval = null;
-    }
+    clearInterval(this.progressInterval);
+    this.progressInterval = null;
     this.isRunning = false;
   }
 
@@ -5871,8 +5815,9 @@ updateProgress(percentage) {
   }
 }
 
-// Global instance
+// Uso global:
 const vvpProgressManager = new VVPProgressManager();
+
 
 // Inicializa o gerenciador quando a janela carregar
 window.addEventListener('load', () => {

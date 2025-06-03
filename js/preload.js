@@ -171,6 +171,26 @@ const projectOperations = {
   // Add these to your contextBridge.exposeInMainWorld:
 execCommandStream: (command) => ipcRenderer.invoke('exec-command-stream', command),
 onCommandOutputStream: (callback) => ipcRenderer.on('command-output-stream', callback),
+removeCommandOutputListener: (callback) => {
+    if (callback) {
+      ipcRenderer.removeListener('command-output-stream', callback);
+    } else {
+      // Remove todos os listeners se nenhum callback específico foi fornecido
+      ipcRenderer.removeAllListeners('command-output-stream');
+    }
+  },
+
+onCommandOutputStream: (callback) => ipcRenderer.on('command-output-stream', callback),
+
+  // Listen for update downloaded events
+  onUpdateDownloaded: (callback) => {
+    const wrappedCallback = (event, data) => callback(data);
+    ipcRenderer.on('update-downloaded', wrappedCallback);
+    
+    return () => {
+      ipcRenderer.removeListener('update-downloaded', wrappedCallback);
+    };
+  },
 
   // Listen for update downloaded events
   onUpdateDownloaded: (callback) => {

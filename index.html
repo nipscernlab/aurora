@@ -64,8 +64,8 @@
       <i class="fa-solid fa-fan"></i>
     </button>
 
-    <button id="pause-everything" class="toolbar-button" titles="toggle-ui">
-      <i class="fa-solid fa-pause"></i>
+    <button id="cancel-everything" class="toolbar-button" titles="toggle-ui">
+      <i class="fa-solid fa-xmark"></i>
     </button>
 
     <button id="allcomp" class="toolbar-button" titles="Compile All" disabled style="cursor: not-allowed;">
@@ -506,31 +506,31 @@
         <div class="terminal-content hidden" id="terminal-twave">
           <div class="terminal-header">TWAVE Terminal</div>
           <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
-          <div id="vvp-progress-container" class="vvp-progress-container" style="display: none;">
-  <div class="vvp-progress-info">
-    <i class="fas fa-cog vvp-spinner-icon"></i>
-    <span class="vvp-progress-text">VVP simulation in progress</span>
-  </div>
-  
-  <div class="vvp-progress-bar-wrapper">
-    <div class="vvp-progress-bar">
-      <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
-    </div>
-  </div>
-  
-  <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
-  
-  <div class="vvp-progress-stats">
-    <div class="vvp-stat">
-      <span class="vvp-stat-label">Time</span>
-      <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
-    </div>
-    <div class="vvp-stat">
-      <span class="vvp-stat-label">Events</span>
-      <span class="vvp-stat-value" id="vvp-events-count">0</span>
-    </div>
-  </div>
-</div>
+          <div id="vvp-progress-container" class="vvp-progress-container">
+        <div class="vvp-progress-info">
+          <i class="fas fa-cog vvp-spinner-icon"></i>
+          <span class="vvp-progress-text">VVP simulation in progress</span>
+        </div>
+        
+        <div class="vvp-progress-bar-wrapper">
+          <div class="vvp-progress-bar">
+            <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        
+        <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+        
+        <div class="vvp-progress-stats">
+          <div class="vvp-stat">
+            <span class="vvp-stat-label">Time</span>
+            <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+          </div>
+          <div class="vvp-stat">
+            <span class="vvp-stat-label">Events</span>
+            <span class="vvp-stat-value" id="vvp-events-count">0</span>
+          </div>
+        </div>
+      </div>
 
       </div>
       </div>

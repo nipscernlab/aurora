@@ -196,6 +196,12 @@
   box-shadow: 0 0 8px rgba(157, 127, 255, 0.4);
 }
 
+.vvp-progress-fill {
+  display: block !important;
+  min-width: 1px;
+  transition: width 0.3s ease-out !important;
+}
+
 .vvp-progress-fill::before {
   content: '';
   position: absolute;

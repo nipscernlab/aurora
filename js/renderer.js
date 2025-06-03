@@ -4625,28 +4625,59 @@ async runGtkWave(processor) {
     await window.electronAPI.copyFile(instMemSource, instMemDest);
     
     // 3. Run VVP simulation to generate the VCD file
-    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
-    showVvpSpinner();
-    // Replace your VVP execution section:
-showVvpProgressBar(); // New function
-const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
-
-// Listen for streaming output
-window.electronAPI.onCommandOutputStream((data) => {
-  if (isVvpRunning) {
-    vvpProgressManager.parseVVPOutput(data.data);
+   this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+  
+  // Show progress bar instead of spinner
+  showVvpProgressBar();
+  
+  const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
+  
+  // Set up output listener for real-time progress
+  let isVvpRunning = true;
+  const outputListener = (data) => {
+    if (isVvpRunning && data && data.data) {
+      vvpProgressManager.parseVVPOutput(data.data);
+      // Also append to terminal
+      this.terminalManager.appendToTerminal('twave', data.data, 'stdout');
+    }
+  };
+  
+  // Listen for streaming output
+  window.electronAPI.onCommandOutputStream(outputListener);
+  
+  try {
+    const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
+    isVvpRunning = false;
+    
+    // Check if process was canceled
+    if (compilationCanceled) {
+      throw new Error('VVP process canceled by user');
+    }
+    
+    // Handle results
+    if (vvpResult.stdout) {
+      this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
+    }
+    if (vvpResult.stderr) {
+      this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
+    }
+    
+    if (vvpResult.code !== 0) {
+      hideVvpProgressBar();
+      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+    }
+    
+    // Complete the progress bar
+    vvpProgressManager.complete();
+    
+  } catch (error) {
+    isVvpRunning = false;
+    hideVvpProgressBar();
+    throw error;
+  } finally {
+    // Clean up listener
+    window.electronAPI.removeCommandOutputListener(outputListener);
   }
-});
-
-isVvpRunning = true;
-const vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
-isVvpRunning = false;
-
-if (vvpResult.code === 0) {
-  vvpProgressManager.complete();
-} else {
-  hideVvpProgressBar();
-}
 
     // Check if process was canceled during execution
     if (compilationCanceled) {
@@ -5548,6 +5579,7 @@ class CompilationButtonManager {
   }
 }
 
+// Updated functions for your existing code
 function showVvpProgressBar() {
   vvpProgressManager.show();
 }
@@ -5626,16 +5658,13 @@ function initVVPProgress() {
   return vvpProgressManager;
 }
 
-// Replace your showVvpSpinner() function with:
+// Keep these for backward compatibility
 function showVvpSpinner() {
-  initVVPProgress().show();
+  showVvpProgressBar();
 }
 
-// Replace your hideVvpSpinner() function with:
 function hideVvpSpinner() {
-  if (vvpProgressManager) {
-    vvpProgressManager.complete();
-  }
+  vvpProgressManager.complete();
 }
 // GAMBIARRA: Adicione esta função para forçar a atualização da barra
 function forceProgressUpdate() {
@@ -5684,182 +5713,161 @@ function setupProgressObserver() {
   });
 }
 
-// VVP Progress Management
+// Simplified VVP Progress Manager
 class VVPProgressManager {
   constructor() {
     this.startTime = null;
     this.currentProgress = 0;
-    this.estimatedDuration = 30000; // 30 seconds default
     this.progressInterval = null;
     this.eventCount = 0;
-    this.timeUnits = 0;
-    this.percentageInterval = null; // ADICIONE ESTA LINHA
+    this.isRunning = false;
   }
 
   show() {
   const container = document.getElementById('vvp-progress-container');
-  const oldSpinner = document.getElementById('vvp-spinner');
-  
-  if (container) container.style.display = 'flex';
-  if (oldSpinner) oldSpinner.classList.add('with-progress');
-  
-  this.startTime = Date.now();
-  
-  // Inicia a animação CSS automática
-  const fillElement = document.getElementById('vvp-progress-fill');
-  if (fillElement) {
-    fillElement.classList.add('auto-progress'); // 30s ou use 'auto-progress-fast' para 15s
-  }
-  
-  // Atualiza o texto da porcentagem automaticamente
-  this.startPercentageUpdate();
-}
-
-hide() {
-  const container = document.getElementById('vvp-progress-container');
-  const oldSpinner = document.getElementById('vvp-spinner');
-  
-  // Fade out suave
   if (container) {
-    container.classList.add('fade-out');
-    setTimeout(() => {
-      container.style.display = 'none';
-      container.classList.remove('fade-out');
-      
-      // Remove a classe de animação
-      const fillElement = document.getElementById('vvp-progress-fill');
-      if (fillElement) {
-        fillElement.classList.remove('auto-progress', 'auto-progress-fast');
-      }
-    }, 500);
-  }
-  
-  if (oldSpinner) oldSpinner.classList.remove('with-progress');
-  
-  if (this.progressInterval) {
-    clearInterval(this.progressInterval);
-    this.progressInterval = null;
-  }
-  
-  if (this.percentageInterval) {
-    clearInterval(this.percentageInterval);
-    this.percentageInterval = null;
+    container.style.display = 'flex';
+    container.classList.remove('fade-out');
   }
   
   this.reset();
+  this.startTime = Date.now();
+  this.isRunning = true;
+  this.updateProgress(0); // Ensure it starts at 0
+  this.startProgressTracking();
 }
 
-// Nova função para atualizar porcentagem automaticamente
-startPercentageUpdate() {
-  let progress = 0;
-  const percentageElement = document.getElementById('vvp-progress-percentage');
-  const timeElement = document.getElementById('vvp-elapsed-time');
-  const eventsElement = document.getElementById('vvp-events-count');
-  
-  this.percentageInterval = setInterval(() => {
-    progress += 10;
-    
-    // Atualiza porcentagem
-    if (percentageElement) {
-      percentageElement.textContent = `${progress}%`;
+  hide() {
+    const container = document.getElementById('vvp-progress-container');
+    if (container) {
+      container.classList.add('fade-out');
+      setTimeout(() => {
+        container.style.display = 'none';
+        container.classList.remove('fade-out');
+      }, 500);
     }
     
-    // Atualiza tempo decorrido
-    if (timeElement) {
-      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
-      timeElement.textContent = `${elapsed}s`;
-    }
-    
-    // Simula eventos processados
-    if (eventsElement) {
-      const events = Math.floor(Math.random() * 1000) + (progress * 50);
-      eventsElement.textContent = events.toLocaleString();
-    }
-    
-    if (progress >= 100) {
-      clearInterval(this.percentageInterval);
-      this.percentageInterval = null;
-    }
-  }, 3000); // A cada 3 segundos para animação de 30s (ou 1500ms para 15s)
-}
-
-  updateProgress(percentage) {
-    this.currentProgress = Math.min(100, Math.max(0, percentage));
-    
-    const fillElement = document.getElementById('vvp-progress-fill');
-    const percentageElement = document.getElementById('vvp-progress-percentage');
-    
-    if (fillElement) fillElement.style.width = `${this.currentProgress}%`;
-    if (percentageElement) percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
+    this.stopProgressTracking();
+    this.reset();
   }
+updateProgress(percentage) {
+  this.currentProgress = Math.min(100, Math.max(0, percentage));
+  
+  const fillElement = document.getElementById('vvp-progress-fill');
+  const percentageElement = document.getElementById('vvp-progress-percentage');
+  
+  if (fillElement) {
+    fillElement.style.width = `${this.currentProgress}%`;
+    // Force DOM repaint
+    fillElement.offsetHeight;
+    fillElement.style.display = 'block';
+  }
+  if (percentageElement) {
+    percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
+  }
+}
 
   updateStats(elapsedTime, eventCount) {
     const timeElement = document.getElementById('vvp-elapsed-time');
     const eventsElement = document.getElementById('vvp-events-count');
     
-    if (timeElement) timeElement.textContent = `${Math.round(elapsedTime / 1000)}s`;
-    if (eventsElement) eventsElement.textContent = eventCount.toLocaleString();
+    if (timeElement) {
+      timeElement.textContent = `${Math.round(elapsedTime / 1000)}s`;
+    }
+    if (eventsElement) {
+      eventsElement.textContent = eventCount.toLocaleString();
+    }
   }
 
-  parseVVPOutput(output) {
-    // Extract simulation time and events from VVP output
-    const timeMatch = output.match(/time\s+(\d+)/i);
-    const eventMatch = output.match(/(\d+)\s+events?/i);
-    const finishMatch = output.match(/\$finish|simulation\s+complete/i);
-    
-    if (timeMatch) {
-      this.timeUnits = parseInt(timeMatch[1]);
-      // Estimate progress based on time units (rough heuristic)
-      const estimatedProgress = Math.min(90, (this.timeUnits / 100000) * 100);
+ parseVVPOutput(output) {
+  if (!this.isRunning) return;
+
+  // Better event detection patterns
+  const eventPatterns = [
+    /(\d+)\s+events?/gi,
+    /events:\s*(\d+)/gi,
+    /event\s+count:\s*(\d+)/gi,
+    /\$display.*?(\d+)/gi
+  ];
+
+  let maxEvents = this.eventCount;
+  eventPatterns.forEach(pattern => {
+    const matches = output.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const num = parseInt(match.match(/\d+/)[0]);
+        if (!isNaN(num) && num > maxEvents) {
+          maxEvents = num;
+        }
+      });
+    }
+  });
+  
+  if (maxEvents > this.eventCount) {
+    this.eventCount = maxEvents;
+  }
+
+  // Time-based progress estimation
+  const timeMatches = output.match(/time\s*[=:]?\s*(\d+)/gi);
+  if (timeMatches) {
+    const timeValue = parseInt(timeMatches[timeMatches.length - 1].match(/\d+/)[0]);
+    const estimatedProgress = Math.min(95, (timeValue / 10000) * 100);
+    if (estimatedProgress > this.currentProgress) {
       this.updateProgress(estimatedProgress);
     }
-    
-    if (eventMatch) {
-      this.eventCount = parseInt(eventMatch[1]);
-    }
-    
-    if (finishMatch) {
-      this.updateProgress(100);
-    }
-    
-    const elapsed = Date.now() - this.startTime;
-    this.updateStats(elapsed, this.eventCount);
   }
 
-  startProgressSimulation() {
-    // Fallback progress simulation if no real data
+  // Completion detection
+  if (/(\$finish|\$stop|simulation\s+complete|vcd\s+info|dumping\s+off)/i.test(output)) {
+    this.updateProgress(100);
+  }
+
+  // Update display
+  const elapsed = Date.now() - this.startTime;
+  this.updateStats(elapsed, this.eventCount);
+}
+  startProgressTracking() {
+    // Fallback progress simulation
     this.progressInterval = setInterval(() => {
+      if (!this.isRunning) return;
+
       const elapsed = Date.now() - this.startTime;
-      const baseProgress = Math.min(85, (elapsed / this.estimatedDuration) * 100);
       
-      // Add some randomness to make it feel more realistic
-      const variance = Math.sin(elapsed / 1000) * 5;
-      const adjustedProgress = Math.max(this.currentProgress, baseProgress + variance);
-      
-      this.updateProgress(adjustedProgress);
+      // Gradual progress increase (slower as it approaches 95%)
+      if (this.currentProgress < 95) {
+        const timeBasedProgress = Math.min(90, (elapsed / 30000) * 100); // 30 seconds to 90%
+        
+        if (timeBasedProgress > this.currentProgress) {
+          const increment = Math.max(0.5, (95 - this.currentProgress) * 0.02);
+          this.currentProgress += increment;
+          this.updateProgress(this.currentProgress);
+        }
+      }
+
+      // Update stats even without real events
       this.updateStats(elapsed, this.eventCount);
       
-      if (elapsed > this.estimatedDuration * 1.5) {
-        // If taking too long, slow down progress increase
-        clearInterval(this.progressInterval);
-        this.progressInterval = setInterval(() => {
-          this.currentProgress += 0.5;
-          this.updateProgress(this.currentProgress);
-        }, 2000);
-      }
     }, 500);
+  }
+
+  stopProgressTracking() {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    this.isRunning = false;
   }
 
   complete() {
     this.updateProgress(100);
-    setTimeout(() => this.hide(), 1000);
+    setTimeout(() => this.hide(), 1500);
   }
 
   reset() {
     this.currentProgress = 0;
     this.eventCount = 0;
-    this.timeUnits = 0;
     this.startTime = null;
+    this.isRunning = false;
   }
 }
 

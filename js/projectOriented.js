@@ -335,29 +335,204 @@ document.addEventListener('DOMContentLoaded', () => {
     document.head.appendChild(styleElement);
   }
   
-  // Adicionar nova linha de processador
-  function addProcessorRow() {
-    const newRow = document.createElement('div');
-    newRow.className = 'mconfig-processor-row';
+  
+// Cache for processor instances mapping
+let processorInstancesMap = {};
+
+// Parse Verilog files to extract processor instances
+async function parseProcessorInstances() {
+  try {
+    processorInstancesMap = {};
     
-    newRow.innerHTML = `
-      <div class="mconfig-select-container">
-        <select class="processor-select mconfig-select">
-          <option value="">Select Processor</option>
-          ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
-        </select>
-      </div>
-      <div class="mconfig-form-group instance-name-group">
-        <input type="text" class="processor-instance mconfig-input" placeholder="Instance name">
-      </div>
-      <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
-        <i class="fa-solid fa-trash"></i>
-      </button>
-    `;
+    // Initialize map for all available processors
+    for (const processor of availableProcessors) {
+      processorInstancesMap[processor] = [];
+    }
     
-    processorsList.appendChild(newRow);
+    // Get project path
+    let projectPath = window.currentProjectPath;
+    if (!projectPath) {
+      const projectData = await window.electronAPI.getCurrentProject();
+      projectPath = projectData?.projectPath;
+    }
+    
+    if (!projectPath) return;
+    
+    // Check for Top Level folder
+    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
+    const topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
+    const searchPath = topLevelExists ? topLevelPath : projectPath;
+    
+    // Get all .v files in the search path
+    const verilogFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.v');
+    
+    // Process each .v file to find processor instances
+    for (const verilogFile of verilogFiles) {
+      const fileContent = await window.electronAPI.readFile(verilogFile);
+      extractAllInstancesFromContent(fileContent);
+    }
+    
+    console.log('Processor instances map:', processorInstancesMap);
+  } catch (error) {
+    console.error('Error parsing processor instances:', error);
+  }
+}
+
+// Extract all processor instances from a single Verilog file content
+function extractAllInstancesFromContent(content) {
+  const lines = content.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip comments
+    if (line.startsWith('//') || line.startsWith('/*')) continue;
+    
+    // Check each available processor
+    for (const processorName of availableProcessors) {
+      if (line.includes(processorName)) {
+        // Check if this line contains processor instantiation
+        let instanceLine = line;
+        let lineIndex = i;
+        
+        // Sometimes the instance name is on the next line, so we concatenate lines
+        // until we find the opening parenthesis
+        while (lineIndex < lines.length - 1 && !instanceLine.includes('(')) {
+          lineIndex++;
+          instanceLine += ' ' + lines[lineIndex].trim();
+        }
+        
+        // Extract instance name using regex
+        // Pattern: processor_name instance_name (
+        const regex = new RegExp(`\\b${processorName}\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(`);
+        const match = instanceLine.match(regex);
+        
+        if (match && match[1]) {
+          const instanceName = match[1];
+          // Add instance to the processor if not already present
+          if (!processorInstancesMap[processorName].includes(instanceName)) {
+            processorInstancesMap[processorName].push(instanceName);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Update processor row to use select for instances
+function addProcessorRow() {
+  const newRow = document.createElement('div');
+  newRow.className = 'mconfig-processor-row';
+  
+  newRow.innerHTML = `
+    <div class="mconfig-select-container">
+      <select class="processor-select mconfig-select">
+        <option value="">Select Processor</option>
+        ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
+      </select>
+    </div>
+    <div class="mconfig-select-container">
+      <select class="processor-instance mconfig-select" disabled>
+        <option value="">Select Instance</option>
+      </select>
+    </div>
+    <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+      <i class="fa-solid fa-trash"></i>
+    </button>
+  `;
+  
+  // Add event listeners
+  const processorSelect = newRow.querySelector('.processor-select');
+  const instanceSelect = newRow.querySelector('.processor-instance');
+  
+  processorSelect.addEventListener('change', function() {
+    updateInstanceSelect(this.value, instanceSelect);
+    // Refresh other selects when processor changes
+    setTimeout(refreshAllInstanceSelects, 100);
+  });
+  
+  instanceSelect.addEventListener('change', function() {
+    // Refresh other selects when instance changes
+    setTimeout(refreshAllInstanceSelects, 100);
+  });
+  
+  processorsList.appendChild(newRow);
+}
+
+// Update instance select based on processor selection
+function updateInstanceSelect(processorName, instanceSelect) {
+  // Clear current options
+  instanceSelect.innerHTML = '<option value="">Select Instance</option>';
+  
+  if (!processorName || !processorInstancesMap[processorName]) {
+    instanceSelect.disabled = true;
+    return;
   }
   
+  // Get available instances for this specific processor
+  const availableInstances = processorInstancesMap[processorName];
+  const usedInstances = getUsedInstances();
+  
+  // Add available instances (excluding already used ones)
+  const unusedInstances = availableInstances.filter(instance => !usedInstances.includes(instance));
+  
+  unusedInstances.forEach(instance => {
+    const option = document.createElement('option');
+    option.value = instance;
+    option.textContent = instance;
+    instanceSelect.appendChild(option);
+  });
+  
+  // Enable/disable based on available instances
+  instanceSelect.disabled = unusedInstances.length === 0;
+  
+  // Show message if no instances available
+  if (availableInstances.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No instances found';
+    instanceSelect.appendChild(option);
+  } else if (unusedInstances.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'All instances already used';
+    instanceSelect.appendChild(option);
+  }
+}
+
+// Get list of currently used instances
+function getUsedInstances() {
+  const usedInstances = [];
+  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  
+  processorRows.forEach(row => {
+    const instanceSelect = row.querySelector('.processor-instance');
+    if (instanceSelect && instanceSelect.value) {
+      usedInstances.push(instanceSelect.value);
+    }
+  });
+  
+  return usedInstances;
+}
+
+  function refreshAllInstanceSelects() {
+  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  
+  processorRows.forEach(row => {
+    const processorSelect = row.querySelector('.processor-select');
+    const instanceSelect = row.querySelector('.processor-instance');
+    
+    if (processorSelect && instanceSelect && processorSelect.value) {
+      const currentValue = instanceSelect.value;
+      updateInstanceSelect(processorSelect.value, instanceSelect);
+      // Restore selection if still valid
+      if (instanceSelect.querySelector(`option[value="${currentValue}"]`)) {
+        instanceSelect.value = currentValue;
+      }
+    }
+  });
+}
+
   // Carregar arquivos .v e .gtkw para as listas suspensas
   async function loadFileOptions() {
     try {
@@ -511,20 +686,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 }
 
-  // Antes de abrir o modal, carregar arquivos e configuração atual
-  async function prepareModalBeforeOpen() {
-    // Carregar processadores disponíveis
-    await loadAvailableProcessors();
-    
-    // Carregar arquivos para as listas suspensas
-    await loadFileOptions();
-    
-    // Carregar configurações salvas anteriormente
-    await loadProjectConfiguration();
-    
-    // Adicionar prompt visual para o usuário escolher as opções se for a primeira vez
-    showFileSelectionPrompt();
-  }
+// Update prepareModalBeforeOpen to include instance parsing
+// Update prepareModalBeforeOpen to include instance parsing
+async function prepareModalBeforeOpen() {
+  await loadAvailableProcessors();
+  await loadFileOptions();
+  await parseProcessorInstances(); // Parse instances from all .v files
+  await loadProjectConfiguration();
+  showFileSelectionPrompt();
+}
   
   // Mostrar um prompt visual para selecionar arquivos se for necessário
   function showFileSelectionPrompt() {
@@ -695,40 +865,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Limpar lista de processadores e adicionar os salvos
-    if (processorsList) {
-      // Limpar lista de processadores
-      processorsList.innerHTML = '';
-      
-      // Adicionar processadores da configuração
-      if (currentConfig.processors && currentConfig.processors.length > 0) {
-        currentConfig.processors.forEach(processor => {
-          const newRow = document.createElement('div');
-          newRow.className = 'mconfig-processor-row';
-          
-          newRow.innerHTML = `
-            <div class="mconfig-select-container">
-              <select class="processor-select mconfig-select">
-                <option value="">Select Processor</option>
-                ${availableProcessors.map(proc => 
-                  `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
-                ).join('')}
-              </select>
-            </div>
-            <div class="mconfig-form-group instance-name-group">
-              <input type="text" class="processor-instance mconfig-input" placeholder="Instance name" value="${processor.instance || ''}">
-            </div>
-            <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          `;
-          
-          processorsList.appendChild(newRow);
+     // Clear and rebuild processor list
+  if (processorsList) {
+    processorsList.innerHTML = '';
+    
+    if (currentConfig.processors && currentConfig.processors.length > 0) {
+      currentConfig.processors.forEach(processor => {
+        const newRow = document.createElement('div');
+        newRow.className = 'mconfig-processor-row';
+        
+        newRow.innerHTML = `
+          <div class="mconfig-select-container">
+            <select class="processor-select mconfig-select">
+              <option value="">Select Processor</option>
+              ${availableProcessors.map(proc => 
+                `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div class="mconfig-select-container">
+            <select class="processor-instance mconfig-select">
+              <option value="">Select Instance</option>
+            </select>
+          </div>
+          <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        `;
+        
+        processorsList.appendChild(newRow);
+        
+        // Setup event listeners and populate instance select
+        const processorSelect = newRow.querySelector('.processor-select');
+        const instanceSelect = newRow.querySelector('.processor-instance');
+        
+        processorSelect.addEventListener('change', function() {
+          updateInstanceSelect(this.value, instanceSelect);
+          // Refresh other selects to update available options
+          setTimeout(refreshAllInstanceSelects, 100);
         });
-      } else {
-        // Adicionar uma linha em branco para começar
-        addProcessorRow();
-      }
+        
+        // Add event listener for instance selection to refresh other selects
+        instanceSelect.addEventListener('change', function() {
+          setTimeout(refreshAllInstanceSelects, 100);
+        });
+        
+        // Populate instances for the selected processor
+        if (processor.type) {
+          updateInstanceSelect(processor.type, instanceSelect);
+          if (processor.instance) {
+            instanceSelect.value = processor.instance;
+          }
+        }
+      });
+    } else {
+      addProcessorRow();
     }
+  }
     
     // Atualizar flags do iverilog
     if (iverilogFlags) {
@@ -769,32 +962,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Função para coletar dados do formulário
-  function collectFormData() {
-    const config = {
-      topLevelFile: topLevelSelect ? topLevelSelect.value : '',
-      testbenchFile: testbenchSelect ? testbenchSelect.value : '',
-      gtkwaveFile: gtkwaveSelect ? gtkwaveSelect.value : '',
-      processors: [],
-      iverilogFlags: iverilogFlags ? iverilogFlags.value : ''
-    };
+// Update collectFormData to use instance selects
+function collectFormData() {
+  const config = {
+    topLevelFile: topLevelSelect ? topLevelSelect.value : '',
+    testbenchFile: testbenchSelect ? testbenchSelect.value : '',
+    gtkwaveFile: gtkwaveSelect ? gtkwaveSelect.value : '',
+    processors: [],
+    iverilogFlags: iverilogFlags ? iverilogFlags.value : ''
+  };
+  
+  // Collect processor data
+  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  processorRows.forEach(row => {
+    const processorSelect = row.querySelector('.processor-select');
+    const instanceSelect = row.querySelector('.processor-instance');
     
-    // Coletar dados dos processadores
-    const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
-    processorRows.forEach(row => {
-      const processorSelect = row.querySelector('.processor-select');
-      const instanceInput = row.querySelector('.processor-instance');
-      
-      if (processorSelect && instanceInput && instanceInput.value.trim()) {
-        config.processors.push({
-          type: processorSelect.value,
-          instance: instanceInput.value.trim()
-        });
-      }
-    });
-    
-    return config;
-  }
+    if (processorSelect && instanceSelect && processorSelect.value && instanceSelect.value) {
+      config.processors.push({
+        type: processorSelect.value,
+        instance: instanceSelect.value
+      });
+    }
+  });
+  
+  return config;
+}
   
   // Função para atualizar a exibição dos tipos de processadores
 async function updateProcessorStatus() {

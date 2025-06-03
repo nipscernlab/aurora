@@ -57,7 +57,6 @@
 
 /*TESTE*/
 
-
 .section-title {
   font-size: 1.1rem;
   margin-bottom: 10px;
@@ -131,6 +130,8 @@
   backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .vvp-progress-container::before {
@@ -197,7 +198,6 @@
   overflow: hidden;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 
 .vvp-progress-fill::before {
   content: '';
@@ -304,6 +304,23 @@
   }
 }
 
+@media screen and (max-width: 480px) {
+  .vvp-progress-container {
+    padding: 0.75rem;
+  }
+  
+  .vvp-progress-text {
+    font-size: 0.8rem;
+  }
+  
+  .vvp-progress-percentage {
+    font-size: 0.8rem;
+  }
+  
+  .vvp-progress-stats {
+    font-size: 0.7rem;
+  }
+}
 
 /* Animação de fade out suave */
 .vvp-progress-container.fade-out {
@@ -356,23 +373,6 @@
   100% { width: 100%; }
 }
 
-@media screen and (max-width: 480px) {
-  .vvp-progress-container {
-    padding: 0.75rem;
-  }
-  
-  .vvp-progress-text {
-    font-size: 0.8rem;
-  }
-  
-  .vvp-progress-percentage {
-    font-size: 0.8rem;
-  }
-  
-  .vvp-progress-stats {
-    font-size: 0.7rem;
-  }
-}
 /* Hide old spinner when progress bar is active */
 .vvp-spinner-line.with-progress {
   display: none;
@@ -393,30 +393,6 @@
 
 .vvp-spinner-line.active {
     display: flex;
-}
-
-.vvp-spinner-icon {
-    color: var(--accent-primary);
-    animation: spin 1s linear infinite;
-}
-
-.vvp-spinner-text {
-    font-weight: 500;
-}
-
-.vvp-spinner-dots {
-    color: var(--text-muted);
-    animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
 }
 
 /* Estilos responsivos para a toolbar */

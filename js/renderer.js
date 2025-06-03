@@ -5673,7 +5673,7 @@ function setupProgressObserver() {
   });
 }
 
-// Simplified VVP Progress Manager
+// Fixed VVP Progress Manager
 class VVPProgressManager {
   constructor() {
     this.startTime = null;
@@ -5681,12 +5681,13 @@ class VVPProgressManager {
     this.progressInterval = null;
     this.eventCount = 0;
     this.isRunning = false;
+    this.lastProgressValue = 0; // Track last explicit progress value
   }
 
   show() {
     const container = document.getElementById('vvp-progress-container');
     if (container) {
-      container.style.display = 'flex';           // <— aqui tiramos o "display: none"
+      container.style.display = 'flex';
       container.classList.remove('fade-out');
     }
     this.reset();
@@ -5696,7 +5697,6 @@ class VVPProgressManager {
     this.startProgressTracking();
   }
 
-
   hide() {
     const container = document.getElementById('vvp-progress-container');
     if (container) {
@@ -5704,14 +5704,13 @@ class VVPProgressManager {
       setTimeout(() => {
         container.style.display = 'none';
         container.classList.remove('fade-out');
-      }, 500);
+      }, 500);   
     }
     this.stopProgressTracking();
     this.reset();
   }
 
   updateProgress(percentage) {
-    // Garante que fique entre 0 e 100
     this.currentProgress = Math.min(100, Math.max(0, percentage));
 
     const fillEl = document.getElementById('vvp-progress-fill');
@@ -5720,14 +5719,13 @@ class VVPProgressManager {
     if (fillEl) {
       fillEl.style.width = `${this.currentProgress}%`;
       fillEl.style.transition = 'width 0.3s ease';
-      // Força reflow para garantir que a mudança seja aplicada imediatamente
       void fillEl.offsetWidth;
     }
     if (percEl) {
       percEl.textContent = `${Math.round(this.currentProgress)}%`;
     }
 
-    console.log(`VVP Progress (fallback): ${this.currentProgress}%`);
+    console.log(`VVP Progress: ${this.currentProgress}%`);
   }
 
   updateStats(elapsed, events) {
@@ -5738,62 +5736,90 @@ class VVPProgressManager {
     if (eventsEl) eventsEl.textContent = events.toLocaleString();
   }
 
-  // Chamado sempre que o VVP emite um chunk de saída
+  // Enhanced parsing for VVP output
   parseVVPOutput(output) {
     if (!output || !this.isRunning) return;
 
-    // Verifica se há “Progress:  XX%” explícito
-    const progressMatch = output.match(/Progress:\s*(\d+)%/);
-    if (progressMatch) {
-      const value = parseInt(progressMatch[1], 10);
-      if (value > this.currentProgress) {
-        this.updateProgress(value);
+    console.log('VVP Output received:', output); // Debug log
+
+    // Split output into lines for better processing
+    const lines = output.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      // Look for explicit progress percentages - more flexible pattern
+      const progressMatch = trimmedLine.match(/Progress:\s*(\d+)%\s*complete/i);
+      if (progressMatch) {
+        const value = parseInt(progressMatch[1], 10);
+        if (value >= this.lastProgressValue) {
+          this.lastProgressValue = value;
+          this.updateProgress(value);
+          console.log(`VVP explicit progress found: ${value}%`);
+        }
+      }
+
+      // Count events more accurately
+      // VCD dump events
+      if (trimmedLine.includes('$dumpfile') || trimmedLine.includes('$dumpvars')) {
+        this.eventCount += 1;
+      }
+
+      // Time progression events (simulation time changes)
+      if (trimmedLine.includes('called at') && trimmedLine.includes('(1ps)')) {
+        this.eventCount += 1;
+      }
+
+      // Display statements (each progress message counts as an event)
+      if (trimmedLine.includes('Progress:') || trimmedLine.includes('complete')) {
+        this.eventCount += 1;
+      }
+
+      // FST events
+      if (trimmedLine.includes('FST info:') || trimmedLine.includes('dumpfile') && trimmedLine.includes('opened')) {
+        this.eventCount += 1;
+      }
+
+      // Check for completion indicators
+      if (trimmedLine.includes('$finish') || 
+          trimmedLine.includes('Simulation Complete!') || 
+          trimmedLine.includes('100% complete')) {
+        console.log('VVP simulation completion detected');
+        this.complete();
+        return;
       }
     }
 
-    // Conta eventos: linhas “#123” ou comandos “$…”
-    const timeEvents = output.match(/#\d+/g) || [];
-    const simEvents = output.match(/^\s*\$[a-zA-Z]+/gm) || [];
-    this.eventCount += timeEvents.length + simEvents.length;
-
-    // Atualiza estatísticas de tempo+eventos
-    const elapsed = Date.now() - this.startTime;
-    this.updateStats(elapsed, this.eventCount);
-
-    // Se detectar fim explícito, pula para 100%
-    if (output.includes('$finish') || output.includes('Simulation Complete')) {
-      this.complete();
+    // Update stats with current time and events
+    if (this.startTime) {
+      const elapsed = Date.now() - this.startTime;
+      this.updateStats(elapsed, this.eventCount);
     }
   }
 
   startProgressTracking() {
-    // A cada 500ms, se ainda estiver rodando e sem progresso real, vai
-    // aumentar de forma gradual até no máximo 90%, deixando os 10% finais
-    // quando o VVP realmente emitir “100%” ou “$finish”.
+    // Reduced fallback progression - only used if no explicit progress is found
     this.progressInterval = setInterval(() => {
       if (!this.isRunning) return;
 
       const elapsed = Date.now() - this.startTime;
 
-      // Somente se o progresso ainda estiver abaixo de 95% (para deixar
-      // margem de transição suave quando o VVP mandar a porcentagem real)
-      if (this.currentProgress < 95) {
-        // Em 30 segundos o “estimate” chega a 100%, mas limitamos a 90%
-        const estimate = Math.min(90, (elapsed / 30000) * 100);
-
+      // Only use fallback if we haven't received any explicit progress updates
+      if (this.lastProgressValue === 0 && this.currentProgress < 85) {
+        // Much slower fallback progression
+        const estimate = Math.min(85, (elapsed / 60000) * 100); // 85% in 60 seconds
+        
         if (estimate > this.currentProgress) {
-          // O incremento cai à medida que nos aproximamos de 95%
-          const inc = Math.max(0.5, (95 - this.currentProgress) * 0.02);
-          this.currentProgress += inc;
-
-          // Chama updateProgress para atualizar a largura e o texto “XX%”
+          const increment = Math.max(0.2, (85 - this.currentProgress) * 0.01);
+          this.currentProgress += increment;
           this.updateProgress(this.currentProgress);
         }
       }
 
-      // Atualiza tempo e eventos mesmo no fallback
+      // Always update stats
       this.updateStats(elapsed, this.eventCount);
-    }, 500);
+    }, 1000); // Update every second instead of 500ms
   }
 
   stopProgressTracking() {
@@ -5812,10 +5838,11 @@ class VVPProgressManager {
     this.eventCount = 0;
     this.startTime = null;
     this.isRunning = false;
+    this.lastProgressValue = 0;
   }
 }
 
-// Uso global:
+// Global instance
 const vvpProgressManager = new VVPProgressManager();
 
 

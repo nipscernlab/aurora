@@ -839,32 +839,97 @@ ipcMain.handle('exec-command', (event, command) => {
   });
 });
 
-// Replace your existing exec-command handler:
+// Enhanced IPC handler for better VVP output streaming
 ipcMain.handle('exec-command-stream', (event, command) => {
   return new Promise((resolve, reject) => {
-    const child = exec(command, { maxBuffer: 1024 * 1024 * 10 });
+    const { exec } = require('child_process');
+    
+    // Use exec with shell but with streaming capabilities
+    const child = exec(command, {
+      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+      encoding: 'utf8'
+    });
     
     let stdout = '';
     let stderr = '';
 
+    // Buffer for managing partial output
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    const processOutput = (buffer, type) => {
+      const lines = buffer.split('\n');
+      
+      // Process all complete lines
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i];
+        if (line.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: type, 
+            data: line + '\n'
+          });
+        }
+      }
+      
+      // Return the last partial line
+      return lines[lines.length - 1];
+    };
+
     child.stdout.on('data', (data) => {
-      const output = data.toString();
+      const output = data.toString('utf8');
       stdout += output;
-      // Send real-time output for progress parsing
-      event.sender.send('command-output-stream', { type: 'stdout', data: output });
+      stdoutBuffer += output;
+      
+      // Process complete lines and keep partial line in buffer
+      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
+      
+      // Also send immediately if we detect progress indicators
+      if (output.includes('Progress:') || output.includes('%') || output.includes('complete')) {
+        if (stdoutBuffer.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: 'stdout', 
+            data: stdoutBuffer 
+          });
+          stdoutBuffer = '';
+        }
+      }
     });
 
     child.stderr.on('data', (data) => {
-      const errorOutput = data.toString();
+      const errorOutput = data.toString('utf8');
       stderr += errorOutput;
-      event.sender.send('command-output-stream', { type: 'stderr', data: errorOutput });
+      stderrBuffer += errorOutput;
+      
+      // Process stderr lines
+      stderrBuffer = processOutput(stderrBuffer, 'stderr');
     });
 
     child.on('close', (code) => {
-      resolve({ code, stdout, stderr, pid: child.pid });
+      // Send any remaining buffered output
+      if (stdoutBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stdout', 
+          data: stdoutBuffer 
+        });
+      }
+      if (stderrBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stderr', 
+          data: stderrBuffer 
+        });
+      }
+      
+      resolve({ 
+        code, 
+        stdout, 
+        stderr, 
+        pid: child.pid 
+      });
     });
 
-    child.on('error', (err) => reject(err));
+    child.on('error', (err) => {
+      reject(err);
+    });
   });
 });
 

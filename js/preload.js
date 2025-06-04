@@ -81,6 +81,7 @@ const projectOperations = {
       };
     }
   },
+  getPerformanceStats: () => ipcRenderer.invoke('get-performance-stats'),
   joinPath: (...args) => require('path').join(...args),
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
@@ -88,7 +89,8 @@ const projectOperations = {
 
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
-    
+  killProcessByName: (processName) => ipcRenderer.invoke('kill-process-by-name', processName),
+  checkProcessRunning: (pid) => ipcRenderer.invoke('check-process-running', pid),    
   // Check if file/directory exists
   pathExists: (path) => ipcRenderer.invoke('path-exists', path),
 

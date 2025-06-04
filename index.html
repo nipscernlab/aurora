@@ -391,11 +391,31 @@
     <!-- File Tree Section -->
     <div class="file-tree-container">
       <div class="file-tree-header">
-        <span>FILE TREE</span>
-        <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><br>
-        <span id="current-spf-name" title="Project Currently Open">No project open</span>
-        <span title="Open Project Folder" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i></span>
-      </div>
+  <span>FILE TREE</span>
+  <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i></span><br>
+  <span id="current-spf-name" title="Project Currently Open">No project open</span>
+  <span title="Open Project Folder" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i></span>
+  
+  <!-- Search Section -->
+  <div class="file-search-container">
+    <div class="search-input-wrapper">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input 
+        type="text" 
+        id="file-search-input" 
+        class="search-input" 
+        placeholder="Search files..."
+        autocomplete="off"
+      >
+      <button id="clear-search" class="clear-search-btn" title="Clear search">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="search-results-info">
+      <span id="search-results-count"></span>
+    </div>
+  </div>
+</div>
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
       <div class="resizer-vertical"></div>
@@ -636,34 +656,125 @@
   </div>
 </div>
 
-
-<!-- About Modal da Aurora IDE -->
+<!-- Modern About Modal -->
 <div class="aurora-about-modal aurora-about-hidden" id="auroraAboutModal">
-  <div class="aurora-about-overlay" onclick="closeAuroraAboutModal()"></div>
-  <div class="aurora-about-content">
-    <div class="aurora-about-header">
-      <h2 class="aurora-about-title">Sobre a Aurora IDE</h2>
-      <button class="aurora-about-close" onclick="closeAuroraAboutModal()">×</button>
+    <div class="aurora-about-overlay" onclick="closeAuroraAboutModal()"></div>
+    <div class="aurora-about-content">
+        <div class="aurora-about-header">
+            <h2 class="aurora-about-title">
+                <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Logo" class="aurora-about-icon" />
+                About Aurora IDE
+            </h2>
+            <button class="aurora-about-close" onclick="closeAuroraAboutModal()">×</button>
+        </div>
+        
+        <div class="aurora-about-body">
+            <!-- Application Info Grid -->
+            <div class="aurora-about-grid">
+                <div class="aurora-about-card">
+                    <h3 class="aurora-about-card-title">Application Info</h3>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Version</span>
+                        <span class="aurora-about-value" id="aurora-app-version">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Build Date</span>
+                        <span class="aurora-about-value" id="aurora-build-date">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Environment</span>
+                        <span class="aurora-about-value" id="aurora-environment">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="aurora-about-card">
+                    <h3 class="aurora-about-card-title">System Information</h3>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Operating System</span>
+                        <span class="aurora-about-value" id="aurora-os-info">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Architecture</span>
+                        <span class="aurora-about-value" id="aurora-arch">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Total Memory</span>
+                        <span class="aurora-about-value" id="aurora-memory">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="aurora-about-card">
+                    <h3 class="aurora-about-card-title">Runtime Versions</h3>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Electron</span>
+                        <span class="aurora-about-value" id="aurora-electron-version">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Chrome</span>
+                        <span class="aurora-about-value" id="aurora-chrome-version">Loading...</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Node.js</span>
+                        <span class="aurora-about-value" id="aurora-node-version">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="aurora-about-card">
+                    <h3 class="aurora-about-card-title">Development Team</h3>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Developed by</span>
+                        <span class="aurora-about-value">NIPSCERN</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Collaboration</span>
+                        <span class="aurora-about-value">CERN + OpenSource</span>
+                    </div>
+                    <div class="aurora-about-info">
+                        <span class="aurora-about-label">Repository</span>
+                        <span class="aurora-about-value">
+                            <a href="https://github.com/nipscernlab/aurora" target="_blank" class="aurora-about-link">
+                                github.com/nipscern/aurora
+                            </a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Stats -->
+            <div class="aurora-about-stats">
+                <div class="aurora-about-stat">
+                    <span class="aurora-about-stat-value" id="aurora-uptime">0s</span>
+                    <span class="aurora-about-stat-label">Uptime</span>
+                </div>
+                <div class="aurora-about-stat">
+                    <span class="aurora-about-stat-value" id="aurora-memory-usage">0 MB</span>
+                    <span class="aurora-about-stat-label">Memory Usage</span>
+                </div>
+                <div class="aurora-about-stat">
+                    <span class="aurora-about-stat-value" id="aurora-cpu-usage">0%</span>
+                    <span class="aurora-about-stat-label">CPU Usage</span>
+                </div>
+            </div>
+
+            <!-- Technology Badges -->
+            <div class="aurora-about-badges">
+                <span class="aurora-about-badge">Electron</span>
+                <span class="aurora-about-badge">JavaScript</span>
+                <span class="aurora-about-badge">Node.js</span>
+                <span class="aurora-about-badge">HTML5</span>
+                <span class="aurora-about-badge">CSS3</span>
+                <span class="aurora-about-badge">Verilog</span>
+            </div>
+        </div>
+
+        <div class="aurora-about-footer">
+            <p class="aurora-about-description">
+                Aurora IDE is a modern, cross-platform integrated development environment designed for 
+                hardware description languages and digital circuit design. Built with cutting-edge web 
+                technologies and powered by Electron.
+            </p>
+        </div>
     </div>
-    <div class="aurora-about-body">
-      <div class="aurora-about-info">
-        <span class="aurora-about-label">Versão</span>
-        <span class="aurora-about-value">1.0.0</span>
-      </div>
-      <div class="aurora-about-info">
-        <span class="aurora-about-label">Desenvolvido por</span>
-        <span class="aurora-about-value">NIPSCERN</span>
-      </div>
-      <div class="aurora-about-info">
-        <span class="aurora-about-label">Colaboração</span>
-        <span class="aurora-about-value">CERN + OpenSource</span>
-      </div>
-      <div class="aurora-about-info">
-        <span class="aurora-about-label">GitHub</span>
-        <span class="aurora-about-value"><a href="https://github.com/nipscern/aurora" target="_blank">/nipscern/aurora</a></span>
-      </div>
-    </div>
-  </div>
 </div>
     <!-- Theme Customizer Modal -->
     <div id="themeModal" class="theme-modal">

@@ -33,6 +33,7 @@ let downloadInProgress = false;
 let updateCheckInProgress = false;
 let updateAvailable = false;
 let updateInfo = null;
+let updateSystemInitialized = false;
 
 // Configure auto-updater logging
 autoUpdater.logger = log;
@@ -129,6 +130,10 @@ if (process.platform === 'win32') {
   // Handle app quit
   app.on('before-quit', () => {
     isQuitting = true;
+     if (tray) {
+    tray.destroy();
+    tray = null;
+  }
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -142,14 +147,6 @@ if (process.platform === 'win32') {
   });
 }
 
-// Handle app quit event
-app.on('before-quit', () => {
-  isQuitting = true;
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-});
 
 // Create a modern progress window for updates
 function createProgressWindow() {
@@ -219,14 +216,10 @@ function checkForUpdates(showNoUpdateDialog = false) {
   updateCheckInProgress = true;
   log.info('Checking for updates...');
 
-  // **FORCE apenas releases oficiais (padrão “latest”)**
   autoUpdater.allowPrerelease = false;
-  autoUpdater.channel      = 'latest';
-
-  // Store whether to show "no update" dialog
+  autoUpdater.channel = 'latest';
   autoUpdater.showNoUpdateDialog = showNoUpdateDialog;
 
-  // Clear cache before checking for updates
   clearUpdateCache().then(() => {
     log.info('Cache cleared, starting update check...');
     autoUpdater.checkForUpdates().catch((error) => {
@@ -241,7 +234,6 @@ function checkForUpdates(showNoUpdateDialog = false) {
     });
   });
 }
-
 
 // Clear update cache for fresh downloads
 async function clearUpdateCache() {
@@ -265,13 +257,14 @@ async function clearUpdateCache() {
 }
 
 function setupAutoUpdaterEvents() {
-  // Checking for update event (ADICIONAR)
+  // CORREÇÃO: Limpar listeners existentes
+  autoUpdater.removeAllListeners();
+  
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
     updateCheckInProgress = true;
   });
 
-  // Update available event (MELHORAR)
   autoUpdater.on('update-available', async (info) => {
     updateCheckInProgress = false;
     updateAvailable = true;
@@ -279,7 +272,6 @@ function setupAutoUpdaterEvents() {
     
     log.info(`New version available: ${info.version}, current version: ${app.getVersion()}`);
     
-    // Garantir que a janela principal existe
     if (!mainWindow || mainWindow.isDestroyed()) {
       log.error('Main window not available for update dialog');
       return;
@@ -311,13 +303,11 @@ function setupAutoUpdaterEvents() {
     }
   });
 
-  // No update available event (MELHORAR)
   autoUpdater.on('update-not-available', (info) => {
     updateCheckInProgress = false;
     updateAvailable = false;
     log.info('No updates available');
     
-    // Show dialog only if explicitly requested (manual check)
     if (autoUpdater.showNoUpdateDialog && mainWindow && !mainWindow.isDestroyed()) {
       dialog.showMessageBox(mainWindow, {
         type: 'info',
@@ -333,65 +323,23 @@ function setupAutoUpdaterEvents() {
     autoUpdater.showNoUpdateDialog = false;
   });
 
-  // Error handling (MELHORAR)
-  autoUpdater.on('error', async (error) => {
-    updateCheckInProgress = false;
-    downloadInProgress = false;
-    
-    log.error('Update error:', error);
-    
-    // Close progress window if open
-    if (progressWindow && !progressWindow.isDestroyed()) {
-      progressWindow.close();
-      progressWindow = null;
-    }
-
-    // Show user-friendly error message only for manual checks
-    if (autoUpdater.showNoUpdateDialog && mainWindow && !mainWindow.isDestroyed()) {
-      let errorMessage = 'An error occurred while checking for updates.';
-      
-      if (error.message.includes('net::')) {
-        errorMessage = 'Unable to connect to the update server. Please check your internet connection.';
-      } else if (error.message.includes('signature')) {
-        errorMessage = 'Update verification failed. Please try again later.';
-      } else if (error.message.includes('ENOSPC')) {
-        errorMessage = 'Not enough disk space to download the update.';
-      } else if (error.message.includes('EACCES')) {
-        errorMessage = 'Permission denied. Please run as administrator or check file permissions.';
-      }
-
-      try {
-        await dialog.showMessageBox(mainWindow, {
-          type: 'error',
-          title: 'Update Error',
-          message: 'Update Failed',
-          detail: `${errorMessage}\n\nError details: ${error.message}`,
-          buttons: ['OK'],
-          icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
-        });
-      } catch (dialogError) {
-        log.error('Error showing error dialog:', dialogError);
-      }
-    }
-    
-    autoUpdater.showNoUpdateDialog = false;
-  });
-
   // Download progress event with enhanced tracking
-  autoUpdater.on('download-progress', (progress) => {
-    const percent = Math.round(progress.percent);
-    const transferred = (progress.transferred / 1048576).toFixed(1);
-    const total = (progress.total / 1048576).toFixed(1);
-    const speed = (progress.bytesPerSecond / 1048576).toFixed(1);
+   autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    const transferred = (progressObj.transferred / 1048576).toFixed(1);
+    const total = (progressObj.total / 1048576).toFixed(1);
+    const bytesPerSecond = progressObj.bytesPerSecond || 0;
+    const speed = (bytesPerSecond / 1048576).toFixed(1);
     
     log.info(`Download progress: ${percent}% (${transferred}/${total} MB) at ${speed} MB/s`);
     
     if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.webContents.send('update-progress', {
-        percent,
-        transferred,
-        total,
-        speed
+        percent: percent,
+        transferred: transferred,
+        total: total,
+        speed: parseFloat(speed),
+        bytesPerSecond: bytesPerSecond
       });
     }
   });
@@ -402,13 +350,11 @@ function setupAutoUpdaterEvents() {
     
     log.info('Update downloaded successfully');
     
-    // Close progress window
     if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.close();
       progressWindow = null;
     }
 
-    // Show install confirmation dialog
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready to Install',
@@ -421,31 +367,26 @@ function setupAutoUpdaterEvents() {
     });
 
     if (response === 0) {
-      // Install update immediately
       log.info('User chose to install update now');
       setImmediate(() => {
         autoUpdater.quitAndInstall(false, true);
       });
     } else {
       log.info('User chose to install update later');
-      // We could add logic here to remind user about pending update
     }
   });
 
-  // Error handling with user notification
   autoUpdater.on('error', async (error) => {
     updateCheckInProgress = false;
     downloadInProgress = false;
     
     log.error('Update error:', error);
     
-    // Close progress window if open
     if (progressWindow && !progressWindow.isDestroyed()) {
       progressWindow.close();
       progressWindow = null;
     }
 
-    // Show user-friendly error message
     let errorMessage = 'An error occurred while checking for updates.';
     
     if (error.message.includes('net::')) {
@@ -468,7 +409,6 @@ function setupAutoUpdaterEvents() {
     });
   });
 
-  // Before quit for update event
   autoUpdater.on('before-quit-for-update', () => {
     log.info('Application will quit for update installation');
   });
@@ -480,14 +420,17 @@ function startUpdateDownload() {
     log.info('Download already in progress');
     return;
   }
+  
+  if (!updateAvailable) {
+    log.info('No update available to download');
+    return;
+  }
 
   downloadInProgress = true;
   log.info('Starting update download...');
   
-  // Create and show progress window
   createProgressWindow();
   
-  // Start the download
   autoUpdater.downloadUpdate().catch((error) => {
     log.error('Failed to start download:', error);
     downloadInProgress = false;
@@ -543,36 +486,39 @@ function setupIpcHandlers() {
   });
 }
 
-// Initialize the update system
 function initializeUpdateSystem() {
+  if (updateSystemInitialized) {
+    log.info('Update system already initialized');
+    return;
+  }
+  updateSystemInitialized = true;
+  
   log.info('Initializing update system...');
   
   // Configurar o autoUpdater ANTES de configurar os eventos
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   
-  // Configurar URL do servidor de updates (ADICIONAR)
- 
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: 'nipscernlab',
-      repo: 'Aurora',
-      releaseType: 'release'
-    });
-  
+  // CORREÇÃO: Remover autoUpdater.removeAllListeners() se existir
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'nipscernlab',
+    repo: 'Aurora',
+    releaseType: 'release'
+  });
   
   setupAutoUpdaterEvents();
   setupIpcHandlers();
   
-  // Check for updates on app start (com delay maior)
+  // CORREÇÃO: Verificar se já foi inicializado antes de fazer check
   setTimeout(() => {
-    if (!isDev) {
+    if (!isDev && !updateCheckInProgress) {
       log.info('Starting initial update check...');
       checkForUpdates(false);
     } else {
-      log.info('Skipping update check in development mode');
+      log.info('Skipping update check - dev mode or already in progress');
     }
-  }, 5000); // Aumentar para 5 segundos
+  }, 5000);
 }
 
 
@@ -933,16 +879,55 @@ ipcMain.handle('exec-command-stream', (event, command) => {
   });
 });
 
-// Handler for killing process by PID
+// Handler for killing process by PID - Enhanced version
 ipcMain.handle('kill-process', async (event, pid) => {
   return new Promise((resolve, reject) => {
-    exec(`taskkill /F /PID ${pid}`, (error, stdout, stderr) => {
+    // First try to kill the process tree (including child processes)
+    exec(`taskkill /F /T /PID ${pid}`, (error, stdout, stderr) => {
       if (error) {
-        console.error(`Error killing process ${pid}:`, error);
+        console.error(`Error killing process tree ${pid}:`, error);
+        // If tree kill fails, try individual process kill
+        exec(`taskkill /F /PID ${pid}`, (error2, stdout2, stderr2) => {
+          if (error2) {
+            console.error(`Error killing individual process ${pid}:`, error2);
+            reject(error2);
+          } else {
+            console.log(`Process ${pid} killed successfully (individual)`);
+            resolve({ stdout: stdout2, stderr: stderr2 });
+          }
+        });
+      } else {
+        console.log(`Process tree ${pid} killed successfully`);
+        resolve({ stdout, stderr });
+      }
+    });
+  });
+});
+
+// Alternative handler for killing process by name (backup method)
+ipcMain.handle('kill-process-by-name', async (event, processName) => {
+  return new Promise((resolve, reject) => {
+    exec(`taskkill /F /IM ${processName}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error killing process ${processName}:`, error);
         reject(error);
       } else {
-        console.log(`Process ${pid} killed successfully`);
+        console.log(`Process ${processName} killed successfully`);
         resolve({ stdout, stderr });
+      }
+    });
+  });
+});
+
+// Handler for checking if process is still running
+ipcMain.handle('check-process-running', async (event, pid) => {
+  return new Promise((resolve) => {
+    exec(`tasklist /FI "PID eq ${pid}"`, (error, stdout, stderr) => {
+      if (error) {
+        resolve(false);
+      } else {
+        const isRunning = stdout.includes(pid.toString());
+        resolve(isRunning);
       }
     });
   });
@@ -2078,14 +2063,34 @@ ipcMain.handle('clear-temp-folder', async () => {
 
 // Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
-// Handler to get app information
-ipcMain.handle('get-app-info', () => {
+// Handler for getting application information
+ipcMain.handle('get-app-info', async () => {
   return {
     appVersion: app.getVersion(),
     electronVersion: process.versions.electron,
     chromeVersion: process.versions.chrome,
     nodeVersion: process.versions.node,
-    osInfo: `${os.type()} ${os.release()} (${os.arch()})`
+    osInfo: `${os.type()} ${os.release()}`,
+    arch: os.arch(),
+    totalMemory: os.totalmem(),
+    buildDate: new Date().toLocaleDateString(),
+    environment: process.env.NODE_ENV || 'production'
+  };
+});
+
+// Handler for getting performance statistics
+ipcMain.handle('get-performance-stats', async () => {
+  const memUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
+  return {
+    uptime: process.uptime(),
+    memoryUsage: memUsage.heapUsed,
+    cpuUsage: Math.round((cpuUsage.user + cpuUsage.system) / 1000000), // Convert to percentage approximation
+    heapTotal: memUsage.heapTotal,
+    heapUsed: memUsage.heapUsed,
+    external: memUsage.external,
+    rss: memUsage.rss
   };
 });
 

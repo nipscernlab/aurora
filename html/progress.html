@@ -477,32 +477,31 @@
       }
 
       updateProgress(data) {
-        const now = Date.now();
-        const { percent, transferred, total, speed } = data;
+  const now = Date.now();
+  const { percent, transferred, total, speed } = data;
 
-        // Update progress bar and percentage
-        this.elements.progressBar.style.width = `${percent}%`;
-        this.elements.progressPercentage.textContent = `${percent}%`;
+  // Update progress bar and percentage
+  this.elements.progressBar.style.width = `${percent}%`;
+  this.elements.progressPercentage.textContent = `${percent}%`;
 
-        // Update transfer information
-        this.elements.transferredInfo.textContent = `${transferred} MB / ${total} MB`;
+  // Update transfer information
+  this.elements.transferredInfo.textContent = `${transferred} MB / ${total} MB`;
 
-        // Calculate and display speed with smoothing
-        this.updateDownloadHistory(transferred, now);
-        const smoothedSpeed = this.calculateSmoothSpeed();
-        this.elements.speedInfo.textContent = `${smoothedSpeed.toFixed(1)} MB/s`;
+  // Use the speed directly from autoUpdater (já calculada)
+  const currentSpeed = speed || 0;
+  this.elements.speedInfo.textContent = `${currentSpeed.toFixed(1)} MB/s`;
 
-        // Calculate and display ETA
-        const eta = this.calculateETA(transferred, total, smoothedSpeed);
-        this.elements.etaInfo.textContent = eta;
+  // Calculate and display ETA usando a velocidade real
+  const eta = this.calculateETA(transferred, total, currentSpeed);
+  this.elements.etaInfo.textContent = eta;
 
-        // Check if download is complete
-        if (percent >= 100) {
-          setTimeout(() => this.showCompletionState(), 500);
-        }
+  // Check if download is complete
+  if (percent >= 100) {
+    setTimeout(() => this.showCompletionState(), 500);
+  }
 
-        this.lastUpdate = now;
-      }
+  this.lastUpdate = now;
+}
 
       updateDownloadHistory(transferred, timestamp) {
         this.downloadHistory.push({
@@ -537,23 +536,22 @@
       }
 
       calculateETA(transferred, total, speed) {
-        if (speed <= 0) return 'Calculating...';
-        
-        const remaining = parseFloat(total) - parseFloat(transferred);
-        const secondsRemaining = remaining / speed;
-        
-        if (secondsRemaining < 60) {
-          return `${Math.ceil(secondsRemaining)} seconds`;
-        } else if (secondsRemaining < 3600) {
-          const minutes = Math.ceil(secondsRemaining / 60);
-          return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-        } else {
-          const hours = Math.floor(secondsRemaining / 3600);
-          const minutes = Math.ceil((secondsRemaining % 3600) / 60);
-          return `${hours}h ${minutes}m`;
-        }
-      }
-
+  if (speed <= 0) return 'Calculating...';
+  
+  const remaining = parseFloat(total) - parseFloat(transferred);
+  const secondsRemaining = remaining / speed;
+  
+  if (secondsRemaining < 60) {
+    return `${Math.ceil(secondsRemaining)} seconds`;
+  } else if (secondsRemaining < 3600) {
+    const minutes = Math.ceil(secondsRemaining / 60);
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  } else {
+    const hours = Math.floor(secondsRemaining / 3600);
+    const minutes = Math.ceil((secondsRemaining % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+}
       showCompletionState() {
         this.elements.downloadingState.style.display = 'none';
         this.elements.completionState.classList.add('show');

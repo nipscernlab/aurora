@@ -2956,6 +2956,570 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+// File Tree Search System
+class FileTreeSearch {
+  constructor() {
+    this.searchInput = null;
+    this.clearButton = null;
+    this.resultsCounter = null;
+    this.originalFileTree = new Map(); // Store original file tree state
+    this.searchResults = [];
+    this.isSearchActive = false;
+    this.debounceTimer = null;
+    
+    this.init();
+  }
+
+  init() {
+    this.createStyles();
+    this.setupEventListeners();
+  }
+
+  createStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* File Search Container */
+      .file-search-container {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--border-secondary);
+      }
+
+      /* Search Input Wrapper */
+      .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-lg);
+        transition: var(--transition-normal);
+        overflow: hidden;
+      }
+
+      .search-input-wrapper:focus-within {
+        border-color: var(--border-focus);
+        box-shadow: var(--shadow-focus);
+        background: var(--bg-secondary);
+      }
+
+      .search-input-wrapper:hover:not(:focus-within) {
+        border-color: var(--accent-muted);
+        background: var(--bg-hover);
+      }
+
+      /* Search Icon */
+      .search-icon {
+        position: absolute;
+        left: var(--space-3);
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+        pointer-events: none;
+        z-index: var(--z-10);
+        transition: var(--transition-fast);
+      }
+
+      .search-input-wrapper:focus-within .search-icon {
+        color: var(--accent-primary);
+      }
+
+      /* Search Input */
+      .search-input {
+        flex: 1;
+        padding: 4px 10px 4px 40px;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+        font-family: var(--font-sans);
+        line-height: var(--leading-normal);
+      }
+
+      .search-input::placeholder {
+        color: var(--text-muted);
+        font-weight: var(--font-normal);
+      }
+
+      .search-input:focus::placeholder {
+        color: var(--text-disabled);
+      }
+
+      /* Clear Search Button */
+      .clear-search-btn {
+        position: absolute;
+        right: var(--space-2);
+        width: 24px;
+        height: 24px;
+        background: var(--bg-hover);
+        border: none;
+        border-radius: var(--radius-full);
+        color: var(--text-muted);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(0.8);
+        transition: var(--transition-fast);
+        font-size: var(--text-xs);
+      }
+
+      .clear-search-btn:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+        transform: scale(1);
+      }
+
+      .clear-search-btn:active {
+        transform: scale(0.9);
+      }
+
+      .search-input-wrapper.has-content .clear-search-btn {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      /* Search Results Info */
+      .search-results-info {
+        margin-top: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        text-align: center;
+        min-height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .search-results-info.active {
+        color: var(--text-secondary);
+      }
+
+      /* File Tree Search States */
+      .file-tree.searching {
+        opacity: 0.9;
+      }
+
+      .file-tree-item.search-hidden {
+        display: none !important;
+      }
+
+      .file-tree-item.search-match {
+        background: var(--hover-overlay);
+        border-radius: var(--radius-sm);
+        animation: searchHighlight 0.3s ease-out;
+      }
+
+      .file-tree-item.search-match .file-item span {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+      }
+
+      .search-highlight {
+        background: var(--accent-primary);
+        color: var(--bg-primary);
+        padding: 1px 2px;
+        border-radius: var(--radius-sm);
+        font-weight: var(--font-semibold);
+      }
+
+      /* Search Animation */
+      @keyframes searchHighlight {
+        0% {
+          background: var(--accent-focus);
+          transform: scale(1.02);
+        }
+        100% {
+          background: var(--hover-overlay);
+          transform: scale(1);
+        }
+      }
+
+      /* Loading State */
+      .search-input-wrapper.searching .search-icon {
+        animation: searchSpin 1s linear infinite;
+      }
+
+      @keyframes searchSpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      /* Empty State */
+      .search-empty-state {
+        text-align: center;
+        padding: var(--space-8) var(--space-4);
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+
+      .search-empty-state i {
+        font-size: var(--text-2xl);
+        margin-bottom: var(--space-3);
+        opacity: 0.5;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .search-input {
+          padding: var(--space-2) var(--space-8) var(--space-2) var(--space-8);
+          font-size: var(--text-xs);
+        }
+        
+        .search-icon {
+          left: var(--space-2);
+        }
+        
+        .clear-search-btn {
+          right: var(--space-1);
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      /* Focus Management */
+      .file-tree-container:focus-within .search-input-wrapper {
+        border-color: var(--border-focus);
+      }
+
+      /* Accessibility */
+      .search-input:focus {
+        outline: 2px solid transparent;
+      }
+
+      .clear-search-btn:focus {
+        outline: 2px solid var(--accent-primary);
+        outline-offset: 2px;
+      }
+
+      /* High Contrast Support */
+      @media (prefers-contrast: high) {
+        .search-input-wrapper {
+          border-width: 2px;
+        }
+        
+        .search-highlight {
+          outline: 1px solid var(--text-primary);
+        }
+      }
+
+      /* Animation Preferences */
+      @media (prefers-reduced-motion: reduce) {
+        .search-input-wrapper,
+        .clear-search-btn,
+        .search-icon {
+          transition: none;
+        }
+        
+        .file-tree-item.search-match {
+          animation: none;
+        }
+        
+        .search-input-wrapper.searching .search-icon {
+          animation: none;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  setupEventListeners() {
+    document.addEventListener('DOMContentLoaded', () => {
+      this.searchInput = document.getElementById('file-search-input');
+      this.clearButton = document.getElementById('clear-search');
+      this.resultsCounter = document.getElementById('search-results-count');
+
+      if (!this.searchInput || !this.clearButton || !this.resultsCounter) {
+        console.warn('Search elements not found');
+        return;
+      }
+
+      // Search input events
+      this.searchInput.addEventListener('input', (e) => {
+        this.handleSearchInput(e.target.value);
+      });
+
+      this.searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.clearSearch();
+          this.searchInput.blur();
+        }
+      });
+
+      // Clear button event
+      this.clearButton.addEventListener('click', () => {
+        this.clearSearch();
+        this.searchInput.focus();
+      });
+
+      // Update clear button visibility
+      this.searchInput.addEventListener('input', () => {
+        const wrapper = this.searchInput.closest('.search-input-wrapper');
+        if (this.searchInput.value.length > 0) {
+          wrapper.classList.add('has-content');
+        } else {
+          wrapper.classList.remove('has-content');
+        }
+      });
+
+      // Listen for file tree refreshes
+      document.addEventListener('refresh-file-tree', () => {
+        if (this.isSearchActive) {
+          // Reapply search after tree refresh
+          setTimeout(() => {
+            this.performSearch(this.searchInput.value);
+          }, 100);
+        }
+      });
+    });
+  }
+
+  handleSearchInput(query) {
+    // Clear previous debounce timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
+    // Debounce search to avoid excessive calls
+    this.debounceTimer = setTimeout(() => {
+      this.performSearch(query);
+    }, 300);
+  }
+
+  performSearch(query) {
+    const trimmedQuery = query.trim().toLowerCase();
+
+    if (trimmedQuery === '') {
+      this.clearSearch();
+      return;
+    }
+
+    this.isSearchActive = true;
+    this.showSearchingState();
+
+    // Get all file tree items
+    const fileTreeItems = document.querySelectorAll('.file-tree-item');
+    const fileTree = document.getElementById('file-tree');
+    
+    if (fileTree) {
+      fileTree.classList.add('searching');
+    }
+
+    let matchCount = 0;
+    const matches = [];
+
+    fileTreeItems.forEach(item => {
+      const nameSpan = item.querySelector('.file-item span');
+      const filePath = item.getAttribute('data-path');
+      
+      if (!nameSpan) return;
+
+      const fileName = nameSpan.textContent.toLowerCase();
+      const isMatch = fileName.includes(trimmedQuery) || 
+                     (filePath && filePath.toLowerCase().includes(trimmedQuery));
+
+      if (isMatch) {
+        item.classList.remove('search-hidden');
+        item.classList.add('search-match');
+        this.highlightMatchInText(nameSpan, trimmedQuery);
+        matchCount++;
+        matches.push(item);
+
+        // Show parent folders
+        this.showParentFolders(item);
+      } else {
+        item.classList.add('search-hidden');
+        item.classList.remove('search-match');
+        this.removeHighlights(nameSpan);
+      }
+    });
+
+    // Update results counter
+    this.updateResultsCounter(matchCount, trimmedQuery);
+    
+    // Show empty state if no matches
+    if (matchCount === 0) {
+      this.showEmptyState(trimmedQuery);
+    } else {
+      this.hideEmptyState();
+    }
+
+    this.hideSearchingState();
+    this.searchResults = matches;
+  }
+
+  showParentFolders(item) {
+    let parent = item.parentElement;
+    while (parent && parent.classList.contains('folder-content')) {
+      const folderItem = parent.previousElementSibling;
+      if (folderItem && folderItem.classList.contains('file-item')) {
+        const folderContainer = folderItem.parentElement;
+        if (folderContainer) {
+          folderContainer.classList.remove('search-hidden');
+          
+          // Expand parent folder if it's collapsed
+          const folderContent = folderContainer.querySelector('.folder-content');
+          if (folderContent && folderContent.classList.contains('hidden')) {
+            folderContent.classList.remove('hidden');
+            const toggleIcon = folderItem.querySelector('.folder-toggle');
+            const folderIcon = folderItem.querySelector('.file-item-icon');
+            if (toggleIcon) toggleIcon.classList.add('rotated');
+            if (folderIcon) {
+              folderIcon.classList.remove('fa-folder');
+              folderIcon.classList.add('fa-folder-open');
+            }
+          }
+        }
+      }
+      parent = parent.parentElement?.parentElement;
+    }
+  }
+
+  highlightMatchInText(element, query) {
+    const originalText = element.getAttribute('data-original-text') || element.textContent;
+    element.setAttribute('data-original-text', originalText);
+
+    const regex = new RegExp(`(${this.escapeRegExp(query)})`, 'gi');
+    const highlightedText = originalText.replace(regex, '<span class="search-highlight">$1</span>');
+    element.innerHTML = highlightedText;
+  }
+
+  removeHighlights(element) {
+    const originalText = element.getAttribute('data-original-text');
+    if (originalText) {
+      element.textContent = originalText;
+      element.removeAttribute('data-original-text');
+    }
+  }
+
+  escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  showSearchingState() {
+    const wrapper = this.searchInput.closest('.search-input-wrapper');
+    if (wrapper) {
+      wrapper.classList.add('searching');
+    }
+  }
+
+  hideSearchingState() {
+    const wrapper = this.searchInput.closest('.search-input-wrapper');
+    if (wrapper) {
+      wrapper.classList.remove('searching');
+    }
+  }
+
+  updateResultsCounter(count, query) {
+    if (!this.resultsCounter) return;
+
+    this.resultsCounter.parentElement.classList.add('active');
+    
+    if (count === 0) {
+      this.resultsCounter.textContent = `No results for "${query}"`;
+    } else if (count === 1) {
+      this.resultsCounter.textContent = `1 file found`;
+    } else {
+      this.resultsCounter.textContent = `${count} files found`;
+    }
+  }
+
+  showEmptyState(query) {
+    this.hideEmptyState();
+    
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+
+    const emptyState = document.createElement('div');
+    emptyState.className = 'search-empty-state';
+    emptyState.innerHTML = `
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <div>No files found matching "${query}"</div>
+      <div style="margin-top: var(--space-2); font-size: var(--text-xs); opacity: 0.7;">
+        Try a different search term
+      </div>
+    `;
+    
+    fileTree.appendChild(emptyState);
+  }
+
+  hideEmptyState() {
+    const emptyState = document.querySelector('.search-empty-state');
+    if (emptyState) {
+      emptyState.remove();
+    }
+  }
+
+  clearSearch() {
+    this.isSearchActive = false;
+    
+    if (this.searchInput) {
+      this.searchInput.value = '';
+      const wrapper = this.searchInput.closest('.search-input-wrapper');
+      if (wrapper) {
+        wrapper.classList.remove('has-content', 'searching');
+      }
+    }
+
+    // Remove all search classes and restore original state
+    const fileTreeItems = document.querySelectorAll('.file-tree-item');
+    fileTreeItems.forEach(item => {
+      item.classList.remove('search-hidden', 'search-match');
+      const nameSpan = item.querySelector('.file-item span');
+      if (nameSpan) {
+        this.removeHighlights(nameSpan);
+      }
+    });
+
+    const fileTree = document.getElementById('file-tree');
+    if (fileTree) {
+      fileTree.classList.remove('searching');
+    }
+
+    // Clear results counter
+    if (this.resultsCounter) {
+      this.resultsCounter.textContent = '';
+      this.resultsCounter.parentElement.classList.remove('active');
+    }
+
+    // Hide empty state
+    this.hideEmptyState();
+
+    // Clear search results
+    this.searchResults = [];
+  }
+
+  // Public API methods
+  focusSearch() {
+    if (this.searchInput) {
+      this.searchInput.focus();
+    }
+  }
+
+  getSearchResults() {
+    return this.searchResults;
+  }
+
+  isSearching() {
+    return this.isSearchActive;
+  }
+}
+
+// Initialize the search system
+const fileSearchSystem = new FileTreeSearch();
+
+// Add keyboard shortcut (Ctrl+F or Cmd+F)
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault();
+    fileSearchSystem.focusSearch();
+  }
+});
+
+// Export for use in other modules if needed
+window.FileTreeSearch = fileSearchSystem;
+
 // Adicione um listener para o evento customizado
 document.addEventListener('refresh-file-tree', () => {
   refreshFileTree();
@@ -5143,15 +5707,73 @@ document.getElementById('cancel-everything').addEventListener('click', () => {
 });
 
 
-// Enhanced cancelCompilation function
-function cancelCompilation() {
+// Enhanced Function to kill VVP process with multiple strategies
+async function killVvpProcess() {
+  if (currentVvpPid && isVvpRunning) {
+    try {
+      console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
+      
+      // Strategy 1: Kill by PID (with process tree)
+      await window.electronAPI.killProcess(currentVvpPid);
+      
+      // Wait a moment and verify if process was killed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const isStillRunning = await window.electronAPI.checkProcessRunning(currentVvpPid);
+      
+      if (isStillRunning) {
+        console.log('Process still running, trying alternative method...');
+        
+        // Strategy 2: Kill by process name as backup
+        try {
+          await window.electronAPI.killProcessByName('vvp.exe');
+          console.log('VVP process killed by name');
+        } catch (nameError) {
+          console.error('Error killing VVP by name:', nameError);
+        }
+      } else {
+        console.log('VVP process killed successfully by PID');
+      }
+      
+      hideVvpSpinner();
+      isVvpRunning = false;
+      currentVvpPid = null;
+      
+      return true;
+    } catch (error) {
+      console.error('Error killing VVP process:', error);
+      
+      // Last resort: try killing by name
+      try {
+        await window.electronAPI.killProcessByName('vvp.exe');
+        console.log('VVP process killed by name (fallback)');
+        
+        hideVvpSpinner();
+        isVvpRunning = false;
+        currentVvpPid = null;
+        
+        return true;
+      } catch (fallbackError) {
+        console.error('Fallback kill also failed:', fallbackError);
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+// Enhanced cancelCompilation function with better process killing
+async function cancelCompilation() {
   if (isCompilationRunning || isVvpRunning) {
     compilationCanceled = true;
     isCompilationRunning = false;
     
-    // Kill VVP process if running
+    // Kill VVP process if running with better error handling
     if (isVvpRunning && currentVvpPid) {
-      killVvpProcess();
+      const killed = await killVvpProcess();
+      if (!killed) {
+        console.warn('Failed to kill VVP process, but continuing with cancellation');
+      }
     }
     
     // Force enable buttons immediately on cancellation
@@ -5175,30 +5797,14 @@ function cancelCompilation() {
   }
 }
 
-// Function to kill VVP process
-async function killVvpProcess() {
-  if (currentVvpPid && isVvpRunning) {
-    try {
-      await window.electronAPI.killProcess(currentVvpPid);
-      console.log('VVP process killed successfully');
-      
-      hideVvpSpinner();
-      
-      isVvpRunning = false;
-      currentVvpPid = null;
-      
-      return true;
-    } catch (error) {
-      console.error('Error killing VVP process:', error);
-      return false;
-    }
-  }
-  return false;
-}
-
-// Enhanced checkCancellation function with terminal error display
-function checkCancellation() {
+// Enhanced checkCancellation function with process cleanup
+async function checkCancellation() {
   if (compilationCanceled) {
+    // Kill any running VVP process before canceling
+    if (isVvpRunning && currentVvpPid) {
+      await killVvpProcess();
+    }
+    
     // Display cancellation in current active terminal before throwing error
     if (globalTerminalManager) {
       const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];

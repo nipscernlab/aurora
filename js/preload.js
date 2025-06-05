@@ -263,6 +263,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
   fileExists: (path) => ipcRenderer.invoke('file:exists', path),
 
+  // Add these new functions to the electronAPI object:
+getPrismProjectInfo: () => ipcRenderer.invoke('get-prism-project-info'),
+generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
+
+  // Add these PRISM-related functions
+  prism: {
+    openPrism: () => ipcRenderer.invoke('open-prism'),
+  },
+  generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
+  
+
   // Store Operations
   getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
   setLastFolder: (path) => ipcRenderer.invoke('set-last-folder', path),

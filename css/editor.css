@@ -417,6 +417,21 @@ body {
   }
 }
 
+.monaco-editor .find-widget {
+  z-index: 1000 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.monaco-editor .find-widget .monaco-inputbox {
+  border-radius: 6px !important;
+}
+
+.monaco-editor .find-widget .button {
+  border-radius: 4px !important;
+}
+
 /* Theme-specific Enhancements */
 body.theme-light {
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);

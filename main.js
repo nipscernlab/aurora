@@ -882,6 +882,8 @@ ipcMain.handle('exec-command-stream', (event, command) => {
 // Handler for killing process by PID - Enhanced version
 ipcMain.handle('kill-process', async (event, pid) => {
   return new Promise((resolve, reject) => {
+    console.log(`Attempting to kill process with PID: ${pid}`);
+    
     // First try to kill the process tree (including child processes)
     exec(`taskkill /F /T /PID ${pid}`, (error, stdout, stderr) => {
       if (error) {
@@ -907,6 +909,8 @@ ipcMain.handle('kill-process', async (event, pid) => {
 // Alternative handler for killing process by name (backup method)
 ipcMain.handle('kill-process-by-name', async (event, processName) => {
   return new Promise((resolve, reject) => {
+    console.log(`Attempting to kill process by name: ${processName}`);
+    
     exec(`taskkill /F /IM ${processName}`, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error killing process ${processName}:`, error);
@@ -2372,3 +2376,185 @@ ipcMain.on('app:reload', () => {
   app.relaunch();
   app.exit(0);
 });
+
+
+// Add this variable to track PRISM window
+let prismWindow = null;
+
+// Function to create PRISM window
+async function createPrismWindow() {
+  if (prismWindow && !prismWindow.isDestroyed()) {
+    prismWindow.focus();
+    return;
+  }
+
+  prismWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    autoHideMenuBar: false,
+    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'js', 'preload-prism.js'),
+    },
+    backgroundColor: '#17151f',
+    show: false,
+  });
+
+  await prismWindow.loadFile('html/prism.html');
+
+  prismWindow.once('ready-to-show', () => {
+    prismWindow.show();
+  });
+
+  prismWindow.on('closed', () => {
+    prismWindow = null;
+  });
+}
+
+// Function to get project info for PRISM
+async function getPrismProjectInfo() {
+  try {
+    const projectPath = getProjectPath();
+    if (!projectPath) {
+      throw new Error('No project currently open');
+    }
+
+    const configPath = path.join(projectPath, 'projectOriented.json');
+    const configData = await fs.readFile(configPath, 'utf8');
+    const config = JSON.parse(configData);
+
+    return {
+      projectPath,
+      topLevelFile: config.topLevelFile || 'top_level.v',
+      config
+    };
+  } catch (error) {
+    throw new Error(`Failed to load project configuration: ${error.message}`);
+  }
+}
+
+// Function to generate SVG for a module
+async function generateModuleSVG(moduleName) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const projectInfo = await getPrismProjectInfo();
+      const projectPath = projectInfo.projectPath;
+      
+      // Get all Verilog files in the project
+      const files = await fs.readdir(projectPath);
+      const verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
+      
+      if (verilogFiles.length === 0) {
+        throw new Error('No Verilog files found in project');
+      }
+
+      // Create temporary files for processing
+      const tempDir = require('os').tmpdir();
+      const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
+      const svgFile = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
+
+      // Build yosys command
+      const filesArg = verilogFiles.map(f => `"${path.join(projectPath, f)}"`).join(' ');
+      const yosysCmd = `yosys -p "read_verilog ${filesArg}; hierarchy -top ${moduleName}; proc; write_json ${jsonFile}"`;
+
+      // Run yosys
+      const yosysProcess = spawn('yosys', ['-p', `read_verilog ${filesArg}; hierarchy -top ${moduleName}; proc; write_json ${jsonFile}`], {
+        cwd: projectPath,
+        shell: true
+      });
+
+      let yosysError = '';
+      yosysProcess.stderr.on('data', (data) => {
+        yosysError += data.toString();
+      });
+
+      yosysProcess.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`Yosys failed: ${yosysError}`));
+          return;
+        }
+
+        // Run netlistsvg
+        const netlistProcess = spawn('netlistsvg', [jsonFile, '-o', svgFile], {
+          shell: true
+        });
+
+        let netlistError = '';
+        netlistProcess.stderr.on('data', (data) => {
+          netlistError += data.toString();
+        });
+
+        netlistProcess.on('close', async (code) => {
+          try {
+            if (code !== 0) {
+              reject(new Error(`netlistsvg failed: ${netlistError}`));
+              return;
+            }
+
+            // Read and process the SVG
+            const svgContent = await fs.readFile(svgFile, 'utf8');
+            const processedSvg = processSVG(svgContent);
+            
+            // Clean up temporary files
+            try {
+              await fs.unlink(jsonFile);
+              await fs.unlink(svgFile);
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+
+            resolve(processedSvg);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Function to process SVG content (equivalent to Python processing)
+function processSVG(svgContent) {
+  // Simple text processing to clean up module names
+  let processed = svgContent;
+  
+  // Remove $paramod prefixes
+  processed = processed.replace(/\$paramod[^\\]*\\/g, '');
+  
+  // Clean up paths in text elements
+  processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
+    const parts = content.split(/[\\\/]/);
+    const cleanContent = parts[parts.length - 1];
+    return match.replace(content, cleanContent);
+  });
+
+  return processed;
+}
+
+// IPC handlers - add these to your existing IPC handlers
+ipcMain.handle('open-prism', async () => {
+  await createPrismWindow();
+});
+
+ipcMain.handle('get-prism-project-info', async () => {
+  return await getPrismProjectInfo();
+});
+
+ipcMain.handle('generate-module-svg', async (event, moduleName) => {
+  return await generateModuleSVG(moduleName);
+});
+
+ipcMain.handle('show-message-box', async (event, options) => {
+  const { dialog } = require('electron');
+  return await dialog.showMessageBox(options);
+});
+
+// Add this to your existing function that gets project path
+function getProjectPath() {
+  return global.currentProjectPath || '';
+}

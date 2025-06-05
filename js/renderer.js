@@ -32,94 +32,288 @@ class EditorManager {
   }
 }
 
+
   static createEditorInstance(filePath) {
-    if (!this.editorContainer) {
-      this.initialize();
+  if (!this.editorContainer) {
+    this.initialize();
+  }
+
+  const editorDiv = document.createElement('div');
+  editorDiv.className = 'editor-instance';
+  editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
+  editorDiv.style.cssText = `
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: none;
+  `;
+
+  this.editorContainer.appendChild(editorDiv);
+
+  // Configuração aprimorada do editor
+  const editor = monaco.editor.create(editorDiv, {
+    theme: this.currentTheme,
+    language: this.getLanguageFromPath(filePath),
+    automaticLayout: true,
+    
+    // CONFIGURAÇÕES DE BUSCA MELHORADAS
+    find: {
+      addExtraSpaceOnTop: true,
+      autoFindInSelection: 'never',
+      seedSearchStringFromSelection: 'always',
+      globalFindClipboard: true, // Permite busca global
+      loop: true
+    },
+    
+    // NOVAS FUNCIONALIDADES NATIVAS
+    // Breadcrumbs (navegação de símbolos)
+    breadcrumbs: {
+      enabled: true,
+      filePath: 'on',
+      symbolPath: 'on'
+    },
+    
+    // Outline e símbolos
+    outlineFilters: {
+      enabled: true
+    },
+    
+    // Code lens melhorado
+    codeLens: true,
+    codeLensFontFamily: "'JetBrains Mono', monospace",
+    codeLensFontSize: 12,
+    
+    // Sugestões melhoradas
+    suggest: {
+      enabled: true,
+      enableExtensions: true,
+      showMethods: true,
+      showFunctions: true,
+      showConstructors: true,
+      showFields: true,
+      showVariables: true,
+      showClasses: true,
+      showStructs: true,
+      showInterfaces: true,
+      showModules: true,
+      showProperties: true,
+      showEvents: true,
+      showOperators: true,
+      showUnits: true,
+      showValues: true,
+      showConstants: true,
+      showEnums: true,
+      showEnumMembers: true,
+      showKeywords: true,
+      showWords: true,
+      showColors: true,
+      showFiles: true,
+      showReferences: true,
+      showFolders: true,
+      showTypeParameters: true,
+      showSnippets: true,
+      filterGraceful: true,
+      snippetsPreventQuickSuggestions: false,
+      localityBonus: true,
+      shareSuggestSelections: true
+    },
+    
+    // Melhorias de performance
+    renderValidationDecorations: 'on',
+    
+    // Word wrap inteligente
+    wordWrapBreakAfterCharacters: ' \t})]?|/&.,;¢°′′′′‟""‟‟‟‟‟""‟""‟',
+    wordWrapBreakBeforeCharacters: '',
+    wordWrapColumn: 120,
+    
+    // Configurações responsivas melhoradas
+    wordWrap: window.innerWidth < 768 ? 'on' : 'bounded',
+    minimap: { 
+      enabled: window.innerWidth > 1024,
+      scale: window.innerWidth > 1200 ? 1 : 0.8,
+      showSlider: 'mouseover',
+      renderCharacters: true,
+      maxColumn: 120
+    },
+    fontSize: window.innerWidth < 768 ? 12 : 14,
+    lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
+    folding: window.innerWidth > 768,
+    
+    // Outras configurações existentes...
+    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+    fontLigatures: true,
+    scrollBeyondLastLine: true,
+    renderWhitespace: 'selection',
+    mouseWheelZoom: true,
+    padding: { top: 16, bottom: 16 },
+    cursorStyle: 'line',
+    cursorWidth: 2,
+    cursorBlinking: 'smooth',
+    renderLineHighlight: 'all',
+    lineNumbersMinChars: 4,
+    glyphMargin: true,
+    showFoldingControls: 'mouseover',
+    bracketPairColorization: { enabled: true },
+    guides: {
+      bracketPairs: true,
+      indentation: true
+    },
+    smoothScrolling: true,
+    autoClosingBrackets: 'always',
+    autoClosingQuotes: 'always',
+    formatOnPaste: true,
+    formatOnType: true,
+    quickSuggestions: true,
+    parameterHints: { enabled: true },
+    hover: { enabled: true, delay: 300 },
+    contextmenu: true,
+    dragAndDrop: true,
+    links: true,
+    scrollbar: {
+      vertical: 'auto',
+      horizontal: 'auto',
+      useShadows: false,
+      verticalHasArrows: false,
+      horizontalHasArrows: false,
+      verticalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
+      horizontalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
+      arrowSize: 0
     }
+  });
 
+  // INICIALIZAR FUNCIONALIDADES MELHORADAS
+  this.setupEnhancedFeatures(editor);
+  SearchManager.initializeSearch(editor);
+  
+  this.editors.set(filePath, {
+    editor: editor,
+    container: editorDiv
+  });
 
-    const editorDiv = document.createElement('div');
-    editorDiv.className = 'editor-instance';
-    editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
-    editorDiv.style.position = 'absolute';
-    editorDiv.style.top = '0';
-    editorDiv.style.left = '0';
-    editorDiv.style.right = '0';
-    editorDiv.style.bottom = '0';
-    editorDiv.style.display = 'none';
+  this.setupResponsiveObserver(editor);
+  this.updateOverlayVisibility();
+  this.setupCursorListener(editor);
 
-    this.editorContainer.appendChild(editorDiv);
+  return editor;
+}
 
-    // Enhanced editor configuration for instances
-    const editor = monaco.editor.create(editorDiv, {
-      theme: this.currentTheme,
-      language: this.getLanguageFromPath(filePath),
-      automaticLayout: true,
+// 3. NOVO MÉTODO PARA CONFIGURAR FUNCIONALIDADES MELHORADAS
+static setupEnhancedFeatures(editor) {
+  // Comandos personalizados melhorados
+  const commands = [
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF,
+      action: () => {
+        const findController = editor.getContribution('editor.contrib.findController');
+        if (findController) {
+          findController.start({
+            forceRevealReplace: false,
+            seedSearchStringFromSelection: 'always',
+            shouldFocus: 2,
+            shouldAnimate: true
+          });
+        }
+      }
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
+      action: () => editor.getAction('editor.action.startFindReplaceAction').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      action: () => editor.getAction('editor.action.formatDocument').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
+      action: () => editor.getAction('editor.action.gotoLine').run()
+    },
+    // NOVOS COMANDOS
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
+      action: () => editor.getAction('editor.action.quickCommand').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
+      action: () => editor.getAction('workbench.action.showCommands').run()
+    },
+    {
+      key: monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.revealDefinition').run()
+    },
+    {
+      key: monaco.KeyMod.Alt | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.peekDefinition').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.goToImplementation').run()
+    },
+    {
+      key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.goToReferences').run()
+    }
+  ];
+
+  commands.forEach(({ key, action }) => {
+    editor.addCommand(key, action);
+  });
+
+  // Configurar context menu melhorado
+  editor.onContextMenu((e) => {
+    // Adiciona itens personalizados ao menu de contexto se necessário
+  });
+
+  // Configurar eventos de busca
+  editor.onDidFocusEditorText(() => {
+    if (SearchManager.currentSearchTerm) {
+      SearchManager.applySearchToEditor(editor, SearchManager.currentSearchTerm);
+    }
+  });
+}
+
+// 4. MÉTODO PARA BUSCA GLOBAL ENTRE ARQUIVOS
+  // Adicione este método ao EditorManager
+  static searchInAllFiles(searchTerm, options = {}) {
+    const results = [];
+    
+    this.editors.forEach((editorData, filePath) => {
+      const { editor } = editorData;
+      const model = editor.getModel();
       
-      // Responsive settings
-      wordWrap: window.innerWidth < 768 ? 'on' : 'off',
-      minimap: { 
-        enabled: window.innerWidth > 1024,
-        scale: window.innerWidth > 1200 ? 1 : 0.8,
-        showSlider: 'mouseover'
-      },
-      fontSize: window.innerWidth < 768 ? 12 : 14,
-      lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
-      folding: window.innerWidth > 768,
-      
-      // All other enhanced features
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
-      fontLigatures: true,
-      scrollBeyondLastLine: true,
-      renderWhitespace: 'selection',
-      mouseWheelZoom: true,
-      padding: { top: 16, bottom: 16 },
-      cursorStyle: 'line',
-      cursorWidth: 2,
-      cursorBlinking: 'smooth',
-      renderLineHighlight: 'all',
-      lineNumbersMinChars: 4,
-      glyphMargin: true,
-      showFoldingControls: 'mouseover',
-      bracketPairColorization: { enabled: true },
-      guides: {
-        bracketPairs: true,
-        indentation: true
-      },
-      smoothScrolling: true,
-      autoClosingBrackets: 'always',
-      autoClosingQuotes: 'always',
-      formatOnPaste: true,
-      formatOnType: true,
-      quickSuggestions: true,
-      parameterHints: { enabled: true },
-      hover: { enabled: true, delay: 300 },
-      contextmenu: true,
-      dragAndDrop: true,
-      links: true,
-      scrollbar: {
-        vertical: 'auto',
-        horizontal: 'auto',
-        useShadows: false,
-        verticalHasArrows: false,
-        horizontalHasArrows: false,
-        verticalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
-        horizontalScrollbarSize: window.innerWidth < 768 ? 8 : 12,
-        arrowSize: 0
+      if (model) {
+        const matches = model.findMatches(
+          searchTerm,
+          true, // searchOnlyEditableRange
+          options.isRegex || false,
+          options.matchCase || false,
+          options.wholeWord ? '\\b' + searchTerm + '\\b' : null,
+          true // captureMatches
+        );
+        
+        if (matches.length > 0) {
+          results.push({
+            filePath,
+            matches: matches.map(match => ({
+              lineNumber: match.range.startLineNumber,
+              column: match.range.startColumn,
+              text: model.getLineContent(match.range.startLineNumber),
+              range: match.range
+            }))
+          });
+        }
       }
     });
+    
+    return results;
+  }
 
-    this.editors.set(filePath, {
-      editor: editor,
-      container: editorDiv
-    });
-
-    // Setup responsive observer
-    this.setupResponsiveObserver(editor);
-    this.updateOverlayVisibility();
-    this.setupCursorListener(editor);
-
-    return editor;
+  // Método para navegar entre resultados
+  static navigateToSearchResult(filePath, lineNumber, column) {
+    const editor = this.setActiveEditor(filePath);
+    if (editor) {
+      editor.setPosition({ lineNumber, column });
+      editor.revealLineInCenter(lineNumber);
+      editor.focus();
+    }
   }
 
   static setupResponsiveObserver(editor) {
@@ -222,24 +416,33 @@ class EditorManager {
   }
 
   static setActiveEditor(filePath) {
-    this.editors.forEach(({editor, container}) => {
-      container.style.display = 'none';
-    });
+  this.editors.forEach(({editor, container}) => {
+    container.style.display = 'none';
+  });
 
-    let editorData = this.editors.get(filePath);
-    if (!editorData) {
-      this.createEditorInstance(filePath);
-      editorData = this.editors.get(filePath);
-    }
-
-    editorData.container.style.display = 'block';
-    this.activeEditor = editorData.editor;
-    this.activeEditor.focus();
-    this.activeEditor.layout();
-
-    this.updateOverlayVisibility();
-    return this.activeEditor;
+  let editorData = this.editors.get(filePath);
+  if (!editorData) {
+    this.createEditorInstance(filePath);
+    editorData = this.editors.get(filePath);
   }
+
+  editorData.container.style.display = 'block';
+  this.activeEditor = editorData.editor;
+  
+  // CORREÇÃO IMPORTANTE: Layout após mostrar
+  setTimeout(() => {
+    this.activeEditor.layout();
+    this.activeEditor.focus();
+    
+    // Reaplica busca atual se existir
+    if (SearchManager.currentSearchTerm) {
+      SearchManager.applySearchToEditor(this.activeEditor, SearchManager.currentSearchTerm);
+    }
+  }, 50);
+
+  this.updateOverlayVisibility();
+  return this.activeEditor;
+}
 
   static getEditorForFile(filePath) {
     const editorData = this.editors.get(filePath);
@@ -254,6 +457,94 @@ class EditorManager {
       this.editors.delete(filePath);
     }
     this.updateOverlayVisibility();
+  }
+}
+
+
+class SearchManager {
+  static currentSearchTerm = '';
+  static searchOptions = {
+    matchCase: false,
+    wholeWord: false,
+    isRegex: false
+  };
+  static searchDecorations = new Map(); // Track decorations per editor
+  
+  static initializeSearch(editor) {
+    // Força a criação do widget de busca e o torna persistente
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+      const findController = editor.getContribution('editor.contrib.findController');
+      if (findController) {
+        findController.start({
+          forceRevealReplace: false,
+          seedSearchStringFromSelection: 'always',
+          seedSearchStringFromNonEmptySelection: true,
+          shouldFocus: 2, // FindStartFocusAction.FocusSearch
+          shouldAnimate: true
+        });
+      }
+    });
+
+    // Intercepta mudanças na busca para torná-la global
+    editor.onDidChangeModel(() => {
+      // Quando o modelo muda (troca de arquivo), reaplica a busca atual
+      if (this.currentSearchTerm) {
+        setTimeout(() => {
+          this.applySearchToEditor(editor, this.currentSearchTerm);
+        }, 100);
+      }
+    });
+
+    // Monitora mudanças no widget de busca
+    const findController = editor.getContribution('editor.contrib.findController');
+    if (findController && findController._state) {
+      findController._state.onFindReplaceStateChange((e) => {
+        if (e.searchString) {
+          this.currentSearchTerm = findController._state.searchString;
+          this.searchOptions = {
+            matchCase: findController._state.matchCase,
+            wholeWord: findController._state.wholeWord,
+            isRegex: findController._state.isRegex
+          };
+          // Aplica a busca em todos os editores abertos
+          this.applySearchToAllEditors();
+        }
+      });
+    }
+  }
+
+  static applySearchToEditor(editor, searchTerm) {
+    if (!searchTerm || !editor.getModel()) return;
+
+    try {
+      const findController = editor.getContribution('editor.contrib.findController');
+      if (findController && findController._state) {
+        findController._state.change({
+          searchString: searchTerm,
+          ...this.searchOptions
+        }, false);
+      }
+    } catch (error) {
+      console.warn('Erro ao aplicar busca:', error);
+    }
+  }
+
+  static applySearchToAllEditors() {
+    EditorManager.editors.forEach(({ editor }) => {
+      if (editor !== EditorManager.activeEditor) {
+        this.applySearchToEditor(editor, this.currentSearchTerm);
+      }
+    });
+  }
+
+  static clearSearch() {
+    this.currentSearchTerm = '';
+    EditorManager.editors.forEach(({ editor }) => {
+      const findController = editor.getContribution('editor.contrib.findController');
+      if (findController) {
+        findController.closeFindWidget();
+      }
+    });
   }
 }
 
@@ -2956,6 +3247,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+// Adicione um listener para o evento customizado
+document.addEventListener('refresh-file-tree', () => {
+  refreshFileTree();
+});
+
 // File Tree Search System
 class FileTreeSearch {
   constructor() {
@@ -3520,12 +3816,6 @@ document.addEventListener('keydown', (e) => {
 // Export for use in other modules if needed
 window.FileTreeSearch = fileSearchSystem;
 
-// Adicione um listener para o evento customizado
-document.addEventListener('refresh-file-tree', () => {
-  refreshFileTree();
-});
-
-
 //PROJECTBUTTON ======================================================================================================================================================== ƒ
 
 let currentProjectPath = null; // Store the current project path
@@ -3622,7 +3912,7 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
       currentSpfPath = `${currentProjectPath}.spf`;
       
       await loadProject(currentProjectPath);
-      
+      updatePrismButtonState();
       // Atualiza o nome do projeto na interface
       const projectName = window.electronAPI.getBasename(currentProjectPath);
       updateProjectNameUI({
@@ -4017,7 +4307,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'allcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
       const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 
@@ -4046,6 +4336,56 @@ function updateFileTree(files) {
   }, 500);
   */
 }
+
+// Add this event listener to handle the PRISM button click
+// This should be added to your main window's JavaScript
+
+document.addEventListener('DOMContentLoaded', () => {
+  const prismButton = document.getElementById('prismcomp');
+  
+  if (prismButton) {
+    // Enable the button and update its state
+    prismButton.disabled = false;
+    prismButton.style.cursor = 'pointer';
+    prismButton.title = 'Open PRISM Circuit Visualizer';
+    
+    prismButton.addEventListener('click', async () => {
+      try {
+        await window.electronAPI.prism.openPrism();
+      } catch (error) {
+        console.error('Failed to open PRISM:', error);
+        // You can add a toast notification here if you have one
+        alert('Failed to open PRISM: ' + error.message);
+      }
+    });
+  }
+});
+
+// Alternative: If you want to check if a project is loaded before enabling
+async function updatePrismButtonState() {
+  const prismButton = document.getElementById('prismcomp');
+  if (!prismButton) return;
+
+  try {
+    // Check if we have a valid project
+    const projectInfo = await window.electronAPI.getPrismProjectInfo();
+    
+    if(projectInfo){
+    // Enable button if project is available
+    prismButton.disabled = false;
+    prismButton.style.cursor = 'pointer';
+    prismButton.title = 'Open PRISM Circuit Visualizer';
+    }
+  } catch (error) {
+    // Disable button if no project is available
+    prismButton.disabled = true;
+    prismButton.style.cursor = 'not-allowed';
+    prismButton.title = 'No project loaded';
+  }
+}
+
+// Call this function when a project is loaded/unloaded
+// updatePrismButtonState();
 
 //PROCESSADOR HUB ==========================================================================================================================================================
 
@@ -5092,7 +5432,7 @@ async iverilogProjectCompilation() {
 }
 
 async runGtkWave(processor) {
-  // Se estivermos no modo "projeto orientado", apenas delega:
+  // If we're in "project oriented" mode, just delegate:
   if (this.isProjectOriented) {
     checkCancellation();
     return this.runProjectGtkWave();
@@ -5103,7 +5443,7 @@ async runGtkWave(processor) {
   statusUpdater.startCompilation('wave');
   
   try {
-    // Monta vários paths necessários:
+    // Mount various necessary paths:
     const tempPath       = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
     const hdlPath        = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const hardwarePath   = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
@@ -5114,13 +5454,13 @@ async runGtkWave(processor) {
     const vvpCompPath    = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','vvp.exe');
     const gtkwCompPath   = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','gtkwave','bin','gtkwave.exe');
   
-    // Cria o arquivo tcl_infos.txt dentro de tempPath:
+    // Create tcl_infos.txt file inside tempPath:
     const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
     const tclContent = `${tempPath}\n${binPath}\n`;
     await window.electronAPI.writeFile(tclFilePath, tclContent);
   
-    // Decide qual é o testbench (.v) a usar:
+    // Decide which testbench (.v) to use:
     let tbMod;
     if (this.config.testbenchFile && this.config.testbenchFile !== 'standard') {
       const simulationFiles = await window.electronAPI.readDir(simulationPath);
@@ -5140,15 +5480,15 @@ async runGtkWave(processor) {
   
     await TabManager.saveAllFiles();
   
-    // Lista de arquivos .v para compilar (apenas nomes, pois vamos dar cd em hdlPath)
+    // List of .v files to compile (only names, since we'll cd to hdlPath)
     const verilogFiles = [ 'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v' ];
     const verilogFilesString = verilogFiles.join(' ');
   
-    // Resolve paths de output (executável VVP) e do módulo principal:
+    // Resolve output paths (VVP executable) and main module:
     const outputFile = await window.electronAPI.joinPath(tempPath, name);
     const procFile   = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
   
-    // 1) Compila com iverilog (testbench + hw):
+    // 1) Compile with iverilog (testbench + hw):
     const iverilogCmd = `cd "${hdlPath}" && `
                      + `"${iveriCompPath}" -s ${tbMod} -o "${outputFile}" `
                      + `"${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" `
@@ -5164,7 +5504,7 @@ async runGtkWave(processor) {
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
   
-    // 2) Copia arquivos .mif gerados para tempPath:
+    // 2) Copy generated .mif files to tempPath:
     const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`);
     const dataMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_data.mif`);
     await window.electronAPI.copyFile(dataMemSource, dataMemDest);
@@ -5173,40 +5513,64 @@ async runGtkWave(processor) {
     const instMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`);
     await window.electronAPI.copyFile(instMemSource, instMemDest);
   
-    // 3) Agora, roda o VVP para gerar o VCD:
+    // 3) Now, run VVP to generate the VCD:
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
   
-    // Exibe a barra de progresso antes de registrar listener:
+    // Show progress bar before registering listener:
     vvpProgressManager.show();
     vvpProgressManager.startProgressTracking();
 
-    // Comando VVP (cd em tempPath e executa vvp.exe nome -fst -v)
+    // VVP Command (cd to tempPath and execute vvp.exe name -fst -v)
     const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
   
-    // === Configura o listener para streaming do stdout/stderr ===
+    // === Configure listener for stdout/stderr streaming ===
     let isVvpRunning = true;
+    let vvpProcessPid = null;
+    
     const outputListener = (event, payload) => {
-      // payload = { type: 'stdout'|'stderr', data: string }
+      // payload = { type: 'stdout'|'stderr', data: string, pid?: number }
       if (!isVvpRunning) return;
+      
+      // Capture VVP process PID if available
+      if (payload.pid && !vvpProcessPid) {
+        vvpProcessPid = payload.pid;
+        // Set global VVP PID for cancellation
+        if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
+          window.setCurrentVvpPid(vvpProcessPid);
+        }
+        console.log(`VVP process started with PID: ${vvpProcessPid}`);
+      }
+      
       if (payload.type === 'stdout') {
         vvpProgressManager.parseVVPOutput(payload.data);
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
-        // Em geral VVP escreve tudo em stdout, mas caso stderr seja usado:
+        // Generally VVP writes everything to stdout, but in case stderr is used:
         this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
       }
     };
   
-    // Registra ANTES de iniciar o execCommandStream:
+    // Register BEFORE starting execCommandStream:
     window.electronAPI.onCommandOutputStream(outputListener);
   
     let vvpResult;
     try {
-      // Execução (e aguarda a saída final para obter {code, stdout, stderr})
+      // Set VVP running flag
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(true);
+      }
+      
+      // Execution (and wait for final output to get {code, stdout, stderr})
       vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
       isVvpRunning = false;
+      
+      // Clear VVP running state
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(false);
+        window.setCurrentVvpPid(null);
+      }
   
-      // Se houver stdout restante, parseia (em geral, execCommandStream só manda tudo de uma vez no final).
+      // If there's remaining stdout, parse it (generally, execCommandStream sends everything at once at the end).
       if (vvpResult.stdout) {
         vvpProgressManager.parseVVPOutput(vvpResult.stdout);
         this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
@@ -5215,21 +5579,48 @@ async runGtkWave(processor) {
         this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
       }
   
+      // Check for cancellation before checking result code
+      checkCancellation();
+  
       if (vvpResult.code !== 0) {
-        // Se VVP falhar, esconde a barra e lança erro
+        // If VVP fails, hide progress bar and throw error
         vvpProgressManager.hide();
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
   
-      // Se chegou aqui, simulou com sucesso: finaliza a barra
+      // If we got here, simulation was successful: finish progress bar
       vvpProgressManager.complete();
   
     } catch (err) {
       isVvpRunning = false;
+      
+      // Clear VVP running state on error
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(false);
+        window.setCurrentVvpPid(null);
+      }
+      
+      // If it's a cancellation, kill the VVP process
+      if (err.message === 'Compilation canceled by user' && vvpProcessPid) {
+        try {
+          await window.electronAPI.killProcess(vvpProcessPid);
+          this.terminalManager.appendToTerminal('twave', `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
+        } catch (killError) {
+          console.error('Error killing VVP process:', killError);
+          // Fallback: try killing by process name
+          try {
+            await window.electronAPI.killProcessByName('vvp.exe');
+            this.terminalManager.appendToTerminal('twave', 'VVP process terminated by name due to cancellation.', 'warning');
+          } catch (killByNameError) {
+            console.error('Error killing VVP process by name:', killByNameError);
+          }
+        }
+      }
+      
       vvpProgressManager.hide();
       throw err;
     } finally {
-      // Remove listener SEMPRE, tanto em sucesso quanto em erro
+      // Remove listener ALWAYS, both on success and error
       window.electronAPI.removeCommandOutputListener(outputListener);
     }
   
@@ -5434,26 +5825,50 @@ async runProjectGtkWave() {
 
     // 7.1) Configura listener nomeado ANTES de chamar execCommandStream
     let isVvpRunning = true;
+    let vvpProcessPid = null;
     const outputListener = (event, payload) => {
-      // payload = { type: 'stdout'|'stderr', data: string }
+      // payload = { type: 'stdout'|'stderr', data: string, pid?: number }
       if (!isVvpRunning) return;
+      
+      // Capture VVP process PID if available
+      if (payload.pid && !vvpProcessPid) {
+        vvpProcessPid = payload.pid;
+        // Set global VVP PID for cancellation
+        if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
+          window.setCurrentVvpPid(vvpProcessPid);
+        }
+        console.log(`VVP process started with PID: ${vvpProcessPid}`);
+      }
+      
       if (payload.type === 'stdout') {
-        // Passa APENAS a string para parseVVPOutput
         vvpProgressManager.parseVVPOutput(payload.data);
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
+        // Generally VVP writes everything to stdout, but in case stderr is used:
         this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
       }
     };
+
     window.electronAPI.onCommandOutputStream(outputListener);
 
     let vvpResult;
     try {
-      // 7.2) Chama execCommandStream – o listener trata cada chunk em tempo real
+      // Set VVP running flag
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(true);
+      }
+      
+      // Execution (and wait for final output to get {code, stdout, stderr})
       vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
       isVvpRunning = false;
-
-      // 7.3) No final, parseia qualquer stdout restante (caso haja)
+      
+      // Clear VVP running state
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(false);
+        window.setCurrentVvpPid(null);
+      }
+  
+      // If there's remaining stdout, parse it (generally, execCommandStream sends everything at once at the end).
       if (vvpResult.stdout) {
         vvpProgressManager.parseVVPOutput(vvpResult.stdout);
         this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
@@ -5461,24 +5876,54 @@ async runProjectGtkWave() {
       if (vvpResult.stderr) {
         this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
       }
-
+  
+      // Check for cancellation before checking result code
+      checkCancellation();
+  
       if (vvpResult.code !== 0) {
+        // If VVP fails, hide progress bar and throw error
         vvpProgressManager.hide();
-        statusUpdater.compilationError('wave', `VVP simulation failed with code ${vvpResult.code}`);
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
-
-      // 7.4) Se tudo OK, finaliza a barra em 100%
+  
+      // If we got here, simulation was successful: finish progress bar
       vvpProgressManager.complete();
-
+  
     } catch (err) {
       isVvpRunning = false;
+      
+      // Clear VVP running state on error
+      if (typeof window !== 'undefined' && window.setVvpRunning) {
+        window.setVvpRunning(false);
+        window.setCurrentVvpPid(null);
+      }
+      
+      // If it's a cancellation, kill the VVP process
+      if (err.message === 'Compilation canceled by user' && vvpProcessPid) {
+        try {
+          await window.electronAPI.killProcess(vvpProcessPid);
+          this.terminalManager.appendToTerminal('twave', `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
+        } catch (killError) {
+          console.error('Error killing VVP process:', killError);
+          // Fallback: try killing by process name
+          try {
+            await window.electronAPI.killProcessByName('vvp.exe');
+            this.terminalManager.appendToTerminal('twave', 'VVP process terminated by name due to cancellation.', 'warning');
+          } catch (killByNameError) {
+            console.error('Error killing VVP process by name:', killByNameError);
+          }
+        }
+      }
+      
       vvpProgressManager.hide();
       throw err;
     } finally {
-      // 7.5) Remove o listener obrigatoriamente
+      // Remove listener ALWAYS, both on success and error
       window.electronAPI.removeCommandOutputListener(outputListener);
     }
+    
+    // Check for cancellation after VVP completion
+    checkCancellation();
 
     // Após a simulação, chama o GTKWave:
     // 8) Monta comando GTKWave (pode ser padrão ou customizado)
@@ -5706,74 +6151,26 @@ document.getElementById('cancel-everything').addEventListener('click', () => {
   }
 });
 
+// Helper functions to manage VVP process state
+window.setCurrentVvpPid = function(pid) {
+  currentVvpPid = pid;
+  console.log(`Current VVP PID set to: ${pid}`);
+};
 
-// Enhanced Function to kill VVP process with multiple strategies
-async function killVvpProcess() {
-  if (currentVvpPid && isVvpRunning) {
-    try {
-      console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
-      
-      // Strategy 1: Kill by PID (with process tree)
-      await window.electronAPI.killProcess(currentVvpPid);
-      
-      // Wait a moment and verify if process was killed
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const isStillRunning = await window.electronAPI.checkProcessRunning(currentVvpPid);
-      
-      if (isStillRunning) {
-        console.log('Process still running, trying alternative method...');
-        
-        // Strategy 2: Kill by process name as backup
-        try {
-          await window.electronAPI.killProcessByName('vvp.exe');
-          console.log('VVP process killed by name');
-        } catch (nameError) {
-          console.error('Error killing VVP by name:', nameError);
-        }
-      } else {
-        console.log('VVP process killed successfully by PID');
-      }
-      
-      hideVvpSpinner();
-      isVvpRunning = false;
-      currentVvpPid = null;
-      
-      return true;
-    } catch (error) {
-      console.error('Error killing VVP process:', error);
-      
-      // Last resort: try killing by name
-      try {
-        await window.electronAPI.killProcessByName('vvp.exe');
-        console.log('VVP process killed by name (fallback)');
-        
-        hideVvpSpinner();
-        isVvpRunning = false;
-        currentVvpPid = null;
-        
-        return true;
-      } catch (fallbackError) {
-        console.error('Fallback kill also failed:', fallbackError);
-        return false;
-      }
-    }
-  }
-  return false;
-}
+window.setVvpRunning = function(running) {
+  isVvpRunning = running;
+  console.log(`VVP running state set to: ${running}`);
+};
 
-// Enhanced cancelCompilation function with better process killing
-async function cancelCompilation() {
+// Enhanced cancelCompilation function
+function cancelCompilation() {
   if (isCompilationRunning || isVvpRunning) {
     compilationCanceled = true;
     isCompilationRunning = false;
     
-    // Kill VVP process if running with better error handling
+    // Kill VVP process if running
     if (isVvpRunning && currentVvpPid) {
-      const killed = await killVvpProcess();
-      if (!killed) {
-        console.warn('Failed to kill VVP process, but continuing with cancellation');
-      }
+      killVvpProcess();
     }
     
     // Force enable buttons immediately on cancellation
@@ -5797,14 +6194,54 @@ async function cancelCompilation() {
   }
 }
 
-// Enhanced checkCancellation function with process cleanup
-async function checkCancellation() {
-  if (compilationCanceled) {
-    // Kill any running VVP process before canceling
-    if (isVvpRunning && currentVvpPid) {
-      await killVvpProcess();
+// Function to kill VVP process
+async function killVvpProcess() {
+  if (currentVvpPid && isVvpRunning) {
+    try {
+      console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
+      await window.electronAPI.killProcess(currentVvpPid);
+      console.log('VVP process killed successfully');
+      
+      hideVvpSpinner();
+      
+      isVvpRunning = false;
+      currentVvpPid = null;
+      
+      // Also try killing by name as backup
+      try {
+        await window.electronAPI.killProcessByName('vvp.exe');
+        console.log('Additional VVP processes killed by name');
+      } catch (nameKillError) {
+        // Ignore if no processes found by name
+        console.log('No additional VVP processes found by name');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error killing VVP process by PID:', error);
+      
+      // Fallback: try killing by process name
+      try {
+        await window.electronAPI.killProcessByName('vvp.exe');
+        console.log('VVP process killed by name (fallback method)');
+        
+        hideVvpSpinner();
+        isVvpRunning = false;
+        currentVvpPid = null;
+        
+        return true;
+      } catch (nameError) {
+        console.error('Error killing VVP process by name:', nameError);
+        return false;
+      }
     }
-    
+  }
+  return false;
+}
+
+// Enhanced checkCancellation function with terminal error display
+function checkCancellation() {
+  if (compilationCanceled) {
     // Display cancellation in current active terminal before throwing error
     if (globalTerminalManager) {
       const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];

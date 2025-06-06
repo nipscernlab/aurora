@@ -28,6 +28,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const settingsPath = path.join(__dirname, 'saphoComponents', 'Scripts' ,'settings.json');
 
+
 let progressWindow = null;
 let downloadInProgress = false;
 let updateCheckInProgress = false;
@@ -2382,7 +2383,8 @@ ipcMain.on('app:reload', () => {
 let prismWindow = null;
 
 // Function to create PRISM window
-async function createPrismWindow() {
+// Modify your createPrismWindow function to accept project info
+async function createPrismWindow(projectInfo = null) {
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
     return;
@@ -2397,6 +2399,7 @@ async function createPrismWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'js', 'preload-prism.js'),
+      additionalArguments: projectInfo ? [`--project-info=${JSON.stringify(projectInfo)}`] : []
     },
     backgroundColor: '#17151f',
     show: false,
@@ -2435,88 +2438,90 @@ async function getPrismProjectInfo() {
   }
 }
 
-// Function to generate SVG for a module
 async function generateModuleSVG(moduleName) {
   return new Promise(async (resolve, reject) => {
     try {
       const projectInfo = await getPrismProjectInfo();
       const projectPath = projectInfo.projectPath;
-      
-      // Get all Verilog files in the project
-      const files = await fs.readdir(projectPath);
-      const verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
-      
+
+      // A pasta "TopLevel" contém os .v
+      const verilogDir = path.join(projectPath, 'TopLevel');
+      const files = await fs.readdir(verilogDir);
+
+      // Filtra apenas arquivos .v (exclui testbenches)
+      const verilogFiles = files.filter(f =>
+        f.toLowerCase().endsWith('.v') &&
+        !f.toLowerCase().includes('_tb') &&
+        !f.toLowerCase().includes('testbench')
+      );
       if (verilogFiles.length === 0) {
-        throw new Error('No Verilog files found in project');
+        throw new Error('No Verilog files found in TopLevel folder');
       }
 
-      // Create temporary files for processing
+      // Caminhos completos entre aspas para cada .v
+      const filePaths = verilogFiles
+        .map(f => `"${path.join(verilogDir, f)}"`)
+        .join(' ');
+
+      // Arquivos temporários
       const tempDir = require('os').tmpdir();
       const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
-      const svgFile = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
+      const svgFile  = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
 
-      // Build yosys command
-      const filesArg = verilogFiles.map(f => `"${path.join(projectPath, f)}"`).join(' ');
-      const yosysCmd = `yosys -p "read_verilog ${filesArg}; hierarchy -top ${moduleName}; proc; write_json ${jsonFile}"`;
+      // Monta comando Yosys como uma string única, usando shell:true
+      const yosysCmd = 
+        `yosys -p "read_verilog ${filePaths} ; hierarchy -top ${moduleName} ; proc ; write_json ${jsonFile}"`;
 
-      // Run yosys
-      const yosysProcess = spawn('yosys', ['-p', `read_verilog ${filesArg}; hierarchy -top ${moduleName}; proc; write_json ${jsonFile}`], {
+      const yosysProcess = spawn(yosysCmd, {
         cwd: projectPath,
         shell: true
       });
 
       let yosysError = '';
-      yosysProcess.stderr.on('data', (data) => {
+      yosysProcess.stderr.on('data', data => {
         yosysError += data.toString();
       });
 
-      yosysProcess.on('close', (code) => {
+      yosysProcess.on('close', code => {
         if (code !== 0) {
-          reject(new Error(`Yosys failed: ${yosysError}`));
+          reject(new Error(`Yosys failed: ${yosysError.trim()}`));
           return;
         }
 
-        // Run netlistsvg
-        const netlistProcess = spawn('netlistsvg', [jsonFile, '-o', svgFile], {
-          shell: true
-        });
+        // netlistsvg gera o SVG a partir do JSON
+        const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
+        const netlistProcess = spawn(netlistCmd, { shell: true });
 
         let netlistError = '';
-        netlistProcess.stderr.on('data', (data) => {
+        netlistProcess.stderr.on('data', data => {
           netlistError += data.toString();
         });
 
-        netlistProcess.on('close', async (code) => {
+        netlistProcess.on('close', async code2 => {
+          if (code2 !== 0) {
+            reject(new Error(`netlistsvg failed: ${netlistError.trim()}`));
+            return;
+          }
           try {
-            if (code !== 0) {
-              reject(new Error(`netlistsvg failed: ${netlistError}`));
-              return;
-            }
-
-            // Read and process the SVG
             const svgContent = await fs.readFile(svgFile, 'utf8');
             const processedSvg = processSVG(svgContent);
-            
-            // Clean up temporary files
-            try {
-              await fs.unlink(jsonFile);
-              await fs.unlink(svgFile);
-            } catch (e) {
-              // Ignore cleanup errors
-            }
+
+            // Cleanup
+            await fs.unlink(jsonFile).catch(() => {});
+            await fs.unlink(svgFile).catch(() => {});
 
             resolve(processedSvg);
-          } catch (error) {
-            reject(error);
+          } catch (readErr) {
+            reject(readErr);
           }
         });
       });
-
-    } catch (error) {
-      reject(error);
+    } catch (err) {
+      reject(err);
     }
   });
 }
+
 
 // Function to process SVG content (equivalent to Python processing)
 function processSVG(svgContent) {
@@ -2537,13 +2542,19 @@ function processSVG(svgContent) {
 }
 
 // IPC handlers - add these to your existing IPC handlers
-ipcMain.handle('open-prism', async () => {
-  await createPrismWindow();
+ipcMain.handle('open-prism-window', async () => {
+  try {
+    const projectInfo = await getPrismProjectInfo();
+    await createPrismWindow(projectInfo);
+  } catch (error) {
+    throw error;
+  }
 });
 
 ipcMain.handle('get-prism-project-info', async () => {
   return await getPrismProjectInfo();
 });
+
 
 ipcMain.handle('generate-module-svg', async (event, moduleName) => {
   return await generateModuleSVG(moduleName);
@@ -2554,7 +2565,19 @@ ipcMain.handle('show-message-box', async (event, options) => {
   return await dialog.showMessageBox(options);
 });
 
-// Add this to your existing function that gets project path
+
 function getProjectPath() {
-  return global.currentProjectPath || '';
+  if (!currentOpenProjectPath) {
+    return '';
+  }
+  
+  try {
+    // Read the SPF file to get the actual project path
+    const spfData = require('fs').readFileSync(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    return projectData.structure.basePath;
+  } catch (error) {
+    console.error('Error reading project path:', error);
+    return '';
+  }
 }

@@ -358,8 +358,8 @@ async function parseProcessorInstances() {
     
     if (!projectPath) return;
     
-    // Check for Top Level folder
-    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
+    // Check for TopLevel folder
+    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
     const topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
     const searchPath = topLevelExists ? topLevelPath : projectPath;
     
@@ -570,14 +570,14 @@ function getUsedInstances() {
       
       console.log('Usando caminho do projeto:', projectPath);
       
-      // Tentar primeiro na pasta Top Level (se existir)
-      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'Top Level');
+      // Tentar primeiro na pasta TopLevel (se existir)
+      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
       let topLevelExists = false;
       
       try {
         topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
       } catch (err) {
-        console.warn('Erro ao verificar existência da pasta Top Level:', err);
+        console.warn('Erro ao verificar existência da pasta TopLevel:', err);
       }
       
       // Definir o caminho onde procurar os arquivos
@@ -822,7 +822,7 @@ async function prepareModalBeforeOpen() {
         topLevelSelect.appendChild(option);
         topLevelSelect.value = currentConfig.topLevelFile;
         
-        console.warn(`Arquivo Top Level configurado não encontrado: ${currentConfig.topLevelFile}`);
+        console.warn(`Arquivo TopLevel configurado não encontrado: ${currentConfig.topLevelFile}`);
       }
     }
     

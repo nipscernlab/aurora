@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../node_modules/@fortawesome/fontawesome-free/css/all.css">
     <title>PRISM - Circuit Visualizer</title>
+    <link rel="stylesheet" href="../css/import.css">
     <style>
         * {
             margin: 0;
@@ -11,51 +13,240 @@
             box-sizing: border-box;
         }
 
+        :root {
+            /* Dark theme (default) */
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #1a1825;
+            --bg-tertiary: #252236;
+            --bg-surface: #2d2a40;
+            --bg-hover: #363150;
+            
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #a78bfa;
+            --accent-tertiary: #c4b5fd;
+            --accent-hover: #7c3aed;
+            --accent-glow: rgba(139, 92, 246, 0.4);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-disabled: #64748b;
+            
+            --border-primary: #374151;
+            --border-secondary: #4b5563;
+            --border-focus: #8b5cf6;
+            
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.6);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.8);
+            --shadow-glow: 0 0 20px var(--accent-glow);
+            
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            
+            --radius-sm: 0.25rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+            --transition-slow: 0.4s ease;
+            
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            
+            --z-dropdown: 50;
+            --z-overlay: 100;
+            --z-modal: 200;
+            --z-tooltip: 300;
+        }
+
         body {
-            font-family: var(--font-sans, 'Inter', sans-serif);
-            background: var(--bg-primary);
+            font-family: var(--font-sans);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #0f0f23 100%);
             color: var(--text-primary);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            line-height: 1.6;
         }
+
+        .text {
+            fill: var(--text-primary);
+            stroke: none;
+            font-size: 10px;
+            font-weight: bold;
+            font-family: "Courier New", monospace;
+        }
+        
 
         .toolbar {
             background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--border-primary);
-            padding: var(--space-3);
+            padding: var(--space-4);
             display: flex;
             align-items: center;
-            gap: var(--space-3);
+            gap: var(--space-4);
             flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            z-index: var(--z-dropdown);
+        }
+
+        .toolbar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            opacity: 0.6;
         }
 
         .back-btn {
-            background: var(--accent-primary);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
             color: white;
             border: none;
-            padding: var(--space-2) var(--space-4);
-            border-radius: var(--radius-md);
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-lg);
             cursor: pointer;
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            transition: var(--transition-normal);
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all var(--transition-normal);
             display: none;
+            align-items: center;
+            gap: var(--space-2);
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .back-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left var(--transition-slow);
+        }
+
+        .back-btn:hover::before {
+            left: 100%;
         }
 
         .back-btn:hover {
-            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+        }
+
+        .back-btn:active {
+            transform: translateY(0);
         }
 
         .back-btn.visible {
-            display: block;
+            display: flex;
+        }
+
+        .toolbar-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-left: auto;
+        }
+
+        .control-btn {
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .control-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--border-secondary);
+            transform: translateY(-1px);
+        }
+
+        .control-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .zoom-controls {
+            display: flex;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .zoom-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: var(--space-2) var(--space-3);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border-right: 1px solid var(--border-primary);
+        }
+
+        .zoom-btn:last-child {
+            border-right: none;
+        }
+
+        .zoom-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .zoom-level {
+            padding: var(--space-2) var(--space-3);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            min-width: 60px;
+            text-align: center;
+            font-family: var(--font-mono);
         }
 
         .module-info {
             color: var(--text-secondary);
-            font-size: var(--text-sm);
-            margin-left: auto;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-lg);
+        }
+
+        .module-info i {
+            color: var(--accent-primary);
         }
 
         .loading {
@@ -64,21 +255,57 @@
             justify-content: center;
             height: 100%;
             flex-direction: column;
-            gap: var(--space-4);
+            gap: var(--space-6);
+            background: radial-gradient(circle at center, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+        }
+
+        .spinner-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .spinner {
-            width: 32px;
-            height: 32px;
+            width: 48px;
+            height: 48px;
             border: 3px solid var(--border-primary);
             border-top: 3px solid var(--accent-primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
 
+        .spinner-glow {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px solid transparent;
+            border-top: 2px solid var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin-reverse 2s linear infinite;
+            opacity: 0.6;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        @keyframes spin-reverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 1.125rem;
+            font-weight: 500;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
         }
 
         .content {
@@ -88,39 +315,75 @@
             justify-content: center;
             padding: var(--space-4);
             overflow: hidden;
+            position: relative;
         }
 
         .circuit-container {
             background: var(--bg-secondary);
             border: 1px solid var(--border-primary);
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius-xl);
             box-shadow: var(--shadow-lg);
-            max-width: 100%;
-            max-height: 100%;
-            overflow: auto;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
             display: none;
+            position: relative;
         }
 
         .circuit-container.visible {
             display: block;
         }
 
+        .circuit-viewport {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+            position: relative;
+        }
+
+        .circuit-viewport.dragging {
+            cursor: grabbing;
+        }
+
+        .circuit-svg-container {
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
+            transition: transform var(--transition-fast);
+        }
+
         .circuit-container svg {
             display: block;
             width: 100%;
             height: auto;
-            min-width: 600px;
-            min-height: 400px;
+            min-width: 800px;
+            min-height: 600px;
         }
 
         .error {
             color: var(--error);
-            background: rgba(229, 62, 108, 0.1);
-            padding: var(--space-4);
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(229, 62, 108, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             text-align: center;
             max-width: 500px;
+            backdrop-filter: blur(10px);
+        }
+
+        .error h3 {
+            font-size: 1.25rem;
+            margin-bottom: var(--space-3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+        }
+
+        .error p {
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
         /* Circuit element styling */
@@ -128,39 +391,59 @@
             stroke: var(--accent-primary) !important;
             stroke-width: 3 !important;
             fill-opacity: 0.9 !important;
+            filter: drop-shadow(0 0 8px var(--accent-glow)) !important;
+            animation: highlight-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes highlight-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
         }
 
         rect[class^="cell_"], 
         path[class^="cell_"],
         *[class^="net_"] {
             cursor: pointer;
-            transition: var(--transition-fast);
+            transition: all var(--transition-fast);
         }
 
         rect[class^="cell_"]:hover, 
         path[class^="cell_"]:hover {
-            filter: brightness(1.1);
+            filter: brightness(1.2) drop-shadow(0 4px 8px rgba(139, 92, 246, 0.3));
+            transform: translateY(-1px);
         }
 
         rect[class^="cell_"], 
         path[class^="cell_"], 
         .splitjoinBody {
-            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+            filter: drop-shadow(2px 2px 8px rgba(0, 0, 0, 0.4));
+        }
+
+        /* Net highlighting */
+        *[class^="net_"]:hover {
+            stroke-width: 2 !important;
+            stroke: var(--accent-secondary) !important;
         }
 
         /* Status messages */
         .status {
             position: fixed;
-            top: var(--space-4);
-            right: var(--space-4);
-            background: var(--bg-tertiary);
+            top: var(--space-6);
+            right: var(--space-6);
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
             color: var(--text-primary);
-            padding: var(--space-3) var(--space-4);
-            border-radius: var(--radius-md);
+            padding: var(--space-4) var(--space-5);
+            border-radius: var(--radius-lg);
             border: 1px solid var(--border-primary);
-            z-index: var(--z-50);
-            transform: translateX(100%);
+            z-index: var(--z-modal);
+            transform: translateX(110%);
             transition: transform var(--transition-normal);
+            box-shadow: var(--shadow-lg);
+            max-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
         }
 
         .status.visible {
@@ -168,47 +451,187 @@
         }
 
         .status.success {
-            background: rgba(76, 175, 80, 0.1);
+            background: rgba(16, 185, 129, 0.1);
             border-color: var(--success);
             color: var(--success);
         }
 
         .status.error {
-            background: rgba(229, 62, 108, 0.1);
+            background: rgba(239, 68, 68, 0.1);
             border-color: var(--error);
             color: var(--error);
         }
+
+        .status.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .status i {
+            font-size: 1.125rem;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;
+            pointer-events: none;
+            z-index: var(--z-tooltip);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all var(--transition-fast);
+            border: 1px solid var(--border-primary);
+            box-shadow: var(--shadow-sm);
+            backdrop-filter: blur(10px);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .toolbar {
+                padding: var(--space-3);
+                flex-wrap: wrap;
+                gap: var(--space-3);
+            }
+
+            .toolbar-controls {
+                margin-left: 0;
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .module-info {
+                font-size: 0.75rem;
+                padding: var(--space-2) var(--space-3);
+            }
+
+            .control-btn {
+                padding: var(--space-2);
+                font-size: 0.75rem;
+            }
+
+            .zoom-controls {
+                scale: 0.9;
+            }
+
+            .content {
+                padding: var(--space-2);
+            }
+
+            .circuit-container {
+                border-radius: var(--radius-lg);
+            }
+        }
+
+        /* Additional animations */
+        .fade-in {
+            animation: fadeIn var(--transition-slow) ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .scale-in {
+            animation: scaleIn var(--transition-normal) ease-out;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
     </style>
+
 </head>
 <body>
-    <div class="toolbar">
-        <button class="back-btn" id="backBtn">← Back</button>
-        <div class="module-info" id="moduleInfo">Loading...</div>
+        <div class="toolbar">
+        <button class="back-btn" id="backBtn">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </button>
+        
+        <div class="module-info" id="moduleInfo">
+            <i class="fa-solid fa-microchip"></i>
+            <span>Loading...</span>
+        </div>
+        
+        <div class="toolbar-controls">
+            <button class="control-btn" id="fitBtn" title="Fit to screen">
+                <i class="fa-solid fa-maximize"></i>
+                Fit
+            </button>
+            
+            <button class="control-btn" id="resetBtn" title="Reset view">
+                <i class="fa-solid fa-house"></i>
+                Reset
+            </button>
+            
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoomOutBtn" title="Zoom out">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <div class="zoom-level" id="zoomLevel">100%</div>
+                <button class="zoom-btn" id="zoomInBtn" title="Zoom in">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="content">
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <div>Generating circuit diagram...</div>
+        <div class="loading fade-in" id="loading">
+            <div class="spinner-container">
+                <div class="spinner"></div>
+                <div class="spinner-glow"></div>
+            </div>
+            <div class="loading-text">Generating circuit diagram...</div>
         </div>
 
-        <div class="circuit-container" id="circuitContainer"></div>
+        <div class="circuit-container scale-in" id="circuitContainer">
+            <div class="circuit-viewport" id="circuitViewport">
+                <div class="circuit-svg-container" id="circuitSvgContainer"></div>
+            </div>
+        </div>
 
-        <div class="error" id="error" style="display: none;">
-            <h3>Error</h3>
+        <div class="error scale-in" id="error" style="display: none;">
+            <h3>
+                Error
+            </h3>
             <p id="errorMessage"></p>
         </div>
     </div>
 
-    <div class="status" id="status"></div>
+    <div class="status" id="status">
+        <span id="statusText"></span>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
 
     <script>
-        class PrismViewer {
+       class PrismViewer {
             constructor() {
                 this.currentModule = null;
                 this.moduleHistory = [];
                 this.projectPath = '';
                 this.topLevelFile = '';
+                
+                // Pan & Zoom state
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.lastPan = { x: 0, y: 0 };
                 
                 this.initializeElements();
                 this.setupEventListeners();
@@ -218,35 +641,93 @@
             initializeElements() {
                 this.loading = document.getElementById('loading');
                 this.circuitContainer = document.getElementById('circuitContainer');
+                this.circuitViewport = document.getElementById('circuitViewport');
+                this.circuitSvgContainer = document.getElementById('circuitSvgContainer');
                 this.error = document.getElementById('error');
                 this.errorMessage = document.getElementById('errorMessage');
                 this.backBtn = document.getElementById('backBtn');
                 this.moduleInfo = document.getElementById('moduleInfo');
                 this.status = document.getElementById('status');
+                this.statusText = document.getElementById('statusText');
+                this.tooltip = document.getElementById('tooltip');
+                
+                // Controls
+                this.fitBtn = document.getElementById('fitBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.zoomInBtn = document.getElementById('zoomInBtn');
+                this.zoomOutBtn = document.getElementById('zoomOutBtn');
+                this.zoomLevel = document.getElementById('zoomLevel');
+                
+                // Check for missing elements and throw descriptive error
+                const requiredElements = {
+                    loading: this.loading,
+                    circuitContainer: this.circuitContainer,
+                    circuitViewport: this.circuitViewport,
+                    circuitSvgContainer: this.circuitSvgContainer,
+                    error: this.error,
+                    errorMessage: this.errorMessage,
+                    backBtn: this.backBtn,
+                    moduleInfo: this.moduleInfo,
+                    status: this.status,
+                    statusText: this.statusText,
+                    tooltip: this.tooltip,
+                    fitBtn: this.fitBtn,
+                    resetBtn: this.resetBtn,
+                    zoomInBtn: this.zoomInBtn,
+                    zoomOutBtn: this.zoomOutBtn,
+                    zoomLevel: this.zoomLevel
+                };
+                
+                const missingElements = Object.entries(requiredElements)
+                    .filter(([name, element]) => !element)
+                    .map(([name]) => name);
+                
+                if (missingElements.length > 0) {
+                    throw new Error(`Missing required HTML elements: ${missingElements.join(', ')}`);
+                }
             }
 
             setupEventListeners() {
                 this.backBtn.addEventListener('click', () => this.goBack());
                 
-                // Listen for module exploration requests
+                // Zoom controls
+                this.fitBtn.addEventListener('click', () => this.fitToScreen());
+                this.resetBtn.addEventListener('click', () => this.resetView());
+                this.zoomInBtn.addEventListener('click', () => this.zoomIn());
+                this.zoomOutBtn.addEventListener('click', () => this.zoomOut());
+                
+                // Pan & Zoom with mouse
+                this.circuitViewport.addEventListener('mousedown', (e) => this.startDrag(e));
+                this.circuitViewport.addEventListener('mousemove', (e) => this.drag(e));
+                this.circuitViewport.addEventListener('mouseup', () => this.endDrag());
+                this.circuitViewport.addEventListener('mouseleave', () => this.endDrag());
+                this.circuitViewport.addEventListener('wheel', (e) => this.handleWheel(e));
+                
+                // Touch events for mobile
+                this.circuitViewport.addEventListener('touchstart', (e) => this.startDrag(e));
+                this.circuitViewport.addEventListener('touchmove', (e) => this.drag(e));
+                this.circuitViewport.addEventListener('touchend', () => this.endDrag());
+                
+                // Module exploration
                 document.addEventListener('click', (e) => {
                     const element = e.target.closest('[class^="cell_"], [class^="net_"]');
                     if (element) {
                         this.handleElementClick(element, e);
                     }
                 });
+                
+                // Tooltip
+                document.addEventListener('mouseover', (e) => this.showTooltip(e));
+                document.addEventListener('mouseout', () => this.hideTooltip());
             }
 
             async initialize() {
                 try {
-                    // Get project info from main process
                     const projectInfo = await window.electronAPI.getPrismProjectInfo();
                     this.projectPath = projectInfo.projectPath;
                     this.topLevelFile = projectInfo.topLevelFile;
                     
-                    // Extract module name from filename
                     this.currentModule = this.topLevelFile.replace(/\.v$/, '');
-                    
                     await this.loadModule(this.currentModule);
                 } catch (error) {
                     this.showError('Failed to initialize PRISM viewer', error.message);
@@ -256,50 +737,92 @@
             async loadModule(moduleName) {
                 try {
                     this.showLoading();
-                    this.moduleInfo.textContent = `Module: ${moduleName}`;
+                    const moduleSpan = this.moduleInfo.querySelector('span');
+                    if (moduleSpan) {
+                        moduleSpan.textContent = `Module: ${moduleName}`;
+                    }
                     
-                    // Generate SVG for the module
                     const svgContent = await window.electronAPI.generateModuleSVG(moduleName);
-                    
-                    // Display the SVG
                     this.displaySVG(svgContent);
                     this.currentModule = moduleName;
                     
-                    this.showStatus(`Loaded module: ${moduleName}`, 'success');
+                    this.resetView();
+                    this.showStatus(`Successfully loaded module: ${moduleName}`, 'success', 'check-circle');
                 } catch (error) {
                     this.showError('Failed to load module', error.message);
                 }
             }
 
             displaySVG(svgContent) {
-                this.circuitContainer.innerHTML = svgContent;
+                this.circuitSvgContainer.innerHTML = svgContent;
                 this.circuitContainer.classList.add('visible');
                 this.loading.style.display = 'none';
                 this.error.style.display = 'none';
                 
-                // Apply theme styling to SVG elements
                 this.applySVGStyling();
+                
+                // Animate container appearance
+                this.circuitContainer.classList.add('scale-in');
             }
 
             applySVGStyling() {
-                const svg = this.circuitContainer.querySelector('svg');
+                const svg = this.circuitSvgContainer.querySelector('svg');
                 if (!svg) return;
 
-                // Add background
+                // Add background with gradient
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', 'bgGradient');
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '100%');
+                gradient.setAttribute('y2', '100%');
+                
+                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', '#1a1825');
+                
+                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', '#252236');
+                
+                gradient.appendChild(stop1);
+                gradient.appendChild(stop2);
+                defs.appendChild(gradient);
+                svg.insertBefore(defs, svg.firstChild);
+
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 rect.setAttribute('width', '100%');
                 rect.setAttribute('height', '100%');
-                rect.setAttribute('fill', 'var(--bg-tertiary)');
+                rect.setAttribute('fill', 'url(#bgGradient)');
                 rect.setAttribute('pointer-events', 'none');
-                svg.insertBefore(rect, svg.firstChild);
+                svg.insertBefore(rect, svg.firstChild.nextSibling);
 
-                // Style circuit elements
+                // Style circuit elements with modern colors
                 const cells = svg.querySelectorAll('rect[class^="cell_"], path[class^="cell_"], .splitjoinBody');
-                cells.forEach(cell => {
-                    cell.setAttribute('fill', 'var(--accent-primary)');
+                cells.forEach((cell, index) => {
+                    const colors = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#7c3aed', '#6d28d9'];
+                    const color = colors[index % colors.length];
+                    cell.setAttribute('fill', color);
+                    cell.setAttribute('stroke', '#ffffff');
+                    cell.setAttribute('stroke-width', '1');
                 });
 
-                // Clean up text elements
+                // Style nets
+                const nets = svg.querySelectorAll('*[class^="net_"]');
+                nets.forEach(net => {
+                    net.setAttribute('stroke', '#cbd5e1');
+                    net.setAttribute('stroke-width', '2');
+                });
+
+                // Style text elements
+                const textElements = svg.querySelectorAll('text');
+                textElements.forEach(text => {
+                    text.setAttribute('fill', '#f8fafc');
+                    text.setAttribute('font-family', 'Inter, sans-serif');
+                    text.setAttribute('font-size', '12');
+                });
+
                 this.cleanTextElements(svg);
             }
 
@@ -307,7 +830,6 @@
                 const textElements = svg.querySelectorAll('text');
                 textElements.forEach(text => {
                     if (text.textContent) {
-                        // Remove $paramod and clean paths
                         let content = text.textContent;
                         if (content.includes('$paramod')) {
                             const parts = content.split('\\');
@@ -316,7 +838,6 @@
                             }
                         }
                         
-                        // Clean file paths
                         if (content.includes('\\') || content.includes('/')) {
                             const parts = content.split(/[\\\/]/);
                             content = parts[parts.length - 1];
@@ -330,7 +851,6 @@
             handleElementClick(element, event) {
                 event.stopPropagation();
                 
-                // Remove previous highlights
                 document.querySelectorAll('.highlighted').forEach(el => {
                     el.classList.remove('highlighted');
                 });
@@ -338,31 +858,25 @@
                 const className = element.classList[0] || '';
                 
                 if (className.startsWith('cell_')) {
-                    // Highlight the cell
                     element.classList.add('highlighted');
-                    
-                    // Extract module name
                     const moduleName = className.replace(/^cell_/, '');
                     this.exploreModule(moduleName);
                     
                 } else if (className.startsWith('net_')) {
-                    // Highlight all segments of the net
                     document.querySelectorAll(`.${className}`).forEach(segment => {
                         segment.classList.add('highlighted');
                     });
+                    this.showStatus(`Net highlighted: ${className}`, 'info', 'info-circle');
                 }
             }
 
             async exploreModule(moduleName) {
                 try {
-                    // Add current module to history
                     this.moduleHistory.push(this.currentModule);
                     this.backBtn.classList.add('visible');
-                    
                     await this.loadModule(moduleName);
                 } catch (error) {
                     this.showError('Failed to explore module', error.message);
-                    // Remove from history on error
                     this.moduleHistory.pop();
                     if (this.moduleHistory.length === 0) {
                         this.backBtn.classList.remove('visible');
@@ -381,28 +895,184 @@
                 }
             }
 
+            // Pan & Zoom functionality
+            startDrag(e) {
+                this.isDragging = true;
+                this.circuitViewport.classList.add('dragging');
+                
+                const point = this.getEventPoint(e);
+                this.dragStart = { x: point.x, y: point.y };
+                this.lastPan = { x: this.panX, y: this.panY };
+                
+                e.preventDefault();
+            }
+
+            drag(e) {
+                if (!this.isDragging) return;
+                
+                const point = this.getEventPoint(e);
+                const deltaX = point.x - this.dragStart.x;
+                const deltaY = point.y - this.dragStart.y;
+                
+                this.panX = this.lastPan.x + deltaX;
+                this.panY = this.lastPan.y + deltaY;
+                
+                this.updateTransform();
+                e.preventDefault();
+            }
+
+            endDrag() {
+                this.isDragging = false;
+                this.circuitViewport.classList.remove('dragging');
+            }
+
+            getEventPoint(e) {
+                if (e.touches && e.touches.length > 0) {
+                    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+                return { x: e.clientX, y: e.clientY };
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                
+                const rect = this.circuitViewport.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const zoomIntensity = 0.1;
+                const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
+                const newScale = Math.max(0.1, Math.min(5, this.scale + delta));
+                
+                if (newScale !== this.scale) {
+                    const scaleFactor = newScale / this.scale;
+                    
+                    this.panX = centerX - (centerX - this.panX) * scaleFactor;
+                    this.panY = centerY - (centerY - this.panY) * scaleFactor;
+                    
+                    this.scale = newScale;
+                    this.updateTransform();
+                    this.updateZoomLevel();
+                }
+            }
+
+            zoomIn() {
+                const newScale = Math.min(5, this.scale + 0.2);
+                this.zoomToScale(newScale);
+            }
+
+            zoomOut() {
+                const newScale = Math.max(0.1, this.scale - 0.2);
+                this.zoomToScale(newScale);
+            }
+
+            zoomToScale(newScale) {
+                const rect = this.circuitViewport.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const scaleFactor = newScale / this.scale;
+                
+                this.panX = centerX - (centerX - this.panX) * scaleFactor;
+                this.panY = centerY - (centerY - this.panY) * scaleFactor;
+                
+                this.scale = newScale;
+                this.updateTransform();
+                this.updateZoomLevel();
+            }
+
+            fitToScreen() {
+                const svg = this.circuitSvgContainer.querySelector('svg');
+                if (!svg) return;
+                
+                const viewportRect = this.circuitViewport.getBoundingClientRect();
+                const svgRect = svg.getBoundingClientRect();
+                
+                const scaleX = viewportRect.width / svgRect.width;
+                const scaleY = viewportRect.height / svgRect.height;
+                const newScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some padding
+                
+                this.scale = Math.max(0.1, Math.min(5, newScale));
+                this.panX = (viewportRect.width - svgRect.width * this.scale) / 2;
+                this.panY = (viewportRect.height - svgRect.height * this.scale) / 2;
+                
+                this.updateTransform();
+                this.updateZoomLevel();
+                this.showStatus('Fitted to screen', 'success', 'expand-arrows-alt');
+            }
+
+            resetView() {
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.updateTransform();
+                this.updateZoomLevel();
+                this.showStatus('View reset', 'info', 'home');
+            }
+
+            updateTransform() {
+                this.circuitSvgContainer.style.transform = 
+                    `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+            }
+
+            updateZoomLevel() {
+                this.zoomLevel.textContent = `${Math.round(this.scale * 100)}%`;
+            }
+
+            showTooltip(e) {
+                const element = e.target.closest('[class^="cell_"], [class^="net_"]');
+                if (!element) {
+                    this.hideTooltip();
+                    return;
+                }
+                
+                const className = element.classList[0] || '';
+                let tooltipText = '';
+                
+                if (className.startsWith('cell_')) {
+                    const moduleName = className.replace(/^cell_/, '');
+                    tooltipText = `Module: ${moduleName} (Click to explore)`;
+                } else if (className.startsWith('net_')) {
+                    tooltipText = `Net: ${className} (Click to highlight)`;
+                }
+                
+                if (tooltipText) {
+                    this.tooltip.textContent = tooltipText;
+                    this.tooltip.style.left = e.pageX + 10 + 'px';
+                    this.tooltip.style.top = e.pageY - 30 + 'px';
+                    this.tooltip.classList.add('visible');
+                }
+            }
+
+            hideTooltip() {
+                this.tooltip.classList.remove('visible');
+            }
+
             showLoading() {
                 this.loading.style.display = 'flex';
                 this.circuitContainer.classList.remove('visible');
                 this.error.style.display = 'none';
+                this.loading.classList.add('fade-in');
             }
 
             showError(title, message) {
                 this.loading.style.display = 'none';
                 this.circuitContainer.classList.remove('visible');
                 this.error.style.display = 'block';
+                this.error.classList.add('scale-in');
                 this.errorMessage.textContent = `${title}: ${message}`;
                 
-                this.showStatus(title, 'error');
             }
 
-            showStatus(message, type = 'success') {
-                this.status.textContent = message;
+            showStatus(message, type = 'success', icon = 'info-circle') {
+                const iconElement = this.status.querySelector('i');
+                
+                this.statusText.textContent = message;
                 this.status.className = `status visible ${type}`;
                 
                 setTimeout(() => {
                     this.status.classList.remove('visible');
-                }, 3000);
+                }, 4000);
             }
         }
 
@@ -410,6 +1080,42 @@
         document.addEventListener('DOMContentLoaded', () => {
             new PrismViewer();
         });
+
+        // Prevent context menu on circuit area
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('.circuit-viewport')) {
+                e.preventDefault();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            switch(e.key) {
+                case 'f':
+                case 'F':
+                    document.getElementById('fitBtn').click();
+                    break;
+                case 'r':
+                case 'R':
+                    document.getElementById('resetBtn').click();
+                    break;
+                case '+':
+                case '=':
+                    document.getElementById('zoomInBtn').click();
+                    break;
+                case '-':
+                    document.getElementById('zoomOutBtn').click();
+                    break;
+                case 'Escape':
+                    if (document.getElementById('backBtn').classList.contains('visible')) {
+                        document.getElementById('backBtn').click();
+                    }
+                    break;
+            }
+        });
+
     </script>
 </body>
 </html>

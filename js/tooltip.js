@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'reload-everything-terminal': 'Reload Everything',
         'filter-error': 'Filter Errors',
         'filter-warning': 'Filter Warnings',
-        'filter-tips': 'Filter Tips'
+        'filter-success': 'Filter Successes',
+        'filter-tip': 'Filter Tips'
       };
   
     // Add mouse events to all buttons

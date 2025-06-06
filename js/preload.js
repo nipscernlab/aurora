@@ -263,9 +263,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
   fileExists: (path) => ipcRenderer.invoke('file:exists', path),
 
-  // Add these new functions to the electronAPI object:
-getPrismProjectInfo: () => ipcRenderer.invoke('get-prism-project-info'),
-generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
+      // Add these new functions to the electronAPI object:
+    getPrismProjectInfo: () => ipcRenderer.invoke('get-prism-project-info'),
+    openPrismWindow: () => ipcRenderer.invoke('open-prism-window'),
+
+    generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
 
   // Add these PRISM-related functions
   prism: {
@@ -477,3 +479,17 @@ contextBridge.exposeInMainWorld('verilogAPI', {
     }
   }
 });
+
+// Get project info from command line arguments if available
+const getProjectInfoFromArgs = () => {
+  const args = process.argv;
+  const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
+  if (projectInfoArg) {
+    try {
+      return JSON.parse(projectInfoArg.replace('--project-info=', ''));
+    } catch (error) {
+      console.error('Failed to parse project info from arguments:', error);
+    }
+  }
+  return null;
+};

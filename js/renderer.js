@@ -1118,10 +1118,7 @@ function setupCMMLanguage() {
         [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
         // StdLib functions
-        [/\b(in|out|norm|pset|abs|sin|cos|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
-
-        // StdLib functions
-        [/\b(in|out|norm|pset|abs|sin|cos|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+        [/\b(in|out|norm|pset|abs|sin|cos|complex|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
         // Array initialization from file
         [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
@@ -3912,7 +3909,6 @@ document.getElementById('openProjectBtn').addEventListener('click', async () => 
       currentSpfPath = `${currentProjectPath}.spf`;
       
       await loadProject(currentProjectPath);
-      updatePrismButtonState();
       // Atualiza o nome do projeto na interface
       const projectName = window.electronAPI.getBasename(currentProjectPath);
       updateProjectNameUI({
@@ -4337,55 +4333,24 @@ function updateFileTree(files) {
   */
 }
 
-// Add this event listener to handle the PRISM button click
-// This should be added to your main window's JavaScript
-
 document.addEventListener('DOMContentLoaded', () => {
   const prismButton = document.getElementById('prismcomp');
-  
-  if (prismButton) {
-    // Enable the button and update its state
-    prismButton.disabled = false;
-    prismButton.style.cursor = 'pointer';
-    prismButton.title = 'Open PRISM Circuit Visualizer';
-    
-    prismButton.addEventListener('click', async () => {
-      try {
-        await window.electronAPI.prism.openPrism();
-      } catch (error) {
-        console.error('Failed to open PRISM:', error);
-        // You can add a toast notification here if you have one
-        alert('Failed to open PRISM: ' + error.message);
-      }
-    });
+  if (!prismButton) {
+    console.error('Elemento #prismcomp não encontrado no DOM.');
+    return;
   }
+
+  prismButton.addEventListener('click', async (e) => {
+    e.preventDefault(); // garante que, se for um <button> dentro de um <form>, não reenviará o form
+    try {
+      await window.electronAPI.openPrismWindow();
+    } catch (error) {
+      console.error('Falha ao abrir PRISM:', error);
+      alert('Falha ao abrir PRISM: ' + error.message);
+    }
+  });
 });
 
-// Alternative: If you want to check if a project is loaded before enabling
-async function updatePrismButtonState() {
-  const prismButton = document.getElementById('prismcomp');
-  if (!prismButton) return;
-
-  try {
-    // Check if we have a valid project
-    const projectInfo = await window.electronAPI.getPrismProjectInfo();
-    
-    if(projectInfo){
-    // Enable button if project is available
-    prismButton.disabled = false;
-    prismButton.style.cursor = 'pointer';
-    prismButton.title = 'Open PRISM Circuit Visualizer';
-    }
-  } catch (error) {
-    // Disable button if no project is available
-    prismButton.disabled = true;
-    prismButton.style.cursor = 'not-allowed';
-    prismButton.title = 'No project loaded';
-  }
-}
-
-// Call this function when a project is loaded/unloaded
-// updatePrismButtonState();
 
 //PROCESSADOR HUB ==========================================================================================================================================================
 
@@ -5339,7 +5304,7 @@ async iverilogProjectCompilation() {
     
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
+    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
     const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
 
     // Get processors from project configuration
@@ -5354,7 +5319,7 @@ async iverilogProjectCompilation() {
       throw new Error("No testbench file specified in project configuration");
     }
     
-    // Get the top level file
+    // Get the TopLevel file
     const topLevelFile = this.projectConfig.topLevelFile;
     
     // Build list of HDL files
@@ -5676,7 +5641,7 @@ async runProjectGtkWave() {
     const hdlDir      = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const binDir      = await window.electronAPI.joinPath('saphoComponents', 'bin');
     const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'Top Level');
+    const topLevelDir = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
     const iveriCompPath = await window.electronAPI.joinPath(
       'saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe'
     );
@@ -5712,7 +5677,7 @@ async runProjectGtkWave() {
       }
     }
 
-    // 3.2) Top Level files
+    // 3.2) TopLevel files
     const topLevelFiles = await window.electronAPI.readDir(topLevelDir);
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
@@ -6955,14 +6920,16 @@ class TerminalManager {
   setupFilterButtons() {
     const errorBtn = document.getElementById('filter-error');
     const warningBtn = document.getElementById('filter-warning');
-    const tipsBtn = document.getElementById('filter-tips');
+    const successBtn = document.getElementById('filter-success');
+    const tipsBtn = document.getElementById('filter-tip');
     
-    if (!errorBtn || !warningBtn || !tipsBtn) return;
+    if (!errorBtn || !warningBtn || !successBtn || !tipsBtn) return;
 
-    const filterButtons = [errorBtn, warningBtn, tipsBtn];
+    const filterButtons = [errorBtn, warningBtn, successBtn, tipsBtn];
     
     errorBtn.addEventListener('click', () => this.toggleFilter('error', errorBtn, filterButtons));
     warningBtn.addEventListener('click', () => this.toggleFilter('warning', warningBtn, filterButtons));
+    successBtn.addEventListener('click', () => this.toggleFilter('success', successBtn, filterButtons))
     tipsBtn.addEventListener('click', () => this.toggleFilter('tips', tipsBtn, filterButtons));
   }
 

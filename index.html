@@ -276,11 +276,11 @@
         <h3 class="mconfig-section-title">Verilog & GTKW Files</h3>
         
         <div class="mconfig-form-group">
-          <label for="topLevelSelect" class="mconfig-label">Top Level File:</label>
+          <label for="topLevelSelect" class="mconfig-label">TopLevel File:</label>
           <div class="mconfig-select-container">
             <select id="topLevelSelect" class="mconfig-select">
-              <!-- Top level files will be dynamically added here -->
-              <option value="">Select Top Level File</option>
+              <!-- TopLevel files will be dynamically added here -->
+              <option value="">Select TopLevel File</option>
             </select>
           </div>
         </div>
@@ -477,20 +477,23 @@
           
           <!-- Botões de filtro no terminal-tabs -->
           <button id="filter-error" titles="Filter Errors" class="toolbar-button filter-btn filter-error">
-            <i class="fa-solid fa-circle-exclamation"></i>
+            <i class="fa-solid fa-circle-xmark"></i>          
           </button>
           <button id="filter-warning" titles="Filter Warnings" class="toolbar-button filter-btn filter-warning">
-            <i class="fa-solid fa-triangle-exclamation"></i>
+            <i class="fa-solid fa-circle-exclamation"></i>          
           </button>
-          <button id="filter-tips" titles="Filter Tips" class="toolbar-button filter-btn filter-tips">
-            <i class="fa-solid fa-circle-question"></i>
+          <button id="filter-success" titles="Filter Successes" class="toolbar-button filter-btn filter-success">
+            <i class="fa-solid fa-circle-check"></i>
+          </button>
+          <button id="filter-tip" titles="Filter Tips" class="toolbar-button filter-btn filter-tip">
+            <i class="fa-solid fa-circle-info"></i>
           </button>
 
           <button class="tab active" data-terminal="tcmm"><i class="fa-solid fa-c" style="color: lightskyblue;"></i><i class="fa-solid fa-plus-minus" style="color:  #FFD700;"></i> TCMM</button>
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
           <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
-          <button class="tab" data-terminal="tprism" style=" cursor: pointer;"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
+          <button class="tab" data-terminal="tprism"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
           <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
           <button id="goup-terminal" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
           <button id="godown-terminal" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
@@ -527,7 +530,7 @@
           <div class="terminal-header">TWAVE Terminal</div>
           <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
 
-        <div id="vvp-progress-container" class="vvp-progress-container">
+        <div id="vvp-progress-container" class="vvp-progress-container" style="display: none;">
         <div class="vvp-progress-info">
           <i class="fas fa-cog vvp-spinner-icon"></i>
           <span class="vvp-progress-text">VVP simulation in progress</span>
@@ -552,9 +555,6 @@
           </div>
         </div>
       </div>
-
-      </div>
-      </div>
         <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header">TPRISM Terminal</div>
           <div class="terminal-body">Welcome to the TPRISM Terminal!</div>
@@ -565,6 +565,9 @@
             <div id="terminal-container"></div>
           </div>
         </div>
+      </div>
+      </div>
+
         
       </div>
     </div>

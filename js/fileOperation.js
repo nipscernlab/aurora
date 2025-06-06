@@ -603,8 +603,8 @@ const DragDropHandler = (function() {
       const folderName = folderNameSpan.textContent.trim();
       console.log(`Current folder name: ${folderName}`);
       
-      // Skip "Top Level" as it's just a display name for the root
-      if (folderName !== 'Top Level') {
+      // Skip "TopLevel" as it's just a display name for the root
+      if (folderName !== 'TopLevel') {
         pathParts.unshift(folderName);
       }
     }
@@ -623,8 +623,8 @@ const DragDropHandler = (function() {
             const parentName = parentSpan.textContent.trim();
             console.log(`Parent folder name: ${parentName}`);
             
-            // Skip "Top Level" as it represents the project root
-            if (parentName !== 'Top Level') {
+            // Skip "TopLevel" as it represents the project root
+            if (parentName !== 'TopLevel') {
               pathParts.unshift(parentName);
             }
           }

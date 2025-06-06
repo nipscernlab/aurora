@@ -411,7 +411,8 @@
 /* Cores por tipo */
 .filter-error   { color: var(--error); }
 .filter-warning { color: var(--warning); }
-.filter-tips    { color: var(--info); }
+.filter-success { color: var(--success); }
+.filter-tip    { color: var(--info); }
 
 /* Hover/Active rápido */
 .filter-btn:hover {
@@ -419,20 +420,64 @@
 }
 
 /* --- Estado ATIVO (clicado) --- */
-.filter-btn.active {
-  background: var(--active-overlay);
-  filter: saturate(1.4) brightness(1.05);
+/* Estado ATIVO (clicado) mais suave e gradiente atrás do ícone */
+
+/* Erro (#ff7eb6 → rgb(255,126,182)) */
+.filter-error.active {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 126, 182, 0.20) 0%,
+    rgba(255, 126, 182, 0.05) 100%
+  );
+  transition: background 0.2s ease;
+}
+.filter-error.active i {
+  filter: saturate(1.2) brightness(1.1);
+  transition: filter 0.2s ease;
 }
 
-/* Destacar ícone no ativo */
-.filter-btn.active i {
-  filter: saturate(1.6) brightness(1.2);
+/* Warning (#ffb86c → rgb(255,184,108)) */
+.filter-warning.active {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 184, 108, 0.20) 0%,
+    rgba(255, 184, 108, 0.05) 100%
+  );
+  transition: background 0.2s ease;
+}
+.filter-warning.active i {
+  filter: saturate(1.2) brightness(1.1);
+  transition: filter 0.2s ease;
 }
 
-/* Opcional: borda de destaque */
-.filter-btn.active {
-  box-shadow: 0px 2px 0px 0px var(--border-focus);
+/* Success (#a5e075 → rgb(165,224,117)) */
+.filter-success.active {
+  background: linear-gradient(
+    135deg,
+    rgba(165, 224, 117, 0.20) 0%,
+    rgba(165, 224, 117, 0.05) 100%
+  );
+  transition: background 0.2s ease;
 }
+.filter-success.active i {
+  filter: saturate(1.2) brightness(1.1);
+  transition: filter 0.2s ease;
+}
+
+/* Tip (#82cffb → rgb(130,207,251)) */
+.filter-tip.active {
+  background: linear-gradient(
+    135deg,
+    rgba(130, 207, 251, 0.20) 0%,
+    rgba(130, 207, 251, 0.05) 100%
+  );
+  transition: background 0.2s ease;
+}
+.filter-tip.active i {
+  filter: saturate(1.2) brightness(1.1);
+  transition: filter 0.2s ease;
+}
+
 
 /* Message type styles */
 .log-entry.error {

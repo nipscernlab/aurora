@@ -2383,8 +2383,8 @@ ipcMain.on('app:reload', () => {
 let prismWindow = null;
 
 // Function to create PRISM window
-// Modify your createPrismWindow function to accept project info
 async function createPrismWindow(projectInfo = null) {
+  // If already open, just focus
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
     return;
@@ -2394,25 +2394,38 @@ async function createPrismWindow(projectInfo = null) {
     width: 1000,
     height: 700,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'js', 'preload-prism.js'),
-      additionalArguments: projectInfo ? [`--project-info=${JSON.stringify(projectInfo)}`] : []
+      additionalArguments: projectInfo
+        ? [`--project-info=${encodeURIComponent(JSON.stringify(projectInfo))}`]
+        : []
     },
     backgroundColor: '#17151f',
     show: false,
   });
 
-  await prismWindow.loadFile('html/prism.html');
+  // Always use loadFile with a full path
+  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
+  prismWindow.loadFile(prismHtmlPath).catch(err => {
+    console.error('Failed to load prism.html:', err);
+  });
 
+  // Show when ready
   prismWindow.once('ready-to-show', () => {
+    prismWindow.maximize();
     prismWindow.show();
   });
 
   prismWindow.on('closed', () => {
     prismWindow = null;
+  });
+
+  // In case of any load failure
+  prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error(`prism.html failed to load (code ${errorCode}): ${errorDescription}`);
   });
 }
 

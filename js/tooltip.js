@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'context-refactor-button': 'teste',
         'cancel-everything': 'Cancel all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
         'palette': 'Add some colors and personalize your AURORA IDE!',
+        'aiAssistant': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
 
         'goup-terminal': 'Go Up',
         'godown-terminal': 'Go Down',

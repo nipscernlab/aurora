@@ -82,7 +82,7 @@
             line-height: 1.6;
         }
 
-        .text {
+        #text {
             fill: var(--text-primary);
             stroke: none;
             font-size: 10px;
@@ -737,21 +737,28 @@
             async loadModule(moduleName) {
                 try {
                     this.showLoading();
+
+                    // Se vier com sufixo "_inst", remova antes:
+                    const realModule = moduleName.replace(/_inst$/, '');
+
+                    // Exibe no cabeçalho
                     const moduleSpan = this.moduleInfo.querySelector('span');
                     if (moduleSpan) {
-                        moduleSpan.textContent = `Module: ${moduleName}`;
+                    moduleSpan.textContent = `Module: ${realModule}`;
                     }
-                    
-                    const svgContent = await window.electronAPI.generateModuleSVG(moduleName);
+
+                    // Chama o Yosys com o nome de módulo correto
+                    const svgContent = await window.electronAPI.generateModuleSVG(realModule);
                     this.displaySVG(svgContent);
-                    this.currentModule = moduleName;
-                    
+                    this.currentModule = realModule;
+
                     this.resetView();
-                    this.showStatus(`Successfully loaded module: ${moduleName}`, 'success', 'check-circle');
+                    this.showStatus(`Successfully loaded module: ${realModule}`, 'success', 'check-circle');
                 } catch (error) {
                     this.showError('Failed to load module', error.message);
                 }
-            }
+                }
+
 
             displaySVG(svgContent) {
                 this.circuitSvgContainer.innerHTML = svgContent;

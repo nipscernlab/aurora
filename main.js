@@ -2391,8 +2391,8 @@ async function createPrismWindow(projectInfo = null) {
   }
 
   prismWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1200,
+    height: 800,
     autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
@@ -2407,13 +2407,11 @@ async function createPrismWindow(projectInfo = null) {
     show: false,
   });
 
-  // Always use loadFile with a full path
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
   prismWindow.loadFile(prismHtmlPath).catch(err => {
     console.error('Failed to load prism.html:', err);
   });
 
-  // Show when ready
   prismWindow.once('ready-to-show', () => {
     prismWindow.maximize();
     prismWindow.show();
@@ -2423,7 +2421,6 @@ async function createPrismWindow(projectInfo = null) {
     prismWindow = null;
   });
 
-  // In case of any load failure
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error(`prism.html failed to load (code ${errorCode}): ${errorDescription}`);
   });
@@ -2451,8 +2448,7 @@ async function getPrismProjectInfo() {
   }
 }
 
-// Updated generateModuleSVG function with better error handling
-// Função principal para gerar SVG do módulo
+// Main function to generate SVG for a module
 async function generateModuleSVG(moduleName) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -2460,46 +2456,44 @@ async function generateModuleSVG(moduleName) {
       const projectPath = projectInfo.projectPath;
       const verilogDir = path.join(projectPath, 'TopLevel');
 
-      console.log(`=== Gerando SVG para módulo: ${moduleName} ===`);
+      console.log(`=== Generating SVG for module: ${moduleName} ===`);
 
-      // Encontrar TODOS os arquivos Verilog do projeto
+      // Find all Verilog files in the project
       const allVerilogFiles = await getAllVerilogFiles(verilogDir);
-      console.log(`Arquivos Verilog encontrados: ${allVerilogFiles.length}`);
-      allVerilogFiles.forEach(f => console.log(`  - ${path.basename(f)}`));
+      console.log(`Found ${allVerilogFiles.length} Verilog files`);
 
-      // Verificar se o módulo principal existe
+      // Check if the main module exists
       const moduleFile = await findModuleInFiles(allVerilogFiles, moduleName);
       if (!moduleFile) {
-        throw new Error(`Módulo '${moduleName}' não encontrado em nenhum arquivo!`);
+        throw new Error(`Module '${moduleName}' not found in any file!`);
       }
 
-      console.log(`Módulo '${moduleName}' encontrado em: ${path.basename(moduleFile)}`);
+      console.log(`Module '${moduleName}' found in: ${path.basename(moduleFile)}`);
 
-      // Obter TODAS as dependências recursivamente
+      // Get ALL dependencies recursively
       const allDependencies = await getAllDependenciesRecursive(allVerilogFiles, moduleName);
-      console.log(`=== Dependências encontradas (${allDependencies.size} arquivos): ===`);
-      allDependencies.forEach(f => console.log(`  - ${path.basename(f)}`));
+      console.log(`=== Dependencies found (${allDependencies.size} files): ===`);
 
-      // Criar comando Yosys com TODOS os arquivos necessários
+      // Create Yosys command with ALL necessary files
       const filePaths = Array.from(allDependencies)
         .map(f => `"${f}"`)
         .join(' ');
 
-      // Arquivos temporários
+      // Temporary files
       const tempDir = require('os').tmpdir();
       const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
       const svgFile = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
 
-      // Comando Yosys
-      const yosysCmd = 
-        `yosys -p "read_verilog ${filePaths} ; hierarchy -top ${moduleName} ; proc ; opt ; write_json ${jsonFile}"`;
+      // Yosys command - improved with better synthesis flow
+      const yosysCmd = `yosys -p "read_verilog -sv ${filePaths}; hierarchy -top ${moduleName}; proc; opt; memory; opt; techmap; opt; clean; write_json ${jsonFile}"`;
 
-      console.log(`=== Executando Yosys ===`);
-      console.log(`Comando: ${yosysCmd}`);
+      console.log(`=== Running Yosys ===`);
+      console.log(`Command: ${yosysCmd}`);
 
       const yosysProcess = spawn(yosysCmd, {
         cwd: projectPath,
-        shell: true
+        shell: true,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
 
       let yosysOutput = '';
@@ -2514,21 +2508,30 @@ async function generateModuleSVG(moduleName) {
       });
 
       yosysProcess.on('close', code => {
-        console.log(`Yosys finalizado com código: ${code}`);
-        if (yosysOutput) console.log('Saída Yosys:', yosysOutput);
-        if (yosysError) console.log('Erro Yosys:', yosysError);
+        console.log(`Yosys finished with code: ${code}`);
+        if (yosysOutput) console.log('Yosys output:', yosysOutput);
+        if (yosysError) console.log('Yosys error:', yosysError);
 
         if (code !== 0) {
-          reject(new Error(`Yosys falhou para módulo ${moduleName}:\n${yosysError.trim()}`));
+          reject(new Error(`Yosys failed for module ${moduleName}:\n${yosysError.trim()}`));
           return;
         }
 
-        // Gerar SVG a partir do JSON
+        // Check if JSON file was created
+        if (!require('fs').existsSync(jsonFile)) {
+          reject(new Error(`Yosys did not generate JSON file for module ${moduleName}`));
+          return;
+        }
+
+        // Generate SVG from JSON
         const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
-        console.log(`=== Executando netlistsvg ===`);
-        console.log(`Comando: ${netlistCmd}`);
+        console.log(`=== Running netlistsvg ===`);
+        console.log(`Command: ${netlistCmd}`);
         
-        const netlistProcess = spawn(netlistCmd, { shell: true });
+        const netlistProcess = spawn(netlistCmd, { 
+          shell: true,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
 
         let netlistOutput = '';
         let netlistError = '';
@@ -2542,36 +2545,52 @@ async function generateModuleSVG(moduleName) {
         });
 
         netlistProcess.on('close', async code2 => {
-          console.log(`netlistsvg finalizado com código: ${code2}`);
-          if (netlistOutput) console.log('Saída netlistsvg:', netlistOutput);
-          if (netlistError) console.log('Erro netlistsvg:', netlistError);
+          console.log(`netlistsvg finished with code: ${code2}`);
+          if (netlistOutput) console.log('netlistsvg output:', netlistOutput);
+          if (netlistError) console.log('netlistsvg error:', netlistError);
 
           if (code2 !== 0) {
-            reject(new Error(`netlistsvg falhou para módulo ${moduleName}:\n${netlistError.trim()}`));
+            reject(new Error(`netlistsvg failed for module ${moduleName}:\n${netlistError.trim()}`));
             return;
           }
           
           try {
+            // Check if SVG file was created
+            if (!require('fs').existsSync(svgFile)) {
+              reject(new Error(`netlistsvg did not generate SVG file for module ${moduleName}`));
+              return;
+            }
+
             const svgContent = await fs.readFile(svgFile, 'utf8');
             const processedSvg = processSVG(svgContent);
 
-            // Limpeza dos arquivos temporários
+            // Cleanup temporary files
             await fs.unlink(jsonFile).catch(() => {});
             await fs.unlink(svgFile).catch(() => {});
 
-            console.log(`=== SVG gerado com sucesso para ${moduleName} ===`);
+            console.log(`=== SVG generated successfully for ${moduleName} ===`);
             resolve(processedSvg);
           } catch (readErr) {
-            reject(readErr);
+            reject(new Error(`Failed to read SVG file: ${readErr.message}`));
           }
         });
+
+        netlistProcess.on('error', (err) => {
+          reject(new Error(`Failed to start netlistsvg: ${err.message}`));
+        });
       });
+
+      yosysProcess.on('error', (err) => {
+        reject(new Error(`Failed to start Yosys: ${err.message}`));
+      });
+
     } catch (err) {
       reject(err);
     }
   });
 }
 
+// Get all Verilog files in directory
 async function getAllVerilogFiles(verilogDir) {
   try {
     const files = await fs.readdir(verilogDir);
@@ -2582,12 +2601,12 @@ async function getAllVerilogFiles(verilogDir) {
     
     return verilogFiles;
   } catch (error) {
-    console.error('Erro ao listar arquivos Verilog:', error);
+    console.error('Error listing Verilog files:', error);
     return [];
   }
 }
 
-// Encontrar em qual arquivo está um módulo específico
+// Find which file contains a specific module
 async function findModuleInFiles(verilogFiles, moduleName) {
   for (const filePath of verilogFiles) {
     try {
@@ -2597,81 +2616,82 @@ async function findModuleInFiles(verilogFiles, moduleName) {
         return filePath;
       }
     } catch (error) {
-      console.error(`Erro ao ler arquivo ${filePath}:`, error);
+      console.error(`Error reading file ${filePath}:`, error);
     }
   }
   return null;
 }
-// Obter todas as dependências recursivamente
+
+// Get all dependencies recursively
 async function getAllDependenciesRecursive(allVerilogFiles, startModule) {
   const dependencies = new Set();
   const visited = new Set();
   const toProcess = [startModule];
 
-  console.log(`=== Iniciando busca recursiva de dependências para: ${startModule} ===`);
+  console.log(`=== Starting recursive dependency search for: ${startModule} ===`);
 
   while (toProcess.length > 0) {
     const currentModule = toProcess.shift();
     
     if (visited.has(currentModule)) {
-      console.log(`Módulo '${currentModule}' já processado, pulando...`);
+      console.log(`Module '${currentModule}' already processed, skipping...`);
       continue;
     }
     
     visited.add(currentModule);
-    console.log(`Processando módulo: '${currentModule}'`);
+    console.log(`Processing module: '${currentModule}'`);
 
-    // Encontrar arquivo que contém este módulo
+    // Find file containing this module
     const moduleFile = await findModuleInFiles(allVerilogFiles, currentModule);
     if (!moduleFile) {
-      console.log(`AVISO: Módulo '${currentModule}' não encontrado!`);
+      console.log(`WARNING: Module '${currentModule}' not found!`);
       continue;
     }
 
-    // Adicionar arquivo às dependências
+    // Add file to dependencies
     dependencies.add(moduleFile);
-    console.log(`  - Arquivo adicionado: ${path.basename(moduleFile)}`);
+    console.log(`  - File added: ${path.basename(moduleFile)}`);
 
-    // Encontrar módulos instanciados neste arquivo
+    // Find modules instantiated in this file
     const instantiatedModules = await extractInstantiatedModules(moduleFile);
-    console.log(`  - Módulos instanciados encontrados: [${instantiatedModules.join(', ')}]`);
+    console.log(`  - Instantiated modules found: [${instantiatedModules.join(', ')}]`);
 
-    // Adicionar módulos instanciados à lista de processamento
+    // Add instantiated modules to processing queue
     for (const instModule of instantiatedModules) {
       if (!visited.has(instModule)) {
         toProcess.push(instModule);
-        console.log(`    -> Adicionado à fila: '${instModule}'`);
+        console.log(`    -> Added to queue: '${instModule}'`);
       }
     }
   }
 
-  console.log(`=== Busca recursiva concluída. Total de arquivos: ${dependencies.size} ===`);
+  console.log(`=== Recursive search completed. Total files: ${dependencies.size} ===`);
   return dependencies;
 }
 
-// Extrair módulos instanciados de um arquivo (versão melhorada)
+// Extract instantiated modules from a file (improved version)
 async function extractInstantiatedModules(filePath) {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     const modules = new Set();
     
-    // Remover comentários e strings para evitar falsos positivos
+    // Remove comments and strings to avoid false positives
     const cleanContent = content
-      .replace(/\/\/.*$/gm, '') // Comentários de linha
-      .replace(/\/\*[\s\S]*?\*\//g, '') // Comentários de bloco
+      .replace(/\/\/.*$/gm, '') // Line comments
+      .replace(/\/\*[\s\S]*?\*\//g, '') // Block comments
       .replace(/"[^"]*"/g, '') // Strings
-      .replace(/`[^\n]*/g, ''); // Diretivas do compiler
+      .replace(/`[^\n]*/g, ''); // Compiler directives
 
-    // Pattern para instanciações: ModuleName instance_name (
-    // Versão mais robusta que lida com quebras de linha e espaçamentos
-    const instantiationRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+    // Pattern for instantiations: ModuleName instance_name (
+    // More robust version that handles line breaks and spacing
+    const instantiationRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z0-9_$]+)\s*\(/g;
     
     let match;
     while ((match = instantiationRegex.exec(cleanContent)) !== null) {
       const moduleName = match[1];
       const instanceName = match[2];
       
-      // Lista de palavras-chave Verilog para filtrar
+      // List of Verilog keywords to filter out
       const verilogKeywords = [
         'module', 'endmodule', 'input', 'output', 'inout', 'wire', 'reg', 'assign',
         'always', 'initial', 'if', 'else', 'case', 'casex', 'casez', 'default', 
@@ -2684,217 +2704,55 @@ async function extractInstantiatedModules(filePath) {
         'signed', 'unsigned'
       ];
       
-      // Verificar contexto antes da instanciação
+      // Check context before instantiation
       const beforeMatch = cleanContent.substring(Math.max(0, match.index - 100), match.index);
       const isDeclaration = /\b(wire|reg|input|output|inout|parameter|localparam)\s*(\[[^\]]*\])?\s*$/.test(beforeMatch.trim());
       
-      // Filtros para identificar instanciações válidas
+      // Filters to identify valid instantiations
       if (!verilogKeywords.includes(moduleName.toLowerCase()) && 
           !isDeclaration &&
-          moduleName !== instanceName && // Evitar auto-referências
-          !/^\d/.test(moduleName) && // Nomes de módulo não podem começar com dígito
-          !/^[0-9]+$/.test(moduleName)) { // Não pode ser só números
+          moduleName !== instanceName && // Avoid self-references
+          !/^\d/.test(moduleName) && // Module names cannot start with digit
+          !/^[0-9]+$/.test(moduleName)) { // Cannot be only numbers
         modules.add(moduleName);
       }
     }
     
     const result = Array.from(modules);
-    console.log(`    Arquivo ${path.basename(filePath)} instancia: [${result.join(', ')}]`);
+    console.log(`    File ${path.basename(filePath)} instantiates: [${result.join(', ')}]`);
     return result;
     
   } catch (error) {
-    console.error('Erro ao extrair módulos instanciados:', error);
+    console.error('Error extracting instantiated modules:', error);
     return [];
   }
 }
 
-
-
-// Função auxiliar mantida para compatibilidade (chama a nova função)
-async function findModuleFile(verilogDir, moduleName) {
-  const allFiles = await getAllVerilogFiles(verilogDir);
-  return await findModuleInFiles(allFiles, moduleName);
-}
-
-// Função auxiliar mantida para compatibilidade
-async function getAllDependencies(verilogDir, mainModuleFile) {
-  try {
-    const allFiles = await getAllVerilogFiles(verilogDir);
-    const mainModuleName = await getModuleNameFromFile(mainModuleFile);
-    const dependencies = await getAllDependenciesRecursive(allFiles, mainModuleName);
-    return Array.from(dependencies);
-  } catch (error) {
-    console.error('Erro em getAllDependencies:', error);
-    return [mainModuleFile];
-  }
-}
-
-// Extrair nome do módulo de um arquivo
-async function getModuleNameFromFile(filePath) {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const moduleMatch = content.match(/module\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[\(\s]/i);
-    return moduleMatch ? moduleMatch[1] : path.basename(filePath, '.v');
-  } catch (error) {
-    console.error('Erro ao obter nome do módulo:', error);
-    return path.basename(filePath, '.v');
-  }
-}
-
-// Função auxiliar mantida para compatibilidade
-async function getInstantiatedModules(filePath) {
-  return await extractInstantiatedModules(filePath);
-}
-
-// Helper function to find module file by module name
-async function findModuleFileByName(verilogDir, moduleName, verilogFiles = null) {
-  try {
-    if (!verilogFiles) {
-      const files = await fs.readdir(verilogDir);
-      verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
-    }
-
-    // First try to find a file with the same name as the module
-    const directMatch = verilogFiles.find(f => 
-      path.basename(f, '.v').toLowerCase() === moduleName.toLowerCase()
-    );
-    
-    if (directMatch) {
-      const filePath = path.join(verilogDir, directMatch);
-      // Verify it actually contains the module
-      const content = await fs.readFile(filePath, 'utf8');
-      const moduleRegex = new RegExp(`module\\s+${moduleName}\\s*[\\(\\s]`, 'i');
-      if (moduleRegex.test(content)) {
-        return filePath;
-      }
-    }
-
-    // If no direct match, search through all files
-    for (const file of verilogFiles) {
-      const filePath = path.join(verilogDir, file);
-      const content = await fs.readFile(filePath, 'utf8');
-      
-      const moduleRegex = new RegExp(`module\\s+${moduleName}\\s*[\\(\\s]`, 'i');
-      if (moduleRegex.test(content)) {
-        return filePath;
-      }
-    }
-    
-    console.warn(`Module file not found for: ${moduleName}`);
-    return null;
-  } catch (error) {
-    console.error('Error finding module file by name:', error);
-    return null;
-  }
-}
-
-// Helper function to extract the module name from a file
-async function getModuleNameFromFile(filePath) {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const moduleMatch = content.match(/module\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[\(\s]/i);
-    return moduleMatch ? moduleMatch[1] : path.basename(filePath, '.v');
-  } catch (error) {
-    console.error('Error getting module name from file:', error);
-    return path.basename(filePath, '.v');
-  }
-}
-
-// Enhanced function to extract instantiated module names from a Verilog file
-async function getInstantiatedModules(filePath) {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const modules = new Set();
-    
-    // Remove comments and strings to avoid false matches
-    const cleanContent = content
-      .replace(/\/\/.*$/gm, '') // Remove line comments
-      .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
-      .replace(/"[^"]*"/g, '') // Remove strings
-      .replace(/`[^\n]*/g, ''); // Remove compiler directives
-    
-    // Pattern to match module instantiations: ModuleName instance_name (
-    // More robust pattern that handles various spacing and formatting
-    const instantiationRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
-    
-    let match;
-    while ((match = instantiationRegex.exec(cleanContent)) !== null) {
-      const moduleName = match[1];
-      const instanceName = match[2];
-      
-      // Skip Verilog keywords and built-in primitives
-      const verilogKeywords = [
-        'module', 'endmodule', 'input', 'output', 'inout', 'wire', 'reg', 'assign',
-        'always', 'initial', 'if', 'else', 'case', 'casex', 'casez', 'default', 
-        'for', 'while', 'repeat', 'forever', 'begin', 'end', 'fork', 'join',
-        'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
-        'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
-        'integer', 'real', 'time', 'realtime', 'parameter', 'localparam', 'genvar',
-        'generate', 'endgenerate', 'task', 'endtask', 'function', 'endfunction',
-        'specify', 'endspecify', 'table', 'endtable', 'primitive', 'endprimitive'
-      ];
-      
-      // Additional check: make sure it's not a declaration or assignment
-      const beforeMatch = cleanContent.substring(Math.max(0, match.index - 50), match.index);
-      const isDeclaration = /\b(wire|reg|input|output|inout|parameter|localparam)\s*$/.test(beforeMatch.trim());
-      
-      if (!verilogKeywords.includes(moduleName.toLowerCase()) && 
-          !isDeclaration &&
-          moduleName !== instanceName && // Avoid self-references
-          !/^\d/.test(moduleName)) { // Module names can't start with digits
-        modules.add(moduleName);
-      }
-    }
-    
-    console.log(`Found instantiated modules in ${path.basename(filePath)}:`, Array.from(modules));
-    return Array.from(modules);
-    
-  } catch (error) {
-    console.error('Error parsing instantiated modules:', error);
-    return [];
-  }
-}
-
+// Process SVG content to clean up names and paths
 function processSVG(svgContent) {
   let processed = svgContent;
   
-  // Remover prefixos $paramod
+  // Remove $paramod prefixes
   processed = processed.replace(/\$paramod[^\\]*\\/g, '');
   
-  // Limpar caminhos em elementos de texto
+  // Clean paths in text elements
   processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
     const parts = content.split(/[\\\/]/);
     const cleanContent = parts[parts.length - 1];
     return match.replace(content, cleanContent);
   });
 
+  // Clean up module names in class attributes
+  processed = processed.replace(/class="cell_([^"]*)/g, (match, className) => {
+    let cleanName = className.replace(/^\$.*\\/, '');
+    cleanName = cleanName.replace(/_\d+$/, '');
+    return `class="cell_${cleanName}`;
+  });
+
   return processed;
 }
-// IPC handlers - add these to your existing IPC handlers
-ipcMain.handle('open-prism-window', async () => {
-  try {
-    const projectInfo = await getPrismProjectInfo();
-    await createPrismWindow(projectInfo);
-  } catch (error) {
-    throw error;
-  }
-});
 
-ipcMain.handle('get-prism-project-info', async () => {
-  return await getPrismProjectInfo();
-});
-
-
-ipcMain.handle('generate-module-svg', async (event, moduleName) => {
-  return await generateModuleSVG(moduleName);
-});
-
-ipcMain.handle('show-message-box', async (event, options) => {
-  const { dialog } = require('electron');
-  return await dialog.showMessageBox(options);
-});
-
-
+// Get project path helper function
 function getProjectPath() {
   if (!currentOpenProjectPath) {
     return '';
@@ -2910,3 +2768,26 @@ function getProjectPath() {
     return '';
   }
 }
+
+// IPC handlers - add these to your existing IPC handlers
+ipcMain.handle('open-prism-window', async () => {
+  try {
+    const projectInfo = await getPrismProjectInfo();
+    await createPrismWindow(projectInfo);
+  } catch (error) {
+    throw error;
+  }
+});
+
+ipcMain.handle('get-prism-project-info', async () => {
+  return await getPrismProjectInfo();
+});
+
+ipcMain.handle('generate-module-svg', async (event, moduleName) => {
+  return await generateModuleSVG(moduleName);
+});
+
+ipcMain.handle('show-message-box', async (event, options) => {
+  const { dialog } = require('electron');
+  return await dialog.showMessageBox(options);
+});

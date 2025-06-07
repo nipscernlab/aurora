@@ -14,36 +14,38 @@
         }
 
         :root {
-            /* Paleta de cores minimalista e moderna */
-            --bg-primary: #0f0f14;
-            --bg-secondary: #1a1a1f;
-            --bg-tertiary: #232329;
-            --bg-surface: #2a2a33;
-            --bg-hover: #34343e;
+            /* Paleta roxa moderna */
+            --bg-primary: #0d0b12;
+            --bg-secondary: #1a1623;
+            --bg-tertiary: #252137;
+            --bg-surface: #2f2a40;
+            --bg-hover: #3d3550;
             
-            --accent-primary: #00d4ff;
-            --accent-secondary: #0099cc;
-            --accent-tertiary: #66e0ff;
-            --accent-hover: #00b8e6;
-            --accent-glow: rgba(0, 212, 255, 0.25);
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #7c3aed;
+            --accent-tertiary: #a78bfa;
+            --accent-hover: #9333ea;
+            --accent-glow: rgba(139, 92, 246, 0.25);
+            --accent-light: #c4b5fd;
             
-            --text-primary: #ffffff;
-            --text-secondary: #b8b8b8;
-            --text-muted: #8a8a8a;
-            --text-disabled: #5a5a5a;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-disabled: #64748b;
             
-            --border-primary: #3a3a42;
-            --border-secondary: #4a4a52;
-            --border-focus: #00d4ff;
+            --border-primary: #4c4764;
+            --border-secondary: #64748b;
+            --border-focus: #8b5cf6;
             
-            --success: #00c851;
-            --warning: #ffbb33;
-            --error: #ff4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
             
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
             --shadow-glow: 0 0 20px var(--accent-glow);
+            --shadow-purple: 0 4px 20px rgba(139, 92, 246, 0.15);
             
             --space-1: 0.25rem;
             --space-2: 0.5rem;
@@ -72,7 +74,7 @@
 
         body {
             font-family: var(--font-sans);
-            background: var(--bg-primary);
+            background: linear-gradient(135deg, var(--bg-primary), #0f0a15);
             color: var(--text-primary);
             height: 100vh;
             display: flex;
@@ -83,17 +85,17 @@
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Toolbar moderno e otimizado */
+        /* Toolbar otimizado com tema roxo */
         .toolbar {
-            background: var(--bg-secondary);
-            backdrop-filter: blur(12px);
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border-primary);
             padding: var(--space-4);
             display: flex;
             align-items: center;
             gap: var(--space-4);
             flex-shrink: 0;
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--shadow-md), inset 0 1px 0 rgba(139, 92, 246, 0.1);
             position: relative;
             z-index: var(--z-dropdown);
         }
@@ -106,17 +108,18 @@
             border-radius: var(--radius-lg);
             cursor: pointer;
             font-size: 0.875rem;
-            font-weight: 500;
+            font-weight: 600;
             transition: all var(--transition);
             display: none;
             align-items: center;
             gap: var(--space-2);
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--shadow-purple);
         }
 
         .back-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md), var(--shadow-glow);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+            background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
         }
 
         .back-btn.visible {
@@ -143,19 +146,38 @@
             align-items: center;
             gap: var(--space-2);
             font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+            transition: left var(--transition-slow);
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
         }
 
         .control-btn:hover {
             background: var(--bg-hover);
             color: var(--text-primary);
-            border-color: var(--border-secondary);
+            border-color: var(--accent-primary);
             transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
         }
 
         .control-btn.active {
-            background: var(--accent-primary);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             color: white;
             border-color: var(--accent-primary);
+            box-shadow: var(--shadow-purple);
         }
 
         .zoom-controls {
@@ -164,6 +186,7 @@
             border: 1px solid var(--border-primary);
             border-radius: var(--radius-md);
             overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
 
         .zoom-btn {
@@ -177,6 +200,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            min-width: 32px;
         }
 
         .zoom-btn:last-child {
@@ -185,7 +209,7 @@
 
         .zoom-btn:hover {
             background: var(--bg-hover);
-            color: var(--text-primary);
+            color: var(--accent-light);
         }
 
         .zoom-level {
@@ -196,6 +220,7 @@
             text-align: center;
             font-family: var(--font-mono);
             font-weight: 600;
+            background: var(--bg-tertiary);
         }
 
         .module-info {
@@ -209,13 +234,16 @@
             background: var(--bg-surface);
             border: 1px solid var(--border-primary);
             border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            position: relative;
         }
 
         .module-info i {
             color: var(--accent-primary);
+            text-shadow: 0 0 8px var(--accent-glow);
         }
 
-        /* Container principal otimizado */
+        /* Container principal redesenhado */
         .content {
             flex: 1;
             display: flex;
@@ -224,13 +252,14 @@
             padding: var(--space-4);
             overflow: hidden;
             position: relative;
+            background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.05), transparent);
         }
 
         .circuit-container {
             background: var(--bg-secondary);
             border: 1px solid var(--border-primary);
             border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(139, 92, 246, 0.1);
             width: 100%;
             height: 100%;
             overflow: hidden;
@@ -242,40 +271,174 @@
             display: block;
         }
 
-        .circuit-viewport {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            cursor: grab;
-            position: relative;
-            background: var(--bg-secondary);
+        @keyframes highlight-glow {
+    0%, 100% { 
+        filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6));
+        opacity: 1; 
+    }
+    50% { 
+        filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.8));
+        opacity: 0.8; 
+    }
+}
+
+/* Viewport com melhor performance */
+.circuit-viewport {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+    position: relative;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    contain: layout style paint;
+}
+
+      .circuit-viewport.dragging {
+    cursor: grabbing;
+}
+
+/* Melhorias para elementos interativos */
+.circuit-container svg [class^="cell_"]:hover {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.circuit-container svg [class^="net_"]:hover {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Otimizações de performance para transformações */
+.circuit-svg-container {
+    will-change: transform;
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+.circuit-svg-container svg {
+    will-change: auto;
+    transform: translateZ(0);
+}
+
+/* Responsividade aprimorada */
+@media (max-width: 768px) {
+    .circuit-container svg text {
+        font-size: 10px !important;
+        font-weight: 700 !important;
+    }
+    
+    .circuit-container svg {
+        filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
+    }
+}
+
+@media (max-width: 480px) {
+    .circuit-container svg text {
+        font-size: 9px !important;
+        font-weight: 700 !important;
+    }
+    
+    .highlighted {
+        stroke-width: 3 !important;
+    }
+}
+
+/* Garantir que o SVG seja sempre visível */
+.circuit-svg-container svg {
+    min-width: 100px;
+    min-height: 100px;
+}
+
+/* Estilo para loading durante renderização */
+.circuit-container.loading svg {
+    opacity: 0;
+    transform: scale(0.98);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.circuit-container.loaded svg {
+    opacity: 1;
+    transform: scale(1);
+}
+        /* Container do SVG otimizado */
+.circuit-svg-container {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: visible;
+}
+
+/* SVG principal com melhor renderização */
+.circuit-container svg {
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
+    background: transparent;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+    shape-rendering: geometricPrecision;
+    text-rendering: optimizeLegibility;
+    font-smooth: always;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Garantir renderização suave */
+.circuit-svg-container svg * {
+    vector-effect: non-scaling-stroke;
+    shape-rendering: geometricPrecision;
+}
+
+/* Estilo base para textos do SVG */
+.circuit-container svg text {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    font-weight: 600 !important;
+    fill: #f8fafc !important;
+    stroke: none !important;
+    text-anchor: middle !important;
+    dominant-baseline: central !important;
+    user-select: none !important;
+    pointer-events: none !important;
+}
+
+        .circuit-container svg rect {
+            fill: var(--bg-surface) !important;
+            stroke: var(--accent-primary) !important;
+            stroke-width: 1.5 !important;
         }
 
-        .circuit-viewport.dragging {
-            cursor: grabbing;
+        .circuit-container svg path {
+            stroke: var(--accent-light) !important;
+            stroke-width: 1.5 !important;
+            fill: none !important;
         }
 
-        .circuit-svg-container {
-            width: 100%;
-            height: 100%;
-            transform-origin: center center;
-            transition: transform var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .circuit-container svg line {
+            stroke: var(--accent-light) !important;
+            stroke-width: 1.5 !important;
         }
 
-        /* SVG styling otimizado */
-        .circuit-container svg {
-            display: block;
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
-            background: transparent;
+        .circuit-container svg circle {
+            fill: var(--accent-primary) !important;
+            stroke: var(--accent-light) !important;
+            stroke-width: 1 !important;
         }
 
-        /* Loading melhorado */
+        .circuit-container svg polygon {
+            fill: var(--bg-hover) !important;
+            stroke: var(--accent-primary) !important;
+            stroke-width: 1.5 !important;
+        }
+
+        /* Loading aprimorado */
         .loading {
             display: flex;
             align-items: center;
@@ -293,12 +456,13 @@
         }
 
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 2px solid var(--border-primary);
-            border-top: 2px solid var(--accent-primary);
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-primary);
+            border-top: 3px solid var(--accent-primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            box-shadow: 0 0 20px var(--accent-glow);
         }
 
         @keyframes spin {
@@ -311,6 +475,7 @@
             font-size: 1rem;
             font-weight: 500;
             animation: pulse 2s ease-in-out infinite;
+            text-align: center;
         }
 
         @keyframes pulse {
@@ -318,16 +483,17 @@
             50% { opacity: 1; }
         }
 
-        /* Error styling */
+        /* Error styling melhorado */
         .error {
             color: var(--error);
-            background: rgba(255, 68, 68, 0.1);
+            background: rgba(239, 68, 68, 0.1);
             padding: var(--space-6);
             border-radius: var(--radius-xl);
-            border: 1px solid rgba(255, 68, 68, 0.3);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             text-align: center;
             max-width: 500px;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(16px);
+            box-shadow: var(--shadow-lg);
         }
 
         .error h3 {
@@ -337,6 +503,7 @@
             align-items: center;
             justify-content: center;
             gap: var(--space-2);
+            font-weight: 600;
         }
 
         .error p {
@@ -344,17 +511,18 @@
             line-height: 1.6;
         }
 
-        /* Circuit element styling melhorado */
-        .highlighted {
-            stroke: var(--accent-primary) !important;
-            stroke-width: 2 !important;
-            filter: drop-shadow(0 0 8px var(--accent-glow)) !important;
-            animation: highlight-pulse 2s ease-in-out infinite;
-        }
+        /* Elementos destacados com animação suave */
+.highlighted {
+    stroke: #8b5cf6 !important;
+    stroke-width: 4 !important;
+    filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6)) !important;
+    animation: highlight-glow 2s ease-in-out infinite;
+}
+
 
         @keyframes highlight-pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
+            50% { opacity: 0.7; }
         }
 
         rect[class^="cell_"], 
@@ -366,21 +534,23 @@
 
         rect[class^="cell_"]:hover, 
         path[class^="cell_"]:hover {
-            filter: brightness(1.1) drop-shadow(0 2px 8px rgba(0, 212, 255, 0.3));
+            filter: brightness(1.2) drop-shadow(0 4px 12px var(--accent-glow));
+            stroke: var(--accent-light) !important;
         }
 
         *[class^="net_"]:hover {
-            stroke-width: 2 !important;
+            stroke-width: 3 !important;
             stroke: var(--accent-primary) !important;
+            filter: drop-shadow(0 2px 8px var(--accent-glow));
         }
 
-        /* Status messages */
+        /* Status messages aprimoradas */
         .status {
             position: fixed;
             top: var(--space-6);
             right: var(--space-6);
             background: var(--bg-surface);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             color: var(--text-primary);
             padding: var(--space-4) var(--space-5);
             border-radius: var(--radius-lg);
@@ -389,7 +559,7 @@
             transform: translateX(110%);
             transition: transform var(--transition-slow);
             box-shadow: var(--shadow-lg);
-            max-width: 300px;
+            max-width: 320px;
             display: flex;
             align-items: center;
             gap: var(--space-3);
@@ -400,24 +570,24 @@
         }
 
         .status.success {
-            background: rgba(0, 200, 81, 0.1);
+            background: rgba(16, 185, 129, 0.1);
             border-color: var(--success);
             color: var(--success);
         }
 
         .status.error {
-            background: rgba(255, 68, 68, 0.1);
+            background: rgba(239, 68, 68, 0.1);
             border-color: var(--error);
             color: var(--error);
         }
 
         .status.warning {
-            background: rgba(255, 187, 51, 0.1);
+            background: rgba(245, 158, 11, 0.1);
             border-color: var(--warning);
             color: var(--warning);
         }
 
-        /* Tooltip */
+        /* Tooltip melhorado */
         .tooltip {
             position: absolute;
             background: var(--bg-surface);
@@ -432,7 +602,8 @@
             transition: all var(--transition);
             border: 1px solid var(--border-primary);
             box-shadow: var(--shadow-md);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            font-weight: 500;
         }
 
         .tooltip.visible {
@@ -475,6 +646,10 @@
             .circuit-container {
                 border-radius: var(--radius-lg);
             }
+
+            .circuit-container svg text {
+                font-size: 10px !important;
+            }
         }
 
         @media (max-width: 480px) {
@@ -492,6 +667,10 @@
             
             .zoom-controls {
                 scale: 0.8;
+            }
+
+            .circuit-container svg text {
+                font-size: 9px !important;
             }
         }
 
@@ -523,13 +702,35 @@
             contain: layout style paint;
         }
 
-        /* Melhor contraste para texto em SVG */
-        #text {
-            fill: var(--text-primary);
-            stroke: none;
-            font-size: 11px;
-            font-weight: 600;
-            font-family: var(--font-sans);
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Efeitos visuais extras */
+        .circuit-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -743,74 +944,222 @@
                 }
             }
 
-            displaySVG(svgContent) {
-                this.circuitSvgContainer.innerHTML = svgContent;
-                this.circuitContainer.classList.add('visible');
-                this.loading.style.display = 'none';
-                this.error.style.display = 'none';
-                
-                this.applySVGStyling();
-                this.circuitContainer.classList.add('scale-in');
-            }
+          // Substitua o método displaySVG() na classe PrismViewer
+displaySVG(svgContent) {
+    // Adicionar classe de loading
+    this.circuitContainer.classList.add('loading');
+    
+    // Inserir o SVG
+    this.circuitSvgContainer.innerHTML = svgContent;
+    
+    // Mostrar container
+    this.circuitContainer.classList.add('visible');
+    this.loading.style.display = 'none';
+    this.error.style.display = 'none';
+    
+    // Aplicar estilos após um pequeno delay para garantir renderização
+    setTimeout(() => {
+        this.applySVGStyling();
+        
+        // Remover loading e adicionar loaded para transição suave
+        this.circuitContainer.classList.remove('loading');
+        this.circuitContainer.classList.add('loaded');
+        this.circuitContainer.classList.add('scale-in');
+    }, 50);
+}
 
             applySVGStyling() {
-                const svg = this.circuitSvgContainer.querySelector('svg');
-                if (!svg) return;
+    const svg = this.circuitSvgContainer.querySelector('svg');
+    if (!svg) return;
 
-                // Remover fundo do SVG para integração perfeita
-                svg.style.background = 'transparent';
-                
-                // Aplicar cores modernas e contrastantes
-                const cells = svg.querySelectorAll('rect[class^="cell_"], path[class^="cell_"], .splitjoinBody');
-                cells.forEach((cell, index) => {
-                    const colors = ['#00d4ff', '#0099cc', '#66e0ff', '#33aadd'];
-                    const color = colors[index % colors.length];
-                    cell.setAttribute('fill', color);
-                    cell.setAttribute('stroke', '#ffffff');
-                    cell.setAttribute('stroke-width', '1');
-                    cell.style.opacity = '0.9';
-                });
+    // Configurar SVG para melhor visualização
+    svg.style.background = 'transparent';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    
+    // Garantir que o SVG seja completamente visível
+    const viewBox = svg.getAttribute('viewBox');
+    if (viewBox) {
+        const [x, y, width, height] = viewBox.split(' ').map(Number);
+        // Adicionar padding ao viewBox para garantir visibilidade completa
+        const padding = Math.max(width, height) * 0.05;
+        svg.setAttribute('viewBox', `${x - padding} ${y - padding} ${width + 2 * padding} ${height + 2 * padding}`);
+    }
+    
+    // Aplicar estilos modernos e limpos aos elementos do circuito
+    this.styleCircuitCells(svg);
+    this.styleCircuitNets(svg);
+    this.styleCircuitText(svg);
+    this.addCircuitInteractivity(svg);
+    
+    // Limpar textos para melhor legibilidade
+    this.cleanTextElements(svg);
+}
+styleCircuitCells(svg) {
+    // Células/Módulos com design moderno
+    const cells = svg.querySelectorAll('rect[class^="cell_"], path[class^="cell_"], polygon[class^="cell_"]');
+    cells.forEach((cell, index) => {
+        // Paleta de cores moderna e contrastante
+        const cellColors = [
+            { fill: '#3b82f6', stroke: '#60a5fa', hover: '#2563eb' }, // Blue
+            { fill: '#10b981', stroke: '#34d399', hover: '#059669' }, // Green
+            { fill: '#f59e0b', stroke: '#fbbf24', hover: '#d97706' }, // Amber
+            { fill: '#8b5cf6', stroke: '#a78bfa', hover: '#7c3aed' }, // Purple
+            { fill: '#ef4444', stroke: '#f87171', hover: '#dc2626' }, // Red
+            { fill: '#06b6d4', stroke: '#22d3ee', hover: '#0891b2' }  // Cyan
+        ];
+        
+        const colorSet = cellColors[index % cellColors.length];
+        
+        cell.setAttribute('fill', colorSet.fill);
+        cell.setAttribute('stroke', colorSet.stroke);
+        cell.setAttribute('stroke-width', '2');
+        cell.setAttribute('opacity', '0.9');
+        cell.style.transition = 'all 0.2s ease';
+        
+        // Adicionar dados para hover
+        cell.setAttribute('data-hover-fill', colorSet.hover);
+        cell.setAttribute('data-original-fill', colorSet.fill);
+        
+        // Sombra sutil para profundidade
+        cell.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+    });
+}
 
-                // Nets com melhor contraste
-                const nets = svg.querySelectorAll('*[class^="net_"]');
-                nets.forEach(net => {
-                    net.setAttribute('stroke', '#b8b8b8');
-                    net.setAttribute('stroke-width', '1.5');
-                });
+styleCircuitNets(svg) {
+    // Conexões/Redes com melhor visibilidade
+    const nets = svg.querySelectorAll('*[class^="net_"]');
+    nets.forEach(net => {
+        const tagName = net.tagName.toLowerCase();
+        
+        if (tagName === 'path' || tagName === 'line') {
+            net.setAttribute('stroke', '#e2e8f0');
+            net.setAttribute('stroke-width', '2');
+            net.setAttribute('fill', 'none');
+            net.style.transition = 'all 0.2s ease';
+        } else if (tagName === 'circle') {
+            net.setAttribute('fill', '#e2e8f0');
+            net.setAttribute('stroke', '#cbd5e1');
+            net.setAttribute('stroke-width', '1');
+        }
+        
+        // Adicionar dados para hover
+        net.setAttribute('data-original-stroke', net.getAttribute('stroke'));
+        net.setAttribute('data-hover-stroke', '#8b5cf6');
+    });
+}
 
-                // Texto otimizado
-                const textElements = svg.querySelectorAll('text');
-                textElements.forEach(text => {
-                    text.setAttribute('fill', '#ffffff');
-                    text.setAttribute('font-family', 'Inter, system-ui, sans-serif');
-                    text.setAttribute('font-size', '11');
-                    text.setAttribute('font-weight', '600');
-                });
+styleCircuitText(svg) {
+    // Texto otimizado para legibilidade
+    const textElements = svg.querySelectorAll('text');
+    textElements.forEach(text => {
+        // Configurações base do texto
+        text.setAttribute('fill', '#f8fafc');
+        text.setAttribute('font-family', 'Inter, system-ui, -apple-system, sans-serif');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('stroke', 'none');
+        
+        // Tamanho baseado no conteúdo
+        const textContent = text.textContent || '';
+        const textLength = textContent.length;
+        
+        if (textLength <= 3) {
+            text.setAttribute('font-size', '12');
+        } else if (textLength <= 8) {
+            text.setAttribute('font-size', '11');
+        } else {
+            text.setAttribute('font-size', '10');
+        }
+        
+        // Contorno sutil para melhor legibilidade
+        text.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(0, 0, 0, 0.9)';
+        
+        // Posicionamento otimizado
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'central');
+    });
+}
 
-                this.cleanTextElements(svg);
+addCircuitInteractivity(svg) {
+    // Adicionar interatividade aprimorada
+    const interactiveElements = svg.querySelectorAll('[class^="cell_"], [class^="net_"]');
+    
+    interactiveElements.forEach(element => {
+        element.style.cursor = 'pointer';
+        
+        // Hover effects
+        element.addEventListener('mouseenter', () => {
+            if (element.getAttribute('class').startsWith('cell_')) {
+                const hoverFill = element.getAttribute('data-hover-fill');
+                if (hoverFill) {
+                    element.setAttribute('fill', hoverFill);
+                    element.setAttribute('stroke-width', '3');
+                    element.style.filter = 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))';
+                }
+            } else if (element.getAttribute('class').startsWith('net_')) {
+                const hoverStroke = element.getAttribute('data-hover-stroke');
+                if (hoverStroke) {
+                    element.setAttribute('stroke', hoverStroke);
+                    element.setAttribute('stroke-width', '3');
+                    element.style.filter = 'drop-shadow(0 0 6px rgba(139, 92, 246, 0.5))';
+                }
             }
-
-            cleanTextElements(svg) {
-                const textElements = svg.querySelectorAll('text');
-                textElements.forEach(text => {
-                    if (text.textContent) {
-                        let content = text.textContent;
-                        if (content.includes('$paramod')) {
-                            const parts = content.split('\\');
-                            if (parts.length >= 2) {
-                                content = parts[1];
-                            }
-                        }
-                        
-                        if (content.includes('\\') || content.includes('/')) {
-                            const parts = content.split(/[\\\/]/);
-                            content = parts[parts.length - 1];
-                        }
-                        
-                        text.textContent = content;
-                    }
-                });
+        });
+        
+        element.addEventListener('mouseleave', () => {
+            if (element.getAttribute('class').startsWith('cell_')) {
+                const originalFill = element.getAttribute('data-original-fill');
+                if (originalFill) {
+                    element.setAttribute('fill', originalFill);
+                    element.setAttribute('stroke-width', '2');
+                    element.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+                }
+            } else if (element.getAttribute('class').startsWith('net_')) {
+                const originalStroke = element.getAttribute('data-original-stroke');
+                if (originalStroke) {
+                    element.setAttribute('stroke', originalStroke);
+                    element.setAttribute('stroke-width', '2');
+                    element.style.filter = 'none';
+                }
             }
+        });
+    });
+}
+           // Método aprimorado para limpeza de texto
+cleanTextElements(svg) {
+    const textElements = svg.querySelectorAll('text');
+    textElements.forEach(text => {
+        if (text.textContent) {
+            let content = text.textContent.trim();
+            
+            // Remover prefixos $paramod
+            if (content.includes('$paramod')) {
+                const parts = content.split('\\');
+                if (parts.length >= 2) {
+                    content = parts[parts.length - 1];
+                }
+            }
+            
+            // Simplificar caminhos longos
+            if (content.includes('\\') || content.includes('/')) {
+                const parts = content.split(/[\\\/]/);
+                content = parts[parts.length - 1];
+            }
+            
+            // Remover sufixos desnecessários
+            content = content.replace(/_inst$/, '').replace(/_\d+$/, '');
+            
+            // Limitar tamanho para melhor legibilidade
+            if (content.length > 15) {
+                content = content.substring(0, 12) + '...';
+            }
+            
+            text.textContent = content;
+        }
+    });
+}
+
+
 
             handleElementClick(element, event) {
                 event.stopPropagation();
@@ -1001,26 +1350,30 @@
                 this.updateZoomLevel();
             }
 
-            fitToScreen() {
-                const svg = this.circuitSvgContainer.querySelector('svg');
-                if (!svg) return;
-                
-                const viewportRect = this.circuitViewport.getBoundingClientRect();
-                const svgRect = svg.getBoundingClientRect();
-                
-                const scaleX = viewportRect.width / svgRect.width;
-                const scaleY = viewportRect.height / svgRect.height;
-                const newScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some padding
-                
-                this.scale = Math.max(0.1, Math.min(5, newScale));
-                this.panX = (viewportRect.width - svgRect.width * this.scale) / 2;
-                this.panY = (viewportRect.height - svgRect.height * this.scale) / 2;
-                
-                this.updateTransform();
-                this.updateZoomLevel();
-                this.showStatus('Fitted to screen', 'success', 'expand-arrows-alt');
-            }
-
+            // Método aprimorado para fit to screen
+fitToScreen() {
+    const svg = this.circuitSvgContainer.querySelector('svg');
+    if (!svg) return;
+    
+    const viewportRect = this.circuitViewport.getBoundingClientRect();
+    const svgRect = svg.getBoundingClientRect();
+    
+    // Calcular escala com padding adequado
+    const scaleX = (viewportRect.width * 0.85) / svgRect.width;
+    const scaleY = (viewportRect.height * 0.85) / svgRect.height;
+    const newScale = Math.min(scaleX, scaleY);
+    
+    // Garantir limites mínimos e máximos
+    this.scale = Math.max(0.1, Math.min(3, newScale));
+    
+    // Centralizar o SVG
+    this.panX = (viewportRect.width - svgRect.width * this.scale) / 2;
+    this.panY = (viewportRect.height - svgRect.height * this.scale) / 2;
+    
+    this.updateTransform();
+    this.updateZoomLevel();
+    this.showStatus('Fitted to screen', 'success', 'expand-arrows-alt');
+}
             resetView() {
                 this.scale = 1;
                 this.panX = 0;

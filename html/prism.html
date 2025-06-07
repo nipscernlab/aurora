@@ -14,35 +14,35 @@
         }
 
         :root {
-            /* Dark theme (default) */
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #1a1825;
-            --bg-tertiary: #252236;
-            --bg-surface: #2d2a40;
-            --bg-hover: #363150;
+            /* Paleta de cores minimalista e moderna */
+            --bg-primary: #0f0f14;
+            --bg-secondary: #1a1a1f;
+            --bg-tertiary: #232329;
+            --bg-surface: #2a2a33;
+            --bg-hover: #34343e;
             
-            --accent-primary: #8b5cf6;
-            --accent-secondary: #a78bfa;
-            --accent-tertiary: #c4b5fd;
-            --accent-hover: #7c3aed;
-            --accent-glow: rgba(139, 92, 246, 0.4);
+            --accent-primary: #00d4ff;
+            --accent-secondary: #0099cc;
+            --accent-tertiary: #66e0ff;
+            --accent-hover: #00b8e6;
+            --accent-glow: rgba(0, 212, 255, 0.25);
             
-            --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8;
-            --text-disabled: #64748b;
+            --text-primary: #ffffff;
+            --text-secondary: #b8b8b8;
+            --text-muted: #8a8a8a;
+            --text-disabled: #5a5a5a;
             
-            --border-primary: #374151;
-            --border-secondary: #4b5563;
-            --border-focus: #8b5cf6;
+            --border-primary: #3a3a42;
+            --border-secondary: #4a4a52;
+            --border-focus: #00d4ff;
             
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --info: #3b82f6;
+            --success: #00c851;
+            --warning: #ffbb33;
+            --error: #ff4444;
             
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.6);
-            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.8);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
             --shadow-glow: 0 0 20px var(--accent-glow);
             
             --space-1: 0.25rem;
@@ -53,17 +53,16 @@
             --space-6: 1.5rem;
             --space-8: 2rem;
             
-            --radius-sm: 0.25rem;
+            --radius-sm: 0.375rem;
             --radius-md: 0.5rem;
             --radius-lg: 0.75rem;
             --radius-xl: 1rem;
             
-            --transition-fast: 0.15s ease;
-            --transition-normal: 0.25s ease;
-            --transition-slow: 0.4s ease;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             
-            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
             
             --z-dropdown: 50;
             --z-overlay: 100;
@@ -73,27 +72,21 @@
 
         body {
             font-family: var(--font-sans);
-            background: linear-gradient(135deg, var(--bg-primary) 0%, #0f0f23 100%);
+            background: var(--bg-primary);
             color: var(--text-primary);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            line-height: 1.6;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        #text {
-            fill: var(--text-primary);
-            stroke: none;
-            font-size: 10px;
-            font-weight: bold;
-            font-family: "Courier New", monospace;
-        }
-        
-
+        /* Toolbar moderno e otimizado */
         .toolbar {
             background: var(--bg-secondary);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-primary);
             padding: var(--space-4);
             display: flex;
@@ -105,19 +98,8 @@
             z-index: var(--z-dropdown);
         }
 
-        .toolbar::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
-            opacity: 0.6;
-        }
-
         .back-btn {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             color: white;
             border: none;
             padding: var(--space-3) var(--space-5);
@@ -125,37 +107,16 @@
             cursor: pointer;
             font-size: 0.875rem;
             font-weight: 500;
-            transition: all var(--transition-normal);
+            transition: all var(--transition);
             display: none;
             align-items: center;
             gap: var(--space-2);
             box-shadow: var(--shadow-sm);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .back-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left var(--transition-slow);
-        }
-
-        .back-btn:hover::before {
-            left: 100%;
         }
 
         .back-btn:hover {
             transform: translateY(-1px);
-            box-shadow: var(--shadow-lg), var(--shadow-glow);
-        }
-
-        .back-btn:active {
-            transform: translateY(0);
+            box-shadow: var(--shadow-md), var(--shadow-glow);
         }
 
         .back-btn.visible {
@@ -173,14 +134,15 @@
             background: var(--bg-surface);
             color: var(--text-secondary);
             border: 1px solid var(--border-primary);
-            padding: var(--space-2) var(--space-3);
+            padding: var(--space-2) var(--space-4);
             border-radius: var(--radius-md);
             cursor: pointer;
             font-size: 0.875rem;
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
             display: flex;
             align-items: center;
             gap: var(--space-2);
+            font-weight: 500;
         }
 
         .control-btn:hover {
@@ -210,8 +172,11 @@
             border: none;
             padding: var(--space-2) var(--space-3);
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
             border-right: 1px solid var(--border-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .zoom-btn:last-child {
@@ -224,12 +189,13 @@
         }
 
         .zoom-level {
-            padding: var(--space-2) var(--space-3);
+            padding: var(--space-2) var(--space-4);
             color: var(--text-muted);
             font-size: 0.75rem;
             min-width: 60px;
             text-align: center;
             font-family: var(--font-mono);
+            font-weight: 600;
         }
 
         .module-info {
@@ -239,7 +205,7 @@
             display: flex;
             align-items: center;
             gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
+            padding: var(--space-3) var(--space-4);
             background: var(--bg-surface);
             border: 1px solid var(--border-primary);
             border-radius: var(--radius-lg);
@@ -249,65 +215,7 @@
             color: var(--accent-primary);
         }
 
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            flex-direction: column;
-            gap: var(--space-6);
-            background: radial-gradient(circle at center, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
-        }
-
-        .spinner-container {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--border-primary);
-            border-top: 3px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        .spinner-glow {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            border: 2px solid transparent;
-            border-top: 2px solid var(--accent-secondary);
-            border-radius: 50%;
-            animation: spin-reverse 2s linear infinite;
-            opacity: 0.6;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes spin-reverse {
-            0% { transform: rotate(360deg); }
-            100% { transform: rotate(0deg); }
-        }
-
-        .loading-text {
-            color: var(--text-secondary);
-            font-size: 1.125rem;
-            font-weight: 500;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-
+        /* Container principal otimizado */
         .content {
             flex: 1;
             display: flex;
@@ -340,6 +248,7 @@
             overflow: hidden;
             cursor: grab;
             position: relative;
+            background: var(--bg-secondary);
         }
 
         .circuit-viewport.dragging {
@@ -349,24 +258,73 @@
         .circuit-svg-container {
             width: 100%;
             height: 100%;
-            transform-origin: 0 0;
-            transition: transform var(--transition-fast);
+            transform-origin: center center;
+            transition: transform var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
+        /* SVG styling otimizado */
         .circuit-container svg {
             display: block;
-            width: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
             height: auto;
-            min-width: 800px;
-            min-height: 600px;
+            background: transparent;
         }
 
+        /* Loading melhorado */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            gap: var(--space-6);
+        }
+
+        .spinner-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--border-primary);
+            border-top: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 500;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Error styling */
         .error {
             color: var(--error);
-            background: rgba(239, 68, 68, 0.1);
+            background: rgba(255, 68, 68, 0.1);
             padding: var(--space-6);
             border-radius: var(--radius-xl);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            border: 1px solid rgba(255, 68, 68, 0.3);
             text-align: center;
             max-width: 500px;
             backdrop-filter: blur(10px);
@@ -386,11 +344,10 @@
             line-height: 1.6;
         }
 
-        /* Circuit element styling */
+        /* Circuit element styling melhorado */
         .highlighted {
             stroke: var(--accent-primary) !important;
-            stroke-width: 3 !important;
-            fill-opacity: 0.9 !important;
+            stroke-width: 2 !important;
             filter: drop-shadow(0 0 8px var(--accent-glow)) !important;
             animation: highlight-pulse 2s ease-in-out infinite;
         }
@@ -404,25 +361,17 @@
         path[class^="cell_"],
         *[class^="net_"] {
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
         }
 
         rect[class^="cell_"]:hover, 
         path[class^="cell_"]:hover {
-            filter: brightness(1.2) drop-shadow(0 4px 8px rgba(139, 92, 246, 0.3));
-            transform: translateY(-1px);
+            filter: brightness(1.1) drop-shadow(0 2px 8px rgba(0, 212, 255, 0.3));
         }
 
-        rect[class^="cell_"], 
-        path[class^="cell_"], 
-        .splitjoinBody {
-            filter: drop-shadow(2px 2px 8px rgba(0, 0, 0, 0.4));
-        }
-
-        /* Net highlighting */
         *[class^="net_"]:hover {
             stroke-width: 2 !important;
-            stroke: var(--accent-secondary) !important;
+            stroke: var(--accent-primary) !important;
         }
 
         /* Status messages */
@@ -430,15 +379,15 @@
             position: fixed;
             top: var(--space-6);
             right: var(--space-6);
-            background: var(--bg-secondary);
-            backdrop-filter: blur(10px);
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
             color: var(--text-primary);
             padding: var(--space-4) var(--space-5);
             border-radius: var(--radius-lg);
             border: 1px solid var(--border-primary);
             z-index: var(--z-modal);
             transform: translateX(110%);
-            transition: transform var(--transition-normal);
+            transition: transform var(--transition-slow);
             box-shadow: var(--shadow-lg);
             max-width: 300px;
             display: flex;
@@ -451,31 +400,27 @@
         }
 
         .status.success {
-            background: rgba(16, 185, 129, 0.1);
+            background: rgba(0, 200, 81, 0.1);
             border-color: var(--success);
             color: var(--success);
         }
 
         .status.error {
-            background: rgba(239, 68, 68, 0.1);
+            background: rgba(255, 68, 68, 0.1);
             border-color: var(--error);
             color: var(--error);
         }
 
         .status.warning {
-            background: rgba(245, 158, 11, 0.1);
+            background: rgba(255, 187, 51, 0.1);
             border-color: var(--warning);
             color: var(--warning);
-        }
-
-        .status i {
-            font-size: 1.125rem;
         }
 
         /* Tooltip */
         .tooltip {
             position: absolute;
-            background: var(--bg-secondary);
+            background: var(--bg-surface);
             color: var(--text-primary);
             padding: var(--space-2) var(--space-3);
             border-radius: var(--radius-md);
@@ -484,9 +429,9 @@
             z-index: var(--z-tooltip);
             opacity: 0;
             transform: translateY(8px);
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
             border: 1px solid var(--border-primary);
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--shadow-md);
             backdrop-filter: blur(10px);
         }
 
@@ -495,7 +440,7 @@
             transform: translateY(0);
         }
 
-        /* Responsive design */
+        /* Responsivo otimizado */
         @media (max-width: 768px) {
             .toolbar {
                 padding: var(--space-3);
@@ -515,7 +460,7 @@
             }
 
             .control-btn {
-                padding: var(--space-2);
+                padding: var(--space-2) var(--space-3);
                 font-size: 0.75rem;
             }
 
@@ -532,29 +477,64 @@
             }
         }
 
-        /* Additional animations */
+        @media (max-width: 480px) {
+            .toolbar {
+                padding: var(--space-2);
+            }
+            
+            .toolbar-controls {
+                gap: var(--space-2);
+            }
+            
+            .control-btn {
+                padding: var(--space-2);
+            }
+            
+            .zoom-controls {
+                scale: 0.8;
+            }
+        }
+
+        /* Animações suaves */
         .fade-in {
             animation: fadeIn var(--transition-slow) ease-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .scale-in {
-            animation: scaleIn var(--transition-normal) ease-out;
+            animation: scaleIn var(--transition-slow) ease-out;
         }
 
         @keyframes scaleIn {
-            from { transform: scale(0.95); opacity: 0; }
+            from { transform: scale(0.98); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
-    </style>
 
+        /* Otimizações de performance */
+        .circuit-svg-container * {
+            will-change: transform;
+        }
+
+        .circuit-viewport {
+            contain: layout style paint;
+        }
+
+        /* Melhor contraste para texto em SVG */
+        #text {
+            fill: var(--text-primary);
+            stroke: none;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+        }
+    </style>
 </head>
 <body>
-        <div class="toolbar">
+    <div class="toolbar">
         <button class="back-btn" id="backBtn">
             <i class="fa-solid fa-arrow-left"></i>
             Back
@@ -592,7 +572,6 @@
         <div class="loading fade-in" id="loading">
             <div class="spinner-container">
                 <div class="spinner"></div>
-                <div class="spinner-glow"></div>
             </div>
             <div class="loading-text">Generating circuit diagram...</div>
         </div>
@@ -605,6 +584,7 @@
 
         <div class="error scale-in" id="error" style="display: none;">
             <h3>
+                <i class="fa-solid fa-triangle-exclamation"></i>
                 Error
             </h3>
             <p id="errorMessage"></p>
@@ -612,26 +592,29 @@
     </div>
 
     <div class="status" id="status">
+        <i class="fa-solid fa-info-circle"></i>
         <span id="statusText"></span>
     </div>
 
     <div class="tooltip" id="tooltip"></div>
 
     <script>
-       class PrismViewer {
+        class PrismViewer {
             constructor() {
                 this.currentModule = null;
                 this.moduleHistory = [];
                 this.projectPath = '';
                 this.topLevelFile = '';
                 
-                // Pan & Zoom state
+                // Pan & Zoom state otimizado
                 this.scale = 1;
                 this.panX = 0;
                 this.panY = 0;
                 this.isDragging = false;
                 this.dragStart = { x: 0, y: 0 };
                 this.lastPan = { x: 0, y: 0 };
+                this.minScale = 0.1;
+                this.maxScale = 5;
                 
                 this.initializeElements();
                 this.setupEventListeners();
@@ -658,7 +641,7 @@
                 this.zoomOutBtn = document.getElementById('zoomOutBtn');
                 this.zoomLevel = document.getElementById('zoomLevel');
                 
-                // Check for missing elements and throw descriptive error
+                // Verificar elementos essenciais
                 const requiredElements = {
                     loading: this.loading,
                     circuitContainer: this.circuitContainer,
@@ -696,16 +679,16 @@
                 this.zoomInBtn.addEventListener('click', () => this.zoomIn());
                 this.zoomOutBtn.addEventListener('click', () => this.zoomOut());
                 
-                // Pan & Zoom with mouse
+                // Pan & Zoom com mouse otimizado
                 this.circuitViewport.addEventListener('mousedown', (e) => this.startDrag(e));
                 this.circuitViewport.addEventListener('mousemove', (e) => this.drag(e));
                 this.circuitViewport.addEventListener('mouseup', () => this.endDrag());
                 this.circuitViewport.addEventListener('mouseleave', () => this.endDrag());
-                this.circuitViewport.addEventListener('wheel', (e) => this.handleWheel(e));
+                this.circuitViewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 
-                // Touch events for mobile
-                this.circuitViewport.addEventListener('touchstart', (e) => this.startDrag(e));
-                this.circuitViewport.addEventListener('touchmove', (e) => this.drag(e));
+                // Touch events para mobile
+                this.circuitViewport.addEventListener('touchstart', (e) => this.startDrag(e), { passive: false });
+                this.circuitViewport.addEventListener('touchmove', (e) => this.drag(e), { passive: false });
                 this.circuitViewport.addEventListener('touchend', () => this.endDrag());
                 
                 // Module exploration
@@ -716,9 +699,12 @@
                     }
                 });
                 
-                // Tooltip
+                // Tooltip otimizado
                 document.addEventListener('mouseover', (e) => this.showTooltip(e));
                 document.addEventListener('mouseout', () => this.hideTooltip());
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
             }
 
             async initialize() {
@@ -738,28 +724,24 @@
                 try {
                     this.showLoading();
 
-                    // Clean module name - remove any instance suffixes
                     const realModule = moduleName.replace(/_inst$/, '').replace(/_\d+$/, '');
 
-                    // Update header display
                     const moduleSpan = this.moduleInfo.querySelector('span');
                     if (moduleSpan) {
                         moduleSpan.textContent = `Module: ${realModule}`;
                     }
 
-                    // Generate SVG for the specific module
                     const svgContent = await window.electronAPI.generateModuleSVG(realModule);
                     this.displaySVG(svgContent);
                     this.currentModule = realModule;
 
-                    this.resetView();
+                    this.fitToScreen();
                     this.showStatus(`Successfully loaded module: ${realModule}`, 'success', 'check-circle');
                 } catch (error) {
                     console.error('Error loading module:', error);
                     this.showError('Failed to load module', error.message);
                 }
             }
-
 
             displaySVG(svgContent) {
                 this.circuitSvgContainer.innerHTML = svgContent;
@@ -768,8 +750,6 @@
                 this.error.style.display = 'none';
                 
                 this.applySVGStyling();
-                
-                // Animate container appearance
                 this.circuitContainer.classList.add('scale-in');
             }
 
@@ -777,58 +757,34 @@
                 const svg = this.circuitSvgContainer.querySelector('svg');
                 if (!svg) return;
 
-                // Add background with gradient
-                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-                gradient.setAttribute('id', 'bgGradient');
-                gradient.setAttribute('x1', '0%');
-                gradient.setAttribute('y1', '0%');
-                gradient.setAttribute('x2', '100%');
-                gradient.setAttribute('y2', '100%');
+                // Remover fundo do SVG para integração perfeita
+                svg.style.background = 'transparent';
                 
-                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop1.setAttribute('offset', '0%');
-                stop1.setAttribute('stop-color', '#1a1825');
-                
-                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop2.setAttribute('offset', '100%');
-                stop2.setAttribute('stop-color', '#252236');
-                
-                gradient.appendChild(stop1);
-                gradient.appendChild(stop2);
-                defs.appendChild(gradient);
-                svg.insertBefore(defs, svg.firstChild);
-
-                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                rect.setAttribute('width', '100%');
-                rect.setAttribute('height', '100%');
-                rect.setAttribute('fill', 'url(#bgGradient)');
-                rect.setAttribute('pointer-events', 'none');
-                svg.insertBefore(rect, svg.firstChild.nextSibling);
-
-                // Style circuit elements with modern colors
+                // Aplicar cores modernas e contrastantes
                 const cells = svg.querySelectorAll('rect[class^="cell_"], path[class^="cell_"], .splitjoinBody');
                 cells.forEach((cell, index) => {
-                    const colors = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#7c3aed', '#6d28d9'];
+                    const colors = ['#00d4ff', '#0099cc', '#66e0ff', '#33aadd'];
                     const color = colors[index % colors.length];
                     cell.setAttribute('fill', color);
                     cell.setAttribute('stroke', '#ffffff');
                     cell.setAttribute('stroke-width', '1');
+                    cell.style.opacity = '0.9';
                 });
 
-                // Style nets
+                // Nets com melhor contraste
                 const nets = svg.querySelectorAll('*[class^="net_"]');
                 nets.forEach(net => {
-                    net.setAttribute('stroke', '#cbd5e1');
-                    net.setAttribute('stroke-width', '2');
+                    net.setAttribute('stroke', '#b8b8b8');
+                    net.setAttribute('stroke-width', '1.5');
                 });
 
-                // Style text elements
+                // Texto otimizado
                 const textElements = svg.querySelectorAll('text');
                 textElements.forEach(text => {
-                    text.setAttribute('fill', '#f8fafc');
-                    text.setAttribute('font-family', 'Inter, sans-serif');
-                    text.setAttribute('font-size', '12');
+                    text.setAttribute('fill', '#ffffff');
+                    text.setAttribute('font-family', 'Inter, system-ui, sans-serif');
+                    text.setAttribute('font-size', '11');
+                    text.setAttribute('font-weight', '600');
                 });
 
                 this.cleanTextElements(svg);

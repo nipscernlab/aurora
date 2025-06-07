@@ -2452,6 +2452,7 @@ async function getPrismProjectInfo() {
 }
 
 // Updated generateModuleSVG function with better error handling
+// Função principal para gerar SVG do módulo
 async function generateModuleSVG(moduleName) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -2459,36 +2460,42 @@ async function generateModuleSVG(moduleName) {
       const projectPath = projectInfo.projectPath;
       const verilogDir = path.join(projectPath, 'TopLevel');
 
-      console.log(`Generating SVG for module: ${moduleName}`);
+      console.log(`=== Gerando SVG para módulo: ${moduleName} ===`);
 
-      // Find the specific .v file for this module
-      const moduleFile = await findModuleFile(verilogDir, moduleName);
+      // Encontrar TODOS os arquivos Verilog do projeto
+      const allVerilogFiles = await getAllVerilogFiles(verilogDir);
+      console.log(`Arquivos Verilog encontrados: ${allVerilogFiles.length}`);
+      allVerilogFiles.forEach(f => console.log(`  - ${path.basename(f)}`));
+
+      // Verificar se o módulo principal existe
+      const moduleFile = await findModuleInFiles(allVerilogFiles, moduleName);
       if (!moduleFile) {
-        throw new Error(`Module file not found for: ${moduleName}`);
+        throw new Error(`Módulo '${moduleName}' não encontrado em nenhum arquivo!`);
       }
 
-      console.log(`Found module file: ${path.basename(moduleFile)}`);
+      console.log(`Módulo '${moduleName}' encontrado em: ${path.basename(moduleFile)}`);
 
-      // Get all dependency files for this module (recursive)
-      const dependencyFiles = await getAllDependencies(verilogDir, moduleFile);
-      
-      console.log(`Total dependencies: ${dependencyFiles.length}`);
-      
-      // Create file paths string with quotes
-      const filePaths = dependencyFiles
+      // Obter TODAS as dependências recursivamente
+      const allDependencies = await getAllDependenciesRecursive(allVerilogFiles, moduleName);
+      console.log(`=== Dependências encontradas (${allDependencies.size} arquivos): ===`);
+      allDependencies.forEach(f => console.log(`  - ${path.basename(f)}`));
+
+      // Criar comando Yosys com TODOS os arquivos necessários
+      const filePaths = Array.from(allDependencies)
         .map(f => `"${f}"`)
         .join(' ');
 
-      // Temporary files
+      // Arquivos temporários
       const tempDir = require('os').tmpdir();
       const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
       const svgFile = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
 
-      // Yosys command to synthesize only the specific module
+      // Comando Yosys
       const yosysCmd = 
         `yosys -p "read_verilog ${filePaths} ; hierarchy -top ${moduleName} ; proc ; opt ; write_json ${jsonFile}"`;
 
-      console.log(`Running Yosys command: ${yosysCmd}`);
+      console.log(`=== Executando Yosys ===`);
+      console.log(`Comando: ${yosysCmd}`);
 
       const yosysProcess = spawn(yosysCmd, {
         cwd: projectPath,
@@ -2507,18 +2514,19 @@ async function generateModuleSVG(moduleName) {
       });
 
       yosysProcess.on('close', code => {
-        console.log(`Yosys process exited with code: ${code}`);
-        if (yosysOutput) console.log('Yosys output:', yosysOutput);
-        if (yosysError) console.log('Yosys error:', yosysError);
+        console.log(`Yosys finalizado com código: ${code}`);
+        if (yosysOutput) console.log('Saída Yosys:', yosysOutput);
+        if (yosysError) console.log('Erro Yosys:', yosysError);
 
         if (code !== 0) {
-          reject(new Error(`Yosys failed for module ${moduleName}: ${yosysError.trim()}`));
+          reject(new Error(`Yosys falhou para módulo ${moduleName}:\n${yosysError.trim()}`));
           return;
         }
 
-        // Generate SVG from JSON
+        // Gerar SVG a partir do JSON
         const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
-        console.log(`Running netlistsvg command: ${netlistCmd}`);
+        console.log(`=== Executando netlistsvg ===`);
+        console.log(`Comando: ${netlistCmd}`);
         
         const netlistProcess = spawn(netlistCmd, { shell: true });
 
@@ -2534,12 +2542,12 @@ async function generateModuleSVG(moduleName) {
         });
 
         netlistProcess.on('close', async code2 => {
-          console.log(`netlistsvg process exited with code: ${code2}`);
-          if (netlistOutput) console.log('netlistsvg output:', netlistOutput);
-          if (netlistError) console.log('netlistsvg error:', netlistError);
+          console.log(`netlistsvg finalizado com código: ${code2}`);
+          if (netlistOutput) console.log('Saída netlistsvg:', netlistOutput);
+          if (netlistError) console.log('Erro netlistsvg:', netlistError);
 
           if (code2 !== 0) {
-            reject(new Error(`netlistsvg failed for module ${moduleName}: ${netlistError.trim()}`));
+            reject(new Error(`netlistsvg falhou para módulo ${moduleName}:\n${netlistError.trim()}`));
             return;
           }
           
@@ -2547,11 +2555,11 @@ async function generateModuleSVG(moduleName) {
             const svgContent = await fs.readFile(svgFile, 'utf8');
             const processedSvg = processSVG(svgContent);
 
-            // Cleanup temporary files
+            // Limpeza dos arquivos temporários
             await fs.unlink(jsonFile).catch(() => {});
             await fs.unlink(svgFile).catch(() => {});
 
-            console.log(`Successfully generated SVG for module: ${moduleName}`);
+            console.log(`=== SVG gerado com sucesso para ${moduleName} ===`);
             resolve(processedSvg);
           } catch (readErr) {
             reject(readErr);
@@ -2564,76 +2572,178 @@ async function generateModuleSVG(moduleName) {
   });
 }
 
-// Helper function to find the .v file containing a specific module
-async function findModuleFile(verilogDir, moduleName) {
+async function getAllVerilogFiles(verilogDir) {
   try {
     const files = await fs.readdir(verilogDir);
-    const verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
+    const verilogFiles = files
+      .filter(f => f.toLowerCase().endsWith('.v'))
+      .filter(f => !f.toLowerCase().includes('_tb') && !f.toLowerCase().includes('testbench'))
+      .map(f => path.join(verilogDir, f));
+    
+    return verilogFiles;
+  } catch (error) {
+    console.error('Erro ao listar arquivos Verilog:', error);
+    return [];
+  }
+}
 
-    for (const file of verilogFiles) {
-      const filePath = path.join(verilogDir, file);
+// Encontrar em qual arquivo está um módulo específico
+async function findModuleInFiles(verilogFiles, moduleName) {
+  for (const filePath of verilogFiles) {
+    try {
       const content = await fs.readFile(filePath, 'utf8');
-      
-      // Check if this file contains the module definition
       const moduleRegex = new RegExp(`module\\s+${moduleName}\\s*[\\(\\s]`, 'i');
       if (moduleRegex.test(content)) {
         return filePath;
       }
+    } catch (error) {
+      console.error(`Erro ao ler arquivo ${filePath}:`, error);
     }
-    return null;
+  }
+  return null;
+}
+// Obter todas as dependências recursivamente
+async function getAllDependenciesRecursive(allVerilogFiles, startModule) {
+  const dependencies = new Set();
+  const visited = new Set();
+  const toProcess = [startModule];
+
+  console.log(`=== Iniciando busca recursiva de dependências para: ${startModule} ===`);
+
+  while (toProcess.length > 0) {
+    const currentModule = toProcess.shift();
+    
+    if (visited.has(currentModule)) {
+      console.log(`Módulo '${currentModule}' já processado, pulando...`);
+      continue;
+    }
+    
+    visited.add(currentModule);
+    console.log(`Processando módulo: '${currentModule}'`);
+
+    // Encontrar arquivo que contém este módulo
+    const moduleFile = await findModuleInFiles(allVerilogFiles, currentModule);
+    if (!moduleFile) {
+      console.log(`AVISO: Módulo '${currentModule}' não encontrado!`);
+      continue;
+    }
+
+    // Adicionar arquivo às dependências
+    dependencies.add(moduleFile);
+    console.log(`  - Arquivo adicionado: ${path.basename(moduleFile)}`);
+
+    // Encontrar módulos instanciados neste arquivo
+    const instantiatedModules = await extractInstantiatedModules(moduleFile);
+    console.log(`  - Módulos instanciados encontrados: [${instantiatedModules.join(', ')}]`);
+
+    // Adicionar módulos instanciados à lista de processamento
+    for (const instModule of instantiatedModules) {
+      if (!visited.has(instModule)) {
+        toProcess.push(instModule);
+        console.log(`    -> Adicionado à fila: '${instModule}'`);
+      }
+    }
+  }
+
+  console.log(`=== Busca recursiva concluída. Total de arquivos: ${dependencies.size} ===`);
+  return dependencies;
+}
+
+// Extrair módulos instanciados de um arquivo (versão melhorada)
+async function extractInstantiatedModules(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    const modules = new Set();
+    
+    // Remover comentários e strings para evitar falsos positivos
+    const cleanContent = content
+      .replace(/\/\/.*$/gm, '') // Comentários de linha
+      .replace(/\/\*[\s\S]*?\*\//g, '') // Comentários de bloco
+      .replace(/"[^"]*"/g, '') // Strings
+      .replace(/`[^\n]*/g, ''); // Diretivas do compiler
+
+    // Pattern para instanciações: ModuleName instance_name (
+    // Versão mais robusta que lida com quebras de linha e espaçamentos
+    const instantiationRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+    
+    let match;
+    while ((match = instantiationRegex.exec(cleanContent)) !== null) {
+      const moduleName = match[1];
+      const instanceName = match[2];
+      
+      // Lista de palavras-chave Verilog para filtrar
+      const verilogKeywords = [
+        'module', 'endmodule', 'input', 'output', 'inout', 'wire', 'reg', 'assign',
+        'always', 'initial', 'if', 'else', 'case', 'casex', 'casez', 'default', 
+        'for', 'while', 'repeat', 'forever', 'begin', 'end', 'fork', 'join',
+        'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
+        'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
+        'integer', 'real', 'time', 'realtime', 'parameter', 'localparam', 'genvar',
+        'generate', 'endgenerate', 'task', 'endtask', 'function', 'endfunction',
+        'specify', 'endspecify', 'table', 'endtable', 'primitive', 'endprimitive',
+        'signed', 'unsigned'
+      ];
+      
+      // Verificar contexto antes da instanciação
+      const beforeMatch = cleanContent.substring(Math.max(0, match.index - 100), match.index);
+      const isDeclaration = /\b(wire|reg|input|output|inout|parameter|localparam)\s*(\[[^\]]*\])?\s*$/.test(beforeMatch.trim());
+      
+      // Filtros para identificar instanciações válidas
+      if (!verilogKeywords.includes(moduleName.toLowerCase()) && 
+          !isDeclaration &&
+          moduleName !== instanceName && // Evitar auto-referências
+          !/^\d/.test(moduleName) && // Nomes de módulo não podem começar com dígito
+          !/^[0-9]+$/.test(moduleName)) { // Não pode ser só números
+        modules.add(moduleName);
+      }
+    }
+    
+    const result = Array.from(modules);
+    console.log(`    Arquivo ${path.basename(filePath)} instancia: [${result.join(', ')}]`);
+    return result;
+    
   } catch (error) {
-    console.error('Error finding module file:', error);
-    return null;
+    console.error('Erro ao extrair módulos instanciados:', error);
+    return [];
   }
 }
 
-// Helper function to get all dependency files for a module (RECURSIVE)
+
+
+// Função auxiliar mantida para compatibilidade (chama a nova função)
+async function findModuleFile(verilogDir, moduleName) {
+  const allFiles = await getAllVerilogFiles(verilogDir);
+  return await findModuleInFiles(allFiles, moduleName);
+}
+
+// Função auxiliar mantida para compatibilidade
 async function getAllDependencies(verilogDir, mainModuleFile) {
   try {
-    const files = await fs.readdir(verilogDir);
-    const verilogFiles = files.filter(f => 
-      f.toLowerCase().endsWith('.v') &&
-      !f.toLowerCase().includes('_tb') &&
-      !f.toLowerCase().includes('testbench')
-    );
-
-    // Track all dependencies and visited modules to avoid cycles
-    const dependencies = new Set();
-    const visitedModules = new Set();
-    
-    // Recursive function to find all dependencies
-    async function findDependenciesRecursive(moduleFile, moduleName) {
-      if (visitedModules.has(moduleName)) {
-        return; // Avoid infinite loops
-      }
-      
-      visitedModules.add(moduleName);
-      dependencies.add(moduleFile);
-      
-      // Get all modules instantiated in this file
-      const instantiatedModules = await getInstantiatedModules(moduleFile);
-      
-      // For each instantiated module, find its file and recurse
-      for (const instModuleName of instantiatedModules) {
-        const instModuleFile = await findModuleFileByName(verilogDir, instModuleName, verilogFiles);
-        if (instModuleFile && !visitedModules.has(instModuleName)) {
-          await findDependenciesRecursive(instModuleFile, instModuleName);
-        }
-      }
-    }
-    
-    
-    // Start with the main module
+    const allFiles = await getAllVerilogFiles(verilogDir);
     const mainModuleName = await getModuleNameFromFile(mainModuleFile);
-    await findDependenciesRecursive(mainModuleFile, mainModuleName);
-
-    console.log(`Found ${dependencies.size} dependencies for module:`, Array.from(dependencies).map(f => path.basename(f)));
+    const dependencies = await getAllDependenciesRecursive(allFiles, mainModuleName);
     return Array.from(dependencies);
-    
   } catch (error) {
-    console.error('Error getting dependencies:', error);
-    return [mainModuleFile]; // Return at least the main file
+    console.error('Erro em getAllDependencies:', error);
+    return [mainModuleFile];
   }
+}
+
+// Extrair nome do módulo de um arquivo
+async function getModuleNameFromFile(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    const moduleMatch = content.match(/module\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[\(\s]/i);
+    return moduleMatch ? moduleMatch[1] : path.basename(filePath, '.v');
+  } catch (error) {
+    console.error('Erro ao obter nome do módulo:', error);
+    return path.basename(filePath, '.v');
+  }
+}
+
+// Função auxiliar mantida para compatibilidade
+async function getInstantiatedModules(filePath) {
+  return await extractInstantiatedModules(filePath);
 }
 
 // Helper function to find module file by module name
@@ -2745,17 +2855,13 @@ async function getInstantiatedModules(filePath) {
   }
 }
 
-
-
-// Function to process SVG content (equivalent to Python processing)
 function processSVG(svgContent) {
-  // Simple text processing to clean up module names
   let processed = svgContent;
   
-  // Remove $paramod prefixes
+  // Remover prefixos $paramod
   processed = processed.replace(/\$paramod[^\\]*\\/g, '');
   
-  // Clean up paths in text elements
+  // Limpar caminhos em elementos de texto
   processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
     const parts = content.split(/[\\\/]/);
     const cleanContent = parts[parts.length - 1];
@@ -2764,7 +2870,6 @@ function processSVG(svgContent) {
 
   return processed;
 }
-
 // IPC handlers - add these to your existing IPC handlers
 ipcMain.handle('open-prism-window', async () => {
   try {

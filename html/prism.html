@@ -738,16 +738,16 @@
                 try {
                     this.showLoading();
 
-                    // Se vier com sufixo "_inst", remova antes:
-                    const realModule = moduleName.replace(/_inst$/, '');
+                    // Clean module name - remove any instance suffixes
+                    const realModule = moduleName.replace(/_inst$/, '').replace(/_\d+$/, '');
 
-                    // Exibe no cabeçalho
+                    // Update header display
                     const moduleSpan = this.moduleInfo.querySelector('span');
                     if (moduleSpan) {
-                    moduleSpan.textContent = `Module: ${realModule}`;
+                        moduleSpan.textContent = `Module: ${realModule}`;
                     }
 
-                    // Chama o Yosys com o nome de módulo correto
+                    // Generate SVG for the specific module
                     const svgContent = await window.electronAPI.generateModuleSVG(realModule);
                     this.displaySVG(svgContent);
                     this.currentModule = realModule;
@@ -755,9 +755,10 @@
                     this.resetView();
                     this.showStatus(`Successfully loaded module: ${realModule}`, 'success', 'check-circle');
                 } catch (error) {
+                    console.error('Error loading module:', error);
                     this.showError('Failed to load module', error.message);
                 }
-                }
+            }
 
 
             displaySVG(svgContent) {
@@ -858,6 +859,7 @@
             handleElementClick(element, event) {
                 event.stopPropagation();
                 
+                // Remove previous highlights
                 document.querySelectorAll('.highlighted').forEach(el => {
                     el.classList.remove('highlighted');
                 });
@@ -866,10 +868,24 @@
                 
                 if (className.startsWith('cell_')) {
                     element.classList.add('highlighted');
-                    const moduleName = className.replace(/^cell_/, '');
-                    this.exploreModule(moduleName);
+                    
+                    // Extract clean module name from the cell class
+                    let moduleName = className.replace(/^cell_/, '');
+                    
+                    // Clean up common suffixes and prefixes
+                    moduleName = moduleName.replace(/^\$.*\\/, ''); // Remove $paramod prefixes
+                    moduleName = moduleName.replace(/_inst$/, ''); // Remove _inst suffix
+                    moduleName = moduleName.replace(/_\d+$/, ''); // Remove numeric suffixes
+                    
+                    // Check if this is a valid module (not a primitive)
+                    if (this.isValidModule(moduleName)) {
+                        this.exploreModule(moduleName);
+                    } else {
+                        this.showStatus(`Primitive element: ${moduleName}`, 'info', 'info-circle');
+                    }
                     
                 } else if (className.startsWith('net_')) {
+                    // Highlight all segments of the same net
                     document.querySelectorAll(`.${className}`).forEach(segment => {
                         segment.classList.add('highlighted');
                     });
@@ -877,16 +893,57 @@
                 }
             }
 
-            async exploreModule(moduleName) {
+            // Helper function to check if a module name is valid for exploration
+            isValidModule(moduleName) {
+                // List of Verilog primitives and built-in modules that shouldn't be explored
+                const primitives = [
+                    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
+                    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
+                    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1'
+                ];
+                
+                // Check if it's a primitive
+                if (primitives.includes(moduleName.toLowerCase())) {
+                    return false;
+                }
+                
+                // Check if it's too short (likely a primitive)
+                if (moduleName.length < 2) {
+                    return false;
+                }
+                
+                // Check if it contains only numbers (likely not a valid module)
+                if (/^\d+$/.test(moduleName)) {
+                    return false;
+                }
+                
+                return true;
+            }
+
+
+                        async exploreModule(moduleName) {
                 try {
+                    // Add current module to history before exploring new one
                     this.moduleHistory.push(this.currentModule);
                     this.backBtn.classList.add('visible');
+                    
+                    // Load the new module
                     await this.loadModule(moduleName);
+                    
                 } catch (error) {
-                    this.showError('Failed to explore module', error.message);
+                    console.error('Error exploring module:', error);
+                    
+                    // Restore previous state on error
                     this.moduleHistory.pop();
                     if (this.moduleHistory.length === 0) {
                         this.backBtn.classList.remove('visible');
+                    }
+                    
+                    // Show more specific error message
+                    if (error.message.includes('Module file not found')) {
+                        this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
+                    } else {
+                        this.showError('Failed to explore module', error.message);
                     }
                 }
             }

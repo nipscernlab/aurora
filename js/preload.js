@@ -264,10 +264,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (path) => ipcRenderer.invoke('file:exists', path),
 
       // Add these new functions to the electronAPI object:
-    getPrismProjectInfo: () => ipcRenderer.invoke('get-prism-project-info'),
+    getPrismProjectInfo: async () => {
+        // Primeiro tentar obter dos argumentos
+        const projectInfo = getProjectInfoFromArgs();
+        if (projectInfo) {
+            return projectInfo;
+        }
+        
+        // Se não conseguir, usar IPC
+        return await ipcRenderer.invoke('get-prism-project-info');
+    },
+    
+    generateModuleSVG: async (moduleName) => {
+        return await ipcRenderer.invoke('generate-module-svg', moduleName);
+    },
     openPrismWindow: () => ipcRenderer.invoke('open-prism-window'),
 
-    generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
 
   // Add these PRISM-related functions
   prism: {
@@ -480,16 +492,21 @@ contextBridge.exposeInMainWorld('verilogAPI', {
   }
 });
 
-// Get project info from command line arguments if available
-const getProjectInfoFromArgs = () => {
-  const args = process.argv;
-  const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
-  if (projectInfoArg) {
+// Função para obter informações do projeto dos argumentos
+function getProjectInfoFromArgs() {
     try {
-      return JSON.parse(projectInfoArg.replace('--project-info=', ''));
+        const args = process.argv;
+        const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
+        
+        if (projectInfoArg) {
+            // Decodificar corretamente o URI antes de fazer parse do JSON
+            const encodedJson = projectInfoArg.replace('--project-info=', '');
+            const decodedJson = decodeURIComponent(encodedJson);
+            return JSON.parse(decodedJson);
+        }
+        return null;
     } catch (error) {
-      console.error('Failed to parse project info from arguments:', error);
+        console.error('Failed to parse project info from arguments:', error);
+        return null;
     }
-  }
-  return null;
-};
+}

@@ -73,8 +73,8 @@ let mainWindow, splashWindow;
 // Function to create the main application window
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
+    width: 1200,
+    height: 800,
     autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
@@ -2391,8 +2391,8 @@ async function createPrismWindow(projectInfo = null) {
   }
 
   prismWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1000,
+    height: 700,
     autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
@@ -2407,11 +2407,13 @@ async function createPrismWindow(projectInfo = null) {
     show: false,
   });
 
+  // Always use loadFile with a full path
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
   prismWindow.loadFile(prismHtmlPath).catch(err => {
     console.error('Failed to load prism.html:', err);
   });
 
+  // Show when ready
   prismWindow.once('ready-to-show', () => {
     prismWindow.maximize();
     prismWindow.show();
@@ -2421,6 +2423,7 @@ async function createPrismWindow(projectInfo = null) {
     prismWindow = null;
   });
 
+  // In case of any load failure
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error(`prism.html failed to load (code ${errorCode}): ${errorDescription}`);
   });
@@ -2448,325 +2451,107 @@ async function getPrismProjectInfo() {
   }
 }
 
-// Main function to generate SVG for a module
 async function generateModuleSVG(moduleName) {
   return new Promise(async (resolve, reject) => {
     try {
       const projectInfo = await getPrismProjectInfo();
       const projectPath = projectInfo.projectPath;
+
+      // A pasta "TopLevel" contém os .v
       const verilogDir = path.join(projectPath, 'TopLevel');
+      const files = await fs.readdir(verilogDir);
 
-      console.log(`=== Generating SVG for module: ${moduleName} ===`);
-
-      // Find all Verilog files in the project
-      const allVerilogFiles = await getAllVerilogFiles(verilogDir);
-      console.log(`Found ${allVerilogFiles.length} Verilog files`);
-
-      // Check if the main module exists
-      const moduleFile = await findModuleInFiles(allVerilogFiles, moduleName);
-      if (!moduleFile) {
-        throw new Error(`Module '${moduleName}' not found in any file!`);
+      // Filtra apenas arquivos .v (exclui testbenches)
+      const verilogFiles = files.filter(f =>
+        f.toLowerCase().endsWith('.v') &&
+        !f.toLowerCase().includes('_tb') &&
+        !f.toLowerCase().includes('testbench')
+      );
+      if (verilogFiles.length === 0) {
+        throw new Error('No Verilog files found in TopLevel folder');
       }
 
-      console.log(`Module '${moduleName}' found in: ${path.basename(moduleFile)}`);
-
-      // Get ALL dependencies recursively
-      const allDependencies = await getAllDependenciesRecursive(allVerilogFiles, moduleName);
-      console.log(`=== Dependencies found (${allDependencies.size} files): ===`);
-
-      // Create Yosys command with ALL necessary files
-      const filePaths = Array.from(allDependencies)
-        .map(f => `"${f}"`)
+      // Caminhos completos entre aspas para cada .v
+      const filePaths = verilogFiles
+        .map(f => `"${path.join(verilogDir, f)}"`)
         .join(' ');
 
-      // Temporary files
+      // Arquivos temporários
       const tempDir = require('os').tmpdir();
       const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
-      const svgFile = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
+      const svgFile  = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
 
-      // Yosys command - improved with better synthesis flow
-      const yosysCmd = `yosys -p "read_verilog -sv ${filePaths}; hierarchy -top ${moduleName}; proc; opt; memory; opt; techmap; opt; clean; write_json ${jsonFile}"`;
-
-      console.log(`=== Running Yosys ===`);
-      console.log(`Command: ${yosysCmd}`);
+      // Monta comando Yosys como uma string única, usando shell:true
+      const yosysCmd = 
+        `yosys -p "read_verilog ${filePaths} ; hierarchy -top ${moduleName} ; proc ; write_json ${jsonFile}"`;
 
       const yosysProcess = spawn(yosysCmd, {
         cwd: projectPath,
-        shell: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+        shell: true
       });
 
-      let yosysOutput = '';
       let yosysError = '';
-      
-      yosysProcess.stdout.on('data', data => {
-        yosysOutput += data.toString();
-      });
-      
       yosysProcess.stderr.on('data', data => {
         yosysError += data.toString();
       });
 
       yosysProcess.on('close', code => {
-        console.log(`Yosys finished with code: ${code}`);
-        if (yosysOutput) console.log('Yosys output:', yosysOutput);
-        if (yosysError) console.log('Yosys error:', yosysError);
-
         if (code !== 0) {
-          reject(new Error(`Yosys failed for module ${moduleName}:\n${yosysError.trim()}`));
+          reject(new Error(`Yosys failed: ${yosysError.trim()}`));
           return;
         }
 
-        // Check if JSON file was created
-        if (!require('fs').existsSync(jsonFile)) {
-          reject(new Error(`Yosys did not generate JSON file for module ${moduleName}`));
-          return;
-        }
-
-        // Generate SVG from JSON
+        // netlistsvg gera o SVG a partir do JSON
         const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
-        console.log(`=== Running netlistsvg ===`);
-        console.log(`Command: ${netlistCmd}`);
-        
-        const netlistProcess = spawn(netlistCmd, { 
-          shell: true,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
+        const netlistProcess = spawn(netlistCmd, { shell: true });
 
-        let netlistOutput = '';
         let netlistError = '';
-        
-        netlistProcess.stdout.on('data', data => {
-          netlistOutput += data.toString();
-        });
-        
         netlistProcess.stderr.on('data', data => {
           netlistError += data.toString();
         });
 
         netlistProcess.on('close', async code2 => {
-          console.log(`netlistsvg finished with code: ${code2}`);
-          if (netlistOutput) console.log('netlistsvg output:', netlistOutput);
-          if (netlistError) console.log('netlistsvg error:', netlistError);
-
           if (code2 !== 0) {
-            reject(new Error(`netlistsvg failed for module ${moduleName}:\n${netlistError.trim()}`));
+            reject(new Error(`netlistsvg failed: ${netlistError.trim()}`));
             return;
           }
-          
           try {
-            // Check if SVG file was created
-            if (!require('fs').existsSync(svgFile)) {
-              reject(new Error(`netlistsvg did not generate SVG file for module ${moduleName}`));
-              return;
-            }
-
             const svgContent = await fs.readFile(svgFile, 'utf8');
             const processedSvg = processSVG(svgContent);
 
-            // Cleanup temporary files
+            // Cleanup
             await fs.unlink(jsonFile).catch(() => {});
             await fs.unlink(svgFile).catch(() => {});
 
-            console.log(`=== SVG generated successfully for ${moduleName} ===`);
             resolve(processedSvg);
           } catch (readErr) {
-            reject(new Error(`Failed to read SVG file: ${readErr.message}`));
+            reject(readErr);
           }
         });
-
-        netlistProcess.on('error', (err) => {
-          reject(new Error(`Failed to start netlistsvg: ${err.message}`));
-        });
       });
-
-      yosysProcess.on('error', (err) => {
-        reject(new Error(`Failed to start Yosys: ${err.message}`));
-      });
-
     } catch (err) {
       reject(err);
     }
   });
 }
 
-// Get all Verilog files in directory
-async function getAllVerilogFiles(verilogDir) {
-  try {
-    const files = await fs.readdir(verilogDir);
-    const verilogFiles = files
-      .filter(f => f.toLowerCase().endsWith('.v'))
-      .filter(f => !f.toLowerCase().includes('_tb') && !f.toLowerCase().includes('testbench'))
-      .map(f => path.join(verilogDir, f));
-    
-    return verilogFiles;
-  } catch (error) {
-    console.error('Error listing Verilog files:', error);
-    return [];
-  }
-}
 
-// Find which file contains a specific module
-async function findModuleInFiles(verilogFiles, moduleName) {
-  for (const filePath of verilogFiles) {
-    try {
-      const content = await fs.readFile(filePath, 'utf8');
-      const moduleRegex = new RegExp(`module\\s+${moduleName}\\s*[\\(\\s]`, 'i');
-      if (moduleRegex.test(content)) {
-        return filePath;
-      }
-    } catch (error) {
-      console.error(`Error reading file ${filePath}:`, error);
-    }
-  }
-  return null;
-}
-
-// Get all dependencies recursively
-async function getAllDependenciesRecursive(allVerilogFiles, startModule) {
-  const dependencies = new Set();
-  const visited = new Set();
-  const toProcess = [startModule];
-
-  console.log(`=== Starting recursive dependency search for: ${startModule} ===`);
-
-  while (toProcess.length > 0) {
-    const currentModule = toProcess.shift();
-    
-    if (visited.has(currentModule)) {
-      console.log(`Module '${currentModule}' already processed, skipping...`);
-      continue;
-    }
-    
-    visited.add(currentModule);
-    console.log(`Processing module: '${currentModule}'`);
-
-    // Find file containing this module
-    const moduleFile = await findModuleInFiles(allVerilogFiles, currentModule);
-    if (!moduleFile) {
-      console.log(`WARNING: Module '${currentModule}' not found!`);
-      continue;
-    }
-
-    // Add file to dependencies
-    dependencies.add(moduleFile);
-    console.log(`  - File added: ${path.basename(moduleFile)}`);
-
-    // Find modules instantiated in this file
-    const instantiatedModules = await extractInstantiatedModules(moduleFile);
-    console.log(`  - Instantiated modules found: [${instantiatedModules.join(', ')}]`);
-
-    // Add instantiated modules to processing queue
-    for (const instModule of instantiatedModules) {
-      if (!visited.has(instModule)) {
-        toProcess.push(instModule);
-        console.log(`    -> Added to queue: '${instModule}'`);
-      }
-    }
-  }
-
-  console.log(`=== Recursive search completed. Total files: ${dependencies.size} ===`);
-  return dependencies;
-}
-
-// Extract instantiated modules from a file (improved version)
-async function extractInstantiatedModules(filePath) {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const modules = new Set();
-    
-    // Remove comments and strings to avoid false positives
-    const cleanContent = content
-      .replace(/\/\/.*$/gm, '') // Line comments
-      .replace(/\/\*[\s\S]*?\*\//g, '') // Block comments
-      .replace(/"[^"]*"/g, '') // Strings
-      .replace(/`[^\n]*/g, ''); // Compiler directives
-
-    // Pattern for instantiations: ModuleName instance_name (
-    // More robust version that handles line breaks and spacing
-    const instantiationRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z0-9_$]+)\s*\(/g;
-    
-    let match;
-    while ((match = instantiationRegex.exec(cleanContent)) !== null) {
-      const moduleName = match[1];
-      const instanceName = match[2];
-      
-      // List of Verilog keywords to filter out
-      const verilogKeywords = [
-        'module', 'endmodule', 'input', 'output', 'inout', 'wire', 'reg', 'assign',
-        'always', 'initial', 'if', 'else', 'case', 'casex', 'casez', 'default', 
-        'for', 'while', 'repeat', 'forever', 'begin', 'end', 'fork', 'join',
-        'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
-        'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
-        'integer', 'real', 'time', 'realtime', 'parameter', 'localparam', 'genvar',
-        'generate', 'endgenerate', 'task', 'endtask', 'function', 'endfunction',
-        'specify', 'endspecify', 'table', 'endtable', 'primitive', 'endprimitive',
-        'signed', 'unsigned'
-      ];
-      
-      // Check context before instantiation
-      const beforeMatch = cleanContent.substring(Math.max(0, match.index - 100), match.index);
-      const isDeclaration = /\b(wire|reg|input|output|inout|parameter|localparam)\s*(\[[^\]]*\])?\s*$/.test(beforeMatch.trim());
-      
-      // Filters to identify valid instantiations
-      if (!verilogKeywords.includes(moduleName.toLowerCase()) && 
-          !isDeclaration &&
-          moduleName !== instanceName && // Avoid self-references
-          !/^\d/.test(moduleName) && // Module names cannot start with digit
-          !/^[0-9]+$/.test(moduleName)) { // Cannot be only numbers
-        modules.add(moduleName);
-      }
-    }
-    
-    const result = Array.from(modules);
-    console.log(`    File ${path.basename(filePath)} instantiates: [${result.join(', ')}]`);
-    return result;
-    
-  } catch (error) {
-    console.error('Error extracting instantiated modules:', error);
-    return [];
-  }
-}
-
-// Process SVG content to clean up names and paths
+// Function to process SVG content (equivalent to Python processing)
 function processSVG(svgContent) {
+  // Simple text processing to clean up module names
   let processed = svgContent;
   
   // Remove $paramod prefixes
   processed = processed.replace(/\$paramod[^\\]*\\/g, '');
   
-  // Clean paths in text elements
+  // Clean up paths in text elements
   processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
     const parts = content.split(/[\\\/]/);
     const cleanContent = parts[parts.length - 1];
     return match.replace(content, cleanContent);
   });
 
-  // Clean up module names in class attributes
-  processed = processed.replace(/class="cell_([^"]*)/g, (match, className) => {
-    let cleanName = className.replace(/^\$.*\\/, '');
-    cleanName = cleanName.replace(/_\d+$/, '');
-    return `class="cell_${cleanName}`;
-  });
-
   return processed;
-}
-
-// Get project path helper function
-function getProjectPath() {
-  if (!currentOpenProjectPath) {
-    return '';
-  }
-  
-  try {
-    // Read the SPF file to get the actual project path
-    const spfData = require('fs').readFileSync(currentOpenProjectPath, 'utf8');
-    const projectData = JSON.parse(spfData);
-    return projectData.structure.basePath;
-  } catch (error) {
-    console.error('Error reading project path:', error);
-    return '';
-  }
 }
 
 // IPC handlers - add these to your existing IPC handlers
@@ -2783,6 +2568,7 @@ ipcMain.handle('get-prism-project-info', async () => {
   return await getPrismProjectInfo();
 });
 
+
 ipcMain.handle('generate-module-svg', async (event, moduleName) => {
   return await generateModuleSVG(moduleName);
 });
@@ -2791,3 +2577,20 @@ ipcMain.handle('show-message-box', async (event, options) => {
   const { dialog } = require('electron');
   return await dialog.showMessageBox(options);
 });
+
+
+function getProjectPath() {
+  if (!currentOpenProjectPath) {
+    return '';
+  }
+  
+  try {
+    // Read the SPF file to get the actual project path
+    const spfData = require('fs').readFileSync(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    return projectData.structure.basePath;
+  } catch (error) {
+    console.error('Error reading project path:', error);
+    return '';
+  }
+}

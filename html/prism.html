@@ -243,33 +243,37 @@
             text-shadow: 0 0 8px var(--accent-glow);
         }
 
-        /* Container principal redesenhado */
-        .content {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-4);
-            overflow: hidden;
-            position: relative;
-            background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.05), transparent);
-        }
+/* Content container - ensure proper flex behavior */
+.content {
+    flex: 1;
+    display: flex;
+    align-items: stretch; /* Changed from center to stretch */
+    justify-content: stretch; /* Changed from center to stretch */
+    padding: var(--space-4);
+    overflow: hidden;
+    position: relative;
+    background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.05), transparent);
+    min-height: 0; /* Critical for flexbox sizing */
+}
 
-        .circuit-container {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-primary);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(139, 92, 246, 0.1);
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            display: none;
-            position: relative;
-        }
+/* Container adjustments for proper sizing */
+.circuit-container {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(139, 92, 246, 0.1);
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: none;
+    position: relative;
+    min-height: 0; /* Allow flexbox to work properly */
+}
 
-        .circuit-container.visible {
-            display: block;
-        }
+.circuit-container.visible {
+    display: flex;
+    flex-direction: column;
+}
 
         @keyframes highlight-glow {
     0%, 100% { 
@@ -282,7 +286,6 @@
     }
 }
 
-/* Viewport com melhor performance */
 .circuit-viewport {
     width: 100%;
     height: 100%;
@@ -294,9 +297,10 @@
     align-items: center;
     justify-content: center;
     contain: layout style paint;
+    min-height: 0; /* Allow flexbox to shrink */
 }
 
-      .circuit-viewport.dragging {
+.circuit-viewport.dragging {
     cursor: grabbing;
 }
 
@@ -364,6 +368,7 @@
     transform: scale(1);
 }
         /* Container do SVG otimizado */
+/* SVG container - optimized for full coverage */
 .circuit-svg-container {
     width: 100%;
     height: 100%;
@@ -374,14 +379,18 @@
     justify-content: center;
     position: relative;
     overflow: visible;
+    min-width: 100%;
+    min-height: 100%;
 }
 
-/* SVG principal com melhor renderização */
+/* SVG styling - ensure proper scaling and viewport coverage */
 .circuit-container svg {
-    max-width: none;
-    max-height: none;
-    width: auto;
-    height: auto;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
     background: transparent;
     filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
     shape-rendering: geometricPrecision;
@@ -389,9 +398,11 @@
     font-smooth: always;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    object-fit: contain;
+    display: block;
 }
 
-/* Garantir renderização suave */
+/* Ensure SVG content scales properly */
 .circuit-svg-container svg * {
     vector-effect: non-scaling-stroke;
     shape-rendering: geometricPrecision;
@@ -945,27 +956,69 @@
             }
 
           // Substitua o método displaySVG() na classe PrismViewer
+// Updated displaySVG method for full screen coverage
 displaySVG(svgContent) {
-    // Adicionar classe de loading
+    // Add loading class
     this.circuitContainer.classList.add('loading');
     
-    // Inserir o SVG
-    this.circuitSvgContainer.innerHTML = svgContent;
+    // Process SVG content to ensure proper scaling
+    let processedSvg = svgContent;
     
-    // Mostrar container
+    // Remove any fixed width/height attributes from SVG tag
+    processedSvg = processedSvg.replace(
+        /<svg[^>]*>/,
+        (match) => {
+            return match
+                .replace(/width\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/height\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/viewBox\s*=\s*["'][^"']*["']/gi, '');
+        }
+    );
+    
+    // Add responsive viewBox and preserveAspectRatio
+    processedSvg = processedSvg.replace(
+        /<svg/,
+        '<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" width="100%" height="100%"'
+    );
+    
+    // Insert the processed SVG
+    this.circuitSvgContainer.innerHTML = processedSvg;
+    
+    // Show container
     this.circuitContainer.classList.add('visible');
     this.loading.style.display = 'none';
     this.error.style.display = 'none';
     
-    // Aplicar estilos após um pequeno delay para garantir renderização
+    // Apply styles after a small delay to ensure rendering
     setTimeout(() => {
         this.applySVGStyling();
         
-        // Remover loading e adicionar loaded para transição suave
+        // Auto-detect SVG dimensions and set proper viewBox
+        const svgElement = this.circuitSvgContainer.querySelector('svg');
+        if (svgElement) {
+            // Get the actual content bounds
+            try {
+                const bbox = svgElement.getBBox();
+                if (bbox.width > 0 && bbox.height > 0) {
+                    // Add some padding around the content
+                    const padding = 20;
+                    const viewBox = `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + 2 * padding} ${bbox.height + 2 * padding}`;
+                    svgElement.setAttribute('viewBox', viewBox);
+                    console.log(`Set viewBox to: ${viewBox}`);
+                }
+            } catch (e) {
+                console.warn('Could not get SVG bounds, using default viewBox');
+            }
+        }
+        
+        // Remove loading and add loaded for smooth transition
         this.circuitContainer.classList.remove('loading');
         this.circuitContainer.classList.add('loaded');
         this.circuitContainer.classList.add('scale-in');
-    }, 50);
+        
+        // Reset view to ensure proper display
+        this.resetView();
+    }, 100);
 }
 
             applySVGStyling() {

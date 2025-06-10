@@ -2382,7 +2382,7 @@ ipcMain.on('app:reload', () => {
 // Add this variable to track PRISM window
 let prismWindow = null;
 
-// Function to create PRISM window
+// Function to create PRISM window with enhanced error handling
 async function createPrismWindow(projectInfo = null) {
   // If already open, just focus
   if (prismWindow && !prismWindow.isDestroyed()) {
@@ -2390,9 +2390,27 @@ async function createPrismWindow(projectInfo = null) {
     return;
   }
 
+  // Validate project info if provided
+  if (projectInfo) {
+    try {
+      await validateProjectStructure(projectInfo);
+    } catch (error) {
+      const { dialog } = require('electron');
+      await dialog.showMessageBox({
+        type: 'error',
+        title: 'Project Validation Error',
+        message: 'Cannot open PRISM viewer',
+        detail: error.message
+      });
+      return;
+    }
+  }
+
   prismWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
@@ -2405,13 +2423,25 @@ async function createPrismWindow(projectInfo = null) {
     },
     backgroundColor: '#17151f',
     show: false,
+    titleBarStyle: 'default'
   });
 
-  // Always use loadFile with a full path
+  // Load the HTML file
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-  prismWindow.loadFile(prismHtmlPath).catch(err => {
-    console.error('Failed to load prism.html:', err);
-  });
+  
+  try {
+    await prismWindow.loadFile(prismHtmlPath);
+  } catch (error) {
+    console.error('Failed to load prism.html:', error);
+    const { dialog } = require('electron');
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Load Error',
+      message: 'Failed to load PRISM viewer',
+      detail: error.message
+    });
+    return;
+  }
 
   // Show when ready
   prismWindow.once('ready-to-show', () => {
@@ -2423,13 +2453,56 @@ async function createPrismWindow(projectInfo = null) {
     prismWindow = null;
   });
 
-  // In case of any load failure
-  prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error(`prism.html failed to load (code ${errorCode}): ${errorDescription}`);
+  // Enhanced error handling for load failures
+  prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
+    console.error(`Failed URL: ${validatedURL}`);
+  });
+
+  // Add error handling for crashed renderer
+  prismWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('PRISM viewer renderer process crashed:', details);
   });
 }
 
-// Function to get project info for PRISM
+
+// Function to validate project structure
+async function validateProjectStructure(projectInfo) {
+  const { projectPath, topLevelFile } = projectInfo;
+  
+  // Check project directory
+  try {
+    await fs.access(projectPath, fs.constants.R_OK);
+  } catch (error) {
+    throw new Error(`Project directory not accessible: ${projectPath}`);
+  }
+  
+  // Check TopLevel directory
+  const topLevelDir = path.join(projectPath, 'TopLevel');
+  try {
+    await fs.access(topLevelDir, fs.constants.R_OK);
+  } catch (error) {
+    throw new Error(`TopLevel directory not found: ${topLevelDir}`);
+  }
+  
+  // Check for Verilog files
+  const files = await fs.readdir(topLevelDir);
+  const verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
+  
+  if (verilogFiles.length === 0) {
+    throw new Error('No Verilog files found in TopLevel directory');
+  }
+  
+  // Check top level file
+  if (!verilogFiles.includes(topLevelFile)) {
+    throw new Error(`Top level file '${topLevelFile}' not found in TopLevel directory`);
+  }
+  
+  return true;
+}
+
+
+// Enhanced function to get project info for PRISM with better error handling
 async function getPrismProjectInfo() {
   try {
     const projectPath = getProjectPath();
@@ -2438,12 +2511,48 @@ async function getPrismProjectInfo() {
     }
 
     const configPath = path.join(projectPath, 'projectOriented.json');
+    
+    // Check if config file exists
+    try {
+      await fs.access(configPath, fs.constants.R_OK);
+    } catch (error) {
+      throw new Error(`Project configuration file not found: ${configPath}`);
+    }
+
     const configData = await fs.readFile(configPath, 'utf8');
-    const config = JSON.parse(configData);
+    let config;
+    
+    try {
+      config = JSON.parse(configData);
+    } catch (error) {
+      throw new Error(`Invalid JSON in project configuration: ${error.message}`);
+    }
+
+    // Validate required fields
+    if (!config.topLevelFile) {
+      throw new Error('topLevelFile not specified in project configuration');
+    }
+
+    // Check if TopLevel directory exists
+    const topLevelDir = path.join(projectPath, 'TopLevel');
+    try {
+      await fs.access(topLevelDir, fs.constants.R_OK);
+    } catch (error) {
+      throw new Error(`TopLevel directory not found: ${topLevelDir}`);
+    }
+
+    // Check if top level file exists
+    const topLevelFilePath = path.join(topLevelDir, config.topLevelFile);
+    try {
+      await fs.access(topLevelFilePath, fs.constants.R_OK);
+    } catch (error) {
+      throw new Error(`Top level file not found: ${topLevelFilePath}`);
+    }
 
     return {
       projectPath,
-      topLevelFile: config.topLevelFile || 'top_level.v',
+      topLevelFile: config.topLevelFile,
+      topLevelModule: config.topLevelFile.replace(/\.v$/, ''),
       config
     };
   } catch (error) {
@@ -2451,89 +2560,43 @@ async function getPrismProjectInfo() {
   }
 }
 
-async function generateModuleSVG(moduleName) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const projectInfo = await getPrismProjectInfo();
-      const projectPath = projectInfo.projectPath;
+// Updated IPC handler for generating module SVG
+ipcMain.handle('generate-module-svg', async (event, moduleName) => {
+  try {
+    console.log(`Generating SVG for module: ${moduleName}`);
+    const svgContent = await generateModuleSVG(moduleName);
+    console.log(`Successfully generated SVG for module: ${moduleName}`);
+    return svgContent;
+  } catch (error) {
+    console.error(`Failed to generate SVG for module ${moduleName}:`, error);
+    throw error;
+  }
+});
 
-      // A pasta "TopLevel" contém os .v
-      const verilogDir = path.join(projectPath, 'TopLevel');
-      const files = await fs.readdir(verilogDir);
 
-      // Filtra apenas arquivos .v (exclui testbenches)
-      const verilogFiles = files.filter(f =>
-        f.toLowerCase().endsWith('.v') &&
-        !f.toLowerCase().includes('_tb') &&
-        !f.toLowerCase().includes('testbench')
-      );
-      if (verilogFiles.length === 0) {
-        throw new Error('No Verilog files found in TopLevel folder');
+// New IPC handler to get available modules
+ipcMain.handle('get-available-modules', async (event, moduleName = null) => {
+  try {
+    const projectInfo = await getPrismProjectInfo();
+    const projectPath = projectInfo.projectPath;
+    
+    if (moduleName) {
+      // Get modules that this specific module depends on
+      const moduleMap = await parseVerilogModules(projectPath);
+      if (moduleMap.has(moduleName)) {
+        return moduleMap.get(moduleName).dependencies;
       }
-
-      // Caminhos completos entre aspas para cada .v
-      const filePaths = verilogFiles
-        .map(f => `"${path.join(verilogDir, f)}"`)
-        .join(' ');
-
-      // Arquivos temporários
-      const tempDir = require('os').tmpdir();
-      const jsonFile = path.join(tempDir, `${moduleName}_${Date.now()}.json`);
-      const svgFile  = path.join(tempDir, `${moduleName}_${Date.now()}.svg`);
-
-      // Monta comando Yosys como uma string única, usando shell:true
-      const yosysCmd = 
-        `yosys -p "read_verilog ${filePaths} ; hierarchy -top ${moduleName} ; proc ; write_json ${jsonFile}"`;
-
-      const yosysProcess = spawn(yosysCmd, {
-        cwd: projectPath,
-        shell: true
-      });
-
-      let yosysError = '';
-      yosysProcess.stderr.on('data', data => {
-        yosysError += data.toString();
-      });
-
-      yosysProcess.on('close', code => {
-        if (code !== 0) {
-          reject(new Error(`Yosys failed: ${yosysError.trim()}`));
-          return;
-        }
-
-        // netlistsvg gera o SVG a partir do JSON
-        const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
-        const netlistProcess = spawn(netlistCmd, { shell: true });
-
-        let netlistError = '';
-        netlistProcess.stderr.on('data', data => {
-          netlistError += data.toString();
-        });
-
-        netlistProcess.on('close', async code2 => {
-          if (code2 !== 0) {
-            reject(new Error(`netlistsvg failed: ${netlistError.trim()}`));
-            return;
-          }
-          try {
-            const svgContent = await fs.readFile(svgFile, 'utf8');
-            const processedSvg = processSVG(svgContent);
-
-            // Cleanup
-            await fs.unlink(jsonFile).catch(() => {});
-            await fs.unlink(svgFile).catch(() => {});
-
-            resolve(processedSvg);
-          } catch (readErr) {
-            reject(readErr);
-          }
-        });
-      });
-    } catch (err) {
-      reject(err);
+      return [];
+    } else {
+      // Get all available modules
+      const moduleMap = await parseVerilogModules(projectPath);
+      return Array.from(moduleMap.keys());
     }
-  });
-}
+  } catch (error) {
+    console.error('Failed to get available modules:', error);
+    throw error;
+  }
+});
 
 
 // Function to process SVG content (equivalent to Python processing)
@@ -2569,9 +2632,6 @@ ipcMain.handle('get-prism-project-info', async () => {
 });
 
 
-ipcMain.handle('generate-module-svg', async (event, moduleName) => {
-  return await generateModuleSVG(moduleName);
-});
 
 ipcMain.handle('show-message-box', async (event, options) => {
   const { dialog } = require('electron');
@@ -2579,6 +2639,7 @@ ipcMain.handle('show-message-box', async (event, options) => {
 });
 
 
+// Enhanced function to get project path with better validation
 function getProjectPath() {
   if (!currentOpenProjectPath) {
     return '';
@@ -2588,9 +2649,438 @@ function getProjectPath() {
     // Read the SPF file to get the actual project path
     const spfData = require('fs').readFileSync(currentOpenProjectPath, 'utf8');
     const projectData = JSON.parse(spfData);
+    
+    if (!projectData.structure || !projectData.structure.basePath) {
+      throw new Error('Invalid project structure in SPF file');
+    }
+    
     return projectData.structure.basePath;
   } catch (error) {
     console.error('Error reading project path:', error);
     return '';
+  }
+}
+
+// Enhanced function to parse Verilog files and extract module information
+async function parseVerilogModules(projectPath) {
+  const verilogDir = path.join(projectPath, 'TopLevel');
+  const files = await fs.readdir(verilogDir);
+  
+  const verilogFiles = files.filter(f => 
+    f.toLowerCase().endsWith('.v') && 
+    !f.toLowerCase().includes('_tb') && 
+    !f.toLowerCase().includes('testbench')
+  );
+  
+  const moduleMap = new Map(); // moduleName -> { file, dependencies, content }
+  
+  for (const file of verilogFiles) {
+    const filePath = path.join(verilogDir, file);
+    const content = await fs.readFile(filePath, 'utf8');
+    
+    const modules = extractModulesFromFile(content, file);
+    modules.forEach(module => {
+      moduleMap.set(module.name, module);
+    });
+  }
+  
+  return moduleMap;
+}
+
+// Function to extract module information from Verilog content
+function extractModulesFromFile(content, filename) {
+  const modules = [];
+  
+  // Remove comments to avoid false matches
+  const cleanContent = content
+    .replace(/\/\/.*$/gm, '') // Remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+  
+  // Match module declarations with improved regex
+  const moduleRegex = /module\s+(\w+)\s*(?:\#[^)]*\))?\s*\([^)]*\)\s*;/g;
+  let match;
+  
+  while ((match = moduleRegex.exec(cleanContent)) !== null) {
+    const moduleName = match[1];
+    const moduleStart = match.index;
+    
+    // Find the end of this module
+    const moduleContent = extractModuleContent(cleanContent, moduleStart);
+    const dependencies = extractModuleDependencies(moduleContent);
+    
+    modules.push({
+      name: moduleName,
+      file: filename,
+      dependencies: dependencies,
+      content: moduleContent
+    });
+  }
+  
+  return modules;
+}
+
+
+// Extract content between module and endmodule
+function extractModuleContent(content, startIndex) {
+  let depth = 0;
+  let i = startIndex;
+  let moduleContent = '';
+  let inModule = false;
+  
+  while (i < content.length) {
+    // Check for module keyword
+    if (content.substring(i).match(/^module\b/)) {
+      if (inModule) {
+        depth++;
+      } else {
+        inModule = true;
+      }
+      // Skip the word
+      i += 6;
+      moduleContent += 'module';
+      continue;
+    }
+    
+    // Check for endmodule keyword
+    if (content.substring(i).match(/^endmodule\b/)) {
+      if (depth > 0) {
+        depth--;
+      } else {
+        moduleContent += 'endmodule';
+        break;
+      }
+      // Skip the word
+      i += 9;
+      moduleContent += 'endmodule';
+      continue;
+    }
+    
+    if (inModule) {
+      moduleContent += content[i];
+    }
+    i++;
+  }
+  
+  return moduleContent;
+}
+
+// Extract module dependencies (instantiated modules)
+function extractModuleDependencies(moduleContent) {
+  const dependencies = new Set();
+  
+  // Improved regex to match module instantiations
+  // Pattern: ModuleName [#(params)] instance_name (
+  const instantiationRegex = /(\w+)\s*(?:#\s*\([^)]*\))?\s+(\w+)\s*\(/g;
+  let match;
+  
+  while ((match = instantiationRegex.exec(moduleContent)) !== null) {
+    const moduleName = match[1];
+    
+    // Skip Verilog keywords and primitives
+    if (!isVerilogKeyword(moduleName) && !isVerilogPrimitive(moduleName)) {
+      dependencies.add(moduleName);
+    }
+  }
+  
+  return Array.from(dependencies);
+}
+
+// Check if a word is a Verilog keyword
+function isVerilogKeyword(word) {
+  const keywords = [
+    'always', 'assign', 'begin', 'case', 'casex', 'casez', 'default', 'else', 
+    'end', 'endcase', 'endmodule', 'for', 'forever', 'if', 'initial', 'input', 
+    'output', 'inout', 'parameter', 'localparam', 'reg', 'wire', 'integer', 
+    'real', 'time', 'signed', 'unsigned', 'posedge', 'negedge', 'while', 
+    'repeat', 'fork', 'join', 'task', 'function', 'generate', 'genvar'
+  ];
+  return keywords.includes(word.toLowerCase());
+}
+
+// Check if a word is a Verilog keyword
+function isVerilogKeyword(word) {
+  const keywords = [
+    'always', 'assign', 'begin', 'case', 'default', 'else', 'end', 'endcase',
+    'endmodule', 'for', 'if', 'initial', 'input', 'output', 'parameter', 'reg',
+    'wire', 'integer', 'real', 'time', 'signed', 'unsigned', 'posedge', 'negedge'
+  ];
+  return keywords.includes(word.toLowerCase());
+}
+
+
+// Check if a word is a Verilog primitive
+function isVerilogPrimitive(word) {
+  const primitives = [
+    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
+    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
+    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1'
+  ];
+  return primitives.includes(word.toLowerCase());
+}
+
+// Optimized function to generate module SVG with proper dependency resolution
+async function generateModuleSVG(moduleName) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const projectInfo = await getPrismProjectInfo();
+      const projectPath = projectInfo.projectPath;
+      
+      // Parse all modules to understand dependencies
+      const moduleMap = await parseVerilogModules(projectPath);
+      
+      if (!moduleMap.has(moduleName)) {
+        throw new Error(`Module '${moduleName}' not found in project`);
+      }
+      
+      // Get all required files for this module and its dependencies
+      const requiredFiles = getRequiredFilesForModule(moduleName, moduleMap);
+      
+      if (requiredFiles.length === 0) {
+        throw new Error(`No files found for module '${moduleName}'`);
+      }
+      
+      console.log(`Generating SVG for module '${moduleName}' using files:`, requiredFiles);
+      
+      // Generate SVG using only required files
+      const svgContent = await generateSVGFromFiles(projectPath, moduleName, requiredFiles);
+      resolve(svgContent);
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Get all files required for a module and its dependencies
+function getRequiredFilesForModule(moduleName, moduleMap) {
+  const requiredFiles = new Set();
+  const visited = new Set();
+  
+  function collectDependencies(currentModule) {
+    if (visited.has(currentModule) || !moduleMap.has(currentModule)) {
+      return;
+    }
+    
+    visited.add(currentModule);
+    const moduleInfo = moduleMap.get(currentModule);
+    requiredFiles.add(moduleInfo.file);
+    
+    // Recursively collect dependencies
+    moduleInfo.dependencies.forEach(dep => {
+      collectDependencies(dep);
+    });
+  }
+  
+  collectDependencies(moduleName);
+  return Array.from(requiredFiles);
+}
+
+
+// Generate SVG from specific files
+async function generateSVGFromFiles(projectPath, topModule, requiredFiles) {
+  const verilogDir = path.join(projectPath, 'TopLevel');
+  
+  // Create file paths with proper quoting for cross-platform compatibility
+  const filePaths = requiredFiles
+    .map(file => `"${path.join(verilogDir, file).replace(/\\/g, '/')}"`)
+    .join(' ');
+  
+  // Temporary files with unique names
+  const tempDir = require('os').tmpdir();
+  const timestamp = Date.now();
+  const processId = process.pid;
+  const jsonFile = path.join(tempDir, `yosys_${topModule}_${timestamp}_${processId}.json`);
+  const svgFile = path.join(tempDir, `netlist_${topModule}_${timestamp}_${processId}.svg`);
+  
+  // Optimized Yosys command with better synthesis flow
+  const yosysCmd = `yosys -p "read_verilog -sv ${filePaths}; hierarchy -top ${topModule}; proc; opt; memory; techmap; opt; clean; write_json \\"${jsonFile}\\""`;
+  
+  return new Promise((resolve, reject) => {
+    console.log(`Executing Yosys command: ${yosysCmd}`);
+    
+    const yosysProcess = spawn(yosysCmd, {
+      cwd: projectPath,
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 30000 // 30 second timeout
+    });
+    
+    let yosysOutput = '';
+    let yosysError = '';
+    
+    yosysProcess.stdout.on('data', data => {
+      yosysOutput += data.toString();
+    });
+    
+    yosysProcess.stderr.on('data', data => {
+      yosysError += data.toString();
+    });
+    
+    yosysProcess.on('close', async (code) => {
+      if (code !== 0) {
+        console.error('Yosys Output:', yosysOutput);
+        console.error('Yosys Error:', yosysError);
+        
+        // Clean up on error
+        await cleanupTempFiles(jsonFile, svgFile);
+        
+        // Provide more specific error messages
+        let errorMessage = 'Yosys synthesis failed';
+        if (yosysError.includes('ERROR: Module') && yosysError.includes('not found')) {
+          errorMessage = `Module dependency not found. Check if all required modules are in the TopLevel directory.`;
+        } else if (yosysError.includes('syntax error')) {
+          errorMessage = `Syntax error in Verilog code. Please check the module definitions.`;
+        } else if (yosysError.trim()) {
+          errorMessage = `Yosys synthesis failed: ${yosysError.trim()}`;
+        }
+        
+        reject(new Error(errorMessage));
+        return;
+      }
+      
+      // Generate SVG from JSON
+      try {
+        await generateSVGFromJSON(jsonFile, svgFile);
+        
+        const svgContent = await fs.readFile(svgFile, 'utf8');
+        const processedSvg = processSVGContent(svgContent);
+        
+        // Cleanup temporary files
+        await cleanupTempFiles(jsonFile, svgFile);
+        
+        resolve(processedSvg);
+      } catch (svgError) {
+        await cleanupTempFiles(jsonFile, svgFile);
+        reject(new Error(`SVG generation failed: ${svgError.message}`));
+      }
+    });
+    
+    yosysProcess.on('error', async (error) => {
+      await cleanupTempFiles(jsonFile, svgFile);
+      reject(new Error(`Failed to start Yosys: ${error.message}. Make sure Yosys is installed and in PATH.`));
+    });
+  });
+}
+
+// Generate SVG from JSON using netlistsvg
+function generateSVGFromJSON(jsonFile, svgFile) {
+  return new Promise((resolve, reject) => {
+    const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
+    
+    console.log(`Executing netlistsvg command: ${netlistCmd}`);
+    
+    const netlistProcess = spawn(netlistCmd, { 
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 15000 // 15 second timeout
+    });
+    
+    let netlistOutput = '';
+    let netlistError = '';
+    
+    netlistProcess.stdout.on('data', data => {
+      netlistOutput += data.toString();
+    });
+    
+    netlistProcess.stderr.on('data', data => {
+      netlistError += data.toString();
+    });
+    
+    netlistProcess.on('close', code => {
+      if (code !== 0) {
+        console.error('Netlistsvg Output:', netlistOutput);
+        console.error('Netlistsvg Error:', netlistError);
+        
+        let errorMessage = 'Netlistsvg failed';
+        if (netlistError.includes('ENOENT') || netlistError.includes('not found')) {
+          errorMessage = 'Netlistsvg not found. Make sure netlistsvg is installed and in PATH.';
+        } else if (netlistError.trim()) {
+          errorMessage = `Netlistsvg failed: ${netlistError.trim()}`;
+        }
+        
+        reject(new Error(errorMessage));
+        return;
+      }
+      resolve();
+    });
+    
+    netlistProcess.on('error', error => {
+      reject(new Error(`Failed to start netlistsvg: ${error.message}. Make sure netlistsvg is installed and in PATH.`));
+    });
+  });
+}
+
+
+// Enhanced SVG processing function
+function processSVGContent(svgContent) {
+  let processed = svgContent;
+  
+  // Remove $paramod prefixes and clean up module names
+  processed = processed.replace(/\$paramod[^\\]*\\/g, '');
+  
+  // Clean up text elements containing file paths
+  processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
+    const cleanContent = content.split(/[\\\/]/).pop();
+    return match.replace(content, cleanContent);
+  });
+  
+  // Remove instance suffixes for cleaner display
+  processed = processed.replace(/(\w+)_inst(\d+)?/g, '$1');
+  
+  // Clean up generic module names
+  processed = processed.replace(/\$\d+/g, '');
+  
+  // Ensure proper SVG structure for responsive display
+  if (!processed.includes('viewBox')) {
+    processed = processed.replace(/<svg([^>]*)>/, '<svg$1 viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">');
+  }
+  
+  return processed;
+}
+
+// Cleanup temporary files
+async function cleanupTempFiles(...files) {
+  for (const file of files) {
+    try {
+      await fs.unlink(file);
+      console.log(`Cleaned up temporary file: ${file}`);
+    } catch (error) {
+      console.warn(`Failed to cleanup temporary file ${file}:`, error.message);
+    }
+  }
+}
+
+// Function to validate if a module exists and can be synthesized
+async function validateModule(moduleName, projectPath) {
+  try {
+    const moduleMap = await parseVerilogModules(projectPath);
+    return moduleMap.has(moduleName);
+  } catch (error) {
+    console.error(`Failed to validate module ${moduleName}:`, error);
+    return false;
+  }
+}
+
+
+
+// New IPC handler to validate module existence
+ipcMain.handle('validate-module', async (event, moduleName) => {
+  try {
+    const projectInfo = await getPrismProjectInfo();
+    return await validateModule(moduleName, projectInfo.projectPath);
+  } catch (error) {
+    console.error(`Failed to validate module ${moduleName}:`, error);
+    return false;
+  }
+});
+
+// Function to validate if a module exists and can be synthesized
+async function validateModule(moduleName, projectPath) {
+  try {
+    const moduleMap = await parseVerilogModules(projectPath);
+    return moduleMap.has(moduleName);
+  } catch (error) {
+    console.error(`Failed to validate module ${moduleName}:`, error);
+    return false;
   }
 }

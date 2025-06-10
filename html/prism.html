@@ -919,41 +919,98 @@
                 document.addEventListener('keydown', (e) => this.handleKeyboard(e));
             }
 
-            async initialize() {
-                try {
-                    const projectInfo = await window.electronAPI.getPrismProjectInfo();
-                    this.projectPath = projectInfo.projectPath;
-                    this.topLevelFile = projectInfo.topLevelFile;
-                    
-                    this.currentModule = this.topLevelFile.replace(/\.v$/, '');
-                    await this.loadModule(this.currentModule);
-                } catch (error) {
-                    this.showError('Failed to initialize PRISM viewer', error.message);
-                }
-            }
+// Updated initialize method
+async initialize() {
+  try {
+    const projectInfo = await window.electronAPI.getPrismProjectInfo();
+    this.projectPath = projectInfo.projectPath;
+    this.topLevelFile = projectInfo.topLevelFile;
+    this.topLevelModule = projectInfo.topLevelModule;
+    
+    // Start with the top-level module
+    this.currentModule = this.topLevelModule;
+    await this.loadModule(this.currentModule);
+    
+    // Pre-load available modules for faster navigation
+    await this.preloadAvailableModules();
+    
+  } catch (error) {
+    console.error('Failed to initialize PRISM viewer:', error);
+    this.showError('Initialization Failed', error.message);
+  }
+}
 
-            async loadModule(moduleName) {
-                try {
-                    this.showLoading();
+// New function to preload available modules
+async preloadAvailableModules() {
+  try {
+    this.availableModules = await window.electronAPI.getAvailableModules();
+    console.log('Available modules:', this.availableModules);
+  } catch (error) {
+    console.warn('Failed to preload available modules:', error);
+    this.availableModules = [];
+  }
+}
 
-                    const realModule = moduleName.replace(/_inst$/, '').replace(/_\d+$/, '');
+// Enhanced loadModule function with better error handling and validation
+async loadModule(moduleName) {
+  try {
+    this.showLoading();
+    
+    // Validate module before attempting to load
+    const isValid = await window.electronAPI.validateModule(moduleName);
+    if (!isValid) {
+      throw new Error(`Module '${moduleName}' not found in project`);
+    }
+    
+    // Clean module name for display
+    const cleanModuleName = this.cleanModuleName(moduleName);
+    
+    // Update UI to show current module
+    const moduleSpan = this.moduleInfo.querySelector('span');
+    if (moduleSpan) {
+      moduleSpan.textContent = `Module: ${cleanModuleName}`;
+    }
+    
+    // Generate SVG for the module
+    console.log(`Loading module: ${moduleName}`);
+    const svgContent = await window.electronAPI.generateModuleSVG(moduleName);
+    
+    // Display the SVG
+    this.displaySVG(svgContent);
+    this.currentModule = moduleName;
+    
+    // Auto-fit to screen for better user experience
+    setTimeout(() => {
+      this.fitToScreen();
+    }, 200);
+    
+    this.showStatus(`Successfully loaded module: ${cleanModuleName}`, 'success', 'check-circle');
+    
+  } catch (error) {
+    console.error('Error loading module:', error);
+    
+    // Show specific error messages based on error type
+    let errorMessage = error.message;
+    if (error.message.includes('not found')) {
+      errorMessage = `Module '${moduleName}' was not found in the project. Please check if the module exists and is properly defined.`;
+    } else if (error.message.includes('synthesis failed')) {
+      errorMessage = `Failed to synthesize module '${moduleName}'. Please check for syntax errors in the Verilog code.`;
+    } else if (error.message.includes('netlistsvg failed')) {
+      errorMessage = `Failed to generate circuit diagram for module '${moduleName}'. The module may be too complex or contain unsupported constructs.`;
+    }
+    
+    this.showError('Module Load Failed', errorMessage);
+  }
+}
 
-                    const moduleSpan = this.moduleInfo.querySelector('span');
-                    if (moduleSpan) {
-                        moduleSpan.textContent = `Module: ${realModule}`;
-                    }
+// New function to clean module names for display
+cleanModuleName(moduleName) {
+  return moduleName
+    .replace(/^\$.*\\/, '') // Remove $paramod prefixes
+    .replace(/_inst$/, '') // Remove _inst suffix
+    .replace(/_\d+$/, ''); // Remove numeric suffixes
+}
 
-                    const svgContent = await window.electronAPI.generateModuleSVG(realModule);
-                    this.displaySVG(svgContent);
-                    this.currentModule = realModule;
-
-                    this.fitToScreen();
-                    this.showStatus(`Successfully loaded module: ${realModule}`, 'success', 'check-circle');
-                } catch (error) {
-                    console.error('Error loading module:', error);
-                    this.showError('Failed to load module', error.message);
-                }
-            }
 
           // Substitua o método displaySVG() na classe PrismViewer
 // Updated displaySVG method for full screen coverage
@@ -1214,108 +1271,128 @@ cleanTextElements(svg) {
 
 
 
-            handleElementClick(element, event) {
-                event.stopPropagation();
-                
-                // Remove previous highlights
-                document.querySelectorAll('.highlighted').forEach(el => {
-                    el.classList.remove('highlighted');
-                });
+ // Enhanced handleElementClick with better module detection
+handleElementClick(element, event) {
+  event.stopPropagation();
+  
+  // Remove previous highlights
+  document.querySelectorAll('.highlighted').forEach(el => {
+    el.classList.remove('highlighted');
+  });
 
-                const className = element.classList[0] || '';
-                
-                if (className.startsWith('cell_')) {
-                    element.classList.add('highlighted');
-                    
-                    // Extract clean module name from the cell class
-                    let moduleName = className.replace(/^cell_/, '');
-                    
-                    // Clean up common suffixes and prefixes
-                    moduleName = moduleName.replace(/^\$.*\\/, ''); // Remove $paramod prefixes
-                    moduleName = moduleName.replace(/_inst$/, ''); // Remove _inst suffix
-                    moduleName = moduleName.replace(/_\d+$/, ''); // Remove numeric suffixes
-                    
-                    // Check if this is a valid module (not a primitive)
-                    if (this.isValidModule(moduleName)) {
-                        this.exploreModule(moduleName);
-                    } else {
-                        this.showStatus(`Primitive element: ${moduleName}`, 'info', 'info-circle');
-                    }
-                    
-                } else if (className.startsWith('net_')) {
-                    // Highlight all segments of the same net
-                    document.querySelectorAll(`.${className}`).forEach(segment => {
-                        segment.classList.add('highlighted');
-                    });
-                    this.showStatus(`Net highlighted: ${className}`, 'info', 'info-circle');
-                }
-            }
+  const className = element.classList[0] || '';
+  
+  if (className.startsWith('cell_')) {
+    element.classList.add('highlighted');
+    
+    // Extract module name from the cell class
+    let moduleName = className.replace(/^cell_/, '');
+    moduleName = this.cleanModuleName(moduleName);
+    
+    // Check if this is a valid module for exploration
+    if (this.isValidModuleForExploration(moduleName)) {
+      this.exploreModule(moduleName);
+    } else {
+      this.showStatus(`Primitive or built-in element: ${moduleName}`, 'info', 'info-circle');
+    }
+    
+  } else if (className.startsWith('net_')) {
+    // Highlight all segments of the same net
+    document.querySelectorAll(`.${className}`).forEach(segment => {
+      segment.classList.add('highlighted');
+    });
+    
+    const netName = className.replace(/^net_/, '');
+    this.showStatus(`Net highlighted: ${netName}`, 'info', 'info-circle');
+  }
+}
 
-            // Helper function to check if a module name is valid for exploration
-            isValidModule(moduleName) {
-                // List of Verilog primitives and built-in modules that shouldn't be explored
-                const primitives = [
-                    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
-                    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
-                    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1'
-                ];
-                
-                // Check if it's a primitive
-                if (primitives.includes(moduleName.toLowerCase())) {
-                    return false;
-                }
-                
-                // Check if it's too short (likely a primitive)
-                if (moduleName.length < 2) {
-                    return false;
-                }
-                
-                // Check if it contains only numbers (likely not a valid module)
-                if (/^\d+$/.test(moduleName)) {
-                    return false;
-                }
-                
-                return true;
-            }
+ // Enhanced function to check if a module is valid for exploration
+isValidModuleForExploration(moduleName) {
+  // List of common Verilog primitives and built-in modules
+  const primitives = [
+    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
+    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
+    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1',
+    // Additional common modules
+    'dff', 'dffe', 'latch', 'mux', 'demux', 'decoder', 'encoder'
+  ];
+  
+  const lowerModuleName = moduleName.toLowerCase();
+  
+  // Check if it's a primitive
+  if (primitives.includes(lowerModuleName)) {
+    return false;
+  }
+  
+  // Check if it's too short (likely a primitive)
+  if (moduleName.length < 2) {
+    return false;
+  }
+  
+  // Check if it contains only numbers (likely not a valid module)
+  if (/^\d+$/.test(moduleName)) {
+    return false;
+  }
+  
+  // Check if it's in our list of available modules
+  if (this.availableModules && this.availableModules.length > 0) {
+    return this.availableModules.includes(moduleName);
+  }
+  
+  return true;
+}
 
+  // Enhanced exploreModule function with better error handling
+async exploreModule(moduleName) {
+  try {
+    // Validate module before exploring
+    const isValid = await window.electronAPI.validateModule(moduleName);
+    if (!isValid) {
+      this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
+      return;
+    }
+    
+    // Add current module to history before exploring new one
+    this.moduleHistory.push(this.currentModule);
+    this.backBtn.classList.add('visible');
+    
+    // Load the new module
+    await this.loadModule(moduleName);
+    
+  } catch (error) {
+    console.error('Error exploring module:', error);
+    
+    // Restore previous state on error
+    this.moduleHistory.pop();
+    if (this.moduleHistory.length === 0) {
+      this.backBtn.classList.remove('visible');
+    }
+    
+    // Show appropriate error message
+    if (error.message.includes('not found')) {
+      this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
+    } else if (error.message.includes('synthesis failed')) {
+      this.showStatus(`Failed to synthesize module "${moduleName}"`, 'error', 'exclamation-circle');
+    } else {
+      this.showError('Module Exploration Failed', error.message);
+    }
+  }
+}
 
-                        async exploreModule(moduleName) {
-                try {
-                    // Add current module to history before exploring new one
-                    this.moduleHistory.push(this.currentModule);
-                    this.backBtn.classList.add('visible');
-                    
-                    // Load the new module
-                    await this.loadModule(moduleName);
-                    
-                } catch (error) {
-                    console.error('Error exploring module:', error);
-                    
-                    // Restore previous state on error
-                    this.moduleHistory.pop();
-                    if (this.moduleHistory.length === 0) {
-                        this.backBtn.classList.remove('visible');
-                    }
-                    
-                    // Show more specific error message
-                    if (error.message.includes('Module file not found')) {
-                        this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
-                    } else {
-                        this.showError('Failed to explore module', error.message);
-                    }
-                }
-            }
-
-            goBack() {
-                if (this.moduleHistory.length > 0) {
-                    const previousModule = this.moduleHistory.pop();
-                    this.loadModule(previousModule);
-                    
-                    if (this.moduleHistory.length === 0) {
-                        this.backBtn.classList.remove('visible');
-                    }
-                }
-            }
+       // Enhanced goBack function
+goBack() {
+  if (this.moduleHistory.length > 0) {
+    const previousModule = this.moduleHistory.pop();
+    
+    if (this.moduleHistory.length === 0) {
+      this.backBtn.classList.remove('visible');
+    }
+    
+    // Load previous module without adding to history
+    this.loadModule(previousModule);
+  }
+}
 
             // Pan & Zoom functionality
             startDrag(e) {
@@ -1474,33 +1551,45 @@ fitToScreen() {
                 this.tooltip.classList.remove('visible');
             }
 
-            showLoading() {
-                this.loading.style.display = 'flex';
-                this.circuitContainer.classList.remove('visible');
-                this.error.style.display = 'none';
-                this.loading.classList.add('fade-in');
-            }
+           // Show loading state
+showLoading() {
+  this.loading.style.display = 'flex';
+  this.circuitContainer.classList.remove('visible');
+  this.error.style.display = 'none';
+}
 
-            showError(title, message) {
-                this.loading.style.display = 'none';
-                this.circuitContainer.classList.remove('visible');
-                this.error.style.display = 'block';
-                this.error.classList.add('scale-in');
-                this.errorMessage.textContent = `${title}: ${message}`;
-                
-            }
+// Show error state
+showError(title, message) {
+  this.loading.style.display = 'none';
+  this.circuitContainer.classList.remove('visible');
+  this.error.style.display = 'flex';
+  
+  const errorTitle = this.error.querySelector('h3');
+  const errorMsg = this.error.querySelector('p');
+  
+  if (errorTitle) errorTitle.textContent = title;
+  if (errorMsg) errorMsg.textContent = message;
+}
 
-            showStatus(message, type = 'success', icon = 'info-circle') {
-                const iconElement = this.status.querySelector('i');
-                
-                this.statusText.textContent = message;
-                this.status.className = `status visible ${type}`;
-                
-                setTimeout(() => {
-                    this.status.classList.remove('visible');
-                }, 4000);
-            }
-        }
+// Show status message
+showStatus(message, type = 'info', icon = 'info-circle') {
+  if (this.statusText) {
+    this.statusText.textContent = message;
+  }
+  
+  if (this.status) {
+    // Remove previous status classes
+    this.status.classList.remove('success', 'error', 'warning', 'info');
+    this.status.classList.add(type, 'visible');
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      this.status.classList.remove('visible');
+    }, 3000);
+  }
+  
+  console.log(`Status [${type}]: ${message}`);
+}        }
 
         // Initialize the PRISM viewer when the page loads
         document.addEventListener('DOMContentLoaded', () => {

@@ -423,7 +423,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: false, message: error.message };
     }
   },
+
   
+  // PRISM compilation methods
+prismCompile: () => ipcRenderer.invoke('prism-compile'),
+
+// Toggle UI state methods
+getToggleUIState: () => {
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    return toggleButton.classList.contains('active') || 
+           toggleButton.getAttribute('aria-pressed') === 'true' ||
+           toggleButton.hasAttribute('data-active');
+  }
+  return false;
+},
+
+// Listen for toggle UI state requests from main process
+onGetToggleUIState: (callback) => {
+  ipcRenderer.on('get-toggle-ui-state', () => {
+    const isActive = window.electronAPI.getToggleUIState();
+    ipcRenderer.send('toggle-ui-state-response', isActive);
+  });
+},
 
   setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
     
@@ -434,6 +456,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
   ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
+
+   onPrismStatus: (callback) => {
+    // o canal 'prism-status' envia um boolean: true=open, false=closed
+    ipcRenderer.on('prism-status', (event, isOpen) => {
+      callback(isOpen);
+    });
+  },
 
 
   onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),

@@ -2447,10 +2447,16 @@ async function createPrismWindow(projectInfo = null) {
   prismWindow.once('ready-to-show', () => {
     prismWindow.maximize();
     prismWindow.show();
+if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('prism-status', true);
+    }
   });
 
   prismWindow.on('closed', () => {
     prismWindow = null;
+if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('prism-status', false);
+    }
   });
 
   // Enhanced error handling for load failures
@@ -2465,622 +2471,209 @@ async function createPrismWindow(projectInfo = null) {
   });
 }
 
+// Add this to your main.js file
 
-// Function to validate project structure
-async function validateProjectStructure(projectInfo) {
-  const { projectPath, topLevelFile } = projectInfo;
-  
-  // Check project directory
+// IPC handler for PRISM compilation
+ipcMain.handle('prism-compile', async (event) => {
   try {
-    await fs.access(projectPath, fs.constants.R_OK);
-  } catch (error) {
-    throw new Error(`Project directory not accessible: ${projectPath}`);
-  }
-  
-  // Check TopLevel directory
-  const topLevelDir = path.join(projectPath, 'TopLevel');
-  try {
-    await fs.access(topLevelDir, fs.constants.R_OK);
-  } catch (error) {
-    throw new Error(`TopLevel directory not found: ${topLevelDir}`);
-  }
-  
-  // Check for Verilog files
-  const files = await fs.readdir(topLevelDir);
-  const verilogFiles = files.filter(f => f.toLowerCase().endsWith('.v'));
-  
-  if (verilogFiles.length === 0) {
-    throw new Error('No Verilog files found in TopLevel directory');
-  }
-  
-  // Check top level file
-  if (!verilogFiles.includes(topLevelFile)) {
-    throw new Error(`Top level file '${topLevelFile}' not found in TopLevel directory`);
-  }
-  
-  return true;
-}
-
-
-// Enhanced function to get project info for PRISM with better error handling
-async function getPrismProjectInfo() {
-  try {
-    const projectPath = getProjectPath();
-    if (!projectPath) {
-      throw new Error('No project currently open');
-    }
-
-    const configPath = path.join(projectPath, 'projectOriented.json');
+    console.log('Starting PRISM compilation process...');
     
-    // Check if config file exists
-    try {
-      await fs.access(configPath, fs.constants.R_OK);
-    } catch (error) {
-      throw new Error(`Project configuration file not found: ${configPath}`);
+    // Check if we have a current project
+    if (!global.currentProjectPath) {
+      throw new Error('No project path set. Please open a project first.');
     }
-
-    const configData = await fs.readFile(configPath, 'utf8');
-    let config;
     
-    try {
-      config = JSON.parse(configData);
-    } catch (error) {
-      throw new Error(`Invalid JSON in project configuration: ${error.message}`);
-    }
-
-    // Validate required fields
-    if (!config.topLevelFile) {
-      throw new Error('topLevelFile not specified in project configuration');
-    }
-
-    // Check if TopLevel directory exists
-    const topLevelDir = path.join(projectPath, 'TopLevel');
-    try {
-      await fs.access(topLevelDir, fs.constants.R_OK);
-    } catch (error) {
-      throw new Error(`TopLevel directory not found: ${topLevelDir}`);
-    }
-
-    // Check if top level file exists
-    const topLevelFilePath = path.join(topLevelDir, config.topLevelFile);
-    try {
-      await fs.access(topLevelFilePath, fs.constants.R_OK);
-    } catch (error) {
-      throw new Error(`Top level file not found: ${topLevelFilePath}`);
-    }
-
-    return {
-      projectPath,
-      topLevelFile: config.topLevelFile,
-      topLevelModule: config.topLevelFile.replace(/\.v$/, ''),
-      config
-    };
-  } catch (error) {
-    throw new Error(`Failed to load project configuration: ${error.message}`);
-  }
-}
-
-// Updated IPC handler for generating module SVG
-ipcMain.handle('generate-module-svg', async (event, moduleName) => {
-  try {
-    console.log(`Generating SVG for module: ${moduleName}`);
-    const svgContent = await generateModuleSVG(moduleName);
-    console.log(`Successfully generated SVG for module: ${moduleName}`);
-    return svgContent;
-  } catch (error) {
-    console.error(`Failed to generate SVG for module ${moduleName}:`, error);
-    throw error;
-  }
-});
-
-
-// New IPC handler to get available modules
-ipcMain.handle('get-available-modules', async (event, moduleName = null) => {
-  try {
-    const projectInfo = await getPrismProjectInfo();
-    const projectPath = projectInfo.projectPath;
+    const projectPath = global.currentProjectPath;
+    console.log(`Working with project path: ${projectPath}`);
     
-    if (moduleName) {
-      // Get modules that this specific module depends on
-      const moduleMap = await parseVerilogModules(projectPath);
-      if (moduleMap.has(moduleName)) {
-        return moduleMap.get(moduleName).dependencies;
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
+    await fse.ensureDir(tempDir);
+    
+    // Check toggle-ui button state (we'll get this from renderer)
+    const isProjectOriented = await getToggleUIState(event);
+    
+    let topLevelModule, configData;
+    
+    if (isProjectOriented) {
+      console.log('Running in Project Oriented mode...');
+      
+      // Case 1: Project Oriented Mode
+      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+      
+      if (!await fse.pathExists(projectConfigPath)) {
+        throw new Error('projectOriented.json not found in project root');
       }
-      return [];
+      
+      configData = await fse.readJson(projectConfigPath);
+      topLevelModule = path.basename(configData.topLevelFile, '.v');
+      
+      console.log(`Top level module: ${topLevelModule}`);
+      
     } else {
-      // Get all available modules
-      const moduleMap = await parseVerilogModules(projectPath);
-      return Array.from(moduleMap.keys());
+      console.log('Running in Processor Oriented mode...');
+      
+      // Case 2: Processor Oriented Mode
+      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+      
+      if (!await fse.pathExists(processorConfigPath)) {
+        throw new Error('processorConfig.json not found in project root');
+      }
+      
+      configData = await fse.readJson(processorConfigPath);
+      
+      // Find active processor
+      const activeProcessor = configData.processors.find(proc => proc.isActive === true);
+      if (!activeProcessor) {
+        throw new Error('No active processor found in processorConfig.json');
+      }
+      
+      topLevelModule = activeProcessor.name;
+      console.log(`Active processor module: ${topLevelModule}`);
     }
+    
+    // Run Yosys compilation
+    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
+    
+    // Split JSON into individual module files
+    await splitHierarchyJson(hierarchyJsonPath, tempDir);
+    
+    // Generate SVG for the top level module
+    await generateModuleSVG(topLevelModule, tempDir);
+    
+    console.log('PRISM compilation completed successfully');
+    return { success: true, message: 'PRISM compilation completed successfully' };
+    
   } catch (error) {
-    console.error('Failed to get available modules:', error);
-    throw error;
+    console.error('PRISM compilation error:', error);
+    return { success: false, message: error.message };
   }
 });
 
-
-// Function to process SVG content (equivalent to Python processing)
-function processSVG(svgContent) {
-  // Simple text processing to clean up module names
-  let processed = svgContent;
-  
-  // Remove $paramod prefixes
-  processed = processed.replace(/\$paramod[^\\]*\\/g, '');
-  
-  // Clean up paths in text elements
-  processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
-    const parts = content.split(/[\\\/]/);
-    const cleanContent = parts[parts.length - 1];
-    return match.replace(content, cleanContent);
-  });
-
-  return processed;
-}
-
-// IPC handlers - add these to your existing IPC handlers
-ipcMain.handle('open-prism-window', async () => {
-  try {
-    const projectInfo = await getPrismProjectInfo();
-    await createPrismWindow(projectInfo);
-  } catch (error) {
-    throw error;
-  }
-});
-
-ipcMain.handle('get-prism-project-info', async () => {
-  return await getPrismProjectInfo();
-});
-
-
-
-ipcMain.handle('show-message-box', async (event, options) => {
-  const { dialog } = require('electron');
-  return await dialog.showMessageBox(options);
-});
-
-
-// Enhanced function to get project path with better validation
-function getProjectPath() {
-  if (!currentOpenProjectPath) {
-    return '';
-  }
-  
-  try {
-    // Read the SPF file to get the actual project path
-    const spfData = require('fs').readFileSync(currentOpenProjectPath, 'utf8');
-    const projectData = JSON.parse(spfData);
+// Helper function to get toggle-ui button state from renderer
+async function getToggleUIState(event) {
+  // Send request to renderer to check button state
+  return new Promise((resolve) => {
+    event.sender.send('get-toggle-ui-state');
     
-    if (!projectData.structure || !projectData.structure.basePath) {
-      throw new Error('Invalid project structure in SPF file');
-    }
+    // Listen for response
+    const responseHandler = (_, isActive) => {
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+      resolve(isActive);
+    };
     
-    return projectData.structure.basePath;
-  } catch (error) {
-    console.error('Error reading project path:', error);
-    return '';
-  }
-}
-
-// Enhanced function to parse Verilog files and extract module information
-async function parseVerilogModules(projectPath) {
-  const verilogDir = path.join(projectPath, 'TopLevel');
-  const files = await fs.readdir(verilogDir);
-  
-  const verilogFiles = files.filter(f => 
-    f.toLowerCase().endsWith('.v') && 
-    !f.toLowerCase().includes('_tb') && 
-    !f.toLowerCase().includes('testbench')
-  );
-  
-  const moduleMap = new Map(); // moduleName -> { file, dependencies, content }
-  
-  for (const file of verilogFiles) {
-    const filePath = path.join(verilogDir, file);
-    const content = await fs.readFile(filePath, 'utf8');
-    
-    const modules = extractModulesFromFile(content, file);
-    modules.forEach(module => {
-      moduleMap.set(module.name, module);
-    });
-  }
-  
-  return moduleMap;
-}
-
-// Function to extract module information from Verilog content
-function extractModulesFromFile(content, filename) {
-  const modules = [];
-  
-  // Remove comments to avoid false matches
-  const cleanContent = content
-    .replace(/\/\/.*$/gm, '') // Remove single-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
-  
-  // Match module declarations with improved regex
-  const moduleRegex = /module\s+(\w+)\s*(?:\#[^)]*\))?\s*\([^)]*\)\s*;/g;
-  let match;
-  
-  while ((match = moduleRegex.exec(cleanContent)) !== null) {
-    const moduleName = match[1];
-    const moduleStart = match.index;
-    
-    // Find the end of this module
-    const moduleContent = extractModuleContent(cleanContent, moduleStart);
-    const dependencies = extractModuleDependencies(moduleContent);
-    
-    modules.push({
-      name: moduleName,
-      file: filename,
-      dependencies: dependencies,
-      content: moduleContent
-    });
-  }
-  
-  return modules;
-}
-
-
-// Extract content between module and endmodule
-function extractModuleContent(content, startIndex) {
-  let depth = 0;
-  let i = startIndex;
-  let moduleContent = '';
-  let inModule = false;
-  
-  while (i < content.length) {
-    // Check for module keyword
-    if (content.substring(i).match(/^module\b/)) {
-      if (inModule) {
-        depth++;
-      } else {
-        inModule = true;
-      }
-      // Skip the word
-      i += 6;
-      moduleContent += 'module';
-      continue;
-    }
-    
-    // Check for endmodule keyword
-    if (content.substring(i).match(/^endmodule\b/)) {
-      if (depth > 0) {
-        depth--;
-      } else {
-        moduleContent += 'endmodule';
-        break;
-      }
-      // Skip the word
-      i += 9;
-      moduleContent += 'endmodule';
-      continue;
-    }
-    
-    if (inModule) {
-      moduleContent += content[i];
-    }
-    i++;
-  }
-  
-  return moduleContent;
-}
-
-// Extract module dependencies (instantiated modules)
-function extractModuleDependencies(moduleContent) {
-  const dependencies = new Set();
-  
-  // Improved regex to match module instantiations
-  // Pattern: ModuleName [#(params)] instance_name (
-  const instantiationRegex = /(\w+)\s*(?:#\s*\([^)]*\))?\s+(\w+)\s*\(/g;
-  let match;
-  
-  while ((match = instantiationRegex.exec(moduleContent)) !== null) {
-    const moduleName = match[1];
-    
-    // Skip Verilog keywords and primitives
-    if (!isVerilogKeyword(moduleName) && !isVerilogPrimitive(moduleName)) {
-      dependencies.add(moduleName);
-    }
-  }
-  
-  return Array.from(dependencies);
-}
-
-// Check if a word is a Verilog keyword
-function isVerilogKeyword(word) {
-  const keywords = [
-    'always', 'assign', 'begin', 'case', 'casex', 'casez', 'default', 'else', 
-    'end', 'endcase', 'endmodule', 'for', 'forever', 'if', 'initial', 'input', 
-    'output', 'inout', 'parameter', 'localparam', 'reg', 'wire', 'integer', 
-    'real', 'time', 'signed', 'unsigned', 'posedge', 'negedge', 'while', 
-    'repeat', 'fork', 'join', 'task', 'function', 'generate', 'genvar'
-  ];
-  return keywords.includes(word.toLowerCase());
-}
-
-// Check if a word is a Verilog keyword
-function isVerilogKeyword(word) {
-  const keywords = [
-    'always', 'assign', 'begin', 'case', 'default', 'else', 'end', 'endcase',
-    'endmodule', 'for', 'if', 'initial', 'input', 'output', 'parameter', 'reg',
-    'wire', 'integer', 'real', 'time', 'signed', 'unsigned', 'posedge', 'negedge'
-  ];
-  return keywords.includes(word.toLowerCase());
-}
-
-
-// Check if a word is a Verilog primitive
-function isVerilogPrimitive(word) {
-  const primitives = [
-    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
-    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
-    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1'
-  ];
-  return primitives.includes(word.toLowerCase());
-}
-
-// Optimized function to generate module SVG with proper dependency resolution
-async function generateModuleSVG(moduleName) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const projectInfo = await getPrismProjectInfo();
-      const projectPath = projectInfo.projectPath;
-      
-      // Parse all modules to understand dependencies
-      const moduleMap = await parseVerilogModules(projectPath);
-      
-      if (!moduleMap.has(moduleName)) {
-        throw new Error(`Module '${moduleName}' not found in project`);
-      }
-      
-      // Get all required files for this module and its dependencies
-      const requiredFiles = getRequiredFilesForModule(moduleName, moduleMap);
-      
-      if (requiredFiles.length === 0) {
-        throw new Error(`No files found for module '${moduleName}'`);
-      }
-      
-      console.log(`Generating SVG for module '${moduleName}' using files:`, requiredFiles);
-      
-      // Generate SVG using only required files
-      const svgContent = await generateSVGFromFiles(projectPath, moduleName, requiredFiles);
-      resolve(svgContent);
-      
-    } catch (error) {
-      reject(error);
-    }
+    ipcMain.once('toggle-ui-state-response', responseHandler);
   });
 }
 
-// Get all files required for a module and its dependencies
-function getRequiredFilesForModule(moduleName, moduleMap) {
-  const requiredFiles = new Set();
-  const visited = new Set();
+// Run Yosys compilation
+async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
+  console.log('Running Yosys compilation...');
   
-  function collectDependencies(currentModule) {
-    if (visited.has(currentModule) || !moduleMap.has(currentModule)) {
-      return;
-    }
-    
-    visited.add(currentModule);
-    const moduleInfo = moduleMap.get(currentModule);
-    requiredFiles.add(moduleInfo.file);
-    
-    // Recursively collect dependencies
-    moduleInfo.dependencies.forEach(dep => {
-      collectDependencies(dep);
-    });
+  const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
+  
+  // Build file list for Yosys
+  let fileList = [];
+  
+  // Add HDL files
+  const hdlDir = path.join(__dirname, 'saphoComponents', 'HDL');
+  if (await fse.pathExists(hdlDir)) {
+    const hdlFiles = await fse.readdir(hdlDir);
+    const vFiles = hdlFiles.filter(file => file.endsWith('.v'));
+    fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
   }
   
-  collectDependencies(moduleName);
-  return Array.from(requiredFiles);
-}
-
-
-// Generate SVG from specific files
-async function generateSVGFromFiles(projectPath, topModule, requiredFiles) {
-  const verilogDir = path.join(projectPath, 'TopLevel');
+  // Add TopLevel files
+  const topLevelDir = path.join(projectPath, 'TopLevel');
+  if (await fse.pathExists(topLevelDir)) {
+    const topLevelFiles = await fse.readdir(topLevelDir);
+    const vFiles = topLevelFiles.filter(file => file.endsWith('.v'));
+    fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+  }
   
-  // Create file paths with proper quoting for cross-platform compatibility
-  const filePaths = requiredFiles
-    .map(file => `"${path.join(verilogDir, file).replace(/\\/g, '/')}"`)
-    .join(' ');
+  // Build Yosys command
+  const readCommands = fileList.map(file => `read_verilog "${file}"`).join('; ');
+  const yosysCommand = `yosys -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${hierarchyJsonPath}\\""`;
   
-  // Temporary files with unique names
-  const tempDir = require('os').tmpdir();
-  const timestamp = Date.now();
-  const processId = process.pid;
-  const jsonFile = path.join(tempDir, `yosys_${topModule}_${timestamp}_${processId}.json`);
-  const svgFile = path.join(tempDir, `netlist_${topModule}_${timestamp}_${processId}.svg`);
-  
-  // Optimized Yosys command with better synthesis flow
-  const yosysCmd = `yosys -p "read_verilog -sv ${filePaths}; hierarchy -top ${topModule}; proc; opt; memory; techmap; opt; clean; write_json \\"${jsonFile}\\""`;
+  console.log('Executing Yosys command:', yosysCommand);
   
   return new Promise((resolve, reject) => {
-    console.log(`Executing Yosys command: ${yosysCmd}`);
-    
-    const yosysProcess = spawn(yosysCmd, {
-      cwd: projectPath,
-      shell: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000 // 30 second timeout
-    });
-    
-    let yosysOutput = '';
-    let yosysError = '';
-    
-    yosysProcess.stdout.on('data', data => {
-      yosysOutput += data.toString();
-    });
-    
-    yosysProcess.stderr.on('data', data => {
-      yosysError += data.toString();
-    });
-    
-    yosysProcess.on('close', async (code) => {
-      if (code !== 0) {
-        console.error('Yosys Output:', yosysOutput);
-        console.error('Yosys Error:', yosysError);
-        
-        // Clean up on error
-        await cleanupTempFiles(jsonFile, svgFile);
-        
-        // Provide more specific error messages
-        let errorMessage = 'Yosys synthesis failed';
-        if (yosysError.includes('ERROR: Module') && yosysError.includes('not found')) {
-          errorMessage = `Module dependency not found. Check if all required modules are in the TopLevel directory.`;
-        } else if (yosysError.includes('syntax error')) {
-          errorMessage = `Syntax error in Verilog code. Please check the module definitions.`;
-        } else if (yosysError.trim()) {
-          errorMessage = `Yosys synthesis failed: ${yosysError.trim()}`;
-        }
-        
-        reject(new Error(errorMessage));
+    exec(yosysCommand, { shell: true, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Yosys execution error:', error);
+        console.error('Yosys stderr:', stderr);
+        reject(new Error(`Yosys compilation failed: ${error.message}`));
         return;
       }
       
-      // Generate SVG from JSON
-      try {
-        await generateSVGFromJSON(jsonFile, svgFile);
-        
-        const svgContent = await fs.readFile(svgFile, 'utf8');
-        const processedSvg = processSVGContent(svgContent);
-        
-        // Cleanup temporary files
-        await cleanupTempFiles(jsonFile, svgFile);
-        
-        resolve(processedSvg);
-      } catch (svgError) {
-        await cleanupTempFiles(jsonFile, svgFile);
-        reject(new Error(`SVG generation failed: ${svgError.message}`));
-      }
-    });
-    
-    yosysProcess.on('error', async (error) => {
-      await cleanupTempFiles(jsonFile, svgFile);
-      reject(new Error(`Failed to start Yosys: ${error.message}. Make sure Yosys is installed and in PATH.`));
+      console.log('Yosys stdout:', stdout);
+      if (stderr) console.log('Yosys stderr:', stderr);
+      
+      resolve(hierarchyJsonPath);
     });
   });
 }
 
-// Generate SVG from JSON using netlistsvg
-function generateSVGFromJSON(jsonFile, svgFile) {
+// Split hierarchy JSON into individual module files
+async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
+  console.log('Splitting hierarchy JSON into individual module files...');
+  
+  const hierarchyData = await fse.readJson(hierarchyJsonPath);
+  
+  if (!hierarchyData.modules) {
+    throw new Error('No modules found in hierarchy JSON');
+  }
+  
+  // Create individual JSON files for each module
+  for (const [moduleName, moduleData] of Object.entries(hierarchyData.modules)) {
+    const cleanModuleName = sanitizeFileName(moduleName);
+    const moduleFilePath = path.join(tempDir, `${cleanModuleName}.json`);
+    
+    const moduleJson = {
+      creator: hierarchyData.creator || "Yosys",
+      modules: {
+        [moduleName]: moduleData
+      }
+    };
+    
+    await fse.writeJson(moduleFilePath, moduleJson, { spaces: 2 });
+    console.log(`Created module file: ${moduleFilePath}`);
+  }
+}
+
+// Generate SVG for a specific module using netlistsvg
+async function generateModuleSVG(moduleName, tempDir) {
+  console.log(`Generating SVG for module: ${moduleName}`);
+  
+  const cleanModuleName = sanitizeFileName(moduleName);
+  const inputJsonPath = path.join(tempDir, `${cleanModuleName}.json`);
+  const outputSvgPath = path.join(tempDir, `${cleanModuleName}.svg`);
+  
+  if (!await fse.pathExists(inputJsonPath)) {
+    throw new Error(`Module JSON file not found: ${inputJsonPath}`);
+  }
+  
+  const netlistSvgCommand = `netlistsvg "${inputJsonPath}" -o "${outputSvgPath}"`;
+  
   return new Promise((resolve, reject) => {
-    const netlistCmd = `netlistsvg "${jsonFile}" -o "${svgFile}"`;
-    
-    console.log(`Executing netlistsvg command: ${netlistCmd}`);
-    
-    const netlistProcess = spawn(netlistCmd, { 
-      shell: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 15000 // 15 second timeout
-    });
-    
-    let netlistOutput = '';
-    let netlistError = '';
-    
-    netlistProcess.stdout.on('data', data => {
-      netlistOutput += data.toString();
-    });
-    
-    netlistProcess.stderr.on('data', data => {
-      netlistError += data.toString();
-    });
-    
-    netlistProcess.on('close', code => {
-      if (code !== 0) {
-        console.error('Netlistsvg Output:', netlistOutput);
-        console.error('Netlistsvg Error:', netlistError);
-        
-        let errorMessage = 'Netlistsvg failed';
-        if (netlistError.includes('ENOENT') || netlistError.includes('not found')) {
-          errorMessage = 'Netlistsvg not found. Make sure netlistsvg is installed and in PATH.';
-        } else if (netlistError.trim()) {
-          errorMessage = `Netlistsvg failed: ${netlistError.trim()}`;
-        }
-        
-        reject(new Error(errorMessage));
+    exec(netlistSvgCommand, { shell: true }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('netlistsvg execution error:', error);
+        console.error('netlistsvg stderr:', stderr);
+        reject(new Error(`SVG generation failed: ${error.message}`));
         return;
       }
-      resolve();
-    });
-    
-    netlistProcess.on('error', error => {
-      reject(new Error(`Failed to start netlistsvg: ${error.message}. Make sure netlistsvg is installed and in PATH.`));
+      
+      console.log('netlistsvg stdout:', stdout);
+      if (stderr) console.log('netlistsvg stderr:', stderr);
+      console.log(`SVG generated: ${outputSvgPath}`);
+      
+      resolve(outputSvgPath);
     });
   });
 }
 
-
-// Enhanced SVG processing function
-function processSVGContent(svgContent) {
-  let processed = svgContent;
-  
-  // Remove $paramod prefixes and clean up module names
-  processed = processed.replace(/\$paramod[^\\]*\\/g, '');
-  
-  // Clean up text elements containing file paths
-  processed = processed.replace(/<text[^>]*>([^<]*[\\\/][^<]*)<\/text>/g, (match, content) => {
-    const cleanContent = content.split(/[\\\/]/).pop();
-    return match.replace(content, cleanContent);
-  });
-  
-  // Remove instance suffixes for cleaner display
-  processed = processed.replace(/(\w+)_inst(\d+)?/g, '$1');
-  
-  // Clean up generic module names
-  processed = processed.replace(/\$\d+/g, '');
-  
-  // Ensure proper SVG structure for responsive display
-  if (!processed.includes('viewBox')) {
-    processed = processed.replace(/<svg([^>]*)>/, '<svg$1 viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">');
-  }
-  
-  return processed;
-}
-
-// Cleanup temporary files
-async function cleanupTempFiles(...files) {
-  for (const file of files) {
-    try {
-      await fs.unlink(file);
-      console.log(`Cleaned up temporary file: ${file}`);
-    } catch (error) {
-      console.warn(`Failed to cleanup temporary file ${file}:`, error.message);
-    }
-  }
-}
-
-// Function to validate if a module exists and can be synthesized
-async function validateModule(moduleName, projectPath) {
-  try {
-    const moduleMap = await parseVerilogModules(projectPath);
-    return moduleMap.has(moduleName);
-  } catch (error) {
-    console.error(`Failed to validate module ${moduleName}:`, error);
-    return false;
-  }
-}
-
-
-
-// New IPC handler to validate module existence
-ipcMain.handle('validate-module', async (event, moduleName) => {
-  try {
-    const projectInfo = await getPrismProjectInfo();
-    return await validateModule(moduleName, projectInfo.projectPath);
-  } catch (error) {
-    console.error(`Failed to validate module ${moduleName}:`, error);
-    return false;
-  }
-});
-
-// Function to validate if a module exists and can be synthesized
-async function validateModule(moduleName, projectPath) {
-  try {
-    const moduleMap = await parseVerilogModules(projectPath);
-    return moduleMap.has(moduleName);
-  } catch (error) {
-    console.error(`Failed to validate module ${moduleName}:`, error);
-    return false;
-  }
+// Sanitize file names to remove invalid characters
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }

@@ -423,6 +423,15 @@
   margin: 0 2px;
 }
 
+#prismcomp {
+  border-bottom: 2px solid transparent;
+  transition: border-bottom 0.3s ease;
+}
+
+#prismcomp.active {
+  border-bottom: 2px solid #FFD700; /* amarelo vivo */
+}
+
 /* Ajuste responsivo para telas médias */
 @media screen and (max-width: 1024px) {
   .toolbar-button {

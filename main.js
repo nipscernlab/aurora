@@ -1402,6 +1402,8 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
   }
 });
 
+
+// Update the project:open handler to also set the global project path
 ipcMain.handle('project:open', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
@@ -1419,6 +1421,18 @@ ipcMain.handle('project:open', async (_, spfPath) => {
 
     // Set the current open project path - IMPORTANT!
     currentOpenProjectPath = spfPath;
+    
+    // Also set the global project path for other handlers
+    const projectDirPath = path.dirname(spfPath);
+    global.currentProjectPath = projectDirPath;
+    
+    // Update the currentProject object if it exists
+    if (!global.currentProject) {
+      global.currentProject = {};
+    }
+    global.currentProject.path = projectDirPath;
+    
+    console.log(`Global project path set to: ${projectDirPath}`);
 
     const spfContent = await fse.readFile(spfPath, 'utf8');
     const projectData = JSON.parse(spfContent);
@@ -2471,19 +2485,29 @@ if (mainWindow && mainWindow.webContents) {
   });
 }
 
-// Add this to your main.js file
 
 // IPC handler for PRISM compilation
 ipcMain.handle('prism-compile', async (event) => {
   try {
     console.log('Starting PRISM compilation process...');
     
-    // Check if we have a current project
-    if (!global.currentProjectPath) {
+    // Check if we have a current project using multiple sources
+    let projectPath = null;
+    
+    // Try to get project path from multiple sources
+    if (global.currentProjectPath) {
+      projectPath = global.currentProjectPath;
+    } else if (currentOpenProjectPath) {
+      // Extract directory from .spf file path
+      projectPath = path.dirname(currentOpenProjectPath);
+    } else if (global.currentProject && global.currentProject.path) {
+      projectPath = global.currentProject.path;
+    }
+    
+    if (!projectPath) {
       throw new Error('No project path set. Please open a project first.');
     }
     
-    const projectPath = global.currentProjectPath;
     console.log(`Working with project path: ${projectPath}`);
     
     // Create temp directory if it doesn't exist
@@ -2566,7 +2590,7 @@ async function getToggleUIState(event) {
   });
 }
 
-// Run Yosys compilation
+// Run Yosys compilation with improved error handling for missing modules
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
   console.log('Running Yosys compilation...');
   
@@ -2579,39 +2603,234 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   const hdlDir = path.join(__dirname, 'saphoComponents', 'HDL');
   if (await fse.pathExists(hdlDir)) {
     const hdlFiles = await fse.readdir(hdlDir);
-    const vFiles = hdlFiles.filter(file => file.endsWith('.v'));
+    const vFiles = hdlFiles.filter(file => 
+      file.endsWith('.v') && 
+      !file.includes('_tb') && 
+      !file.includes('_testbench') &&
+      !file.toLowerCase().includes('test')
+    );
     fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
   }
   
-  // Add TopLevel files
+  // Add TopLevel files (excluding testbenches)
   const topLevelDir = path.join(projectPath, 'TopLevel');
   if (await fse.pathExists(topLevelDir)) {
     const topLevelFiles = await fse.readdir(topLevelDir);
-    const vFiles = topLevelFiles.filter(file => file.endsWith('.v'));
+    const vFiles = topLevelFiles.filter(file => 
+      file.endsWith('.v') && 
+      !file.includes('_tb') && 
+      !file.includes('_testbench') &&
+      !file.toLowerCase().includes('test')
+    );
     fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
   }
   
-  // Build Yosys command
-  const readCommands = fileList.map(file => `read_verilog "${file}"`).join('; ');
-  const yosysCommand = `yosys -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${hierarchyJsonPath}\\""`;
+  console.log('Files to be processed by Yosys:');
+  fileList.forEach(file => console.log(`  - ${file}`));
+  
+  if (fileList.length === 0) {
+    throw new Error('No Verilog files found for compilation (excluding testbenches)');
+  }
+  
+  // First, clean up any old stub files
+  await cleanupOldStubFiles(tempDir);
+  
+  // Then, try to analyze dependencies and create stub modules if needed
+  await createStubModulesIfNeeded(fileList, tempDir);
+  
+  // Add any created stub modules to file list
+  const stubFiles = await fse.readdir(tempDir);
+  const stubVFiles = stubFiles.filter(file => file.endsWith('_stub.v'));
+  fileList = fileList.concat(stubVFiles.map(file => path.join(tempDir, file)));
+  
+  // Build Yosys command with proper Windows path escaping
+  const readCommands = fileList.map(file => {
+    // Normalize path separators and escape for shell
+    const normalizedPath = path.normalize(file).replace(/\\/g, '/');
+    return `read_verilog "${normalizedPath}"`;
+  }).join('; ');
+  
+  const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
+  
+  // Try compilation with hierarchy check first
+  let yosysCommand = `yosys -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
   
   console.log('Executing Yosys command:', yosysCommand);
   
   return new Promise((resolve, reject) => {
-    exec(yosysCommand, { shell: true, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-      if (error) {
+    exec(yosysCommand, { 
+      shell: true, 
+      maxBuffer: 1024 * 1024 * 10,
+      cwd: tempDir
+    }, (error, stdout, stderr) => {
+      if (error && stderr.includes('is not part of the design')) {
+        console.log('Hierarchy check failed, trying without strict checking...');
+        
+        // Try without hierarchy check if modules are missing
+        const relaxedCommand = `yosys -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
+        
+        exec(relaxedCommand, {
+          shell: true,
+          maxBuffer: 1024 * 1024 * 10,
+          cwd: tempDir
+        }, (error2, stdout2, stderr2) => {
+          if (error2) {
+            console.error('Yosys execution error (relaxed):', error2);
+            console.error('Yosys stderr (relaxed):', stderr2);
+            reject(new Error(`Yosys compilation failed even with relaxed checking: ${error2.message}\nDetails: ${stderr2}`));
+            return;
+          }
+          
+          console.log('Yosys compilation succeeded with relaxed hierarchy checking');
+          console.log('Yosys stdout:', stdout2);
+          if (stderr2) console.log('Yosys stderr:', stderr2);
+          
+          resolve(hierarchyJsonPath);
+        });
+      } else if (error) {
         console.error('Yosys execution error:', error);
         console.error('Yosys stderr:', stderr);
-        reject(new Error(`Yosys compilation failed: ${error.message}`));
+        reject(new Error(`Yosys compilation failed: ${error.message}\nDetails: ${stderr}`));
         return;
+      } else {
+        console.log('Yosys stdout:', stdout);
+        if (stderr) console.log('Yosys stderr:', stderr);
+        
+        resolve(hierarchyJsonPath);
       }
-      
-      console.log('Yosys stdout:', stdout);
-      if (stderr) console.log('Yosys stderr:', stderr);
-      
-      resolve(hierarchyJsonPath);
     });
   });
+}
+
+// Function to analyze dependencies and create stub modules for missing ones
+async function createStubModulesIfNeeded(fileList, tempDir) {
+  console.log('Analyzing module dependencies...');
+  
+  const definedModules = new Set();
+  const instantiatedModules = new Set();
+  
+  // Read all files and extract module definitions and instantiations
+  for (const filePath of fileList) {
+    try {
+      const content = await fse.readFile(filePath, 'utf8');
+      
+      // Find module definitions
+      const moduleDefMatches = content.match(/^\s*module\s+(\w+)\s*[\(\;]/gm);
+      if (moduleDefMatches) {
+        moduleDefMatches.forEach(match => {
+          const moduleName = match.match(/module\s+(\w+)/)[1];
+          definedModules.add(moduleName);
+        });
+      }
+      
+      // Find module instantiations with better pattern matching
+      // Look for pattern: ModuleName instanceName(
+      const instantiationMatches = content.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(/gm);
+      if (instantiationMatches) {
+        instantiationMatches.forEach(match => {
+          const moduleName = match.trim().split(/\s+/)[0];
+          // Filter out Verilog keywords, built-in constructs, and common data types
+          if (!isVerilogKeyword(moduleName) && 
+              !definedModules.has(moduleName) && 
+              !isCommonDataType(moduleName) &&
+              moduleName.length > 0) {
+            instantiatedModules.add(moduleName);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn(`Could not read file ${filePath}: ${error.message}`);
+    }
+  }
+  
+  // Find missing modules
+  const missingModules = Array.from(instantiatedModules).filter(mod => !definedModules.has(mod));
+  
+  if (missingModules.length > 0) {
+    console.log('Missing modules detected:', missingModules);
+    
+    // Create stub modules for missing ones
+    for (const moduleName of missingModules) {
+      await createStubModule(moduleName, tempDir);
+    }
+  }
+}
+
+// Create a stub module with basic I/O
+async function createStubModule(moduleName, tempDir) {
+  console.log(`Creating stub module for: ${moduleName}`);
+  
+  const stubContent = `// Auto-generated stub module for ${moduleName}
+module ${moduleName}(
+  input wire clk,
+  input wire rst,
+  input wire [31:0] in,
+  output wire [31:0] out,
+  output wire [2:0] req_in,
+  output wire [2:0] out_en,
+  input wire itr
+);
+
+// Stub implementation - all outputs are zero
+assign out = 32'b0;
+assign req_in = 3'b0;
+assign out_en = 3'b0;
+
+endmodule
+`;
+  
+  const stubFilePath = path.join(tempDir, `${moduleName}_stub.v`);
+  await fse.writeFile(stubFilePath, stubContent);
+  console.log(`Created stub file: ${stubFilePath}`);
+}
+
+// Check if a word is a Verilog keyword
+function isVerilogKeyword(word) {
+  const verilogKeywords = [
+    'always', 'assign', 'begin', 'case', 'default', 'else', 'end', 'endcase',
+    'endmodule', 'for', 'if', 'initial', 'input', 'output', 'reg', 'wire',
+    'posedge', 'negedge', 'or', 'and', 'not', 'parameter', 'localparam',
+    'generate', 'endgenerate', 'genvar', 'integer', 'real', 'time', 'realtime',
+    'supply0', 'supply1', 'tri', 'triand', 'trior', 'trireg', 'vectored',
+    'scalared', 'signed', 'unsigned', 'small', 'medium', 'large', 'weak0',
+    'weak1', 'pullup', 'pulldown', 'strong0', 'strong1', 'highz0', 'highz1',
+    'module', 'endmodule', 'primitive', 'endprimitive', 'table', 'endtable',
+    'task', 'endtask', 'function', 'endfunction', 'specify', 'endspecify',
+    'macromodule', 'celldefine', 'endcelldefine', 'config', 'endconfig',
+    'library', 'endlibrary', 'incdir', 'include', 'timescale', 'resetall',
+    'unconnected_drive', 'nounconnected_drive', 'celldefine', 'endcelldefine',
+    'default_nettype', 'ifdef', 'ifndef', 'elsif', 'endif', 'define', 'undef'
+  ];
+  return verilogKeywords.includes(word.toLowerCase());
+}
+
+// Check if a word is a common data type or built-in construct
+function isCommonDataType(word) {
+  const commonTypes = [
+    'reg', 'wire', 'integer', 'real', 'time', 'realtime', 'parameter', 'localparam',
+    'input', 'output', 'inout', 'signed', 'unsigned', 'generate', 'genvar'
+  ];
+  return commonTypes.includes(word.toLowerCase());
+}
+
+// Clean up old stub files
+async function cleanupOldStubFiles(tempDir) {
+  try {
+    const files = await fse.readdir(tempDir);
+    const stubFiles = files.filter(file => file.endsWith('_stub.v'));
+    
+    for (const stubFile of stubFiles) {
+      const stubPath = path.join(tempDir, stubFile);
+      await fse.remove(stubPath);
+      console.log(`Removed old stub file: ${stubPath}`);
+    }
+  } catch (error) {
+    console.warn(`Could not clean up old stub files: ${error.message}`);
+  }
+}
+// Sanitize file names to remove invalid characters
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }
 
 // Split hierarchy JSON into individual module files
@@ -2671,9 +2890,4 @@ async function generateModuleSVG(moduleName, tempDir) {
       resolve(outputSvgPath);
     });
   });
-}
-
-// Sanitize file names to remove invalid characters
-function sanitizeFileName(fileName) {
-  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }

@@ -425,8 +425,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   
-  // PRISM compilation methods
+// PRISM compilation methods
 prismCompile: () => ipcRenderer.invoke('prism-compile'),
+
+// Debug project path
+debugProjectPath: () => ipcRenderer.invoke('debug-project-path'),
 
 // Toggle UI state methods
 getToggleUIState: () => {
@@ -442,7 +445,16 @@ getToggleUIState: () => {
 // Listen for toggle UI state requests from main process
 onGetToggleUIState: (callback) => {
   ipcRenderer.on('get-toggle-ui-state', () => {
-    const isActive = window.electronAPI.getToggleUIState();
+    // Get toggle UI state directly here instead of calling through window.electronAPI
+    const toggleButton = document.getElementById('toggle-ui');
+    let isActive = false;
+    
+    if (toggleButton) {
+      isActive = toggleButton.classList.contains('active') || 
+                 toggleButton.getAttribute('aria-pressed') === 'true' ||
+                 toggleButton.hasAttribute('data-active');
+    }
+    
     ipcRenderer.send('toggle-ui-state-response', isActive);
   });
 },

@@ -7455,7 +7455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.electronAPI.openPrismWindow && window.electronAPI.openPrismWindow();
       });
     });
-// Add this to your renderer.js file
+
 
 // PRISM button event handler
 document.addEventListener('DOMContentLoaded', () => {
@@ -7470,6 +7470,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       try {
+        // Debug project path before compilation
+
         // Disable button during compilation
         prismButton.disabled = true;
         prismButton.style.cursor = 'not-allowed';

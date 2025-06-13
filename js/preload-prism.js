@@ -1,52 +1,73 @@
-// Enhanced preload.js functions
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Expose PRISM-specific APIs to the renderer process
-contextBridge.exposeInMainWorld('electronAPI', {
-  // Project information
-  getPrismProjectInfo: async () => {
-    const projectInfo = getProjectInfoFromArgs();
-    if (projectInfo) {
-      return projectInfo;
+console.log('PRISM Preload script loading...');
+
+try {
+  // Expose protected methods that allow the renderer process to use
+  // the ipcRenderer without exposing the entire object
+  contextBridge.exposeInMainWorld('electronAPI', {
+    // PRISM compilation methods
+    compileForPRISM: () => {
+      console.log('compileForPRISM called');
+      return ipcRenderer.invoke('prism-compile');
+    },
+    
+    // SVG generation from module
+    generateSVGFromModule: (moduleName, tempDir) => {
+      console.log('generateSVGFromModule called:', moduleName);
+      return ipcRenderer.invoke('generate-svg-from-module', moduleName, tempDir);
+    },
+    
+    // Get available modules
+    getAvailableModules: (tempDir) => {
+      console.log('getAvailableModules called');
+      return ipcRenderer.invoke('get-available-modules', tempDir);
+    },
+    
+    // Listen for compilation complete events
+    onCompilationComplete: (callback) => {
+      console.log('onCompilationComplete listener registered');
+      ipcRenderer.on('compilation-complete', (event, data) => {
+        console.log('compilation-complete event received:', data);
+        callback(data);
+      });
+    },
+    
+    // Send messages to main process
+    send: (channel, data) => {
+      console.log('send called:', channel, data);
+      ipcRenderer.send(channel, data);
+    },
+    
+    // Remove listeners (cleanup)
+    removeAllListeners: (channel) => {
+      console.log('removeAllListeners called:', channel);
+      ipcRenderer.removeAllListeners(channel);
     }
-    return await ipcRenderer.invoke('get-prism-project-info');
-  },
+  });
 
-  // SVG generation
-  generateModuleSVG: async (moduleName) => {
-    return await ipcRenderer.invoke('generate-module-svg', moduleName);
-  },
-
-  // Module validation and exploration
-  validateModule: async (moduleName) => {
-    return await ipcRenderer.invoke('validate-module', moduleName);
-  },
-
-  // Get available modules
-  getAvailableModules: async (moduleName = null) => {
-    return await ipcRenderer.invoke('get-available-modules', moduleName);
-  },
-
-  // Window management
-  openPrismWindow: () => ipcRenderer.invoke('open-prism-window'),
-  
-  // Utility functions
-  showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options)
-});
-
-function getProjectInfoFromArgs() {
-  try {
-    const args = process.argv;
-    const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
-
-    if (projectInfoArg) {
-      const encodedJson = projectInfoArg.replace('--project-info=', '');
-      const decodedJson = decodeURIComponent(encodedJson);
-      return JSON.parse(decodedJson);
+  // Also expose the electron object for backward compatibility
+  contextBridge.exposeInMainWorld('electron', {
+    invoke: (channel, ...args) => {
+      console.log('electron.invoke called:', channel, args);
+      return ipcRenderer.invoke(channel, ...args);
+    },
+    on: (channel, callback) => {
+      console.log('electron.on called:', channel);
+      ipcRenderer.on(channel, callback);
+    },
+    send: (channel, data) => {
+      console.log('electron.send called:', channel, data);
+      ipcRenderer.send(channel, data);
+    },
+    removeAllListeners: (channel) => {
+      console.log('electron.removeAllListeners called:', channel);
+      ipcRenderer.removeAllListeners(channel);
     }
-    return null;
-  } catch (error) {
-    console.error('Failed to parse project info from arguments:', error);
-    return null;
-  }
+  });
+
+  console.log('PRISM Preload script loaded successfully');
+
+} catch (error) {
+  console.error('Error in PRISM preload script:', error);
 }

@@ -3,477 +3,412 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../node_modules/@fortawesome/fontawesome-free/css/all.css">
-    <title>PRISM - Circuit Visualizer</title>
-    <link rel="stylesheet" href="../css/import.css">
+    <title>PRISM RTL Viewer</title>
+    <link rel="stylesheet" href="../css/themeVariables.css">
     <style>
+               :root {
+            /* Purple Theme */
+            --purple-50: #fdf4ff;
+            --purple-100: #fae8ff;
+            --purple-200: #f3d4ff;
+            --purple-300: #e9baff;
+            --purple-400: #d690ff;
+            --purple-500: #c563ff;
+            --purple-600: #a82eff;
+            --purple-700: #8e1fff;
+            --purple-800: #7a1ef5;
+            --purple-900: #6b1dd1;
+
+            /* Dark Background Palette */
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #141428;
+            --bg-tertiary: #1e1e3a;
+            --bg-card: #252545;
+            --bg-hover: #2d2d50;
+            
+            /* Text Colors */
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-accent: var(--purple-300);
+            
+            /* Borders & Shadows */
+            --border: #374151;
+            --border-light: #4b5563;
+            --shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+            --shadow-lg: 0 8px 25px rgba(139, 92, 246, 0.15);
+            
+            /* Transitions */
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        :root {
-            /* Paleta roxa moderna */
-            --bg-primary: #0d0b12;
-            --bg-secondary: #1a1623;
-            --bg-tertiary: #252137;
-            --bg-surface: #2f2a40;
-            --bg-hover: #3d3550;
-            
-            --accent-primary: #8b5cf6;
-            --accent-secondary: #7c3aed;
-            --accent-tertiary: #a78bfa;
-            --accent-hover: #9333ea;
-            --accent-glow: rgba(139, 92, 246, 0.25);
-            --accent-light: #c4b5fd;
-            
-            --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8;
-            --text-disabled: #64748b;
-            
-            --border-primary: #4c4764;
-            --border-secondary: #64748b;
-            --border-focus: #8b5cf6;
-            
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-            --shadow-glow: 0 0 20px var(--accent-glow);
-            --shadow-purple: 0 4px 20px rgba(139, 92, 246, 0.15);
-            
-            --space-1: 0.25rem;
-            --space-2: 0.5rem;
-            --space-3: 0.75rem;
-            --space-4: 1rem;
-            --space-5: 1.25rem;
-            --space-6: 1.5rem;
-            --space-8: 2rem;
-            
-            --radius-sm: 0.375rem;
-            --radius-md: 0.5rem;
-            --radius-lg: 0.75rem;
-            --radius-xl: 1rem;
-            
-            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            
-            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
-            
-            --z-dropdown: 50;
-            --z-overlay: 100;
-            --z-modal: 200;
-            --z-tooltip: 300;
-        }
-
         body {
-            font-family: var(--font-sans);
-            background: linear-gradient(135deg, var(--bg-primary), #0f0a15);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
             color: var(--text-primary);
             height: 100vh;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Toolbar otimizado com tema roxo */
-        .toolbar {
-            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border-primary);
-            padding: var(--space-4);
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
             display: flex;
             align-items: center;
-            gap: var(--space-4);
-            flex-shrink: 0;
-            box-shadow: var(--shadow-md), inset 0 1px 0 rgba(139, 92, 246, 0.1);
-            position: relative;
-            z-index: var(--z-dropdown);
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
         }
 
-        .back-btn {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: white;
-            border: none;
-            padding: var(--space-3) var(--space-5);
-            border-radius: var(--radius-lg);
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 600;
-            transition: all var(--transition);
-            display: none;
-            align-items: center;
-            gap: var(--space-2);
-            box-shadow: var(--shadow-purple);
-        }
-
-        .back-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg), var(--shadow-glow);
-            background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
-        }
-
-        .back-btn.visible {
-            display: flex;
-        }
-
-        .toolbar-controls {
+        .header-left {
             display: flex;
             align-items: center;
-            gap: var(--space-3);
-            margin-left: auto;
+            gap: 1.5rem;
         }
 
-        .control-btn {
-            background: var(--bg-surface);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-primary);
-            padding: var(--space-2) var(--space-4);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all var(--transition);
+        .logo {
             display: flex;
             align-items: center;
-            gap: var(--space-2);
-            font-weight: 500;
-            position: relative;
-            overflow: hidden;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-accent);
         }
 
-        .control-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
-            transition: left var(--transition-slow);
-        }
-
-        .control-btn:hover::before {
-            left: 100%;
-        }
-
-        .control-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            border-color: var(--accent-primary);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .control-btn.active {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: white;
-            border-color: var(--accent-primary);
-            box-shadow: var(--shadow-purple);
-        }
-
-        .zoom-controls {
-            display: flex;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-primary);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .zoom-btn {
-            background: transparent;
-            color: var(--text-secondary);
-            border: none;
-            padding: var(--space-2) var(--space-3);
-            cursor: pointer;
-            transition: all var(--transition);
-            border-right: 1px solid var(--border-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 32px;
-        }
-
-        .zoom-btn:last-child {
-            border-right: none;
-        }
-
-        .zoom-btn:hover {
-            background: var(--bg-hover);
-            color: var(--accent-light);
-        }
-
-        .zoom-level {
-            padding: var(--space-2) var(--space-4);
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            min-width: 60px;
-            text-align: center;
-            font-family: var(--font-mono);
-            font-weight: 600;
-            background: var(--bg-tertiary);
+        .logo i {
+            font-size: 1.5rem;
+            color: var(--purple-400);
         }
 
         .module-info {
-            color: var(--text-secondary);
+            background: var(--bg-card);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .module-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .module-path {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: 'Courier New', monospace;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
             font-size: 0.875rem;
             font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
             display: flex;
             align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-3) var(--space-4);
-            background: var(--bg-surface);
-            border: 1px solid var(--border-primary);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
+            gap: 0.5rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn:hover {
+            border-color: var(--purple-400);
+            background: var(--bg-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--purple-600), var(--purple-700));
+            border-color: var(--purple-600);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--purple-500), var(--purple-600));
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Breadcrumbs with Horizontal Scroll */
+        .breadcrumbs-container {
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
             position: relative;
         }
 
-        .module-info i {
-            color: var(--accent-primary);
-            text-shadow: 0 0 8px var(--accent-glow);
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
 
-/* Content container - ensure proper flex behavior */
-.content {
-    flex: 1;
-    display: flex;
-    align-items: stretch; /* Changed from center to stretch */
-    justify-content: stretch; /* Changed from center to stretch */
-    padding: var(--space-4);
-    overflow: hidden;
-    position: relative;
-    background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.05), transparent);
-    min-height: 0; /* Critical for flexbox sizing */
-}
-
-/* Container adjustments for proper sizing */
-.circuit-container {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(139, 92, 246, 0.1);
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    display: none;
-    position: relative;
-    min-height: 0; /* Allow flexbox to work properly */
-}
-
-.circuit-container.visible {
-    display: flex;
-    flex-direction: column;
-}
-
-        @keyframes highlight-glow {
-    0%, 100% { 
-        filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6));
-        opacity: 1; 
-    }
-    50% { 
-        filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.8));
-        opacity: 0.8; 
-    }
-}
-
-.circuit-viewport {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    cursor: grab;
-    position: relative;
-    background: var(--bg-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    contain: layout style paint;
-    min-height: 0; /* Allow flexbox to shrink */
-}
-
-.circuit-viewport.dragging {
-    cursor: grabbing;
-}
-
-/* Melhorias para elementos interativos */
-.circuit-container svg [class^="cell_"]:hover {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.circuit-container svg [class^="net_"]:hover {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-/* Otimizações de performance para transformações */
-.circuit-svg-container {
-    will-change: transform;
-    backface-visibility: hidden;
-    perspective: 1000px;
-}
-
-.circuit-svg-container svg {
-    will-change: auto;
-    transform: translateZ(0);
-}
-
-/* Responsividade aprimorada */
-@media (max-width: 768px) {
-    .circuit-container svg text {
-        font-size: 10px !important;
-        font-weight: 700 !important;
-    }
-    
-    .circuit-container svg {
-        filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
-    }
-}
-
-@media (max-width: 480px) {
-    .circuit-container svg text {
-        font-size: 9px !important;
-        font-weight: 700 !important;
-    }
-    
-    .highlighted {
-        stroke-width: 3 !important;
-    }
-}
-
-/* Garantir que o SVG seja sempre visível */
-.circuit-svg-container svg {
-    min-width: 100px;
-    min-height: 100px;
-}
-
-/* Estilo para loading durante renderização */
-.circuit-container.loading svg {
-    opacity: 0;
-    transform: scale(0.98);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.circuit-container.loaded svg {
-    opacity: 1;
-    transform: scale(1);
-}
-        /* Container do SVG otimizado */
-/* SVG container - optimized for full coverage */
-.circuit-svg-container {
-    width: 100%;
-    height: 100%;
-    transform-origin: center center;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: visible;
-    min-width: 100%;
-    min-height: 100%;
-}
-
-/* SVG styling - ensure proper scaling and viewport coverage */
-.circuit-container svg {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    min-width: 100% !important;
-    min-height: 100% !important;
-    background: transparent;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
-    shape-rendering: geometricPrecision;
-    text-rendering: optimizeLegibility;
-    font-smooth: always;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    object-fit: contain;
-    display: block;
-}
-
-/* Ensure SVG content scales properly */
-.circuit-svg-container svg * {
-    vector-effect: non-scaling-stroke;
-    shape-rendering: geometricPrecision;
-}
-
-/* Estilo base para textos do SVG */
-.circuit-container svg text {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
-    font-weight: 600 !important;
-    fill: #f8fafc !important;
-    stroke: none !important;
-    text-anchor: middle !important;
-    dominant-baseline: central !important;
-    user-select: none !important;
-    pointer-events: none !important;
-}
-
-        .circuit-container svg rect {
-            fill: var(--bg-surface) !important;
-            stroke: var(--accent-primary) !important;
-            stroke-width: 1.5 !important;
+        .breadcrumbs::-webkit-scrollbar {
+            display: none;
         }
 
-        .circuit-container svg path {
-            stroke: var(--accent-light) !important;
-            stroke-width: 1.5 !important;
-            fill: none !important;
+        .breadcrumb-item {
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .circuit-container svg line {
-            stroke: var(--accent-light) !important;
-            stroke-width: 1.5 !important;
+        .breadcrumb-item:hover {
+            color: var(--purple-300);
+            background: var(--bg-hover);
         }
 
-        .circuit-container svg circle {
-            fill: var(--accent-primary) !important;
-            stroke: var(--accent-light) !important;
-            stroke-width: 1 !important;
+        .breadcrumb-item.active {
+            color: var(--text-primary);
+            font-weight: 600;
+            background: var(--bg-card);
         }
 
-        .circuit-container svg polygon {
-            fill: var(--bg-hover) !important;
-            stroke: var(--accent-primary) !important;
-            stroke-width: 1.5 !important;
+        .breadcrumb-separator {
+            color: var(--text-muted);
+            opacity: 0.6;
         }
 
-        /* Loading aprimorado */
-        .loading {
+        .scroll-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 10;
+        }
+
+        .scroll-arrow:hover {
+            background: var(--purple-600);
+            color: white;
+        }
+
+        .scroll-left {
+            left: 0.5rem;
+        }
+
+        .scroll-right {
+            right: 0.5rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .svg-container {
+            flex: 1;
+            position: relative;
+            background: var(--bg-primary);
+            overflow: hidden;
+            cursor: grab;
+            margin: 0.75rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .svg-container.dragging {
+            cursor: grabbing;
+        }
+
+        .svg-wrapper {
+            width: 100%;
             height: 100%;
-            flex-direction: column;
-            gap: var(--space-6);
-        }
-
-        .spinner-container {
-            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: transform 0.2s ease;
         }
 
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--border-primary);
-            border-top: 3px solid var(--accent-primary);
+        .svg-content {
+            user-select: none;
+        }
+
+        /* Enhanced SVG Styling */
+        .svg-content svg {
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .svg-content svg text {
+            fill: var(--text-primary) !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 9px !important;
+            font-weight: 500 !important;
+        }
+
+        /* Module rectangles with sophisticated styling */
+        .svg-content svg rect {
+            stroke-width: 1.5 !important;
+            rx: 8 !important;
+            ry: 8 !important;
+            transition: var(--transition);
+        }
+
+        .svg-content svg rect[fill="#ffffff"],
+        .svg-content svg rect:not([fill]) {
+            fill: var(--bg-card) !important;
+            stroke: var(--purple-400) !important;
+        }
+
+        .svg-content svg rect[fill="#000000"] {
+            fill: var(--bg-tertiary) !important;
+            stroke: var(--purple-500) !important;
+        }
+
+        /* Refined wire connections */
+        .svg-content svg path,
+        .svg-content svg line {
+            stroke: var(--purple-400) !important;
+            stroke-width: 1.2 !important;
+            fill: none !important;
+            opacity: 0.8;
+            filter: drop-shadow(0 1px 2px rgba(139, 92, 246, 0.1));
+        }
+
+        .svg-content svg path[stroke="#000000"],
+        .svg-content svg line[stroke="#000000"] {
+            stroke: var(--purple-300) !important;
+        }
+
+        /* Module hover effects */
+        .svg-content svg g.module:hover rect,
+        .svg-content svg g[class*="module"]:hover rect {
+            fill: var(--purple-600) !important;
+            stroke: var(--purple-300) !important;
+            stroke-width: 2 !important;
+            filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.3));
+        }
+
+        .svg-content svg g.module:hover text,
+        .svg-content svg g[class*="module"]:hover text {
+            fill: white !important;
+            font-weight: 600 !important;
+        }
+
+        /* Elegant ports */
+        .svg-content svg circle {
+            fill: var(--purple-500) !important;
+            stroke: var(--purple-300) !important;
+            stroke-width: 1.5 !important;
+            filter: drop-shadow(0 1px 3px rgba(139, 92, 246, 0.2));
+            transition: var(--transition);
+        }
+
+        .svg-content svg circle:hover {
+            fill: var(--purple-400) !important;
+            transform: scale(1.1);
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 40;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .zoom-btn:hover {
+            background: var(--purple-600);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Status Overlay */
+        .status-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(20px);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--purple-500);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            box-shadow: 0 0 20px var(--accent-glow);
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
@@ -481,1156 +416,832 @@
             100% { transform: rotate(360deg); }
         }
 
-        .loading-text {
-            color: var(--text-secondary);
+        .status-text {
             font-size: 1rem;
-            font-weight: 500;
-            animation: pulse 2s ease-in-out infinite;
-            text-align: center;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-
-        /* Error styling melhorado */
-        .error {
-            color: var(--error);
-            background: rgba(239, 68, 68, 0.1);
-            padding: var(--space-6);
-            border-radius: var(--radius-xl);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            text-align: center;
-            max-width: 500px;
-            backdrop-filter: blur(16px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .error h3 {
-            font-size: 1.25rem;
-            margin-bottom: var(--space-3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--space-2);
-            font-weight: 600;
-        }
-
-        .error p {
             color: var(--text-secondary);
-            line-height: 1.6;
+            font-weight: 500;
         }
 
-        /* Elementos destacados com animação suave */
-.highlighted {
-    stroke: #8b5cf6 !important;
-    stroke-width: 4 !important;
-    filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6)) !important;
-    animation: highlight-glow 2s ease-in-out infinite;
-}
-
-
-        @keyframes highlight-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .error-text {
+            color: #ef4444;
+            background: #2d0a0a;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #ef4444;
+            margin-top: 1rem;
         }
 
-        rect[class^="cell_"], 
-        path[class^="cell_"],
-        *[class^="net_"] {
-            cursor: pointer;
-            transition: all var(--transition);
-        }
-
-        rect[class^="cell_"]:hover, 
-        path[class^="cell_"]:hover {
-            filter: brightness(1.2) drop-shadow(0 4px 12px var(--accent-glow));
-            stroke: var(--accent-light) !important;
-        }
-
-        *[class^="net_"]:hover {
-            stroke-width: 3 !important;
-            stroke: var(--accent-primary) !important;
-            filter: drop-shadow(0 2px 8px var(--accent-glow));
-        }
-
-        /* Status messages aprimoradas */
-        .status {
-            position: fixed;
-            top: var(--space-6);
-            right: var(--space-6);
-            background: var(--bg-surface);
-            backdrop-filter: blur(16px);
-            color: var(--text-primary);
-            padding: var(--space-4) var(--space-5);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-primary);
-            z-index: var(--z-modal);
-            transform: translateX(110%);
-            transition: transform var(--transition-slow);
-            box-shadow: var(--shadow-lg);
-            max-width: 320px;
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-        }
-
-        .status.visible {
-            transform: translateX(0);
-        }
-
-        .status.success {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: var(--success);
-            color: var(--success);
-        }
-
-        .status.error {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: var(--error);
-            color: var(--error);
-        }
-
-        .status.warning {
-            background: rgba(245, 158, 11, 0.1);
-            border-color: var(--warning);
-            color: var(--warning);
-        }
-
-        /* Tooltip melhorado */
+        /* Tooltip */
         .tooltip {
             position: absolute;
-            background: var(--bg-surface);
+            background: var(--bg-secondary);
             color: var(--text-primary);
-            padding: var(--space-2) var(--space-3);
-            border-radius: var(--radius-md);
-            font-size: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
             pointer-events: none;
-            z-index: var(--z-tooltip);
+            z-index: 50;
             opacity: 0;
-            transform: translateY(8px);
-            transition: all var(--transition);
-            border: 1px solid var(--border-primary);
-            box-shadow: var(--shadow-md);
-            backdrop-filter: blur(12px);
-            font-weight: 500;
+            transition: opacity 0.2s ease;
+            backdrop-filter: blur(10px);
         }
 
-        .tooltip.visible {
+        .tooltip.show {
             opacity: 1;
-            transform: translateY(0);
         }
 
-        /* Responsivo otimizado */
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .toolbar {
-                padding: var(--space-3);
-                flex-wrap: wrap;
-                gap: var(--space-3);
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
             }
 
-            .toolbar-controls {
-                margin-left: 0;
-                width: 100%;
-                justify-content: space-between;
-            }
-
-            .module-info {
-                font-size: 0.75rem;
-                padding: var(--space-2) var(--space-3);
-            }
-
-            .control-btn {
-                padding: var(--space-2) var(--space-3);
-                font-size: 0.75rem;
+            .header-left {
+                flex-direction: column;
+                gap: 0.75rem;
             }
 
             .zoom-controls {
-                scale: 0.9;
+                flex-direction: row;
+                bottom: 0.5rem;
+                right: 0.5rem;
             }
 
-            .content {
-                padding: var(--space-2);
-            }
-
-            .circuit-container {
-                border-radius: var(--radius-lg);
-            }
-
-            .circuit-container svg text {
-                font-size: 10px !important;
+            .zoom-btn {
+                width: 36px;
+                height: 36px;
             }
         }
 
-        @media (max-width: 480px) {
-            .toolbar {
-                padding: var(--space-2);
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
             }
-            
-            .toolbar-controls {
-                gap: var(--space-2);
-            }
-            
-            .control-btn {
-                padding: var(--space-2);
-            }
-            
-            .zoom-controls {
-                scale: 0.8;
-            }
-
-            .circuit-container svg text {
-                font-size: 9px !important;
-            }
-        }
-
-        /* Animações suaves */
-        .fade-in {
-            animation: fadeIn var(--transition-slow) ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .scale-in {
-            animation: scaleIn var(--transition-slow) ease-out;
-        }
-
-        @keyframes scaleIn {
-            from { transform: scale(0.98); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        /* Otimizações de performance */
-        .circuit-svg-container * {
-            will-change: transform;
-        }
-
-        .circuit-viewport {
-            contain: layout style paint;
-        }
-
-        /* Scrollbar customizada */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-tertiary);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--accent-primary);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent-hover);
-        }
-
-        /* Efeitos visuais extras */
-        .circuit-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
-            opacity: 0.5;
         }
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <button class="back-btn" id="backBtn">
-            <i class="fa-solid fa-arrow-left"></i>
-            Back
-        </button>
-        
-        <div class="module-info" id="moduleInfo">
-            <i class="fa-solid fa-microchip"></i>
-            <span>Loading...</span>
+    <div class="header">
+        <div class="header-left">
+            <h1 class="header-title"> <img src="../assets/icons/prism.svg" style="width: 26px; height: inherit;"> PRISM RTL Viewer</h1>
+            <div class="module-info">
+                <div class="module-name" id="currentModule">Loading...</div>
+                <div class="module-path" id="currentPath">Preparing compilation...</div>
+            </div>
         </div>
-        
-        <div class="toolbar-controls">
-            <button class="control-btn" id="fitBtn" title="Fit to screen">
-                <i class="fa-solid fa-maximize"></i>
-                Fit
+        <div class="header-controls">
+            <button class="btn btn-back" id="backBtn" disabled>
+                ← Back
             </button>
-            
-            <button class="control-btn" id="resetBtn" title="Reset view">
-                <i class="fa-solid fa-house"></i>
-                Reset
+            <button class="btn btn-secondary" id="fitBtn">
+                Fit to Screen
             </button>
+            <button class="btn btn-primary" id="compileBtn">
+                Recompile
+            </button>
+        </div>
+    </div>
+
+    <div class="breadcrumbs" id="breadcrumbs"></div>
+
+    <div class="main-content">
+        <div class="svg-container" id="svgContainer">
+            <div class="svg-wrapper" id="svgWrapper">
+                <div class="svg-content" id="svgContent"></div>
+            </div>
             
+            <div class="status-overlay" id="statusOverlay">
+                <div class="loading-spinner"></div>
+                <div class="status-text">Compiling RTL Design...</div>
+            </div>
+
             <div class="zoom-controls">
-                <button class="zoom-btn" id="zoomOutBtn" title="Zoom out">
-                    <i class="fa-solid fa-minus"></i>
-                </button>
-                <div class="zoom-level" id="zoomLevel">100%</div>
-                <button class="zoom-btn" id="zoomInBtn" title="Zoom in">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
+                <button class="zoom-btn" id="zoomInBtn">+</button>
+                <button class="zoom-btn" id="zoomOutBtn">−</button>
+                <button class="zoom-btn" id="resetZoomBtn">⌂</button>
             </div>
         </div>
-    </div>
-
-    <div class="content">
-        <div class="loading fade-in" id="loading">
-            <div class="spinner-container">
-                <div class="spinner"></div>
-            </div>
-            <div class="loading-text">Generating circuit diagram...</div>
-        </div>
-
-        <div class="circuit-container scale-in" id="circuitContainer">
-            <div class="circuit-viewport" id="circuitViewport">
-                <div class="circuit-svg-container" id="circuitSvgContainer"></div>
-            </div>
-        </div>
-
-        <div class="error scale-in" id="error" style="display: none;">
-            <h3>
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                Error
-            </h3>
-            <p id="errorMessage"></p>
-        </div>
-    </div>
-
-    <div class="status" id="status">
-        <i class="fa-solid fa-info-circle"></i>
-        <span id="statusText"></span>
     </div>
 
     <div class="tooltip" id="tooltip"></div>
 
     <script>
-        class PrismViewer {
-            constructor() {
-                this.currentModule = null;
-                this.moduleHistory = [];
-                this.projectPath = '';
-                this.topLevelFile = '';
-                
-                // Pan & Zoom state otimizado
-                this.scale = 1;
-                this.panX = 0;
-                this.panY = 0;
-                this.isDragging = false;
-                this.dragStart = { x: 0, y: 0 };
-                this.lastPan = { x: 0, y: 0 };
-                this.minScale = 0.1;
-                this.maxScale = 5;
-                
-                this.initializeElements();
-                this.setupEventListeners();
-                this.initialize();
-            }
+        console.log('PRISM HTML script loading...');
+console.log('window.electronAPI:', window.electronAPI);
+console.log('window.electron:', window.electron);
 
-            initializeElements() {
-                this.loading = document.getElementById('loading');
-                this.circuitContainer = document.getElementById('circuitContainer');
-                this.circuitViewport = document.getElementById('circuitViewport');
-                this.circuitSvgContainer = document.getElementById('circuitSvgContainer');
-                this.error = document.getElementById('error');
-                this.errorMessage = document.getElementById('errorMessage');
-                this.backBtn = document.getElementById('backBtn');
-                this.moduleInfo = document.getElementById('moduleInfo');
-                this.status = document.getElementById('status');
-                this.statusText = document.getElementById('statusText');
-                this.tooltip = document.getElementById('tooltip');
-                
-                // Controls
-                this.fitBtn = document.getElementById('fitBtn');
-                this.resetBtn = document.getElementById('resetBtn');
-                this.zoomInBtn = document.getElementById('zoomInBtn');
-                this.zoomOutBtn = document.getElementById('zoomOutBtn');
-                this.zoomLevel = document.getElementById('zoomLevel');
-                
-                // Verificar elementos essenciais
-                const requiredElements = {
-                    loading: this.loading,
-                    circuitContainer: this.circuitContainer,
-                    circuitViewport: this.circuitViewport,
-                    circuitSvgContainer: this.circuitSvgContainer,
-                    error: this.error,
-                    errorMessage: this.errorMessage,
-                    backBtn: this.backBtn,
-                    moduleInfo: this.moduleInfo,
-                    status: this.status,
-                    statusText: this.statusText,
-                    tooltip: this.tooltip,
-                    fitBtn: this.fitBtn,
-                    resetBtn: this.resetBtn,
-                    zoomInBtn: this.zoomInBtn,
-                    zoomOutBtn: this.zoomOutBtn,
-                    zoomLevel: this.zoomLevel
-                };
-                
-                const missingElements = Object.entries(requiredElements)
-                    .filter(([name, element]) => !element)
-                    .map(([name]) => name);
-                
-                if (missingElements.length > 0) {
-                    throw new Error(`Missing required HTML elements: ${missingElements.join(', ')}`);
-                }
-            }
+// Wait for DOM and APIs to be available
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded - checking APIs again...');
+    console.log('window.electronAPI:', window.electronAPI);
+    console.log('window.electron:', window.electron);
+    
+    if (window.electronAPI) {
+        console.log('electronAPI methods:', Object.keys(window.electronAPI));
+    }
+    
+    if (window.electron) {
+        console.log('electron methods:', Object.keys(window.electron));
+    }
+    
+    // Fallback API setup if preload didn't work
+    if (!window.electronAPI && !window.electron) {
+        console.error('Neither electronAPI nor electron is available - preload script failed');
+        
+        // Create a dummy API to prevent crashes
+        window.electronAPI = {
+            compileForPRISM: () => {
+                console.error('electronAPI not properly loaded');
+                return Promise.reject(new Error('electronAPI not available'));
+            },
+            generateSVGFromModule: () => Promise.reject(new Error('electronAPI not available')),
+            getAvailableModules: () => Promise.reject(new Error('electronAPI not available')),
+            onCompilationComplete: () => console.error('electronAPI not available'),
+            removeAllListeners: () => console.error('electronAPI not available')
+        };
+    }
+});
 
-            setupEventListeners() {
-                this.backBtn.addEventListener('click', () => this.goBack());
-                
-                // Zoom controls
-                this.fitBtn.addEventListener('click', () => this.fitToScreen());
-                this.resetBtn.addEventListener('click', () => this.resetView());
-                this.zoomInBtn.addEventListener('click', () => this.zoomIn());
-                this.zoomOutBtn.addEventListener('click', () => this.zoomOut());
-                
-                // Pan & Zoom com mouse otimizado
-                this.circuitViewport.addEventListener('mousedown', (e) => this.startDrag(e));
-                this.circuitViewport.addEventListener('mousemove', (e) => this.drag(e));
-                this.circuitViewport.addEventListener('mouseup', () => this.endDrag());
-                this.circuitViewport.addEventListener('mouseleave', () => this.endDrag());
-                this.circuitViewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
-                
-                // Touch events para mobile
-                this.circuitViewport.addEventListener('touchstart', (e) => this.startDrag(e), { passive: false });
-                this.circuitViewport.addEventListener('touchmove', (e) => this.drag(e), { passive: false });
-                this.circuitViewport.addEventListener('touchend', () => this.endDrag());
-                
-                // Module exploration
-                document.addEventListener('click', (e) => {
-                    const element = e.target.closest('[class^="cell_"], [class^="net_"]');
-                    if (element) {
-                        this.handleElementClick(element, e);
-                    }
+       // 5. RENDERER PROCESS (prism.html) - Fixed PRISMViewer class constructor
+class PRISMViewer {
+    constructor() {
+        this.currentScale = 1;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.isDragging = false;
+        this.lastMouseX = 0;
+        this.lastMouseY = 0;
+        this.navigationHistory = [];
+        this.currentModule = null;
+        this.tempDir = null;
+        this.isProjectOriented = false;
+        
+        this.initializeElements();
+        this.setupEventListeners();
+        
+        // Don't start compilation immediately, wait for IPC message
+        console.log('PRISMViewer initialized, waiting for compilation data...');
+    }
+
+    initializeElements() {
+        this.svgContainer = document.getElementById('svgContainer');
+        this.svgWrapper = document.getElementById('svgWrapper');
+        this.svgContent = document.getElementById('svgContent');
+        this.statusOverlay = document.getElementById('statusOverlay');
+        this.currentModuleEl = document.getElementById('currentModule');
+        this.currentPathEl = document.getElementById('currentPath');
+        this.breadcrumbs = document.getElementById('breadcrumbs');
+        this.backBtn = document.getElementById('backBtn');
+        this.compileBtn = document.getElementById('compileBtn');
+        this.fitBtn = document.getElementById('fitBtn');
+        this.zoomInBtn = document.getElementById('zoomInBtn');
+        this.zoomOutBtn = document.getElementById('zoomOutBtn');
+        this.resetZoomBtn = document.getElementById('resetZoomBtn');
+        this.tooltip = document.getElementById('tooltip');
+    }
+
+    setupEventListeners() {
+        // Mouse events for pan and zoom
+        this.svgContainer.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.svgContainer.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.svgContainer.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.svgContainer.addEventListener('wheel', this.handleWheel.bind(this));
+        this.svgContainer.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+
+        // Button events
+        this.backBtn.addEventListener('click', this.navigateBack.bind(this));
+        this.compileBtn.addEventListener('click', this.recompile.bind(this));
+        this.fitBtn.addEventListener('click', this.fitToScreen.bind(this));
+        this.zoomInBtn.addEventListener('click', () => this.zoom(1.2));
+        this.zoomOutBtn.addEventListener('click', () => this.zoom(0.8));
+        this.resetZoomBtn.addEventListener('click', this.resetView.bind(this));
+
+        // IPC events - FIXED
+        if (window.electronAPI && window.electronAPI.onCompilationComplete) {
+            window.electronAPI.onCompilationComplete(this.handleCompilationComplete.bind(this));
+            console.log('Compilation complete listener registered');
+        } else {
+            console.error('electronAPI.onCompilationComplete not available');
+        }
+    }
+
+            handleCompilationComplete(data) {
+        console.log('Received compilation complete data:', data);
+        
+        if (data.success) {
+            this.currentModule = data.topLevelModule;
+            this.tempDir = data.tempDir;
+            this.isProjectOriented = data.isProjectOriented;
+            this.navigationHistory = [{
+                module: data.topLevelModule,
+                svgPath: data.svgPath
+            }];
+            
+            console.log('Loading initial SVG:', data.svgPath);
+            this.loadSVG(data.svgPath, data.topLevelModule);
+        } else {
+            this.showStatus(`Compilation Error: ${data.message}`, true);
+        }
+    }
+
+           async loadSVG(svgPath, moduleName) {
+        try {
+            console.log('Loading SVG from:', svgPath);
+            this.showStatus(`Loading ${moduleName}...`, false);
+            
+            // Use file:// protocol for local files
+            const fileUrl = svgPath.startsWith('file://') ? svgPath : `file:///${svgPath.replace(/\\/g, '/')}`;
+            console.log('File URL:', fileUrl);
+            
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const svgText = await response.text();
+            
+            if (!svgText || !svgText.includes('<svg')) {
+                throw new Error('Invalid SVG content received');
+            }
+            
+            this.svgContent.innerHTML = svgText;
+            this.currentModule = moduleName;
+            
+            this.updateModuleInfo(moduleName, svgPath);
+            this.updateBreadcrumbs();
+            this.setupSVGInteractions();
+            
+            this.hideStatus();
+            
+            // Fit to screen after a short delay
+            setTimeout(() => {
+                this.fitToScreen();
+            }, 100);
+            
+            console.log('SVG loaded successfully for module:', moduleName);
+            
+        } catch (error) {
+            console.error('Failed to load SVG:', error);
+            this.showStatus(`Failed to load SVG: ${error.message}`, true);
+        }
+    }
+
+    async navigateToModule(moduleName) {
+        if (moduleName === this.currentModule || !this.tempDir) {
+            console.log('Already on this module or no temp dir');
+            return;
+        }
+
+        console.log(`Navigating to module: ${moduleName}`);
+        this.showStatus(`Generating diagram for: ${moduleName}...`, false);
+        
+        try {
+            // Generate SVG for the clicked module
+            const result = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
+            
+            if (result.success) {
+                // Add current state to history before navigating
+                this.navigationHistory.push({
+                    module: moduleName,
+                    svgPath: result.svgPath
                 });
                 
-                // Tooltip otimizado
-                document.addEventListener('mouseover', (e) => this.showTooltip(e));
-                document.addEventListener('mouseout', () => this.hideTooltip());
-                
-                // Keyboard shortcuts
-                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+                console.log('Generated SVG for module:', moduleName, 'at:', result.svgPath);
+                await this.loadSVG(result.svgPath, moduleName);
+                this.backBtn.disabled = false;
+            } else {
+                console.error('Failed to generate SVG for module:', moduleName, result.message);
+                this.showStatus(`Module not found: ${moduleName}`, true);
+                setTimeout(() => this.hideStatus(), 3000);
             }
-
-// Updated initialize method
-async initialize() {
-  try {
-    const projectInfo = await window.electronAPI.getPrismProjectInfo();
-    this.projectPath = projectInfo.projectPath;
-    this.topLevelFile = projectInfo.topLevelFile;
-    this.topLevelModule = projectInfo.topLevelModule;
-    
-    // Start with the top-level module
-    this.currentModule = this.topLevelModule;
-    await this.loadModule(this.currentModule);
-    
-    // Pre-load available modules for faster navigation
-    await this.preloadAvailableModules();
-    
-  } catch (error) {
-    console.error('Failed to initialize PRISM viewer:', error);
-    this.showError('Initialization Failed', error.message);
-  }
-}
-
-// New function to preload available modules
-async preloadAvailableModules() {
-  try {
-    this.availableModules = await window.electronAPI.getAvailableModules();
-    console.log('Available modules:', this.availableModules);
-  } catch (error) {
-    console.warn('Failed to preload available modules:', error);
-    this.availableModules = [];
-  }
-}
-
-// Enhanced loadModule function with better error handling and validation
-async loadModule(moduleName) {
-  try {
-    this.showLoading();
-    
-    // Validate module before attempting to load
-    const isValid = await window.electronAPI.validateModule(moduleName);
-    if (!isValid) {
-      throw new Error(`Module '${moduleName}' not found in project`);
-    }
-    
-    // Clean module name for display
-    const cleanModuleName = this.cleanModuleName(moduleName);
-    
-    // Update UI to show current module
-    const moduleSpan = this.moduleInfo.querySelector('span');
-    if (moduleSpan) {
-      moduleSpan.textContent = `Module: ${cleanModuleName}`;
-    }
-    
-    // Generate SVG for the module
-    console.log(`Loading module: ${moduleName}`);
-    const svgContent = await window.electronAPI.generateModuleSVG(moduleName);
-    
-    // Display the SVG
-    this.displaySVG(svgContent);
-    this.currentModule = moduleName;
-    
-    // Auto-fit to screen for better user experience
-    setTimeout(() => {
-      this.fitToScreen();
-    }, 200);
-    
-    this.showStatus(`Successfully loaded module: ${cleanModuleName}`, 'success', 'check-circle');
-    
-  } catch (error) {
-    console.error('Error loading module:', error);
-    
-    // Show specific error messages based on error type
-    let errorMessage = error.message;
-    if (error.message.includes('not found')) {
-      errorMessage = `Module '${moduleName}' was not found in the project. Please check if the module exists and is properly defined.`;
-    } else if (error.message.includes('synthesis failed')) {
-      errorMessage = `Failed to synthesize module '${moduleName}'. Please check for syntax errors in the Verilog code.`;
-    } else if (error.message.includes('netlistsvg failed')) {
-      errorMessage = `Failed to generate circuit diagram for module '${moduleName}'. The module may be too complex or contain unsupported constructs.`;
-    }
-    
-    this.showError('Module Load Failed', errorMessage);
-  }
-}
-
-// New function to clean module names for display
-cleanModuleName(moduleName) {
-  return moduleName
-    .replace(/^\$.*\\/, '') // Remove $paramod prefixes
-    .replace(/_inst$/, '') // Remove _inst suffix
-    .replace(/_\d+$/, ''); // Remove numeric suffixes
-}
-
-
-          // Substitua o método displaySVG() na classe PrismViewer
-// Updated displaySVG method for full screen coverage
-displaySVG(svgContent) {
-    // Add loading class
-    this.circuitContainer.classList.add('loading');
-    
-    // Process SVG content to ensure proper scaling
-    let processedSvg = svgContent;
-    
-    // Remove any fixed width/height attributes from SVG tag
-    processedSvg = processedSvg.replace(
-        /<svg[^>]*>/,
-        (match) => {
-            return match
-                .replace(/width\s*=\s*["'][^"']*["']/gi, '')
-                .replace(/height\s*=\s*["'][^"']*["']/gi, '')
-                .replace(/viewBox\s*=\s*["'][^"']*["']/gi, '');
+        } catch (error) {
+            console.error('Error navigating to module:', error);
+            this.showStatus(`Error loading module: ${error.message}`, true);
+            setTimeout(() => this.hideStatus(), 3000);
         }
-    );
-    
-    // Add responsive viewBox and preserveAspectRatio
-    processedSvg = processedSvg.replace(
-        /<svg/,
-        '<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" width="100%" height="100%"'
-    );
-    
-    // Insert the processed SVG
-    this.circuitSvgContainer.innerHTML = processedSvg;
-    
-    // Show container
-    this.circuitContainer.classList.add('visible');
-    this.loading.style.display = 'none';
-    this.error.style.display = 'none';
-    
-    // Apply styles after a small delay to ensure rendering
-    setTimeout(() => {
-        this.applySVGStyling();
+    }
+
+           setupSVGInteractions() {
+        const svg = this.svgContent.querySelector('svg');
+        if (!svg) {
+            console.warn('No SVG found in content');
+            return;
+        }
+
+        console.log('Setting up SVG interactions...');
         
-        // Auto-detect SVG dimensions and set proper viewBox
-        const svgElement = this.circuitSvgContainer.querySelector('svg');
-        if (svgElement) {
-            // Get the actual content bounds
-            try {
-                const bbox = svgElement.getBBox();
-                if (bbox.width > 0 && bbox.height > 0) {
-                    // Add some padding around the content
-                    const padding = 20;
-                    const viewBox = `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + 2 * padding} ${bbox.height + 2 * padding}`;
-                    svgElement.setAttribute('viewBox', viewBox);
-                    console.log(`Set viewBox to: ${viewBox}`);
+        // Find all text elements that might be module names
+        const textElements = svg.querySelectorAll('text');
+        
+        textElements.forEach(textEl => {
+            const textContent = textEl.textContent.trim();
+            
+            // Skip empty text, ports, and other non-module text
+            if (!textContent || 
+                textContent.includes(':') || 
+                textContent.includes('=') || 
+                textContent.includes('[') ||
+                textContent.includes('(') ||
+                textContent.length < 2 ||
+                textContent.match(/^\d+$/) || // Skip pure numbers
+                textContent.includes('clk') ||
+                textContent.includes('rst') ||
+                textContent.includes('in') ||
+                textContent.includes('out')) {
+                return;
+            }
+            
+            console.log('Found potential module:', textContent);
+            this.setupModuleClick(textEl, textContent);
+        });
+        
+        // Also check for group elements that might contain modules
+        const groupElements = svg.querySelectorAll('g');
+        groupElements.forEach(group => {
+            const textEl = group.querySelector('text');
+            if (textEl) {
+                const textContent = textEl.textContent.trim();
+                if (textContent && 
+                    !textContent.includes(':') && 
+                    !textContent.includes('=') &&
+                    textContent.length > 1) {
+                    this.setupModuleClick(group, textContent);
                 }
-            } catch (e) {
-                console.warn('Could not get SVG bounds, using default viewBox');
             }
-        }
-        
-        // Remove loading and add loaded for smooth transition
-        this.circuitContainer.classList.remove('loading');
-        this.circuitContainer.classList.add('loaded');
-        this.circuitContainer.classList.add('scale-in');
-        
-        // Reset view to ensure proper display
-        this.resetView();
-    }, 100);
-}
-
-            applySVGStyling() {
-    const svg = this.circuitSvgContainer.querySelector('svg');
-    if (!svg) return;
-
-    // Configurar SVG para melhor visualização
-    svg.style.background = 'transparent';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    
-    // Garantir que o SVG seja completamente visível
-    const viewBox = svg.getAttribute('viewBox');
-    if (viewBox) {
-        const [x, y, width, height] = viewBox.split(' ').map(Number);
-        // Adicionar padding ao viewBox para garantir visibilidade completa
-        const padding = Math.max(width, height) * 0.05;
-        svg.setAttribute('viewBox', `${x - padding} ${y - padding} ${width + 2 * padding} ${height + 2 * padding}`);
+        });
     }
-    
-    // Aplicar estilos modernos e limpos aos elementos do circuito
-    this.styleCircuitCells(svg);
-    this.styleCircuitNets(svg);
-    this.styleCircuitText(svg);
-    this.addCircuitInteractivity(svg);
-    
-    // Limpar textos para melhor legibilidade
-    this.cleanTextElements(svg);
-}
-styleCircuitCells(svg) {
-    // Células/Módulos com design moderno
-    const cells = svg.querySelectorAll('rect[class^="cell_"], path[class^="cell_"], polygon[class^="cell_"]');
-    cells.forEach((cell, index) => {
-        // Paleta de cores moderna e contrastante
-        const cellColors = [
-            { fill: '#3b82f6', stroke: '#60a5fa', hover: '#2563eb' }, // Blue
-            { fill: '#10b981', stroke: '#34d399', hover: '#059669' }, // Green
-            { fill: '#f59e0b', stroke: '#fbbf24', hover: '#d97706' }, // Amber
-            { fill: '#8b5cf6', stroke: '#a78bfa', hover: '#7c3aed' }, // Purple
-            { fill: '#ef4444', stroke: '#f87171', hover: '#dc2626' }, // Red
-            { fill: '#06b6d4', stroke: '#22d3ee', hover: '#0891b2' }  // Cyan
-        ];
-        
-        const colorSet = cellColors[index % cellColors.length];
-        
-        cell.setAttribute('fill', colorSet.fill);
-        cell.setAttribute('stroke', colorSet.stroke);
-        cell.setAttribute('stroke-width', '2');
-        cell.setAttribute('opacity', '0.9');
-        cell.style.transition = 'all 0.2s ease';
-        
-        // Adicionar dados para hover
-        cell.setAttribute('data-hover-fill', colorSet.hover);
-        cell.setAttribute('data-original-fill', colorSet.fill);
-        
-        // Sombra sutil para profundidade
-        cell.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
-    });
-}
-
-styleCircuitNets(svg) {
-    // Conexões/Redes com melhor visibilidade
-    const nets = svg.querySelectorAll('*[class^="net_"]');
-    nets.forEach(net => {
-        const tagName = net.tagName.toLowerCase();
-        
-        if (tagName === 'path' || tagName === 'line') {
-            net.setAttribute('stroke', '#e2e8f0');
-            net.setAttribute('stroke-width', '2');
-            net.setAttribute('fill', 'none');
-            net.style.transition = 'all 0.2s ease';
-        } else if (tagName === 'circle') {
-            net.setAttribute('fill', '#e2e8f0');
-            net.setAttribute('stroke', '#cbd5e1');
-            net.setAttribute('stroke-width', '1');
-        }
-        
-        // Adicionar dados para hover
-        net.setAttribute('data-original-stroke', net.getAttribute('stroke'));
-        net.setAttribute('data-hover-stroke', '#8b5cf6');
-    });
-}
-
-styleCircuitText(svg) {
-    // Texto otimizado para legibilidade
-    const textElements = svg.querySelectorAll('text');
-    textElements.forEach(text => {
-        // Configurações base do texto
-        text.setAttribute('fill', '#f8fafc');
-        text.setAttribute('font-family', 'Inter, system-ui, -apple-system, sans-serif');
-        text.setAttribute('font-weight', '600');
-        text.setAttribute('stroke', 'none');
-        
-        // Tamanho baseado no conteúdo
-        const textContent = text.textContent || '';
-        const textLength = textContent.length;
-        
-        if (textLength <= 3) {
-            text.setAttribute('font-size', '12');
-        } else if (textLength <= 8) {
-            text.setAttribute('font-size', '11');
-        } else {
-            text.setAttribute('font-size', '10');
-        }
-        
-        // Contorno sutil para melhor legibilidade
-        text.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(0, 0, 0, 0.9)';
-        
-        // Posicionamento otimizado
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('dominant-baseline', 'central');
-    });
-}
-
-addCircuitInteractivity(svg) {
-    // Adicionar interatividade aprimorada
-    const interactiveElements = svg.querySelectorAll('[class^="cell_"], [class^="net_"]');
-    
-    interactiveElements.forEach(element => {
+setupModuleClick(element, moduleName) {
         element.style.cursor = 'pointer';
+        element.classList.add('module-clickable');
         
-        // Hover effects
-        element.addEventListener('mouseenter', () => {
-            if (element.getAttribute('class').startsWith('cell_')) {
-                const hoverFill = element.getAttribute('data-hover-fill');
-                if (hoverFill) {
-                    element.setAttribute('fill', hoverFill);
-                    element.setAttribute('stroke-width', '3');
-                    element.style.filter = 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))';
-                }
-            } else if (element.getAttribute('class').startsWith('net_')) {
-                const hoverStroke = element.getAttribute('data-hover-stroke');
-                if (hoverStroke) {
-                    element.setAttribute('stroke', hoverStroke);
-                    element.setAttribute('stroke-width', '3');
-                    element.style.filter = 'drop-shadow(0 0 6px rgba(139, 92, 246, 0.5))';
-                }
-            }
+        // Add visual feedback
+        element.addEventListener('mouseenter', (e) => {
+            element.style.opacity = '0.7';
+            this.showTooltip(e, `Click to view module: ${moduleName}`);
         });
-        
+
         element.addEventListener('mouseleave', () => {
-            if (element.getAttribute('class').startsWith('cell_')) {
-                const originalFill = element.getAttribute('data-original-fill');
-                if (originalFill) {
-                    element.setAttribute('fill', originalFill);
-                    element.setAttribute('stroke-width', '2');
-                    element.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
-                }
-            } else if (element.getAttribute('class').startsWith('net_')) {
-                const originalStroke = element.getAttribute('data-original-stroke');
-                if (originalStroke) {
-                    element.setAttribute('stroke', originalStroke);
-                    element.setAttribute('stroke-width', '2');
-                    element.style.filter = 'none';
-                }
-            }
+            element.style.opacity = '1';
+            this.hideTooltip();
         });
-    });
-}
-           // Método aprimorado para limpeza de texto
-cleanTextElements(svg) {
-    const textElements = svg.querySelectorAll('text');
-    textElements.forEach(text => {
-        if (text.textContent) {
-            let content = text.textContent.trim();
-            
-            // Remover prefixos $paramod
-            if (content.includes('$paramod')) {
-                const parts = content.split('\\');
-                if (parts.length >= 2) {
-                    content = parts[parts.length - 1];
+        
+        element.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log('Module clicked:', moduleName);
+            await this.navigateToModule(moduleName);
+        });
+    }
+
+            navigateBack() {
+                if (this.navigationHistory.length <= 1) return;
+
+                // Remove current module from history
+                this.navigationHistory.pop();
+                
+                // Get previous module
+                const prevModule = this.navigationHistory[this.navigationHistory.length - 1];
+                this.loadSVG(prevModule.svgPath, prevModule.module);
+                
+                // Disable back button if we're at the root
+                if (this.navigationHistory.length <= 1) {
+                    this.backBtn.disabled = true;
                 }
             }
-            
-            // Simplificar caminhos longos
-            if (content.includes('\\') || content.includes('/')) {
-                const parts = content.split(/[\\\/]/);
-                content = parts[parts.length - 1];
+
+           // 10. RENDERER PROCESS - Enhanced recompile function
+    async recompile() {
+        console.log('Recompiling...');
+        this.navigationHistory = [];
+        this.backBtn.disabled = true;
+        this.showStatus('Recompiling RTL Design...', false);
+        
+        try {
+            const result = await window.electronAPI.compileForPRISM();
+            if (!result.success) {
+                this.showStatus(`Compilation Error: ${result.message}`, true);
             }
-            
-            // Remover sufixos desnecessários
-            content = content.replace(/_inst$/, '').replace(/_\d+$/, '');
-            
-            // Limitar tamanho para melhor legibilidade
-            if (content.length > 15) {
-                content = content.substring(0, 12) + '...';
-            }
-            
-            text.textContent = content;
+            // The handleCompilationComplete will be called automatically
+        } catch (error) {
+            console.error('Recompile error:', error);
+            this.showStatus(`Compilation Failed: ${error.message}`, true);
         }
-    });
-}
-
-
-
- // Enhanced handleElementClick with better module detection
-handleElementClick(element, event) {
-  event.stopPropagation();
-  
-  // Remove previous highlights
-  document.querySelectorAll('.highlighted').forEach(el => {
-    el.classList.remove('highlighted');
-  });
-
-  const className = element.classList[0] || '';
-  
-  if (className.startsWith('cell_')) {
-    element.classList.add('highlighted');
-    
-    // Extract module name from the cell class
-    let moduleName = className.replace(/^cell_/, '');
-    moduleName = this.cleanModuleName(moduleName);
-    
-    // Check if this is a valid module for exploration
-    if (this.isValidModuleForExploration(moduleName)) {
-      this.exploreModule(moduleName);
-    } else {
-      this.showStatus(`Primitive or built-in element: ${moduleName}`, 'info', 'info-circle');
     }
-    
-  } else if (className.startsWith('net_')) {
-    // Highlight all segments of the same net
-    document.querySelectorAll(`.${className}`).forEach(segment => {
-      segment.classList.add('highlighted');
-    });
-    
-    const netName = className.replace(/^net_/, '');
-    this.showStatus(`Net highlighted: ${netName}`, 'info', 'info-circle');
-  }
-}
 
- // Enhanced function to check if a module is valid for exploration
-isValidModuleForExploration(moduleName) {
-  // List of common Verilog primitives and built-in modules
-  const primitives = [
-    'and', 'or', 'not', 'nand', 'nor', 'xor', 'xnor', 'buf', 'bufif0', 'bufif1',
-    'notif0', 'notif1', 'pullup', 'pulldown', 'nmos', 'pmos', 'cmos', 'rcmos',
-    'tran', 'tranif0', 'tranif1', 'rtran', 'rtranif0', 'rtranif1',
-    // Additional common modules
-    'dff', 'dffe', 'latch', 'mux', 'demux', 'decoder', 'encoder'
-  ];
-  
-  const lowerModuleName = moduleName.toLowerCase();
-  
-  // Check if it's a primitive
-  if (primitives.includes(lowerModuleName)) {
-    return false;
-  }
-  
-  // Check if it's too short (likely a primitive)
-  if (moduleName.length < 2) {
-    return false;
-  }
-  
-  // Check if it contains only numbers (likely not a valid module)
-  if (/^\d+$/.test(moduleName)) {
-    return false;
-  }
-  
-  // Check if it's in our list of available modules
-  if (this.availableModules && this.availableModules.length > 0) {
-    return this.availableModules.includes(moduleName);
-  }
-  
-  return true;
-}
+    showStatus(message, isError = false) {
+        const statusText = this.statusOverlay.querySelector('.status-text');
+        const spinner = this.statusOverlay.querySelector('.loading-spinner');
+        
+        statusText.textContent = message;
+        
+        if (isError) {
+            statusText.classList.add('error-text');
+            spinner.style.display = 'none';
+        } else {
+            statusText.classList.remove('error-text');
+            spinner.style.display = 'block';
+        }
+        
+        this.statusOverlay.style.display = 'block';
+        console.log('Status:', message, isError ? '(ERROR)' : '');
+    }
 
-  // Enhanced exploreModule function with better error handling
-async exploreModule(moduleName) {
-  try {
-    // Validate module before exploring
-    const isValid = await window.electronAPI.validateModule(moduleName);
-    if (!isValid) {
-      this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
-      return;
+    hideStatus() {
+        this.statusOverlay.style.display = 'none';
     }
-    
-    // Add current module to history before exploring new one
-    this.moduleHistory.push(this.currentModule);
-    this.backBtn.classList.add('visible');
-    
-    // Load the new module
-    await this.loadModule(moduleName);
-    
-  } catch (error) {
-    console.error('Error exploring module:', error);
-    
-    // Restore previous state on error
-    this.moduleHistory.pop();
-    if (this.moduleHistory.length === 0) {
-      this.backBtn.classList.remove('visible');
-    }
-    
-    // Show appropriate error message
-    if (error.message.includes('not found')) {
-      this.showStatus(`Module "${moduleName}" not found in project`, 'warning', 'exclamation-triangle');
-    } else if (error.message.includes('synthesis failed')) {
-      this.showStatus(`Failed to synthesize module "${moduleName}"`, 'error', 'exclamation-circle');
-    } else {
-      this.showError('Module Exploration Failed', error.message);
-    }
-  }
-}
 
-       // Enhanced goBack function
-goBack() {
-  if (this.moduleHistory.length > 0) {
-    const previousModule = this.moduleHistory.pop();
-    
-    if (this.moduleHistory.length === 0) {
-      this.backBtn.classList.remove('visible');
-    }
-    
-    // Load previous module without adding to history
-    this.loadModule(previousModule);
-  }
-}
-
-            // Pan & Zoom functionality
-            startDrag(e) {
-                this.isDragging = true;
-                this.circuitViewport.classList.add('dragging');
-                
-                const point = this.getEventPoint(e);
-                this.dragStart = { x: point.x, y: point.y };
-                this.lastPan = { x: this.panX, y: this.panY };
-                
-                e.preventDefault();
+            updateModuleInfo(moduleName, svgPath) {
+                this.currentModuleEl.textContent = moduleName;
+                this.currentPathEl.textContent = svgPath;
             }
 
-            drag(e) {
-                if (!this.isDragging) return;
+            updateBreadcrumbs() {
+                this.breadcrumbs.innerHTML = '';
                 
-                const point = this.getEventPoint(e);
-                const deltaX = point.x - this.dragStart.x;
-                const deltaY = point.y - this.dragStart.y;
-                
-                this.panX = this.lastPan.x + deltaX;
-                this.panY = this.lastPan.y + deltaY;
-                
-                this.updateTransform();
-                e.preventDefault();
+                this.navigationHistory.forEach((item, index) => {
+                    if (index > 0) {
+                        const separator = document.createElement('span');
+                        separator.className = 'breadcrumb-separator';
+                        separator.textContent = '→';
+                        this.breadcrumbs.appendChild(separator);
+                    }
+                    
+                    const breadcrumb = document.createElement('span');
+                    breadcrumb.className = `breadcrumb-item ${index === this.navigationHistory.length - 1 ? 'active' : ''}`;
+                    breadcrumb.textContent = item.module;
+                    
+                    if (index < this.navigationHistory.length - 1) {
+                        breadcrumb.addEventListener('click', () => {
+                            // Navigate to this level
+                            this.navigationHistory = this.navigationHistory.slice(0, index + 1);
+                            this.loadSVG(item.svgPath, item.module);
+                            this.backBtn.disabled = this.navigationHistory.length <= 1;
+                        });
+                    }
+                    
+                    this.breadcrumbs.appendChild(breadcrumb);
+                });
             }
 
-            endDrag() {
-                this.isDragging = false;
-                this.circuitViewport.classList.remove('dragging');
-            }
-
-            getEventPoint(e) {
-                if (e.touches && e.touches.length > 0) {
-                    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            // Pan and Zoom functionality
+            handleMouseDown(e) {
+                if (e.button === 0) { // Left click
+                    this.isDragging = true;
+                    this.lastMouseX = e.clientX;
+                    this.lastMouseY = e.clientY;
+                    this.svgContainer.classList.add('dragging');
                 }
-                return { x: e.clientX, y: e.clientY };
+            }
+
+            handleMouseMove(e) {
+                if (this.isDragging) {
+                    const deltaX = e.clientX - this.lastMouseX;
+                    const deltaY = e.clientY - this.lastMouseY;
+                    
+                    this.currentX += deltaX;
+                    this.currentY += deltaY;
+                    
+                    this.updateTransform();
+                    
+                    this.lastMouseX = e.clientX;
+                    this.lastMouseY = e.clientY;
+                }
+            }
+
+            handleMouseUp() {
+                this.isDragging = false;
+                this.svgContainer.classList.remove('dragging');
             }
 
             handleWheel(e) {
                 e.preventDefault();
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                this.zoom(zoomFactor, e.clientX, e.clientY);
+            }
+
+            zoom(factor, centerX = null, centerY = null) {
+                const newScale = Math.max(0.1, Math.min(5, this.currentScale * factor));
                 
-                const rect = this.circuitViewport.getBoundingClientRect();
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                
-                const zoomIntensity = 0.1;
-                const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
-                const newScale = Math.max(0.1, Math.min(5, this.scale + delta));
-                
-                if (newScale !== this.scale) {
-                    const scaleFactor = newScale / this.scale;
+                if (centerX !== null && centerY !== null) {
+                    const rect = this.svgContainer.getBoundingClientRect();
+                    const relativeX = centerX - rect.left;
+                    const relativeY = centerY - rect.top;
                     
-                    this.panX = centerX - (centerX - this.panX) * scaleFactor;
-                    this.panY = centerY - (centerY - this.panY) * scaleFactor;
-                    
-                    this.scale = newScale;
-                    this.updateTransform();
-                    this.updateZoomLevel();
+                    const scaleFactor = newScale / this.currentScale;
+                    this.currentX = relativeX - (relativeX - this.currentX) * scaleFactor;
+                    this.currentY = relativeY - (relativeY - this.currentY) * scaleFactor;
                 }
-            }
-
-            zoomIn() {
-                const newScale = Math.min(5, this.scale + 0.2);
-                this.zoomToScale(newScale);
-            }
-
-            zoomOut() {
-                const newScale = Math.max(0.1, this.scale - 0.2);
-                this.zoomToScale(newScale);
-            }
-
-            zoomToScale(newScale) {
-                const rect = this.circuitViewport.getBoundingClientRect();
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
                 
-                const scaleFactor = newScale / this.scale;
-                
-                this.panX = centerX - (centerX - this.panX) * scaleFactor;
-                this.panY = centerY - (centerY - this.panY) * scaleFactor;
-                
-                this.scale = newScale;
+                this.currentScale = newScale;
                 this.updateTransform();
-                this.updateZoomLevel();
-            }
-
-            // Método aprimorado para fit to screen
-fitToScreen() {
-    const svg = this.circuitSvgContainer.querySelector('svg');
-    if (!svg) return;
-    
-    const viewportRect = this.circuitViewport.getBoundingClientRect();
-    const svgRect = svg.getBoundingClientRect();
-    
-    // Calcular escala com padding adequado
-    const scaleX = (viewportRect.width * 0.85) / svgRect.width;
-    const scaleY = (viewportRect.height * 0.85) / svgRect.height;
-    const newScale = Math.min(scaleX, scaleY);
-    
-    // Garantir limites mínimos e máximos
-    this.scale = Math.max(0.1, Math.min(3, newScale));
-    
-    // Centralizar o SVG
-    this.panX = (viewportRect.width - svgRect.width * this.scale) / 2;
-    this.panY = (viewportRect.height - svgRect.height * this.scale) / 2;
-    
-    this.updateTransform();
-    this.updateZoomLevel();
-    this.showStatus('Fitted to screen', 'success', 'expand-arrows-alt');
-}
-            resetView() {
-                this.scale = 1;
-                this.panX = 0;
-                this.panY = 0;
-                this.updateTransform();
-                this.updateZoomLevel();
-                this.showStatus('View reset', 'info', 'home');
             }
 
             updateTransform() {
-                this.circuitSvgContainer.style.transform = 
-                    `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+                this.svgWrapper.style.transform = `translate(${this.currentX}px, ${this.currentY}px) scale(${this.currentScale})`;
             }
 
-            updateZoomLevel() {
-                this.zoomLevel.textContent = `${Math.round(this.scale * 100)}%`;
+            fitToScreen() {
+                const svg = this.svgContent.querySelector('svg');
+                if (!svg) return;
+
+                const containerRect = this.svgContainer.getBoundingClientRect();
+                const svgRect = svg.getBoundingClientRect();
+                
+                const scaleX = (containerRect.width * 0.9) / svg.viewBox.baseVal.width;
+                const scaleY = (containerRect.height * 0.9) / svg.viewBox.baseVal.height;
+                
+                this.currentScale = Math.min(scaleX, scaleY, 1);
+                this.currentX = 0;
+                this.currentY = 0;
+                
+                this.updateTransform();
             }
 
-            showTooltip(e) {
-                const element = e.target.closest('[class^="cell_"], [class^="net_"]');
-                if (!element) {
-                    this.hideTooltip();
-                    return;
-                }
-                
-                const className = element.classList[0] || '';
-                let tooltipText = '';
-                
-                if (className.startsWith('cell_')) {
-                    const moduleName = className.replace(/^cell_/, '');
-                    tooltipText = `Module: ${moduleName} (Click to explore)`;
-                } else if (className.startsWith('net_')) {
-                    tooltipText = `Net: ${className} (Click to highlight)`;
-                }
-                
-                if (tooltipText) {
-                    this.tooltip.textContent = tooltipText;
-                    this.tooltip.style.left = e.pageX + 10 + 'px';
-                    this.tooltip.style.top = e.pageY - 30 + 'px';
-                    this.tooltip.classList.add('visible');
-                }
+            resetView() {
+                this.currentScale = 1;
+                this.currentX = 0;
+                this.currentY = 0;
+                this.updateTransform();
             }
+
+            showTooltip(e, text) {
+                this.tooltip.textContent = text;
+                this.tooltip.style.left = e.pageX + 10 + 'px';
+                this.tooltip.style.top = e.pageY - 30 + 'px';
+                this.tooltip.classList.add('show');
+}
 
             hideTooltip() {
-                this.tooltip.classList.remove('visible');
+                this.tooltip.classList.remove('show');
             }
 
-           // Show loading state
-showLoading() {
-  this.loading.style.display = 'flex';
-  this.circuitContainer.classList.remove('visible');
-  this.error.style.display = 'none';
-}
+            showStatus(message, isError = false) {
+                const statusText = this.statusOverlay.querySelector('.status-text');
+                const spinner = this.statusOverlay.querySelector('.loading-spinner');
+                
+                statusText.textContent = message;
+                
+                if (isError) {
+                    statusText.classList.add('error-text');
+                    spinner.style.display = 'none';
+                } else {
+                    statusText.classList.remove('error-text');
+                    spinner.style.display = 'block';
+                }
+                
+                this.statusOverlay.style.display = 'block';
+            }
 
-// Show error state
-showError(title, message) {
-  this.loading.style.display = 'none';
-  this.circuitContainer.classList.remove('visible');
-  this.error.style.display = 'flex';
-  
-  const errorTitle = this.error.querySelector('h3');
-  const errorMsg = this.error.querySelector('p');
-  
-  if (errorTitle) errorTitle.textContent = title;
-  if (errorMsg) errorMsg.textContent = message;
-}
+            hideStatus() {
+                this.statusOverlay.style.display = 'none';
+            }
+        }
 
-// Show status message
-showStatus(message, type = 'info', icon = 'info-circle') {
-  if (this.statusText) {
-    this.statusText.textContent = message;
-  }
-  
-  if (this.status) {
-    // Remove previous status classes
-    this.status.classList.remove('success', 'error', 'warning', 'info');
-    this.status.classList.add(type, 'visible');
-    
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-      this.status.classList.remove('visible');
-    }, 3000);
-  }
-  
-  console.log(`Status [${type}]: ${message}`);
-}        }
+        // Preload API setup
+        window.electronAPI = {
+            compileForPRISM: () => window.electron.invoke('prism-compile'),
+            generateSVGFromModule: (moduleName, tempDir) => 
+                window.electron.invoke('generate-svg-from-module', moduleName, tempDir),
+            getAvailableModules: (tempDir) => 
+                window.electron.invoke('get-available-modules', tempDir),
+            onCompilationComplete: (callback) => 
+                window.electron.on('compilation-complete', (event, data) => callback(data))
+        };
 
-        // Initialize the PRISM viewer when the page loads
+        // Initialize the PRISM Viewer when the page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new PrismViewer();
+            new PRISMViewer();
         });
 
-        // Prevent context menu on circuit area
-        document.addEventListener('contextmenu', (e) => {
-            if (e.target.closest('.circuit-viewport')) {
-                e.preventDefault();
-            }
-        });
-
-        // Keyboard shortcuts
+        // Add keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case '=':
+                    case '+':
+                        e.preventDefault();
+                        document.getElementById('zoomInBtn').click();
+                        break;
+                    case '-':
+                        e.preventDefault();
+                        document.getElementById('zoomOutBtn').click();
+                        break;
+                    case '0':
+                        e.preventDefault();
+                        document.getElementById('resetZoomBtn').click();
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        document.getElementById('fitBtn').click();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        document.getElementById('compileBtn').click();
+                        break;
+                }
+            }
             
-            switch(e.key) {
-                case 'f':
-                case 'F':
-                    document.getElementById('fitBtn').click();
-                    break;
-                case 'r':
-                case 'R':
-                    document.getElementById('resetBtn').click();
-                    break;
-                case '+':
-                case '=':
-                    document.getElementById('zoomInBtn').click();
-                    break;
-                case '-':
-                    document.getElementById('zoomOutBtn').click();
-                    break;
-                case 'Escape':
-                    if (document.getElementById('backBtn').classList.contains('visible')) {
-                        document.getElementById('backBtn').click();
-                    }
-                    break;
+            // Escape key to go back
+            if (e.key === 'Escape') {
+                const backBtn = document.getElementById('backBtn');
+                if (!backBtn.disabled) {
+                    backBtn.click();
+                }
             }
         });
 
+        // Add context menu for additional options
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Create context menu if not exists
+            let contextMenu = document.getElementById('contextMenu');
+            if (!contextMenu) {
+                contextMenu = document.createElement('div');
+                contextMenu.id = 'contextMenu';
+                contextMenu.className = 'context-menu';
+                contextMenu.innerHTML = `
+                    <div class="context-item" onclick="document.getElementById('fitBtn').click()">
+                        <span>Fit to Screen</span>
+                        <span class="shortcut">Ctrl+F</span>
+                    </div>
+                    <div class="context-item" onclick="document.getElementById('resetZoomBtn').click()">
+                        <span>Reset Zoom</span>
+                        <span class="shortcut">Ctrl+0</span>
+                    </div>
+                    <div class="context-separator"></div>
+                    <div class="context-item" onclick="document.getElementById('compileBtn').click()">
+                        <span>Recompile</span>
+                        <span class="shortcut">Ctrl+R</span>
+                    </div>
+                `;
+                document.body.appendChild(contextMenu);
+                
+                // Add context menu styles
+                const contextStyle = document.createElement('style');
+                contextStyle.textContent = `
+                    .context-menu {
+                        position: fixed;
+                        background: var(--bg-secondary);
+                        border: 1px solid var(--border-primary);
+                        border-radius: var(--radius-md);
+                        box-shadow: var(--shadow-lg);
+                        z-index: var(--z-50);
+                        min-width: 180px;
+                        padding: var(--space-2);
+                        display: none;
+                    }
+                    
+                    .context-item {
+                        padding: var(--space-2) var(--space-3);
+                        cursor: pointer;
+                        border-radius: var(--radius-sm);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-size: var(--text-sm);
+                        color: var(--text-primary);
+                    }
+                    
+                    .context-item:hover {
+                        background: var(--accent-primary);
+                        color: white;
+                    }
+                    
+                    .context-separator {
+                        height: 1px;
+                        background: var(--border-primary);
+                        margin: var(--space-2) 0;
+                    }
+                    
+                    .shortcut {
+                        font-size: var(--text-xs);
+                        color: var(--text-muted);
+                        font-family: var(--font-mono);
+                    }
+                    
+                    .context-item:hover .shortcut {
+                        color: rgba(255, 255, 255, 0.8);
+                    }
+                `;
+                document.head.appendChild(contextStyle);
+            }
+            
+            // Position and show context menu
+            contextMenu.style.left = e.pageX + 'px';
+            contextMenu.style.top = e.pageY + 'px';
+            contextMenu.style.display = 'block';
+            
+            // Hide context menu on click outside
+            const hideContextMenu = (event) => {
+                if (!contextMenu.contains(event.target)) {
+                    contextMenu.style.display = 'none';
+                    document.removeEventListener('click', hideContextMenu);
+                }
+            };
+            
+            setTimeout(() => {
+                document.addEventListener('click', hideContextMenu);
+            }, 10);
+        });
+
+        // Add mouse wheel zoom support with Ctrl key
+        document.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const viewer = window.prismViewer;
+                if (viewer && viewer.handleWheel) {
+                    viewer.handleWheel(e);
+                }
+            }
+        }, { passive: false });
+
+        // Store viewer instance globally for external access
+        window.addEventListener('DOMContentLoaded', () => {
+            window.prismViewer = new PRISMViewer();
+        });
+
+        // Add fullscreen support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F11') {
+                e.preventDefault();
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    document.documentElement.requestFullscreen();
+                }
+            }
+        });
+
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            const viewer = window.prismViewer;
+            if (viewer) {
+                // Recalculate fit to screen when entering/exiting fullscreen
+                setTimeout(() => {
+                    viewer.fitToScreen();
+                }, 100);
+            }
+        });
+
+        // Add window resize handler
+        window.addEventListener('resize', () => {
+            const viewer = window.prismViewer;
+            if (viewer) {
+                // Debounce resize handling
+                clearTimeout(viewer.resizeTimeout);
+                viewer.resizeTimeout = setTimeout(() => {
+                    viewer.fitToScreen();
+                }, 250);
+            }
+        });
+
+        // Add performance monitoring
+        window.addEventListener('load', () => {
+            console.log('PRISM Viewer loaded in', performance.now().toFixed(2), 'ms');
+            
+            // Monitor performance
+            if ('PerformanceObserver' in window) {
+                const observer = new PerformanceObserver((list) => {
+                    const entries = list.getEntries();
+                    entries.forEach((entry) => {
+                        if (entry.duration > 100) {
+                            console.warn(`Slow operation detected: ${entry.name} took ${entry.duration.toFixed(2)}ms`);
+                        }
+                    });
+                });
+                
+                observer.observe({ entryTypes: ['measure', 'navigation'] });
+            }
+        });
+
+        // Add error boundary for uncaught errors
+        window.addEventListener('error', (e) => {
+            console.error('Uncaught error in PRISM Viewer:', e.error);
+            
+            // Show user-friendly error message
+            const viewer = window.prismViewer;
+            if (viewer) {
+                viewer.showStatus(`Application Error: ${e.error.message}`, true);
+            }
+        });
+
+        // Add unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('Unhandled promise rejection in PRISM Viewer:', e.reason);
+            
+            const viewer = window.prismViewer;
+            if (viewer) {
+                viewer.showStatus(`Promise Error: ${e.reason}`, true);
+            }
+        });
     </script>
 </body>
 </html>

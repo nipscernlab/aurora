@@ -279,7 +279,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return await ipcRenderer.invoke('generate-module-svg', moduleName);
     },
     openPrismWindow: () => ipcRenderer.invoke('open-prism-window'),
-
+    openPrismCompile: async () => {
+    return ipcRenderer.invoke('open-prism-compile');
+  },
 
   // Add these PRISM-related functions
   prism: {

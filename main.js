@@ -2396,44 +2396,41 @@ ipcMain.on('app:reload', () => {
 // Add this variable to track PRISM window
 let prismWindow = null;
 
-// Function to create PRISM window with enhanced error handling
-async function createPrismWindow(projectInfo = null) {
-  // If already open, just focus
+// 1. MAIN PROCESS - Fix the createPrismWindow function
+async function createPrismWindow(compilationData = null) {
+  // If already open, just focus and send data
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
+    // Send compilation data if available
+    if (compilationData) {
+      console.log('Sending compilation data to existing PRISM window:', compilationData);
+      prismWindow.webContents.send('compilation-complete', compilationData);
+    }
     return;
   }
 
-  // Validate project info if provided
-  if (projectInfo) {
-    try {
-      await validateProjectStructure(projectInfo);
-    } catch (error) {
-      const { dialog } = require('electron');
-      await dialog.showMessageBox({
-        type: 'error',
-        title: 'Project Validation Error',
-        message: 'Cannot open PRISM viewer',
-        detail: error.message
-      });
-      return;
-    }
+  // Ensure preload script exists
+  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
+  console.log('Preload script path:', preloadPath);
+  
+  if (!require('fs').existsSync(preloadPath)) {
+    console.error('Preload script not found at:', preloadPath);
+    throw new Error(`Preload script not found: ${preloadPath}`);
   }
 
   prismWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
     autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, 'js', 'preload-prism.js'),
-      additionalArguments: projectInfo
-        ? [`--project-info=${encodeURIComponent(JSON.stringify(projectInfo))}`]
-        : []
+      preload: preloadPath,
+      webSecurity: false,
+      allowRunningInsecureContent: true
     },
     backgroundColor: '#17151f',
     show: false,
@@ -2442,6 +2439,8 @@ async function createPrismWindow(projectInfo = null) {
 
   // Load the HTML file
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
+  
+  console.log('Loading PRISM HTML from:', prismHtmlPath);
   
   try {
     await prismWindow.loadFile(prismHtmlPath);
@@ -2457,36 +2456,98 @@ async function createPrismWindow(projectInfo = null) {
     return;
   }
 
-  // Show when ready
+  // Enable dev tools for debugging
+  prismWindow.webContents.openDevTools();
+
+  // Show when ready and send compilation data
   prismWindow.once('ready-to-show', () => {
+    console.log('PRISM window ready to show');
     prismWindow.maximize();
     prismWindow.show();
-if (mainWindow && mainWindow.webContents) {
+    
+    // IMPORTANT: Wait a bit for the renderer to be fully ready
+    setTimeout(() => {
+      if (compilationData) {
+        console.log('Sending compilation data to PRISM window after delay:', compilationData);
+        prismWindow.webContents.send('compilation-complete', compilationData);
+      }
+    }, 1000); // 1 second delay to ensure renderer is ready
+    
+    if (mainWindow && mainWindow.webContents) {
       mainWindow.webContents.send('prism-status', true);
     }
   });
 
+  // Handle window closed
   prismWindow.on('closed', () => {
     prismWindow = null;
-if (mainWindow && mainWindow.webContents) {
+    if (mainWindow && mainWindow.webContents) {
       mainWindow.webContents.send('prism-status', false);
     }
   });
 
-  // Enhanced error handling for load failures
+  // Enhanced error handling
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
     console.error(`Failed URL: ${validatedURL}`);
   });
 
-  // Add error handling for crashed renderer
   prismWindow.webContents.on('render-process-gone', (event, details) => {
     console.error('PRISM viewer renderer process crashed:', details);
   });
+
+  prismWindow.webContents.on('did-finish-load', () => {
+    console.log('PRISM window finished loading');
+  });
 }
 
+// Add these IPC handlers to your main process
 
-// IPC handler for PRISM compilation
+// Handler to request toggle UI state from main window
+ipcMain.on('get-toggle-ui-state', (event) => {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('request-toggle-ui-state');
+  } else {
+    // Default to false if main window is not available
+    event.sender.send('toggle-ui-state-response', false);
+  }
+});
+
+// Handler to receive toggle UI state response from main window
+ipcMain.on('toggle-ui-state-response', (event, isActive) => {
+  // This will be handled by the Promise in getToggleUIState function
+  // The function already has the listener set up
+});
+
+// Alternative simpler approach - get toggle state directly
+ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      // Send request and wait for response
+      return new Promise((resolve) => {
+        const responseHandler = (_, isActive) => {
+          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+          resolve(isActive);
+        };
+        
+        ipcMain.once('toggle-ui-state-response', responseHandler);
+        mainWindow.webContents.send('request-toggle-ui-state');
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+          resolve(false); // Default to false
+        }, 5000);
+      });
+    }
+    return false; // Default if no main window
+  } catch (error) {
+    console.error('Error getting toggle UI state:', error);
+    return false;
+  }
+});
+
+// IPC handler for PRISM compilation - Updated version
 ipcMain.handle('prism-compile', async (event) => {
   try {
     console.log('Starting PRISM compilation process...');
@@ -2563,10 +2624,17 @@ ipcMain.handle('prism-compile', async (event) => {
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
     
     // Generate SVG for the top level module
-    await generateModuleSVG(topLevelModule, tempDir);
+    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
     
     console.log('PRISM compilation completed successfully');
-    return { success: true, message: 'PRISM compilation completed successfully' };
+    return { 
+      success: true, 
+      message: 'PRISM compilation completed successfully',
+      topLevelModule,
+      svgPath,
+      tempDir,
+      isProjectOriented
+    };
     
   } catch (error) {
     console.error('PRISM compilation error:', error);
@@ -2590,7 +2658,178 @@ async function getToggleUIState(event) {
   });
 }
 
-// Run Yosys compilation with improved error handling for missing modules
+// IPC handler for generating SVG from module click
+ipcMain.handle('generate-svg-from-module', async (event, moduleName, tempDir) => {
+  try {
+    console.log(`Generating SVG for clicked module: ${moduleName}`);
+    
+    // Check if module JSON exists
+    const cleanModuleName = sanitizeFileName(moduleName);
+    const moduleJsonPath = path.join(tempDir, `${cleanModuleName}.json`);
+    
+    if (!await fse.pathExists(moduleJsonPath)) {
+      throw new Error(`Module JSON not found for: ${moduleName}`);
+    }
+    
+    // Generate SVG for the module
+    const svgPath = await generateModuleSVG(moduleName, tempDir);
+    
+    return { 
+      success: true, 
+      svgPath,
+      moduleName,
+      moduleJsonPath
+    };
+  } catch (error) {
+    console.error('SVG generation from module click error:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// IPC handler to get available modules in temp directory
+ipcMain.handle('get-available-modules', async (event, tempDir) => {
+  try {
+    const files = await fse.readdir(tempDir);
+    const jsonFiles = files.filter(file => file.endsWith('.json') && file !== 'hierarchy.json');
+    const modules = jsonFiles.map(file => path.basename(file, '.json'));
+    
+    return { success: true, modules };
+  } catch (error) {
+    console.error('Error getting available modules:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+
+// 2. MAIN PROCESS - Updated IPC handler for opening PRISM with compilation
+ipcMain.handle('open-prism-compile', async (event) => {
+  try {
+    console.log('Starting PRISM compilation and opening window...');
+    
+    // First compile
+    const compilationResult = await performPrismCompilation();
+    
+    if (!compilationResult.success) {
+      throw new Error(compilationResult.message);
+    }
+    
+    // Then create window with compilation data
+    await createPrismWindow(compilationResult);
+    
+    return { success: true, message: 'PRISM window opened with compilation data' };
+  } catch (error) {
+    console.error('Error opening PRISM with compilation:', error);
+    throw error;
+  }
+});
+
+// 3. MAIN PROCESS - Separate function to perform compilation
+async function performPrismCompilation() {
+  try {
+    console.log('Starting PRISM compilation process...');
+    
+    // Check if we have a current project using multiple sources
+    let projectPath = null;
+    
+    if (global.currentProjectPath) {
+      projectPath = global.currentProjectPath;
+    } else if (currentOpenProjectPath) {
+      projectPath = path.dirname(currentOpenProjectPath);
+    } else if (global.currentProject && global.currentProject.path) {
+      projectPath = global.currentProject.path;
+    }
+    
+    if (!projectPath) {
+      throw new Error('No project path set. Please open a project first.');
+    }
+    
+    console.log(`Working with project path: ${projectPath}`);
+    
+    // Create temp directory
+    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
+    await fse.ensureDir(tempDir);
+    
+    // Get toggle state from main window
+    const isProjectOriented = await getToggleUIStateFromMain();
+    
+    let topLevelModule, configData;
+    
+    if (isProjectOriented) {
+      console.log('Running in Project Oriented mode...');
+      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+      
+      if (!await fse.pathExists(projectConfigPath)) {
+        throw new Error('projectOriented.json not found in project root');
+      }
+      
+      configData = await fse.readJson(projectConfigPath);
+      topLevelModule = path.basename(configData.topLevelFile, '.v');
+    } else {
+      console.log('Running in Processor Oriented mode...');
+      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+      
+      if (!await fse.pathExists(processorConfigPath)) {
+        throw new Error('processorConfig.json not found in project root');
+      }
+      
+      configData = await fse.readJson(processorConfigPath);
+      const activeProcessor = configData.processors.find(proc => proc.isActive === true);
+      if (!activeProcessor) {
+        throw new Error('No active processor found in processorConfig.json');
+      }
+      
+      topLevelModule = activeProcessor.name;
+    }
+    
+    // Run Yosys compilation
+    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
+    
+    // Split JSON into individual module files
+    await splitHierarchyJson(hierarchyJsonPath, tempDir);
+    
+    // Generate SVG for the top level module
+    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
+    
+    console.log('PRISM compilation completed successfully');
+    return { 
+      success: true, 
+      message: 'PRISM compilation completed successfully',
+      topLevelModule,
+      svgPath,
+      tempDir,
+      isProjectOriented
+    };
+    
+  } catch (error) {
+    console.error('PRISM compilation error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+// 4. MAIN PROCESS - Helper function to get toggle state from main window
+async function getToggleUIStateFromMain() {
+  return new Promise((resolve) => {
+    if (mainWindow && mainWindow.webContents) {
+      const timeout = setTimeout(() => {
+        console.warn('Timeout getting toggle UI state, defaulting to false');
+        resolve(false);
+      }, 3000);
+      
+      const responseHandler = (event, isActive) => {
+        clearTimeout(timeout);
+        ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+        resolve(isActive);
+      };
+      
+      ipcMain.once('toggle-ui-state-response', responseHandler);
+      mainWindow.webContents.send('request-toggle-ui-state');
+    } else {
+      resolve(false);
+    }
+  });
+}
+
+// Updated Yosys compilation function
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
   console.log('Running Yosys compilation...');
   
@@ -2612,17 +2851,52 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
     fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
   }
   
-  // Add TopLevel files (excluding testbenches)
-  const topLevelDir = path.join(projectPath, 'TopLevel');
-  if (await fse.pathExists(topLevelDir)) {
-    const topLevelFiles = await fse.readdir(topLevelDir);
-    const vFiles = topLevelFiles.filter(file => 
-      file.endsWith('.v') && 
-      !file.includes('_tb') && 
-      !file.includes('_testbench') &&
-      !file.toLowerCase().includes('test')
-    );
-    fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+  if (isProjectOriented) {
+    // Project Oriented Mode: Include all TopLevel files except the top level file
+    const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+    const projectConfig = await fse.readJson(projectConfigPath);
+    const topLevelFileName = projectConfig.topLevelFile;
+    
+    const topLevelDir = path.join(projectPath, 'TopLevel');
+    if (await fse.pathExists(topLevelDir)) {
+      const topLevelFiles = await fse.readdir(topLevelDir);
+      const vFiles = topLevelFiles.filter(file => 
+        file.endsWith('.v') && 
+        !file.includes('_tb') && 
+        !file.includes('_testbench') &&
+        !file.toLowerCase().includes('test') &&
+        file !== topLevelFileName // Exclude the top level file
+      );
+      fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+      
+      // Add the top level file last
+      const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
+      if (await fse.pathExists(topLevelFilePath)) {
+        fileList.push(topLevelFilePath);
+      }
+    }
+  } else {
+    // Processor Oriented Mode: Include only the active processor's Hardware files
+    const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+    const processorConfig = await fse.readJson(processorConfigPath);
+    
+    const activeProcessor = processorConfig.processors.find(proc => proc.isActive === true);
+    const processorName = activeProcessor.name;
+    
+    const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
+    if (await fse.pathExists(processorHardwareDir)) {
+      const hardwareFiles = await fse.readdir(processorHardwareDir);
+      const vFiles = hardwareFiles.filter(file => 
+        file.endsWith('.v') && 
+        !file.includes('_tb') && 
+        !file.includes('_testbench') &&
+        !file.toLowerCase().includes('test')
+      );
+      fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+      console.log(`Added ${vFiles.length} files from ${processorHardwareDir}`);
+    } else {
+      console.warn(`Hardware directory not found: ${processorHardwareDir}`);
+    }
   }
   
   console.log('Files to be processed by Yosys:');

@@ -4333,22 +4333,14 @@ function updateFileTree(files) {
   */
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const prismButton = document.getElementById('prismcomp');
-  if (!prismButton) {
-    console.error('Elemento #prismcomp não encontrado no DOM.');
-    return;
+// This should be added wherever you handle button clicks in your main window
+document.getElementById('prismcomp').addEventListener('click', async () => {
+  try {
+    await window.electronAPI.openPrismCompile();
+  } catch (error) {
+    console.error('Error opening PRISM:', error);
+    // Show error to user
   }
-
-  prismButton.addEventListener('click', async (e) => {
-    e.preventDefault(); // garante que, se for um <button> dentro de um <form>, não reenviará o form
-    try {
-      await window.electronAPI.openPrismWindow();
-    } catch (error) {
-      console.error('Falha ao abrir PRISM:', error);
-      alert('Falha ao abrir PRISM: ' + error.message);
-    }
-  });
 });
 
 

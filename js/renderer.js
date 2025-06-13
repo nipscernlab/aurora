@@ -3871,6 +3871,17 @@ document.getElementById('open-folder-button').addEventListener('click', async ()
     }
 }); 
 
+document.getElementById('open-hdl-button').addEventListener('click', async () => {
+    const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    if (hdlDir) {
+        try {
+            await window.electronAPI.openFolder(hdlDir);
+        } catch (error) {
+            console.error('Error opening HDL folder:', error);
+        }
+    }
+}); 
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'F2' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
     if (currentProjectPath) {

@@ -7429,135 +7429,128 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-
- window.addEventListener('DOMContentLoaded', () => {
-      const prismButton = document.getElementById('prismcomp');
-
-      // Função para atualizar borda suavemente
-      function updatePrismButton(isOpen) {
-        if (!prismButton) return;
-        if (isOpen) {
-          prismButton.classList.add('active');
-        } else {
-          prismButton.classList.remove('active');
-        }
-      }
-
-      // Inscreve no evento via API exposta
-      if (window.electronAPI && window.electronAPI.onPrismStatus) {
-        window.electronAPI.onPrismStatus((isOpen) => {
-          // Chama a atualização de borda
-          updatePrismButton(isOpen);
-        });
-      }
-
-      // Listener de clique: abre a janela PRISM chamando um método via IPC, se necessário.
-      prismButton.addEventListener('click', () => {
-        if (prismButton.disabled) return;
-        // Envie uma mensagem ao main process para criar/abrir a janela PRISM
-        window.electronAPI.openPrismWindow && window.electronAPI.openPrismWindow();
-      });
-    });
-
-
-// PRISM button event handler
+// CORREÇÃO 6: Event handler do botão PRISM corrigido
 document.addEventListener('DOMContentLoaded', () => {
   const prismButton = document.getElementById('prismcomp');
+  let isCompiling = false;
+  
+  // Function to update button appearance based on PRISM window status
+  function updatePrismButton(isOpen) {
+    if (!prismButton) return;
+    
+    if (isOpen) {
+      prismButton.classList.add('active');
+      if (!isCompiling) {
+        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM (Recompile)';
+      }
+    } else {
+      prismButton.classList.remove('active');
+      if (!isCompiling) {
+        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM';
+      }
+    }
+  }
+  
+  // Listen for PRISM window status updates
+  if (window.electronAPI && window.electronAPI.onPrismStatus) {
+    window.electronAPI.onPrismStatus((isOpen) => {
+      console.log('PRISM status update received:', isOpen);
+      updatePrismButton(isOpen);
+    });
+  }
   
   if (prismButton) {
     prismButton.addEventListener('click', async () => {
-      // Check if button is disabled
-      if (prismButton.disabled) {
-        console.log('PRISM button is disabled');
+      // Check if button is disabled or already compiling
+      if (prismButton.disabled || isCompiling) {
+        console.log('PRISM button is disabled or compilation in progress');
         return;
       }
       
       try {
-        // Debug project path before compilation
-
-        // Disable button during compilation
+        // Set compilation state
+        isCompiling = true;
+        
+        // Check if PRISM window is already open
+        let isPrismOpen;
+        try {
+          isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
+        } catch (error) {
+          console.warn('Error checking PRISM window status:', error);
+          isPrismOpen = false;
+        }
+        
+        // Update button appearance
         prismButton.disabled = true;
         prismButton.style.cursor = 'not-allowed';
-        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> Compiling...';
         
-        console.log('Starting PRISM compilation...');
+        if (isPrismOpen) {
+          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> Recompiling...';
+          console.log('Recompiling for existing PRISM window...');
+        } else {
+          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> Compiling...';
+          console.log('Starting PRISM compilation for new window...');
+        }
         
         // Call PRISM compilation
         const result = await window.electronAPI.prismCompile();
         
-        if (result.success) {
+        if (result && result.success) {
           console.log('PRISM compilation successful:', result.message);
-          
-          // Show success notification
           showNotification('PRISM Compilation', 'Compilation completed successfully!', 'success');
           
-          // You can add additional UI updates here, like opening the generated SVG
-        } else {
-          console.error('PRISM compilation failed:', result.message);
+          // Force update button status after successful compilation
+          setTimeout(async () => {
+            try {
+              const newStatus = await window.electronAPI.checkPrismWindowOpen();
+              updatePrismButton(newStatus);
+            } catch (error) {
+              console.warn('Error updating button status:', error);
+            }
+          }, 1000);
           
-          // Show error notification
-          showNotification('PRISM Compilation Error', result.message, 'error');
+        } else {
+          const errorMessage = result ? result.message : 'Unknown error occurred';
+          console.error('PRISM compilation failed:', errorMessage);
+          showNotification('PRISM Compilation Error', errorMessage, 'error');
         }
         
       } catch (error) {
         console.error('PRISM compilation error:', error);
-        
-        // Show error notification
-        showNotification('PRISM Compilation Error', 'An unexpected error occurred', 'error');
+        showNotification('PRISM Compilation Error', error.message || 'An unexpected error occurred', 'error');
         
       } finally {
-        // Re-enable button
+        // Reset compilation state and button
+        isCompiling = false;
         prismButton.disabled = false;
         prismButton.style.cursor = 'pointer';
-        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM';
+        
+        // Check current PRISM window status to set correct button text
+        try {
+          const isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
+          updatePrismButton(isPrismOpen);
+        } catch (error) {
+          console.error('Error checking PRISM window status in finally:', error);
+          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM';
+        }
       }
     });
   }
-  
-  // Set up toggle UI state listener
-  if (window.electronAPI.onGetToggleUIState) {
-    window.electronAPI.onGetToggleUIState();
+
+  // CORREÇÃO: Listen for toggle UI state requests - simplificado
+  if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
+    window.electronAPI.onGetToggleUIState(() => {
+      // This handler is now managed in the preload script
+      console.log('Toggle UI state request handled in preload');
+    });
   }
 });
 
-// Helper function to show notifications (you can customize this based on your UI framework)
+// Helper function to show notifications (unchanged)
 function showNotification(title, message, type = 'info') {
-  // Example using a simple alert - replace with your preferred notification system
   if (type === 'error') {
     console.error(`${title}: ${message}`);
-    // You could show a toast notification, modal, or other UI element here
   } else {
     console.log(`${title}: ${message}`);
-    // You could show a success toast notification here
   }
-  
-  // If you have a notification system in your app, use it here
-  // For example: showToast(title, message, type);
-}
-
-// Helper function to enable PRISM button (call this when a project is loaded)
-function enablePrismButton() {
-  const prismButton = document.getElementById('prismcomp');
-  if (prismButton) {
-    prismButton.disabled = false;
-    prismButton.style.cursor = 'pointer';
-  }
-}
-
-// Helper function to disable PRISM button (call this when no project is loaded)
-function disablePrismButton() {
-  const prismButton = document.getElementById('prismcomp');
-  if (prismButton) {
-    prismButton.disabled = true;
-    prismButton.style.cursor = 'not-allowed';
-  }
-}
-
-// Export functions if using modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    enablePrismButton,
-    disablePrismButton,
-    showNotification
-  };
 }

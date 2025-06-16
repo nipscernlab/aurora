@@ -2395,18 +2395,22 @@ ipcMain.on('app:reload', () => {
 
 // Add this variable to track PRISM window
 let prismWindow = null;
-
-// 1. MAIN PROCESS - Fix the createPrismWindow function
 async function createPrismWindow(compilationData = null) {
-  // If already open, just focus and send data
+  // If already open, just focus and recompile if data provided
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
-    // Send compilation data if available
+    
+    // If compilation data is provided, send it to existing window
     if (compilationData) {
       console.log('Sending compilation data to existing PRISM window:', compilationData);
-      prismWindow.webContents.send('compilation-complete', compilationData);
+      // Wait for window to be ready
+      prismWindow.webContents.once('did-finish-load', () => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      });
     }
-    return;
+    return prismWindow;
   }
 
   // Ensure preload script exists
@@ -2444,6 +2448,26 @@ async function createPrismWindow(compilationData = null) {
   
   try {
     await prismWindow.loadFile(prismHtmlPath);
+    
+    // Show window immediately after loading
+    prismWindow.maximize();
+    prismWindow.show();
+    
+    // Send compilation data after a short delay
+    if (compilationData) {
+      setTimeout(() => {
+        console.log('Sending compilation data to new PRISM window:', compilationData);
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      }, 1000);
+    }
+    
+    // Notify main window that PRISM is open
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('prism-status', true);
+    }
+    
   } catch (error) {
     console.error('Failed to load prism.html:', error);
     const { dialog } = require('electron');
@@ -2453,35 +2477,19 @@ async function createPrismWindow(compilationData = null) {
       message: 'Failed to load PRISM viewer',
       detail: error.message
     });
-    return;
-  }
-
-  // Enable dev tools for debugging
-  prismWindow.webContents.openDevTools();
-
-  // Show when ready and send compilation data
-  prismWindow.once('ready-to-show', () => {
-    console.log('PRISM window ready to show');
-    prismWindow.maximize();
-    prismWindow.show();
     
-    // IMPORTANT: Wait a bit for the renderer to be fully ready
-    setTimeout(() => {
-      if (compilationData) {
-        console.log('Sending compilation data to PRISM window after delay:', compilationData);
-        prismWindow.webContents.send('compilation-complete', compilationData);
-      }
-    }, 1000); // 1 second delay to ensure renderer is ready
-    
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('prism-status', true);
+    if (prismWindow) {
+      prismWindow.destroy();
+      prismWindow = null;
     }
-  });
+    return null;
+  }
 
   // Handle window closed
   prismWindow.on('closed', () => {
+    console.log('PRISM window closed');
     prismWindow = null;
-    if (mainWindow && mainWindow.webContents) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('prism-status', false);
     }
   });
@@ -2496,9 +2504,7 @@ async function createPrismWindow(compilationData = null) {
     console.error('PRISM viewer renderer process crashed:', details);
   });
 
-  prismWindow.webContents.on('did-finish-load', () => {
-    console.log('PRISM window finished loading');
-  });
+  return prismWindow;
 }
 
 // Add these IPC handlers to your main process
@@ -2513,11 +2519,12 @@ ipcMain.on('get-toggle-ui-state', (event) => {
   }
 });
 
-// Handler to receive toggle UI state response from main window
+// Handler for toggle UI state response
 ipcMain.on('toggle-ui-state-response', (event, isActive) => {
-  // This will be handled by the Promise in getToggleUIState function
-  // The function already has the listener set up
+  // Store the response for the waiting function
+  event.sender.send('toggle-ui-state-response', isActive);
 });
+
 
 // Alternative simpler approach - get toggle state directly
 ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
@@ -2547,94 +2554,26 @@ ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
   }
 });
 
-// IPC handler for PRISM compilation - Updated version
+// IPC handler for PRISM compilation
 ipcMain.handle('prism-compile', async (event) => {
   try {
     console.log('Starting PRISM compilation process...');
     
-    // Check if we have a current project using multiple sources
-    let projectPath = null;
+    // Get compilation result
+    const compilationResult = await performPrismCompilation();
     
-    // Try to get project path from multiple sources
-    if (global.currentProjectPath) {
-      projectPath = global.currentProjectPath;
-    } else if (currentOpenProjectPath) {
-      // Extract directory from .spf file path
-      projectPath = path.dirname(currentOpenProjectPath);
-    } else if (global.currentProject && global.currentProject.path) {
-      projectPath = global.currentProject.path;
+    if (!compilationResult.success) {
+      throw new Error(compilationResult.message);
     }
     
-    if (!projectPath) {
-      throw new Error('No project path set. Please open a project first.');
+    // Create or update PRISM window with compilation data
+    const window = await createPrismWindow(compilationResult);
+    
+    if (!window) {
+      throw new Error('Failed to create PRISM window');
     }
     
-    console.log(`Working with project path: ${projectPath}`);
-    
-    // Create temp directory if it doesn't exist
-    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
-    await fse.ensureDir(tempDir);
-    
-    // Check toggle-ui button state (we'll get this from renderer)
-    const isProjectOriented = await getToggleUIState(event);
-    
-    let topLevelModule, configData;
-    
-    if (isProjectOriented) {
-      console.log('Running in Project Oriented mode...');
-      
-      // Case 1: Project Oriented Mode
-      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
-      
-      if (!await fse.pathExists(projectConfigPath)) {
-        throw new Error('projectOriented.json not found in project root');
-      }
-      
-      configData = await fse.readJson(projectConfigPath);
-      topLevelModule = path.basename(configData.topLevelFile, '.v');
-      
-      console.log(`Top level module: ${topLevelModule}`);
-      
-    } else {
-      console.log('Running in Processor Oriented mode...');
-      
-      // Case 2: Processor Oriented Mode
-      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
-      
-      if (!await fse.pathExists(processorConfigPath)) {
-        throw new Error('processorConfig.json not found in project root');
-      }
-      
-      configData = await fse.readJson(processorConfigPath);
-      
-      // Find active processor
-      const activeProcessor = configData.processors.find(proc => proc.isActive === true);
-      if (!activeProcessor) {
-        throw new Error('No active processor found in processorConfig.json');
-      }
-      
-      topLevelModule = activeProcessor.name;
-      console.log(`Active processor module: ${topLevelModule}`);
-    }
-    
-    // Run Yosys compilation
-    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
-    
-    // Split JSON into individual module files
-    await splitHierarchyJson(hierarchyJsonPath, tempDir);
-    
-    // Generate SVG for the top level module
-    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
-    
-    console.log('PRISM compilation completed successfully');
-    return { 
-      success: true, 
-      message: 'PRISM compilation completed successfully',
-      topLevelModule,
-      svgPath,
-      tempDir,
-      isProjectOriented
-    };
+    return compilationResult;
     
   } catch (error) {
     console.error('PRISM compilation error:', error);
@@ -2642,21 +2581,11 @@ ipcMain.handle('prism-compile', async (event) => {
   }
 });
 
-// Helper function to get toggle-ui button state from renderer
-async function getToggleUIState(event) {
-  // Send request to renderer to check button state
-  return new Promise((resolve) => {
-    event.sender.send('get-toggle-ui-state');
-    
-    // Listen for response
-    const responseHandler = (_, isActive) => {
-      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-      resolve(isActive);
-    };
-    
-    ipcMain.once('toggle-ui-state-response', responseHandler);
-  });
-}
+// IPC handler to check if PRISM window is open
+ipcMain.handle('is-prism-window-open', async (event) => {
+  return prismWindow && !prismWindow.isDestroyed();
+});
+
 
 // IPC handler for generating SVG from module click
 ipcMain.handle('generate-svg-from-module', async (event, moduleName, tempDir) => {
@@ -2700,6 +2629,28 @@ ipcMain.handle('get-available-modules', async (event, tempDir) => {
   }
 });
 
+// Handler for toggle UI state requests
+ipcMain.on('request-toggle-ui-state', (event) => {
+  console.log('Received request for toggle UI state');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // Send request to main window
+    mainWindow.webContents.send('get-toggle-ui-state');
+    
+    // Listen for response from main window
+    const responseHandler = (responseEvent, isActive) => {
+      console.log('Received toggle UI state response:', isActive);
+      // Forward response to requesting window (PRISM window)
+      event.sender.send('toggle-ui-state-response', isActive);
+      // Remove listener after use
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+    };
+    
+    ipcMain.once('toggle-ui-state-response', responseHandler);
+  } else {
+    console.warn('Main window not available, sending default false');
+    event.sender.send('toggle-ui-state-response', false);
+  }
+});
 
 // 2. MAIN PROCESS - Updated IPC handler for opening PRISM with compilation
 ipcMain.handle('open-prism-compile', async (event) => {
@@ -2723,7 +2674,7 @@ ipcMain.handle('open-prism-compile', async (event) => {
   }
 });
 
-// 3. MAIN PROCESS - Separate function to perform compilation
+// Separate function to perform compilation
 async function performPrismCompilation() {
   try {
     console.log('Starting PRISM compilation process...');
@@ -2733,8 +2684,8 @@ async function performPrismCompilation() {
     
     if (global.currentProjectPath) {
       projectPath = global.currentProjectPath;
-    } else if (currentOpenProjectPath) {
-      projectPath = path.dirname(currentOpenProjectPath);
+    } else if (global.currentOpenProjectPath) {
+      projectPath = path.dirname(global.currentOpenProjectPath);
     } else if (global.currentProject && global.currentProject.path) {
       projectPath = global.currentProject.path;
     }
@@ -2805,29 +2756,41 @@ async function performPrismCompilation() {
     return { success: false, message: error.message };
   }
 }
-
-// 4. MAIN PROCESS - Helper function to get toggle state from main window
+// Function to get toggle state from main window
 async function getToggleUIStateFromMain() {
   return new Promise((resolve) => {
-    if (mainWindow && mainWindow.webContents) {
-      const timeout = setTimeout(() => {
-        console.warn('Timeout getting toggle UI state, defaulting to false');
-        resolve(false);
-      }, 3000);
-      
-      const responseHandler = (event, isActive) => {
-        clearTimeout(timeout);
-        ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-        resolve(isActive);
-      };
-      
-      ipcMain.once('toggle-ui-state-response', responseHandler);
-      mainWindow.webContents.send('request-toggle-ui-state');
-    } else {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      console.warn('Main window not available, defaulting to false');
+      resolve(false);
+      return;
+    }
+    
+    const timeout = setTimeout(() => {
+      console.warn('Timeout getting toggle UI state, defaulting to false');
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+      resolve(false);
+    }, 5000);
+    
+    const responseHandler = (event, isActive) => {
+      clearTimeout(timeout);
+      console.log('Received toggle UI state:', isActive);
+      resolve(isActive);
+    };
+    
+    ipcMain.once('toggle-ui-state-response', responseHandler);
+    
+    try {
+      console.log('Requesting toggle UI state from main window');
+      mainWindow.webContents.send('get-toggle-ui-state');
+    } catch (error) {
+      clearTimeout(timeout);
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+      console.error('Error requesting toggle UI state:', error);
       resolve(false);
     }
   });
 }
+
 
 // Updated Yosys compilation function
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
@@ -2960,6 +2923,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
           if (stderr2) console.log('Yosys stderr:', stderr2);
           
           resolve(hierarchyJsonPath);
+          return hierarchyJsonPath;
         });
       } else if (error) {
         console.error('Yosys execution error:', error);
@@ -2971,6 +2935,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         if (stderr) console.log('Yosys stderr:', stderr);
         
         resolve(hierarchyJsonPath);
+        return hierarchyJsonPath;
       }
     });
   });
@@ -3102,6 +3067,7 @@ async function cleanupOldStubFiles(tempDir) {
     console.warn(`Could not clean up old stub files: ${error.message}`);
   }
 }
+
 // Sanitize file names to remove invalid characters
 function sanitizeFileName(fileName) {
   return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
@@ -3165,3 +3131,4 @@ async function generateModuleSVG(moduleName, tempDir) {
     });
   });
 }
+

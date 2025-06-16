@@ -29,6 +29,104 @@ const fileOperations = {
       console.error('Error opening GitHub Desktop:', err);
     }
   },
+ // PRISM compilation methods
+    prismCompile: () => {
+      console.log('prismCompile called');
+      return ipcRenderer.invoke('prism-compile');
+    },
+    
+    // Check if PRISM window is open
+    checkPrismWindowOpen: () => {
+      console.log('checkPrismWindowOpen called');
+      return ipcRenderer.invoke('is-prism-window-open');
+    },
+    
+    // Listen for PRISM window status
+    onPrismStatus: (callback) => {
+      console.log('onPrismStatus listener registered');
+      const handler = (event, isOpen) => {
+        console.log('prism-status event received:', isOpen);
+        callback(isOpen);
+      };
+      
+      ipcRenderer.on('prism-status', handler);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('prism-status', handler);
+      };
+    },
+    
+    // SVG generation from module
+    generateSVGFromModule: (moduleName, tempDir) => {
+      console.log('generateSVGFromModule called:', moduleName);
+      return ipcRenderer.invoke('generate-svg-from-module', moduleName, tempDir);
+    },
+    
+    // Get available modules
+    getAvailableModules: (tempDir) => {
+      console.log('getAvailableModules called');
+      return ipcRenderer.invoke('get-available-modules', tempDir);
+    },
+    
+    // Listen for compilation complete events
+    onCompilationComplete: (callback) => {
+      console.log('onCompilationComplete listener registered');
+      const handler = (event, data) => {
+        console.log('compilation-complete event received:', data);
+        callback(data);
+      };
+      
+      ipcRenderer.on('compilation-complete', handler);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('compilation-complete', handler);
+      };
+    },
+    
+    // CORREÇÃO: Listen for toggle UI state requests - corrigido
+    onGetToggleUIState: (callback) => {
+      console.log('onGetToggleUIState listener registered');
+      const handler = (event) => {
+        console.log('get-toggle-ui-state request received');
+        // Get the current state of toggle UI button
+        const toggleButton = document.getElementById('toggle-ui');
+        const isActive = toggleButton ? toggleButton.classList.contains('active') : false;
+        console.log('Current toggle UI state:', isActive);
+        
+        // Send response immediately
+        ipcRenderer.send('toggle-ui-state-response', isActive);
+        
+        // Also call the callback if provided
+        if (typeof callback === 'function') {
+          callback(isActive);
+        }
+      };
+      
+      ipcRenderer.on('get-toggle-ui-state', handler);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('get-toggle-ui-state', handler);
+      };
+    },
+    
+    // Send messages to main process
+    send: (channel, data) => {
+      console.log('send called:', channel, data);
+      ipcRenderer.send(channel, data);
+    },
+    
+    // Remove listeners (cleanup)
+    removeAllListeners: (channel) => {
+      console.log('removeAllListeners called:', channel);
+      ipcRenderer.removeAllListeners(channel);
+    },
+
+    compileForPRISM: () => window.electron.invoke('prism-compile'),
+
+
   quitApp: () => ipcRenderer.send('app-quit'),
 
   // Modal and dialog interactions
@@ -262,32 +360,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isDirectory: (path) => ipcRenderer.invoke('file:is-directory', path),
   showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
   fileExists: (path) => ipcRenderer.invoke('file:exists', path),
-
-      // Add these new functions to the electronAPI object:
-    getPrismProjectInfo: async () => {
-        // Primeiro tentar obter dos argumentos
-        const projectInfo = getProjectInfoFromArgs();
-        if (projectInfo) {
-            return projectInfo;
-        }
-        
-        // Se não conseguir, usar IPC
-        return await ipcRenderer.invoke('get-prism-project-info');
-    },
-    
-    generateModuleSVG: async (moduleName) => {
-        return await ipcRenderer.invoke('generate-module-svg', moduleName);
-    },
-    openPrismWindow: () => ipcRenderer.invoke('open-prism-window'),
-    openPrismCompile: async () => {
-    return ipcRenderer.invoke('open-prism-compile');
-  },
-
-  // Add these PRISM-related functions
-  prism: {
-    openPrism: () => ipcRenderer.invoke('open-prism'),
-  },
-  generateModuleSVG: (moduleName) => ipcRenderer.invoke('generate-module-svg', moduleName),
   
 
   // Store Operations
@@ -427,8 +499,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   
-// PRISM compilation methods
-prismCompile: () => ipcRenderer.invoke('prism-compile'),
 
 // Debug project path
 debugProjectPath: () => ipcRenderer.invoke('debug-project-path'),
@@ -470,13 +540,6 @@ onGetToggleUIState: (callback) => {
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
   ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
-
-   onPrismStatus: (callback) => {
-    // o canal 'prism-status' envia um boolean: true=open, false=closed
-    ipcRenderer.on('prism-status', (event, isOpen) => {
-      callback(isOpen);
-    });
-  },
 
 
   onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),

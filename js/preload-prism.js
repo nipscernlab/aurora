@@ -1,16 +1,37 @@
+// PRELOAD SCRIPT - Fixed preload-prism.js and main preload
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('PRISM Preload script loading...');
+console.log('Preload script loading...');
 
 try {
-  // Expose protected methods that allow the renderer process to use
-  // the ipcRenderer without exposing the entire object
   contextBridge.exposeInMainWorld('electronAPI', {
     // PRISM compilation methods
-    compileForPRISM: () => {
-      console.log('compileForPRISM called');
+    prismCompile: () => {
+      console.log('prismCompile called');
       return ipcRenderer.invoke('prism-compile');
     },
+    
+    // Check if PRISM window is open
+    checkPrismWindowOpen: () => {
+      console.log('checkPrismWindowOpen called');
+      return ipcRenderer.invoke('is-prism-window-open');
+    },
+    
+    // Listen for PRISM window status
+    onPrismStatus: (callback) => {
+      console.log('onPrismStatus listener registered');
+      ipcRenderer.on('prism-status', (event, isOpen) => {
+        console.log('prism-status event received:', isOpen);
+        callback(isOpen);
+      });
+      
+      // Remove listener cleanup
+      return () => {
+        ipcRenderer.removeAllListeners('prism-status');
+      };
+    },
+
+    compileForPRISM: () => window.electron.invoke('prism-compile'),
     
     // SVG generation from module
     generateSVGFromModule: (moduleName, tempDir) => {
@@ -31,6 +52,29 @@ try {
         console.log('compilation-complete event received:', data);
         callback(data);
       });
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeAllListeners('compilation-complete');
+      };
+    },
+    
+    // Listen for toggle UI state requests
+    onGetToggleUIState: (callback) => {
+      console.log('onGetToggleUIState listener registered');
+      ipcRenderer.on('get-toggle-ui-state', (event) => {
+        console.log('get-toggle-ui-state request received');
+        // Call the callback with a response function
+        callback((isActive) => {
+          console.log('Sending toggle UI state response:', isActive);
+          ipcRenderer.send('toggle-ui-state-response', isActive);
+        });
+      });
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeAllListeners('get-toggle-ui-state');
+      };
     },
     
     // Send messages to main process
@@ -46,28 +90,8 @@ try {
     }
   });
 
-  // Also expose the electron object for backward compatibility
-  contextBridge.exposeInMainWorld('electron', {
-    invoke: (channel, ...args) => {
-      console.log('electron.invoke called:', channel, args);
-      return ipcRenderer.invoke(channel, ...args);
-    },
-    on: (channel, callback) => {
-      console.log('electron.on called:', channel);
-      ipcRenderer.on(channel, callback);
-    },
-    send: (channel, data) => {
-      console.log('electron.send called:', channel, data);
-      ipcRenderer.send(channel, data);
-    },
-    removeAllListeners: (channel) => {
-      console.log('electron.removeAllListeners called:', channel);
-      ipcRenderer.removeAllListeners(channel);
-    }
-  });
-
-  console.log('PRISM Preload script loaded successfully');
+  console.log('Preload script loaded successfully');
 
 } catch (error) {
-  console.error('Error in PRISM preload script:', error);
+  console.error('Error in preload script:', error);
 }

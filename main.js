@@ -129,13 +129,24 @@ if (process.platform === 'win32') {
   });
   
   // Handle app quit
-  app.on('before-quit', () => {
-    isQuitting = true;
-     if (tray) {
+  app.on('before-quit', async () => {
+  isQuitting = true;
+
+  if (tray) {
     tray.destroy();
     tray = null;
   }
-  });
+
+  try {
+    const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+    await fs.rm(tempFolderPath, { recursive: true, force: true });
+    await fs.mkdir(tempFolderPath, { recursive: true });
+    console.log('Temp folder successfully cleared before quitting.');
+  } catch (error) {
+    console.error('Failed to clear Temp folder on app exit:', error);
+  }
+});
+
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
@@ -1051,11 +1062,12 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 #NUIOOU ${formData.outputPorts}
 #NBMANT ${formData.nbMantissa}
 #NBEXPO ${formData.nbExponent}
+#PIPELN ${formData.pipeln}
 #NUGAIN ${formData.gain}
 
 void main() 
 {
-
+    // He, he, he - Funcionou!
 }`;
 
         const cmmFilePath = path.join(softwarePath, `${formData.processorName}.cmm`);
@@ -2067,19 +2079,6 @@ app.whenReady().then(() => {
   }
 });
 
-// IPC handler to clear the Temp folder
-ipcMain.handle('clear-temp-folder', async () => {
-  try {
-    const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
-    await fs.rmdir(tempFolderPath, { recursive: true });
-    await fs.mkdir(tempFolderPath, { recursive: true }); // Recreate the empty folder
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to clear temp folder:', error);
-    throw error;
-  }
-});
-
 // Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
 // Handler for getting application information
@@ -2678,7 +2677,9 @@ ipcMain.handle('open-prism-compile', async (event) => {
 async function performPrismCompilation() {
   try {
     console.log('Starting PRISM compilation process...');
-    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process...', 'info');
+    }
     // Check if we have a current project using multiple sources
     let projectPath = null;
     
@@ -2702,7 +2703,9 @@ async function performPrismCompilation() {
     
     // Get toggle state from main window
     const isProjectOriented = await getToggleUIStateFromMain();
-    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Running in ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'} mode`, 'info');
+    }
     let topLevelModule, configData;
     
     if (isProjectOriented) {
@@ -2742,6 +2745,9 @@ async function performPrismCompilation() {
     const svgPath = await generateModuleSVG(topLevelModule, tempDir);
     
     console.log('PRISM compilation completed successfully');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+  mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
+}
     return { 
       success: true, 
       message: 'PRISM compilation completed successfully',
@@ -2756,6 +2762,9 @@ async function performPrismCompilation() {
     return { success: false, message: error.message };
   }
 }
+
+
+
 // Function to get toggle state from main window
 async function getToggleUIStateFromMain() {
   return new Promise((resolve) => {
@@ -2792,10 +2801,12 @@ async function getToggleUIStateFromMain() {
 }
 
 
-// Updated Yosys compilation function
+// 1. Add processor files to Yosys compilation
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
   console.log('Running Yosys compilation...');
-  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', `Top level module: ${topLevelModule}`, 'info');
+  }
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   
   // Build file list for Yosys
@@ -2812,6 +2823,40 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       !file.toLowerCase().includes('test')
     );
     fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
+  }
+  
+  // Add processor files from processorConfig.json
+  const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+  if (await fse.pathExists(processorConfigPath)) {
+    const processorConfig = await fse.readJson(processorConfigPath);
+    
+    if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
+      for (const processor of processorConfig.processors) {
+        const processorName = processor.name;
+        const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
+        const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
+        
+        if (await fse.pathExists(processorVFile)) {
+          fileList.push(processorVFile);
+          console.log(`Added processor file: ${processorVFile}`);
+        } else {
+          console.warn(`Processor file not found: ${processorVFile}`);
+        }
+        
+        // Also add other Hardware files from the processor directory
+        if (await fse.pathExists(processorHardwareDir)) {
+          const hardwareFiles = await fse.readdir(processorHardwareDir);
+          const vFiles = hardwareFiles.filter(file => 
+            file.endsWith('.v') && 
+            !file.includes('_tb') && 
+            !file.includes('_testbench') &&
+            !file.toLowerCase().includes('test') &&
+            file !== `${processorName}.v` // Don't add the main processor file twice
+          );
+          fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+        }
+      }
+    }
   }
   
   if (isProjectOriented) {
@@ -2837,28 +2882,6 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       if (await fse.pathExists(topLevelFilePath)) {
         fileList.push(topLevelFilePath);
       }
-    }
-  } else {
-    // Processor Oriented Mode: Include only the active processor's Hardware files
-    const processorConfigPath = path.join(projectPath, 'processorConfig.json');
-    const processorConfig = await fse.readJson(processorConfigPath);
-    
-    const activeProcessor = processorConfig.processors.find(proc => proc.isActive === true);
-    const processorName = activeProcessor.name;
-    
-    const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
-    if (await fse.pathExists(processorHardwareDir)) {
-      const hardwareFiles = await fse.readdir(processorHardwareDir);
-      const vFiles = hardwareFiles.filter(file => 
-        file.endsWith('.v') && 
-        !file.includes('_tb') && 
-        !file.includes('_testbench') &&
-        !file.toLowerCase().includes('test')
-      );
-      fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
-      console.log(`Added ${vFiles.length} files from ${processorHardwareDir}`);
-    } else {
-      console.warn(`Hardware directory not found: ${processorHardwareDir}`);
     }
   }
   
@@ -2939,6 +2962,90 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       }
     });
   });
+}
+
+// 2. Function to clean module names
+function cleanModuleName(moduleName) {
+  // Remove $paramod prefixes and hash suffixes
+  let cleanName = moduleName;
+  
+  // Handle $paramod patterns
+  if (cleanName.startsWith('$paramod')) {
+    // Extract the actual module name from $paramod patterns
+    if (cleanName.includes('\\\\')) {
+      // Pattern: $paramod$hash\\moduleName or $paramod\\moduleName\\params
+      const parts = cleanName.split('\\\\');
+      if (parts.length >= 2) {
+        cleanName = parts[1];
+        // Remove parameter specifications if present
+        if (cleanName.includes('\\')) {
+          cleanName = cleanName.split('\\')[0];
+        }
+      }
+    } else if (cleanName.includes('\\')) {
+      // Pattern: $paramod\moduleName\params
+      const parts = cleanName.split('\\');
+      if (parts.length >= 2) {
+        cleanName = parts[1];
+      }
+    }
+  }
+  
+  // Remove hash patterns like $747e370037f20148f8b166e3c93decd0b83cff70
+  cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
+  
+  // Remove parameter specifications like NUBITS=s32'00000000000000000000000000100000
+  cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
+  
+  // Clean up any remaining backslashes or dollar signs at the beginning
+  cleanName = cleanName.replace(/^[\\\$]+/, '');
+  
+  return cleanName;
+}
+
+// 3. Function to check if a module is clickable (actual module, not internal construct)
+function isClickableModule(moduleName) {
+  // Skip internal Yosys constructs and primitives
+  const skipPatterns = [
+    /^\$_/,           // Internal gates like $_AND_, $_OR_, etc.
+    /^\$dff/,         // Flip-flop primitives
+    /^\$mux/,         // Mux primitives
+    /^\$add/,         // Arithmetic primitives
+    /^\$sub/,         // Arithmetic primitives
+    /^\$mul/,         // Arithmetic primitives
+    /^\$div/,         // Arithmetic primitives
+    /^\$mod/,         // Arithmetic primitives
+    /^\$eq/,          // Comparison primitives
+    /^\$ne/,          // Comparison primitives
+    /^\$lt/,          // Comparison primitives
+    /^\$le/,          // Comparison primitives
+    /^\$gt/,          // Comparison primitives
+    /^\$ge/,          // Comparison primitives
+    /^\$and/,         // Logic primitives
+    /^\$or/,          // Logic primitives
+    /^\$xor/,         // Logic primitives
+    /^\$not/,         // Logic primitives
+    /^\$reduce/,      // Reduction operators
+    /^\$logic/,       // Logic operators
+    /^\$shift/,       // Shift operators
+    /^\$pmux/,        // Priority mux
+    /^\$lut/,         // LUT primitives
+    /^\$assert/,      // Assertion primitives
+    /^\$assume/,      // Assumption primitives
+    /^\$cover/,       // Coverage primitives
+    /^\$specify/      // Specify blocks
+  ];
+  
+  // Check if module name matches any skip pattern
+  for (const pattern of skipPatterns) {
+    if (pattern.test(moduleName)) {
+      return false;
+    }
+  }
+  
+  // Module is clickable if it starts with $paramod or is a user-defined module name
+  return moduleName.startsWith('$paramod') || 
+         (!moduleName.startsWith('$') && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(moduleName));
 }
 
 // Function to analyze dependencies and create stub modules for missing ones
@@ -3073,7 +3180,7 @@ function sanitizeFileName(fileName) {
   return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }
 
-// Split hierarchy JSON into individual module files
+// 4. Updated split hierarchy function with module filtering
 async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
   console.log('Splitting hierarchy JSON into individual module files...');
   
@@ -3083,20 +3190,43 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
     throw new Error('No modules found in hierarchy JSON');
   }
   
-  // Create individual JSON files for each module
+  // Create individual JSON files for each clickable module
   for (const [moduleName, moduleData] of Object.entries(hierarchyData.modules)) {
-    const cleanModuleName = sanitizeFileName(moduleName);
-    const moduleFilePath = path.join(tempDir, `${cleanModuleName}.json`);
-    
-    const moduleJson = {
-      creator: hierarchyData.creator || "Yosys",
-      modules: {
-        [moduleName]: moduleData
+    if (isClickableModule(moduleName)) {
+      const cleanName = cleanModuleName(moduleName);
+      const sanitizedName = sanitizeFileName(cleanName);
+      const moduleFilePath = path.join(tempDir, `${sanitizedName}.json`);
+      
+      // Create a clean module entry with cleaned names
+      const cleanModuleData = JSON.parse(JSON.stringify(moduleData));
+      
+      // Clean cell names in the module data
+      if (cleanModuleData.cells) {
+        const cleanedCells = {};
+        for (const [cellName, cellData] of Object.entries(cleanModuleData.cells)) {
+          const cleanCellName = cleanModuleName(cellName);
+          cleanedCells[cleanCellName] = cellData;
+          
+          // Also clean the type if it's a module reference
+          if (cellData.type && isClickableModule(cellData.type)) {
+            cellData.type = cleanModuleName(cellData.type);
+          }
+        }
+        cleanModuleData.cells = cleanedCells;
       }
-    };
-    
-    await fse.writeJson(moduleFilePath, moduleJson, { spaces: 2 });
-    console.log(`Created module file: ${moduleFilePath}`);
+      
+      const moduleJson = {
+        creator: hierarchyData.creator || "Yosys",
+        modules: {
+          [cleanName]: cleanModuleData
+        }
+      };
+      
+      await fse.writeJson(moduleFilePath, moduleJson, { spaces: 2 });
+      console.log(`Created module file: ${moduleFilePath} (${cleanName})`);
+    } else {
+      console.log(`Skipped non-clickable module: ${moduleName}`);
+    }
   }
 }
 

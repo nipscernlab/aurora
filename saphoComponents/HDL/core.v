@@ -307,12 +307,11 @@ endmodule
 
 module mem_ctrl
 #(
+	parameter PIPELN = 3,
 	parameter NUBITS = 8,
 	parameter MDATAW = 8,
 	parameter FFTSIZ = 3,
 
-	parameter STI    = 0,
-	parameter LDI    = 0,
 	parameter ISI    = 0,
 	parameter ILI    = 0
 )(
@@ -329,10 +328,12 @@ module mem_ctrl
 assign mem_data_wr = ula;
 assign mem_wr      = wr;
 
-reg [MDATAW-1:0] ular; always @ (posedge clk) ular <= ula[MDATAW-1:0];
+reg [MDATAW-1:0] ular;
 
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(3), .USEFFT(ISI)) ra_rd(ldi, fft, ular    , base_addr, mem_addr_rd);
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(3), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst, base_addr, mem_addr_wr);
+generate if (PIPELN>7) always @ (posedge clk) ular <= ula[MDATAW-1:0]; else always @ (*) ular = ula[MDATAW-1:0]; endgenerate
+
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_rd(ldi, fft, ular    , base_addr, mem_addr_rd);
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst, base_addr, mem_addr_wr);
 
 endmodule
 
@@ -376,146 +377,193 @@ module core
 	// -------------------------------------------------------------------------
 
 	// fluxo de dados
-	parameter NBOPCO = 7,               // Numero de bits de opcode (nao mudar sem ver o instr_decoder)
-	parameter NBOPER = 9,               // Numero de bits de operando
-	parameter ITRADD = 0,               // Endereco da interrupcao
+	parameter  PIPELN = 3,               // Numero de ciclos de pipeline (0 = sem pipeline)
+	parameter  NBOPCO = 7,               // Numero de bits de opcode (nao mudar sem ver o instr_decoder)
+	parameter  NBOPER = 9,               // Numero de bits de operando
+	parameter  ITRADD = 0,               // Endereco da interrupcao
 
 	// memorias
-	parameter MDATAW = 9,               // Numero de bits de endereco da memoria de dados
-	parameter MINSTW = 9,               // Numero de bits de endereco da memoria de instrucao
-	parameter NBINST = NBOPCO + NBOPER, // Numero de bits da memoria de instrucao
+	parameter  MDATAW = 9,               // Numero de bits de endereco da memoria de dados
+	parameter  MINSTW = 9,               // Numero de bits de endereco da memoria de instrucao
+	parameter  NBINST = NBOPCO + NBOPER, // Numero de bits da memoria de instrucao
 
 	// -------------------------------------------------------------------------
 	// Parametros configurados pelo usuario ------------------------------------
 	// -------------------------------------------------------------------------
 
 	// fluxo de dados
-	parameter NUBITS = 32,              // Numero de bits de dados
-	parameter NBMANT = 23,              // Numero de bits da mantissa
-	parameter NBEXPO =  8,              // Numero de bits do expoente
+	parameter  NUBITS = 32,              // Numero de bits de dados
+	parameter  NBMANT = 23,              // Numero de bits da mantissa
+	parameter  NBEXPO =  8,              // Numero de bits do expoente
 
 	// memorias
-	parameter SDEPTH = 10,              // Tamanho da pilha de instrucao
-	parameter DDEPTH = 10,              // Tamanho da pilha de dados
+	parameter  SDEPTH = 10,              // Tamanho da pilha de instrucao
+	parameter  DDEPTH = 10,              // Tamanho da pilha de dados
 
 	// entradas e Saidas
-	parameter NBIOIN =  2,              // Numero de bits de enderecos de IO - entrada
-	parameter NBIOOU =  2,              // Numero de bits de enderecos de IO - saida
+	parameter  NBIOIN =  2,              // Numero de bits de enderecos de IO - entrada
+	parameter  NBIOOU =  2,              // Numero de bits de enderecos de IO - saida
 
 	// constantes aritmeticas
-	parameter NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
-	parameter FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
+	parameter  NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
+	parameter  FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
 
 	// -------------------------------------------------------------------------
 	// Parametros configurados dinamicamente -----------------------------------
 	// -------------------------------------------------------------------------
 
-	// implementa enderecamento indireto
-	parameter   LDI   = 0,
-	parameter   ILI   = 0,
-	parameter   STI   = 0,
-	parameter   ISI   = 0,
+	// implementa leitura/escrita na memoria
+	parameter    LOD   = 0,
+	parameter  P_LOD   = 0,
+	
+	parameter    LDI   = 0,
+	parameter    ILI   = 0,
+	
+	parameter    SET   = 0,
+	parameter    SET_P = 0,
+	
+	parameter    STI   = 0,
+	parameter    ISI   = 0,
+
+	// implementa interface com a pilha de dados
+	parameter    PSH   = 0,
+	parameter    POP   = 0,
 
 	// implementa portas de I/O
-	parameter   INN   = 0,
-	parameter P_INN   = 0,
-	parameter   OUT   = 0,
+	parameter    INN   = 0,
+	parameter  P_INN   = 0,
+	parameter    OUT   = 0,
 	
 	// implementa saltos
-	parameter   JIZ   = 0,
-	parameter   CAL   = 0,
+	parameter    JIZ   = 0,
+	parameter    CAL   = 0,
 
 	// operacoes aritmeticas de dois parametros
-	parameter   ADD   = 0,
-	parameter F_ADD   = 0,
+	parameter    ADD   = 0,
+	parameter  S_ADD   = 0,
+	parameter  F_ADD   = 0,
+	parameter SF_ADD   = 0,
 
-	parameter   MLT   = 0,
-	parameter F_MLT   = 0,
+	parameter    MLT   = 0,
+	parameter  S_MLT   = 0,
+	parameter  F_MLT   = 0,
+	parameter SF_MLT   = 0,
 
-	parameter   DIV   = 0,
-	parameter F_DIV   = 0,
+	parameter    DIV   = 0,
+	parameter  S_DIV   = 0,
+	parameter  F_DIV   = 0,
+	parameter SF_DIV   = 0,
 
-	parameter   MOD   = 0,
+	parameter    MOD   = 0,
+	parameter  S_MOD   = 0,
 
-	parameter   SGN   = 0,
-	parameter F_SGN   = 0,
+	parameter    SGN   = 0,
+	parameter  S_SGN   = 0,
+	parameter  F_SGN   = 0,
+	parameter SF_SGN   = 0,
 
 	// operacoes aritmeticas de um parametro
-	parameter   NEG   = 0,
-	parameter   NEG_M = 0,
-	parameter F_NEG   = 0,
-	parameter F_NEG_M = 0,
+	parameter    NEG   = 0,
+	parameter    NEG_M = 0,
+	parameter  P_NEG_M = 0,
+	parameter  F_NEG   = 0,
+	parameter  F_NEG_M = 0,
+	parameter PF_NEG_M = 0,
 
-	parameter   ABS   = 0,
-	parameter   ABS_M = 0,
-	parameter F_ABS   = 0,
-	parameter F_ABS_M = 0,
+	parameter    ABS   = 0,
+	parameter    ABS_M = 0,
+	parameter  P_ABS_M = 0,
+	parameter  F_ABS   = 0,
+	parameter  F_ABS_M = 0,
+	parameter PF_ABS_M = 0,
 
-	parameter   PST   = 0,
-	parameter   PST_M = 0,
-	parameter F_PST   = 0,
-	parameter F_PST_M = 0,
+	parameter    PST   = 0,
+	parameter    PST_M = 0,
+	parameter  P_PST_M = 0,
+	parameter  F_PST   = 0,
+	parameter  F_PST_M = 0,
+	parameter PF_PST_M = 0,
 
-	parameter   NRM   = 0,
-	parameter   NRM_M = 0,
+	parameter    NRM   = 0,
+	parameter    NRM_M = 0,
+	parameter  P_NRM_M = 0,
 
-	parameter   I2F   = 0,
-	parameter   I2F_M = 0,
+	parameter    I2F   = 0,
+	parameter    I2F_M = 0,
+	parameter  P_I2F_M = 0,
 
-	parameter   F2I   = 0,
-	parameter   F2I_M = 0,
+	parameter    F2I   = 0,
+	parameter    F2I_M = 0,
+	parameter  P_F2I_M = 0,
 
 	// operacoes logicas de dois parametros
-	parameter   AND   = 0,
-	parameter   ORR   = 0,
-	parameter   XOR   = 0,
+	parameter    AND   = 0,
+	parameter  S_AND   = 0,
+	parameter    ORR   = 0,
+	parameter  S_ORR   = 0,
+	parameter    XOR   = 0,
+	parameter  S_XOR   = 0,
 
 	// operacoes logicas de um parametro
-	parameter   INV   = 0,
-	parameter   INV_M = 0,
+	parameter    INV   = 0,
+	parameter    INV_M = 0,
+	parameter  P_INV_M = 0,
 
 	// operacoes condicionais de dois parametros
-	parameter   LAN   = 0,
-	parameter   LOR   = 0,
+	parameter    LAN   = 0,
+	parameter  S_LAN   = 0,
+	parameter    LOR   = 0,
+	parameter  S_LOR   = 0,
 	
 	// operacoes condicionais de um parametro
-	parameter   LIN   = 0,
-	parameter   LIN_M = 0,
+	parameter    LIN   = 0,
+	parameter    LIN_M = 0,
+	parameter  P_LIN_M = 0,
 
 	// operacoes de comparacao
-	parameter   LES   = 0,
-	parameter F_LES   = 0,
+	parameter    LES   = 0,
+	parameter  S_LES   = 0,
+	parameter  F_LES   = 0,
+	parameter SF_LES   = 0,
 
-	parameter   GRE   = 0,
-	parameter F_GRE   = 0,
+	parameter    GRE   = 0,
+	parameter  S_GRE   = 0,
+	parameter  F_GRE   = 0,
+	parameter SF_GRE   = 0,
 
-	parameter   EQU   = 0,
+	parameter    EQU   = 0,
+	parameter  S_EQU   = 0,
 
 	// operacoes de deslocamento de bits
-	parameter   SHL   = 0,
-	parameter   SHR   = 0,
-	parameter   SRS   = 0
+	parameter    SHL   = 0,
+	parameter  S_SHL   = 0,
+
+	parameter    SHR   = 0,
+	parameter  S_SHR   = 0,
+
+	parameter    SRS   = 0,
+	parameter  S_SRS   = 0
 )(
-	input                   clk, rst,
+	input               clk, rst,
 
-	input      [NBINST-1:0] instr,
-	output     [MINSTW-1:0] instr_addr,
+	input  [NBINST-1:0] instr,
+	output [MINSTW-1:0] instr_addr,
 
-	output                  mem_wr,
-	output     [MDATAW-1:0] mem_addr_rd, mem_addr_wr,
-	input      [NUBITS-1:0] mem_data_rd,
-	output     [NUBITS-1:0] mem_data_wr,
+	output              mem_wr,
+	output [MDATAW-1:0] mem_addr_rd, mem_addr_wr,
+	input  [NUBITS-1:0] mem_data_rd,
+	output [NUBITS-1:0] mem_data_wr,
 
-	input      [NUBITS-1:0] io_in,
-	output     [NBIOIN-1:0] addr_in,
-	output     [NBIOOU-1:0] addr_out,
-	output                  req_in,
-	output                  out_en,
+	input  [NUBITS-1:0] io_in,
+	output [NBIOIN-1:0] addr_in,
+	output [NBIOOU-1:0] addr_out,
+	output              req_in,
+	output              out_en,
 
-	input                   itr
+	input               itr
 
 `ifdef __ICARUS__ // ----------------------------------------------------------
- , output     [MINSTW        -1:0] pc_sim_val
+ , output [MINSTW-1:0] pc_sim_val
 `endif // ---------------------------------------------------------------------
 );
 
@@ -543,7 +591,7 @@ instr_fetch #(
 	                                .operand(if_operand)
 	
 `ifdef __ICARUS__ // ----------------------------------------------------------
-                                 , .pc_sim_val(pc_sim_val)
+                               , .pc_sim_val(pc_sim_val)
 `endif // ---------------------------------------------------------------------
 );
 
@@ -556,17 +604,105 @@ wire              id_dsp_push, id_dsp_pop;
 wire              id_sti, id_ldi, id_fft, id_wr;
 wire              id_req_in, id_out_en;
 
-instr_dec #(.NBOPCO(NBOPCO),
-            .MDATAW(MDATAW),
-			  .INN(  INN  ),
-			.P_INN(P_INN  ),
-			  .OUT(  OUT  )) id(clk, rst,
-                                id_opcode,
-                                id_dsp_push, id_dsp_pop,
-                                id_ula_op,
-                                id_wr,
-                                id_req_in, id_out_en,
-                                id_sti, id_ldi, id_fft);
+instr_dec #(.PIPELN  ( PIPELN ),
+            .NBOPCO  ( NBOPCO ),
+            .MDATAW  ( MDATAW ),
+			   .LOD  (   LOD  ),
+			 .P_LOD  ( P_LOD  ),
+			   .LDI  (   LDI  ),
+			   .ILI  (   ILI  ),
+			   .SET  (   SET  ),
+			   .SET_P(   SET_P),
+			   .STI  (   STI  ),
+			   .ISI  (   ISI  ),
+			   .PSH  (   PSH  ),
+			   .POP  (   POP  ),
+			   .INN  (   INN  ),
+			 .P_INN  ( P_INN  ),
+			   .OUT  (   OUT  ),
+			   .ADD  (   ADD  ),
+			 .S_ADD  ( S_ADD  ),
+			 .F_ADD  ( F_ADD  ),
+			.SF_ADD  (SF_ADD  ),
+			   .MLT  (   MLT  ),
+			 .S_MLT  ( S_MLT  ),
+			 .F_MLT  ( F_MLT  ),
+			.SF_MLT  (SF_MLT  ),
+			   .DIV  (   DIV  ),
+			 .S_DIV  ( S_DIV  ),
+			 .F_DIV  ( F_DIV  ),
+			.SF_DIV  (SF_DIV  ),
+			   .MOD  (   MOD  ),
+			 .S_MOD  ( S_MOD  ),
+			   .SGN  (   SGN  ),
+			 .S_SGN  ( S_SGN  ),
+			 .F_SGN  ( F_SGN  ),
+			.SF_SGN  (SF_SGN  ),
+			   .NEG  (   NEG  ),
+			   .NEG_M(   NEG_M),
+			 .P_NEG_M( P_NEG_M),
+			 .F_NEG  ( F_NEG  ),
+			 .F_NEG_M( F_NEG_M),
+			.PF_NEG_M(PF_NEG_M),
+			   .ABS  (   ABS  ),
+			   .ABS_M(   ABS_M),
+			 .P_ABS_M( P_ABS_M),
+			 .F_ABS  ( F_ABS  ),
+			 .F_ABS_M(F_ABS_M ),
+			.PF_ABS_M(PF_ABS_M),
+			   .PST  (   PST  ),
+			   .PST_M(   PST_M),
+			 .P_PST_M( P_PST_M),
+			 .F_PST  ( F_PST  ),
+			 .F_PST_M(F_PST_M ),
+			.PF_PST_M(PF_PST_M),
+			   .NRM  (   NRM  ),
+			   .NRM_M(   NRM_M),
+			 .P_NRM_M( P_NRM_M),
+			   .I2F  (   I2F  ),
+			   .I2F_M(   I2F_M),
+			 .P_I2F_M( P_I2F_M),
+			   .F2I  (   F2I  ),
+			   .F2I_M(   F2I_M),
+			 .P_F2I_M( P_F2I_M),
+			   .AND  (   AND  ),
+			 .S_AND  ( S_AND  ),
+			   .ORR  (   ORR  ),
+			 .S_ORR  ( S_ORR  ),
+			   .XOR  (   XOR  ),
+			 .S_XOR  ( S_XOR  ),
+			   .INV  (   INV  ),
+			   .INV_M(   INV_M),
+			 .P_INV_M( P_INV_M),
+			   .LAN  (   LAN  ),
+			 .S_LAN  ( S_LAN  ),
+			   .LOR  (   LOR  ),
+			 .S_LOR  ( S_LOR  ),
+			   .LIN  (   LIN  ),
+			   .LIN_M(   LIN_M),
+			 .P_LIN_M( P_LIN_M),
+			   .LES  (   LES  ),
+			 .S_LES  ( S_LES  ),
+			 .F_LES  ( F_LES  ),
+			.SF_LES  (SF_LES  ),
+			   .GRE  (   GRE  ),
+			 .S_GRE  ( S_GRE  ),
+			 .F_GRE  ( F_GRE  ),
+			.SF_GRE  (SF_GRE  ),
+			   .EQU  (   EQU  ),
+			 .S_EQU  ( S_EQU  ),
+			   .SHL  (   SHL  ),
+			 .S_SHL  ( S_SHL  ),
+			   .SHR  (   SHR  ),
+			 .S_SHR  ( S_SHR  ),
+			   .SRS  (   SRS  ),
+			 .S_SRS  ( S_SRS  )) id(clk, rst,
+                                    id_opcode,
+                                    id_dsp_push, id_dsp_pop,
+                                    id_ula_op,
+                                    id_wr,
+                                    id_req_in, id_out_en,
+                                    id_ldi, id_sti, id_fft);
 
 // Pilha de dados -------------------------------------------------------------
 
@@ -587,61 +723,62 @@ wire [NUBITS-1:0] uic_acc;
 ula_in1_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic1 (clk, id_dsp_pop, mem_data_rd, stack_data, ula_data_in1);
 generate if (INN | P_INN)
 ula_in2_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic2 (clk, id_req_in ,     uic_acc, io_in     , ula_data_in2);
-else assign ula_data_in2 = ula_acc;
+else assign ula_data_in2 = racc;
 endgenerate
 
 // Unidade Logico-Aritmetica --------------------------------------------------
 
 wire signed [NUBITS-1:0] ula_out;
 
-ula #(.NUBITS (NUBITS ),
+ula #(.PIPELN (PIPELN ),
+	  .NUBITS (NUBITS ),
       .NBMANT (NBMANT ),
       .NBEXPO (NBEXPO ),
       .NUGAIN (NUGAIN ),
-        .ADD  (  ADD  ),
-      .F_ADD  (F_ADD  ),
-        .MLT  (  MLT  ),
-      .F_MLT  (F_MLT  ),
-        .DIV  (  DIV  ),
-      .F_DIV  (F_DIV  ),
-        .MOD  (  MOD  ),
-        .SGN  (  SGN  ),
-      .F_SGN  (F_SGN  ),
-        .NEG  (  NEG  ),
-        .NEG_M(  NEG_M),
-      .F_NEG  (F_NEG  ),
-      .F_NEG_M(F_NEG_M),
-        .ABS  (  ABS  ),
-        .ABS_M(  ABS_M),
-      .F_ABS  (F_ABS  ),
-      .F_ABS_M(F_ABS_M),
-        .PST  (  PST  ),
-        .PST_M(  PST_M),
-      .F_PST  (F_PST  ),
-      .F_PST_M(F_PST_M),
-        .NRM  (  NRM  ),
-        .NRM_M(  NRM_M),
-        .I2F  (  I2F  ),
-        .I2F_M(  I2F_M),
-        .F2I  (  F2I  ),
-        .F2I_M(  F2I_M),
-        .AND  (  AND  ),
-        .ORR  (  ORR  ),
-        .XOR  (  XOR  ),
-        .INV  (  INV  ),
-        .INV_M(  INV_M),
-        .LAN  (  LAN  ),
-        .LOR  (  LOR  ),
-        .LIN  (  LIN  ),
-        .LIN_M(  LIN_M),
-        .LES  (  LES  ),
-      .F_LES  (F_LES  ),
-        .GRE  (  GRE  ),
-      .F_GRE  (F_GRE  ),
-        .EQU  (  EQU  ),
-        .SHL  (  SHL  ),
-        .SHR  (  SHR  ),
-        .SRS  (  SRS  )) ula (clk, id_ula_op, ula_data_in1, ula_data_in2, ula_out);
+        .ADD  (  ADD   |  S_ADD  ),
+	  .F_ADD  (F_ADD   | SF_ADD  ),
+        .MLT  (  MLT   |  S_MLT  ),
+      .F_MLT  (F_MLT   | SF_MLT  ),
+        .DIV  (  DIV   |  S_DIV  ),
+      .F_DIV  (F_DIV   | SF_DIV  ),
+        .MOD  (  MOD   |  S_MOD  ),
+        .SGN  (  SGN   |  S_SGN  ),
+      .F_SGN  (F_SGN   | SF_SGN  ),
+        .NEG  (  NEG             ),
+        .NEG_M(  NEG_M |  P_NEG_M),
+      .F_NEG  (F_NEG             ),
+      .F_NEG_M(F_NEG_M | PF_NEG_M),
+        .ABS  (  ABS             ),
+        .ABS_M(  ABS_M |  P_ABS_M),
+      .F_ABS  (F_ABS             ),
+      .F_ABS_M(F_ABS_M | PF_ABS_M),
+        .PST  (  PST             ),
+        .PST_M(  PST_M |  P_PST_M),
+      .F_PST  (F_PST             ),
+      .F_PST_M(F_PST_M | PF_PST_M),
+        .NRM  (  NRM             ),
+        .NRM_M(  NRM_M |  P_NRM_M),
+        .I2F  (  I2F             ),
+        .I2F_M(  I2F_M |  P_I2F_M),
+        .F2I  (  F2I             ),
+        .F2I_M(  F2I_M |  P_F2I_M),
+        .AND  (  AND   |  S_AND  ),
+        .ORR  (  ORR   |  S_ORR  ),
+        .XOR  (  XOR   |  S_XOR  ),
+        .INV  (  INV             ),
+        .INV_M(  INV_M |  P_INV_M),
+        .LAN  (  LAN   |  S_LAN  ),
+        .LOR  (  LOR   |  S_LOR  ),
+        .LIN  (  LIN             ),
+        .LIN_M(  LIN_M |  P_LIN_M),
+        .LES  (  LES   |  S_LES  ),
+      .F_LES  (F_LES   | SF_LES  ),
+        .GRE  (  GRE   |  S_GRE  ),
+      .F_GRE  (F_GRE   | SF_GRE  ),
+        .EQU  (  EQU   |  S_EQU  ),
+        .SHL  (  SHL   |  S_SHL  ),
+        .SHR  (  SHR   |  S_SHR  ),
+        .SRS  (  SRS   |  S_SRS  )) ula (clk, id_ula_op, ula_data_in1, ula_data_in2, ula_out);
 
 assign sp_in = ula_out;
 
@@ -651,9 +788,8 @@ reg signed [NUBITS-1:0] racc;
 
 always @ (posedge clk or posedge rst) if (rst) racc <= 0; else racc <= ula_out;
 
-wire signed [NUBITS-1:0] ula_acc = racc;
-assign                   uic_acc = racc;
-assign                    if_acc = ula_out[0];
+assign uic_acc = racc;
+assign  if_acc = ula_out[0];
 
 // Enderecamento Indireto -----------------------------------------------------
 
@@ -661,10 +797,10 @@ wire [MDATAW-1:0] rf;
 
 generate
 	if (STI | LDI | ILI | ISI) begin
-		mem_ctrl #(.NUBITS(NUBITS),
+		mem_ctrl #(.PIPELN(PIPELN),
+		           .NUBITS(NUBITS),
 		           .MDATAW(MDATAW),
 		           .FFTSIZ(FFTSIZ),
-		           .STI(STI),.LDI(LDI),
 		           .ILI(ILI),.ISI(ISI)) ac(clk, id_sti, id_ldi, id_fft, id_wr,
 		                                   ula_out,
 		                                   if_operand[MDATAW-1:0], stack_data[MDATAW-1:0],
@@ -688,8 +824,8 @@ io_ctrl #(.MDATAW(MDATAW),
                               if_operand[MDATAW-1:0],
                               req_in, addr_in, out_en, addr_out);
 else begin
-assign req_in = 1'b0;
-assign out_en = 1'b0;
+assign req_in   = 1'b0;
+assign out_en   = 1'b0;
 assign addr_in  = {NBIOIN{1'b0}};
 assign addr_out = {NBIOOU{1'b0}};
 end endgenerate

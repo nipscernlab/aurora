@@ -313,8 +313,6 @@ const projectOperations = {
   onUpdateProgress: (callback) => {
     ipcRenderer.on('update-progress', (event, data) => callback(data));
   },
-  clearTempFolder: () => ipcRenderer.invoke('clear-temp-folder'),
-
  
 };
 
@@ -584,6 +582,16 @@ ipcRenderer.on('project-opened', (event, projectPath) => {
   currentProjectPath = projectPath;
 });
 
+// Add to existing IPC handlers
+ipcRenderer.on('terminal-log', (event, terminal, message, type) => {
+  window.postMessage({ 
+    type: 'terminal-log', 
+    terminal, 
+    message, 
+    logType: type 
+  }, '*');
+});
+
 const VERILOG_PATH = path.join(__dirname, 'saphoComponents', 'Packages', 'modules', 'verilog');
 
 contextBridge.exposeInMainWorld('verilogAPI', {
@@ -616,3 +624,4 @@ function getProjectInfoFromArgs() {
         return null;
     }
 }
+

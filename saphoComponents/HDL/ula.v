@@ -39,7 +39,7 @@ module ula_mux
 	 // operacoes de deslocamento de bits
 	 input     [NUBITS-1:0] shl , shr , srs ,        // <<, >> e >>>
 	 // operacoes vindas do circuito de normalizacao
-	 input     [NUBITS-1:0] smx ,
+	 input     [NUBITS-1:0] smx ,                    // soh pra float com denorm.
 	 // saida
 	output reg [NUBITS-1:0] out
 );
@@ -125,8 +125,9 @@ endmodule
 
 module ula_denorm
 #(
-	parameter MAN = 23,
-	parameter EXP = 8
+	parameter PIPELN =  3,
+	parameter MAN    = 23,
+	parameter EXP    =  8
 )(
 	 input                        clk,
 	 input            [MAN+EXP:0] in1, in2,
@@ -134,8 +135,16 @@ module ula_denorm
 	output reg signed [MAN    :0] sm1_out, sm2_out
 );
 
-reg [MAN+EXP:0] in1r; always @ (posedge clk) in1r <= in1;
-reg [MAN+EXP:0] in2r; always @ (posedge clk) in2r <= in2;
+reg [MAN+EXP:0] in1r;
+reg [MAN+EXP:0] in2r;
+
+generate if (PIPELN>7) begin
+	always @ (posedge clk) in1r <= in1;
+	always @ (posedge clk) in2r <= in2;
+end else begin : gen_no_pipe
+	always @ (*) in1r = in1;
+	always @ (*) in2r = in2;
+end endgenerate
 
 wire                  s1_in = in1r[MAN+EXP      ]; 
 wire                  s2_in = in2r[MAN+EXP      ]; 
@@ -149,20 +158,41 @@ wire                ege    =          eme   [EXP];
 wire        [EXP:0] shift2 = (ege) ?        {EXP+1{1'b0}} : eme;
 wire        [EXP:0] shift1 = (ege) ? -eme : {EXP+1{1'b0}};
 
-reg                  eger  ; always @ (posedge clk) eger   <=   ege;
-reg signed [EXP-1:0] e1_inr; always @ (posedge clk) e1_inr <= e1_in;
-reg signed [EXP-1:0] e2_inr; always @ (posedge clk) e2_inr <= e2_in;
+reg                  eger  ;
+reg signed [EXP-1:0] e1_inr;
+reg signed [EXP-1:0] e2_inr;
+
+generate if (PIPELN>4) begin : gen_pipe2
+	always @ (posedge clk) eger   <= ege;
+	always @ (posedge clk) e1_inr <= e1_in;
+	always @ (posedge clk) e2_inr <= e2_in;
+end else begin : gen_no_pipe2
+	always @ (*) eger   = ege;
+	always @ (*) e1_inr = e1_in;
+	always @ (*) e2_inr = e2_in;
+end endgenerate
 
 always @ (*) e_out <= (eger) ? e2_inr : e1_inr;
 
 wire [MAN-1:0] m1_out = m1_in >> shift1;
 wire [MAN-1:0] m2_out = m2_in >> shift2;
 
-reg s1_inr; always @ (posedge clk) s1_inr <= s1_in;
-reg s2_inr; always @ (posedge clk) s2_inr <= s2_in;
+reg           s1_inr ;
+reg           s2_inr ;
+reg [MAN-1:0] m1_outr;
+reg [MAN-1:0] m2_outr;
 
-reg [MAN-1:0] m1_outr; always @ (posedge clk) m1_outr <= m1_out;
-reg [MAN-1:0] m2_outr; always @ (posedge clk) m2_outr <= m2_out;
+generate if (PIPELN>4) begin
+	always @ (posedge clk) s1_inr  <= s1_in ;
+	always @ (posedge clk) s2_inr  <= s2_in ;
+	always @ (posedge clk) m1_outr <= m1_out;
+	always @ (posedge clk) m2_outr <= m2_out;
+end else begin
+	always @ (*) s1_inr  = s1_in ;
+	always @ (*) s2_inr  = s2_in ;
+	always @ (*) m1_outr = m1_out;
+	always @ (*) m2_outr = m2_out;
+end endgenerate
 
 always @ (*) sm1_out <= (s1_inr) ? -m1_outr : m1_outr;
 always @ (*) sm2_out <= (s2_inr) ? -m2_outr : m2_outr;
@@ -223,10 +253,11 @@ assign out = {out_s, out_e, out_m};
 
 endmodule
 
-// multiplexador das operacoes com normalizacao -------------------------------
+// multiplexador das operacoes que igualam a mantissa de dois numeros ---------
 
 module norm_mux
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32,
 	parameter NBMANT = 23,
 	parameter NBEXPO =  8
@@ -240,47 +271,35 @@ module norm_mux
 	output reg [NUBITS-1:0] out
 );
 
+// multiplexador de entrada
+reg [NUBITS-1:0] imux_out;
+always @ (*) case (op)
+	6'd3   : imux_out <=  fadd ;   // F_ADD
+	6'd5   : imux_out <=  fmlt ;   // F_MLT
+	6'd7   : imux_out <=  fdiv ;   // F_DIV
+	6'd25  : imux_out <=   i2f ;   //   I2F
+	6'd26  : imux_out <=   i2fm;   //   I2F_M
+	default: imux_out <= {NUBITS{1'bx}};
+endcase
+
+// faz a normalizacao
 reg  [NUBITS-1:0] mux_out;
 wire [NUBITS-1:0]  un_out;
 
-always @ (posedge clk) case (op)
-	6'd3   : mux_out <=  fadd ;   // F_ADD
-	6'd5   : mux_out <=  fmlt ;   // F_MLT
-	6'd7   : mux_out <=  fdiv ;   // F_DIV
-	6'd25  : mux_out <=   i2f ;   //   I2F
-	6'd26  : mux_out <=   i2fm;   //   I2F_M
-	default: mux_out <= {NUBITS{1'bx}};
-endcase
+generate if (PIPELN>5) begin
+	always @ (posedge clk) mux_out <= imux_out;
+end else begin
+	always @ (*)           mux_out  = imux_out;
+end endgenerate
 
 ula_norm #(NBMANT, NBEXPO) ula_norm (mux_out, un_out);
 
-always @ (posedge clk) out <= un_out;
-
-endmodule
-
-// circuito de saida ----------------------------------------------------------
-// seleciona se sai valor padrao ou se tem que fazer a normalizacao float -----
-
-module ula_out
-#(
-	parameter NUBITS = 32,
-	parameter NBMANT = 23,
-	parameter NBEXPO =  8
-)(
-	 input              clk,
-	 input [       5:0] op,
-	 input [NUBITS-1:0] in,
-	output [NUBITS-1:0] out
-);
-
-wire [NUBITS-1:0] fn_out;
-reg  [NUBITS-1:0] inr; always @ (posedge clk) inr = in;
-
-ula_norm #(NBMANT,NBEXPO) ula_norm(inr, fn_out);
-//           I2F             I2F_M           F_ADD          F_MLT          F_DIV
-wire norm = (op == 6'd25) | (op == 6'd26) | (op == 6'd3) | (op == 6'd5) | (op == 6'd7);
-
-assign out = (norm) ? fn_out : in;
+// saida
+generate if (PIPELN>7) begin
+	always @ (posedge clk)     out <= un_out;
+end else begin
+	always @ (*)               out  = un_out;
+end endgenerate
 
 endmodule
 
@@ -292,14 +311,15 @@ endmodule
 
 module ula_add
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input                  clk,
 	 input     [NUBITS-1:0] in1, in2,
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= in1 + in2;
+generate if (PIPELN>7) always @ (posedge clk) out <= in1 + in2; else always @ (*) out = in1 + in2; endgenerate
 
 endmodule
 
@@ -307,8 +327,9 @@ endmodule
 
 module ula_fadd
 #(
-	parameter MAN = 23,
-	parameter EXP = 8
+	parameter PIPELN =  3,
+	parameter MAN    = 23,
+	parameter EXP    =  8
 )(
 	input                     clk,
 	input  signed [EXP-1  :0] e_in,
@@ -323,7 +344,7 @@ wire                  s_out = soma    [MAN+1];
 wire signed [EXP-1:0] e_out = e_in + {{EXP-1{1'b0}}, {1'b1}}; // colocar limite para +inf?
 wire        [MAN-1:0] m_out = m       [MAN:1];
 
-always @ (posedge clk) out <= {s_out, e_out, m_out};
+generate if (PIPELN>3) always @ (posedge clk) out <= {s_out, e_out, m_out}; else always @ (*) out = {s_out, e_out, m_out}; endgenerate
 
 endmodule
 
@@ -331,6 +352,7 @@ endmodule
 
 module ula_mlt
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32
 )(
 	 input                  clk,
@@ -338,7 +360,7 @@ module ula_mlt
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= in1 * in2;
+generate if (PIPELN>6) always @ (posedge clk) out <= in1 * in2; else always @ (*) out = in1 * in2; endgenerate
 
 endmodule
 
@@ -346,16 +368,25 @@ endmodule
 
 module ula_fmlt
 #(
-	parameter MAN = 23,
-	parameter EXP = 8
+	parameter PIPELN =  3,
+	parameter MAN    = 23,
+	parameter EXP    =  8
 )(
 	 input                  clk,
 	 input      [MAN+EXP:0] in1, in2,
 	output reg  [MAN+EXP:0] out
 );
 
-reg [MAN+EXP:0] in1r; always @ (posedge clk) in1r <= in1;
-reg [MAN+EXP:0] in2r; always @ (posedge clk) in2r <= in2;
+reg [MAN+EXP:0] in1r;
+reg [MAN+EXP:0] in2r;
+
+generate if (PIPELN>7) begin : gen_pipe
+	always @ (posedge clk) in1r <= in1;
+	always @ (posedge clk) in2r <= in2;
+end else begin : gen_no_pipe
+	always @ (*) in1r = in1;
+	always @ (*) in2r = in2;
+end endgenerate
 
 wire                  s1 = in1r[MAN+EXP      ]; 
 wire                  s2 = in2r[MAN+EXP      ]; 
@@ -364,16 +395,24 @@ wire signed [EXP-1:0] e2 = in2r[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1 = in1r[MAN    -1:0  ];
 wire        [MAN-1:0] m2 = in2r[MAN    -1:0  ];
 
-reg [2*MAN-1:0] mult; always @ (posedge clk) mult <= m1 * m2;
-reg             unf ; always @ (posedge clk) unf <= (e[EXP:EXP-1] == 2'b10); // underflow
-
 wire signed [EXP:0] e = e1 + e2 + MAN[EXP-1:0]; // colocar limite para +inf
 
-reg                  s_out; always @ (posedge clk) s_out <= (s1 != s2);
-reg signed [EXP-1:0] e_out; always @ (posedge clk) e_out <= e[EXP-1:0];
-wire       [MAN-1:0] m_out = (unf) ? {{MAN{1'b0}}} : mult[2*MAN-1:MAN];
+reg        [2*MAN-1:0] mult ;
+reg                    unf  ;
+reg                    s_out;
+reg signed [  EXP-1:0] e_out;
 
-always @ (*) out <= {s_out, e_out, m_out};
+always @ (*) mult  = m1 * m2;
+always @ (*) unf   = (e[EXP:EXP-1] == 2'b10); // underflow
+always @ (*) s_out = (s1 != s2);
+always @ (*) e_out = e[EXP-1:0];
+
+wire [MAN-1:0] m_out = (unf) ? {{MAN{1'b0}}} : mult[2*MAN-1:MAN];
+
+generate if (PIPELN>4)
+always @ (posedge clk) if (m_out != {{MAN{1'b0}}}) out <= {s_out, e_out, m_out}; else out <= {1'b0, 1'b1, {{EXP-1{1'b0}}}, {{MAN{1'b0}}}}; else
+always @ (*)           if (m_out != {{MAN{1'b0}}}) out <= {s_out, e_out, m_out}; else out <= {1'b0, 1'b1, {{EXP-1{1'b0}}}, {{MAN{1'b0}}}};
+endgenerate
 
 endmodule
 
@@ -383,8 +422,8 @@ module ula_div
 #(
 	parameter NUBITS = 32
 )(
-	 input [NUBITS-1:0] in1, in2,
-	output [NUBITS-1:0] out 
+	 input signed [NUBITS-1:0] in1, in2,
+	output signed [NUBITS-1:0] out 
 );
 
 assign out = in1 / in2;
@@ -426,8 +465,8 @@ module ula_mod
 #(
 	parameter NUBITS = 32
 )(
-	 input [NUBITS-1:0] in1, in2,
-	output [NUBITS-1:0] out 
+	 input signed [NUBITS-1:0] in1, in2,
+	output signed [NUBITS-1:0] out 
 );
 
 assign out = in1 % in2;
@@ -575,15 +614,16 @@ endmodule
 
 module ula_nrm
 #(
-	parameter        NUBITS = 32,
-	parameter signed NUGAIN = 1
+	parameter          PIPELN =  3,
+	parameter          NUBITS = 32,
+	parameter  signed  NUGAIN =  1
 )(
 	 input                         clk,
 	 input     signed [NUBITS-1:0] in,
 	output reg signed [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= in/NUGAIN;
+generate if (PIPELN>7) always @ (posedge clk) out <= in/NUGAIN; else always @ (*) out = in/NUGAIN; endgenerate
 
 endmodule
 
@@ -594,8 +634,8 @@ module ula_i2f
 	parameter MAN = 23,
 	parameter EXP = 8
 )(
-	input         [MAN+EXP:0] in,
-	output signed [MAN+EXP:0] out
+	input  signed [MAN-1  :0] in,
+	output        [MAN+EXP:0] out
 );
 
 wire                  i2f_s = in[MAN-1];
@@ -610,21 +650,36 @@ endmodule
 
 module ula_f2i
 #(
-	parameter MAN = 23,
-	parameter EXP = 8
+	parameter PIPELN =  3,
+	parameter MAN    = 23,
+	parameter EXP    =  8
 )(
 	input                         clk,
 	input             [MAN+EXP:0] in,
 	output reg signed [MAN+EXP:0] out
 );
 
-reg           s; always @ (posedge clk) s <= in[MAN+EXP      ];
-reg [EXP-1:0] e; always @ (posedge clk) e <= in[MAN+EXP-1:MAN];
-reg [MAN-1:0] m; always @ (posedge clk) m <= in[MAN    -1:  0];
+reg           s;
+reg [EXP-1:0] e;
+reg [MAN-1:0] m;
+
+generate if (PIPELN>7) begin
+always @ (posedge clk) s <= in[MAN+EXP      ];
+always @ (posedge clk) e <= in[MAN+EXP-1:MAN];
+always @ (posedge clk) m <= in[MAN    -1:  0];
+end else begin
+always @ (*) s <= in[MAN+EXP      ];
+always @ (*) e <= in[MAN+EXP-1:MAN];
+always @ (*) m <= in[MAN    -1:  0];
+end endgenerate
 
 wire signed [MAN  :0] sm    = (s       ) ? -m : m;
 wire        [EXP-1:0] shift = (e[EXP-1]) ? -e : e;
-always @ (posedge clk) out <= (e[EXP-1]) ? sm >>> shift : sm << shift;
+
+generate if (PIPELN>5)
+always @ (posedge clk) out <= (e[EXP-1]) ? sm >>> shift : sm << shift; else
+always @ (*)           out  = (e[EXP-1]) ? sm >>> shift : sm << shift;
+endgenerate
 
 endmodule
 
@@ -700,17 +755,26 @@ endmodule
 
 module ula_lan
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input                  clk,
 	 input     [NUBITS-1:0] in1, in2,
 	output reg [NUBITS-1:0] out 
 );
 
-reg [NUBITS-1:0] in1r; always @ (posedge clk) in1r <= in1;
-reg [NUBITS-1:0] in2r; always @ (posedge clk) in2r <= in2;
+reg [NUBITS-1:0] in1r;
+reg [NUBITS-1:0] in2r;
 
-always @ (posedge clk) out <= ((in1r == {NUBITS{1'b0}}) || (in2r == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+generate if (PIPELN>7) begin
+	always @ (posedge clk) in1r <= in1;
+	always @ (posedge clk) in2r <= in2;
+	always @ (posedge clk) out  <= ((in1r == {NUBITS{1'b0}}) || (in2r == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+end else begin
+	always @ (*)           in1r  = in1;
+	always @ (*)           in2r  = in2;
+	always @ (*)           out   = ((in1r == {NUBITS{1'b0}}) || (in2r == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+end endgenerate
 
 endmodule
 
@@ -718,14 +782,19 @@ endmodule
 
 module ula_lor
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input 		            clk,
 	 input     [NUBITS-1:0] in1, in2,
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= ((in1 == {NUBITS{1'b0}}) && (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+generate if (PIPELN>7) begin
+	always @ (posedge clk) out <= ((in1 == {NUBITS{1'b0}}) && (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+end else begin
+	always @ (*)           out  = ((in1 == {NUBITS{1'b0}}) && (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
+end endgenerate
 
 endmodule
 
@@ -737,16 +806,21 @@ endmodule
 
 module ula_lin
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input                  clk,
 	 input     [NUBITS-1:0] in,
 	output reg [NUBITS-1:0] out 
 );
 
-reg [NUBITS-1:0] inr; always @ (posedge clk) inr <= in;
-
-always @ (posedge clk) out <= (inr == {NUBITS{1'b0}}) ? {{NUBITS-1{1'b0}}, 1'b1} : {NUBITS{1'b0}};
+generate if (PIPELN>7) begin
+	reg [NUBITS-1:0] inr;
+	always @ (posedge clk) inr <=  in;
+	always @ (posedge clk) out <= (inr == {NUBITS{1'b0}}) ? {{NUBITS-1{1'b0}}, 1'b1} : {NUBITS{1'b0}};
+end else begin
+	always @ (*)           out  = (in  == {NUBITS{1'b0}}) ? {{NUBITS-1{1'b0}}, 1'b1} : {NUBITS{1'b0}};
+end endgenerate
 
 endmodule
 
@@ -758,6 +832,7 @@ endmodule
 
 module ula_les
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32
 )(
 	 input                     clk,
@@ -765,7 +840,7 @@ module ula_les
 	output reg    [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 < in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 < in2); else always @ (*) out = (in1 < in2); endgenerate
 
 endmodule
 
@@ -773,6 +848,7 @@ endmodule
 
 module ula_fles
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32,
 	parameter NBMANT = 23
 )(
@@ -781,7 +857,7 @@ module ula_fles
 	output reg    [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 < in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 < in2); else always @ (*) out = (in1 < in2); endgenerate
 
 endmodule
 
@@ -789,6 +865,7 @@ endmodule
 
 module ula_gre
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32
 )(
 	 input                     clk,
@@ -796,7 +873,7 @@ module ula_gre
 	output reg    [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 > in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 > in2); else always @ (*) out = (in1 > in2); endgenerate
 
 endmodule
 
@@ -804,6 +881,7 @@ endmodule
 
 module ula_fgre
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32,
 	parameter NBMANT = 23
 )(
@@ -812,7 +890,7 @@ module ula_fgre
 	output reg    [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 > in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 > in2); else always @ (*) out = (in1 > in2); endgenerate
 
 endmodule
 
@@ -820,6 +898,7 @@ endmodule
 
 module ula_equ
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32
 )(
 	 input                  clk,
@@ -827,7 +906,7 @@ module ula_equ
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 == in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 == in2); else always @ (*) out = (in1 == in2); endgenerate
 
 endmodule
 
@@ -839,14 +918,15 @@ endmodule
 
 module ula_shl
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input                  clk,
 	 input     [NUBITS-1:0] in1, in2,
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 << in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 << in2); else always @ (*) out = (in1 << in2); endgenerate
 
 endmodule
 
@@ -854,14 +934,15 @@ endmodule
 
 module ula_shr
 #(
-	parameter NUBITS = 32
+	parameter   PIPELN =  3,
+	parameter   NUBITS = 32
 )(
 	 input                  clk,
 	 input     [NUBITS-1:0] in1, in2,
 	output reg [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 >> in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 >> in2); else always @ (*) out = (in1 >> in2); endgenerate
 
 endmodule
 
@@ -869,14 +950,16 @@ endmodule
 
 module ula_srs
 #(
+	parameter PIPELN =  3,
 	parameter NUBITS = 32
 )(
 	 input                         clk,
-	 input     signed [NUBITS-1:0] in1, in2,
+	 input     signed [NUBITS-1:0] in1,
+	 input            [NUBITS-1:0] in2,
 	output reg signed [NUBITS-1:0] out 
 );
 
-always @ (posedge clk) out <= (in1 >>> in2);
+generate if (PIPELN>7) always @ (posedge clk) out <= (in1 >>> in2); else always @ (*) out = (in1 >>> in2); endgenerate
 
 endmodule
 
@@ -887,6 +970,7 @@ endmodule
 module ula
 #(
 	// Geral
+	parameter                     PIPELN =  3,
 	parameter                     NUBITS = 32,
 	parameter                     NBMANT = 23,
 	parameter                     NBEXPO =  8,
@@ -963,31 +1047,31 @@ module ula
 wire signed [NBEXPO-1:0] e_out;             // expoente  normalizado
 wire signed [NBMANT  :0] sm1_out, sm2_out;  // mantissas normalizadas
 
-generate if (F_ADD | F_GRE | F_LES) ula_denorm #(NBMANT,NBEXPO) denorm(clk, in1, in2, e_out, sm1_out, sm2_out); endgenerate
+generate if (F_ADD | F_GRE | F_LES) ula_denorm #(PIPELN,NBMANT,NBEXPO) denorm(clk, in1, in2, e_out, sm1_out, sm2_out); endgenerate
 
 // ADD ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] add;
 
-generate if (ADD) ula_add #(NUBITS) my_add(clk, in1, in2, add); else assign add = {NUBITS{1'bx}}; endgenerate
+generate if (ADD) ula_add #(PIPELN,NUBITS) my_add(clk, in1, in2, add); else assign add = {NUBITS{1'bx}}; endgenerate
 
 // F_ADD ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] fadd;
 
-generate if (F_ADD) ula_fadd #(NBMANT,NBEXPO) my_fadd(clk, e_out, sm1_out, sm2_out, fadd); else assign fadd = {NUBITS{1'bx}}; endgenerate
+generate if (F_ADD) ula_fadd #(PIPELN,NBMANT,NBEXPO) my_fadd(clk, e_out, sm1_out, sm2_out, fadd); else assign fadd = {NUBITS{1'bx}}; endgenerate
 
 // MLT ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] mlt;
 
-generate if (MLT) ula_mlt #(NUBITS) my_mlt(clk, in1, in2, mlt); else assign mlt = {NUBITS{1'bx}}; endgenerate
+generate if (MLT) ula_mlt #(PIPELN,NUBITS) my_mlt(clk, in1, in2, mlt); else assign mlt = {NUBITS{1'bx}}; endgenerate
 
 // F_MLT ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] fmlt;
 
-generate if (F_MLT) ula_fmlt #(NBMANT,NBEXPO) my_fmlt(clk, in1 ,in2 , fmlt); else assign fmlt = {NUBITS{1'bx}}; endgenerate
+generate if (F_MLT) ula_fmlt #(PIPELN,NBMANT,NBEXPO) my_fmlt(clk, in1 ,in2 , fmlt); else assign fmlt = {NUBITS{1'bx}}; endgenerate
 
 // DIV ------------------------------------------------------------------------
 
@@ -1095,37 +1179,37 @@ generate if (F_PST_M) ula_fpst #(NBMANT,NBEXPO) my_fpstm(in1, fpstm); else assig
 
 wire signed [NUBITS-1:0] nrm;
 
-generate if (NRM) ula_nrm #(NUBITS,NUGAIN) my_nrm(clk, in2, nrm); else assign nrm = {NUBITS{1'bx}}; endgenerate
+generate if (NRM) ula_nrm #(PIPELN,NUBITS,NUGAIN) my_nrm(clk, in2, nrm); else assign nrm = {NUBITS{1'bx}}; endgenerate
 
 // NRM_M ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] nrmm;
 
-generate if (NRM_M) ula_nrm #(NUBITS,NUGAIN) my_nrmm(clk, in1, nrmm); else assign nrmm = {NUBITS{1'bx}}; endgenerate
+generate if (NRM_M) ula_nrm #(PIPELN,NUBITS,NUGAIN) my_nrmm(clk, in1, nrmm); else assign nrmm = {NUBITS{1'bx}}; endgenerate
 
 // I2F ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] i2f;
 
-generate if (I2F) ula_i2f #(NBMANT,NBEXPO) my_i2f (in2, i2f); else assign i2f = {NUBITS{1'bx}}; endgenerate
+generate if (I2F) ula_i2f #(NBMANT,NBEXPO) my_i2f (in2[NBMANT-1:0], i2f); else assign i2f = {NUBITS{1'bx}}; endgenerate
 
 // I2F_M ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] i2fm;
 
-generate if (I2F_M) ula_i2f #(NBMANT,NBEXPO) my_i2fm(in1, i2fm); else assign i2fm = {NUBITS{1'bx}}; endgenerate
+generate if (I2F_M) ula_i2f #(NBMANT,NBEXPO) my_i2fm(in1[NBMANT-1:0], i2fm); else assign i2fm = {NUBITS{1'bx}}; endgenerate
 
 // F2I ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] f2i;
 
-generate if (F2I) ula_f2i #(NBMANT,NBEXPO) my_f2i (clk, in2, f2i); else assign f2i = {NUBITS{1'bx}}; endgenerate
+generate if (F2I) ula_f2i #(PIPELN,NBMANT,NBEXPO) my_f2i (clk, in2, f2i); else assign f2i = {NUBITS{1'bx}}; endgenerate
 
 // F2I_M ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] f2im;
 
-generate if (F2I_M) ula_f2i #(NBMANT,NBEXPO) my_f2im(clk, in1, f2im); else assign f2im = {NUBITS{1'bx}}; endgenerate
+generate if (F2I_M) ula_f2i #(PIPELN,NBMANT,NBEXPO) my_f2im (clk, in1, f2im); else assign f2im = {NUBITS{1'bx}}; endgenerate
 
 // AND ------------------------------------------------------------------------
 
@@ -1161,79 +1245,79 @@ generate if (INV_M) ula_inv #(NUBITS) my_invm(in1, invm); else assign invm = {NU
 
 wire signed [NUBITS-1:0] lan;
 
-generate if (LAN) ula_lan #(NUBITS) my_lan(clk, in1, in2, lan); else assign lan = {NUBITS{1'bx}}; endgenerate
+generate if (LAN) ula_lan #(PIPELN,NUBITS) my_lan(clk, in1, in2, lan); else assign lan = {NUBITS{1'bx}}; endgenerate
 
 // LOR ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] lor;
 
-generate if (LOR) ula_lor #(NUBITS) my_lor(clk, in1, in2, lor); else assign lor = {NUBITS{1'bx}}; endgenerate
+generate if (LOR) ula_lor #(PIPELN,NUBITS) my_lor(clk, in1, in2, lor); else assign lor = {NUBITS{1'bx}}; endgenerate
 
 // LIN ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] lin;
 
-generate if (LIN) ula_lin #(NUBITS) my_lin(clk, in2, lin); else assign lin = {NUBITS{1'bx}}; endgenerate
+generate if (LIN) ula_lin #(PIPELN,NUBITS) my_lin(clk, in2, lin); else assign lin = {NUBITS{1'bx}}; endgenerate
 
 // LIN_M ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] linm;
 
-generate if (LIN_M) ula_lin #(NUBITS) my_linm(clk, in1, linm); else assign linm = {NUBITS{1'bx}}; endgenerate
+generate if (LIN_M) ula_lin #(PIPELN,NUBITS) my_linm(clk, in1, linm); else assign linm = {NUBITS{1'bx}}; endgenerate
 
 // LES ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] les;
 
-generate if (LES) ula_les #(NUBITS) my_les(clk, in1, in2, les); else assign les = {NUBITS{1'bx}}; endgenerate
+generate if (LES) ula_les #(PIPELN,NUBITS) my_les(clk, in1, in2, les); else assign les = {NUBITS{1'bx}}; endgenerate
 
 // F_LES ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] fles;
 
-generate if (F_LES) ula_fles #(NUBITS,NBMANT) my_fles(clk, sm1_out, sm2_out, fles); else assign fles = {NUBITS{1'bx}}; endgenerate
+generate if (F_LES) ula_fles #(PIPELN,NUBITS,NBMANT) my_fles(clk, sm1_out, sm2_out, fles); else assign fles = {NUBITS{1'bx}}; endgenerate
 
 // GRE ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] gre;
 
-generate if (GRE) ula_gre #(NUBITS) my_gre(clk, in1, in2, gre); else assign gre = {NUBITS{1'bx}}; endgenerate
+generate if (GRE) ula_gre #(PIPELN,NUBITS) my_gre(clk, in1, in2, gre); else assign gre = {NUBITS{1'bx}}; endgenerate
 
 // F_GRE ----------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] fgre;
 
-generate if (F_GRE) ula_fgre #(NUBITS,NBMANT) my_fgre(clk, sm1_out, sm2_out, fgre); else assign fgre = {NUBITS{1'bx}}; endgenerate
+generate if (F_GRE) ula_fgre #(PIPELN,NUBITS,NBMANT) my_fgre(clk, sm1_out, sm2_out, fgre); else assign fgre = {NUBITS{1'bx}}; endgenerate
 
 // EQU ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] equ;
 
-generate if (EQU) ula_equ #(NUBITS) my_equ(clk, in1, in2, equ); else assign equ = {NUBITS{1'bx}}; endgenerate
+generate if (EQU) ula_equ #(PIPELN,NUBITS) my_equ(clk, in1, in2, equ); else assign equ = {NUBITS{1'bx}}; endgenerate
 
 // SHR ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] shr;
 
-generate if (SHR) ula_shr #(NUBITS) my_shr(clk, in1, in2, shr); else assign shr = {NUBITS{1'bx}}; endgenerate
+generate if (SHR) ula_shr #(PIPELN,NUBITS) my_shr(clk, in1, in2, shr); else assign shr = {NUBITS{1'bx}}; endgenerate
 
 // SHL ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] shl;
 
-generate if (SHL) ula_shl #(NUBITS) my_shl(clk, in1, in2, shl); else assign shl = {NUBITS{1'bx}}; endgenerate
+generate if (SHL) ula_shl #(PIPELN,NUBITS) my_shl(clk, in1, in2, shl); else assign shl = {NUBITS{1'bx}}; endgenerate
 
 // SRS ------------------------------------------------------------------------
 
 wire signed [NUBITS-1:0] srs;
 
-generate if (SRS) ula_srs #(NUBITS) my_srs(clk, in1, in2, srs); else assign srs = {NUBITS{1'bx}}; endgenerate
+generate if (SRS) ula_srs #(PIPELN,NUBITS) my_srs(clk, in1, in2, srs); else assign srs = {NUBITS{1'bx}}; endgenerate
 
 // mux de desnormalizacao -----------------------------------------------------
 
 wire signed [NUBITS-1:0] smx;
 
-generate if (I2F | I2F_M | F_ADD | F_MLT | F_DIV) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(clk, op, fadd, fmlt, fdiv, i2f, i2fm, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
+generate if (I2F | I2F_M | F_ADD | F_MLT | F_DIV) norm_mux #(PIPELN,NUBITS,NBMANT,NBEXPO) norm_mux(clk, op, fadd, fmlt, fdiv, i2f, i2fm, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
 
 // mux principal --------------------------------------------------------------
 

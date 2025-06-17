@@ -662,39 +662,6 @@ button:disabled::after {
   transform: translateY(1px);
 }
 
-
-/* Clear Temp button styling */
-#clearTemp {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-primary);
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px;
-}
-
-#clearTemp:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--accent-primary);
-}
-
-#clearTemp:active {
-  background-color: var(--bg-active);
-  transform: translateY(1px);
-}
-
-#clearTemp::before {
- /* content: "🗑️"; */
-  font-size: 16px;
-}
-
 /* ========================================
    Component-Specific Styles
    ======================================== */

@@ -902,6 +902,7 @@ function setupASMLanguage() {
     directives: [
       'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC',
       'SDEPTH', 'NUIOIN', 'NUIOOU', 'NUGAIN', 'FFTSIZ',
+      'PIPELN',
       'array' , 'arrays', 'ITRAD'
     ],
 
@@ -941,7 +942,7 @@ function setupASMLanguage() {
     tokenizer: {
       root: [
         // Diretivas com #
-        [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|array|arrays|ITRAD)\b/, 'keyword.directive'],
+        [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ|array|arrays|ITRAD)\b/, 'keyword.directive'],
 
         // Comentários
         [/\/\/.*$/, 'comment'],
@@ -1115,7 +1116,7 @@ function setupCMMLanguage() {
     tokenizer: {
       root: [
         // CMM directives (incluindo as novas)
-        [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
+        [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
         // StdLib functions
         [/\b(in|out|norm|pset|abs|sin|cos|complex|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
@@ -4387,11 +4388,11 @@ function createProcessorHubModal() {
         <input type="number" id="nBits" required min="1" value="23">
       </div>
       <div class="form-group floating-point-options">
-        <label for="nbMantissa">Nb Mantissa</label>
+        <label for="nbMantissa">Number of Mantissa</label>
         <input type="number" id="nbMantissa" min="1" value="16">
       </div>
       <div class="form-group floating-point-options">
-        <label for="nbExponent">Nb Exponent</label>
+        <label for="nbExponent">Number of Exponent</label>
         <input type="number" id="nbExponent" min="1" value="6">
       </div>
       <div class="form-group">
@@ -4409,6 +4410,17 @@ function createProcessorHubModal() {
       <div class="form-group">
         <label for="outputPorts">Number of Output Ports</label>
         <input type="number" id="outputPorts" required min="0" value="1">
+      </div>
+      <div class="form-group">
+        <label for="pipeln">Pipeline Level <span class="tooltip" style="color: red;" title="Pipeline level must be one of the predefined options">ℹ</span></label>
+        <select id="pipeln" required>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
       </div>
       <div class="form-group">
         <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
@@ -4520,6 +4532,7 @@ processorHubButton.addEventListener('click', () => {
           instructionStackSize: parseInt(document.getElementById('instructionStackSize').value),
           inputPorts: parseInt(document.getElementById('inputPorts').value),
           outputPorts: parseInt(document.getElementById('outputPorts').value),
+          pipeln: parseInt(document.getElementById('pipeln').value),
           gain: parseInt(gainInput.value),
       };
 
@@ -7441,12 +7454,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isOpen) {
       prismButton.classList.add('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM (Recompile)';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM (Recompile)';
       }
     } else {
       prismButton.classList.remove('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM';
       }
     }
   }
@@ -7485,10 +7498,10 @@ document.addEventListener('DOMContentLoaded', () => {
         prismButton.style.cursor = 'not-allowed';
         
         if (isPrismOpen) {
-          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> Recompiling...';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> Recompiling...';
           console.log('Recompiling for existing PRISM window...');
         } else {
-          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> Compiling...';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> Compiling...';
           console.log('Starting PRISM compilation for new window...');
         }
         
@@ -7531,7 +7544,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updatePrismButton(isPrismOpen);
         } catch (error) {
           console.error('Error checking PRISM window status in finally:', error);
-          prismButton.innerHTML = '<img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM';
         }
       }
     });
@@ -7554,3 +7567,16 @@ function showNotification(title, message, type = 'info') {
     console.log(`${title}: ${message}`);
   }
 }
+
+// Add to existing window message listeners
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'terminal-log') {
+    if (window.terminalManager) {
+      window.terminalManager.appendToTerminal(
+        event.data.terminal, 
+        event.data.message, 
+        event.data.logType
+      );
+    }
+  }
+});

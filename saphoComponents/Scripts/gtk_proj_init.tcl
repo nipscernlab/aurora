@@ -85,7 +85,7 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 # Sinais de saida -------------------------------------------------------------
 
 set out_en  [listFac "$proc.out_en_sim" $proc]
-set saida  [listFac "$proc.out_sig"     $proc]
+set saida   [listFac "$proc.out_sig"    $proc]
 
 for {set i 0} {$i < [llength $out_en] } {incr i} {
     addFac [list [lindex $out_en  $i]] "Binary"         "Yellow" "out_en $i" "" ""

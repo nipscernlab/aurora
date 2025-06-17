@@ -6,7 +6,6 @@ const closeModal = document.getElementById("closeModal");
 const processorSelect = document.getElementById("processorSelect");
 const deleteProcessorButton = document.getElementById("deleteProcessor");
 const clearAllButton = document.getElementById("clearAll");
-const clearTempButton = document.getElementById("clearTemp");
 const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
 const processorClkInput = document.getElementById("processorClk");
@@ -489,7 +488,7 @@ processorSelect.addEventListener("change", function() {
   if (processorConfig) {
     processorClkInput.value = processorConfig.clk || '';
     processorNumClocksInput.value = processorConfig.numClocks || '';
-    
+
     // Set simulation file selections if available in processor config
     if (processorConfig.testbenchFile && testbenchSelect) {
       testbenchSelect.value = processorConfig.testbenchFile;
@@ -509,6 +508,16 @@ processorSelect.addEventListener("change", function() {
     if (gtkwSelect) gtkwSelect.value = "standard";
   }
 });
+
+
+    processorClkInput.addEventListener("input", () => {
+      const value = parseInt(processorClkInput.value, 10);
+      if (value > 1000) {
+        processorClkInput.value = 1000;
+      }
+    });
+
+    
 
 function deleteProcessor(processorName) {
   return new Promise(async (resolve, reject) => {
@@ -755,16 +764,6 @@ clearAllButton.addEventListener("click", () => {
   asmCompFlagsInput.value = "";
 });
 
-// Clears the Temp folder
-clearTempButton.addEventListener("click", async () => {
-  try {
-    await window.electronAPI.clearTempFolder();
-    alert("Temp folder successfully deleted!");
-  } catch (error) {
-    console.error("Error deleting Temp folder:", error);
-    alert("Failed to delete Temp folder.");
-  }
-});
 
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();

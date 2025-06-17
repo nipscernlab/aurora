@@ -56,7 +56,7 @@
         <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
       </button>
       <button id="prismcomp" class="toolbar-button" titles="Open PRISM" disabled style="cursor: not-allowed;">
-        <img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> PRISM      
+        <img src="./assets/icons/prismv2.svg" style="width: 40px; height: inherit; flex-shrink: 0;"> PRISM      
       </button>
     </div>
 
@@ -164,12 +164,12 @@
         
         <div class="mconfig-processor-config">
           <div class="mconfig-form-group">
-            <label for="processorClk" class="mconfig-label">CLK (MHz)</label>
+            <label for="processorClk" class="mconfig-label">CLK (MHz) max of 1GHz</label>
             <input type="number" id="processorClk" class="mconfig-input" placeholder="Clock frequency">
           </div>
           <div class="mconfig-form-group">
             <label for="processorNumClocks" class="mconfig-label">Number of Clocks</label>
-            <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks">
+            <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks" max="1000">
           </div>
         </div>
 
@@ -192,10 +192,6 @@
             </select>
           </div>
         </div>
-        
-        <button id="clearTemp" class="mconfig-btn mconfig-btn-warning">
-          <i class="fa-solid fa-trash"></i> Clear Temp
-        </button>
       </section>
       
       <section class="mconfig-section" id="compilerSettings">
@@ -494,7 +490,7 @@
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
           <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
-          <button class="tab" data-terminal="tprism"><img src="./assets/icons/prism.svg" style="height: 16px; width: 16px; flex-shrink: 0;"> TPRISM</button>
+          <button class="tab" data-terminal="tprism"><img src="./assets/icons/prismv2.svg" style="width: 40px; height: inherit; flex-shrink: 0;"> TPRISM</button>
           <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
           <button id="goup-terminal" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
           <button id="godown-terminal" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
@@ -556,7 +552,8 @@
           </div>
         </div>
       </div>
-        <div class="terminal-content hidden" id="terminal-tprism">
+        </div>
+                <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header">TPRISM Terminal</div>
           <div class="terminal-body">Welcome to the TPRISM Terminal!</div>
         </div>
@@ -565,7 +562,6 @@
           <div class="terminal-body">Welcome to the TCMD Terminal!</div>
             <div id="terminal-container"></div>
           </div>
-        </div>
       </div>
       </div>
 
@@ -1127,7 +1123,6 @@ function closeAuroraAboutModal() {
 </script>
 
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-  <script src="node_modules/sortablejs/Sortable.min.js"></script>
   <script>
     require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
   </script>

@@ -1,4 +1,4 @@
-// PRELOAD SCRIPT - Fixed preload-prism.js and main preload
+// PRELOAD SCRIPT - Fixed preload-prism.js
 const { contextBridge, ipcRenderer } = require('electron');
 
 console.log('Preload script loading...');
@@ -9,6 +9,12 @@ try {
     prismCompile: () => {
       console.log('prismCompile called');
       return ipcRenderer.invoke('prism-compile');
+    },
+    
+    // Fix for the missing openPrismCompile function
+    openPrismCompile: () => {
+      console.log('openPrismCompile called');
+      return ipcRenderer.invoke('open-prism-compile');
     },
     
     // Check if PRISM window is open
@@ -31,7 +37,7 @@ try {
       };
     },
 
-    compileForPRISM: () => window.electron.invoke('prism-compile'),
+    compileForPRISM: () => ipcRenderer.invoke('prism-compile'),
     
     // SVG generation from module
     generateSVGFromModule: (moduleName, tempDir) => {
@@ -88,6 +94,16 @@ try {
       console.log('removeAllListeners called:', channel);
       ipcRenderer.removeAllListeners(channel);
     }
+  });
+
+  // Add to existing IPC handlers
+  ipcRenderer.on('terminal-log', (event, terminal, message, type) => {
+    window.postMessage({ 
+      type: 'terminal-log', 
+      terminal, 
+      message, 
+      logType: type 
+    }, '*');
   });
 
   console.log('Preload script loaded successfully');

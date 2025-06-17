@@ -62,8 +62,8 @@ gtkwave::/Edit/Insert_Comment {I/O ****************}
 
 # Sinais de entrada -----------------------------------------------------------
 
-set req_in  [listFac "tb.req_in"]
-set entrada [listFac "tb.in_"   ]
+set req_in  [listFac "req_in_sim"]
+set entrada [listFac "in_sim"    ]
 
 for {set i 0} {$i < [llength $req_in] } {incr i} {
     addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
@@ -72,8 +72,8 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 
 # Sinais de saida -------------------------------------------------------------
 
-set out_en [listFac "tb.out_en" ]
-set saida  [listFac "tb.out_sig"]
+set out_en [listFac "out_en_sim"]
+set saida  [listFac "out_sig"   ]
 
 for {set i 0} {$i < [llength $out_en] } {incr i} {
     addFac [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""

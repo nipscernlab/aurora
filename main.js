@@ -75,7 +75,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -549,7 +549,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2099,8 +2099,9 @@ ipcMain.handle('export-log', async (_, logData) => {
 
     // Escreve JSON com identação de 2 espaços:
     await fse.writeJson(reportFilePath, logData, { spaces: 2 });
-
-    return { success: true, message: `Log exportado com sucesso em:\n${reportFilePath}` };
+    ipcMain.on('refresh-file-tree', (event) => {
+      event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
+    });
   } catch (error) {
     console.error('Erro ao exportar log:', error);
     return { success: false, message: 'Erro ao exportar log: ' + error.message };
@@ -2450,7 +2451,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -2770,9 +2771,7 @@ async function performPrismCompilation() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
     }
-    
-    // Check if we have a current project using multiple sources
-    let projectPath = null;
+  
     
     if (global.currentProjectPath) {
       projectPath = global.currentProjectPath;
@@ -3440,7 +3439,7 @@ async function generateModuleSVG(moduleName, tempDir) {
   if (!await fse.pathExists(inputJsonPath)) {
     const errorMsg = `Module JSON file not found: ${inputJsonPath}`;
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `❌ ${errorMsg}`, 'error');
+      mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
     }
     throw new Error(errorMsg);
   }
@@ -3452,7 +3451,7 @@ async function generateModuleSVG(moduleName, tempDir) {
       // Only log important netlistsvg messages
       if (stderr && stderr.toLowerCase().includes('error')) {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `❌ SVG generation error: ${stderr}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tprism', `SVG generation error: ${stderr}`, 'error');
         }
       }
       

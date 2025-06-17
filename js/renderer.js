@@ -3,7 +3,6 @@ let openFiles = new Map();
 let aiAssistantContainer = null;
 let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
-let currentVvpProcess = null;
 let isVvpRunning = false;
 let currentVvpPid = null;
 
@@ -451,7 +450,6 @@ class EditorManager {
   }
 }
 
-
 // Enhanced Monaco initialization with custom themes
 async function initMonaco() {
   require(['vs/editor/editor.main'], function() {
@@ -793,7 +791,6 @@ async function initMonaco() {
     }
   });
 }
-
 
 function setupASMLanguage() {
   monaco.languages.register({ id: 'asm' });
@@ -1148,16 +1145,6 @@ function toggleTheme() {
   // Apply theme changes
   EditorManager.setTheme(isDarkTheme);
 }
-
-// Initialize theme on DOM content loaded
-document.addEventListener('DOMContentLoaded', () => {
-  initializeTheme();
-  
-  const themeToggleBtn = document.getElementById('themeToggle');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
-  }
-});
 
 // Enhanced version with smooth animation
 function updateCursorPosition(event) {
@@ -2115,11 +2102,6 @@ window.addEventListener('load', () => {
   
 });
 
-window.onload = () => {
-  require(['vs/editor/editor.main'], function() {
-    EditorManager.initialize();
-  });
-};
 
   // Add save button click handler
   document.getElementById('saveFileBtn').addEventListener('click', () => {
@@ -6294,7 +6276,7 @@ class CompilationButtonManager {
 
   initializeCompiler() {
     if (!currentProjectPath) {
-      console.error('No project opened');
+      console.log('No project opened');
       return;
     }
     this.compiler = new CompilationModule(currentProjectPath);
@@ -7424,12 +7406,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isOpen) {
       prismButton.classList.add('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM (Recompile)';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
       }
     } else {
       prismButton.classList.remove('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> PRISM';
       }
     }
   }
@@ -7468,10 +7450,10 @@ document.addEventListener('DOMContentLoaded', () => {
         prismButton.style.cursor = 'not-allowed';
         
         if (isPrismOpen) {
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> Recompiling...';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> Recompiling...';
           console.log('Recompiling for existing PRISM window...');
         } else {
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> Compiling...';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> Compiling...';
           console.log('Starting PRISM compilation for new window...');
         }
         
@@ -7514,7 +7496,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updatePrismButton(isPrismOpen);
         } catch (error) {
           console.error('Error checking PRISM window status in finally:', error);
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 40px; flex-shrink: 0;"> PRISM';
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inhenrit;  flex-shrink: 0;"> PRISM';
         }
       }
     });

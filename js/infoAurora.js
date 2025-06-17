@@ -3,7 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('aurora-info-modal');
     const infoButton = document.getElementById('info-aurora');
-    const closeButton = modal.querySelector('.aurora-modal__close');
+    //const closeButton = modal.querySelector('.aurora-modal__close');
 
     // Fetch application information using the exposed Electron API
     window.electronAPI.getAppInfo().then((info) => {

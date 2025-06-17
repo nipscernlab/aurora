@@ -22,6 +22,9 @@ try {
       console.log('checkPrismWindowOpen called');
       return ipcRenderer.invoke('is-prism-window-open');
     },
+
+    onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
+    removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
     
     // Listen for PRISM window status
     onPrismStatus: (callback) => {

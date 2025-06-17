@@ -75,7 +75,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -549,7 +549,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2079,6 +2079,34 @@ app.whenReady().then(() => {
   }
 });
 
+ipcMain.handle('export-log', async (_, logData) => {
+  try {
+    // Descobrir o projeto aberto. Ajuste conforme sua lógica:
+    // Exemplo:
+    const projectPath = global.currentProjectPath || global.currentOpenProjectPath || (global.currentProject && global.currentProject.path);
+    if (!projectPath) {
+      return { success: false, message: 'Nenhum projeto aberto. Não foi possível exportar o log.' };
+    }
+
+    // Pasta de backup dentro do projeto:
+    const backupDir = path.join(projectPath, 'Backup');
+    // Garante existência:
+    await fse.ensureDir(backupDir);
+
+    // Caminho do arquivo:
+    const reportFilename = 'house_report.json';
+    const reportFilePath = path.join(backupDir, reportFilename);
+
+    // Escreve JSON com identação de 2 espaços:
+    await fse.writeJson(reportFilePath, logData, { spaces: 2 });
+
+    return { success: true, message: `Log exportado com sucesso em:\n${reportFilePath}` };
+  } catch (error) {
+    console.error('Erro ao exportar log:', error);
+    return { success: false, message: 'Erro ao exportar log: ' + error.message };
+  }
+});
+
 // Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
 // Handler for getting application information
@@ -2394,20 +2422,16 @@ ipcMain.on('app:reload', () => {
 
 // Add this variable to track PRISM window
 let prismWindow = null;
+
 async function createPrismWindow(compilationData = null) {
-  // If already open, just focus and recompile if data provided
+  // If already open, just focus and update content if data provided
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
     
     // If compilation data is provided, send it to existing window
     if (compilationData) {
-      console.log('Sending compilation data to existing PRISM window:', compilationData);
-      // Wait for window to be ready
-      prismWindow.webContents.once('did-finish-load', () => {
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      });
+      console.log('Updating existing PRISM window with new compilation data:', compilationData);
+      prismWindow.webContents.send('compilation-complete', compilationData);
     }
     return prismWindow;
   }
@@ -2426,7 +2450,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -2452,14 +2476,14 @@ async function createPrismWindow(compilationData = null) {
     prismWindow.maximize();
     prismWindow.show();
     
-    // Send compilation data after a short delay
+    // Send compilation data after DOM is ready
     if (compilationData) {
-      setTimeout(() => {
+      prismWindow.webContents.once('dom-ready', () => {
         console.log('Sending compilation data to new PRISM window:', compilationData);
         if (prismWindow && !prismWindow.isDestroyed()) {
           prismWindow.webContents.send('compilation-complete', compilationData);
         }
-      }, 1000);
+      });
     }
     
     // Notify main window that PRISM is open
@@ -2505,6 +2529,7 @@ async function createPrismWindow(compilationData = null) {
 
   return prismWindow;
 }
+
 
 // Add these IPC handlers to your main process
 
@@ -2556,7 +2581,6 @@ ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
 // IPC handler for PRISM compilation
 ipcMain.handle('prism-compile', async (event) => {
   try {
-    console.log('Starting PRISM compilation process...');
     
     // Get compilation result
     const compilationResult = await performPrismCompilation();
@@ -2651,10 +2675,10 @@ ipcMain.on('request-toggle-ui-state', (event) => {
   }
 });
 
-// 2. MAIN PROCESS - Updated IPC handler for opening PRISM with compilation
+// Updated IPC handler for opening PRISM with compilation - prevents double creation
 ipcMain.handle('open-prism-compile', async (event) => {
   try {
-    console.log('Starting PRISM compilation and opening window...');
+    console.log('Opening PRISM with compilation...');
     
     // First compile
     const compilationResult = await performPrismCompilation();
@@ -2663,7 +2687,7 @@ ipcMain.handle('open-prism-compile', async (event) => {
       throw new Error(compilationResult.message);
     }
     
-    // Then create window with compilation data
+    // Create or update window with compilation data
     await createPrismWindow(compilationResult);
     
     return { success: true, message: 'PRISM window opened with compilation data' };
@@ -2673,97 +2697,37 @@ ipcMain.handle('open-prism-compile', async (event) => {
   }
 });
 
-// Separate function to perform compilation
-async function performPrismCompilation() {
-  try {
-    console.log('Starting PRISM compilation process...');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process...', 'info');
-    }
-    // Check if we have a current project using multiple sources
-    let projectPath = null;
-    
-    if (global.currentProjectPath) {
-      projectPath = global.currentProjectPath;
-    } else if (global.currentOpenProjectPath) {
-      projectPath = path.dirname(global.currentOpenProjectPath);
-    } else if (global.currentProject && global.currentProject.path) {
-      projectPath = global.currentProject.path;
-    }
-    
-    if (!projectPath) {
-      throw new Error('No project path set. Please open a project first.');
-    }
-    
-    console.log(`Working with project path: ${projectPath}`);
-    
-    // Create temp directory
-    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
-    await fse.ensureDir(tempDir);
-    
-    // Get toggle state from main window
-    const isProjectOriented = await getToggleUIStateFromMain();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Running in ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'} mode`, 'info');
-    }
-    let topLevelModule, configData;
-    
-    if (isProjectOriented) {
-      console.log('Running in Project Oriented mode...');
-      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
-      
-      if (!await fse.pathExists(projectConfigPath)) {
-        throw new Error('projectOriented.json not found in project root');
-      }
-      
-      configData = await fse.readJson(projectConfigPath);
-      topLevelModule = path.basename(configData.topLevelFile, '.v');
-    } else {
-      console.log('Running in Processor Oriented mode...');
-      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
-      
-      if (!await fse.pathExists(processorConfigPath)) {
-        throw new Error('processorConfig.json not found in project root');
-      }
-      
-      configData = await fse.readJson(processorConfigPath);
-      const activeProcessor = configData.processors.find(proc => proc.isActive === true);
-      if (!activeProcessor) {
-        throw new Error('No active processor found in processorConfig.json');
-      }
-      
-      topLevelModule = activeProcessor.name;
-    }
-    
-    // Run Yosys compilation
-    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
-    
-    // Split JSON into individual module files
-    await splitHierarchyJson(hierarchyJsonPath, tempDir);
-    
-    // Generate SVG for the top level module
-    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
-    
-    console.log('PRISM compilation completed successfully');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-  mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
-}
-    return { 
-      success: true, 
-      message: 'PRISM compilation completed successfully',
-      topLevelModule,
-      svgPath,
-      tempDir,
-      isProjectOriented
-    };
-    
-  } catch (error) {
-    console.error('PRISM compilation error:', error);
-    return { success: false, message: error.message };
+// Helper function to filter and group log messages
+function shouldLogMessage(message, source) {
+  const message_lower = message.toLowerCase();
+  
+  // Skip verbose parameter messages from Yosys
+  if (source === 'yosys' && message_lower.includes('parameter \\')) {
+    return false;
   }
+  
+  // Skip repetitive module processing messages
+  if (source === 'yosys' && (
+    message_lower.includes('executing ') ||
+    message_lower.includes('found and queued') ||
+    message_lower.includes('queued cell') ||
+    message_lower.includes('updating $') ||
+    message_lower.includes('importing module')
+  )) {
+    return false;
+  }
+  
+  // Skip verbose netlistsvg output
+  if (source === 'netlistsvg' && (
+    message_lower.includes('processing') ||
+    message_lower.includes('node ') ||
+    message_lower.includes('edge ')
+  )) {
+    return false;
+  }
+  
+  return true;
 }
-
-
 
 // Function to get toggle state from main window
 async function getToggleUIStateFromMain() {
@@ -2800,17 +2764,175 @@ async function getToggleUIStateFromMain() {
   });
 }
 
+// Updated performPrismCompilation - only generates SVG once
+async function performPrismCompilation() {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
+    }
+    
+    // Check if we have a current project using multiple sources
+    let projectPath = null;
+    
+    if (global.currentProjectPath) {
+      projectPath = global.currentProjectPath;
+    } else if (global.currentOpenProjectPath) {
+      projectPath = path.dirname(global.currentOpenProjectPath);
+    } else if (global.currentProject && global.currentProject.path) {
+      projectPath = global.currentProject.path;
+    }
+    
+    if (!projectPath) {
+      const errorMsg = 'No project path set. Please open a project first.';
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+      }
+      throw new Error(errorMsg);
+    }
+    
+    console.log(`Working with project path: ${projectPath}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Project: ${path.basename(projectPath)}`, 'info');
+    }
+    
+    // Create temp directory
+    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
+    await fse.ensureDir(tempDir);
+    
+    // Get toggle state from main window
+    const isProjectOriented = await getToggleUIStateFromMain();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Mode: ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'}`, 'info');
+    }
+    
+    let topLevelModule, configData;
+    
+    if (isProjectOriented) {
+      console.log('Running in Project Oriented mode...');
+      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+      
+      if (!await fse.pathExists(projectConfigPath)) {
+        const errorMsg = 'projectOriented.json not found in project root';
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+        }
+        throw new Error(errorMsg);
+      }
+      
+      configData = await fse.readJson(projectConfigPath);
+      topLevelModule = path.basename(configData.topLevelFile, '.v');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', `Top level module: ${topLevelModule}`, 'info');
+      }
+    } else {
+      console.log('Running in Processor Oriented mode...');
+      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+      
+      if (!await fse.pathExists(processorConfigPath)) {
+        const errorMsg = 'processorConfig.json not found in project root';
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+        }
+        throw new Error(errorMsg);
+      }
+      
+      configData = await fse.readJson(processorConfigPath);
+      const activeProcessor = configData.processors.find(proc => proc.isActive === true);
+      if (!activeProcessor) {
+        const errorMsg = 'No active processor found in processorConfig.json';
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+        }
+        throw new Error(errorMsg);
+      }
+      
+      topLevelModule = activeProcessor.name;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', `Active processor: ${topLevelModule}`, 'info');
+      }
+    }
+    
+    // Run Yosys compilation
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting Yosys synthesis...', 'info');
+    }
+    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
+    
+    // Split JSON into individual module files
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Processing module hierarchy...', 'info');
+    }
+    await splitHierarchyJson(hierarchyJsonPath, tempDir);
+    
+    // Generate SVG for the top level module - ONLY ONCE HERE
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Generating SVG diagram...`, 'info');
+    }
+    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
+    
+    console.log('PRISM compilation completed successfully');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
+    }
+    
+    return { 
+      success: true, 
+      message: 'PRISM compilation completed successfully',
+      topLevelModule,
+      svgPath,
+      tempDir,
+      isProjectOriented
+    };
+    
+  } catch (error) {
+    console.error('PRISM compilation error:', error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error.message}`, 'error');
+    }
+    return { success: false, message: error.message };
+  }
+}
 
-// 1. Add processor files to Yosys compilation
+// Add recompile handler for existing PRISM window
+ipcMain.handle('prism-recompile', async (event) => {
+  try {
+    console.log('Recompiling PRISM in existing window...');
+    
+    // Perform compilation
+    const compilationResult = await performPrismCompilation();
+    
+    if (!compilationResult.success) {
+      throw new Error(compilationResult.message);
+    }
+    
+    // If PRISM window exists, update it; otherwise create new one
+    if (prismWindow && !prismWindow.isDestroyed()) {
+      console.log('Updating existing PRISM window with recompilation data');
+      prismWindow.webContents.send('compilation-complete', compilationResult);
+    } else {
+      console.log('Creating new PRISM window for recompilation');
+      await createPrismWindow(compilationResult);
+    }
+    
+    return compilationResult;
+    
+  } catch (error) {
+    console.error('PRISM recompilation error:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+
+
+// Updated Yosys compilation function with optimized logging
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
   console.log('Running Yosys compilation...');
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', `Top level module: ${topLevelModule}`, 'info');
-  }
+  
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   
   // Build file list for Yosys
   let fileList = [];
+  let hdlFileCount = 0, processorFileCount = 0, topLevelFileCount = 0;
   
   // Add HDL files
   const hdlDir = path.join(__dirname, 'saphoComponents', 'HDL');
@@ -2823,6 +2945,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       !file.toLowerCase().includes('test')
     );
     fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
+    hdlFileCount = vFiles.length;
   }
   
   // Add processor files from processorConfig.json
@@ -2838,9 +2961,13 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         
         if (await fse.pathExists(processorVFile)) {
           fileList.push(processorVFile);
+          processorFileCount++;
           console.log(`Added processor file: ${processorVFile}`);
         } else {
           console.warn(`Processor file not found: ${processorVFile}`);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('terminal-log', 'tprism', `Missing: ${processorName}.v`, 'warning');
+          }
         }
         
         // Also add other Hardware files from the processor directory
@@ -2851,9 +2978,10 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
             !file.includes('_tb') && 
             !file.includes('_testbench') &&
             !file.toLowerCase().includes('test') &&
-            file !== `${processorName}.v` // Don't add the main processor file twice
+            file !== `${processorName}.v`
           );
           fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+          processorFileCount += vFiles.length;
         }
       }
     }
@@ -2873,7 +3001,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         !file.includes('_tb') && 
         !file.includes('_testbench') &&
         !file.toLowerCase().includes('test') &&
-        file !== topLevelFileName // Exclude the top level file
+        file !== topLevelFileName
       );
       fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
       
@@ -2882,20 +3010,32 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       if (await fse.pathExists(topLevelFilePath)) {
         fileList.push(topLevelFilePath);
       }
+      
+      topLevelFileCount = vFiles.length + 1;
     }
   }
   
-  console.log('Files to be processed by Yosys:');
-  fileList.forEach(file => console.log(`  - ${file}`));
+  // Summary log instead of listing all files
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', 
+      `Files found: ${hdlFileCount} HDL, ${processorFileCount} processor, ${topLevelFileCount} top-level (Total: ${fileList.length})`, 'info');
+  }
   
   if (fileList.length === 0) {
-    throw new Error('No Verilog files found for compilation (excluding testbenches)');
+    const errorMsg = 'No Verilog files found for compilation';
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+    }
+    throw new Error(errorMsg);
   }
   
   // First, clean up any old stub files
   await cleanupOldStubFiles(tempDir);
   
   // Then, try to analyze dependencies and create stub modules if needed
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', 'Analyzing dependencies...', 'info');
+  }
   await createStubModulesIfNeeded(fileList, tempDir);
   
   // Add any created stub modules to file list
@@ -2903,9 +3043,12 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   const stubVFiles = stubFiles.filter(file => file.endsWith('_stub.v'));
   fileList = fileList.concat(stubVFiles.map(file => path.join(tempDir, file)));
   
+  if (stubVFiles.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', `Created ${stubVFiles.length} stub modules`, 'info');
+  }
+  
   // Build Yosys command with proper Windows path escaping
   const readCommands = fileList.map(file => {
-    // Normalize path separators and escape for shell
     const normalizedPath = path.normalize(file).replace(/\\/g, '/');
     return `read_verilog "${normalizedPath}"`;
   }).join('; ');
@@ -2916,15 +3059,65 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   let yosysCommand = `yosys -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
   
   console.log('Executing Yosys command:', yosysCommand);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
+  }
   
   return new Promise((resolve, reject) => {
-    exec(yosysCommand, { 
+    let yosysOutputBuffer = [];
+    let errorBuffer = [];
+    
+    const yosysProcess = exec(yosysCommand, { 
       shell: true, 
       maxBuffer: 1024 * 1024 * 10,
       cwd: tempDir
     }, (error, stdout, stderr) => {
+      // Process and filter Yosys output
+      if (stdout) {
+        yosysOutputBuffer = stdout.split('\n').filter(line => line.trim());
+      }
+      
+      if (stderr) {
+        errorBuffer = stderr.split('\n').filter(line => line.trim());
+      }
+      
+      // Send summary instead of all output
+      const importantLines = yosysOutputBuffer.filter(line => {
+        const lineLower = line.toLowerCase();
+        return lineLower.includes('warning') || 
+               lineLower.includes('error') || 
+               lineLower.includes('synthesizing') ||
+               lineLower.includes('top module') ||
+               lineLower.includes('cells') ||
+               lineLower.includes('memories') ||
+               (lineLower.includes('executing') && !lineLower.includes('parameter'));
+      });
+      
+      if (importantLines.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
+        // Group similar messages
+        const moduleCount = yosysOutputBuffer.filter(line => line.includes('Synthesizing module')).length;
+        const cellCount = yosysOutputBuffer.filter(line => line.includes('cells')).length;
+        
+        if (moduleCount > 0) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `Synthesized ${moduleCount} modules`, 'info');
+        }
+        
+        // Show only critical warnings/errors
+        importantLines.slice(0, 5).forEach(line => {
+          if (shouldLogMessage(line, 'yosys')) {
+            const logLevel = line.toLowerCase().includes('error') ? 'error' : 
+                           line.toLowerCase().includes('warning') ? 'warning' : 'info';
+            mainWindow.webContents.send('terminal-log', 'tprism', `Yosys: ${line.trim()}`, logLevel);
+          }
+        });
+      }
+      
+      // Handle errors
       if (error && stderr.includes('is not part of the design')) {
         console.log('Hierarchy check failed, trying without strict checking...');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', 'Retrying without strict hierarchy check...', 'warning');
+        }
         
         // Try without hierarchy check if modules are missing
         const relaxedCommand = `yosys -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
@@ -2936,33 +3129,39 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         }, (error2, stdout2, stderr2) => {
           if (error2) {
             console.error('Yosys execution error (relaxed):', error2);
-            console.error('Yosys stderr (relaxed):', stderr2);
-            reject(new Error(`Yosys compilation failed even with relaxed checking: ${error2.message}\nDetails: ${stderr2}`));
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${error2.message}`, 'error');
+            }
+            reject(new Error(`Yosys compilation failed: ${error2.message}`));
             return;
           }
           
           console.log('Yosys compilation succeeded with relaxed hierarchy checking');
-          console.log('Yosys stdout:', stdout2);
-          if (stderr2) console.log('Yosys stderr:', stderr2);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed (relaxed mode)', 'success');
+          }
           
           resolve(hierarchyJsonPath);
-          return hierarchyJsonPath;
         });
       } else if (error) {
         console.error('Yosys execution error:', error);
-        console.error('Yosys stderr:', stderr);
-        reject(new Error(`Yosys compilation failed: ${error.message}\nDetails: ${stderr}`));
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${error.message}`, 'error');
+        }
+        reject(new Error(`Yosys compilation failed: ${error.message}`));
         return;
       } else {
-        console.log('Yosys stdout:', stdout);
-        if (stderr) console.log('Yosys stderr:', stderr);
+        console.log('Yosys compilation succeeded');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed successfully', 'success');
+        }
         
         resolve(hierarchyJsonPath);
-        return hierarchyJsonPath;
       }
     });
   });
 }
+
 
 // 2. Function to clean module names
 function cleanModuleName(moduleName) {
@@ -3230,7 +3429,7 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
   }
 }
 
-// Generate SVG for a specific module using netlistsvg
+// Updated SVG generation function with optimized logging
 async function generateModuleSVG(moduleName, tempDir) {
   console.log(`Generating SVG for module: ${moduleName}`);
   
@@ -3239,26 +3438,39 @@ async function generateModuleSVG(moduleName, tempDir) {
   const outputSvgPath = path.join(tempDir, `${cleanModuleName}.svg`);
   
   if (!await fse.pathExists(inputJsonPath)) {
-    throw new Error(`Module JSON file not found: ${inputJsonPath}`);
+    const errorMsg = `Module JSON file not found: ${inputJsonPath}`;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `❌ ${errorMsg}`, 'error');
+    }
+    throw new Error(errorMsg);
   }
   
   const netlistSvgCommand = `netlistsvg "${inputJsonPath}" -o "${outputSvgPath}"`;
   
   return new Promise((resolve, reject) => {
     exec(netlistSvgCommand, { shell: true }, (error, stdout, stderr) => {
+      // Only log important netlistsvg messages
+      if (stderr && stderr.toLowerCase().includes('error')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `❌ SVG generation error: ${stderr}`, 'error');
+        }
+      }
+      
       if (error) {
         console.error('netlistsvg execution error:', error);
-        console.error('netlistsvg stderr:', stderr);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tprism', `SVG generation failed: ${error.message}`, 'error');
+        }
         reject(new Error(`SVG generation failed: ${error.message}`));
         return;
       }
       
-      console.log('netlistsvg stdout:', stdout);
-      if (stderr) console.log('netlistsvg stderr:', stderr);
       console.log(`SVG generated: ${outputSvgPath}`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', `SVG diagram generated successfully`, 'success');
+      }
       
       resolve(outputSvgPath);
     });
   });
 }
-

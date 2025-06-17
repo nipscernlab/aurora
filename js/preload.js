@@ -111,6 +111,17 @@ const fileOperations = {
         ipcRenderer.removeListener('get-toggle-ui-state', handler);
       };
     },
+
+      onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
+      removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
+
+          // Fix for the missing openPrismCompile function
+    openPrismCompile: () => {
+      console.log('openPrismCompile called');
+      return ipcRenderer.invoke('open-prism-compile');
+    },
+    
+    exportLog: (logData) => ipcRenderer.invoke('export-log', logData),
     
     // Send messages to main process
     send: (channel, data) => {

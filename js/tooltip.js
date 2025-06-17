@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         'goup-terminal': 'Go Up',
         'godown-terminal': 'Go Down',
+        'export-log': 'Export Log',
         'reload-everything-terminal': 'Reload Everything',
         'filter-error': 'Filter Errors',
         'filter-warning': 'Filter Warnings',

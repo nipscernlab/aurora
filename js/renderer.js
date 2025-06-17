@@ -182,7 +182,6 @@ class EditorManager {
 
   // INICIALIZAR FUNCIONALIDADES MELHORADAS
   this.setupEnhancedFeatures(editor);
-  SearchManager.initializeSearch(editor);
   
   this.editors.set(filePath, {
     editor: editor,
@@ -196,85 +195,82 @@ class EditorManager {
   return editor;
 }
 
-// 3. NOVO MÉTODO PARA CONFIGURAR FUNCIONALIDADES MELHORADAS
-static setupEnhancedFeatures(editor) {
-  // Comandos personalizados melhorados
-  const commands = [
+ static setupEnhancedFeatures(editor) {
+    // Comandos personalizados melhorados
+   const commands = [
     {
+      // Ctrl+F: apenas Find (não abre Replace)
       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF,
       action: () => {
-        const findController = editor.getContribution('editor.contrib.findController');
-        if (findController) {
-          findController.start({
-            forceRevealReplace: false,
-            seedSearchStringFromSelection: 'always',
-            shouldFocus: 2,
-            shouldAnimate: true
+        // A ação correta para abrir só a caixa de busca é 'actions.find'
+        const findAction = editor.getAction('actions.find');
+        if (findAction) {
+          findAction.run().then(() => {
+            // Pequeno delay para o widget renderizar, então focar no input
+            setTimeout(() => {
+              const input = document.querySelector('.monaco-findInput input');
+              if (input) input.focus();
+            }, 50);
           });
         }
       }
     },
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
-      action: () => editor.getAction('editor.action.startFindReplaceAction').run()
-    },
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-      action: () => editor.getAction('editor.action.formatDocument').run()
-    },
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
-      action: () => editor.getAction('editor.action.gotoLine').run()
-    },
-    // NOVOS COMANDOS
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
-      action: () => editor.getAction('editor.action.quickCommand').run()
-    },
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
-      action: () => editor.getAction('workbench.action.showCommands').run()
-    },
-    {
-      key: monaco.KeyCode.F12,
-      action: () => editor.getAction('editor.action.revealDefinition').run()
-    },
-    {
-      key: monaco.KeyMod.Alt | monaco.KeyCode.F12,
-      action: () => editor.getAction('editor.action.peekDefinition').run()
-    },
-    {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12,
-      action: () => editor.getAction('editor.action.goToImplementation').run()
-    },
-    {
-      key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
-      action: () => editor.getAction('editor.action.goToReferences').run()
-    }
-  ];
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
+        action: () => editor.getAction('editor.action.startFindReplaceAction').run().then(() => {
+          setTimeout(() => {
+            const input = document.querySelector('.monaco-findInput input');
+            if (input) input.focus();
+          }, 50);
+        })
+      },
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+        action: () => editor.getAction('editor.action.formatDocument').run()
+      },
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
+        action: () => editor.getAction('editor.action.gotoLine').run()
+      },
+      // Outros comandos inalterados...
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
+        action: () => editor.getAction('editor.action.quickCommand').run()
+      },
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
+        action: () => editor.getAction('workbench.action.showCommands').run()
+      },
+      {
+        key: monaco.KeyCode.F12,
+        action: () => editor.getAction('editor.action.revealDefinition').run()
+      },
+      {
+        key: monaco.KeyMod.Alt | monaco.KeyCode.F12,
+        action: () => editor.getAction('editor.action.peekDefinition').run()
+      },
+      {
+        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12,
+        action: () => editor.getAction('editor.action.goToImplementation').run()
+      },
+      {
+        key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
+        action: () => editor.getAction('editor.action.goToReferences').run()
+      }
+    ];
 
-  commands.forEach(({ key, action }) => {
-    editor.addCommand(key, action);
-  });
+    commands.forEach(({ key, action }) => {
+      editor.addCommand(key, action);
+    });
 
-  // Configurar context menu melhorado
-  editor.onContextMenu((e) => {
-    // Adiciona itens personalizados ao menu de contexto se necessário
-  });
+    editor.onContextMenu((e) => {
+      // Adicionar itens personalizados ao menu de contexto, se necessário
+    });
 
-  // Configurar eventos de busca
-  editor.onDidFocusEditorText(() => {
-    if (SearchManager.currentSearchTerm) {
-      SearchManager.applySearchToEditor(editor, SearchManager.currentSearchTerm);
-    }
-  });
-}
+  }
 
-// 4. MÉTODO PARA BUSCA GLOBAL ENTRE ARQUIVOS
-  // Adicione este método ao EditorManager
   static searchInAllFiles(searchTerm, options = {}) {
     const results = [];
-    
     this.editors.forEach((editorData, filePath) => {
       const { editor } = editorData;
       const model = editor.getModel();
@@ -282,11 +278,11 @@ static setupEnhancedFeatures(editor) {
       if (model) {
         const matches = model.findMatches(
           searchTerm,
-          true, // searchOnlyEditableRange
+          true,
           options.isRegex || false,
           options.matchCase || false,
-          options.wholeWord ? '\\b' + searchTerm + '\\b' : null,
-          true // captureMatches
+          options.wholeWord ? '\b' + searchTerm + '\b' : null,
+          true
         );
         
         if (matches.length > 0) {
@@ -306,7 +302,6 @@ static setupEnhancedFeatures(editor) {
     return results;
   }
 
-  // Método para navegar entre resultados
   static navigateToSearchResult(filePath, lineNumber, column) {
     const editor = this.setActiveEditor(filePath);
     if (editor) {
@@ -434,10 +429,6 @@ static setupEnhancedFeatures(editor) {
     this.activeEditor.layout();
     this.activeEditor.focus();
     
-    // Reaplica busca atual se existir
-    if (SearchManager.currentSearchTerm) {
-      SearchManager.applySearchToEditor(this.activeEditor, SearchManager.currentSearchTerm);
-    }
   }, 50);
 
   this.updateOverlayVisibility();
@@ -460,93 +451,6 @@ static setupEnhancedFeatures(editor) {
   }
 }
 
-
-class SearchManager {
-  static currentSearchTerm = '';
-  static searchOptions = {
-    matchCase: false,
-    wholeWord: false,
-    isRegex: false
-  };
-  static searchDecorations = new Map(); // Track decorations per editor
-  
-  static initializeSearch(editor) {
-    // Força a criação do widget de busca e o torna persistente
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
-      const findController = editor.getContribution('editor.contrib.findController');
-      if (findController) {
-        findController.start({
-          forceRevealReplace: false,
-          seedSearchStringFromSelection: 'always',
-          seedSearchStringFromNonEmptySelection: true,
-          shouldFocus: 2, // FindStartFocusAction.FocusSearch
-          shouldAnimate: true
-        });
-      }
-    });
-
-    // Intercepta mudanças na busca para torná-la global
-    editor.onDidChangeModel(() => {
-      // Quando o modelo muda (troca de arquivo), reaplica a busca atual
-      if (this.currentSearchTerm) {
-        setTimeout(() => {
-          this.applySearchToEditor(editor, this.currentSearchTerm);
-        }, 100);
-      }
-    });
-
-    // Monitora mudanças no widget de busca
-    const findController = editor.getContribution('editor.contrib.findController');
-    if (findController && findController._state) {
-      findController._state.onFindReplaceStateChange((e) => {
-        if (e.searchString) {
-          this.currentSearchTerm = findController._state.searchString;
-          this.searchOptions = {
-            matchCase: findController._state.matchCase,
-            wholeWord: findController._state.wholeWord,
-            isRegex: findController._state.isRegex
-          };
-          // Aplica a busca em todos os editores abertos
-          this.applySearchToAllEditors();
-        }
-      });
-    }
-  }
-
-  static applySearchToEditor(editor, searchTerm) {
-    if (!searchTerm || !editor.getModel()) return;
-
-    try {
-      const findController = editor.getContribution('editor.contrib.findController');
-      if (findController && findController._state) {
-        findController._state.change({
-          searchString: searchTerm,
-          ...this.searchOptions
-        }, false);
-      }
-    } catch (error) {
-      console.warn('Erro ao aplicar busca:', error);
-    }
-  }
-
-  static applySearchToAllEditors() {
-    EditorManager.editors.forEach(({ editor }) => {
-      if (editor !== EditorManager.activeEditor) {
-        this.applySearchToEditor(editor, this.currentSearchTerm);
-      }
-    });
-  }
-
-  static clearSearch() {
-    this.currentSearchTerm = '';
-    EditorManager.editors.forEach(({ editor }) => {
-      const findController = editor.getContribution('editor.contrib.findController');
-      if (findController) {
-        findController.closeFindWidget();
-      }
-    });
-  }
-}
 
 // Enhanced Monaco initialization with custom themes
 async function initMonaco() {
@@ -870,7 +774,7 @@ async function initMonaco() {
       
       // Add find/replace shortcuts
       editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
-        editorInstance.getAction('actions.find').run();
+        editorInstance.getAction('editor.actions.find').run();
       });
       
       editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
@@ -1387,7 +1291,7 @@ static showFormattingIndicator(show) {
   } else {
     broomIcon.classList.remove('formatting');
     broomIcon.style.animation = '';
-    broomIcon.title = 'Format code';
+    broomIcon.title = 'Code Refactoring';
   }
 }
 
@@ -1457,7 +1361,7 @@ static showFormattingIndicator(show) {
   html += `<span class="context-path-filename">${fileName}</span>`;
 
   // Add formatting button (broom icon)
-  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Format code" style="margin-left: auto; cursor: pointer;"></i>`;
+  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Code Refactoring" style="margin-left: auto; cursor: pointer;"></i>`;
 
   contextContainer.innerHTML = html;
 
@@ -2273,7 +2177,7 @@ class CodeFormatter {
       return formattedCode;
     } catch (error) {
       console.error('Formatting error:', error);
-      throw new Error(`Failed to format code: ${error.message}`);
+      throw new Error(`Failed to refact code: ${error.message}`);
     }
   }
 
@@ -3005,6 +2909,8 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         icon.className = 'fa-solid fa-file-lines';
       } else if (extension === 'zip' || extension === '7z') {
         icon.className = 'fa-solid fa-file-zipper file-item-icon';
+      } else if (file.name === 'house_report.json') {
+        icon.className = 'fa-solid fa-file-export file-item-icon';
       } else if (extension === 'cmm') {
 
         icon.className = 'fa-solid fa-microchip file-item-icon';
@@ -4354,6 +4260,63 @@ document.getElementById('prismcomp').addEventListener('click', async () => {
     // Show error to user
   }
 });
+
+window.addEventListener('DOMContentLoaded', () => {
+  const btnExportLog = document.getElementById('export-log');
+  if (!btnExportLog) {
+    console.warn('Botão export-log não encontrado no DOM');
+    return;
+  }
+
+  btnExportLog.addEventListener('click', async () => {
+    try {
+      // Identificar todas as abas de terminal atualmente definidas:
+      // Exemplo: botões com classe 'tab' e data-terminal.
+      const tabButtons = document.querySelectorAll('.tab[data-terminal]');
+      const report = {};
+
+      tabButtons.forEach(tabBtn => {
+        const termId = tabBtn.getAttribute('data-terminal'); // e.g., "tcmm", "tasm", etc.
+        // No HTML, cada terminal-content tem id="terminal-<termId>"
+        const container = document.getElementById(`terminal-${termId}`);
+        if (container) {
+          // Dentro de cada terminal-content, há um div.terminal-body
+          const body = container.querySelector('.terminal-body');
+          if (body) {
+            // Captura as linhas atuais exibidas no terminal:
+            // Dependendo de como você injeta as linhas (por innerText, ou <div> por linha), aqui usamos innerText.
+            const text = body.innerText || '';
+            // Opcional: dividir em array de linhas:
+            const lines = text.split('\n').map(line => line.trimEnd());
+            report[termId] = lines;
+          } else {
+            report[termId] = [];
+          }
+        } else {
+          // Se o terminal não existir no DOM (talvez nenhuma aba correspondente): pula ou coloca array vazio
+          report[termId] = [];
+        }
+      });
+
+      // Agora report é um objeto: { tcmm: [...], tasm: [...], ... }
+
+      // Chama API exposta pelo preload:
+      const result = await window.electronAPI.exportLog(report);
+
+      // Notificar o usuário. Você pode usar alert ou outra UI customizada:
+      if (result && result.success) {
+        // Exemplo simples:
+        alert(result.message);
+      } else {
+        alert('Falha ao exportar log: ' + (result && result.message ? result.message : 'Erro desconhecido'));
+      }
+    } catch (err) {
+      console.error('Erro no handler export-log:', err);
+      alert('Erro ao exportar log: ' + err.message);
+    }
+  });
+});
+
 
 
 //PROCESSADOR HUB ==========================================================================================================================================================
@@ -6903,6 +6866,7 @@ class TerminalManager {
     this.setupTerminalTabs();
     this.setupAutoScroll();
     this.setupGoDownButton();
+    this.setupTerminalLogListener();
     
     if (!TerminalManager.clearButtonInitialized) {
       this.setupClearButton();
@@ -6911,6 +6875,12 @@ class TerminalManager {
 
     this.activeFilter = null; // 'error', 'warning', 'tips', or null
     this.setupFilterButtons()
+  }
+
+  setupTerminalLogListener() {
+    window.electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
+      this.appendToTerminal(terminal, message, type);
+    });
   }
 
   setupTerminalTabs() {

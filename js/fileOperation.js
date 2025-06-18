@@ -27,29 +27,37 @@ const FileOperations = (function() {
     return window.currentProjectPath || '';
   }
 
-  // Função para normalizar caminhos
-  function normalizePath(path) {
-    if (!path) return '';
-    
-    const projectPath = getProjectPath().trim();
-    
-    // Já é um caminho absoluto com o caminho do projeto
-    if (path.startsWith(projectPath)) {
-      return path;
-    }
-    
-    // Caminho já é absoluto
-    if (/^[A-Za-z]:\\/.test(path)) {
-      return path;
-    }
-    
-    // Combina o caminho do projeto com o caminho relativo
-    let normalized = `${projectPath}\\${path.replace(/^[\/\\]+/, '')}`;
-    // Normaliza barras para Windows
-    normalized = normalized.replace(/\//g, '\\').replace(/\\+/g, '\\');
-    
-    return normalized;
+  // Função normalizePath melhorada
+function normalizePath(path) {
+  if (!path || typeof path !== 'string') {
+    return '';
   }
+  
+  const projectPath = getProjectPath().trim();
+  if (!projectPath) {
+    return path;
+  }
+  
+  // Limpar e normalizar barras
+  let cleanPath = path.trim().replace(/[\/\\]+/g, '\\');
+  let cleanProjectPath = projectPath.replace(/[\/\\]+/g, '\\');
+  
+  // Se já começa com o caminho do projeto, retornar normalizado
+  if (cleanPath.startsWith(cleanProjectPath)) {
+    return cleanPath;
+  }
+  
+  // Se é caminho absoluto do Windows mas não está no projeto
+  if (/^[A-Za-z]:\\/.test(cleanPath)) {
+    return cleanPath;
+  }
+  
+  // Remover barras iniciais e combinar com caminho do projeto
+  cleanPath = cleanPath.replace(/^[\/\\]+/, '');
+  const separator = cleanProjectPath.endsWith('\\') ? '' : '\\';
+  
+  return `${cleanProjectPath}${separator}${cleanPath}`;
+}
 
   // Função para obter caminho relativo
   function getRelativePath(absolutePath) {
@@ -297,6 +305,28 @@ const FileOperations = (function() {
     }
   }
   
+// Função para verificar se é pasta raiz do projeto
+function isProjectRoot(path) {
+  const projectPath = getProjectPath();
+  return normalizePath(path) === normalizePath(projectPath);
+}
+
+// Função auxiliar melhorada para criar arquivo na raiz
+async function createFileAtRoot(fileTree, targetPath) {
+  console.log('Creating file at project root');
+  
+  const inputContainer = createInputContainer('filename.ext');
+  fileTree.prepend(inputContainer);
+  
+  const input = inputContainer.querySelector('.file-input');
+  input.focus();
+
+  return new Promise((resolve) => {
+    setupFileCreationHandlers(input, targetPath, inputContainer, fileTree, resolve);
+  });
+}
+
+// Função handleNewFile corrigida
 async function handleNewFile() {
   hideContextMenu();
   hideRootContextMenu();
@@ -305,36 +335,36 @@ async function handleNewFile() {
   console.log(`Creating new file - Target path: ${targetPath}`);
 
   try {
-    // Validate and normalize the target path
     targetPath = normalizePath(targetPath);
     
-    // Check if target exists and determine if it's a directory
+    // Verificar se é pasta raiz do projeto
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
+      return await createFileAtRoot(fileTree, targetPath);
+    }
+    
+    // Verificar se o target existe e é um diretório
     let isTargetDirectory = false;
     try {
       isTargetDirectory = await window.electronAPI.isDirectory(targetPath);
     } catch (error) {
       console.warn('Could not determine if target is directory:', error);
-      // Assume it's a file and get parent directory
       targetPath = await window.electronAPI.getParentDirectory(targetPath);
       isTargetDirectory = true;
     }
 
-    // If target is not a directory, get its parent
     if (!isTargetDirectory) {
       targetPath = await window.electronAPI.getParentDirectory(targetPath);
     }
 
     console.log(`Final target directory: ${targetPath}`);
-
-    // Handle root-level creation
-    const fileTree = document.getElementById('file-tree');
-    const projectPath = getProjectPath();
     
-    if (targetPath === projectPath) {
+    // Verificar novamente se é pasta raiz após normalização
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
       return await createFileAtRoot(fileTree, targetPath);
     }
 
-    // Handle subfolder creation
     return await createFileInFolder(targetPath);
 
   } catch (error) {
@@ -877,23 +907,39 @@ async function createFileAtRoot(fileTree, targetPath) {
   });
 }
 
+// Função createFileInFolder melhorada
 async function createFileInFolder(targetPath) {
   const targetElement = findElementByPath(targetPath);
+  
   if (!targetElement) {
+    // Se não encontrou elemento, verificar se é pasta raiz
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
+      return await createFileAtRoot(fileTree, targetPath);
+    }
     throw new Error(`Could not find target folder element for: ${getRelativePath(targetPath)}`);
   }
+  
+  // Se o elemento é o próprio file-tree (pasta raiz)
+  if (targetElement.id === 'file-tree') {
+    return await createFileAtRoot(targetElement, targetPath);
+  }
 
-  // Ensure folder is expanded
+  // Verificar se a pasta está expandida, se não, expandir sem permitir colapso
   const folderToggle = targetElement.querySelector('.folder-toggle');
   if (folderToggle && !targetElement.classList.contains('expanded')) {
+    // Temporariamente desabilitar o toggle para evitar colapso
+    folderToggle.style.pointerEvents = 'none';
     folderToggle.click();
-    // Wait for expansion animation
     await new Promise(resolve => setTimeout(resolve, 150));
+    // Reabilitar após a animação
+    setTimeout(() => {
+      folderToggle.style.pointerEvents = '';
+    }, 300);
   }
 
   let folderContent = targetElement.querySelector('.folder-content');
   if (!folderContent) {
-    // Create folder content if it doesn't exist
     folderContent = document.createElement('div');
     folderContent.className = 'folder-content';
     targetElement.appendChild(folderContent);
@@ -1019,203 +1065,179 @@ function isValidFilename(filename) {
   return true;
 }
 
-// Tratar criação de nova pasta
+// Função handleNewFolder corrigida
 async function handleNewFolder() {
   hideContextMenu();
   hideRootContextMenu();
 
-  let targetPath = currentPath;
-  console.log(`Original path for new item: ${targetPath}`);
-  const isFolder = await window.electronAPI.isDirectory(targetPath);
-  
-  // If we're creating at the root level of the file tree
-  const fileTree = document.getElementById('file-tree');
-  if (targetPath === getProjectPath()) {
-    // Create directly in file tree div
-    const inputContainer = document.createElement('div');
-    inputContainer.className = 'file-input-container';
+  let targetPath = currentPath || getProjectPath();
+  console.log(`Creating new folder - Target path: ${targetPath}`);
+
+  try {
+    targetPath = normalizePath(targetPath);
     
-    const input = document.createElement('input');
-    input.className = 'file-input';
-    input.type = 'text';
-    input.placeholder = 'folder name';
+    // Verificar se é pasta raiz do projeto
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
+      return await createFolderAtRoot(fileTree, targetPath);
+    }
     
-    inputContainer.appendChild(input);
+    const isFolder = await window.electronAPI.isDirectory(targetPath);
     
-    // Insert at top of file tree
-    fileTree.prepend(inputContainer);
-    input.focus();
-    
-    // Handler for creating the folder at root level
-    const handleCreate = async () => {
-      if (!input.isConnected) return;
-      
-      const folderName = input.value.trim();
-      if (!folderName) {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
+    if (!isFolder) {
+      try {
+        targetPath = await window.electronAPI.getParentDirectory(targetPath);
+        console.log(`New path (parent folder): ${targetPath}`);
+      } catch (error) {
+        console.error('Error getting parent directory:', error);
+        showNotification(`Error: Could not determine parent directory`, 'error');
         return;
       }
-      
-      try {
-        // Build the complete folder path
-        const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
-        const newFolderPath = `${targetPath}${fileSeparator}${folderName}`;
-        console.log(`Trying to create folder: ${newFolderPath}`);
-        
-        await window.electronAPI.createDirectory(newFolderPath);
-        showNotification(`Folder "${folderName}" created successfully`, 'success');
-        
-        // Update the file tree after creation
-        if (typeof refreshFileTreeFn === 'function') {
-          await refreshFileTreeFn();
-        }
-      } catch (error) {
-        console.error('Error creating folder:', error);
-        showNotification(`Error creating folder: ${error.message}`, 'error');
-      } finally {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
-      }
-    };
-    
-    // Setup event listeners for root-level creation
-    let isProcessing = false;
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (!isProcessing) {
-          isProcessing = true;
-          await handleCreate();
-          isProcessing = false;
-        }
-      } else if (e.key === 'Escape') {
-        if (fileTree.contains(inputContainer)) {
-          fileTree.removeChild(inputContainer);
-        }
-      }
-    });
-    
-    input.addEventListener('blur', async () => {
-      setTimeout(async () => {
-        if (!isProcessing) {
-          isProcessing = true;
-          await handleCreate();
-          isProcessing = false;
-        }
-      }, 100);
-    });
-    
-    return; // Exit after setting up root-level creation
-  }
-  
-  // Handle subfolder creation - get parent directory if current path is a file
-  if (!isFolder) {
-    try {
-      targetPath = await window.electronAPI.getParentDirectory(targetPath);
-      console.log(`New path (parent folder): ${targetPath}`);
-    } catch (error) {
-      console.error('Error getting parent directory:', error);
-      showNotification(`Error: Could not determine parent directory`, 'error');
-      return;
     }
+    
+    // Verificar novamente se é pasta raiz após obter diretório pai
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
+      return await createFolderAtRoot(fileTree, targetPath);
+    }
+    
+    return await createFolderInFolder(targetPath);
+
+  } catch (error) {
+    console.error('Error in handleNewFolder:', error);
+    showNotification(`Error creating folder: ${error.message}`, 'error');
   }
+}
+
+// Nova função auxiliar para criar pasta na raiz
+async function createFolderAtRoot(fileTree, targetPath) {
+  console.log('Creating folder at project root');
   
-  // Find the target element for the folder where we're creating
-  const targetElement = findElementByPath(targetPath);
-  if (!targetElement) {
-    console.error(`Element not found for: ${targetPath}`);
-    showNotification(`Error: Could not find target element for path: ${getRelativePath(targetPath)}`, 'error');
-    return;
-  }
+  const inputContainer = createInputContainer('folder name');
+  fileTree.prepend(inputContainer);
   
-  const folderContent = targetElement.querySelector('.folder-content');
-  if (!folderContent) {
-    showNotification(`Error: Could not find folder content for path: ${getRelativePath(targetPath)}`, 'error');
-    return;
-  }
-  
-  // Create input element
-  const inputContainer = document.createElement('div');
-  inputContainer.className = 'file-input-container';
-  
-  const input = document.createElement('input');
-  input.className = 'file-input';
-  input.type = 'text';
-  input.placeholder = 'folder name';
-  
-  inputContainer.appendChild(input);
-  folderContent.prepend(inputContainer);
-  
-  // Focus on input
+  const input = inputContainer.querySelector('.file-input');
   input.focus();
   
-  // Handler for creating the folder
-  const handleCreate = async () => {
-    if (!input.isConnected) return;
-    
-    const folderName = input.value.trim();
-    if (!folderName) {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
-      }
-      return;
+  return new Promise((resolve) => {
+    setupFolderCreationHandlers(input, targetPath, inputContainer, fileTree, resolve);
+  });
+}
+
+// Nova função auxiliar para criar pasta em subpasta
+async function createFolderInFolder(targetPath) {
+  const targetElement = findElementByPath(targetPath);
+  
+  if (!targetElement) {
+    if (isProjectRoot(targetPath)) {
+      const fileTree = document.getElementById('file-tree');
+      return await createFolderAtRoot(fileTree, targetPath);
     }
+    throw new Error(`Could not find target folder element for: ${getRelativePath(targetPath)}`);
+  }
+  
+  if (targetElement.id === 'file-tree') {
+    return await createFolderAtRoot(targetElement, targetPath);
+  }
+
+  // Expandir pasta sem permitir colapso
+  const folderToggle = targetElement.querySelector('.folder-toggle');
+  if (folderToggle && !targetElement.classList.contains('expanded')) {
+    folderToggle.style.pointerEvents = 'none';
+    folderToggle.click();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    setTimeout(() => {
+      folderToggle.style.pointerEvents = '';
+    }, 300);
+  }
+
+  let folderContent = targetElement.querySelector('.folder-content');
+  if (!folderContent) {
+    folderContent = document.createElement('div');
+    folderContent.className = 'folder-content';
+    targetElement.appendChild(folderContent);
+  }
+
+  const inputContainer = createInputContainer('folder name');
+  folderContent.prepend(inputContainer);
+  
+  const input = inputContainer.querySelector('.file-input');
+  input.focus();
+
+  return new Promise((resolve) => {
+    setupFolderCreationHandlers(input, targetPath, inputContainer, folderContent, resolve);
+  });
+}
+
+// Nova função para configurar handlers de criação de pasta
+function setupFolderCreationHandlers(input, targetPath, inputContainer, parentElement, resolve) {
+  let isProcessing = false;
+
+  const handleCreate = async () => {
+    if (isProcessing || !input.isConnected) return;
+    isProcessing = true;
+
+    const folderName = input.value.trim();
     
     try {
-      // Build the complete folder path
-      const fileSeparator = targetPath.endsWith('\\') ? '' : '\\';
-      const newFolderPath = `${targetPath}${fileSeparator}${folderName}`;
+      if (!folderName) {
+        return;
+      }
+
+      if (!isValidFilename(folderName)) {
+        throw new Error('Invalid folder name. Please avoid special characters.');
+      }
+
+      const separator = targetPath.endsWith('\\') ? '' : '\\';
+      const newFolderPath = `${targetPath}${separator}${folderName}`;
       
-      console.log(`Trying to create folder: ${newFolderPath}`);
+      const folderExists = await window.electronAPI.fileExists(newFolderPath);
+      if (folderExists) {
+        throw new Error(`Folder "${folderName}" already exists`);
+      }
+
+      console.log(`Creating folder: ${newFolderPath}`);
       await window.electronAPI.createDirectory(newFolderPath);
+      
       showNotification(`Folder "${folderName}" created successfully`, 'success');
       
-      // Update the file tree
       if (typeof refreshFileTreeFn === 'function') {
         await refreshFileTreeFn();
       }
+      
+      resolve(true);
     } catch (error) {
       console.error('Error creating folder:', error);
       showNotification(`Error creating folder: ${error.message}`, 'error');
+      resolve(false);
     } finally {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
+      if (parentElement.contains(inputContainer)) {
+        parentElement.removeChild(inputContainer);
       }
+      isProcessing = false;
     }
   };
-  
-  // Flag to avoid repeated processing
-  let isProcessing = false;
-  
-  // Event listeners for the input
+
+  // Event listeners
   input.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (!isProcessing) {
-        isProcessing = true;
-        await handleCreate();
-        isProcessing = false;
-      }
+      await handleCreate();
     } else if (e.key === 'Escape') {
-      if (folderContent.contains(inputContainer)) {
-        folderContent.removeChild(inputContainer);
+      if (parentElement.contains(inputContainer)) {
+        parentElement.removeChild(inputContainer);
       }
+      resolve(false);
     }
   });
-  
+
   input.addEventListener('blur', async () => {
     setTimeout(async () => {
-      if (!isProcessing) {
-        isProcessing = true;
-        await handleCreate();
-        isProcessing = false;
-      }
+      await handleCreate();
     }, 100);
   });
 }
+
 
 // Add this function to hide the root context menu
 function hideRootContextMenu() {
@@ -1718,50 +1740,55 @@ function showRootContextMenu(x, y) {
   }, 0);
 }
   
-  // Função auxiliar para encontrar um elemento pelo caminho
-  function findElementByPath(path) {
-    if (!path) return null;
-    
-    console.log(`Buscando elemento para caminho: ${path}`);
-    
-    // Tenta encontrar pelo atributo data-path
-    let element = null;
-    
-    // Seletores para data-path podem ser problemáticos devido a caracteres especiais
-    // então vamos usar uma abordagem mais direta
-    const allItems = document.querySelectorAll('.file-tree-item');
-    
-    for (const item of allItems) {
-      if (item.hasAttribute('data-path')) {
-        const itemPath = item.getAttribute('data-path');
-        if (path === itemPath) {
-          element = item;
-          break;
-        }
-      }
-    }
-    
-    // Se não encontrou por data-path, tenta pelo nome do arquivo/pasta
-    if (!element) {
-      const fileName = path.split('\\').pop();
-      
-      for (const item of allItems) {
-        const span = item.querySelector('.file-item span');
-        if (span && span.textContent === fileName) {
-          const reconstructedPath = getFilePathFromElement(item);
-          
-          // Verifica se o caminho reconstruído corresponde ao caminho fornecido
-          if (path === reconstructedPath || isPathMatchingElement(path, item)) {
-            element = item;
-            break;
-          }
-        }
-      }
-    }
-    
-    console.log(`Elemento encontrado: ${element ? 'Sim' : 'Não'}`);
-    return element;
+  // Função findElementByPath melhorada
+function findElementByPath(path) {
+  if (!path) return null;
+  
+  console.log(`Searching for element with path: ${path}`);
+  
+  // Normalizar o caminho de busca
+  const normalizedPath = normalizePath(path);
+  
+  // Se for pasta raiz do projeto, retornar o file-tree
+  if (isProjectRoot(normalizedPath)) {
+    console.log('Path is project root, returning file-tree element');
+    return document.getElementById('file-tree');
   }
+  
+  // Buscar por data-path exato
+  const allItems = document.querySelectorAll('.file-tree-item[data-path]');
+  for (const item of allItems) {
+    const itemPath = normalizePath(item.getAttribute('data-path'));
+    if (itemPath === normalizedPath) {
+      console.log('Found element by exact data-path match');
+      return item;
+    }
+  }
+  
+  // Buscar por correspondência de nome e hierarquia
+  const pathParts = normalizedPath.split('\\').filter(part => part.length > 0);
+  const targetName = pathParts[pathParts.length - 1];
+  
+  for (const item of allItems) {
+    const span = item.querySelector('.file-item span');
+    if (span && span.textContent === targetName) {
+      const itemPath = normalizePath(item.getAttribute('data-path') || '');
+      
+      // Verificar se os caminhos terminam igual
+      const itemParts = itemPath.split('\\').filter(part => part.length > 0);
+      if (pathParts.length === itemParts.length) {
+        const matches = pathParts.every((part, index) => part === itemParts[index]);
+        if (matches) {
+          console.log('Found element by name and hierarchy match');
+          return item;
+        }
+      }
+    }
+  }
+  
+  console.warn(`Element not found for path: ${normalizedPath}`);
+  return null;
+}
 
   // Verifica se um elemento corresponde a um caminho
   function isPathMatchingElement(path, element) {

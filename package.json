@@ -64,6 +64,15 @@
             {
                 "from": "saphoComponents",
                 "to": "saphoComponents_tmp"
+            },
+            {
+                "from": "saphoComponents/Packages/PRISM/netlistsvg/netlistsvg.exe",
+                "to": "bin/netlistsvg.exe"
+            },
+            {
+            "from": "saphoComponents/Packages/PRISM/yosys.exe",
+            "to": "bin/yosys.exe",
+            "filter": ["**/*"]
             }
         ],
         "directories": {

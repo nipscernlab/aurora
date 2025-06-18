@@ -4233,16 +4233,6 @@ function updateFileTree(files) {
   */
 }
 
-// This should be added wherever you handle button clicks in your main window
-document.getElementById('prismcomp').addEventListener('click', async () => {
-  try {
-    await window.electronAPI.openPrismCompile();
-  } catch (error) {
-    console.error('Error opening PRISM:', error);
-    // Show error to user
-  }
-});
-
 window.addEventListener('DOMContentLoaded', () => {
   const btnExportLog = document.getElementById('export-log');
   if (!btnExportLog) {
@@ -7393,8 +7383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-
-// CORREÇÃO 6: Event handler do botão PRISM corrigido
+// CORREÇÃO FINAL: Event handler do botão PRISM completamente corrigido
 document.addEventListener('DOMContentLoaded', () => {
   const prismButton = document.getElementById('prismcomp');
   let isCompiling = false;
@@ -7406,12 +7395,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isOpen) {
       prismButton.classList.add('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
       }
     } else {
       prismButton.classList.remove('active');
       if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> PRISM';
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM';
       }
     }
   }
@@ -7449,20 +7438,34 @@ document.addEventListener('DOMContentLoaded', () => {
         prismButton.disabled = true;
         prismButton.style.cursor = 'not-allowed';
         
-        if (isPrismOpen) {
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> Recompiling...';
-          console.log('Recompiling for existing PRISM window...');
-        } else {
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inhenrit; width: 35px; flex-shrink: 0;"> Compiling...';
-          console.log('Starting PRISM compilation for new window...');
-        }
+        let result;
         
-        // Call PRISM compilation
-        const result = await window.electronAPI.prismCompile();
+        if (isPrismOpen) {
+          // Use recompile for existing window
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
+          console.log('Recompiling for existing PRISM window...');
+          
+          // Call recompile method if it exists, otherwise use regular compile
+          if (window.electronAPI.prismRecompile) {
+            result = await window.electronAPI.prismRecompile();
+          } else {
+            result = await window.electronAPI.prismCompile();
+          }
+        } else {
+          // First time compilation
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
+          console.log('Starting PRISM compilation for new window...');
+          
+          // Use openPrismCompile to ensure window creation with compilation
+          if (window.electronAPI.openPrismCompile) {
+            result = await window.electronAPI.openPrismCompile();
+          } else {
+            result = await window.electronAPI.prismCompile();
+          }
+        }
         
         if (result && result.success) {
           console.log('PRISM compilation successful:', result.message);
-          showNotification('PRISM Compilation', 'Compilation completed successfully!', 'success');
           
           // Force update button status after successful compilation
           setTimeout(async () => {
@@ -7471,18 +7474,28 @@ document.addEventListener('DOMContentLoaded', () => {
               updatePrismButton(newStatus);
             } catch (error) {
               console.warn('Error updating button status:', error);
+              // Default to showing recompile mode if compilation was successful
+              updatePrismButton(true);
             }
           }, 1000);
           
         } else {
           const errorMessage = result ? result.message : 'Unknown error occurred';
           console.error('PRISM compilation failed:', errorMessage);
-          showNotification('PRISM Compilation Error', errorMessage, 'error');
+          
+          // Show error in terminal if available
+          if (window.terminalManager) {
+            window.terminalManager.appendToTerminal('tprism', `Compilation failed: ${errorMessage}`, 'error');
+          }
         }
         
       } catch (error) {
         console.error('PRISM compilation error:', error);
-        showNotification('PRISM Compilation Error', error.message || 'An unexpected error occurred', 'error');
+        
+        // Show error in terminal if available
+        if (window.terminalManager) {
+          window.terminalManager.appendToTerminal('tprism', `Compilation error: ${error.message}`, 'error');
+        }
         
       } finally {
         // Reset compilation state and button
@@ -7496,29 +7509,25 @@ document.addEventListener('DOMContentLoaded', () => {
           updatePrismButton(isPrismOpen);
         } catch (error) {
           console.error('Error checking PRISM window status in finally:', error);
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inhenrit;  flex-shrink: 0;"> PRISM';
+          // Default button text
+          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
         }
       }
     });
   }
 
-  // CORREÇÃO: Listen for toggle UI state requests - simplificado
+  // Listen for toggle UI state requests
   if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
-    window.electronAPI.onGetToggleUIState(() => {
-      // This handler is now managed in the preload script
-      console.log('Toggle UI state request handled in preload');
+    window.electronAPI.onGetToggleUIState((sendResponse) => {
+      // Get the actual toggle state from your UI
+      const toggleElement = document.getElementById('your-toggle-element'); // Substitua pelo ID correto
+      const isActive = toggleElement ? toggleElement.checked : false;
+      
+      console.log('Sending toggle UI state:', isActive);
+      sendResponse(isActive);
     });
   }
 });
-
-// Helper function to show notifications (unchanged)
-function showNotification(title, message, type = 'info') {
-  if (type === 'error') {
-    console.error(`${title}: ${message}`);
-  } else {
-    console.log(`${title}: ${message}`);
-  }
-}
 
 // Add to existing window message listeners
 window.addEventListener('message', (event) => {

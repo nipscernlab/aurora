@@ -2432,7 +2432,12 @@ async function createPrismWindow(compilationData = null) {
     // If compilation data is provided, send it to existing window
     if (compilationData) {
       console.log('Updating existing PRISM window with new compilation data:', compilationData);
-      prismWindow.webContents.send('compilation-complete', compilationData);
+      // Wait for window to be ready before sending data
+      prismWindow.webContents.once('did-finish-load', () => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      });
     }
     return prismWindow;
   }
@@ -2473,19 +2478,25 @@ async function createPrismWindow(compilationData = null) {
   try {
     await prismWindow.loadFile(prismHtmlPath);
     
-    // Show window immediately after loading
-    prismWindow.maximize();
-    prismWindow.show();
-    
-    // Send compilation data after DOM is ready
-    if (compilationData) {
-      prismWindow.webContents.once('dom-ready', () => {
+    // CORREÇÃO: Wait for did-finish-load before sending data and showing window
+    prismWindow.webContents.once('did-finish-load', () => {
+      console.log('PRISM window finished loading');
+      
+      // Show window after loading is complete
+      prismWindow.maximize();
+      prismWindow.show();
+      
+      // Send compilation data after page is fully loaded
+      if (compilationData) {
         console.log('Sending compilation data to new PRISM window:', compilationData);
         if (prismWindow && !prismWindow.isDestroyed()) {
-          prismWindow.webContents.send('compilation-complete', compilationData);
+          // Small delay to ensure DOM is ready
+          setTimeout(() => {
+            prismWindow.webContents.send('compilation-complete', compilationData);
+          }, 500);
         }
-      });
-    }
+      }
+    });
     
     // Notify main window that PRISM is open
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2532,6 +2543,28 @@ async function createPrismWindow(compilationData = null) {
 }
 
 
+function getExecutablePath(executableName) {
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  if (isDev) {
+    // Em desenvolvimento, usar caminhos relativos
+    if (executableName === 'yosys') {
+      return path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    } else if (executableName === 'netlistsvg') {
+      return path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+    }
+  } else {
+    // Em produção (app empacotado)
+    const resourcesPath = process.resourcesPath;
+    if (executableName === 'yosys') {
+      return path.join(resourcesPath, 'bin', 'yosys.exe');
+    } else if (executableName === 'netlistsvg') {
+      return path.join(resourcesPath, 'bin', 'netlistsvg.exe');
+    }
+  }
+  
+  return executableName; // fallback
+}
 // Add these IPC handlers to your main process
 
 // Handler to request toggle UI state from main window
@@ -2907,7 +2940,17 @@ ipcMain.handle('prism-recompile', async (event) => {
     // If PRISM window exists, update it; otherwise create new one
     if (prismWindow && !prismWindow.isDestroyed()) {
       console.log('Updating existing PRISM window with recompilation data');
-      prismWindow.webContents.send('compilation-complete', compilationResult);
+      // Wait for window to be ready before sending data
+      prismWindow.webContents.once('did-finish-load', () => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          prismWindow.webContents.send('compilation-complete', compilationResult);
+        }
+      });
+      
+      // If window is already loaded, send immediately
+      if (prismWindow.webContents.isLoading() === false) {
+        prismWindow.webContents.send('compilation-complete', compilationResult);
+      }
     } else {
       console.log('Creating new PRISM window for recompilation');
       await createPrismWindow(compilationResult);
@@ -2915,7 +2958,7 @@ ipcMain.handle('prism-recompile', async (event) => {
     
     return compilationResult;
     
-  } catch (error) {
+  } catch (error) {  
     console.error('PRISM recompilation error:', error);
     return { success: false, message: error.message };
   }
@@ -3054,8 +3097,11 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
+  // CORREÇÃO: Usar o caminho correto do executável
+  const yosysExe = getExecutablePath('yosys');
+  
   // Try compilation with hierarchy check first
-  let yosysCommand = `yosys -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
+  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
   
   console.log('Executing Yosys command:', yosysCommand);
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3119,7 +3165,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         }
         
         // Try without hierarchy check if modules are missing
-        const relaxedCommand = `yosys -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
+        const relaxedCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
         
         exec(relaxedCommand, {
           shell: true,
@@ -3444,7 +3490,9 @@ async function generateModuleSVG(moduleName, tempDir) {
     throw new Error(errorMsg);
   }
   
-  const netlistSvgCommand = `netlistsvg "${inputJsonPath}" -o "${outputSvgPath}"`;
+  // CORREÇÃO: Usar o caminho correto do executável
+  const netlistsvgExe = getExecutablePath('netlistsvg');
+  const netlistSvgCommand = `"${netlistsvgExe}" "${inputJsonPath}" -o "${outputSvgPath}"`;
   
   return new Promise((resolve, reject) => {
     exec(netlistSvgCommand, { shell: true }, (error, stdout, stderr) => {

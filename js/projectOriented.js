@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     processorsList.addEventListener('click', (event) => {
       if (event.target.classList.contains('delete-processor') || 
           event.target.closest('.delete-processor')) {
-        const row = event.target.closest('.mconfig-processor-row');
+        const row = event.target.closest('.modalConfig-processor-row');
         if (row) {
           row.remove();
         }
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         /* Garantir que os modais sejam visíveis quando abertos */
-        .mconfig-modal.active {
+        .modalConfig.active {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
@@ -422,21 +422,21 @@ function extractAllInstancesFromContent(content) {
 // Update processor row to use select for instances
 function addProcessorRow() {
   const newRow = document.createElement('div');
-  newRow.className = 'mconfig-processor-row';
+  newRow.className = 'modalConfig-processor-row';
   
   newRow.innerHTML = `
-    <div class="mconfig-select-container">
-      <select class="processor-select mconfig-select">
+    <div class="modalConfig-select-container">
+      <select class="processor-select modalConfig-select">
         <option value="">Select Processor</option>
         ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
       </select>
     </div>
-    <div class="mconfig-select-container">
-      <select class="processor-instance mconfig-select" disabled>
+    <div class="modalConfig-select-container">
+      <select class="processor-instance modalConfig-select" disabled>
         <option value="">Select Instance</option>
       </select>
     </div>
-    <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+    <button class="delete-processor modalConfig-icon-btn" aria-label="Delete Processor">
       <i class="fa-solid fa-trash"></i>
     </button>
   `;
@@ -503,7 +503,7 @@ function updateInstanceSelect(processorName, instanceSelect) {
 // Get list of currently used instances
 function getUsedInstances() {
   const usedInstances = [];
-  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   
   processorRows.forEach(row => {
     const instanceSelect = row.querySelector('.processor-instance');
@@ -516,7 +516,7 @@ function getUsedInstances() {
 }
 
   function refreshAllInstanceSelects() {
-  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   
   processorRows.forEach(row => {
     const processorSelect = row.querySelector('.processor-select');
@@ -620,7 +620,7 @@ function getUsedInstances() {
     `;
     
     // Adicionar no início do modal
-    const modalContent = document.querySelector('.mconfig-modal-content');
+    const modalContent = document.querySelector('.modalConfig-content');
     if (modalContent && !modalContent.querySelector('.project-error-message')) {
       modalContent.insertBefore(errorDiv, modalContent.firstChild);
     }
@@ -705,19 +705,19 @@ async function prepareModalBeforeOpen() {
       // Adicionar classe visual para indicar que precisa selecionar
       if (topLevelSelect) {
         topLevelSelect.classList.add('needs-selection');
-        const label = topLevelSelect.closest('.mconfig-form-group')?.querySelector('label');
+        const label = topLevelSelect.closest('.modalConfig-form-group')?.querySelector('label');
         if (label) label.innerHTML += ' <span class="selection-required">*</span>';
       }
       
       if (testbenchSelect) {
         testbenchSelect.classList.add('needs-selection');
-        const label = testbenchSelect.closest('.mconfig-form-group')?.querySelector('label');
+        const label = testbenchSelect.closest('.modalConfig-form-group')?.querySelector('label');
         if (label) label.innerHTML += ' <span class="selection-required">*</span>';
       }
       
       if (gtkwaveSelect) {
         gtkwaveSelect.classList.add('needs-selection');
-        const label = gtkwaveSelect.closest('.mconfig-form-group')?.querySelector('label');
+        const label = gtkwaveSelect.closest('.modalConfig-form-group')?.querySelector('label');
         if (label) label.innerHTML += ' <span class="selection-required">*</span>';
       }
       
@@ -872,23 +872,23 @@ async function prepareModalBeforeOpen() {
     if (currentConfig.processors && currentConfig.processors.length > 0) {
       currentConfig.processors.forEach(processor => {
         const newRow = document.createElement('div');
-        newRow.className = 'mconfig-processor-row';
+        newRow.className = 'modalConfig-processor-row';
         
         newRow.innerHTML = `
-          <div class="mconfig-select-container">
-            <select class="processor-select mconfig-select">
+          <div class="modalConfig-select-container">
+            <select class="processor-select modalConfig-select">
               <option value="">Select Processor</option>
               ${availableProcessors.map(proc => 
                 `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
               ).join('')}
             </select>
           </div>
-          <div class="mconfig-select-container">
-            <select class="processor-instance mconfig-select">
+          <div class="modalConfig-select-container">
+            <select class="processor-instance modalConfig-select">
               <option value="">Select Instance</option>
             </select>
           </div>
-          <button class="delete-processor mconfig-icon-btn" aria-label="Delete Processor">
+          <button class="delete-processor modalConfig-icon-btn" aria-label="Delete Processor">
             <i class="fa-solid fa-trash"></i>
           </button>
         `;
@@ -973,7 +973,7 @@ function collectFormData() {
   };
   
   // Collect processor data
-  const processorRows = processorsList.querySelectorAll('.mconfig-processor-row');
+  const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   processorRows.forEach(row => {
     const processorSelect = row.querySelector('.processor-select');
     const instanceSelect = row.querySelector('.processor-instance');

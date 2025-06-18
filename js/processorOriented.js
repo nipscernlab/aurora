@@ -1,7 +1,7 @@
-//modalConfig.js Modal configuration Processor Oriented Configuration
+//modalProcessorConfig.js Modal configuration Processor Oriented Configuration
 
 const settingsButton = document.getElementById("settings");
-const modal = document.getElementById("modalConfig");
+const modal = document.getElementById("modalProcessorConfig");
 const closeModal = document.getElementById("closeModal");
 const processorSelect = document.getElementById("processorSelect");
 const deleteProcessorButton = document.getElementById("deleteProcessor");
@@ -1247,19 +1247,19 @@ function showToastNotification(message, type = 'info', duration = 3000) {
 // Add the style for the simulation selectors
 const styleElement = document.createElement('style');
 styleElement.textContent = `
-  .mconfig-processor-simulation {
+  .modalConfig-processor-simulation {
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid var(--border-primary);
   }
   
-  .mconfig-simulation-selectors {
+  .modalConfig-simulation-selectors {
     display: flex;
     gap: 16px;
     margin-top: 16px;
   }
   
-  .mconfig-simulation-selectors .mconfig-form-group {
+  .modalConfig-simulation-selectors .modalConfig-form-group {
     flex: 1;
   }
 `;

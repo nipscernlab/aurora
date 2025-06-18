@@ -59,7 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'filter-error': 'Filter Errors',
         'filter-warning': 'Filter Warnings',
         'filter-success': 'Filter Successes',
-        'filter-tip': 'Filter Tips'
+        'filter-tip': 'Filter Tips',
+
+        'power-off': 'Teste',
       };
   
     // Add mouse events to all buttons

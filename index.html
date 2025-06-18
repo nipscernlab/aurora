@@ -3,416 +3,448 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
   <title>AURORA IDE</title>
 
   <link rel="stylesheet" href="node_modules/monaco-editor/min/vs/editor/editor.main.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=inventory_2" />
   <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/file-icon-vectors@1.0.0/dist/file-icon-vectors.min.css" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=folder_zip" />
   <link rel="stylesheet" href="./css/import.css">
   
 </head>
 
 <body class="theme-dark">
-  <div class="toolbar">
-    <!-- Buttons on the left -->
-    <div class="toolbar-left">
-      <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
-        <i class="fa-solid fa-compass"></i>
-      </button>
-      <button id="newProjectBtn" titles="New Project" class="toolbar-button">
-        <i class="fas fa-folder-plus"></i>
-        <span>New Project</span>
-      </button>
-      <button id="backupFolderBtn" class="toolbar-button" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-box-archive"></i>
-        <span>Backup</span>
-      </button>
-      <button id="openProjectBtn" class="toolbar-button">
-        <i class="fa-solid fa-box-open"></i>
-        <span>Open Project</span>
-      </button>
-      <button id="saveFileBtn" class="toolbar-button" disabled style="cursor: not-allowed;">
-        <i class="fas fa-save"></i>
-        <span>Save</span>
-      </button>
-    </div>
 
-    <!-- Buttons in the center -->
-    <div class="toolbar-center">
-      <button id="cmmcomp" class="toolbar-button" titles="Compile CMM" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
-        <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
-      </button>
-      <button id="asmcomp" class="toolbar-button" titles="Compile ASM" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
-      </button>
-      <button id="vericomp" class="toolbar-button" titles="Compile Verilog" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
-      </button>
-      <button id="wavecomp" class="toolbar-button" titles="Open Wave" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
-      </button>
-      <button id="prismcomp" class="toolbar-button" titles="Open PRISM" disabled style="cursor: not-allowed;">
-        <img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM      
-      </button>
-    </div>
-
-    <button id="toggle-ui" class="toolbar-toggle-ui" titles="toggle-ui">
-      <i class="fa-solid fa-fan"></i>
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()" 
+            data-i18n-title="toolbar.sidebarMenuTitle" title="">
+      <i class="fa-solid fa-compass"></i>
     </button>
-
-    <button id="cancel-everything" class="toolbar-button" titles="toggle-ui">
-      <i class="fa-solid fa-xmark"></i>
+    <button id="newProjectBtn" class="toolbar-button" 
+            data-i18n-title="toolbar.newProjectTitle" title="">
+      <i class="fas fa-folder-plus"></i>
+      <span data-i18n="toolbar.newProject">New Project</span>
     </button>
-
-    <button id="allcomp" class="toolbar-button" titles="Compile All" disabled style="cursor: not-allowed;">
-      <i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Compile All
+    <button id="backupFolderBtn" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.backupTitle" title="">
+      <i class="fa-solid fa-box-archive"></i>
+      <span data-i18n="toolbar.backup">Backup</span>
     </button>
+    <button id="openProjectBtn" class="toolbar-button"
+            data-i18n-title="toolbar.openProjectTitle" title="">
+      <i class="fa-solid fa-box-open"></i>
+      <span data-i18n="toolbar.openProject">Open Project</span>
+    </button>
+    <button id="saveFileBtn" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.saveFileTitle" title="">
+      <i class="fas fa-save"></i>
+      <span data-i18n="toolbar.saveFile">Save</span>
+    </button>
+  </div>
 
-    <!-- Buttons on the right -->
-    <div class="toolbar-right">
-      <button id="themeToggle" class="toolbar-button">
-        <i class="fas fa-sun" titles="Theme Toggle"></i>
-      </button>
-      <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;">
-        <i class="fa-solid fa-gears" titles="Processor Configuration"></i>
-      </button>
-      <button  onclick="openAuroraAboutModal()" id="info-aurora" class="toolbar-button">
-        <i class="fa-solid fa-circle-info" titles="Info Aurora"></i>
-      </button>
-      <button id="palette" class="toolbar-button" onclick="openThemeModal()">
+  <!-- Buttons in the center -->
+  <div class="toolbar-center">
+    <button id="cmmcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.compileCMMTitle" title="">
+      <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
+      <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
+    </button>
+    <button id="asmcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.compileASMTitle" title="">
+      <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+    </button>
+    <button id="vericomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.compileVerilogTitle" title="">
+      <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+    </button>
+    <button id="wavecomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.openWaveTitle" title="">
+      <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+    </button>
+    <button id="prismcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.openPRISMTitle" title="">
+      <img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;">
+      <span data-i18n="toolbar.prism">PRISM</span>
+    </button>
+  </div>
+
+  <button id="toggle-ui" class="toolbar-toggle-ui" 
+          data-i18n-title="toolbar.toggleUITitle" title="">
+    <i class="fa-solid fa-fan"></i>
+  </button>
+
+  <button id="cancel-everything" class="toolbar-button" 
+          data-i18n-title="toolbar.cancelEverythingTitle" title="">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+
+  <button id="allcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+          data-i18n-title="toolbar.compileAllTitle" title="">
+    <i class="fa-solid fa-bolt" style="color: #0066FF;"></i>
+    <span data-i18n="toolbar.compileAll">Compile All</span>
+  </button>
+
+  <!-- Buttons on the right -->
+  <div class="toolbar-right">
+    <button id="themeToggle" class="toolbar-button"
+            data-i18n-title="toolbar.toggleThemeTitle" title="">
+      <i class="fas fa-sun"></i>
+    </button>
+    <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.settingsTitle" title="">
+      <i class="fa-solid fa-gears"></i>
+    </button>
+    <button onclick="openAuroraAboutModal()" id="info-aurora" class="toolbar-button"
+            data-i18n-title="toolbar.aboutAuroraTitle" title="">
+      <i class="fa-solid fa-circle-info"></i>
+    </button>
+    <button id="palette" class="toolbar-button" onclick="openThemeModal()"
+            data-i18n-title="toolbar.paletteTitle" title="">
       <i class="fa-solid fa-palette"></i>
-      </button>
-       <!--
-      <button id="verilog-block" class="toolbar-button">
-        <i class="fa-solid fa-code" titles="Verilog Block Code"></i>
-      </button>
-
-      <button id="notpad" class="toolbar-button">
-        <i class="fa-solid fa-pen-nib" titles="Write!"></i>
-      </button>
-                -->
-    </div>
+    </button>
+    <button id="translate" class="toolbar-button"
+            data-i18n-title="toolbar.changeLanguageTitle" title="">
+      <i class="fa-solid fa-language"></i>
+    </button>
   </div>
-  <div id="processor-visualization"></div>
-
- 
-<!-- Sidebar -->
-<div id="sidebar" class="sidebar">
-  <ul class="sidebar-menu">
-    <li title="Browse the web">
-      <i class="fas fa-globe"></i>
-    </li>
-   <!-- <li title="Search for information">
-      <i class="fas fa-search"></i>
-    </li>
-    <li title="View the Abstract Syntax Tree (AST)">
-      <i class="fa-solid fa-code-branch"></i>
-    </li>
-
-    <li title="Settings">
-      <i class="fa-solid fa-sliders"></i>
-      </li>-->
-
-    <li id="open-bug-report" title="Report a bug">
-      <i class="fas fa-bug"></i>
-    </li>
-    <li title="Open GitHub Desktop">
-      <i class="fab fa-github"></i>
-    </li>
-    <li title="News and Updates">
-      <i class="fa-solid fa-bell notification-bell">
-        <span class="notification-dot"></span>
-      </i>
-    </li>
-    <li title="Keyboard shortcuts">
-      <i class="fas fa-keyboard"></i>
-    </li>
-
-    <li title="Shut down the application">
-      <i class="fas fa-power-off"></i>
-    </li>
-  </ul>
 </div>
 
-<div class="modal-backdrop" id="modalBackdrop"></div>
+  <!-- Sidebar -->
+  <div id="sidebar" class="sidebar">
+    <ul class="sidebar-menu">
+      <li title="Browse the web">
+        <i class="fas fa-globe"></i>
+      </li>
+      <li id="open-bug-report" title="Report a bug">
+        <i class="fas fa-bug"></i>
+      </li>
+      <li title="Open GitHub Desktop">
+        <i class="fab fa-github"></i>
+      </li>
+      <li title="News and Updates">
+        <i class="fa-solid fa-bell notification-bell">
+          <span class="notification-dot"></span>
+        </i>
+      </li>
+      <li title="Keyboard shortcuts">
+        <i class="fas fa-keyboard"></i>
+      </li>
+      <li title="Shut down the application">
+        <i class="fas fa-power-off"></i>
+      </li>
+    </ul>
+  </div>
 
-<!-- Configuration Modal -->
-<div id="modalConfig" class="mconfig-modal">
-  <div class="mconfig-modal-content">
-    <div class="mconfig-modal-header">
-      <h2 class="mconfig-title"><i class="fa-solid fa-gears" title="Processor Configuration"></i> Processor Oriented Configuration</h2>
-      <button id="closeModal" class="mconfig-close-btn" aria-label="Close Modal">&times;</button>
-    </div>
-    <div class="mconfig-modal-body">
-      <section class="mconfig-section" id="processors">
-        <h3 class="mconfig-section-title">Processors</h3>
-        <div class="mconfig-processor-selector">
-          <label for="processorSelect" class="mconfig-label">Select Processor:</label>
-          <div class="mconfig-select-container">
-            <select id="processorSelect" class="mconfig-select">
-              <!-- Processor options will be dynamically added here -->
-            </select>
+  <!-- News Red Dot -->
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+<!-- Processor Oriented Configuration Modal -->
+  <div id="modalProcessorConfig" class="modalConfig">
+    <div class="modalConfig-content">
+      <div class="modalConfig-header">
+        <h2 class="modalConfig-title"><i class="fa-solid fa-gears" data-i18n-title="modal.processorConfig.title"></i> <span data-i18n="modal.processorConfig.title">Processor Oriented Configuration</span></h2>
+        <button id="closeModal" class="modalConfig-close-btn" data-i18n-aria-label="modal.closeModal" aria-label="Close Modal">&times;</button>
+      </div>
+      <div class="modalConfig-body">
+        <section class="modalConfig-section" id="processors">
+          <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.processors.title">Processors</h3>
+          <div class="modalConfig-processor-selector">
+            <label for="processorSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.selectLabel">Select Processor:</label>
+            <div class="modalConfig-select-container">
+              <select id="processorSelect" class="modalConfig-select">
+                <!-- Processor options will be dynamically added here -->
+              </select>
+            </div>
+            <button id="deleteProcessor" class="modalConfig-icon-btn" data-i18n-aria-label="modal.processorConfig.processors.deleteBtn" aria-label="Delete Selected Processor">
+              <i class="fa-solid fa-trash"></i>
+            </button>
           </div>
-          <button id="deleteProcessor" class="mconfig-icon-btn" aria-label="Delete Selected Processor">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        </div>
-        
-        <div class="mconfig-processor-config">
-          <div class="mconfig-form-group">
-            <label for="processorClk" class="mconfig-label">CLK (MHz) max of 1GHz</label>
-            <input type="number" id="processorClk" class="mconfig-input" placeholder="Clock frequency">
+          
+          <div class="modalConfig-processor-config">
+            <div class="modalConfig-form-group">
+              <label for="processorClk" class="modalConfig-label" data-i18n="modal.processorConfig.processors.clkLabel">CLK (MHz) max of 1GHz</label>
+              <input type="number" id="processorClk" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.clkPlaceholder" placeholder="Clock frequency">
+            </div>
+            <div class="modalConfig-form-group">
+              <label for="processorNumClocks" class="modalConfig-label" data-i18n="modal.processorConfig.processors.numClocksLabel">Number of Clocks</label>
+              <input type="number" id="processorNumClocks" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.numClocksPlaceholder" placeholder="Number of clocks" max="1000">
+            </div>
           </div>
-          <div class="mconfig-form-group">
-            <label for="processorNumClocks" class="mconfig-label">Number of Clocks</label>
-            <input type="number" id="processorNumClocks" class="mconfig-input" placeholder="Number of clocks" max="1000">
-          </div>
-        </div>
 
-         <div class="mconfig-form-group">
-          <label for="testbenchSelect" class="mconfig-label">Testbench File:</label>
-          <div class="mconfig-select-container">
-            <select id="processortestbenchSelect" class="mconfig-select">
-              <!-- Testbench files will be dynamically added here -->
-              <option value="">Select Testbench File</option>
-            </select>
+          <div class="modalConfig-form-group">
+            <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.testbenchLabel">Testbench File:</label>
+            <div class="modalConfig-select-container">
+              <select id="processortestbenchSelect" class="modalConfig-select">
+                <!-- Testbench files will be dynamically added here -->
+                <option value="" data-i18n="modal.processorConfig.processors.selectTestbench">Select Testbench File</option>
+              </select>
+            </div>
           </div>
-        </div>
-        
-        <div class="mconfig-form-group">
-          <label for="gtkwaveSelect" class="mconfig-label">GTKWave File:</label>
-          <div class="mconfig-select-container">
-            <select id="processorgtkwaveSelect" class="mconfig-select">
-              <!-- GTKWave files will be dynamically added here -->
-              <option value="">Select GTKWave File</option>
-            </select>
+          
+          <div class="modalConfig-form-group">
+            <label for="gtkwaveSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.gtkwaveLabel">GTKWave File:</label>
+            <div class="modalConfig-select-container">
+              <select id="processorgtkwaveSelect" class="modalConfig-select">
+                <!-- GTKWave files will be dynamically added here -->
+                <option value="" data-i18n="modal.processorConfig.processors.selectGtkwave">Select GTKWave File</option>
+              </select>
+            </div>
           </div>
-        </div>
-      </section>
-      
-      <section class="mconfig-section" id="compilerSettings">
-        <h3 class="mconfig-section-title">Compiler Settings</h3>
+        </section>
         
-        <div class="mconfig-form-group">
-          <label for="iverilogFlags" class="mconfig-label">Iverilog Flags</label>
-          <input 
-            type="text" 
-            id="iverilogFlags" 
-            class="mconfig-input"
-            name="iverilogFlags"
-            placeholder="e.g., -Wall; -v; -s" 
-            aria-describedby="iverilogFlagsHelp"
-          >
-          <small id="iverilogFlagsHelp" class="mconfig-form-help">
-            Specify additional flags for Iverilog compilation (separate with semicolons)
-          </small>
-        </div>
-        
-        <div class="mconfig-form-group">
-          <label for="cmmCompFlags" class="mconfig-label">CMMComp Flags</label>
-          <input 
-            type="text" 
-            id="cmmCompFlags" 
-            class="mconfig-input"
-            name="cmmCompFlags"
-            placeholder="Enter CMMComp flags (separate with semicolons)" 
-            aria-describedby="cmmCompFlagsHelp"
-          >
-          <small id="cmmCompFlagsHelp" class="mconfig-form-help">
-            Specify additional flags for CMMComp compilation
-          </small>
-        </div>
-        
-        <div class="mconfig-form-group">
-          <label for="asmCompFlags" class="mconfig-label">ASMComp Flags</label>
-          <input 
-            type="text" 
-            id="asmCompFlags" 
-            class="mconfig-input" 
-            name="asmCompFlags"
-            placeholder="Enter ASMComp flags (separate with semicolons)" 
-            aria-describedby="asmCompFlagsHelp"
-          >
-          <small id="asmCompFlagsHelp" class="mconfig-form-help">
-            Specify additional flags for ASMComp compilation
-          </small>
-        </div>
-      </section>
-    </div>
-    <div class="mconfig-modal-footer">
-      <div class="mconfig-footer-actions">
-        <button id="clearAll" aria-label="Clear All Settings" class="mconfig-btn mconfig-btn-secondary">
-          <i class="fa-solid fa-trash-can"></i> Clear
-        </button>
-        <div class="mconfig-footer-primary-actions">
-          <button id="cancelConfig" aria-label="Cancel Changes" class="mconfig-btn mconfig-btn-secondary">
-            Cancel
+        <section class="modalConfig-section" id="compilerSettings">
+          <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.compiler.title">Compiler Settings</h3>
+          
+          <div class="modalConfig-form-group">
+            <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.iverilogLabel">Iverilog Flags</label>
+            <input 
+              type="text" 
+              id="iverilogFlags" 
+              class="modalConfig-input"
+              name="iverilogFlags"
+              data-i18n-placeholder="modal.processorConfig.compiler.iverilogPlaceholder"
+              placeholder="e.g., -Wall; -v; -s" 
+              aria-describedby="iverilogFlagsHelp"
+            >
+            <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.iverilogHelp">
+              Specify additional flags for Iverilog compilation (separate with semicolons)
+            </small>
+          </div>
+          
+          <div class="modalConfig-form-group">
+            <label for="cmmCompFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.cmmLabel">CMMComp Flags</label>
+            <input 
+              type="text" 
+              id="cmmCompFlags" 
+              class="modalConfig-input"
+              name="cmmCompFlags"
+              data-i18n-placeholder="modal.processorConfig.compiler.cmmPlaceholder"
+              placeholder="Enter CMMComp flags (separate with semicolons)" 
+              aria-describedby="cmmCompFlagsHelp"
+            >
+            <small id="cmmCompFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.cmmHelp">
+              Specify additional flags for CMMComp compilation
+            </small>
+          </div>
+          
+          <div class="modalConfig-form-group">
+            <label for="asmCompFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.asmLabel">ASMComp Flags</label>
+            <input 
+              type="text" 
+              id="asmCompFlags" 
+              class="modalConfig-input" 
+              name="asmCompFlags"
+              data-i18n-placeholder="modal.processorConfig.compiler.asmPlaceholder"
+              placeholder="Enter ASMComp flags (separate with semicolons)" 
+              aria-describedby="asmCompFlagsHelp"
+            >
+            <small id="asmCompFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.asmHelp">
+              Specify additional flags for ASMComp compilation
+            </small>
+          </div>
+        </section>
+      </div>
+      <div class="modalConfig-footer">
+        <div class="modalConfig-footer-actions">
+          <button id="clearAll" data-i18n-aria-label="modal.processorConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
+            <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.processorConfig.footer.clearBtn">Clear</span>
           </button>
-          <button id="saveConfig" aria-label="Save Settings" class="mconfig-btn mconfig-btn-primary">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
+          <div class="modalConfig-footer-primary-actions">
+            <button id="cancelConfig" data-i18n-aria-label="modal.processorConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
+              <span data-i18n="modal.processorConfig.footer.cancelBtn">Cancel</span>
+            </button>
+            <button id="saveConfig" data-i18n-aria-label="modal.processorConfig.footer.saveBtn" aria-label="Save Settings" class="modalConfig-btn modalConfig-btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="modal.processorConfig.footer.saveBtn">Save</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<div id="modalProjectConfig" class="mconfig-modal">
-  <div class="mconfig-modal-content">
-    <div class="mconfig-modal-header">
-      <h2 class="mconfig-title"><i class="fa-solid fa-gear" title="Project Configuration"></i> Project Oriented Configuration</h2>
-      <button id="closeProjectModal" class="mconfig-close-btn" aria-label="Close Modal">&times;</button>
-    </div>
-    <div class="mconfig-modal-body">
-      <section class="mconfig-section" id="verilogFiles">
-        <h3 class="mconfig-section-title">Verilog & GTKW Files</h3>
-        
-        <div class="mconfig-form-group">
-          <label for="topLevelSelect" class="mconfig-label">TopLevel File:</label>
-          <div class="mconfig-select-container">
-            <select id="topLevelSelect" class="mconfig-select">
-              <!-- TopLevel files will be dynamically added here -->
-              <option value="">Select TopLevel File</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="mconfig-form-group">
-          <label for="testbenchSelect" class="mconfig-label">Testbench File:</label>
-          <div class="mconfig-select-container">
-            <select id="testbenchSelect" class="mconfig-select">
-              <!-- Testbench files will be dynamically added here -->
-              <option value="">Select Testbench File</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="mconfig-form-group">
-          <label for="gtkwaveSelect" class="mconfig-label">GTKWave File:</label>
-          <div class="mconfig-select-container">
-            <select id="gtkwaveSelect" class="mconfig-select">
-              <!-- GTKWave files will be dynamically added here -->
-              <option value="">Select GTKWave File</option>
-            </select>
-          </div>
-        </div>
-      </section>
-      
-      <section class="mconfig-section" id="processors">
-        <h3 class="mconfig-section-title">Processors</h3>
-        
-        <div id="processorsList">
-          <!-- Processor rows will be added here -->
-          <div class="mconfig-processor-row">
-            <div class="mconfig-select-container">
-            
+  <!-- Project Oriented Configuration Modal -->
+  <div id="modalProjectConfig" class="modalConfig">
+    <div class="modalConfig-content">
+      <div class="modalConfig-header">
+        <h2 class="modalConfig-title"><i class="fa-solid fa-gear" data-i18n-title="modal.projectConfig.title"></i> <span data-i18n="modal.projectConfig.title">Project Oriented Configuration</span></h2>
+        <button id="closeProjectModal" class="modalConfig-close-btn" data-i18n-aria-label="modal.closeModal" aria-label="Close Modal">&times;</button>
+      </div>
+      <div class="modalConfig-body">
+        <section class="modalConfig-section" id="verilogFiles">
+          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.files.title">Verilog & GTKW Files</h3>
+          
+          <div class="modalConfig-form-group">
+            <label for="topLevelSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.topLevelLabel">TopLevel File:</label>
+            <div class="modalConfig-select-container">
+              <select id="topLevelSelect" class="modalConfig-select">
+                <!-- TopLevel files will be dynamically added here -->
+                <option value="" data-i18n="modal.projectConfig.files.selectTopLevel">Select TopLevel File</option>
+              </select>
             </div>
-            <div class="mconfig-form-group instance-name-group">
+          </div>
+          
+          <div class="modalConfig-form-group">
+            <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.testbenchLabel">Testbench File:</label>
+            <div class="modalConfig-select-container">
+              <select id="testbenchSelect" class="modalConfig-select">
+                <!-- Testbench files will be dynamically added here -->
+                <option value="" data-i18n="modal.projectConfig.files.selectTestbench">Select Testbench File</option>
+              </select>
             </div>
+          </div>
+          
+          <div class="modalConfig-form-group">
+            <label for="gtkwaveSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.gtkwaveLabel">GTKWave File:</label>
+            <div class="modalConfig-select-container">
+              <select id="gtkwaveSelect" class="modalConfig-select">
+                <!-- GTKWave files will be dynamically added here -->
+                <option value="" data-i18n="modal.projectConfig.files.selectGtkwave">Select GTKWave File</option>
+              </select>
+            </div>
+          </div>
+        </section>
+        
+        <section class="modalConfig-section" id="processors">
+          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.processors.title">Processors</h3>
+          
+          <div id="processorsList">
+            <!-- Processor rows will be added here -->
+            <div class="modalConfig-processor-row">
+              <div class="modalConfig-select-container">
+              
+              </div>
+              <div class="modalConfig-form-group instance-name-group">
+              </div>
 
+            </div>
           </div>
-        </div>
-        
-        <button id="addProcessor" class="mconfig-btn mconfig-btn-primary">
-          <i class="fa-solid fa-plus"></i> Add Processor
-        </button>
-      </section>
-      
-      <section class="mconfig-section" id="compilerSettings">
-        <h3 class="mconfig-section-title">Compiler Settings</h3>
-        
-        <div class="mconfig-form-group">
-          <label for="iverilogFlags" class="mconfig-label">Iverilog Flags</label>
-          <input 
-            type="text" 
-            id="iverilogFlags" 
-            class="mconfig-input"
-            name="iverilogFlags"
-            placeholder="e.g., -Wall; -v; -s" 
-            aria-describedby="iverilogFlagsHelp"
-          >
-          <small id="iverilogFlagsHelp" class="mconfig-form-help">
-            Specify additional flags for Iverilog compilation (separate with semicolons)
-          </small>
-        </div>
-      </section>
-    </div>
-    <div class="mconfig-modal-footer">
-      <div class="mconfig-footer-actions">
-        <button id="clearAll" aria-label="Clear All Settings" class="mconfig-btn mconfig-btn-secondary">
-          <i class="fa-solid fa-trash-can"></i> Clear
-        </button>
-        <div class="mconfig-footer-primary-actions">
-          <button id="cancelProjectConfig" aria-label="Cancel Changes" class="mconfig-btn mconfig-btn-secondary">
-            Cancel
+          
+          <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
+            <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
           </button>
-          <button id="saveProjectConfig" aria-label="Save Settings" class="mconfig-btn mconfig-btn-primary">
-            <i class="fa-solid fa-floppy-disk"></i> Save
+        </section>
+        
+        <section class="modalConfig-section" id="compilerSettings">
+          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
+          
+          <div class="modalConfig-form-group">
+            <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.projectConfig.compiler.iverilogLabel">Iverilog Flags</label>
+            <input 
+              type="text" 
+              id="iverilogFlags" 
+              class="modalConfig-input"
+              name="iverilogFlags"
+              data-i18n-placeholder="modal.projectConfig.compiler.iverilogPlaceholder"
+              placeholder="e.g., -Wall; -v; -s" 
+              aria-describedby="iverilogFlagsHelp"
+            >
+            <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.projectConfig.compiler.iverilogHelp">
+              Specify additional flags for Iverilog compilation (separate with semicolons)
+            </small>
+          </div>
+        </section>
+      </div>
+      <div class="modalConfig-footer">
+        <div class="modalConfig-footer-actions">
+          <button id="clearAll" data-i18n-aria-label="modal.projectConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
+            <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.projectConfig.footer.clearBtn">Clear</span>
           </button>
+          <div class="modalConfig-footer-primary-actions">
+            <button id="cancelProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
+              <span data-i18n="modal.projectConfig.footer.cancelBtn">Cancel</span>
+            </button>
+            <button id="saveProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.saveBtn" aria-label="Save Settings" class="modalConfig-btn modalConfig-btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="modal.projectConfig.footer.saveBtn">Save</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-  <!-- Modal Overlay -->
-  <div id="newProjectModal" class="npmodal-overlay hidden">
-    <div class="npmodal-content">
-      <h2>        
-        <i class="fas fa-folder-plus"></i> Create New Project
+ <!-- Modal Overlay -->
+<div id="newProjectModal" class="npmodal-overlay hidden">
+  <div class="npmodal-content fade-transition visible">
+    <!-- Header com título apenas -->
+    <div class="npmodal-header" style="display: flex; align-items: center; justify-content: space-between;">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5em;">
+        <i class="fas fa-folder-plus"></i>
+        <span data-i18n="modal.createNewProject">Create New Project</span>
       </h2>
-      <div class="npmodal-input-group">
-        <label for="projectNameInput">Project Name:</label>
-        <input type="text" id="projectNameInput" placeholder="Enter project name" />
-      </div>
-      <div class="npmodal-input-group">
-        <label for="projectLocationInput">Project Location:</label>
-        <div class="npmodal-location-input">
-          <input type="text" id="projectLocationInput" placeholder="Select project location" readonly />
-          <button id="browseBtn" class="npmodal-btn-browse"><i class="fas fa-folder-open"></i> Browse</button>
-        </div>
-      </div>
-      <div class="npmodal-actions">
-        <button id="generateProjectBtn" class="npmodal-btn npmodal-btn-generate"><i class="fa-solid fa-plus"></i> Generate</button>
-        <button id="cancelProjectBtn" class="npmodal-btn npmodal-btn-cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>
+      <!-- Removido o <i id="translateIcon"> -->
+    </div>
+
+    <div class="npmodal-input-group">
+      <label for="projectNameInput" data-i18n="modal.projectNameLabel">Project Name:</label>
+      <input
+        type="text"
+        id="projectNameInput"
+        placeholder="Enter project name"
+        data-i18n-placeholder="modal.projectNamePlaceholder"
+      />
+    </div>
+    <div class="npmodal-input-group">
+      <label for="projectLocationInput" data-i18n="modal.projectLocationLabel">Project Location:</label>
+      <div class="npmodal-location-input">
+        <input
+          type="text"
+          id="projectLocationInput"
+          placeholder="Select project location"
+          readonly
+          data-i18n-placeholder="modal.projectLocationPlaceholder"
+        />
+        <button id="browseBtn" class="npmodal-btn-browse">
+          <i class="fas fa-folder-open"></i>
+          <span data-i18n="modal.browseBtn">Browse</span>
+        </button>
       </div>
     </div>
+    <div class="npmodal-actions">
+      <button id="generateProjectBtn" class="npmodal-btn npmodal-btn-generate">
+        <i class="fa-solid fa-plus"></i>
+        <span data-i18n="modal.generateBtn">Generate</span>
+      </button>
+      <button id="cancelProjectBtn" class="npmodal-btn npmodal-btn-cancel">
+        <i class="fa-solid fa-xmark"></i>
+        <span data-i18n="modal.cancelBtn">Cancel</span>
+      </button>
+    </div>
   </div>
+</div>
 
   <div class="main-container">
     <!-- File Tree Section -->
     <div class="file-tree-container">
     <div class="file-tree-header">
-  <span>FILE TREE</span>
-  <span title="Refresh File Tree" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> Refresh</span><br>
-  <span id="current-spf-name" title="Project Currently Open">No project open</span>
-  <span title="Open Project Folder" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> Project</span>
-  <span title="Open HDL Folder" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> HDL</span>
+    <span data-i18n="ui.fileTree.title">FILE TREE</span>
+    <span data-i18n-title="ui.fileTree.refresh" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui.fileTree.refreshButton">Refresh</span></span><br>
+    <span id="current-spf-name" data-i18n-title="ui.fileTree.currentProject">No project open</span>
+    <span data-i18n-title="ui.fileTree.openProject" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> <span data-i18n="ui.fileTree.project">Project</span></span>
+    <span data-i18n-title="ui.fileTree.openHDL" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> <span data-i18n="ui.fileTree.hdl">HDL</span></span>
 
-  <!-- Search Section -->
-  <div class="file-search-container">
-    <div class="search-input-wrapper">
-      <i class="fa-solid fa-magnifying-glass search-icon"></i>
-      <input 
-        type="text" 
-        id="file-search-input" 
-        class="search-input" 
-        placeholder="Search files..."
-        autocomplete="off"
-      >
-      <button id="clear-search" class="clear-search-btn" title="Clear search">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-    <div class="search-results-info">
-      <span id="search-results-count"></span>
+    <!-- Search Section -->
+    <div class="file-search-container">
+      <div class="search-input-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input 
+          type="text" 
+          id="file-search-input" 
+          class="search-input" 
+          data-i18n-placeholder="ui.fileTree.searchPlaceholder"
+          placeholder="Search files..."
+          autocomplete="off"
+        >
+        <button id="clear-search" class="clear-search-btn" data-i18n-title="ui.fileTree.clearSearch" title="Clear search">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="search-results-info">
+        <span id="search-results-count"></span>
+      </div>
     </div>
   </div>
-</div>
+
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
       <div class="resizer-vertical"></div>
@@ -430,19 +462,19 @@
         <div id="editor-overlay" class="visible">
       <div class="overlay-content">
         <div id="icon-container">
-          <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Background" class="overlay-icon" />
+          <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" data-i18n-title="ui.editor.auroraIcon" alt="Aurora Background" class="overlay-icon" />
           <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
 
           <!-- Existing change icon button -->
-          <button class="change-icon-btn" id="change-icon-btn" title="Change Icon">
+          <button class="change-icon-btn" id="change-icon-btn" data-i18n-title="ui.editor.changeIcon" title="Change Icon">
             <i class="fa-solid fa-image"></i>
           </button>
           <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
         </div>
 
         <div class="overlay-text-content">
-          <h1 class="overlay-title">Welcome to AURORA IDE!</h1>
-          <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+          <h1 class="overlay-title" data-i18n="ui.editor.welcomeTitle">Welcome to AURORA IDE!</h1>
+          <p class="overlay-subtitle" data-i18n="ui.editor.welcomeSubtitle">Your gateway to building the future of hardware optimization.</p>
           <p class="overlay-subtitle">nipscern.com</p>
         </div>
 
@@ -450,15 +482,15 @@
         <div class="recent-projects-section">
           <div class="recent-projects-header">
             <i class="fa-solid fa-clock-rotate-left recent-projects-icon"></i>
-            <h2 class="recent-projects-title">Recent Projects</h2>
-            <span class="recent-projects-count" id="projects-count">0 projects</span>
+            <h2 class="recent-projects-title" data-i18n="ui.editor.recentProjects">Recent Projects</h2>
+            <span class="recent-projects-count" id="projects-count" data-i18n="ui.editor.projectsCount">0 projects</span>
           </div>
           
           <div class="recent-projects-list" id="recent-projects-list">
             <div class="empty-state" id="empty-state">
               <i class="fa-solid fa-folder-open empty-state-icon"></i>
-              <p class="empty-state-text">No recent projects</p>
-              <p class="empty-state-subtext">Open a project to see it appear here</p>
+              <p class="empty-state-text" data-i18n="ui.editor.noRecentProjects">No recent projects</p>
+              <p class="empty-state-subtext" data-i18n="ui.editor.openProjectHint">Open a project to see it appear here</p>
             </div>
           </div>
         </div>
@@ -470,19 +502,19 @@
       <div class="resizer-horizontal"></div>
       <div id="terminal-container" class="terminal-container">
         <div class="terminal-tabs">
-          <button id="clear-terminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
+          <button id="clear-terminal" data-i18n-title="ui.terminal.clearTerminal" title="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
           
           <!-- Botões de filtro no terminal-tabs -->
-          <button id="filter-error" titles="Filter Errors" class="toolbar-button filter-btn filter-error">
+          <button id="filter-error" data-i18n-title="ui.terminal.filterErrors" title="Filter Errors" class="toolbar-button filter-btn filter-error">
             <i class="fa-solid fa-circle-xmark"></i>          
           </button>
-          <button id="filter-warning" titles="Filter Warnings" class="toolbar-button filter-btn filter-warning">
+          <button id="filter-warning" data-i18n-title="ui.terminal.filterWarnings" title="Filter Warnings" class="toolbar-button filter-btn filter-warning">
             <i class="fa-solid fa-circle-exclamation"></i>          
           </button>
-          <button id="filter-success" titles="Filter Successes" class="toolbar-button filter-btn filter-success">
+          <button id="filter-success" data-i18n-title="ui.terminal.filterSuccesses" title="Filter Successes" class="toolbar-button filter-btn filter-success">
             <i class="fa-solid fa-circle-check"></i>
           </button>
-          <button id="filter-tip" titles="Filter Tips" class="toolbar-button filter-btn filter-tip">
+          <button id="filter-tip" data-i18n-title="ui.terminal.filterTips" title="Filter Tips" class="toolbar-button filter-btn filter-tip">
             <i class="fa-solid fa-circle-info"></i>
           </button>
 
@@ -492,46 +524,47 @@
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
           <button class="tab" data-terminal="tprism"><img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> TPRISM</button>
           <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
-          <button id="goup-terminal" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
-          <button id="godown-terminal" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
-          <button id="export-log" titles="Export Log" class="toolbar-button"><i class="fa-solid fa-file-export"></i></button>
-          <button id="reload-everything-terminal" titles="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
+          <button id="goup-terminal" data-i18n-title="ui.terminal.goUp" title="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
+          <button id="godown-terminal" data-i18n-title="ui.terminal.goDown" title="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
+          <button id="export-log" data-i18n-title="ui.terminal.exportLog" title="Export Log" class="toolbar-button"><i class="fa-solid fa-file-export"></i></button>
+          <button id="reload-everything-terminal" data-i18n-title="ui.terminal.reloadEverything" title="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
         </div>
         <div class="terminal-content" id="terminal-tcmm">
-          <div class="terminal-header">TCMM Terminal</div>
-          <div class="terminal-body">Welcome to the TCMM Terminal!
+          <div class="terminal-header" data-i18n="ui.terminal.tcmmHeader">TCMM Terminal</div>
+          <div class="terminal-body">
+            <span data-i18n="ui.terminal.tcmmWelcome">Welcome to the TCMM Terminal!</span>
 
-  To create a Processor project, click on <span class="keyword" onclick="activateButton('newProjectBtn')">New Project</span>. Give your project a name and select the installation location. Then, the .spf project will open automatically and the <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> button will be enabled. If you already have a created project, click on <span class="keyword" onclick="activateButton('openProjectBtn')">Open Project</span>
+            <span data-i18n="ui.terminal.tcmmInstructions.newProject">To create a Processor project, click on</span> <span class="keyword" onclick="activateButton('newProjectBtn')" data-i18n="ui.buttons.newProject">New Project</span>. <span data-i18n="ui.terminal.tcmmInstructions.projectSetup">Give your project a name and select the installation location. Then, the .spf project will open automatically and the</span> <span class="keyword" onclick="activateButton('processorHub')" data-i18n="ui.buttons.processorHub">Processor Hub</span> <span data-i18n="ui.terminal.tcmmInstructions.hubEnabled">button will be enabled. If you already have a created project, click on</span> <span class="keyword" onclick="activateButton('openProjectBtn')" data-i18n="ui.buttons.openProject">Open Project</span>
             <br>
-  Click on <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> to create a processor with all parameters pre-defined by you. Program your processor using the CMM language in the .cmm file within the Software folder of your project. When modifying a file, click on <span class="keyword" onclick="activateButton('saveFileBtn')">Save</span> to save it. 
+            <span data-i18n="ui.terminal.tcmmInstructions.processorHub">Click on</span> <span class="keyword" onclick="activateButton('processorHub')" data-i18n="ui.buttons.processorHub">Processor Hub</span> <span data-i18n="ui.terminal.tcmmInstructions.createProcessor">to create a processor with all parameters pre-defined by you. Program your processor using the CMM language in the .cmm file within the Software folder of your project. When modifying a file, click on</span> <span class="keyword" onclick="activateButton('saveFileBtn')" data-i18n="ui.buttons.save">Save</span> <span data-i18n="ui.terminal.tcmmInstructions.saveFile">to save it.</span>
             <br>
-  Next, configure the compilation in the <span class="keyword" onclick="activateButton('settings')">Processor Config</span> button, setting up the processor to be compiled, the number of clocks and cycles (frequency) for simulation, as well as the compilation flags for cmmcomp, asmcomp, and iverilog.
+            <span data-i18n="ui.terminal.tcmmInstructions.configure">Next, configure the compilation in the</span> <span class="keyword" onclick="activateButton('settings')" data-i18n="ui.buttons.processorConfig">Processor Config</span> <span data-i18n="ui.terminal.tcmmInstructions.configureDetails">button, setting up the processor to be compiled, the number of clocks and cycles (frequency) for simulation, as well as the compilation flags for cmmcomp, asmcomp, and iverilog.</span>
             <br>
-  After configuration, you can compile step by step or use the <span class="keyword" onclick="activateButton('allcomp')">Compile All</span> button to compile the entire project and view the simulation in gtkwave. Monitor the process log in the terminals <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> & <span class="terminal-keyword" onclick="activateTerminal('tprism')">TPRISM</span>. Clear each terminal individually with the <span class="keyword" onclick="activateButton('clear-terminal')">Clear Terminal</span> button.
+            <span data-i18n="ui.terminal.tcmmInstructions.compile">After configuration, you can compile step by step or use the</span> <span class="keyword" onclick="activateButton('allcomp')" data-i18n="ui.buttons.compileAll">Compile All</span> <span data-i18n="ui.terminal.tcmmInstructions.compileDetails">button to compile the entire project and view the simulation in gtkwave. Monitor the process log in the terminals</span> <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> & <span class="terminal-keyword" onclick="activateTerminal('tprism')">TPRISM</span>. <span data-i18n="ui.terminal.tcmmInstructions.clearTerminal">Clear each terminal individually with the</span> <span class="keyword" onclick="activateButton('clear-terminal')" data-i18n="ui.buttons.clearTerminal">Clear Terminal</span> <span data-i18n="ui.terminal.tcmmInstructions.button">button.</span>
             <br>
-  To backup your currently open project, click on <span class="keyword" onclick="activateButton('backupFolderBtn')">Backup</span>. AI assistance may be helpful. Click the <span class="keyword" onclick="activateButton('aiAssistant')">Toggle AI</span> button to activate it. Select one of the models: ChatGPT or Claude. Check your project hierarchy in <span class="keyword" onclick="activateButton('open-folder-button')">Open Folder</span>.
+            <span data-i18n="ui.terminal.tcmmInstructions.backup">To backup your currently open project, click on</span> <span class="keyword" onclick="activateButton('backupFolderBtn')" data-i18n="ui.buttons.backup">Backup</span>. <span data-i18n="ui.terminal.tcmmInstructions.ai">AI assistance may be helpful. Click the</span> <span class="keyword" onclick="activateButton('aiAssistant')" data-i18n="ui.buttons.toggleAI">Toggle AI</span> <span data-i18n="ui.terminal.tcmmInstructions.aiModels">button to activate it. Select one of the models: ChatGPT or Claude. Check your project hierarchy in</span> <span class="keyword" onclick="activateButton('open-folder-button')" data-i18n="ui.buttons.openFolder">Open Folder</span>.
             <br>
-  If you want to switch the IDE theme between light and dark, click on <span class="keyword" onclick="activateButton('themeToggle')">Toggle Theme</span>.
+            <span data-i18n="ui.terminal.tcmmInstructions.theme">If you want to switch the IDE theme between light and dark, click on</span> <span class="keyword" onclick="activateButton('themeToggle')" data-i18n="ui.buttons.toggleTheme">Toggle Theme</span>.
             <br>
-   Want to view information about the current project? Click on <span class="keyword" onclick="activateButton('projectInfo')">Project Info</span>. Information about the IDE version, Chromium, Node.js, Electron, and Windows is available in the <span class="keyword" onclick="activateButton('info-aurora')">Info Aurora</span> button. There's more in <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>.
+            <span data-i18n="ui.terminal.tcmmInstructions.projectInfo">Want to view information about the current project? Click on</span> <span class="keyword" onclick="activateButton('projectInfo')" data-i18n="ui.buttons.projectInfo">Project Info</span>. <span data-i18n="ui.terminal.tcmmInstructions.ideInfo">Information about the IDE version, Chromium, Node.js, Electron, and Windows is available in the</span> <span class="keyword" onclick="activateButton('info-aurora')" data-i18n="ui.buttons.infoAurora">Info Aurora</span> <span data-i18n="ui.terminal.tcmmInstructions.menu">button. There's more in</span> <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()" data-i18n="ui.buttons.menu">Menu</span>.
           </div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
-          <div class="terminal-header">TASM Terminal</div>
-          <div class="terminal-body">Welcome to the TASM Terminal!</div>
+          <div class="terminal-header" data-i18n="ui.terminal.tasmHeader">TASM Terminal</div>
+          <div class="terminal-body" data-i18n="ui.terminal.tasmWelcome">Welcome to the TASM Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tveri">
-          <div class="terminal-header">TVERI Terminal</div>
-          <div class="terminal-body">Welcome to the TVERI Terminal!</div>
+          <div class="terminal-header" data-i18n="ui.terminal.tveriHeader">TVERI Terminal</div>
+          <div class="terminal-body" data-i18n="ui.terminal.tveriWelcome">Welcome to the TVERI Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-twave">
-          <div class="terminal-header">TWAVE Terminal</div>
-          <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
+          <div class="terminal-header" data-i18n="ui.terminal.twaveHeader">TWAVE Terminal</div>
+          <div class="terminal-body" data-i18n="ui.terminal.twaveWelcome">Welcome to the TWAVE Terminal!</div>
 
         <div id="vvp-progress-container" class="vvp-progress-container" style="display: none;">
         <div class="vvp-progress-info">
           <i class="fas fa-cog vvp-spinner-icon"></i>
-          <span class="vvp-progress-text">VVP simulation in progress</span>
+          <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">VVP simulation in progress</span>
         </div>
         
         <div class="vvp-progress-bar-wrapper">
@@ -544,241 +577,237 @@
         
         <div class="vvp-progress-stats">
           <div class="vvp-stat">
-            <span class="vvp-stat-label">Time</span>
+            <span class="vvp-stat-label" data-i18n="ui.terminal.time">Time</span>
             <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
           </div>
           <div class="vvp-stat">
-            <span class="vvp-stat-label">Events</span>
+            <span class="vvp-stat-label" data-i18n="ui.terminal.events">Events</span>
             <span class="vvp-stat-value" id="vvp-events-count">0</span>
           </div>
         </div>
       </div>
         </div>
                 <div class="terminal-content hidden" id="terminal-tprism">
-          <div class="terminal-header">TPRISM Terminal</div>
-          <div class="terminal-body">Welcome to the TPRISM Terminal!</div>
+          <div class="terminal-header" data-i18n="ui.terminal.tprismHeader">TPRISM Terminal</div>
+          <div class="terminal-body" data-i18n="ui.terminal.tprismWelcome">Welcome to the TPRISM Terminal!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tcmd">
-          <div class="terminal-header">TCMD Terminal</div>
-          <div class="terminal-body">Welcome to the TCMD Terminal!</div>
+          <div class="terminal-header" data-i18n="ui.terminal.tcmdHeader">TCMD Terminal</div>
+          <div class="terminal-body" data-i18n="ui.terminal.tcmdWelcome">Welcome to the TCMD Terminal!</div>
             <div id="terminal-container"></div>
           </div>
       </div>
       </div>
-
-        
-      </div>
-    </div>
   </div>
 
-  
   <!-- Sliding News Modal -->
-<div class="news-modal" id="newsModal">
-  <button id="closeNewsModal" class="news-close-btn" aria-label="Close">
-    <i class="fa-solid fa-times"></i>
-  </button>
-  
-  <div class="news-modal-content">
-    <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
+  <div class="news-modal" id="newsModal">
+    <button id="closeNewsModal" class="news-close-btn" aria-label="Close">
+      <i class="fa-solid fa-times"></i>
+    </button>
     
-    <!-- Update 2.19.0 -->
-    <div class="news-section new">
-      <h4>
-        <i class="fa-solid fa-bolt update-improvement"></i> 
-        Update 2.19.0
-        <span class="version-tag">Latest</span>
-      </h4>
-      <ul class="update-list">
-        <li>Improved design of 'Processor Config' buttons</li>
-        <li>Enhanced overall interface responsiveness</li>
-        <li>Added support for new file formats</li>
-      </ul>
-    </div>
-    
-    <hr class="news-divider">
-    
-    <!-- Update 2.18.1 -->
-    <div class="news-section">
-      <h4><i class="fa-solid fa-wrench update-fix"></i> Update 2.18.1</h4>
-      <ul class="update-list">
-        <li>Performance improvements and critical bug fixes</li>
-        <li>Interface adjustments for better usability</li>
-        <li>Added /saphoComponents/<br>Packages/iverilog folder</li>
-        <li>Improved path script</li>
-        <li>Removed standard compilation (all compilations are std now)</li>
-        <li>Added syntax highlighting for .cmm and .asm files</li>
-      </ul>
-    </div>
-    
-    <hr class="news-divider">
-    
-    <!-- Update 2.17.0 -->
-    <div class="news-section">
-      <h4><i class="fa-solid fa-paint-brush update-feature"></i> Update 2.17.0</h4>
-      <ul class="update-list">
-        <li>New 'Float or Int' parameter in processor compilation configuration</li>
-        <li>Added welcome presentation when opening the IDE</li>
-        <li>Improved README.md in AURORA IDE GitHub</li>
-        <li>Added 'System Information' button</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Window for Bug Report -->
-<div id="bug-report-modal" class="modal hidden">
-  <div class="modal-content">
-    <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
-    <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
-      <label for="bug-title">Title</label>
-      <input type="text" id="bug-title" name="bug-title" placeholder="Enter the bug title" required />
-
-      <label for="bug-body">Description</label>
-      <textarea id="bug-body" name="bug-body" placeholder="Describe the issue and praise the developer!" required></textarea>
-
-      <label>Severity</label>
-      <div class="severity-options">
-        <label>
-          <input type="radio" name="severity" value="low" required />
-          <span class="severity-dot low"></span> Low
-        </label>
-        <label>
-          <input type="radio" name="severity" value="medium" required />
-          <span class="severity-dot medium"></span> Medium
-        </label>
-        <label>
-          <input type="radio" name="severity" value="high" required />
-          <span class="severity-dot high"></span> High
-        </label>
+    <div class="news-modal-content">
+      <h3><i class="fa-solid fa-bell"></i> News and Updates</h3>
+      
+      <!-- Update 2.19.0 -->
+      <div class="news-section new">
+        <h4>
+          <i class="fa-solid fa-bolt update-improvement"></i> 
+          Update 2.19.0
+          <span class="version-tag">Latest</span>
+        </h4>
+        <ul class="update-list">
+          <li>Improved design of 'Processor Config' buttons</li>
+          <li>Enhanced overall interface responsiveness</li>
+          <li>Added support for new file formats</li>
+        </ul>
       </div>
-      <button type="submit">Submit</button>
-      <button type="button" id="close-bug-report">Cancel</button>
-    </form>
-  </div>
-</div>
-
-<!-- Modern About Modal -->
-<div class="aurora-about-modal aurora-about-hidden" id="auroraAboutModal">
-    <div class="aurora-about-overlay" onclick="closeAuroraAboutModal()"></div>
-    <div class="aurora-about-content">
-        <div class="aurora-about-header">
-            <h2 class="aurora-about-title">
-                <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Logo" class="aurora-about-icon" />
-                About Aurora IDE
-            </h2>
-            <button class="aurora-about-close" onclick="closeAuroraAboutModal()">×</button>
-        </div>
-        
-        <div class="aurora-about-body">
-            <!-- Application Info Grid -->
-            <div class="aurora-about-grid">
-                <div class="aurora-about-card">
-                    <h3 class="aurora-about-card-title">Application Info</h3>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Version</span>
-                        <span class="aurora-about-value" id="aurora-app-version">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Build Date</span>
-                        <span class="aurora-about-value" id="aurora-build-date">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Environment</span>
-                        <span class="aurora-about-value" id="aurora-environment">Loading...</span>
-                    </div>
-                </div>
-
-                <div class="aurora-about-card">
-                    <h3 class="aurora-about-card-title">System Information</h3>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Operating System</span>
-                        <span class="aurora-about-value" id="aurora-os-info">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Architecture</span>
-                        <span class="aurora-about-value" id="aurora-arch">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Total Memory</span>
-                        <span class="aurora-about-value" id="aurora-memory">Loading...</span>
-                    </div>
-                </div>
-
-                <div class="aurora-about-card">
-                    <h3 class="aurora-about-card-title">Runtime Versions</h3>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Electron</span>
-                        <span class="aurora-about-value" id="aurora-electron-version">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Chrome</span>
-                        <span class="aurora-about-value" id="aurora-chrome-version">Loading...</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Node.js</span>
-                        <span class="aurora-about-value" id="aurora-node-version">Loading...</span>
-                    </div>
-                </div>
-
-                <div class="aurora-about-card">
-                    <h3 class="aurora-about-card-title">Development Team</h3>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Developed by</span>
-                        <span class="aurora-about-value">NIPSCERN</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Collaboration</span>
-                        <span class="aurora-about-value">CERN + OpenSource</span>
-                    </div>
-                    <div class="aurora-about-info">
-                        <span class="aurora-about-label">Repository</span>
-                        <span class="aurora-about-value">
-                            <a href="https://github.com/nipscernlab/aurora" target="_blank" class="aurora-about-link">
-                                github.com/nipscern/aurora
-                            </a>
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Performance Stats -->
-            <div class="aurora-about-stats">
-                <div class="aurora-about-stat">
-                    <span class="aurora-about-stat-value" id="aurora-uptime">0s</span>
-                    <span class="aurora-about-stat-label">Uptime</span>
-                </div>
-                <div class="aurora-about-stat">
-                    <span class="aurora-about-stat-value" id="aurora-memory-usage">0 MB</span>
-                    <span class="aurora-about-stat-label">Memory Usage</span>
-                </div>
-                <div class="aurora-about-stat">
-                    <span class="aurora-about-stat-value" id="aurora-cpu-usage">0%</span>
-                    <span class="aurora-about-stat-label">CPU Usage</span>
-                </div>
-            </div>
-
-            <!-- Technology Badges -->
-            <div class="aurora-about-badges">
-                <span class="aurora-about-badge">Electron</span>
-                <span class="aurora-about-badge">JavaScript</span>
-                <span class="aurora-about-badge">Node.js</span>
-                <span class="aurora-about-badge">HTML5</span>
-                <span class="aurora-about-badge">CSS3</span>
-                <span class="aurora-about-badge">Verilog</span>
-            </div>
-        </div>
-
-        <div class="aurora-about-footer">
-            <p class="aurora-about-description">
-                Aurora IDE is a modern, cross-platform integrated development environment designed for 
-                hardware description languages and digital circuit design. Built with cutting-edge web 
-                technologies and powered by Electron.
-            </p>
-        </div>
+      
+      <hr class="news-divider">
+      
+      <!-- Update 2.18.1 -->
+      <div class="news-section">
+        <h4><i class="fa-solid fa-wrench update-fix"></i> Update 2.18.1</h4>
+        <ul class="update-list">
+          <li>Performance improvements and critical bug fixes</li>
+          <li>Interface adjustments for better usability</li>
+          <li>Added /saphoComponents/<br>Packages/iverilog folder</li>
+          <li>Improved path script</li>
+          <li>Removed standard compilation (all compilations are std now)</li>
+          <li>Added syntax highlighting for .cmm and .asm files</li>
+        </ul>
+      </div>
+      
+      <hr class="news-divider">
+      
+      <!-- Update 2.17.0 -->
+      <div class="news-section">
+        <h4><i class="fa-solid fa-paint-brush update-feature"></i> Update 2.17.0</h4>
+        <ul class="update-list">
+          <li>New 'Float or Int' parameter in processor compilation configuration</li>
+          <li>Added welcome presentation when opening the IDE</li>
+          <li>Improved README.md in AURORA IDE GitHub</li>
+          <li>Added 'System Information' button</li>
+        </ul>
+      </div>
     </div>
-</div>
-    <!-- Theme Customizer Modal -->
-    <div id="themeModal" class="theme-modal">
+  </div>
+
+  <!-- Modal Window for Bug Report -->
+  <div id="bug-report-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2><i class="fa-solid fa-bug"></i> Bug Report</h2>
+      <form id="bug-report-form" action="https://formspree.io/f/mldgoned" method="POST">
+        <label for="bug-title">Title</label>
+        <input type="text" id="bug-title" name="bug-title" placeholder="Enter the bug title" required />
+
+        <label for="bug-body">Description</label>
+        <textarea id="bug-body" name="bug-body" placeholder="Describe the issue and praise the developer!" required></textarea>
+
+        <label>Severity</label>
+        <div class="severity-options">
+          <label>
+            <input type="radio" name="severity" value="low" required />
+            <span class="severity-dot low"></span> Low
+          </label>
+          <label>
+            <input type="radio" name="severity" value="medium" required />
+            <span class="severity-dot medium"></span> Medium
+          </label>
+          <label>
+            <input type="radio" name="severity" value="high" required />
+            <span class="severity-dot high"></span> High
+          </label>
+        </div>
+        <button type="submit">Submit</button>
+        <button type="button" id="close-bug-report">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modern About Modal -->
+  <div class="aurora-about-modal aurora-about-hidden" id="auroraAboutModal">
+      <div class="aurora-about-overlay" onclick="closeAuroraAboutModal()"></div>
+      <div class="aurora-about-content">
+          <div class="aurora-about-header">
+              <h2 class="aurora-about-title">
+                  <img id="aurora-icon" src="./assets/icons/aurora_borealis-2.ico" alt="Aurora Logo" class="aurora-about-icon" />
+                  About Aurora IDE
+              </h2>
+              <button class="aurora-about-close" onclick="closeAuroraAboutModal()">×</button>
+          </div>
+          
+          <div class="aurora-about-body">
+              <!-- Application Info Grid -->
+              <div class="aurora-about-grid">
+                  <div class="aurora-about-card">
+                      <h3 class="aurora-about-card-title">Application Info</h3>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Version</span>
+                          <span class="aurora-about-value" id="aurora-app-version">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Build Date</span>
+                          <span class="aurora-about-value" id="aurora-build-date">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Environment</span>
+                          <span class="aurora-about-value" id="aurora-environment">Loading...</span>
+                      </div>
+                  </div>
+
+                  <div class="aurora-about-card">
+                      <h3 class="aurora-about-card-title">System Information</h3>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Operating System</span>
+                          <span class="aurora-about-value" id="aurora-os-info">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Architecture</span>
+                          <span class="aurora-about-value" id="aurora-arch">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Total Memory</span>
+                          <span class="aurora-about-value" id="aurora-memory">Loading...</span>
+                      </div>
+                  </div>
+
+                  <div class="aurora-about-card">
+                      <h3 class="aurora-about-card-title">Runtime Versions</h3>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Electron</span>
+                          <span class="aurora-about-value" id="aurora-electron-version">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Chrome</span>
+                          <span class="aurora-about-value" id="aurora-chrome-version">Loading...</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Node.js</span>
+                          <span class="aurora-about-value" id="aurora-node-version">Loading...</span>
+                      </div>
+                  </div>
+
+                  <div class="aurora-about-card">
+                      <h3 class="aurora-about-card-title">Development Team</h3>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Developed by</span>
+                          <span class="aurora-about-value">NIPSCERN</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Collaboration</span>
+                          <span class="aurora-about-value">CERN + OpenSource</span>
+                      </div>
+                      <div class="aurora-about-info">
+                          <span class="aurora-about-label">Repository</span>
+                          <span class="aurora-about-value">
+                              <a href="https://github.com/nipscernlab/aurora" target="_blank" class="aurora-about-link">
+                                  github.com/nipscern/aurora
+                              </a>
+                          </span>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Performance Stats -->
+              <div class="aurora-about-stats">
+                  <div class="aurora-about-stat">
+                      <span class="aurora-about-stat-value" id="aurora-uptime">0s</span>
+                      <span class="aurora-about-stat-label">Uptime</span>
+                  </div>
+                  <div class="aurora-about-stat">
+                      <span class="aurora-about-stat-value" id="aurora-memory-usage">0 MB</span>
+                      <span class="aurora-about-stat-label">Memory Usage</span>
+                  </div>
+                  <div class="aurora-about-stat">
+                      <span class="aurora-about-stat-value" id="aurora-cpu-usage">0%</span>
+                      <span class="aurora-about-stat-label">CPU Usage</span>
+                  </div>
+              </div>
+
+              <!-- Technology Badges -->
+              <div class="aurora-about-badges">
+                  <span class="aurora-about-badge">Electron</span>
+                  <span class="aurora-about-badge">JavaScript</span>
+                  <span class="aurora-about-badge">Node.js</span>
+                  <span class="aurora-about-badge">HTML5</span>
+                  <span class="aurora-about-badge">CSS3</span>
+                  <span class="aurora-about-badge">Verilog</span>
+              </div>
+          </div>
+
+          <div class="aurora-about-footer">
+              <p class="aurora-about-description">
+                  Aurora IDE is a modern, cross-platform integrated development environment designed for 
+                  hardware description languages and digital circuit design. Built with cutting-edge web 
+                  technologies and powered by Electron.
+              </p>
+          </div>
+      </div>
+  </div>
+
+  <!-- Theme Customizer Modal -->
+  <div id="themeModal" class="theme-modal">
         <div class="theme-modal-content">
             <div class="theme-modal-header">
                 <h2 class="theme-modal-title">
@@ -934,59 +963,60 @@
                 </button>
             </div>
         </div>
-    </div>
-<!-- Keyboard Shortcuts Modal HTML -->
-<div class="kb-modal">
-  <div class="kb-modal__overlay"></div>
-  <div class="kb-modal__container" role="dialog" aria-labelledby="kb-modal-title">
-    <header class="kb-modal__header">
-      <h2 id="kb-modal-title" class="kb-modal__title">Keyboard Shortcuts</h2>
-      <button class="kb-modal__close" aria-label="Close">
-        <i class="fas fa-times"></i>
-      </button>
-    </header>
-    <div class="kb-modal__body">
-      <section class="kb-modal__section">
-        <h3 class="kb-modal__section-title"><i class="fas fa-file"></i> File Operations</h3>
-        <ul class="kb-modal__list">
-          <li><kbd>Ctrl + N</kbd> New File</li>
-          <li><kbd>Ctrl + O</kbd> Open File</li>
-          <li><kbd>Ctrl + S</kbd> Save File</li>
-          <li><kbd>Ctrl + Shift + S</kbd> Save As</li>
-          <li><kbd>Ctrl + W</kbd> Close Tab</li>
-        </ul>
-      </section>
-      <hr class="kb-modal__divider">
-      <section class="kb-modal__section">
-        <h3 class="kb-modal__section-title"><i class="fas fa-edit"></i> Editing</h3>
-        <ul class="kb-modal__list">
-          <li><kbd>Ctrl + Z</kbd> Undo</li>
-          <li><kbd>Ctrl + Y</kbd> Redo</li>
-          <li><kbd>Ctrl + C</kbd> Copy</li>
-          <li><kbd>Ctrl + V</kbd> Paste</li>
-          <li><kbd>Ctrl + X</kbd> Cut</li>
-        </ul>
-      </section>
-      <hr class="kb-modal__divider">
-      <section class="kb-modal__section">
-        <h3 class="kb-modal__section-title"><i class="fas fa-terminal"></i> Terminal</h3>
-        <ul class="kb-modal__list">
-          <li><kbd>Ctrl + K</kbd> Clear Terminal</li>
-          <li><kbd>Ctrl + T</kbd> New Terminal Tab</li>
-          <li><kbd>Ctrl + Scroll</kbd> Zoom In/Out</li>
-        </ul>
-      </section>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal HTML -->
+  <div class="kb-modal">
+    <div class="kb-modal__overlay"></div>
+    <div class="kb-modal__container" role="dialog" aria-labelledby="kb-modal-title">
+      <header class="kb-modal__header">
+        <h2 id="kb-modal-title" class="kb-modal__title">Keyboard Shortcuts</h2>
+        <button class="kb-modal__close" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </header>
+      <div class="kb-modal__body">
+        <section class="kb-modal__section">
+          <h3 class="kb-modal__section-title"><i class="fas fa-file"></i> File Operations</h3>
+          <ul class="kb-modal__list">
+            <li><kbd>Ctrl + N</kbd> New File</li>
+            <li><kbd>Ctrl + O</kbd> Open File</li>
+            <li><kbd>Ctrl + S</kbd> Save File</li>
+            <li><kbd>Ctrl + Shift + S</kbd> Save As</li>
+            <li><kbd>Ctrl + W</kbd> Close Tab</li>
+          </ul>
+        </section>
+        <hr class="kb-modal__divider">
+        <section class="kb-modal__section">
+          <h3 class="kb-modal__section-title"><i class="fas fa-edit"></i> Editing</h3>
+          <ul class="kb-modal__list">
+            <li><kbd>Ctrl + Z</kbd> Undo</li>
+            <li><kbd>Ctrl + Y</kbd> Redo</li>
+            <li><kbd>Ctrl + C</kbd> Copy</li>
+            <li><kbd>Ctrl + V</kbd> Paste</li>
+            <li><kbd>Ctrl + X</kbd> Cut</li>
+          </ul>
+        </section>
+        <hr class="kb-modal__divider">
+        <section class="kb-modal__section">
+          <h3 class="kb-modal__section-title"><i class="fas fa-terminal"></i> Terminal</h3>
+          <ul class="kb-modal__list">
+            <li><kbd>Ctrl + K</kbd> Clear Terminal</li>
+            <li><kbd>Ctrl + T</kbd> New Terminal Tab</li>
+            <li><kbd>Ctrl + Scroll</kbd> Zoom In/Out</li>
+          </ul>
+        </section>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="status-bar">
-  <div class="status-item" id="ready"><i class="fa-solid fa-check"></i> Ready</div>
-  <div class="status-item" id="processorProjectOriented"><i class="fa-solid fa-lock-open"></i> Processor Oriented</div>
-  <div class="status-item" id="statusUpdater"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
-  <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
-  <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Ln 33, Col 33</div>
-</div>
+  <div class="status-bar">
+    <div class="status-item" id="ready"><i class="fa-solid fa-check"></i> Ready</div>
+    <div class="status-item" id="processorProjectOriented"><i class="fa-solid fa-lock-open"></i> Processor Oriented</div>
+    <div class="status-item" id="statusUpdater"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
+    <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
+    <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Ln 33, Col 33</div>
+  </div>
 
 <script>
 document.getElementById('reload-everything-terminal').addEventListener('click', () => {
@@ -1131,7 +1161,7 @@ function closeAuroraAboutModal() {
   <script src="./js/buttons.js" ></script>
   <script src="./js/infoAurora.js" type="module"></script>
   <script src="./js/modal.js"></script>
-  <script src="./js/modalConfig.js" type="module"></script>
+  <script src="./js/processorOriented.js" type="module"></script>
   <script src="./js/projectOriented.js"></script>
   <script src="./js/news.js" ></script>
   <script src="./js/renderer.js"></script>
@@ -1146,6 +1176,8 @@ function closeAuroraAboutModal() {
   <script src="./js/iconAurora.js" type="module"></script>
   <script src="./js/theme-modal.js"></script>
   <script src="./js/recentProjects.js"></script>
+  <script src="./js/translation.js"></script>
+
     </script>
   </body>
 </html>

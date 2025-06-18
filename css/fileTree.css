@@ -66,24 +66,12 @@
   transition: color 0.3s ease;
 }
 
-#refresh-button::after,
-#open-folder-button::after,
-#open-hdl-button::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--accent-primary);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
-}
 
-#refresh-button:hover::after,
-#open-folder-button:hover::after,
-#open-hdl-button:hover::after {
-  transform: scaleX(1);
+
+#refresh-button:hover,
+#open-folder-button:hover,
+#open-hdl-button:hover {
+  color: var(--accent-primary);
 }
 
 /* Current Project Name */

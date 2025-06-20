@@ -1,5 +1,5 @@
 /*
- *    MAIN.JS FILE REQUIRED BY ELECTRON ƒ
+ *    MAIN.JS FILE REQUIRED BY ELECTRON ƒ 
 */
 
 /*
@@ -23,6 +23,7 @@ const url = require('url');
 const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
+const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -3473,3 +3474,211 @@ async function generateModuleSVG(moduleName, tempDir) {
     });
   });
 }
+
+// Store active file watchers
+const activeWatchers = new Map();
+const fileStatsCache = new Map();
+
+// Debounce function to prevent too many rapid calls
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// IPC handlers for file watching
+ipcMain.handle('get-file-stats', async (event, filePath) => {
+  try {
+    const stats = await fs.stat(filePath);
+    const result = {
+      mtime: stats.mtime.getTime(),
+      size: stats.size,
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory()
+    };
+    
+    // Cache the stats
+    fileStatsCache.set(filePath, result);
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to get file stats: ${error.message}`);
+  }
+});
+
+ipcMain.handle('watch-file', async (event, filePath) => {
+  try {
+    // Don't watch the same file twice
+    if (activeWatchers.has(filePath)) {
+      return activeWatchers.get(filePath).id;
+    }
+
+    // Create debounced change handler
+    const debouncedChangeHandler = debounce((eventType) => {
+      if (eventType === 'change') {
+        // Send change event to renderer
+        event.sender.send('file-changed', filePath);
+      }
+    }, 150); // 150ms debounce
+
+    const watcher = chokidar.watch(filePath, {
+      ignoreInitial: true,
+      persistent: true,
+      usePolling: false, // Use native events when possible
+      atomic: true, // Handle atomic writes
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      },
+      // Add these options for better reliability
+      alwaysStat: true,
+      depth: 0,
+      ignored: /[\/\\]\./
+    });
+
+    const watcherId = `watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    watcher.on('change', (path, stats) => {
+      console.log(`File changed: ${path}`);
+      debouncedChangeHandler('change');
+    });
+
+    watcher.on('error', (error) => {
+      console.error(`File watcher error for ${filePath}:`, error);
+      
+      // Try to restart the watcher after a short delay
+      setTimeout(async () => {
+        try {
+          console.log(`Attempting to restart watcher for ${filePath}`);
+          await restartWatcher(filePath, event);
+        } catch (restartError) {
+          console.error(`Failed to restart watcher for ${filePath}:`, restartError);
+          event.sender.send('file-watcher-error', filePath, error.message);
+        }
+      }, 1000);
+    });
+
+    watcher.on('ready', () => {
+      console.log(`File watcher ready for: ${filePath}`);
+    });
+
+    // Store watcher reference
+    activeWatchers.set(filePath, {
+      id: watcherId,
+      watcher: watcher,
+      filePath: filePath,
+      lastCheck: Date.now()
+    });
+
+    return watcherId;
+  } catch (error) {
+    throw new Error(`Failed to start file watcher: ${error.message}`);
+  }
+});
+
+// Function to restart a watcher
+async function restartWatcher(filePath, event) {
+  const existingWatcher = activeWatchers.get(filePath);
+  if (existingWatcher) {
+    try {
+      await existingWatcher.watcher.close();
+    } catch (closeError) {
+      console.error(`Error closing existing watcher: ${closeError}`);
+    }
+    activeWatchers.delete(filePath);
+  }
+  
+  // Start a new watcher
+  return ipcMain.emit('watch-file', event, filePath);
+}
+
+ipcMain.handle('stop-watching-file', async (event, watcherIdOrPath) => {
+  try {
+    let watcherInfo = null;
+
+    // Find watcher by ID or path
+    for (const [filePath, info] of activeWatchers.entries()) {
+      if (info.id === watcherIdOrPath || filePath === watcherIdOrPath) {
+        watcherInfo = info;
+        break;
+      }
+    }
+
+    if (watcherInfo) {
+      await watcherInfo.watcher.close();
+      activeWatchers.delete(watcherInfo.filePath);
+      fileStatsCache.delete(watcherInfo.filePath);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error stopping file watcher:', error);
+    return false;
+  }
+});
+
+// Periodic health check for watchers (every 30 seconds)
+setInterval(async () => {
+  for (const [filePath, watcherInfo] of activeWatchers.entries()) {
+    try {
+      // Check if file still exists
+      await fs.access(filePath);
+      watcherInfo.lastCheck = Date.now();
+    } catch (error) {
+      console.log(`File no longer accessible: ${filePath}, removing watcher`);
+      try {
+        await watcherInfo.watcher.close();
+      } catch (closeError) {
+        console.error(`Error closing watcher for missing file: ${closeError}`);
+      }
+      activeWatchers.delete(filePath);
+      fileStatsCache.delete(filePath);
+    }
+  }
+}, 30000);
+
+// Manual check method for renderer to force check
+ipcMain.handle('force-check-file', async (event, filePath) => {
+  try {
+    const currentStats = await fs.stat(filePath);
+    const cachedStats = fileStatsCache.get(filePath);
+    
+    if (!cachedStats || currentStats.mtime.getTime() > cachedStats.mtime) {
+      // File has been modified
+      fileStatsCache.set(filePath, {
+        mtime: currentStats.mtime.getTime(),
+        size: currentStats.size,
+        isFile: currentStats.isFile(),
+        isDirectory: currentStats.isDirectory()
+      });
+      
+      event.sender.send('file-changed', filePath);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`Error in force check for ${filePath}:`, error);
+    return false;
+  }
+});
+
+// Clean up all watchers when app is closing
+app.on('before-quit', async () => {
+  console.log('Cleaning up file watchers...');
+  for (const [filePath, info] of activeWatchers.entries()) {
+    try {
+      await info.watcher.close();
+    } catch (error) {
+      console.error(`Error closing watcher for ${filePath}:`, error);
+    }
+  }
+  activeWatchers.clear();
+  fileStatsCache.clear();
+});

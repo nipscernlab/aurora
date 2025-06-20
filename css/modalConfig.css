@@ -662,6 +662,16 @@ button:disabled::after {
   transform: translateY(1px);
 }
 
+.modalConfig-cmm-selector {
+  margin-top: 16px;
+}
+
+.modalConfig-cmm-selector .modalConfig-form-group {
+  margin-bottom: 16px;
+}
+
+
+
 /* ========================================
    Component-Specific Styles
    ======================================== */

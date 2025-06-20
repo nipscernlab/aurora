@@ -15,10 +15,14 @@ const cmmCompFlagsInput = document.getElementById("cmmCompFlags");
 const asmCompFlagsInput = document.getElementById("asmCompFlags");
 const testbenchSelect = document.getElementById("processortestbenchSelect");
 const gtkwSelect = document.getElementById("processorgtkwaveSelect");
+const cmmFileSelect = document.getElementById("cmmFileSelect");
+
 
 // Store available processors and current configuration
 let availableProcessors = [];
 let selectedProcessor = null;
+let selectedCmmFile = null;
+
 let currentConfig = {
   processors: [],
   iverilogFlags: [],
@@ -294,7 +298,7 @@ function updateProcessorSelect() {
   // Add a default option
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
-  defaultOption.textContent = "-- Select Processor --";
+  defaultOption.textContent = "Select Processor";
   defaultOption.disabled = true;
   
   // Se não há processadores ou nenhum está selecionado, selecione a opção padrão
@@ -330,26 +334,129 @@ function updateProcessorSelect() {
 }
 
 // Update the saveCurrentProcessorToTemp function to save simulation file selections
-function saveCurrentProcessorToTemp() {
-  if (selectedProcessor) {
-    const clk = processorClkInput.value.trim();
-    const numClocks = processorNumClocksInput.value.trim();
-    const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
-    const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
+async function loadCmmFiles(processorName) {
+  if (!cmmFileSelect) {
+    console.error("CMM file select element not found");
+    return;
+  }
+
+  if (!processorName) {
+    // Reset and disable select if no processor is selected
+    cmmFileSelect.innerHTML = '<option value="" selected>Select CMM File</option>';
+    cmmFileSelect.disabled = true;
+    selectedCmmFile = null;
+    return;
+  }
+
+  try {
+    cmmFileSelect.disabled = true;
+    cmmFileSelect.innerHTML = '<option value="">Loading...</option>';
     
-   tempProcessorConfigs[selectedProcessor] = {
-    name: selectedProcessor,
-    clk: clk ? Number(clk) : null,
-    numClocks: numClocks ? Number(numClocks) : null,
-    testbenchFile: testbenchFile,
-    gtkwFile: gtkwFile,
-    isActive: selectedProcessor === selectedProcessor // Será definido corretamente no save
-  };
+    console.log(`Loading CMM files for processor: ${processorName}`);
     
-    console.log(`Saved temporary config for ${selectedProcessor}:`, tempProcessorConfigs[selectedProcessor]);
+    // Get current project path
+    const projectInfo = await window.electronAPI.getCurrentProject();
+    const currentProjectPath = projectInfo.projectPath || 
+      window.currentProjectPath || 
+      localStorage.getItem('currentProjectPath');
+    
+    if (!currentProjectPath) {
+      console.warn("No current project path available");
+      cmmFileSelect.innerHTML = '<option value="">No Project</option>';
+      return;
+    }
+    
+    // Get the software folder path for this processor
+    const softwareFolderPath = await window.electronAPI.joinPath(currentProjectPath, processorName, 'Software');
+    
+    // Get all .cmm files from the software folder
+    const files = await window.electronAPI.listFilesInDirectory(softwareFolderPath);
+    const cmmFiles = files.filter(file => file.toLowerCase().endsWith('.cmm'));
+    
+    console.log(`Found ${cmmFiles.length} CMM files`);
+    
+    // Update CMM file select
+    cmmFileSelect.innerHTML = '<option value="">Select CMM File</option>';
+    
+    if (cmmFiles.length === 0) {
+      const noFilesOption = document.createElement('option');
+      noFilesOption.value = "";
+      noFilesOption.textContent = "No CMM files found";
+      noFilesOption.disabled = true;
+      cmmFileSelect.appendChild(noFilesOption);
+    } else {
+      cmmFiles.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file;
+        option.textContent = file;
+        
+        // Select this option if it matches saved configuration
+        if (tempProcessorConfigs[processorName] && 
+            tempProcessorConfigs[processorName].cmmFile === file) {
+          option.selected = true;
+          selectedCmmFile = file;
+        }
+        
+        cmmFileSelect.appendChild(option);
+      });
+    }
+    
+    // Enable select
+    cmmFileSelect.disabled = false;
+    
+  } catch (error) {
+    console.error("Failed to load CMM files:", error);
+    cmmFileSelect.innerHTML = '<option value="">Error Loading Files</option>';
+    showNotification("Failed to load CMM files", 'error');
   }
 }
 
+// Add event listener for CMM file selection
+cmmFileSelect.addEventListener("change", function() {
+  selectedCmmFile = this.value;
+  console.log(`Selected CMM file: ${selectedCmmFile}`);
+  
+  // Save to temp config if processor is selected
+  if (selectedProcessor && selectedCmmFile) {
+    if (!tempProcessorConfigs[selectedProcessor]) {
+      tempProcessorConfigs[selectedProcessor] = { name: selectedProcessor };
+    }
+    tempProcessorConfigs[selectedProcessor].cmmFile = selectedCmmFile;
+  }
+});
+
+
+// Add this function to handle testbench selection changes
+function handleTestbenchChange() {
+ const isStandardTestbench = testbenchSelect.value === "standard";
+ const clkContainer = document.querySelector('.clk-inputs-container') || 
+                     processorClkInput.parentElement.parentElement;
+ 
+ if (isStandardTestbench) {
+   // Show clock inputs with smooth animation
+   clkContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+   clkContainer.style.opacity = '0';
+   clkContainer.style.transform = 'translateY(-10px)';
+   clkContainer.style.display = 'flex';
+   
+   setTimeout(() => {
+     clkContainer.style.opacity = '1';
+     clkContainer.style.transform = 'translateY(0)';
+   }, 10);
+ } else {
+   // Hide clock inputs with smooth animation
+   clkContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+   clkContainer.style.opacity = '0';
+   clkContainer.style.transform = 'translateY(-10px)';
+   
+   setTimeout(() => {
+     clkContainer.style.display = 'none';
+   }, 300);
+ }
+}
+
+// Add event listener for testbench selection changes
+testbenchSelect.addEventListener("change", handleTestbenchChange);
 
 async function loadSimulationFiles(processorName) {
   // Check if elements exist before manipulating them
@@ -445,6 +552,9 @@ async function loadSimulationFiles(processorName) {
     if (testbenchSelect) testbenchSelect.disabled = false;
     if (gtkwSelect) gtkwSelect.disabled = false;
   }
+ setTimeout(() => {
+   handleTestbenchChange();
+ }, 100);
 }
 
 // Update the processor selection change event to load simulation files
@@ -458,6 +568,9 @@ processorSelect.addEventListener("change", function() {
   
   // Load simulation files for the selected processor
   loadSimulationFiles(selectedProcessor);
+  
+  // Load CMM files for the selected processor
+  loadCmmFiles(selectedProcessor);
   
   // Check if we have a temp config for this processor
   if (selectedProcessor && tempProcessorConfigs[selectedProcessor]) {
@@ -476,6 +589,15 @@ processorSelect.addEventListener("change", function() {
       gtkwSelect.value = tempConfig.gtkwFile;
     } else if (gtkwSelect) {
       gtkwSelect.value = "standard";
+    }
+    
+    // Set CMM file selection if available in temp config - CORRIGIDO
+    if (tempConfig.cmmFile && cmmFileSelect) {
+      cmmFileSelect.value = tempConfig.cmmFile;
+      selectedCmmFile = tempConfig.cmmFile;
+    } else if (cmmFileSelect) {
+      cmmFileSelect.value = "";
+      selectedCmmFile = null;
     }
     
     console.log(`Loaded temp config for ${selectedProcessor}:`, tempConfig);
@@ -501,16 +623,37 @@ processorSelect.addEventListener("change", function() {
     } else if (gtkwSelect) {
       gtkwSelect.value = "standard";
     }
+    
+    // Set CMM file selection if available in processor config - CORRIGIDO
+    if (processorConfig.cmmFile && cmmFileSelect) {
+      cmmFileSelect.value = processorConfig.cmmFile;
+      selectedCmmFile = processorConfig.cmmFile;
+    } else if (cmmFileSelect) {
+      cmmFileSelect.value = "";
+      selectedCmmFile = null;
+    }
   } else {
     processorClkInput.value = '';
     processorNumClocksInput.value = '';
     if (testbenchSelect) testbenchSelect.value = "standard";
     if (gtkwSelect) gtkwSelect.value = "standard";
+    if (cmmFileSelect) { // CORRIGIDO
+      cmmFileSelect.value = "";
+      selectedCmmFile = null;
+    }
   }
+  
+  // Handle testbench visibility after processor change
+  setTimeout(() => {
+    if (testbenchSelect) {
+      handleTestbenchChange();
+    }
+  }, 100);
 });
 
 
-    processorClkInput.addEventListener("input", () => {
+
+  processorClkInput.addEventListener("input", () => {
       const value = parseInt(processorClkInput.value, 10);
       if (value > 1000) {
         processorClkInput.value = 1000;
@@ -692,6 +835,15 @@ async function loadConfiguration() {
       
       // Check if simulation file references exist and load files
       await loadSimulationFiles(selectedProcessor);
+      
+      // Load CMM files for the selected processor
+      await loadCmmFiles(selectedProcessor);
+      
+      // Set CMM file selection if available - CORRIGIDO
+      if (lastActiveProcessor.cmmFile && cmmFileSelect) {
+        cmmFileSelect.value = lastActiveProcessor.cmmFile;
+        selectedCmmFile = lastActiveProcessor.cmmFile;
+      }
     } else {
       selectedProcessor = null;
       processorClkInput.value = '';
@@ -700,6 +852,7 @@ async function loadConfiguration() {
       // Disable simulation file selects
       if (testbenchSelect) testbenchSelect.disabled = true;
       if (gtkwSelect) gtkwSelect.disabled = true;
+      if (cmmFileSelect) cmmFileSelect.disabled = true; // CORRIGIDO
     }
     
     // Populate compiler flags inputs
@@ -765,6 +918,31 @@ clearAllButton.addEventListener("click", () => {
 });
 
 
+// Modify the existing saveConfigButton event listener - ADD CMM file to config
+// Correção do saveCurrentProcessorToTemp para incluir o arquivo CMM
+function saveCurrentProcessorToTemp() {
+  if (selectedProcessor) {
+    const clk = processorClkInput.value.trim();
+    const numClocks = processorNumClocksInput.value.trim();
+    const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
+    const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
+    const cmmFile = cmmFileSelect ? cmmFileSelect.value : ""; // ADICIONADO
+    
+    tempProcessorConfigs[selectedProcessor] = {
+      name: selectedProcessor,
+      clk: clk ? Number(clk) : null,
+      numClocks: numClocks ? Number(numClocks) : null,
+      testbenchFile: testbenchFile,
+      gtkwFile: gtkwFile,
+      cmmFile: cmmFile, // ADICIONADO
+      isActive: selectedProcessor === selectedProcessor
+    };
+    
+    console.log(`Saved temporary config for ${selectedProcessor}:`, tempProcessorConfigs[selectedProcessor]);
+  }
+}
+
+// Correção do event listener do saveConfigButton para incluir CMM file na configuração
 saveConfigButton.addEventListener("click", async () => {
   saveCurrentProcessorToTemp();
 
@@ -803,6 +981,8 @@ saveConfigButton.addEventListener("click", async () => {
     asmCompFlags,
     testbenchFile: selectedTestbench,
     gtkwFile: selectedGtkw
+    // NOTA: O arquivo CMM agora está sendo salvo dentro de cada processador individual
+    // em vez de como uma propriedade global da configuração
   };
 
   console.log("Saving Configuration:", config);

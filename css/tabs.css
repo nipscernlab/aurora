@@ -321,3 +321,89 @@
 .dialog-buttons button:hover {
   background: var(--background-lighter-hover);
 }
+
+ .conflict-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .conflict-modal.show {
+    opacity: 1;
+  }
+
+  .conflict-modal-content {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .conflict-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .conflict-modal-icon {
+    font-size: 24px;
+  }
+
+  .conflict-modal-title {
+    color: var(--text-primary);
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .conflict-modal-message {
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  .conflict-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .conflict-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+  }
+
+  .conflict-btn.keep-editor {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .conflict-btn.use-disk {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .conflict-btn.save-and-reload {
+    background: var(--success-color, #28a745);
+    color: white;
+  }
+
+  .conflict-btn:hover {
+    opacity: 0.9;
+  }

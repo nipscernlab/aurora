@@ -139,6 +139,7 @@
 
   <!-- News Red Dot -->
   <div class="modal-backdrop" id="modalBackdrop"></div>
+
 <!-- Processor Oriented Configuration Modal -->
   <div id="modalProcessorConfig" class="modalConfig">
     <div class="modalConfig-content">
@@ -173,6 +174,14 @@
           </div>
 
           <div class="modalConfig-form-group">
+            <div class="modalConfig-cmm-selector">
+            <div class="modalConfig-form-group">
+              <label for="cmmFileSelect">CMM File:</label>
+              <select id="cmmFileSelect" class="modalConfig-select" disabled>
+                <option value="">Select CMM File</option>
+              </select>
+            </div>
+          </div>
             <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.testbenchLabel">Testbench File:</label>
             <div class="modalConfig-select-container">
               <select id="processortestbenchSelect" class="modalConfig-select">
@@ -560,32 +569,33 @@
         <div class="terminal-content hidden" id="terminal-twave">
           <div class="terminal-header" data-i18n="ui.terminal.twaveHeader">TWAVE Terminal</div>
           <div class="terminal-body" data-i18n="ui.terminal.twaveWelcome">Welcome to the TWAVE Terminal!</div>
+<div class="vvp-progress-overlay">
+  <div class="vvp-progress-info">
+    <i class="fas fa-cog vvp-spinner-icon fa-spin"></i>
+    <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">
+      VVP simulation in progress
+    </span>
 
-        <div id="vvp-progress-container" class="vvp-progress-container" style="display: none;">
-        <div class="vvp-progress-info">
-          <i class="fas fa-cog vvp-spinner-icon"></i>
-          <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">VVP simulation in progress</span>
-        </div>
-        
-        <div class="vvp-progress-bar-wrapper">
-          <div class="vvp-progress-bar">
-            <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
-          </div>
-        </div>
-        
-        <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
-        
-        <div class="vvp-progress-stats">
-          <div class="vvp-stat">
-            <span class="vvp-stat-label" data-i18n="ui.terminal.time">Time</span>
-            <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
-          </div>
-          <div class="vvp-stat">
-            <span class="vvp-stat-label" data-i18n="ui.terminal.events">Events</span>
-            <span class="vvp-stat-value" id="vvp-events-count">0</span>
-          </div>
-        </div>
+    <div class="vvp-progress-bar-wrapper">
+      <div class="vvp-progress-bar">
+        <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
       </div>
+      <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+    </div>
+
+    <div class="vvp-progress-stats">
+      <div class="vvp-stat">
+        <span class="vvp-stat-label" data-i18n="ui.terminal.time">Time</span>
+        <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+      </div>
+      <div class="vvp-stat">
+        <span class="vvp-stat-label" data-i18n="ui.terminal.events">Events</span>
+        <span class="vvp-stat-value" id="vvp-events-count">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
         </div>
                 <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header" data-i18n="ui.terminal.tprismHeader">TPRISM Terminal</div>
@@ -1177,7 +1187,6 @@ function closeAuroraAboutModal() {
   <script src="./js/theme-modal.js"></script>
   <script src="./js/recentProjects.js"></script>
   <script src="./js/translation.js"></script>
-
     </script>
   </body>
 </html>

@@ -29,6 +29,27 @@ const fileOperations = {
       console.error('Error opening GitHub Desktop:', err);
     }
   },
+
+  //watcher
+  // Enhanced file watching methods
+  getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
+  watchFile: (filePath) => ipcRenderer.invoke('watch-file', filePath),
+  stopWatchingFile: (watcherId) => ipcRenderer.invoke('stop-watching-file', watcherId),
+  forceCheckFile: (filePath) => ipcRenderer.invoke('force-check-file', filePath),
+  
+  // File change event listeners
+  onFileChanged: (callback) => {
+    ipcRenderer.on('file-changed', (event, filePath) => callback(filePath));
+  },
+  onFileWatcherError: (callback) => {
+    ipcRenderer.on('file-watcher-error', (event, filePath, error) => callback(filePath, error));
+  },
+
+  // Remove listeners
+  removeFileChangeListeners: () => {
+    ipcRenderer.removeAllListeners('file-changed');
+    ipcRenderer.removeAllListeners('file-watcher-error');
+  },
  // PRISM compilation methods
     prismCompile: () => {
       console.log('prismCompile called');

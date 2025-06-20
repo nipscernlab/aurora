@@ -363,8 +363,24 @@ class EditorManager {
       console.error('Editor container not found');
       return;
     }
-    
-    this.editorContainer.style.position = 'relative';
+    this.initSortableTabs();
+    this.restoreTabOrder();
+    this.initFileChangeListeners();
+
+    // Add event listener to save tab order when tabs change
+    const tabContainer = document.getElementById('tabs-container');
+    if (tabContainer) {
+      const observer = new MutationObserver(() => {
+        this.saveTabOrder();
+      });
+      
+      observer.observe(tabContainer, { 
+        childList: true, 
+        subtree: true 
+      });
+    }
+
+     this.editorContainer.style.position = 'relative';
     this.editorContainer.style.height = '100%';
     this.editorContainer.style.width = '100%';
     
@@ -375,8 +391,18 @@ class EditorManager {
     
     // Setup responsive observer
     this.setupResponsiveObserver(null);
+
+    // Start periodic checking if tabs are already open
+    if (this.tabs.size > 0) {
+      this.startPeriodicFileCheck();
+    }
   }
 
+   static cleanup() {
+    this.stopPeriodicFileCheck();
+    this.stopAllWatchers();
+  }
+  
   static toggleEditorReadOnly(isReadOnly) {
     this.editors.forEach(({ editor }) => {
       editor.updateOptions({ readOnly: isReadOnly });
@@ -1187,11 +1213,393 @@ document.addEventListener('DOMContentLoaded', () => {
 
 //TAB MANAGER   ======================================================================================================================================================== ƒ
 class TabManager {
-  static tabs = new Map(); // Store tab information
+ static tabs = new Map();
   static activeTab = null;
   static editorStates = new Map();
-  static unsavedChanges = new Set(); // Track files with unsaved changes
+  static unsavedChanges = new Set();
   static closedTabsStack = [];
+  static fileWatchers = new Map();
+  static lastModifiedTimes = new Map();
+  static externalChangeQueue = new Set();
+  static periodicCheckInterval = null;
+  static isCheckingFiles = false;
+
+   static startPeriodicFileCheck() {
+    // Clear any existing interval
+    if (this.periodicCheckInterval) {
+      clearInterval(this.periodicCheckInterval);
+    }
+
+    // Check every 2 seconds (economical but responsive)
+    this.periodicCheckInterval = setInterval(async () => {
+      if (this.isCheckingFiles || this.tabs.size === 0) {
+        return;
+      }
+
+      this.isCheckingFiles = true;
+      try {
+        await this.checkAllOpenFilesForChanges();
+      } catch (error) {
+        console.error('Error in periodic file check:', error);
+      } finally {
+        this.isCheckingFiles = false;
+      }
+    }, 2000);
+  }
+
+  // Stop periodic checking
+  static stopPeriodicFileCheck() {
+    if (this.periodicCheckInterval) {
+      clearInterval(this.periodicCheckInterval);
+      this.periodicCheckInterval = null;
+    }
+  }
+
+  // Check all open files for changes
+  static async checkAllOpenFilesForChanges() {
+    const filesToCheck = Array.from(this.tabs.keys());
+    
+    // Check files in batches to avoid overwhelming the system
+    const batchSize = 3;
+    for (let i = 0; i < filesToCheck.length; i += batchSize) {
+      const batch = filesToCheck.slice(i, i + batchSize);
+      await Promise.allSettled(
+        batch.map(filePath => this.checkSingleFileForChanges(filePath))
+      );
+      
+      // Small delay between batches
+      if (i + batchSize < filesToCheck.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+  }
+
+  // Check a single file for changes
+  static async checkSingleFileForChanges(filePath) {
+    try {
+      if (!this.tabs.has(filePath)) {
+        return;
+      }
+
+      const stats = await window.electronAPI.getFileStats(filePath);
+      const lastKnownTime = this.lastModifiedTimes.get(filePath);
+
+      if (!lastKnownTime || stats.mtime > lastKnownTime) {
+        // File has been modified
+        await this.handleExternalFileChange(filePath);
+      }
+    } catch (error) {
+      // File might have been deleted or become inaccessible
+      if (error.message.includes('ENOENT') || error.message.includes('no such file')) {
+        console.log(`File ${filePath} no longer exists, keeping tab open`);
+        // Don't close the tab, just stop watching
+        this.stopWatchingFile(filePath);
+      } else {
+        console.error(`Error checking file ${filePath}:`, error);
+      }
+    }
+  }
+
+  // Enhanced file change listener initialization
+  static initFileChangeListeners() {
+    // Listen for file changes from main process
+    window.electronAPI.onFileChanged((filePath) => {
+      this.handleExternalFileChange(filePath);
+    });
+
+    // Listen for file watcher errors
+    window.electronAPI.onFileWatcherError((filePath, error) => {
+      console.error(`File watcher error for ${filePath}:`, error);
+      
+      // Try to restart watching after a delay
+      setTimeout(() => {
+        this.restartFileWatcher(filePath);
+      }, 2000);
+    });
+  }
+
+  // Method to restart a file watcher
+  static async restartFileWatcher(filePath) {
+    try {
+      if (!this.tabs.has(filePath)) {
+        return;
+      }
+
+      console.log(`Restarting file watcher for: ${filePath}`);
+      
+      // Stop existing watcher
+      this.stopWatchingFile(filePath);
+      
+      // Wait a bit before restarting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Start watching again
+      await this.startWatchingFile(filePath);
+    } catch (error) {
+      console.error(`Failed to restart watcher for ${filePath}:`, error);
+    }
+  }
+
+  // Enhanced startWatchingFile method
+  static async startWatchingFile(filePath) {
+    if (this.fileWatchers.has(filePath)) {
+      return; // Already watching
+    }
+
+    try {
+      // Get initial file stats
+      const stats = await window.electronAPI.getFileStats(filePath);
+      this.lastModifiedTimes.set(filePath, stats.mtime);
+
+      // Start watching the file
+      const watcherId = await window.electronAPI.watchFile(filePath);
+      this.fileWatchers.set(filePath, watcherId);
+      
+      console.log(`Started watching file: ${filePath}`);
+    } catch (error) {
+      console.error(`Error starting file watcher for ${filePath}:`, error);
+      
+      // Even if watcher fails, we can still rely on periodic checking
+      const stats = await window.electronAPI.getFileStats(filePath);
+      this.lastModifiedTimes.set(filePath, stats.mtime);
+    }
+  }
+  
+  // Update the startWatchingFile method
+  static async startWatchingFile(filePath) {
+    if (this.fileWatchers.has(filePath)) {
+      return; // Already watching
+    }
+
+    try {
+      // Get initial file stats
+      const stats = await window.electronAPI.getFileStats(filePath);
+      this.lastModifiedTimes.set(filePath, stats.mtime);
+
+      // Start watching the file
+      const watcherId = await window.electronAPI.watchFile(filePath);
+      this.fileWatchers.set(filePath, watcherId);
+    } catch (error) {
+      console.error(`Error starting file watcher for ${filePath}:`, error);
+    }
+  }
+
+  // Stop watching a file
+  static stopWatchingFile(filePath) {
+    const watcher = this.fileWatchers.get(filePath);
+    if (watcher) {
+      window.electronAPI.stopWatchingFile(watcher);
+      this.fileWatchers.delete(filePath);
+      this.lastModifiedTimes.delete(filePath);
+    }
+  }
+
+   // Enhanced handleExternalFileChange method
+  static async handleExternalFileChange(filePath) {
+    // Prevent multiple simultaneous checks for the same file
+    if (this.externalChangeQueue.has(filePath)) {
+      return;
+    }
+
+    this.externalChangeQueue.add(filePath);
+
+    try {
+      // Double-check that file still exists and is accessible
+      const stats = await window.electronAPI.getFileStats(filePath);
+      const lastKnownTime = this.lastModifiedTimes.get(filePath);
+
+      // Check if file was actually modified (with small tolerance for clock differences)
+      if (lastKnownTime && Math.abs(stats.mtime - lastKnownTime) < 1000) {
+        return; // No significant change
+      }
+
+      // Update last known modification time
+      this.lastModifiedTimes.set(filePath, stats.mtime);
+
+      // Check if file is currently open in a tab
+      if (!this.tabs.has(filePath)) {
+        return; // File not open, nothing to do
+      }
+
+      // Get current editor content
+      const editor = EditorManager.getEditorForFile(filePath);
+      if (!editor) {
+        return;
+      }
+
+      const currentEditorContent = editor.getValue();
+      const originalTabContent = this.tabs.get(filePath);
+
+      // Read the new file content from disk
+      const newFileContent = await window.electronAPI.readFile(filePath);
+
+      // Check if there are unsaved changes in the editor
+      const hasUnsavedChanges = this.unsavedChanges.has(filePath);
+      const editorContentChanged = currentEditorContent !== originalTabContent;
+
+      if (hasUnsavedChanges || editorContentChanged) {
+        // There are local changes - show conflict resolution dialog
+        const resolution = await this.showFileConflictDialog(filePath, newFileContent, currentEditorContent);
+        await this.handleConflictResolution(filePath, resolution, newFileContent, currentEditorContent);
+      } else {
+        // No local changes - safe to update with external content
+        await this.updateTabWithExternalContent(filePath, newFileContent, editor);
+      }
+
+    } catch (error) {
+      console.error(`Error handling external change for ${filePath}:`, error);
+    } finally {
+      this.externalChangeQueue.delete(filePath);
+    }
+  }
+
+  // Update tab with external content
+  static async updateTabWithExternalContent(filePath, newContent, editor) {
+    // Save current cursor position and scroll
+    const position = editor.getPosition();
+    const scrollTop = editor.getScrollTop();
+
+    // Update editor content
+    editor.setValue(newContent);
+
+    // Restore cursor position if still valid
+    try {
+      const model = editor.getModel();
+      const lineCount = model.getLineCount();
+      if (position.lineNumber <= lineCount) {
+        const maxColumn = model.getLineMaxColumn(position.lineNumber);
+        const newPosition = {
+          lineNumber: position.lineNumber,
+          column: Math.min(position.column, maxColumn)
+        };
+        editor.setPosition(newPosition);
+      }
+    } catch (error) {
+      // Position restoration failed, place cursor at start
+      editor.setPosition({ lineNumber: 1, column: 1 });
+    }
+
+    // Restore scroll position
+    editor.setScrollTop(scrollTop);
+
+    // Update stored content
+    this.tabs.set(filePath, newContent);
+
+    // Mark as saved (no unsaved changes)
+    this.markFileAsSaved(filePath);
+
+    // Show notification
+    this.showExternalChangeNotification(filePath, 'updated');
+  }
+
+  // Show file conflict dialog
+  static async showFileConflictDialog(filePath, diskContent, editorContent) {
+    const fileName = filePath.split(/[\\/]/).pop();
+    
+    return new Promise((resolve) => {
+      const modalHTML = `
+        <div class="conflict-modal" id="file-conflict-modal">
+          <div class="conflict-modal-content">
+            <div class="conflict-modal-header">
+              <div class="conflict-modal-icon">⚠️</div>
+              <h3 class="conflict-modal-title">File Modified Externally</h3>
+            </div>
+            <div class="conflict-modal-message">
+              The file "<strong>${fileName}</strong>" has been modified outside the editor.
+              <br><br>
+              You have unsaved changes in the editor. What would you like to do?
+            </div>
+            <div class="conflict-modal-actions">
+              <button class="conflict-btn keep-editor" data-action="keep-editor">
+                Keep Editor Version
+              </button>
+              <button class="conflict-btn use-disk" data-action="use-disk">
+                Use Disk Version
+              </button>
+              <button class="conflict-btn save-and-reload" data-action="save-and-reload">
+                Save & Reload
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      const modal = document.getElementById('file-conflict-modal');
+
+      modal.addEventListener('click', (e) => {
+        const action = e.target.getAttribute('data-action');
+        if (action) {
+          modal.remove();
+          resolve(action);
+        }
+      });
+
+      // Handle escape key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', handleEscape);
+          resolve('keep-editor'); // Default action
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+
+      // Show modal
+      setTimeout(() => modal.classList.add('show'), 10);
+    });
+  }
+
+  // Handle conflict resolution
+  static async handleConflictResolution(filePath, resolution, diskContent, editorContent) {
+    const editor = EditorManager.getEditorForFile(filePath);
+    if (!editor) return;
+
+    switch (resolution) {
+      case 'keep-editor':
+        // Save current editor content to disk
+        await this.saveFile(filePath);
+        this.showExternalChangeNotification(filePath, 'kept-editor');
+        break;
+
+      case 'use-disk':
+        // Replace editor content with disk content
+        await this.updateTabWithExternalContent(filePath, diskContent, editor);
+        break;
+
+      case 'save-and-reload':
+        // Save current content first, then reload from disk
+        await this.saveFile(filePath);
+        // Read again in case save triggered another change
+        const freshContent = await window.electronAPI.readFile(filePath);
+        await this.updateTabWithExternalContent(filePath, freshContent, editor);
+        this.showExternalChangeNotification(filePath, 'saved-and-reloaded');
+        break;
+    }
+  }
+
+  // Show notification for external changes
+  static showExternalChangeNotification(filePath, action) {
+    const fileName = filePath.split(/[\\/]/).pop();
+    let message = '';
+
+    switch (action) {
+      case 'updated':
+        message = `${fileName} was updated with external changes`;
+        break;
+      case 'kept-editor':
+        message = `Kept your version of ${fileName}`;
+        break;
+      case 'saved-and-reloaded':
+        message = `Saved and reloaded ${fileName}`;
+        break;
+    }
+
+    // You can customize this notification system
+    console.log(message);
+    // Or use your existing notification system:
+    // showCardNotification(message, 'info', 2000);
+  }
 
   // Add this method to close all tabs
 static async closeAllTabs() {
@@ -1530,64 +1938,70 @@ static restoreEditorState(filePath) {
   return iconMap[extension] || 'fas fa-file-code';
 }
 
-    // Improved tab addition method
-    static addTab(filePath, content) {
-      // Check if tab already exists
-      if (this.tabs.has(filePath)) {
-        this.activateTab(filePath);
-        return;
-      }
-  
-      // Create tab element
-      const tabContainer = document.querySelector('#tabs-container');
-      if (!tabContainer) {
-        console.error('Tabs container not found');
-        return;
-      }
-  
-      const tab = document.createElement('div');
-      tab.classList.add('tab');
-      tab.setAttribute('data-path', filePath);
-      tab.setAttribute('draggable', 'true');
-      tab.setAttribute('title', filePath);
-  
-      tab.innerHTML = `
-        <i class="${this.getFileIcon(filePath.split('\\').pop())}"></i>
-        <span class="tab-name">${filePath.split('\\').pop()}</span>
-        <button class="close-tab" title="Close">×</button>
-      `;
-  
-      // Add event listeners
-      tab.addEventListener('click', () => this.activateTab(filePath));
-      const closeBtn = tab.querySelector('.close-tab');
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.closeTab(filePath);
-      });
-  
-      // Add to container
-      tabContainer.appendChild(tab);
-  
-      // Store original content
-      this.tabs.set(filePath, content);
-  
-      try {
-        // Create editor and set content
-        const editor = EditorManager.createEditorInstance(filePath);
-        editor.setValue(content);
-  
-        // Setup change listener
-        this.setupContentChangeListener(filePath, editor);
-  
-        this.activateTab(filePath);
-      } catch (error) {
-        console.error('Error creating editor:', error);
-        this.closeTab(filePath);
-      }
-
-      this.initSortableTabs();
-
+    // Enhanced addTab method
+  static addTab(filePath, content) {
+    // Check if tab already exists
+    if (this.tabs.has(filePath)) {
+      this.activateTab(filePath);
+      return;
     }
+
+    // Create tab element
+    const tabContainer = document.querySelector('#tabs-container');
+    if (!tabContainer) {
+      console.error('Tabs container not found');
+      return;
+    }
+
+    const tab = document.createElement('div');
+    tab.classList.add('tab');
+    tab.setAttribute('data-path', filePath);
+    tab.setAttribute('draggable', 'true');
+    tab.setAttribute('title', filePath);
+
+    tab.innerHTML = `
+      <i class="${this.getFileIcon(filePath.split('\\').pop())}"></i>
+      <span class="tab-name">${filePath.split('\\').pop()}</span>
+      <button class="close-tab" title="Close">×</button>
+    `;
+
+    // Add event listeners
+    tab.addEventListener('click', () => this.activateTab(filePath));
+    const closeBtn = tab.querySelector('.close-tab');
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeTab(filePath);
+    });
+
+    // Add to container
+    tabContainer.appendChild(tab);
+    
+    // Start watching file and periodic checking if this is the first tab
+    this.startWatchingFile(filePath);
+    if (this.tabs.size === 0) {
+      this.startPeriodicFileCheck();
+    }
+
+    // Store original content
+    this.tabs.set(filePath, content);
+
+    try {
+      // Create editor and set content
+      const editor = EditorManager.createEditorInstance(filePath);
+      editor.setValue(content);
+
+      // Setup change listener
+      this.setupContentChangeListener(filePath, editor);
+
+      this.activateTab(filePath);
+    } catch (error) {
+      console.error('Error creating editor:', error);
+      this.closeTab(filePath);
+    }
+
+    this.initSortableTabs();
+  }
+
     
 
   static addDragListeners(tab) {
@@ -1757,6 +2171,12 @@ static activateTab(filePath) {
                         tab.remove();
                     }
 
+                        this.stopWatchingFile(filePath);
+// Stop periodic checking if no tabs left
+    if (this.tabs.size === 0) {
+      this.stopPeriodicFileCheck();
+    }
+
                     // Clean up editor and data
                     EditorManager.closeEditor(filePath);
                     this.tabs.delete(filePath);
@@ -1791,9 +2211,16 @@ static activateTab(filePath) {
                 } finally {
                     this.isClosingTab = false;
                 }
+
+                
             }
 
-            
+            // Method to stop all file watchers (call on app close)
+  static stopAllWatchers() {
+    for (const filePath of this.fileWatchers.keys()) {
+      this.stopWatchingFile(filePath);
+    }
+  }
           
   // Enhanced reopenLastClosedTab method
            static async reopenLastClosedTab() {
@@ -1957,9 +2384,10 @@ static activateTab(filePath) {
     }
 }
   // Initialize on script load
-  static initialize() {
+static initialize() {
     this.initSortableTabs();
     this.restoreTabOrder();
+    this.initFileChangeListeners(); // Add this line
 
     // Add event listener to save tab order when tabs change
     const tabContainer = document.getElementById('tabs-container');
@@ -2074,6 +2502,9 @@ function initContextPath() {
   }
 }
 
+window.addEventListener('beforeunload', () => {
+  TabManager.stopAllWatchers();
+});
 
 // Initialize tab container
 function initTabs() {
@@ -5048,55 +5479,100 @@ async loadConfig() {
     }
   }
 
-  async cmmCompilation(processor) {
-    const { name } = processor;
-    this.terminalManager.appendToTerminal('tcmm', `Starting CMM compilation for ${name}...`);
-    
-    try {
-      // Create paths exactly as in the batch files
-      const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-      const cmmPath = await window.electronAPI.joinPath(this.projectPath, name, 'Software', `${name}.cmm`);
-      const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
-      const asmPath = await window.electronAPI.joinPath(softwarePath, `${name}.asm`);
-      const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
-
-      await TabManager.saveAllFiles();
-
-      // Start compilation status indicator
-      statusUpdater.startCompilation('cmm');
-
-      // Build command as in the bat file: CMMComp.exe %PROC% %PROC_DIR% %MAC_DIR% %TMP_PRO%
-      const cmd = `"${cmmCompPath}" ${name} "${projectPath}" "${macrosPath}" "${tempPath}"`;
-      this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
-      
-      const result = await window.electronAPI.execCommand(cmd);
-      await refreshFileTree();
-      
-      // Show compiler output
-      if (result.stdout) {
-        this.terminalManager.appendToTerminal('tcmm', result.stdout, 'stdout');
-      }
-      if (result.stderr) {
-        this.terminalManager.appendToTerminal('tcmm', result.stderr, 'stderr');
-      }
-
-      // Verify exit code
-      if (result.code !== 0) {
-        statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
-        throw new Error(`CMM compilation failed with code ${result.code}`);
-      }
-
-      this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.', 'success');
-      statusUpdater.compilationSuccess('cmm');
-      return asmPath;
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
-      statusUpdater.compilationError('cmm', error.message);
-      throw error;
-    }
+    // Fix 1: Get selected CMM file consistently
+async getSelectedCmmFile(processor) {
+  let selectedCmmFile = null;
+  
+  if (this.config && this.config.selectedCmmFile) {
+    selectedCmmFile = this.config.selectedCmmFile;
+  } else if (processor.cmmFile) {
+    selectedCmmFile = processor.cmmFile;
+  } else {
+    throw new Error('No CMM file selected. Please select a CMM file to compile.');
   }
+  
+  return selectedCmmFile;
+}
+
+// Fix 2: Get testbench file name correctly
+async getTestbenchInfo(processor, cmmBaseName) {
+  let tbModule, tbFile;
+  
+  if (this.config.testbenchFile && this.config.testbenchFile !== 'Standard') {
+    // User selected custom testbench
+    tbFile = this.config.testbenchFile;
+    tbModule = tbFile.replace(/\.v$/i, '');
+  } else {
+    // Use standard testbench (same name as CMM)
+    tbModule = `${cmmBaseName}_tb`;
+    tbFile = `${tbModule}.v`;
+  }
+  
+  return { tbModule, tbFile };
+}
+
+async cmmCompilation(processor) {
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('tcmm', `Starting CMM compilation for ${name}...`);
+  
+  try {
+    // Get the selected CMM file from user selection or configuration
+    let selectedCmmFile = null;
+
+    // Try to get from configuration first
+    if (this.config.selectedCmmFile) {
+      selectedCmmFile = this.config.selectedCmmFile;
+    } else if (processor.cmmFile) {
+      selectedCmmFile = processor.cmmFile;
+    } else {
+      throw new Error('No CMM file selected. Please select a CMM file to compile.');
+    }
+
+    // Extract base name without extension for generated files
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    
+    const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
+    const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
+    const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
+    const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+ 
+    await TabManager.saveAllFiles();
+
+    // Start compilation status indicator
+    statusUpdater.startCompilation('cmm');
+
+    // Build command with selected CMM file: CMMComp.exe %CMM_FILE% %PROC_DIR% %MAC_DIR% %TMP_PRO%
+    const cmd = `"${cmmCompPath}" ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}"`;
+    this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
+    
+    const result = await window.electronAPI.execCommand(cmd);
+    await refreshFileTree();
+    
+    // Show compiler output
+    if (result.stdout) {
+      this.terminalManager.appendToTerminal('tcmm', result.stdout, 'stdout');
+    }
+    if (result.stderr) {
+      this.terminalManager.appendToTerminal('tcmm', result.stderr, 'stderr');
+    }
+
+    // Verify exit code
+    if (result.code !== 0) {
+      statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
+      throw new Error(`CMM compilation failed with code ${result.code}`);
+    }
+
+    this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.', 'success');
+    statusUpdater.compilationSuccess('cmm');
+    return asmPath;
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('cmm', error.message);
+    throw error;
+  }
+}
   
   async asmCompilation(processor, asmPath) {
     const { name, clk, numClocks } = processor;
@@ -5109,7 +5585,27 @@ async loadConfig() {
       const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
       const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
       const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+      let   tbMod = this.config.testbenchFile.replace(/\.v$/i, '');
+   
+ 
+     // Get the selected CMM file from configuration
+    let selectedCmmFile = null;
+    
+    // Try to get from processor object itself (fallback)
+    if (!selectedCmmFile && processor.cmmFile) {
+      selectedCmmFile = processor.cmmFile;
+      this.terminalManager.appendToTerminal('tcmm', `Using CMM file from processor config: ${selectedCmmFile}`);
+    }
+    
+    // Verify the CMM file exists before proceeding
+    const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');  
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    // Extract filename without extension for ASM output
+        const asmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
 
+    const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+
+    
       statusUpdater.startCompilation('asm');
 
       await TabManager.saveAllFiles();
@@ -5138,7 +5634,7 @@ async loadConfig() {
       cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
 
       this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
-      this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${name}...`);
+      this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${asmBaseName}...`);
       this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
       
       const asmResult = await window.electronAPI.execCommand(cmd);
@@ -5154,11 +5650,12 @@ async loadConfig() {
 
       // Copy the testbench file if we're not in project-oriented mode
       if (!this.isProjectOriented) {
-        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-        const testbenchSource = await window.electronAPI.joinPath(tempPath, `${name}_tb.v`);
-        const testbenchDestination = await window.electronAPI.joinPath(simulationPath, `${name}_tb.v`);
-        await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
-      }
+      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+      const testbenchDestination = await window.electronAPI.joinPath(tempPath, `${tbMod}.v`);
+      const testbenchSource = await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`);
+
+      await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
+    }
       
       this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.','success');
       statusUpdater.compilationSuccess('asm');
@@ -5169,80 +5666,87 @@ async loadConfig() {
     }
   }
 
-  async iverilogCompilation(processor) {
-    // If we're in project-oriented mode, run the project-oriented compilation
-    if (this.isProjectOriented) {
-      return this.iverilogProjectCompilation();
-    }
-    
-    // Otherwise, run the standard processor-oriented compilation
-    const { name } = processor;
-    this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
-    statusUpdater.startCompilation('verilog');
-    
-    try {
-      const appPath = await window.electronAPI.getAppPath();
-      const basePath = await window.electronAPI.joinPath(appPath, '..', '..');
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog' ,'bin', 'iverilog.exe');
 
-      // Get the flags from config
-      const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
-      
-      // Build the list of verilog files to compile
-      const verilogFiles = [
-        'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'
-      ];
 
-      await TabManager.saveAllFiles();
-      
-      // Build the iverilog command as in the batch file
-      // %IVERILOG% -s %TB_MOD% -o %TMP_PRO%\%PROC%.vvp %SIMU_DIR%\%TB_MOD%.v %UPROC%.v addr_dec.v instr_dec.v processor.v core.v ula.v
-      const verilogFilesString = verilogFiles.map(file => `${file}`).join(' ');
-      
-      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${name} -o "${await window.electronAPI.joinPath(tempPath, name)}" "${await window.electronAPI.joinPath(hardwarePath, `${name}.v`)}" ${verilogFilesString}`;
-      
-      this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
-      
-      const result = await window.electronAPI.execCommand(cmd);
-      
-      if (result.stdout) {
-        this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
-      }
-      if (result.stderr) {
-        this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
-      }
-      
-      if (result.code !== 0) {
-        statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
-        throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
-      }
-      
-      // Copy memory files to temp directory as in the batch file
-      await window.electronAPI.copyFile(
-        await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`),
-        await window.electronAPI.joinPath(tempPath, `${name}_data.mif`)
-      );
-      
-      await window.electronAPI.copyFile(
-        await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`),
-        await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`)
-      );
-      
-      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
-      statusUpdater.compilationSuccess('verilog');
-
-      await refreshFileTree();
-      
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-      statusUpdater.compilationError('verilog', error.message);
-      throw error;
-    }
+// Fix 3: Updated iverilogCompilation method
+async iverilogCompilation(processor) {
+  if (this.isProjectOriented) {
+    return this.iverilogProjectCompilation();
   }
+  
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+  statusUpdater.startCompilation('verilog');
+  
+  try {
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+    
+    // Get selected CMM file and extract base name
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    
+    // Get testbench info
+    const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+    
+    // Get flags from config
+    const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
+    
+    // Build list of verilog files to compile
+    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
+    const verilogFilesString = verilogFiles.join(' ');
+
+    await TabManager.saveAllFiles();
+    
+    // Build iverilog command
+    // Output file should be named after CMM base name, top module is testbench module
+    const outputFile = await window.electronAPI.joinPath(tempPath, cmmBaseName);
+    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+    const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
+    
+    const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
+    
+    this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+    
+    const result = await window.electronAPI.execCommand(cmd);
+    
+    if (result.stdout) {
+      this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+    }
+    if (result.stderr) {
+      this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+    }
+    
+    if (result.code !== 0) {
+      statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
+      throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+    }
+    
+    // Copy .mif files (always named after CMM base name)
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+    );
+
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
+    );
+    
+    this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+    statusUpdater.compilationSuccess('verilog');
+
+    await refreshFileTree();
+    
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('verilog', error.message);
+    throw error;
+  }
+}
 
 async iverilogProjectCompilation() {
   this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog verification for project...`);
@@ -5347,8 +5851,121 @@ async iverilogProjectCompilation() {
   }
 }
 
+// Fix 1: Get selected CMM file consistently
+async getSelectedCmmFile(processor) {
+  let selectedCmmFile = null;
+  
+  if (this.config && this.config.selectedCmmFile) {
+    selectedCmmFile = this.config.selectedCmmFile;
+  } else if (processor.cmmFile) {
+    selectedCmmFile = processor.cmmFile;
+  } else {
+    throw new Error('No CMM file selected. Please select a CMM file to compile.');
+  }
+  
+  return selectedCmmFile;
+}
+
+// Fix 2: Get testbench file name correctly
+async getTestbenchInfo(processor, cmmBaseName) {
+  let tbModule, tbFile;
+  
+  if (this.config.testbenchFile && this.config.testbenchFile !== 'Standard') {
+    // User selected custom testbench
+    tbFile = this.config.testbenchFile;
+    tbModule = tbFile.replace(/\.v$/i, '');
+  } else {
+    // Use standard testbench (same name as CMM)
+    tbModule = `${cmmBaseName}_tb`;
+    tbFile = `${tbModule}.v`;
+  }
+  
+  return { tbModule, tbFile };
+}
+
+// Fix 3: Updated iverilogCompilation method
+async iverilogCompilation(processor) {
+  if (this.isProjectOriented) {
+    return this.iverilogProjectCompilation();
+  }
+  
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+  statusUpdater.startCompilation('verilog');
+  
+  try {
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+    
+    // Get selected CMM file and extract base name
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    
+    // Get testbench info
+    const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+    
+    // Get flags from config
+    const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
+    
+    // Build list of verilog files to compile
+    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
+    const verilogFilesString = verilogFiles.join(' ');
+
+    await TabManager.saveAllFiles();
+    
+    // Build iverilog command
+    // Output file should be named after CMM base name, top module is testbench module
+    const outputFile = await window.electronAPI.joinPath(tempPath, cmmBaseName);
+    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+    const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
+    
+    const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${hardwareFile}" ${verilogFilesString}`;
+    
+    this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+    
+    const result = await window.electronAPI.execCommand(cmd);
+    
+    if (result.stdout) {
+      this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+    }
+    if (result.stderr) {
+      this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+    }
+    
+    if (result.code !== 0) {
+      statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
+      throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+    }
+    
+    // Copy .mif files (always named after CMM base name)
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+    );
+
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
+    );
+    
+    this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+    statusUpdater.compilationSuccess('verilog');
+
+    await refreshFileTree();
+    
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('verilog', error.message);
+    throw error;
+  }
+}
+
+
+// Fix 4: Updated runGtkWave method
 async runGtkWave(processor) {
-  // If we're in "project oriented" mode, just delegate:
   if (this.isProjectOriented) {
     checkCancellation();
     return this.runProjectGtkWave();
@@ -5359,98 +5976,81 @@ async runGtkWave(processor) {
   statusUpdater.startCompilation('wave');
   
   try {
-    // Mount various necessary paths:
-    const tempPath       = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-    const hdlPath        = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const hardwarePath   = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
     const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-    const binPath        = await window.electronAPI.joinPath('saphoComponents', 'bin');
-    const scriptsPath    = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-    const iveriCompPath  = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','iverilog.exe');
-    const vvpCompPath    = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','vvp.exe');
-    const gtkwCompPath   = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','gtkwave','bin','gtkwave.exe');
-  
-    // Create tcl_infos.txt file inside tempPath:
+    const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+    const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','iverilog.exe');
+    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','bin','vvp.exe');
+    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog','gtkwave','bin','gtkwave.exe');
+    
+    // Get selected CMM file and extract base name
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    
+    // Get testbench info
+    const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+
+    // Create tcl_infos.txt file inside tempPath
     const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
     const tclContent = `${tempPath}\n${binPath}\n`;
     await window.electronAPI.writeFile(tclFilePath, tclContent);
-  
-    // Decide which testbench (.v) to use:
-    let tbMod;
-    if (this.config.testbenchFile && this.config.testbenchFile !== 'standard') {
-      const simulationFiles = await window.electronAPI.readDir(simulationPath);
-      if (simulationFiles.includes(this.config.testbenchFile)) {
-        tbMod = this.config.testbenchFile.replace(/\.v$/i, '');
-      } else {
-        this.terminalManager.appendToTerminal(
-          'twave',
-          `Warning: Specified testbench ${this.config.testbenchFile} not found in Simulation. Falling back to standard.`,
-          'warning'
-        );
-        tbMod = `${name}_tb`;
-      }
-    } else {
-      tbMod = `${name}_tb`;
-    }
-  
+
     await TabManager.saveAllFiles();
-  
-    // List of .v files to compile (only names, since we'll cd to hdlPath)
-    const verilogFiles = [ 'addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v' ];
+
+    // List of .v files to compile
+    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
     const verilogFilesString = verilogFiles.join(' ');
-  
-    // Resolve output paths (VVP executable) and main module:
-    const outputFile = await window.electronAPI.joinPath(tempPath, name);
-    const procFile   = await window.electronAPI.joinPath(hardwarePath, `${name}.v`);
-  
-    // 1) Compile with iverilog (testbench + hw):
-    const iverilogCmd = `cd "${hdlPath}" && `
-                     + `"${iveriCompPath}" -s ${tbMod} -o "${outputFile}" `
-                     + `"${await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`)}" `
-                     + `"${procFile}" ${verilogFilesString}`;
-  
+
+    // Build paths
+    const outputFile = await window.electronAPI.joinPath(tempPath, cmmBaseName);
+    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+    const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
+
+    // 1) Compile with iverilog (testbench + hardware)
+    const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
+
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog and testbench:\n${iverilogCmd}`);
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+    
     if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
     if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
-  
+
     if (iverilogResult.code !== 0) {
       statusUpdater.compilationError('wave', `Icarus Verilog compilation failed with code ${iverilogResult.code}`);
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
-  
-    // 2) Copy generated .mif files to tempPath:
-    const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${name}_data.mif`);
-    const dataMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_data.mif`);
-    await window.electronAPI.copyFile(dataMemSource, dataMemDest);
-    
-    const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${name}_inst.mif`);
-    const instMemDest   = await window.electronAPI.joinPath(tempPath, `${name}_inst.mif`);
-    await window.electronAPI.copyFile(instMemSource, instMemDest);
-  
-    // 3) Now, run VVP to generate the VCD:
-    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
-  
-    // Show progress bar before registering listener:
-    vvpProgressManager.show();
-    vvpProgressManager.startProgressTracking();
 
-    // VVP Command (cd to tempPath and execute vvp.exe name -fst -v)
-    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${name}" -fst -v`;
-  
-    // === Configure listener for stdout/stderr streaming ===
+    // 2) Copy .mif files to tempPath
+    const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`);
+    const dataMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`);
+    await window.electronAPI.copyFile(dataMemSource, dataMemDest);
+
+    const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`);
+    const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
+    await window.electronAPI.copyFile(instMemSource, instMemDest);
+
+    // 3) Run VVP to generate VCD
+    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+
+    vvpProgressManager.show(name);
+
+
+    // VVP Command - run the compiled file (cmmBaseName) to generate VCD
+    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${cmmBaseName}" -fst -v`;
+
+    // Configure listener for stdout/stderr streaming
     let isVvpRunning = true;
     let vvpProcessPid = null;
     
     const outputListener = (event, payload) => {
-      // payload = { type: 'stdout'|'stderr', data: string, pid?: number }
       if (!isVvpRunning) return;
       
-      // Capture VVP process PID if available
       if (payload.pid && !vvpProcessPid) {
         vvpProcessPid = payload.pid;
-        // Set global VVP PID for cancellation
         if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
           window.setCurrentVvpPid(vvpProcessPid);
         }
@@ -5458,72 +6058,57 @@ async runGtkWave(processor) {
       }
       
       if (payload.type === 'stdout') {
-        vvpProgressManager.parseVVPOutput(payload.data);
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
-        // Generally VVP writes everything to stdout, but in case stderr is used:
         this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
       }
     };
-  
-    // Register BEFORE starting execCommandStream:
+
     window.electronAPI.onCommandOutputStream(outputListener);
-  
+
     let vvpResult;
     try {
-      // Set VVP running flag
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(true);
       }
       
-      // Execution (and wait for final output to get {code, stdout, stderr})
       vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
       isVvpRunning = false;
       
-      // Clear VVP running state
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(false);
         window.setCurrentVvpPid(null);
       }
-  
-      // If there's remaining stdout, parse it (generally, execCommandStream sends everything at once at the end).
+
       if (vvpResult.stdout) {
-        vvpProgressManager.parseVVPOutput(vvpResult.stdout);
         this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
       }
       if (vvpResult.stderr) {
         this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
       }
-  
-      // Check for cancellation before checking result code
+
       checkCancellation();
-  
+
       if (vvpResult.code !== 0) {
-        // If VVP fails, hide progress bar and throw error
         vvpProgressManager.hide();
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
-  
-      // If we got here, simulation was successful: finish progress bar
-      vvpProgressManager.complete();
-  
+
+
     } catch (err) {
       isVvpRunning = false;
       
-      // Clear VVP running state on error
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(false);
         window.setCurrentVvpPid(null);
       }
       
-      // If it's a cancellation, kill the VVP process
       if (err.message === 'Compilation canceled by user' && vvpProcessPid) {
         try {
           await window.electronAPI.killProcess(vvpProcessPid);
           this.terminalManager.appendToTerminal('twave', `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
         } catch (killError) {
           console.error('Error killing VVP process:', killError);
-          // Fallback: try killing by process name
           try {
             await window.electronAPI.killProcessByName('vvp.exe');
             this.terminalManager.appendToTerminal('twave', 'VVP process terminated by name due to cancellation.', 'warning');
@@ -5536,42 +6121,41 @@ async runGtkWave(processor) {
       vvpProgressManager.hide();
       throw err;
     } finally {
-      // Remove listener ALWAYS, both on success and error
       window.electronAPI.removeCommandOutputListener(outputListener);
     }
-  
-    // 4) Agora que temos o VCD, chama o GTKWave:
-    // Decide se usa script padrão ou customizado:
+
+    // 4) Run GTKWave with the generated VCD file
+    // VCD file will be named after the testbench module that was executed
+    const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
+    
+    // Determine GTKWave command based on configuration
     const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
     let gtkwCmd;
-    const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbMod}.vcd`);
-  
+    
     if (useStandardGtkw) {
       const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-      gtkwCmd = `cd "${tempPath}" && `
-              + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
     } else {
-      const gtkwPath     = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-      const posScript    = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+      const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
       gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScript}"`;
     }
-  
+
     this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
     const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-  
+
     if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
     if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-  
+
     if (gtkwResult.code !== 0) {
       statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
       throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
     }
-  
+
     this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.', 'success');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
-    // Qualquer erro em qualquer etapa:
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
     statusUpdater.compilationError('wave', error.message);
     throw error;
@@ -5733,8 +6317,7 @@ async runProjectGtkWave() {
 
     // 7) Roda o VVP para gerar o .vcd
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    vvpProgressManager.show();
-    vvpProgressManager.startProgressTracking();
+    vvpProgressManager.show(name);
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
@@ -5757,7 +6340,6 @@ async runProjectGtkWave() {
       }
       
       if (payload.type === 'stdout') {
-        vvpProgressManager.parseVVPOutput(payload.data);
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
         // Generally VVP writes everything to stdout, but in case stderr is used:
@@ -5786,7 +6368,6 @@ async runProjectGtkWave() {
   
       // If there's remaining stdout, parse it (generally, execCommandStream sends everything at once at the end).
       if (vvpResult.stdout) {
-        vvpProgressManager.parseVVPOutput(vvpResult.stdout);
         this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
       }
       if (vvpResult.stderr) {
@@ -5803,7 +6384,6 @@ async runProjectGtkWave() {
       }
   
       // If we got here, simulation was successful: finish progress bar
-      vvpProgressManager.complete();
   
     } catch (err) {
       isVvpRunning = false;
@@ -6155,6 +6735,145 @@ async function killVvpProcess() {
   return false;
 }
 
+
+// vvpProgressManager.js
+const vvpProgressManager = (function() {
+  let overlayEl = null;
+  let intervalId = null;
+  let lastPercent = 0;
+
+  // Cria o HTML do overlay e retorna o elemento root
+  function createOverlay() {
+    const overlay = document.createElement('div');
+    overlay.classList.add('vvp-progress-overlay');
+
+    // Estrutura interna
+    overlay.innerHTML = `
+      <div class="vvp-progress-info">
+        <i class="fas fa-cog vvp-spinner-icon fa-spin"></i>
+        <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">
+          VVP simulation in progress
+        </span>
+        <div class="vvp-progress-bar-container">
+          <div class="vvp-progress-bar"></div>
+        </div>
+      </div>
+    `;
+    return overlay;
+  }
+
+  // Atualiza a barra de progresso para um valor de 0 a 100
+  function updateProgress(percent) {
+    if (!overlayEl) return;
+    const bar = overlayEl.querySelector('.vvp-progress-bar');
+    // Garante número entre 0 e 100
+    let p = parseInt(percent, 10);
+    if (isNaN(p)) return;
+    if (p < 0) p = 0;
+    if (p > 100) p = 100;
+    // Só atualiza se mudou
+    if (p !== lastPercent) {
+      bar.style.width = p + '%';
+      lastPercent = p;
+    }
+  }
+
+  // Lê o arquivo e extrai a última linha como percentagem
+  async function fetchProgress(progressPath) {
+    try {
+      // Ajuste conforme seu método de leitura. 
+      // Por exemplo, se for window.electronAPI.readFile:
+      const content = await window.electronAPI.readFile(progressPath);
+      if (typeof content !== 'string') return null;
+      const lines = content.trim().split(/\r?\n/);
+      if (lines.length === 0) return null;
+      const lastLine = lines[lines.length - 1].trim();
+      const num = parseInt(lastLine, 10);
+      if (isNaN(num)) return null;
+      return num;
+    } catch (err) {
+      // Se erro (ex: arquivo não encontrado ainda), retorne null ou 0
+      console.warn('Erro ao ler progress.txt:', err);
+      return null;
+    }
+  }
+
+  return {
+    /**
+     * Exibe o overlay de progresso.
+     * @param {string} name - nome usado para compor o caminho até progress.txt
+     * @param {object} [options] - opções adicionais (intervalo de polling, callback onComplete, etc).
+     *        options.intervalMs: intervalo de polling em ms (padrão 500).
+     *        options.onComplete: função a ser chamada quando percent chega a 100.
+     *        options.autoHide: se true, chama hide() automaticamente ao chegar a 100% (padrão true).
+     */
+    async show(name, options = {}) {
+      if (!name) {
+        console.error('vvpProgressManager.show: faltando parâmetro name.');
+        return;
+      }
+      const intervalMs = options.intervalMs || 500;
+      const autoHide = options.autoHide !== undefined ? options.autoHide : true;
+      const onComplete = typeof options.onComplete === 'function' ? options.onComplete : null;
+
+      // Se já estiver exibido, não recriar
+      if (overlayEl) {
+        console.warn('vvpProgressManager: já exibido.');
+        return;
+      }
+
+      // Cria e anexa ao body (ou outro container, se preferir)
+      overlayEl = createOverlay();
+      document.body.appendChild(overlayEl);
+      lastPercent = 0;
+      updateProgress(0);
+
+      // Obtém o path do arquivo progress.txt
+      let progressPath;
+      try {
+        progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+      } catch (err) {
+        console.error('vvpProgressManager: erro ao compor path:', err);
+        // Remove overlay se path falhar
+        this.hide();
+        return;
+      }
+
+      // Inicia polling
+      intervalId = setInterval(async () => {
+        const pct = await fetchProgress(progressPath);
+        if (pct !== null) {
+          updateProgress(pct);
+          if (pct >= 100) {
+            // Chegou a 100%
+            if (onComplete) {
+              try { onComplete(); } catch(e){ console.error(e); }
+            }
+            if (autoHide) {
+              this.hide();
+            }
+          }
+        }
+      }, intervalMs);
+    },
+
+    /**
+     * Remove o overlay e para o polling.
+     */
+    hide() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      if (overlayEl) {
+        overlayEl.remove();
+        overlayEl = null;
+      }
+      lastPercent = 0;
+    }
+  };
+})();
+
 // Enhanced checkCancellation function with terminal error display
 function checkCancellation() {
   if (compilationCanceled) {
@@ -6498,140 +7217,6 @@ class CompilationButtonManager {
   }
 }
 
-// Updated functions for your existing code
-function showVvpProgressBar() {
-  vvpProgressManager.show();
-}
-
-function hideVvpProgressBar() {
-  vvpProgressManager.hide();
-}
-
-
-
-// Initialize the progress manager
-function initVVPProgress() {
-  if (!vvpProgressManager) {
-    vvpProgressManager = {
-      currentProgress: 0,
-      startTime: null,
-      progressInterval: null,
-      
-      show: function() {
-        const container = document.getElementById('vvp-progress-container');
-        if (container) container.style.display = 'flex';
-        this.startTime = Date.now();
-        this.startProgressSimulation();
-      },
-      
-      hide: function() {
-        const container = document.getElementById('vvp-progress-container');
-        if (container) container.style.display = 'none';
-        if (this.progressInterval) {
-          clearInterval(this.progressInterval);
-          this.progressInterval = null;
-        }
-        this.currentProgress = 0;
-      },
-      
-      updateProgress: function(percentage) {
-      this.currentProgress = Math.min(100, Math.max(0, percentage));
-      const fillElement = document.getElementById('vvp-progress-fill');
-      const percentageElement = document.getElementById('vvp-progress-percentage');
-      
-      if (fillElement) {
-        fillElement.style.width = `${this.currentProgress}%`;
-        // Force repaint
-        fillElement.offsetHeight;
-      }
-      if (percentageElement) {
-        percentageElement.textContent = `${Math.round(this.currentProgress)}%`;
-      }
-      
-      // Debug log para verificar se está funcionando
-      console.log(`Progress updated: ${this.currentProgress}%`);
-    },
-
-    // Substitua também a função startProgressSimulation
-    startProgressSimulation: function() {
-      this.progressInterval = setInterval(() => {
-        if (this.currentProgress < 95) { // Para em 95% para aguardar completion
-          // Incremento mais consistente
-          const increment = Math.random() * 2 + 0.5; // Entre 0.5% e 2.5%
-          this.currentProgress += increment;
-          this.updateProgress(this.currentProgress);
-          
-          // Atualiza stats
-          const elapsed = Date.now() - this.startTime;
-          this.updateStats(elapsed, this.eventCount);
-        }
-      }, 300); // Intervalo menor para updates mais suaves
-},
-      
-      complete: function() {
-        this.updateProgress(100);
-        setTimeout(() => this.hide(), 2000);
-      }
-    };
-  }
-  return vvpProgressManager;
-}
-
-// Keep these for backward compatibility
-function showVvpSpinner() {
-  showVvpProgressBar();
-}
-
-function hideVvpSpinner() {
-  vvpProgressManager.complete();
-}
-// GAMBIARRA: Adicione esta função para forçar a atualização da barra
-function forceProgressUpdate() {
-  const fillElement = document.getElementById('vvp-progress-fill');
-  const percentageElement = document.getElementById('vvp-progress-percentage');
-  
-  if (!fillElement || !percentageElement) return;
-  
-  let currentWidth = 0;
-  const targetWidth = parseInt(percentageElement.textContent) || 0;
-  
-  const animateProgress = () => {
-    if (currentWidth < targetWidth) {
-      currentWidth += 1;
-      fillElement.style.width = `${currentWidth}%`;
-      requestAnimationFrame(animateProgress);
-    }
-  };
-  
-  animateProgress();
-}
-
-// GAMBIARRA: Observer para detectar mudanças no texto da porcentagem
-function setupProgressObserver() {
-  const percentageElement = document.getElementById('vvp-progress-percentage');
-  if (!percentageElement) return;
-  
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'childList' || mutation.type === 'characterData') {
-        const newPercentage = parseInt(percentageElement.textContent) || 0;
-        const fillElement = document.getElementById('vvp-progress-fill');
-        if (fillElement) {
-          fillElement.style.width = `${newPercentage}%`;
-          // Force repaint
-          fillElement.offsetHeight;
-        }
-      }
-    });
-  });
-  
-  observer.observe(percentageElement, {
-    childList: true,
-    characterData: true,
-    subtree: true
-  });
-}
-
 // Fixed VVP Progress Manager
 class VVPProgressManager {
   constructor() {
@@ -6802,7 +7387,7 @@ class VVPProgressManager {
 }
 
 // Global instance
-const vvpProgressManager = new VVPProgressManager();
+//const vvpProgressManager = new VVPProgressManager();
 
 
 // Inicializa o gerenciador quando a janela carregar

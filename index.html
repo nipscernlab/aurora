@@ -68,6 +68,11 @@
       <img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;">
       <span data-i18n="toolbar.prism">PRISM</span>
     </button>
+      <button id="fractalcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.openFRACTALtitle" title="">
+      <img src="./assets/icons/Mandelbrot_Leminiscates_2.svg" style="width: 40px; height: inherit; flex-shrink: 0;">
+      <span data-i18n="toolbar.fractal">FFPGA</span>
+    </button>
   </div>
 
   <button id="toggle-ui" class="toolbar-toggle-ui" 
@@ -566,38 +571,13 @@
           <div class="terminal-header" data-i18n="ui.terminal.tveriHeader">TVERI Terminal</div>
           <div class="terminal-body" data-i18n="ui.terminal.tveriWelcome">Welcome to the TVERI Terminal!</div>
         </div>
+        
         <div class="terminal-content hidden" id="terminal-twave">
           <div class="terminal-header" data-i18n="ui.terminal.twaveHeader">TWAVE Terminal</div>
           <div class="terminal-body" data-i18n="ui.terminal.twaveWelcome">Welcome to the TWAVE Terminal!</div>
-<div class="vvp-progress-overlay">
-  <div class="vvp-progress-info">
-    <i class="fas fa-cog vvp-spinner-icon fa-spin"></i>
-    <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">
-      VVP simulation in progress
-    </span>
-
-    <div class="vvp-progress-bar-wrapper">
-      <div class="vvp-progress-bar">
-        <div class="vvp-progress-fill" id="vvp-progress-fill" style="width: 0%"></div>
-      </div>
-      <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
-    </div>
-
-    <div class="vvp-progress-stats">
-      <div class="vvp-stat">
-        <span class="vvp-stat-label" data-i18n="ui.terminal.time">Time</span>
-        <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
-      </div>
-      <div class="vvp-stat">
-        <span class="vvp-stat-label" data-i18n="ui.terminal.events">Events</span>
-        <span class="vvp-stat-value" id="vvp-events-count">0</span>
-      </div>
-    </div>
-  </div>
-</div>
-
         </div>
-                <div class="terminal-content hidden" id="terminal-tprism">
+
+        <div class="terminal-content hidden" id="terminal-tprism">
           <div class="terminal-header" data-i18n="ui.terminal.tprismHeader">TPRISM Terminal</div>
           <div class="terminal-body" data-i18n="ui.terminal.tprismWelcome">Welcome to the TPRISM Terminal!</div>
         </div>

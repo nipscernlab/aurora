@@ -1,0 +1,315 @@
+/* VVP Progress Overlay - Modern Floating Design */
+.vvp-progress-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-max);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.vvp-progress-overlay.vvp-progress-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.vvp-progress-info {
+  background: var(--bg-primary);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(147, 51, 234, 0.3);
+  border-radius: 16px;
+  max-height: 200px;
+  padding: 10px 34px;
+  min-width: 900px;
+  max-width: 500px;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(147, 51, 234, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: floatIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vvp-progress-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(147, 51, 234, 0.1) 50%,
+    transparent 100%
+  );
+  animation: scanline 3s infinite;
+}
+
+@keyframes floatIn {
+  from {
+    transform: translateY(30px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scanline {
+  0%, 100% {
+    left: -100%;
+  }
+  50% {
+    left: 100%;
+  }
+}
+
+.vvp-progress-icon {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.vvp-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(147, 51, 234, 0.2);
+  border-top: 2px solid #9333ea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(147, 51, 234, 0.4));
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.vvp-progress-text {
+  display: block;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 16px;
+  text-align: center;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.vvp-progress-bar-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vvp-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.vvp-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #7c3aed 0%,
+    #9333ea 25%,
+    #a855f7 50%,
+    #c084fc 75%,
+    #e879f9 100%
+  );
+  border-radius: 8px;
+  width: 0%;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 12px rgba(147, 51, 234, 0.6);
+}
+
+.vvp-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.vvp-progress-glow {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #7c3aed, #9333ea, #a855f7);
+  opacity: 0.3;
+  filter: blur(6px);
+  z-index: -1;
+  animation: pulseGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulseGlow {
+  from {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}
+
+.vvp-progress-percentage {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9333ea;
+  min-width: 40px;
+  text-align: right;
+  text-shadow: 0 0 8px rgba(147, 51, 234, 0.5);
+}
+
+.vvp-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+.vvp-stat {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.vvp-stat-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+
+.vvp-stat-value {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vvp-stat-value i {
+  color: #9333ea;
+  font-size: 11px;
+  filter: drop-shadow(0 0 4px rgba(147, 51, 234, 0.5));
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .vvp-progress-info {
+    margin: 0 16px;
+    min-width: auto;
+    padding: 16px 20px;
+  }
+  
+  .vvp-progress-text {
+    font-size: 13px;
+  }
+  
+  .vvp-progress-stats {
+    gap: 12px;
+  }
+  
+  .vvp-spinner {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Animation for progress completion */
+.vvp-progress-fill[style*="100%"] {
+  background: linear-gradient(
+    90deg,
+    #10b981 0%,
+    #34d399 50%,
+    #6ee7b7 100%
+  );
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.8);
+  animation: completePulse 1s ease-in-out infinite alternate;
+}
+
+.vvp-progress-fill[style*="100%"] + .vvp-progress-glow {
+  background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7);
+  opacity: 0.8;
+  animation: completeGlow 1s ease-in-out infinite alternate;
+}
+
+@keyframes completePulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes completeGlow {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+/* Ensure the terminal-container has relative positioning for overlay to work */
+.terminal-container {
+  position: relative;
+}

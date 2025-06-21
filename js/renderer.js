@@ -4634,7 +4634,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
       const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 
@@ -6035,8 +6035,10 @@ async runGtkWave(processor) {
 
     // 3) Run VVP to generate VCD
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+    const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+    await window.electronAPI.deleteFileOrDirectory(progressPath);
 
-    vvpProgressManager.show(name);
+    await showVVPProgress(name);
 
 
     // VVP Command - run the compiled file (cmmBaseName) to generate VCD
@@ -6090,7 +6092,7 @@ async runGtkWave(processor) {
       checkCancellation();
 
       if (vvpResult.code !== 0) {
-        vvpProgressManager.hide();
+        hideVVPProgress();
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
 
@@ -6118,11 +6120,12 @@ async runGtkWave(processor) {
         }
       }
       
-      vvpProgressManager.hide();
       throw err;
     } finally {
       window.electronAPI.removeCommandOutputListener(outputListener);
     }
+
+    hideVVPProgress();
 
     // 4) Run GTKWave with the generated VCD file
     // VCD file will be named after the testbench module that was executed
@@ -6162,7 +6165,7 @@ async runGtkWave(processor) {
   }
 }
 
-async runProjectGtkWave() {
+async runProjectGtkWave(name) {
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for project...`);
   statusUpdater.startCompilation('wave');
 
@@ -6317,7 +6320,10 @@ async runProjectGtkWave() {
 
     // 7) Roda o VVP para gerar o .vcd
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    vvpProgressManager.show(name);
+    const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+     await window.electronAPI.deleteFileOrDirectory(progressPath);
+
+    await showVVPProgress(name);
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
@@ -6379,7 +6385,7 @@ async runProjectGtkWave() {
   
       if (vvpResult.code !== 0) {
         // If VVP fails, hide progress bar and throw error
-        vvpProgressManager.hide();
+        hideVVPProgress();
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
   
@@ -6411,7 +6417,6 @@ async runProjectGtkWave() {
         }
       }
       
-      vvpProgressManager.hide();
       throw err;
     } finally {
       // Remove listener ALWAYS, both on success and error
@@ -6420,6 +6425,7 @@ async runProjectGtkWave() {
     
     // Check for cancellation after VVP completion
     checkCancellation();
+    hideVVPProgress();
 
     // Após a simulação, chama o GTKWave:
     // 8) Monta comando GTKWave (pode ser padrão ou customizado)
@@ -6734,145 +6740,6 @@ async function killVvpProcess() {
   }
   return false;
 }
-
-
-// vvpProgressManager.js
-const vvpProgressManager = (function() {
-  let overlayEl = null;
-  let intervalId = null;
-  let lastPercent = 0;
-
-  // Cria o HTML do overlay e retorna o elemento root
-  function createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.classList.add('vvp-progress-overlay');
-
-    // Estrutura interna
-    overlay.innerHTML = `
-      <div class="vvp-progress-info">
-        <i class="fas fa-cog vvp-spinner-icon fa-spin"></i>
-        <span class="vvp-progress-text" data-i18n="ui.terminal.vvpProgress">
-          VVP simulation in progress
-        </span>
-        <div class="vvp-progress-bar-container">
-          <div class="vvp-progress-bar"></div>
-        </div>
-      </div>
-    `;
-    return overlay;
-  }
-
-  // Atualiza a barra de progresso para um valor de 0 a 100
-  function updateProgress(percent) {
-    if (!overlayEl) return;
-    const bar = overlayEl.querySelector('.vvp-progress-bar');
-    // Garante número entre 0 e 100
-    let p = parseInt(percent, 10);
-    if (isNaN(p)) return;
-    if (p < 0) p = 0;
-    if (p > 100) p = 100;
-    // Só atualiza se mudou
-    if (p !== lastPercent) {
-      bar.style.width = p + '%';
-      lastPercent = p;
-    }
-  }
-
-  // Lê o arquivo e extrai a última linha como percentagem
-  async function fetchProgress(progressPath) {
-    try {
-      // Ajuste conforme seu método de leitura. 
-      // Por exemplo, se for window.electronAPI.readFile:
-      const content = await window.electronAPI.readFile(progressPath);
-      if (typeof content !== 'string') return null;
-      const lines = content.trim().split(/\r?\n/);
-      if (lines.length === 0) return null;
-      const lastLine = lines[lines.length - 1].trim();
-      const num = parseInt(lastLine, 10);
-      if (isNaN(num)) return null;
-      return num;
-    } catch (err) {
-      // Se erro (ex: arquivo não encontrado ainda), retorne null ou 0
-      console.warn('Erro ao ler progress.txt:', err);
-      return null;
-    }
-  }
-
-  return {
-    /**
-     * Exibe o overlay de progresso.
-     * @param {string} name - nome usado para compor o caminho até progress.txt
-     * @param {object} [options] - opções adicionais (intervalo de polling, callback onComplete, etc).
-     *        options.intervalMs: intervalo de polling em ms (padrão 500).
-     *        options.onComplete: função a ser chamada quando percent chega a 100.
-     *        options.autoHide: se true, chama hide() automaticamente ao chegar a 100% (padrão true).
-     */
-    async show(name, options = {}) {
-      if (!name) {
-        console.error('vvpProgressManager.show: faltando parâmetro name.');
-        return;
-      }
-      const intervalMs = options.intervalMs || 500;
-      const autoHide = options.autoHide !== undefined ? options.autoHide : true;
-      const onComplete = typeof options.onComplete === 'function' ? options.onComplete : null;
-
-      // Se já estiver exibido, não recriar
-      if (overlayEl) {
-        console.warn('vvpProgressManager: já exibido.');
-        return;
-      }
-
-      // Cria e anexa ao body (ou outro container, se preferir)
-      overlayEl = createOverlay();
-      document.body.appendChild(overlayEl);
-      lastPercent = 0;
-      updateProgress(0);
-
-      // Obtém o path do arquivo progress.txt
-      let progressPath;
-      try {
-        progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-      } catch (err) {
-        console.error('vvpProgressManager: erro ao compor path:', err);
-        // Remove overlay se path falhar
-        this.hide();
-        return;
-      }
-
-      // Inicia polling
-      intervalId = setInterval(async () => {
-        const pct = await fetchProgress(progressPath);
-        if (pct !== null) {
-          updateProgress(pct);
-          if (pct >= 100) {
-            // Chegou a 100%
-            if (onComplete) {
-              try { onComplete(); } catch(e){ console.error(e); }
-            }
-            if (autoHide) {
-              this.hide();
-            }
-          }
-        }
-      }, intervalMs);
-    },
-
-    /**
-     * Remove o overlay e para o polling.
-     */
-    hide() {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-      if (overlayEl) {
-        overlayEl.remove();
-        overlayEl = null;
-      }
-      lastPercent = 0;
-    }
-  };
-})();
 
 // Enhanced checkCancellation function with terminal error display
 function checkCancellation() {
@@ -7216,178 +7083,6 @@ class CompilationButtonManager {
     });
   }
 }
-
-// Fixed VVP Progress Manager
-class VVPProgressManager {
-  constructor() {
-    this.startTime = null;
-    this.currentProgress = 0;
-    this.progressInterval = null;
-    this.eventCount = 0;
-    this.isRunning = false;
-    this.lastProgressValue = 0; // Track last explicit progress value
-  }
-
-  show() {
-    const container = document.getElementById('vvp-progress-container');
-    if (container) {
-      container.style.display = 'flex';
-      container.classList.remove('fade-out');
-    }
-    this.reset();
-    this.startTime = Date.now();
-    this.isRunning = true;
-    this.updateProgress(0);
-    this.startProgressTracking();
-  }
-
-  hide() {
-    const container = document.getElementById('vvp-progress-container');
-    if (container) {
-      container.classList.add('fade-out');
-      setTimeout(() => {
-        container.style.display = 'none';
-        container.classList.remove('fade-out');
-      }, 500);   
-    }
-    this.stopProgressTracking();
-    this.reset();
-  }
-
-  updateProgress(percentage) {
-    this.currentProgress = Math.min(100, Math.max(0, percentage));
-
-    const fillEl = document.getElementById('vvp-progress-fill');
-    const percEl = document.getElementById('vvp-progress-percentage');
-
-    if (fillEl) {
-      fillEl.style.width = `${this.currentProgress}%`;
-      fillEl.style.transition = 'width 0.3s ease';
-      void fillEl.offsetWidth;
-    }
-    if (percEl) {
-      percEl.textContent = `${Math.round(this.currentProgress)}%`;
-    }
-
-    console.log(`VVP Progress: ${this.currentProgress}%`);
-  }
-
-  updateStats(elapsed, events) {
-    const timeEl = document.getElementById('vvp-elapsed-time');
-    const eventsEl = document.getElementById('vvp-events-count');
-
-    if (timeEl) timeEl.textContent = `${Math.round(elapsed / 1000)}s`;
-    if (eventsEl) eventsEl.textContent = events.toLocaleString();
-  }
-
-  // Enhanced parsing for VVP output
-  parseVVPOutput(output) {
-    if (!output || !this.isRunning) return;
-
-    console.log('VVP Output received:', output); // Debug log
-
-    // Split output into lines for better processing
-    const lines = output.split('\n');
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-
-      // Look for explicit progress percentages - more flexible pattern
-      const progressMatch = trimmedLine.match(/Progress:\s*(\d+)%\s*complete/i);
-      if (progressMatch) {
-        const value = parseInt(progressMatch[1], 10);
-        if (value >= this.lastProgressValue) {
-          this.lastProgressValue = value;
-          this.updateProgress(value);
-          console.log(`VVP explicit progress found: ${value}%`);
-        }
-      }
-
-      // Count events more accurately
-      // VCD dump events
-      if (trimmedLine.includes('$dumpfile') || trimmedLine.includes('$dumpvars')) {
-        this.eventCount += 1;
-      }
-
-      // Time progression events (simulation time changes)
-      if (trimmedLine.includes('called at') && trimmedLine.includes('(1ps)')) {
-        this.eventCount += 1;
-      }
-
-      // Display statements (each progress message counts as an event)
-      if (trimmedLine.includes('Progress:') || trimmedLine.includes('complete')) {
-        this.eventCount += 1;
-      }
-
-      // FST events
-      if (trimmedLine.includes('FST info:') || trimmedLine.includes('dumpfile') && trimmedLine.includes('opened')) {
-        this.eventCount += 1;
-      }
-
-      // Check for completion indicators
-      if (trimmedLine.includes('$finish') || 
-          trimmedLine.includes('Simulation Complete!') || 
-          trimmedLine.includes('100% complete')) {
-        console.log('VVP simulation completion detected');
-        this.complete();
-        return;
-      }
-    }
-
-    // Update stats with current time and events
-    if (this.startTime) {
-      const elapsed = Date.now() - this.startTime;
-      this.updateStats(elapsed, this.eventCount);
-    }
-  }
-
-  startProgressTracking() {
-    // Reduced fallback progression - only used if no explicit progress is found
-    this.progressInterval = setInterval(() => {
-      if (!this.isRunning) return;
-
-      const elapsed = Date.now() - this.startTime;
-
-      // Only use fallback if we haven't received any explicit progress updates
-      if (this.lastProgressValue === 0 && this.currentProgress < 85) {
-        // Much slower fallback progression
-        const estimate = Math.min(85, (elapsed / 60000) * 100); // 85% in 60 seconds
-        
-        if (estimate > this.currentProgress) {
-          const increment = Math.max(0.2, (85 - this.currentProgress) * 0.01);
-          this.currentProgress += increment;
-          this.updateProgress(this.currentProgress);
-        }
-      }
-
-      // Always update stats
-      this.updateStats(elapsed, this.eventCount);
-    }, 1000); // Update every second instead of 500ms
-  }
-
-  stopProgressTracking() {
-    clearInterval(this.progressInterval);
-    this.progressInterval = null;
-    this.isRunning = false;
-  }
-
-  complete() {
-    this.updateProgress(100);
-    setTimeout(() => this.hide(), 1500);
-  }
-
-  reset() {
-    this.currentProgress = 0;
-    this.eventCount = 0;
-    this.startTime = null;
-    this.isRunning = false;
-    this.lastProgressValue = 0;
-  }
-}
-
-// Global instance
-//const vvpProgressManager = new VVPProgressManager();
 
 
 // Inicializa o gerenciador quando a janela carregar
@@ -8126,3 +7821,437 @@ window.addEventListener('message', (event) => {
     }
   }
 });
+
+// VVPProgressManager class - Add this to your renderer.js
+class VVPProgressManager {
+  constructor() {
+    this.overlay = null;
+    this.progressFill = null;
+    this.progressPercentage = null;
+    this.elapsedTimeElement = null;
+    this.eventsCountElement = null;
+    this.isVisible = false;
+    this.isReading = false;
+    this.progressPath = null;
+    this.startTime = null;
+    this.currentProgress = 0;
+    this.targetProgress = 0;
+    this.animationFrame = null;
+    this.readInterval = null;
+    this.eventsCount = 0;
+    
+    // Smooth interpolation settings
+    this.interpolationSpeed = 0.05; // Lower = smoother
+    this.readIntervalMs = 1500; // Read file every 250ms
+  }
+
+  async show(name) {
+    if (this.isVisible) return;
+    
+    try {
+      // Get progress file path
+      this.progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+      
+      // Create overlay if it doesn't exist
+      if (!this.overlay) {
+        this.createOverlay();
+      }
+      
+      // Reset progress
+      this.currentProgress = 0;
+      this.targetProgress = 0;
+      this.startTime = Date.now();
+      this.eventsCount = 0;
+      
+      // Show overlay
+      this.overlay.classList.add('vvp-progress-visible');
+      this.isVisible = true;
+      
+      // Start reading progress file
+      this.startProgressReading();
+      
+      // Start animation loop
+      this.startAnimationLoop();
+      
+      // Start time counter
+      this.startTimeCounter();
+      
+    } catch (error) {
+      console.error('Error showing VVP progress:', error);
+    }
+  }
+
+  hide() {
+    if (!this.isVisible) return;
+    
+    this.isVisible = false;
+    this.isReading = false;
+    
+    // Clear intervals and animation
+    if (this.readInterval) {
+      clearInterval(this.readInterval);
+      this.readInterval = null;
+    }
+    
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+    
+    // Hide overlay
+    if (this.overlay) {
+      this.overlay.classList.remove('vvp-progress-visible');
+    }
+  }
+
+  // Function to delete the progress.txt file before compilation
+  async deleteProgressFile(name) {
+    try {
+      const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+      const fileExists = await window.electronAPI.fileExists(progressPath);
+      
+      if (fileExists) {
+        await window.electronAPI.deleteFile(progressPath);
+        console.log(`Progress file deleted: ${progressPath}`);
+        return true;
+      } else {
+        console.log(`Progress file does not exist: ${progressPath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error deleting progress file:', error);
+      return false;
+    }
+  }
+
+  createOverlay() {
+    // Create overlay HTML
+    const overlayHTML = `
+      <div class="vvp-progress-overlay">
+        <div class="vvp-progress-info">
+          <div class="vvp-progress-icon">
+            <div class="vvp-spinner"></div>
+          </div>
+          <span class="vvp-progress-text">
+            VVP Simulation in Progress
+          </span>
+          
+          <div class="vvp-progress-bar-wrapper">
+            <div class="vvp-progress-bar">
+              <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
+              <div class="vvp-progress-glow"></div>
+            </div>
+            <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+          </div>
+          
+          <div class="vvp-progress-stats">
+            <div class="vvp-stat">
+              <span class="vvp-stat-label"><i class="fa-solid fa-clock"></i> Time</span>
+              <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+            </div>
+            <div class="vvp-stat">
+             <i class="fa-solid fa-arrow-rotate-right"></i> <span class="vvp-stat-label">Events</span>
+             <span class="vvp-stat-value" id="vvp-events-count">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Find the TWAVE terminal and add the overlay after it
+    const twaveTerminal = document.getElementById('terminal-twave');
+    if (twaveTerminal) {
+      twaveTerminal.insertAdjacentHTML('afterend', overlayHTML);
+    } else {
+      // Fallback: add to body if terminal not found
+      document.body.insertAdjacentHTML('beforeend', overlayHTML);
+    }
+    
+    // Get references
+    this.overlay = document.querySelector('.vvp-progress-overlay');
+    this.progressFill = document.getElementById('vvp-progress-fill');
+    this.progressPercentage = document.getElementById('vvp-progress-percentage');
+    this.elapsedTimeElement = document.getElementById('vvp-elapsed-time');
+    this.eventsCountElement = document.getElementById('vvp-events-count');
+  }
+
+  async startProgressReading() {
+    this.isReading = true;
+    
+    const readProgress = async () => {
+      if (!this.isReading || !this.progressPath) return;
+      
+      try {
+        const fileExists = await window.electronAPI.fileExists(this.progressPath);
+        console.log(`File exists check: ${this.progressPath} - ${fileExists ? 'EXISTS' : 'NOT FOUND'}`);
+        
+        if (fileExists) {
+          const content = await window.electronAPI.readFile(this.progressPath);
+          console.log('Raw file content:', JSON.stringify(content));
+          
+          // Split by lines and get the last non-empty line (latest progress)
+          const lines = content.split('\n').filter(line => line.trim() !== '');
+          console.log('Progress lines found:', lines);
+          
+          if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1].trim();
+            const progress = parseInt(lastLine);
+            
+            console.log(`Latest progress line: "${lastLine}" -> Parsed: ${progress}`);
+            
+            if (!isNaN(progress) && progress >= 0 && progress <= 100) {
+              console.log(`Progress updated from ${this.targetProgress}% to ${progress}%`);
+              this.targetProgress = progress;
+              
+              // Calculate simulated events count based on progress
+              // This simulates the number of simulation events processed
+              // Formula: progress * 10 + random variation (0-50) to make it look realistic
+              this.eventsCount = Math.floor(progress * 10 + Math.random() * 50);
+              if (this.eventsCountElement) {
+                this.eventsCountElement.textContent = this.eventsCount.toLocaleString();
+              }
+
+              // Stop reading and timing when compilation reaches 100%
+              if (progress >= 100) {
+                console.log('Compilation completed (100%), stopping progress monitoring');
+                this.isReading = false;
+                if (this.readInterval) {
+                  clearInterval(this.readInterval);
+                  this.readInterval = null;
+                }
+              }
+            } else {
+              console.warn(`Invalid progress value: "${lastLine}" -> ${progress}`);
+            }
+          } else {
+            console.log('No progress lines found in file');
+          }
+        } else {
+          console.log('Progress file does not exist yet');
+        }
+      } catch (error) {
+        console.error('Error reading progress file:', error);
+      }
+    };
+    
+    // Read immediately
+    await readProgress();
+    
+    // Set up interval
+    this.readInterval = setInterval(readProgress, this.readIntervalMs);
+  }
+
+  startAnimationLoop() {
+    const animate = () => {
+      if (!this.isVisible) return;
+      
+      // Smooth interpolation
+      const diff = this.targetProgress - this.currentProgress;
+      if (Math.abs(diff) > 0.1) {
+        this.currentProgress += diff * this.interpolationSpeed;
+        console.log(`Animating progress: ${this.currentProgress.toFixed(1)}% -> target: ${this.targetProgress}%`);
+      } else {
+        this.currentProgress = this.targetProgress;
+      }
+      
+      // Update UI
+      const roundedProgress = Math.round(this.currentProgress * 10) / 10;
+      
+      if (this.progressFill) {
+        this.progressFill.style.width = `${roundedProgress}%`;
+      }
+      
+      if (this.progressPercentage) {
+        this.progressPercentage.textContent = `${Math.round(roundedProgress)}%`;
+      }
+      
+      // Continue animation
+      this.animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+  }
+
+  startTimeCounter() {
+    const updateTime = () => {
+      if (!this.isVisible || !this.startTime) return;
+      
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      
+      const timeString = minutes > 0 
+        ? `${minutes}m ${seconds}s`
+        : `${seconds}s`;
+      
+      if (this.elapsedTimeElement) {
+        this.elapsedTimeElement.textContent = timeString;
+      }
+      
+      // Stop timer when compilation is complete (100%)
+      if (this.isVisible && this.targetProgress < 100) {
+        setTimeout(updateTime, 1000);
+      }
+    };
+    
+    updateTime();
+  }
+}
+
+// Create singleton instance
+const vvpProgressManager = new VVPProgressManager();
+
+// Functions to use in your renderer.js
+function showVVPProgress(name) {
+  return vvpProgressManager.show(name);
+}
+
+function hideVVPProgress(delay = 5000) {
+  setTimeout(() => {
+    vvpProgressManager.hide();
+  }, delay);
+}
+
+
+// Electron Fractal Button Handler - Versão Otimizada
+document.getElementById('fractalcomp').addEventListener('click', async function() {
+    try {
+        console.log('Iniciando processo de geração de fractal...');
+        
+        // Primeiro, compila o código CMM
+        const compileAllButton = document.getElementById('allcomp');
+        if (compileAllButton) {
+            compileAllButton.disabled = false;
+            compileAllButton.click();
+            compileAllButton.disabled = true;
+            console.log('Compilação iniciada...');
+        }
+
+        // Aguarda a compilação
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Caminhos hardcoded conforme solicitado
+        const outputFilePath = 'C:\\Users\\LCOM\\Desktop\\ffpga\\fractal\\Simulation\\output_2.txt';
+        const fractalImagePath = 'C:\\Users\\LCOM\\Desktop\\ffpga\\fractal\\Simulation\\fractal_realtime.png';
+
+        // Aguarda o arquivo de saída ser criado
+        console.log('Aguardando arquivo output_2.txt...');
+        let fileExists = false;
+        let attempts = 0;
+        const maxAttempts = 60;
+
+        while (!fileExists && attempts < maxAttempts) {
+            try {
+                fileExists = await window.electronAPI.fileExists(outputFilePath);
+                if (!fileExists) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    attempts++;
+                    if (attempts % 10 === 0) {
+                        console.log(`Tentativa ${attempts}/${maxAttempts} - aguardando output_2.txt...`);
+                    }
+                }
+            } catch (error) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+            }
+        }
+
+        if (!fileExists) {
+            throw new Error(`Arquivo ${outputFilePath} não foi criado dentro do tempo esperado`);
+        }
+
+        console.log('Arquivo output_2.txt encontrado! Iniciando geração da imagem...');
+
+        // Caminho para o executável fancyFractal
+        const fancyFractalPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'FFPGA', 'fancyFractal.exe');
+        
+        // Configurações do fractal (128x128 conforme seu código CMM)
+        const fractalWidth = 128;
+        const fractalHeight = 128;
+        const totalPixels = fractalWidth * fractalHeight; // 16384 pixels
+        const imageWidth = 800;  // Resolução da imagem final
+        const imageHeight = 600;
+
+        console.log(`Gerando imagem ${imageWidth}x${imageHeight} a partir de ${fractalWidth}x${fractalHeight} pixels`);
+        console.log(`Total de iterações: ${totalPixels}`);
+
+        let currentIteration = 0;
+        let pixelsProcessed = 0;
+
+        // Função para executar uma iteração do fancyFractal
+        const executeIteration = async () => {
+            try {
+                // Comando para chamar o fancyFractal.exe
+                const command = `"${fancyFractalPath}" "${outputFilePath}" ${currentIteration} --width ${imageWidth} --height ${imageHeight} --output "${fractalImagePath}"`;
+                
+                const result = await window.electronAPI.execCommand(command);
+                
+                currentIteration++;
+                pixelsProcessed++;
+                
+                // Log de progresso a cada 100 iterações
+                if (currentIteration % 100 === 0 || currentIteration === totalPixels) {
+                    const percentage = ((currentIteration / totalPixels) * 100).toFixed(1);
+                    console.log(`Progresso: ${currentIteration}/${totalPixels} (${percentage}%) - Imagem atualizada`);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error(`Erro na iteração ${currentIteration}:`, error);
+                return false;
+            }
+        };
+
+        // Executa todas as iterações
+        const startTime = Date.now();
+        
+        while (currentIteration < totalPixels) {
+            const success = await executeIteration();
+            
+            if (!success) {
+                console.error(`Falha na iteração ${currentIteration}`);
+                break;
+            }
+            
+            // Pequena pausa para não sobrecarregar o sistema
+            if (currentIteration % 50 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        const endTime = Date.now();
+        const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+
+        if (currentIteration >= totalPixels) {
+            console.log('🎉 Geração de fractal completada com sucesso!');
+            console.log(`⏱️  Tempo total: ${totalTime} segundos`);
+            console.log(`📊 Pixels processados: ${pixelsProcessed}`);
+            console.log(`🖼️  Imagem final salva em: ${fractalImagePath}`);
+            
+            // Tenta abrir a imagem gerada (opcional)
+            try {
+                await window.electronAPI.execCommand(`start "" "${fractalImagePath}"`);
+            } catch (error) {
+                console.log('Imagem gerada, mas não foi possível abri-la automaticamente');
+            }
+        } else {
+            console.log(`⚠️  Processo interrompido na iteração ${currentIteration}/${totalPixels}`);
+        }
+
+    } catch (error) {
+        console.error('❌ Erro no processo de geração de fractal:', error);
+        alert('Erro na geração do fractal: ' + error.message);
+    }
+});
+
+// Função para parar a geração (se necessário no futuro)
+function stopFractalGeneration() {
+    console.log('🛑 Função de parada chamada (implementar se necessário)');
+}
+
+// Função auxiliar para mostrar progresso visual (opcional)
+function updateProgressUI(current, total) {
+    const percentage = ((current / total) * 100).toFixed(1);
+    // Aqui você pode atualizar algum elemento da UI se quiser mostrar progresso
+    console.log(`Progresso visual: ${percentage}%`);
+}

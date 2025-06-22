@@ -1010,7 +1010,9 @@ async function updateProcessorStatus() {
   if (currentConfig?.processors?.length > 0) {
     const types = currentConfig.processors.map(p => p.type);
     const unique = [...new Set(types)];
-    el.innerHTML = `<i class="fa-solid fa-gear"></i> ${unique.join(' | ')}`;
+    const processorTb = testbenchSelect.value;
+
+    el.innerHTML = `${unique.join(' | ')} <i class="fa-solid fa-gear"></i> ${processorTb || 'None'}`;
     el.classList.add('has-processors');
   } else {
     el.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;

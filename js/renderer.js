@@ -194,79 +194,117 @@ class EditorManager {
   return editor;
 }
 
- static setupEnhancedFeatures(editor) {
-    // Comandos personalizados melhorados
-   const commands = [
+static findStates = new Map(); // Store find widget states per file
+
+// Modified setupEnhancedFeatures method with per-tab find functionality
+static setupEnhancedFeatures(editor) {
+  const commands = [
     {
-      // Ctrl+F: apenas Find (não abre Replace)
       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF,
       action: () => {
-        // A ação correta para abrir só a caixa de busca é 'actions.find'
+        const activeFilePath = this.getActiveFilePath();
+        
+        // Get or create find state for this file
+        if (!this.findStates.has(activeFilePath)) {
+          this.findStates.set(activeFilePath, {
+            isOpen: false,
+            searchTerm: '',
+            position: null
+          });
+        }
+        
         const findAction = editor.getAction('actions.find');
         if (findAction) {
           findAction.run().then(() => {
-            // Pequeno delay para o widget renderizar, então focar no input
+            // Mark find widget as open for this file
+            const state = this.findStates.get(activeFilePath);
+            state.isOpen = true;
+            
             setTimeout(() => {
               const input = document.querySelector('.monaco-findInput input');
-              if (input) input.focus();
+              if (input) {
+                // Restore previous search term if exists
+                if (state.searchTerm) {
+                  input.value = state.searchTerm;
+                }
+                input.focus();
+                
+                // Save search term when it changes
+                input.addEventListener('input', () => {
+                  state.searchTerm = input.value;
+                });
+              }
             }, 50);
           });
         }
       }
     },
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
-        action: () => editor.getAction('editor.action.startFindReplaceAction').run().then(() => {
-          setTimeout(() => {
-            const input = document.querySelector('.monaco-findInput input');
-            if (input) input.focus();
-          }, 50);
-        })
-      },
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-        action: () => editor.getAction('editor.action.formatDocument').run()
-      },
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
-        action: () => editor.getAction('editor.action.gotoLine').run()
-      },
-      // Outros comandos inalterados...
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
-        action: () => editor.getAction('editor.action.quickCommand').run()
-      },
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
-        action: () => editor.getAction('workbench.action.showCommands').run()
-      },
-      {
-        key: monaco.KeyCode.F12,
-        action: () => editor.getAction('editor.action.revealDefinition').run()
-      },
-      {
-        key: monaco.KeyMod.Alt | monaco.KeyCode.F12,
-        action: () => editor.getAction('editor.action.peekDefinition').run()
-      },
-      {
-        key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12,
-        action: () => editor.getAction('editor.action.goToImplementation').run()
-      },
-      {
-        key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
-        action: () => editor.getAction('editor.action.goToReferences').run()
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
+      action: () => editor.getAction('editor.action.startFindReplaceAction').run().then(() => {
+        setTimeout(() => {
+          const input = document.querySelector('.monaco-findInput input');
+          if (input) input.focus();
+        }, 50);
+      })
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      action: () => editor.getAction('editor.action.formatDocument').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
+      action: () => editor.getAction('editor.action.gotoLine').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
+      action: () => editor.getAction('editor.action.quickCommand').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
+      action: () => editor.getAction('workbench.action.showCommands').run()
+    },
+    {
+      key: monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.revealDefinition').run()
+    },
+    {
+      key: monaco.KeyMod.Alt | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.peekDefinition').run()
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.goToImplementation').run()
+    },
+    {
+      key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
+      action: () => editor.getAction('editor.action.goToReferences').run()
+    }
+  ];
+
+  commands.forEach(({ key, action }) => {
+    editor.addCommand(key, action);
+  });
+
+  // Listen for find widget close events
+  editor.onDidChangeModelContent(() => {
+    const activeFilePath = this.getActiveFilePath();
+    const findWidget = document.querySelector('.find-widget');
+    
+    if (findWidget && !findWidget.classList.contains('visible')) {
+      const state = this.findStates.get(activeFilePath);
+      if (state) {
+        state.isOpen = false;
       }
-    ];
+    }
+  });
+}
 
-    commands.forEach(({ key, action }) => {
-      editor.addCommand(key, action);
-    });
-
-    editor.onContextMenu((e) => {
-      // Adicionar itens personalizados ao menu de contexto, se necessário
-    });
-
-  }
+static getActiveFilePath() {
+  // Find the currently active tab
+  const activeTab = document.querySelector('.tab.active');
+  return activeTab ? activeTab.dataset.file : null;
+}
 
   static searchInAllFiles(searchTerm, options = {}) {
     const results = [];
@@ -412,7 +450,7 @@ class EditorManager {
     });
   }
 
-  static getLanguageFromPath(filePath) {
+    static getLanguageFromPath(filePath) {
     const extension = filePath.split('.').pop().toLowerCase();
     const languageMap = {
       'js': 'javascript',
@@ -428,14 +466,27 @@ class EditorManager {
       'cpp': 'cpp',
       'h': 'c',
       'hpp': 'cpp',
-      'cmm': 'cmm',
+      'cmm': 'c', // Changed from 'cmm' to 'c'
       'asm': 'asm',
       'v': 'verilog'
     };
     return languageMap[extension] || 'plaintext';
   }
 
-  static setActiveEditor(filePath) {
+static setActiveEditor(filePath) {
+  // Save current find state before switching
+  const currentActiveFilePath = this.getActiveFilePath();
+  if (currentActiveFilePath && this.activeEditor) {
+    const findWidget = document.querySelector('.find-widget');
+    const findInput = document.querySelector('.monaco-findInput input');
+    
+    if (this.findStates.has(currentActiveFilePath)) {
+      const state = this.findStates.get(currentActiveFilePath);
+      state.isOpen = findWidget && findWidget.classList.contains('visible');
+      state.searchTerm = findInput ? findInput.value : '';
+    }
+  }
+
   this.editors.forEach(({editor, container}) => {
     container.style.display = 'none';
   });
@@ -449,11 +500,25 @@ class EditorManager {
   editorData.container.style.display = 'block';
   this.activeEditor = editorData.editor;
   
-  // CORREÇÃO IMPORTANTE: Layout após mostrar
   setTimeout(() => {
     this.activeEditor.layout();
     this.activeEditor.focus();
     
+    // Restore find widget state for this file
+    const state = this.findStates.get(filePath);
+    if (state && state.isOpen) {
+      const findAction = this.activeEditor.getAction('actions.find');
+      if (findAction) {
+        findAction.run().then(() => {
+          setTimeout(() => {
+            const input = document.querySelector('.monaco-findInput input');
+            if (input && state.searchTerm) {
+              input.value = state.searchTerm;
+            }
+          }, 50);
+        });
+      }
+    }
   }, 50);
 
   this.updateOverlayVisibility();
@@ -471,6 +536,9 @@ class EditorManager {
       editorData.editor.dispose();
       this.editorContainer.removeChild(editorData.container);
       this.editors.delete(filePath);
+      
+      // Clean up find state
+      this.findStates.delete(filePath);
     }
     this.updateOverlayVisibility();
   }
@@ -5768,14 +5836,27 @@ async iverilogProjectCompilation() {
       throw new Error("No processors defined in project configuration");
     }
     
-    // Get the testbench file
-    const testbenchFile = this.projectConfig.testbenchFile;
-    if (!testbenchFile) {
-      throw new Error("No testbench file specified in project configuration");
+    // Get the testbench file - handle standard case
+    let testbenchFile = this.projectConfig.testbenchFile;
+    let topModuleName;
+    
+    if (!testbenchFile || testbenchFile === 'Standard') {
+      // Use first processor name as testbench name with _tb suffix
+      const firstProcessor = processors[0];
+      testbenchFile = `${firstProcessor.type}_tb.v`;
+      topModuleName = `${firstProcessor.type}_tb`;
+    } else {
+      topModuleName = testbenchFile.replace('.v', '');
     }
     
-    // Get the TopLevel file
-    const topLevelFile = this.projectConfig.topLevelFile;
+    // Get the TopLevel file - handle standard case
+    let topLevelFile = this.projectConfig.topLevelFile;
+    
+    if (!topLevelFile || topLevelFile === 'Standard') {
+      // Use first processor name as top level name
+      const firstProcessor = processors[0];
+      topLevelFile = `${firstProcessor.type}.v`;
+    }
     
     // Build list of HDL files
     const hdlFiles = await window.electronAPI.readDir(hdlDir);
@@ -5787,11 +5868,11 @@ async iverilogProjectCompilation() {
       }
     }
     
-    // Build list of TopLevel files
+    // Build list of TopLevel files (EXCLUDING the testbench file to avoid duplication)
     const topLevelFiles = await window.electronAPI.readDir(topLevelDir);  
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
-      if (file.endsWith('.v')) {
+      if (file.endsWith('.v') && file !== testbenchFile) { // Skip testbench file here
         const topLevelFilePath = await window.electronAPI.joinPath(topLevelDir, file);
         topLevelVerilogFiles += `"${topLevelFilePath}" `;
       }
@@ -5812,16 +5893,14 @@ async iverilogProjectCompilation() {
 
     // Build the iverilog command for project verification
     const projectName = this.projectPath.split(/[\/\\]/).pop();
-    let topModuleName = testbenchFile.replace('.v', '');
-    
-    if (topLevelFile && topLevelFile !== "Standard") {
-      topModuleName = topLevelFile.replace('.v', '');
-    }
     
     // Resolve output path
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}`);
     
-    const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
+    // Build testbench file path
+    const testbenchFilePath = await window.electronAPI.joinPath(topLevelDir, testbenchFile);
+    
+    const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" "${testbenchFilePath}" ${hdlVerilogFiles} ${processorVerilogFiles} ${topLevelVerilogFiles}`;
     
     this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
     
@@ -5962,8 +6041,6 @@ async iverilogCompilation(processor) {
     throw error;
   }
 }
-
-
 // Fix 4: Updated runGtkWave method
 async runGtkWave(processor) {
   if (this.isProjectOriented) {
@@ -6033,13 +6110,45 @@ async runGtkWave(processor) {
     const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
     await window.electronAPI.copyFile(instMemSource, instMemDest);
 
-    // 3) Run VVP to generate VCD
+    // 3) Prepare VCD file path (will be created by VVP)
+    const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
+
+    // 4) Launch GTKWave first with empty/non-existent VCD file
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave for real-time VCD viewing...');
+    
+    // Determine GTKWave command based on configuration
+    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
+    let gtkwCmd;
+
+    if (useStandardGtkw) {
+      const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+    } else {
+      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+      const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScript}"`;
+    }
+
+    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
+    
+    // Launch GTKWave asynchronously (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+      // Don't throw here as GTKWave might exit normally when user closes it
+    });
+
+    // Give GTKWave a moment to start
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 5) Run VVP to generate VCD (while GTKWave is already open)
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+    this.terminalManager.appendToTerminal('twave', 'GTKWave is now open - use File->Reload to see simulation progress!', 'info');
+    
     const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
     await window.electronAPI.deleteFileOrDirectory(progressPath);
 
-    await showVVPProgress(name);
-
+    // Fix: Ensure name is passed as string
+    await showVVPProgress(String(name));
 
     // VVP Command - run the compiled file (cmmBaseName) to generate VCD
     const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${cmmBaseName}" -fst -v`;
@@ -6096,7 +6205,6 @@ async runGtkWave(processor) {
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
 
-
     } catch (err) {
       isVvpRunning = false;
       
@@ -6127,35 +6235,8 @@ async runGtkWave(processor) {
 
     hideVVPProgress();
 
-    // 4) Run GTKWave with the generated VCD file
-    // VCD file will be named after the testbench module that was executed
-    const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
-    
-    // Determine GTKWave command based on configuration
-    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
-    let gtkwCmd;
-    
-    if (useStandardGtkw) {
-      const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
-    } else {
-      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-      const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScript}"`;
-    }
-
-    this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
-    const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-
-    if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-    if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-
-    if (gtkwResult.code !== 0) {
-      statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
-      throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
-    }
-
-    this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully.', 'success');
+    this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
+    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
@@ -6164,8 +6245,7 @@ async runGtkWave(processor) {
     throw error;
   }
 }
-
-async runProjectGtkWave(name) {
+async runProjectGtkWave() {
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for project...`);
   statusUpdater.startCompilation('wave');
 
@@ -6174,7 +6254,7 @@ async runProjectGtkWave(name) {
       throw new Error("Project configuration not loaded");
     }
 
-    // 1) Monta todos os diretórios necessários
+    // 1) Build all necessary directories
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const hdlDir      = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const binDir      = await window.electronAPI.joinPath('saphoComponents', 'bin');
@@ -6190,21 +6270,28 @@ async runProjectGtkWave(name) {
       'saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe'
     );
 
-    // 2) Processadores e testbench no projeto
+    // 2) Get processors and testbench from project
     const processors = this.projectConfig.processors || [];
     if (processors.length === 0) {
       throw new Error("No processors defined in project configuration");
     }
 
-    const testbenchFile = this.projectConfig.testbenchFile;
-    if (!testbenchFile) {
-      throw new Error("No testbench file specified in project configuration");
+    // Handle standard testbench file
+    let testbenchFile = this.projectConfig.testbenchFile;
+    let tbModule;
+    
+    if (!testbenchFile || testbenchFile === 'Standard') {
+      // Use first processor name as testbench name with _tb suffix
+      const firstProcessor = processors[0];
+      testbenchFile = `${firstProcessor.type}_tb.v`;
+      tbModule = `${firstProcessor.type}_tb`;
+    } else {
+      tbModule = testbenchFile.replace(/\.v$/i, '');
     }
-    const tbModule = testbenchFile.replace(/\.v$/i, '');
 
-    const gtkwaveFile = this.projectConfig.gtkwaveFile; // pode ser "Standard" ou nome custom
+    const gtkwaveFile = this.projectConfig.gtkwaveFile; // can be "Standard" or custom name
 
-    // 3) Compilação com Icarus Verilog (todos os .v)
+    // 3) Compile with Icarus Verilog (all .v files)
     // 3.1) HDL files
     const hdlFiles = await window.electronAPI.readDir(hdlDir);
     let hdlVerilogFiles = "";
@@ -6215,17 +6302,17 @@ async runProjectGtkWave(name) {
       }
     }
 
-    // 3.2) TopLevel files
+    // 3.2) TopLevel files (EXCLUINDO o arquivo de testbench para evitar duplicação)
     const topLevelFiles = await window.electronAPI.readDir(topLevelDir);
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
-      if (file.endsWith('.v')) {
+      if (file.endsWith('.v') && file !== testbenchFile) { // Excluir o testbench
         const path = await window.electronAPI.joinPath(topLevelDir, file);
         topLevelVerilogFiles += `"${path}" `;
       }
     }
 
-    // 3.3) Processor files e criação de pastas temporárias
+    // 3.3) Processor files and create temporary folders
     let processorVerilogFiles = "";
     for (const processor of processors) {
       const procName = processor.type;
@@ -6234,7 +6321,7 @@ async runProjectGtkWave(name) {
       );
       processorVerilogFiles += `"${procPath}" `;
 
-      // Garante que diretórios temporários para cada processador existam
+      // Ensure temporary directories for each processor exist
       await this.ensureDirectories(procName);
     }
 
@@ -6242,19 +6329,22 @@ async runProjectGtkWave(name) {
 
     await TabManager.saveAllFiles();
 
-    // 3.4) Monta comando iverilog
+    // 3.4) Build iverilog command
     const projectName    = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
+
+    // Build testbench file path
+    const testbenchFilePath = await window.electronAPI.joinPath(topLevelDir, testbenchFile);
 
     const iverilogCmd =
       `cd "${tempBaseDir}" && `
       + `"${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" `
-      + `${hdlVerilogFiles}${processorVerilogFiles}${topLevelVerilogFiles}`;
+      + `"${testbenchFilePath}" ${hdlVerilogFiles}${processorVerilogFiles}${topLevelVerilogFiles}`;
 
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
 
-    // Log do stdout/stderr do iverilog
+    // Log iverilog stdout/stderr
     if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
     if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
 
@@ -6263,7 +6353,7 @@ async runProjectGtkWave(name) {
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
 
-    // 4) Copia arquivos .mif e possíveis arquivos de PC para tempBaseDir
+    // 4) Copy .mif files and possible PC files to tempBaseDir
     for (const processor of processors) {
       const procName     = processor.type;
       const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
@@ -6276,7 +6366,7 @@ async runProjectGtkWave(name) {
       const instMemDest   = await window.electronAPI.joinPath(tempBaseDir, `${procName}_inst.mif`);
       await window.electronAPI.copyFile(instMemSource, instMemDest);
 
-      // PC memory (opcional)
+      // PC memory (optional)
       const pcMemPath = await window.electronAPI.joinPath(
         'saphoComponents', 'Temp', procName, `pc_${procName}_mem.txt`
       );
@@ -6292,7 +6382,7 @@ async runProjectGtkWave(name) {
       }
     }
 
-    // 5) Copia quaisquer .txt de TopLevel
+    // 5) Copy any .txt files from TopLevel
     for (const file of topLevelFiles) {
       if (file.endsWith('.txt')) {
         const txtSource = await window.electronAPI.joinPath(topLevelDir, file);
@@ -6301,7 +6391,7 @@ async runProjectGtkWave(name) {
       }
     }
 
-    // 6) Gera tcl_infos.txt no tempBaseDir para o projeto
+    // 6) Generate tcl_infos.txt in tempBaseDir for the project
     const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
     let instanceList      = "";
     let processorTypeList = "";
@@ -6318,17 +6408,53 @@ async runProjectGtkWave(name) {
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt for project GTKWave.`);
     await window.electronAPI.writeFile(tclFilePath, tclContent);
 
-    // 7) Roda o VVP para gerar o .vcd
-    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-     await window.electronAPI.deleteFileOrDirectory(progressPath);
+    // 7) Prepare VCD file path and launch GTKWave first
+    const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
+    
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave for real-time VCD viewing...');
+    
+    await window.electronAPI.deleteFileOrDirectory(vcdPath);
 
-    await showVVPProgress(name);
+    // Build GTKWave command (can be standard or custom)
+    let gtkwCmd;
+    if (gtkwaveFile && gtkwaveFile !== "Standard") {
+      // Custom
+      const gtkwPath     = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
+      const posScriptPath= await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScriptPath}"`;
+    } else {
+      // Standard for project - no additional gtkwave file
+      const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+    }
+
+    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
+    
+    // Launch GTKWave asynchronously (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+      // Don't throw here as GTKWave might exit normally when user closes it
+    });
+
+    // Give GTKWave a moment to start
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 8) Run VVP to generate the .vcd (while GTKWave is already open)
+    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
+    this.terminalManager.appendToTerminal('twave', 'GTKWave is now open - use File->Reload to see simulation progress!', 'info');
+    
+    // Fix the VVP progress call - pass a string instead of undefined
+    const projectName2 = this.projectPath.split(/[\/\\]/).pop() || 'project';
+    await showVVPProgress(projectName2);
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
 
-    // 7.1) Configura listener nomeado ANTES de chamar execCommandStream
+    // 8.1) Configure named listener BEFORE calling execCommandStream
     let isVvpRunning = true;
     let vvpProcessPid = null;
     const outputListener = (event, payload) => {
@@ -6427,37 +6553,8 @@ async runProjectGtkWave(name) {
     checkCancellation();
     hideVVPProgress();
 
-    // Após a simulação, chama o GTKWave:
-    // 8) Monta comando GTKWave (pode ser padrão ou customizado)
-    let gtkwCmd;
-    if (gtkwaveFile && gtkwaveFile !== "Standard") {
-      // Customizado
-      const gtkwPath     = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
-      const posScriptPath= await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd =
-        `cd "${tempBaseDir}" && `
-        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
-    } else {
-      // Padrão para projeto
-      const vcdPath        = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
-      const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-      gtkwCmd =
-        `cd "${tempBaseDir}" && `
-        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
-    }
-
-    this.terminalManager.appendToTerminal('twave', `Executing GTKWave command:\n${gtkwCmd}`);
-    const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-
-    if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-    if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-
-    if (gtkwResult.code !== 0) {
-      statusUpdater.compilationError('wave', `GTKWave execution failed with code ${gtkwResult.code}`);
-      throw new Error(`GTKWave execution failed with code ${gtkwResult.code}`);
-    }
-
-    this.terminalManager.appendToTerminal('twave', 'Project GTKWave completed successfully.', 'success');
+    this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
+    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
     statusUpdater.compilationSuccess('wave');
 
   } catch (error) {
@@ -6466,6 +6563,7 @@ async runProjectGtkWave(name) {
     throw error;
   }
 }
+
 
 
  async compileAll() {
@@ -6580,6 +6678,55 @@ async runProjectGtkWave(name) {
 }
 
 }
+
+// Functions to use in your renderer.js
+function showVVPProgress(name) {
+
+  return vvpProgressManager.show(name);
+}
+
+function hideVVPProgress(delay = 5000) {
+  setTimeout(() => {
+    vvpProgressManager.hide();
+  }, delay);
+}
+
+
+// Updated All Compilation Handler
+document.getElementById('allcomp').addEventListener('click', async () => {
+  // Check if processor is configured
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
+    return;
+  }
+  
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+  
+  // Set compilation flags
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  
+  try {
+    const compiler = new CompilationModule(currentProjectPath);
+    const success = await compiler.compileAll();
+    
+    if (!compilationCanceled && success) {
+      console.log('All compilations completed successfully', 'success');
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Compilation error:', error);
+      showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    // Reset compilation flags
+    isCompilationRunning = false;
+    compilationCanceled = false;
+  }
+});
 
 // Enhanced compilation button state management
 function setCompilationButtonsState(disabled) {
@@ -6755,41 +6902,7 @@ function checkCancellation() {
   }
 }
 
-// Updated All Compilation Handler
-document.getElementById('allcomp').addEventListener('click', async () => {
-  // Check if processor is configured
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
-    return;
-  }
-  
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-  
-  // Set compilation flags
-  isCompilationRunning = true;
-  compilationCanceled = false;
-  
-  try {
-    const compiler = new CompilationModule(currentProjectPath);
-    const success = await compiler.compileAll();
-    
-    if (!compilationCanceled && success) {
-      console.log('All compilations completed successfully', 'success');
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('Compilation error:', error);
-      showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    // Reset compilation flags
-    isCompilationRunning = false;
-    compilationCanceled = false;
-  }
-});
+
 
 // Add this to your existing keyboard event handler or create a new one
 document.addEventListener('keydown', (e) => {
@@ -7950,7 +8063,7 @@ class VVPProgressManager {
               <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
             </div>
             <div class="vvp-stat">
-             <i class="fa-solid fa-arrow-rotate-right"></i> <span class="vvp-stat-label">Events</span>
+            <span class="vvp-stat-label"><i class="fa-solid fa-arrow-rotate-right"></i> Events</span>
              <span class="vvp-stat-value" id="vvp-events-count">0</span>
             </div>
           </div>
@@ -8100,18 +8213,6 @@ class VVPProgressManager {
 
 // Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
-
-// Functions to use in your renderer.js
-function showVVPProgress(name) {
-  return vvpProgressManager.show(name);
-}
-
-function hideVVPProgress(delay = 5000) {
-  setTimeout(() => {
-    vvpProgressManager.hide();
-  }, delay);
-}
-
 
 // Electron Fractal Button Handler - Versão Otimizada
 document.getElementById('fractalcomp').addEventListener('click', async function() {

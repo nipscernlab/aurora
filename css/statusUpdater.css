@@ -23,9 +23,9 @@
     color: var(--text-secondary);
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
-    padding: 0.25rem 0.5rem;
+    padding: 0.25rem 1.0rem;
     border-radius: 4px;
-    max-width: 300px;
+    max-width: 450px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -34,6 +34,7 @@
   /* Status icon general styles */
   .status-item i {
     margin-right: 0.6rem;
+    margin-left: 0.6rem;
     font-size: 0.9rem;
     display: inline-flex;
     align-items: center;

@@ -5,6 +5,7 @@ let currentProvider = 'chatgpt'; // or 'claude'
 let editorInstance;
 let isVvpRunning = false;
 let currentVvpPid = null;
+let compilerInstance = null; // Store reference to your compiler class instance
 
 //MONACO EDITOR ======================================================================================================================================================== ƒ
 class EditorManager {
@@ -6565,9 +6566,77 @@ async runProjectGtkWave() {
 }
 
 
-
- async compileAll() {
+// Add this method to your class for launching fractal visualizer
+async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
   try {
+    const outputFilePath = await window.electronAPI.joinPath(
+      this.projectPath, 
+      processorName, 
+      'Simulation', 
+      'output_0.txt'
+    );
+    
+    const fancyFractalPath = await window.electronAPI.joinPath(
+      'saphoComponents', 
+      'Packages', 
+      'FFPGA',
+      'fancyFractal.exe'
+    );
+    
+    // Limpar arquivo anterior
+    await window.electronAPI.deleteFileOrDirectory(outputFilePath);
+    
+    // Verificar se executável existe
+    const executableExists = await window.electronAPI.pathExists(fancyFractalPath);
+    if (!executableExists) {
+      throw new Error(`Visualizador não encontrado em: ${fancyFractalPath}`);
+    }
+    
+    // Comando com paleta
+    const command = `"${fancyFractalPath}" "${outputFilePath}" --palette grayscale`;
+    
+    this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
+    this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);
+    
+    // Executar comando assíncrono
+    window.electronAPI.execCommand(command).then(result => {
+      if (result.code === 0) {
+        this.terminalManager.appendToTerminal('tcmm', `Visualizador concluído com sucesso`);
+      } else {
+        this.terminalManager.appendToTerminal('tcmm', `Visualizador finalizou com código: ${result.code}`, 'warning');
+      }
+    }).catch(error => {
+      this.terminalManager.appendToTerminal('tcmm', `Erro no visualizador: ${error.message}`, 'error');
+    });
+    
+    return true;
+    
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tcmm', `Erro ao iniciar visualizador: ${error.message}`, 'error');
+    console.error('Falha ao iniciar visualizador:', error);
+    return false;
+  }
+}
+
+// Method to launch fractal visualizer for all processors at once
+async launchFractalVisualizersForProject(palette = 'fire') {
+  if (!this.isProjectOriented) {
+    const activeProcessor = this.config.processors.find(p => p.isActive === true);
+    if (activeProcessor) {
+      await this.launchFractalVisualizerAsync(activeProcessor.name, palette);
+    }
+  }
+}
+
+// Modified compileAll method with fractal visualization option
+async compileAll(withFractal = false, palette = 'fire') {
+  try {
+    startCompilation();
+    await this.loadConfig();
+    
+    if (withFractal) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
     // Function to switch between terminal tabs
     function switchTerminal(targetId) {
       // Hide all terminal content sections
@@ -6588,6 +6657,7 @@ async runProjectGtkWave() {
         activeTab.classList.add('active');
       }
     }
+    
     startCompilation();
     // Load configurations
     await this.loadConfig();
@@ -6626,6 +6696,7 @@ async runProjectGtkWave() {
             checkCancellation();
             // Then compile ASM - pass 1 as the project parameter
             await this.asmCompilation(processorObj, asmPath);
+            
           } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
             // Continue with next processor rather than stopping entire compilation
@@ -6660,6 +6731,7 @@ async runProjectGtkWave() {
       checkCancellation();
       // ASM compilation
       await this.asmCompilation(processor, asmPath);
+      
       checkCancellation();
       // Verilog compilation
       await this.iverilogCompilation(processor);
@@ -6677,7 +6749,85 @@ async runProjectGtkWave() {
   }
 }
 
+
 }
+
+
+// Global functions to handle button clicks (put these outside your class)
+
+function setCompilerInstance(instance) {
+  compilerInstance = instance;
+}
+
+// Fractal compilation handler
+async function handleFractalCompilation() {
+  if (!compilerInstance) {
+    console.error('Instância do compilador não definida');
+    return;
+  }
+  
+  if (!compilerInstance.isCompiling) {
+    try {
+      console.log('Iniciando compilação com fractal...');
+      await compilerInstance.loadConfig();
+      
+      // Perguntar ao usuário qual paleta usar (opcional)
+      const palette = 'fire'; // ou permitir seleção: prompt("Escolha a paleta (grayscale, fire, ocean, rainbow):", "fire");
+      
+      // Lançar visualizadores com paleta específica
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await compilerInstance.compileAll(true);
+    } catch (error) {
+      console.error('Erro na compilação com fractal:', error);
+      if (compilerInstance.terminalManager) {
+        compilerInstance.terminalManager.appendToTerminal('tcmm', `Erro: ${error.message}`, 'error');
+      }
+    }
+  }
+}
+
+// Regular compilation handler
+async function handleRegularCompilation() {
+  if (!compilerInstance) {
+    console.error('Compiler instance not set');
+    return;
+  }
+  
+  if (!compilerInstance.isCompiling) {
+    try {
+      console.log('Starting regular compilation...');
+      await compilerInstance.compileAll();
+    } catch (error) {
+      console.error('Error in regular compilation process:', error);
+      if (compilerInstance.terminalManager) {
+        compilerInstance.terminalManager.appendToTerminal('tcmm', `Error starting compilation: ${error.message}`, 'error');
+      }
+    }
+  }
+}
+
+function setupCompilationButtons() {
+  // Remove existing listeners to prevent duplicates
+  const fractalButton = document.getElementById('fractalcomp');
+  const compileAllButton = document.getElementById('allcomp');
+  
+  if (fractalButton) {
+    // Clone button to remove all existing event listeners
+    const newFractalButton = fractalButton.cloneNode(true);
+    fractalButton.parentNode.replaceChild(newFractalButton, fractalButton);
+    newFractalButton.addEventListener('click', handleFractalCompilation);
+  }
+  
+  if (compileAllButton) {
+    // Clone button to remove all existing event listeners
+    const newCompileButton = compileAllButton.cloneNode(true);
+    compileAllButton.parentNode.replaceChild(newCompileButton, compileAllButton);
+    newCompileButton.addEventListener('click', handleRegularCompilation);
+  }
+}
+
 
 // Functions to use in your renderer.js
 function showVVPProgress(name) {
@@ -6690,6 +6840,50 @@ function hideVVPProgress(delay = 5000) {
     vvpProgressManager.hide();
   }, delay);
 }
+
+document.getElementById('fractalcomp').addEventListener('click', async () => {
+  // Check if processor is configured
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
+    return;
+  }
+  
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+  
+  // Set compilation flags
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  
+  try {
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig(); // Load config first
+    
+    // Launch fractal visualizers first
+    await compiler.launchFractalVisualizersForProject();
+    
+    // Small delay to ensure visualizers are started
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Then start compilation with fractal flag
+    const success = await compiler.compileAll(true); // Pass true for withFractal
+    
+    if (!compilationCanceled && success) {
+      console.log('Fractal compilation completed successfully');
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Fractal compilation error:', error);
+      showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    // Reset compilation flags
+    isCompilationRunning = false;
+    compilationCanceled = false;
+  }
+});
 
 
 // Updated All Compilation Handler
@@ -6711,6 +6905,8 @@ document.getElementById('allcomp').addEventListener('click', async () => {
   
   try {
     const compiler = new CompilationModule(currentProjectPath);
+    setupCompilationButtons(currentProjectPath);
+    setCompilerInstance(currentProjectPath);
     const success = await compiler.compileAll();
     
     if (!compilationCanceled && success) {
@@ -6969,7 +7165,15 @@ class CompilationButtonManager {
       return;
     }
     this.compiler = new CompilationModule(currentProjectPath);
+    // FIXED: Pass the compiler instance, not the path
+    setCompilerInstance(this.compiler);
+    setupCompilationButtons();
   }
+
+  setupEventListeners() {
+    // Setup other event listeners if needed
+  }
+
 
   async setupEventListeners() {
     // CMM Compilation
@@ -8214,145 +8418,3 @@ class VVPProgressManager {
 // Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
 
-// Electron Fractal Button Handler - Versão Otimizada
-document.getElementById('fractalcomp').addEventListener('click', async function() {
-    try {
-        console.log('Iniciando processo de geração de fractal...');
-        
-        // Primeiro, compila o código CMM
-        const compileAllButton = document.getElementById('allcomp');
-        if (compileAllButton) {
-            compileAllButton.disabled = false;
-            compileAllButton.click();
-            compileAllButton.disabled = true;
-            console.log('Compilação iniciada...');
-        }
-
-        // Aguarda a compilação
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
-        // Caminhos hardcoded conforme solicitado
-        const outputFilePath = 'C:\\Users\\LCOM\\Desktop\\ffpga\\fractal\\Simulation\\output_2.txt';
-        const fractalImagePath = 'C:\\Users\\LCOM\\Desktop\\ffpga\\fractal\\Simulation\\fractal_realtime.png';
-
-        // Aguarda o arquivo de saída ser criado
-        console.log('Aguardando arquivo output_2.txt...');
-        let fileExists = false;
-        let attempts = 0;
-        const maxAttempts = 60;
-
-        while (!fileExists && attempts < maxAttempts) {
-            try {
-                fileExists = await window.electronAPI.fileExists(outputFilePath);
-                if (!fileExists) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    attempts++;
-                    if (attempts % 10 === 0) {
-                        console.log(`Tentativa ${attempts}/${maxAttempts} - aguardando output_2.txt...`);
-                    }
-                }
-            } catch (error) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                attempts++;
-            }
-        }
-
-        if (!fileExists) {
-            throw new Error(`Arquivo ${outputFilePath} não foi criado dentro do tempo esperado`);
-        }
-
-        console.log('Arquivo output_2.txt encontrado! Iniciando geração da imagem...');
-
-        // Caminho para o executável fancyFractal
-        const fancyFractalPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'FFPGA', 'fancyFractal.exe');
-        
-        // Configurações do fractal (128x128 conforme seu código CMM)
-        const fractalWidth = 128;
-        const fractalHeight = 128;
-        const totalPixels = fractalWidth * fractalHeight; // 16384 pixels
-        const imageWidth = 800;  // Resolução da imagem final
-        const imageHeight = 600;
-
-        console.log(`Gerando imagem ${imageWidth}x${imageHeight} a partir de ${fractalWidth}x${fractalHeight} pixels`);
-        console.log(`Total de iterações: ${totalPixels}`);
-
-        let currentIteration = 0;
-        let pixelsProcessed = 0;
-
-        // Função para executar uma iteração do fancyFractal
-        const executeIteration = async () => {
-            try {
-                // Comando para chamar o fancyFractal.exe
-                const command = `"${fancyFractalPath}" "${outputFilePath}" ${currentIteration} --width ${imageWidth} --height ${imageHeight} --output "${fractalImagePath}"`;
-                
-                const result = await window.electronAPI.execCommand(command);
-                
-                currentIteration++;
-                pixelsProcessed++;
-                
-                // Log de progresso a cada 100 iterações
-                if (currentIteration % 100 === 0 || currentIteration === totalPixels) {
-                    const percentage = ((currentIteration / totalPixels) * 100).toFixed(1);
-                    console.log(`Progresso: ${currentIteration}/${totalPixels} (${percentage}%) - Imagem atualizada`);
-                }
-                
-                return true;
-            } catch (error) {
-                console.error(`Erro na iteração ${currentIteration}:`, error);
-                return false;
-            }
-        };
-
-        // Executa todas as iterações
-        const startTime = Date.now();
-        
-        while (currentIteration < totalPixels) {
-            const success = await executeIteration();
-            
-            if (!success) {
-                console.error(`Falha na iteração ${currentIteration}`);
-                break;
-            }
-            
-            // Pequena pausa para não sobrecarregar o sistema
-            if (currentIteration % 50 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-        }
-
-        const endTime = Date.now();
-        const totalTime = ((endTime - startTime) / 1000).toFixed(2);
-
-        if (currentIteration >= totalPixels) {
-            console.log('🎉 Geração de fractal completada com sucesso!');
-            console.log(`⏱️  Tempo total: ${totalTime} segundos`);
-            console.log(`📊 Pixels processados: ${pixelsProcessed}`);
-            console.log(`🖼️  Imagem final salva em: ${fractalImagePath}`);
-            
-            // Tenta abrir a imagem gerada (opcional)
-            try {
-                await window.electronAPI.execCommand(`start "" "${fractalImagePath}"`);
-            } catch (error) {
-                console.log('Imagem gerada, mas não foi possível abri-la automaticamente');
-            }
-        } else {
-            console.log(`⚠️  Processo interrompido na iteração ${currentIteration}/${totalPixels}`);
-        }
-
-    } catch (error) {
-        console.error('❌ Erro no processo de geração de fractal:', error);
-        alert('Erro na geração do fractal: ' + error.message);
-    }
-});
-
-// Função para parar a geração (se necessário no futuro)
-function stopFractalGeneration() {
-    console.log('🛑 Função de parada chamada (implementar se necessário)');
-}
-
-// Função auxiliar para mostrar progresso visual (opcional)
-function updateProgressUI(current, total) {
-    const percentage = ((current / total) * 100).toFixed(1);
-    // Aqui você pode atualizar algum elemento da UI se quiser mostrar progresso
-    console.log(`Progresso visual: ${percentage}%`);
-}

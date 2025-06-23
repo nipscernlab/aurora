@@ -6593,7 +6593,7 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     }
     
     // Comando com paleta
-    const command = `"${fancyFractalPath}" "${outputFilePath}" --palette grayscale`;
+    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 128 --height 128 --palette rainbow`;
     
     this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
     this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);

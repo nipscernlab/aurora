@@ -251,3 +251,27 @@
 .toolbar {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+#cancel-everything,
+#allcomp {
+  margin: 0;
+  border-left: none;
+}
+
+#cancel-everything {
+  border-left: 1px solid var(--border-color);
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+#allcomp {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* Envolve os botões juntos se quiser mais controle */
+.compile-all-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}

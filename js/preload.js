@@ -174,7 +174,16 @@ const fileOperations = {
   openBrowser: () => ipcRenderer.send('open-browser'),
   openGithubDesktop: () => ipcRenderer.send('open-github-desktop'),
   quitApp: () => ipcRenderer.send('quit-app'),
-
+readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
+  
+  // File type detection
+  getFileType: (filePath) => ipcRenderer.invoke('get-file-type', filePath),
+  
+  // Your existing file operations...
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
+  getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
+  readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 
 };
 
@@ -186,6 +195,9 @@ const projectOperations = {
   loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
+  cancelVvpProcess: () => ipcRenderer.invoke('cancel-vvp-process'),
+runVvpCommand: (vvpCmd, tempPath) => ipcRenderer.invoke('run-vvp-command', vvpCmd, tempPath),
+checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
   saveCompilationResult: (hardwareFolderPath, fileName, content) => ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
   readDir: (dirPath) => ipcRenderer.invoke('readDir', dirPath),

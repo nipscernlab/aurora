@@ -397,6 +397,9 @@ static getActiveFilePath() {
   }
 
   static initialize() {
+  // Add this line to ensure relative positioning
+  this.editorContainer.style.position = 'relative';
+
     this.editorContainer = document.getElementById('monaco-editor');
     if (!this.editorContainer) {
       console.error('Editor container not found');
@@ -1282,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 //TAB MANAGER   ======================================================================================================================================================== ƒ
 class TabManager {
- static tabs = new Map();
+  static tabs = new Map();
   static activeTab = null;
   static editorStates = new Map();
   static unsavedChanges = new Set();
@@ -1292,6 +1295,203 @@ class TabManager {
   static externalChangeQueue = new Set();
   static periodicCheckInterval = null;
   static isCheckingFiles = false;
+
+  // Image and PDF extensions
+  static imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+  static pdfExtensions = new Set(['pdf']);
+
+  // Utility method to check if file is an image
+  static isImageFile(filePath) {
+    const extension = filePath.split('.').pop().toLowerCase();
+    return this.imageExtensions.has(extension);
+  }
+
+  // Utility method to check if file is a PDF
+  static isPdfFile(filePath) {
+    const extension = filePath.split('.').pop().toLowerCase();
+    return this.pdfExtensions.has(extension);
+  }
+
+  // Utility method to check if file is binary (image or PDF)
+  static isBinaryFile(filePath) {
+    return this.isImageFile(filePath) || this.isPdfFile(filePath);
+  }
+
+  // Create image viewer
+  static createImageViewer(filePath, container) {
+    const imageViewer = document.createElement('div');
+    imageViewer.className = 'image-viewer';
+    imageViewer.innerHTML = `
+      <div class="image-viewer-toolbar">
+        <div class="image-viewer-controls">
+          <button class="image-control-btn" id="zoom-in-btn" title="Zoom In">
+            <i class="fas fa-search-plus"></i>
+          </button>
+          <button class="image-control-btn" id="zoom-out-btn" title="Zoom Out">
+            <i class="fas fa-search-minus"></i>
+          </button>
+          <button class="image-control-btn" id="zoom-reset-btn" title="Reset Zoom">
+            <i class="fas fa-expand-arrows-alt"></i>
+          </button>
+          <span class="zoom-level" id="zoom-level">100%</span>
+        </div>
+        <div class="image-info">
+          <span id="image-name">${filePath.split(/[\\/]/).pop()}</span>
+        </div>
+      </div>
+    <div class="image-viewer-content" style="flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto;">
+      <div class="image-container" style="max-width: 100%; max-height: 100%;">
+        <img id="image-display" src="" alt="Image" style="max-width: 100%; max-height: 100%; object-fit: contain;"/>
+      </div>
+    </div>
+    `;
+
+    // Add event listeners for zoom controls
+    const zoomInBtn = imageViewer.querySelector('#zoom-in-btn');
+    const zoomOutBtn = imageViewer.querySelector('#zoom-out-btn');
+    const zoomResetBtn = imageViewer.querySelector('#zoom-reset-btn');
+    const zoomLevel = imageViewer.querySelector('#zoom-level');
+    const imageDisplay = imageViewer.querySelector('#image-display');
+
+    let currentZoom = 1;
+
+    const updateZoom = (newZoom) => {
+      currentZoom = Math.max(0.1, Math.min(5, newZoom));
+      imageDisplay.style.transform = `scale(${currentZoom})`;
+      zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+    };
+
+    zoomInBtn.addEventListener('click', () => updateZoom(currentZoom * 1.2));
+    zoomOutBtn.addEventListener('click', () => updateZoom(currentZoom / 1.2));
+    zoomResetBtn.addEventListener('click', () => updateZoom(1));
+
+    // Mouse wheel zoom
+    imageViewer.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        updateZoom(currentZoom * delta);
+      }
+    });
+
+    // Load image
+    this.loadImageFile(filePath, imageDisplay);
+
+    return imageViewer;
+  }
+
+  // Create PDF viewer
+  static createPdfViewer(filePath, container) {
+    const pdfViewer = document.createElement('div');
+    pdfViewer.className = 'pdf-viewer';
+    pdfViewer.innerHTML = `
+      <div class="pdf-viewer-toolbar">
+        <div class="pdf-viewer-controls">
+          <button class="pdf-control-btn" id="pdf-zoom-in-btn" title="Zoom In">
+            <i class="fas fa-search-plus"></i>
+          </button>
+          <button class="pdf-control-btn" id="pdf-zoom-out-btn" title="Zoom Out">
+            <i class="fas fa-search-minus"></i>
+          </button>
+          <button class="pdf-control-btn" id="pdf-zoom-reset-btn" title="Reset Zoom">
+            <i class="fas fa-expand-arrows-alt"></i>
+          </button>
+          <span class="pdf-zoom-level" id="pdf-zoom-level">100%</span>
+        </div>
+        <div class="pdf-info">
+          <span id="pdf-name">${filePath.split(/[\\/]/).pop()}</span>
+        </div>
+      </div>
+      <div class="pdf-viewer-content" style="flex: 1; position: relative;">
+      <iframe id="pdf-frame" src="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+      </div>
+    `;
+
+    // Add event listeners for PDF zoom controls
+    const zoomInBtn = pdfViewer.querySelector('#pdf-zoom-in-btn');
+    const zoomOutBtn = pdfViewer.querySelector('#pdf-zoom-out-btn');
+    const zoomResetBtn = pdfViewer.querySelector('#pdf-zoom-reset-btn');
+    const zoomLevel = pdfViewer.querySelector('#pdf-zoom-level');
+    const pdfFrame = pdfViewer.querySelector('#pdf-frame');
+
+    let currentZoom = 1;
+
+    const updatePdfZoom = (newZoom) => {
+      currentZoom = Math.max(0.5, Math.min(3, newZoom));
+      pdfFrame.style.transform = `scale(${currentZoom})`;
+      pdfFrame.style.transformOrigin = 'top left';
+      zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+    };
+
+    zoomInBtn.addEventListener('click', () => updatePdfZoom(currentZoom * 1.2));
+    zoomOutBtn.addEventListener('click', () => updatePdfZoom(currentZoom / 1.2));
+    zoomResetBtn.addEventListener('click', () => updatePdfZoom(1));
+
+    // Load PDF
+    this.loadPdfFile(filePath, pdfFrame);
+
+    return pdfViewer;
+  }
+
+  // Load image file
+static async loadImageFile(filePath, imgElement) {
+  try {
+    const buffer = await window.electronAPI.readFileBuffer(filePath);
+    // converter:
+    let arrayBuffer;
+    if (buffer instanceof ArrayBuffer) {
+      arrayBuffer = buffer;
+    } else if (ArrayBuffer.isView(buffer)) {
+      arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } else if (buffer.buffer && buffer.byteLength) {
+      arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } else {
+      arrayBuffer = Uint8Array.from(buffer).buffer;
+    }
+    const blob = new Blob([arrayBuffer]);
+    const url = URL.createObjectURL(blob);
+    imgElement.src = url;
+    imgElement.onload = () => {
+      if (imgElement.dataset.previousUrl) {
+        URL.revokeObjectURL(imgElement.dataset.previousUrl);
+      }
+      imgElement.dataset.previousUrl = url;
+    };
+  } catch (error) {
+    console.error('Error loading image:', error);
+    imgElement.alt = 'Failed to load image';
+  }
+}
+
+
+  static async loadPdfFile(filePath, iframeElement) {
+  try {
+    const buffer = await window.electronAPI.readFileBuffer(filePath);
+    let arrayBuffer;
+    if (buffer instanceof ArrayBuffer) {
+      arrayBuffer = buffer;
+    } else if (ArrayBuffer.isView(buffer)) {
+      arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } else if (buffer.buffer && buffer.byteLength) {
+      arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } else {
+      arrayBuffer = Uint8Array.from(buffer).buffer;
+    }
+    const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    iframeElement.src = url;
+    iframeElement.onload = () => {
+      if (iframeElement.dataset.previousUrl) {
+        URL.revokeObjectURL(iframeElement.dataset.previousUrl);
+      }
+      iframeElement.dataset.previousUrl = url;
+    };
+  } catch (error) {
+    console.error('Error loading PDF:', error);
+    iframeElement.src = 'data:text/html,<html><body><h3>Failed to load PDF</h3></body></html>';
+  }
+}
+
 
    static startPeriodicFileCheck() {
     // Clear any existing interval
@@ -1795,48 +1995,57 @@ static showFormattingIndicator(show) {
     });
   }
 
- static updateContextPath(filePath) {
-  const contextContainer = document.getElementById('context-path');
-  if (!contextContainer) return;
+ // Enhanced updateContextPath method
+  static updateContextPath(filePath) {
+    const contextContainer = document.getElementById('context-path');
+    if (!contextContainer) return;
 
-  if (!filePath) {
-    contextContainer.className = 'context-path-container empty';
-    contextContainer.innerHTML = '';
-    return;
+    if (!filePath) {
+      contextContainer.className = 'context-path-container empty';
+      contextContainer.innerHTML = '';
+      return;
+    }
+
+    contextContainer.className = 'context-path-container';
+
+    const segments = filePath.split(/[\\/]/);
+    const fileName = segments.pop();
+
+    let html = '<i class="fas fa-folder-open"></i>';
+
+    if (segments.length > 0) {
+      html += segments.map(segment =>
+        `<span class="context-path-segment">${segment}</span>`
+      ).join('<span class="context-path-separator">/</span>');
+
+      html += '<span class="context-path-separator">/</span>';
+    }
+
+    const fileIcon = TabManager.getFileIcon(fileName);
+    html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
+    html += `<span class="context-path-filename">${fileName}</span>`;
+
+    // Add file type indicator for binary files
+    if (this.isBinaryFile(filePath)) {
+      const fileType = this.isImageFile(filePath) ? 'Image' : 'PDF';
+      html += `<span class="file-type-indicator">${fileType}</span>`;
+    } else {
+      // Add formatting button (broom icon) only for text files
+      html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Code Refactoring" style="margin-left: auto; cursor: pointer;"></i>`;
+    }
+
+    contextContainer.innerHTML = html;
+
+    // Add click listener for formatting (only for text files)
+    if (!this.isBinaryFile(filePath)) {
+      const broomIcon = contextContainer.querySelector('.context-refactor-button');
+      if (broomIcon) {
+        broomIcon.addEventListener('click', async () => {
+          await TabManager.formatCurrentFile();
+        });
+      }
+    }
   }
-
-  contextContainer.className = 'context-path-container';
-
-  const segments = filePath.split(/[\\/]/);
-  const fileName = segments.pop();
-
-  let html = '<i class="fas fa-folder-open"></i>';
-
-  if (segments.length > 0) {
-    html += segments.map(segment =>
-      `<span class="context-path-segment">${segment}</span>`
-    ).join('<span class="context-path-separator">/</span>');
-
-    html += '<span class="context-path-separator">/</span>';
-  }
-
-  const fileIcon = TabManager.getFileIcon(fileName);
-  html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
-  html += `<span class="context-path-filename">${fileName}</span>`;
-
-  // Add formatting button (broom icon)
-  html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Code Refactoring" style="margin-left: auto; cursor: pointer;"></i>`;
-
-  contextContainer.innerHTML = html;
-
-  // Add click listener for formatting
-  const broomIcon = contextContainer.querySelector('.context-refactor-button');
-  if (broomIcon) {
-    broomIcon.addEventListener('click', async () => {
-      await TabManager.formatCurrentFile();
-    });
-  }
-}
 
 
   static highlightFileInTree(filePath) {
@@ -1986,29 +2195,41 @@ static restoreEditorState(filePath) {
     }
 }
 
- // Utility method to get file icon
- static getFileIcon(filename) {
-  const extension = filename.split('.').pop().toLowerCase();
-  const iconMap = {
-    'js': 'fab fa-js',
-    'jsx': 'fab fa-react',
-    'ts': 'fab fa-js',
-    'tsx': 'fab fa-react',
-    'html': 'fab fa-html5',
-    'css': 'fab fa-css3',
-    'json': 'fas fa-code',
-    'md': 'fab fa-markdown',
-    'py': 'fab fa-python',
-    'c': 'fas fa-code',
-    'cpp': 'fas fa-code',
-    'h': 'fas fa-code',
-    'hpp': 'fas fa-code'
-  };
-  return iconMap[extension] || 'fas fa-file-code';
-}
+  static getFileIcon(filename) {
+    const extension = filename.split('.').pop().toLowerCase();
+    
+    // Image file icons
+    if (this.imageExtensions.has(extension)) {
+      return 'fas fa-image';
+    }
+    
+    // PDF file icons
+    if (extension === 'pdf') {
+      return 'fas fa-file-pdf';
+    }
+    
+    // Existing text file icons
+    const iconMap = {
+      'js': 'fab fa-js',
+      'jsx': 'fab fa-react',
+      'ts': 'fab fa-js',
+      'tsx': 'fab fa-react',
+      'html': 'fab fa-html5',
+      'css': 'fab fa-css3',
+      'json': 'fas fa-code',
+      'md': 'fab fa-markdown',
+      'py': 'fab fa-python',
+      'c': 'fas fa-code',
+      'cpp': 'fas fa-code',
+      'h': 'fas fa-code',
+      'hpp': 'fas fa-code'
+    };
+    
+    return iconMap[extension] || 'fas fa-file-code';
+  }
 
-    // Enhanced addTab method
-  static addTab(filePath, content) {
+   // Enhanced addTab method with binary file support
+  static addTab(filePath, content = null) {
     // Check if tab already exists
     if (this.tabs.has(filePath)) {
       this.activateTab(filePath);
@@ -2028,9 +2249,15 @@ static restoreEditorState(filePath) {
     tab.setAttribute('draggable', 'true');
     tab.setAttribute('title', filePath);
 
+    // Add binary file indicator
+    const isBinary = this.isBinaryFile(filePath);
+    if (isBinary) {
+      tab.classList.add('binary-file');
+    }
+
     tab.innerHTML = `
-      <i class="${this.getFileIcon(filePath.split('\\').pop())}"></i>
-      <span class="tab-name">${filePath.split('\\').pop()}</span>
+      <i class="${this.getFileIcon(filePath.split(/[\\/]/).pop())}"></i>
+      <span class="tab-name">${filePath.split(/[\\/]/).pop()}</span>
       <button class="close-tab" title="Close">×</button>
     `;
 
@@ -2051,21 +2278,27 @@ static restoreEditorState(filePath) {
       this.startPeriodicFileCheck();
     }
 
-    // Store original content
-    this.tabs.set(filePath, content);
-
-    try {
-      // Create editor and set content
-      const editor = EditorManager.createEditorInstance(filePath);
-      editor.setValue(content);
-
-      // Setup change listener
-      this.setupContentChangeListener(filePath, editor);
-
+    // Handle binary files differently
+    if (isBinary) {
+      // Store file path for binary files
+      this.tabs.set(filePath, '[BINARY_FILE]');
       this.activateTab(filePath);
-    } catch (error) {
-      console.error('Error creating editor:', error);
-      this.closeTab(filePath);
+    } else {
+      // Handle text files normally
+      this.tabs.set(filePath, content || '');
+      
+      try {
+        // Create editor and set content
+        const editor = EditorManager.createEditorInstance(filePath);
+        editor.setValue(content || '');
+
+        // Setup change listener
+        this.setupContentChangeListener(filePath, editor);
+        this.activateTab(filePath);
+      } catch (error) {
+        console.error('Error creating editor:', error);
+        this.closeTab(filePath);
+      }
     }
 
     this.initSortableTabs();
@@ -2112,46 +2345,70 @@ static restoreEditorState(filePath) {
     });
   }
   
-// Modify the activateTab method to include highlighting
-static activateTab(filePath) {
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach(tab => tab.classList.remove('active'));
+ // Enhanced activateTab method with binary file support
+  static activateTab(filePath) {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
 
-  const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-  if (activeTab) {
-    activeTab.classList.add('active');
-    this.activeTab = filePath;
+    const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+    if (activeTab) {
+      activeTab.classList.add('active');
+      this.activeTab = filePath;
 
-    // Atualizar o caminho de contexto
-    this.updateContextPath(filePath);
+      // Update context path
+      this.updateContextPath(filePath);
 
-    // Highlight the file in the tree
-    this.highlightFileInTree(filePath);
+      // Highlight the file in the tree
+      this.highlightFileInTree(filePath);
 
-    // Activate corresponding editor
-    const editor = EditorManager.setActiveEditor(filePath);
-  }
-}
-  // Comprehensive save method
-  static async saveCurrentFile() {
-    const currentPath = this.activeTab;
-    if (!currentPath) return;
+      const editorContainer = document.getElementById('monaco-editor');
+  
+  // Handle binary files
+  if (this.isBinaryFile(filePath)) {
+    // Hide ALL editor instances
+    const editorInstances = editorContainer.querySelectorAll('.editor-instance');
+    editorInstances.forEach(el => el.style.display = 'none');
+    
+    // Remove existing viewers
+    const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
+    if (existingViewer) existingViewer.remove();
+    
+    // Create appropriate viewer
+    let viewer;
+    if (this.isImageFile(filePath)) {
+      viewer = this.createImageViewer(filePath, editorContainer);
+    } else if (this.isPdfFile(filePath)) {
+      viewer = this.createPdfViewer(filePath, editorContainer);
+    }
+    
+    if (viewer) {
+      // Position viewer absolutely to cover editor area
+      viewer.style.position = 'absolute';
+      viewer.style.top = '0';
+      viewer.style.left = '0';
+      viewer.style.right = '0';
+      viewer.style.bottom = '0';
+      editorContainer.appendChild(viewer);
+    }
+  }  else {
+        // Show Monaco editor for text files
+        const monacoEditorElement = editorContainer.querySelector('.monaco-editor-container');
+        if (monacoEditorElement) {
+          monacoEditorElement.style.display = 'block';
+        }
 
-    try {
-      const currentEditor = EditorManager.getEditorForFile(currentPath);
-      if (!currentEditor) return;
+        // Remove any existing viewers
+        const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
+        if (existingViewer) {
+          existingViewer.remove();
+        }
 
-      const content = currentEditor.getValue();
-      await window.electronAPI.writeFile(currentPath, content);
-      this.markFileAsSaved(currentPath);
-      
-      // Update the content in tabs map to reflect saved content
-      this.tabs.set(currentPath, content);
-    } catch (error) {
-      console.error('Error saving file:', error);
-      // Optional: Show error dialog to user
+        // Activate corresponding editor
+        EditorManager.setActiveEditor(filePath);
+      }
     }
   }
+
 
   static async saveAllFiles() {
     for (const [filePath, originalContent] of this.tabs.entries()) {
@@ -2191,98 +2448,113 @@ static activateTab(filePath) {
   
             static isClosingTab = false; // Prevent double closing
 
-            // Fixed closeTab method
-            static async closeTab(filePath) {
-                // Prevent multiple simultaneous closes
-                if (this.isClosingTab) return;
-                this.isClosingTab = true;
+           // Enhanced closeTab method
+  static async closeTab(filePath) {
+    // Prevent multiple simultaneous closes
+    if (this.isClosingTab) return;
+    this.isClosingTab = true;
 
-                try {
-                    // Check if file has unsaved changes
-                    if (this.unsavedChanges.has(filePath)) {
-                        const fileName = filePath.split(/[\\/]/).pop();
-                        const result = await showUnsavedChangesDialog(fileName);
-                        
-                        switch (result) {
-                            case 'save':
-                                try {
-                                    await this.saveFile(filePath);
-                                } catch (error) {
-                                    console.error('Failed to save file:', error);
-                                    // Continue with closing even if save failed
-                                }
-                                break;
-                            case 'dont-save':
-                                // Continue with closing
-                                break;
-                            case 'cancel':
-                            default:
-                                return; // Don't close the tab
-                        }
-                    }
-
-                    // Add to closed tabs stack for reopening
-                    const currentContent = this.tabs.get(filePath);
-                    this.closedTabsStack.push({
-                        filePath: filePath,
-                        content: currentContent,
-                        timestamp: Date.now()
-                    });
-
-                    // Keep only last 10 closed tabs
-                    if (this.closedTabsStack.length > 10) {
-                        this.closedTabsStack.shift();
-                    }
-
-                    // Remove tab from UI
-                    const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-                    if (tab) {
-                        tab.remove();
-                    }
-
-                        this.stopWatchingFile(filePath);
-// Stop periodic checking if no tabs left
-    if (this.tabs.size === 0) {
-      this.stopPeriodicFileCheck();
-    }
-
-                    // Clean up editor and data
-                    EditorManager.closeEditor(filePath);
-                    this.tabs.delete(filePath);
-                    this.unsavedChanges.delete(filePath);
-                    this.editorStates.delete(filePath);
-
-                    // Handle active tab switching
-                    if (this.activeTab === filePath) {
-                        this.highlightFileInTree(null);
-                        const remainingTabs = Array.from(this.tabs.keys());
-                        
-                        if (remainingTabs.length > 0) {
-                            // Activate the last tab in the list
-                            this.activateTab(remainingTabs[remainingTabs.length - 1]);
-                        } else {
-                            // No tabs left
-                            this.activeTab = null;
-                            this.updateContextPath(null);
-                            
-                            // Clear the editor
-                            const mainEditor = EditorManager.activeEditor;
-                            if (mainEditor) {
-                                mainEditor.setValue('');
-                                const model = mainEditor.getModel();
-                                if (model) {
-                                    monaco.editor.setModelLanguage(model, 'plaintext');
-                                }
-                            }
-                        }
-                    }
-
-                } finally {
-                    this.isClosingTab = false;
-                }
-
-                
+    try {
+      // Binary files don't have unsaved changes
+      if (!this.isBinaryFile(filePath) && this.unsavedChanges.has(filePath)) {
+        const fileName = filePath.split(/[\\/]/).pop();
+        const result = await showUnsavedChangesDialog(fileName);
+        
+        switch (result) {
+          case 'save':
+            try {
+              await this.saveFile(filePath);
+            } catch (error) {
+              console.error('Failed to save file:', error);
+              // Continue with closing even if save failed
             }
+            break;
+          case 'dont-save':
+            // Continue with closing
+            break;
+          case 'cancel':
+          default:
+            return; // Don't close the tab
+        }
+      }
+
+      // Add to closed tabs stack for reopening
+      const currentContent = this.tabs.get(filePath);
+      this.closedTabsStack.push({
+        filePath: filePath,
+        content: currentContent,
+        timestamp: Date.now()
+      });
+
+      // Keep only last 10 closed tabs
+      if (this.closedTabsStack.length > 10) {
+        this.closedTabsStack.shift();
+      }
+
+      // Remove tab from UI
+      const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+      if (tab) {
+        tab.remove();
+      }
+
+      this.stopWatchingFile(filePath);
+      
+      // Stop periodic checking if no tabs left
+      if (this.tabs.size === 0) {
+        this.stopPeriodicFileCheck();
+      }
+
+      // Clean up editor and data
+      if (!this.isBinaryFile(filePath)) {
+        EditorManager.closeEditor(filePath);
+      }
+      
+      // Clean up viewers
+      const editorContainer = document.getElementById('monaco-editor');
+      const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
+      if (existingViewer) {
+        existingViewer.remove();
+      }
+
+      this.tabs.delete(filePath);
+      this.unsavedChanges.delete(filePath);
+      this.editorStates.delete(filePath);
+
+      // Handle active tab switching
+      if (this.activeTab === filePath) {
+        this.highlightFileInTree(null);
+        const remainingTabs = Array.from(this.tabs.keys());
+        
+        if (remainingTabs.length > 0) {
+          // Activate the last tab in the list
+          this.activateTab(remainingTabs[remainingTabs.length - 1]);
+        } else {
+          // No tabs left
+          this.activeTab = null;
+          this.updateContextPath(null);
+          
+          // Show Monaco editor and clear it
+          const monacoEditorElement = editorContainer.querySelector('.monaco-editor-container');
+          if (monacoEditorElement) {
+            monacoEditorElement.style.display = 'block';
+          }
+          
+          // Clear the editor
+          const mainEditor = EditorManager.activeEditor;
+          if (mainEditor) {
+            mainEditor.setValue('');
+            const model = mainEditor.getModel();
+            if (model) {
+              monaco.editor.setModelLanguage(model, 'plaintext');
+            }
+          }
+        }
+      }
+
+    } finally {
+      this.isClosingTab = false;
+    }
+  }
 
             // Method to stop all file watchers (call on app close)
   static stopAllWatchers() {
@@ -6043,6 +6315,7 @@ async iverilogCompilation(processor) {
   }
 }
 // Fix 4: Updated runGtkWave method
+// Fix 4: Updated runGtkWave method - Cleaned version with VVP management
 async runGtkWave(processor) {
   if (this.isProjectOriented) {
     checkCancellation();
@@ -6148,96 +6421,60 @@ async runGtkWave(processor) {
     const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
     await window.electronAPI.deleteFileOrDirectory(progressPath);
 
-    // Fix: Ensure name is passed as string
+    // Show VVP progress
     await showVVPProgress(String(name));
 
-    // VVP Command - run the compiled file (cmmBaseName) to generate VCD
-    const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${cmmBaseName}" -fst -v`;
-
-    // Configure listener for stdout/stderr streaming
-    let isVvpRunning = true;
-    let vvpProcessPid = null;
-    
+    // Configure listener for VVP stdout/stderr streaming
     const outputListener = (event, payload) => {
-      if (!isVvpRunning) return;
-      
-      if (payload.pid && !vvpProcessPid) {
-        vvpProcessPid = payload.pid;
-        if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
-          window.setCurrentVvpPid(vvpProcessPid);
-        }
-        console.log(`VVP process started with PID: ${vvpProcessPid}`);
-      }
-      
       if (payload.type === 'stdout') {
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
         this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
+      } else if (payload.type === 'pid') {
+        console.log(`VVP process started with PID: ${payload.pid}`);
       }
     };
 
+    // Add output listener
     window.electronAPI.onCommandOutputStream(outputListener);
 
-    let vvpResult;
     try {
-      if (typeof window !== 'undefined' && window.setVvpRunning) {
-        window.setVvpRunning(true);
-      }
+      // VVP Command - run the compiled file to generate VCD
+      const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${cmmBaseName}" -fst -v`;
       
-      vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
-      isVvpRunning = false;
+      this.terminalManager.appendToTerminal('twave', `Running VVP command:\n${vvpCmd}`);
       
-      if (typeof window !== 'undefined' && window.setVvpRunning) {
-        window.setVvpRunning(false);
-        window.setCurrentVvpPid(null);
-      }
-
-      if (vvpResult.stdout) {
-        this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
-      }
-      if (vvpResult.stderr) {
-        this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
-      }
-
+      // Use the new managed VVP command
+      const vvpResult = await window.electronAPI.runVvpCommand(vvpCmd, tempPath);
+      
       checkCancellation();
 
+      // Check if VVP failed
       if (vvpResult.code !== 0) {
         hideVVPProgress();
-        throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+        const errorMsg = vvpResult.stderr || vvpResult.error || `VVP simulation failed with code ${vvpResult.code}`;
+        throw new Error(errorMsg);
       }
 
-    } catch (err) {
-      isVvpRunning = false;
+      this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
+      this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
       
-      if (typeof window !== 'undefined' && window.setVvpRunning) {
-        window.setVvpRunning(false);
-        window.setCurrentVvpPid(null);
+    } catch (error) {
+      if (error.message === 'Compilation canceled by user') {
+        this.terminalManager.appendToTerminal('twave', 'VVP simulation canceled by user.', 'warning');
+      } else {
+        // Log more detailed error information
+        console.error('VVP Error Details:', error);
+        const errorMsg = error.error || error.stderr || error.message || 'Unknown VVP error';
+        this.terminalManager.appendToTerminal('twave', `VVP Error: ${errorMsg}`, 'error');
+        throw new Error(errorMsg);
       }
-      
-      if (err.message === 'Compilation canceled by user' && vvpProcessPid) {
-        try {
-          await window.electronAPI.killProcess(vvpProcessPid);
-          this.terminalManager.appendToTerminal('twave', `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
-        } catch (killError) {
-          console.error('Error killing VVP process:', killError);
-          try {
-            await window.electronAPI.killProcessByName('vvp.exe');
-            this.terminalManager.appendToTerminal('twave', 'VVP process terminated by name due to cancellation.', 'warning');
-          } catch (killByNameError) {
-            console.error('Error killing VVP process by name:', killByNameError);
-          }
-        }
-      }
-      
-      throw err;
     } finally {
+      // Remove output listener
       window.electronAPI.removeCommandOutputListener(outputListener);
+      hideVVPProgress();
     }
 
-    hideVVPProgress();
-
-    this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
@@ -6246,6 +6483,7 @@ async runGtkWave(processor) {
     throw error;
   }
 }
+
 async runProjectGtkWave() {
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for project...`);
   statusUpdater.startCompilation('wave');
@@ -6593,7 +6831,7 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     }
     
     // Comando com paleta
-    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 128 --height 128 --palette rainbow`;
+    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 50 --height 50 --palette rainbow`;
     
     this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
     this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);
@@ -6986,13 +7224,21 @@ function isProcessorConfigured() {
   return !processorText.includes('No Processor Configured');
 }
 
-document.getElementById('cancel-everything').addEventListener('click', () => {
-  if (isCompilationRunning) {
-    // Cancel the compilation
-    cancelCompilation();
-  } else {
-    // No compilation running, show info message
-    showCardNotification('No compilation process is currently running.', 'info', 3000);
+// Adicione este event listener no seu código frontend (renderer)
+document.getElementById('cancel-everything').addEventListener('click', async () => {
+  try {
+    const result = await window.electronAPI.cancelVvpProcess();
+    
+    if (result.success) {
+      // Processo foi cancelado com sucesso
+      globalTerminalManager.appendToTerminal('twave', 'Compilation process canceled by user.', 'warning');
+    } else {
+      // Nenhum processo estava rodando
+      showCardNotification('No compilation process is currently running.', 'info', 3000);
+    }
+  } catch (error) {
+    console.error('Error canceling VVP process:', error);
+    showCardNotification('Error occurred while trying to cancel the process.', 'error', 3000);
   }
 });
 
@@ -7980,14 +8226,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-// CORREÇÃO FINAL: Event handler do botão PRISM completamente corrigido
+// CORREÇÃO: Event handler do botão PRISM com debugging melhorado
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, setting up PRISM button...');
+  
   const prismButton = document.getElementById('prismcomp');
   let isCompiling = false;
+  
+  if (!prismButton) {
+    console.error('PRISM button not found!');
+    return;
+  }
+  
+  console.log('PRISM button found:', prismButton);
   
   // Function to update button appearance based on PRISM window status
   function updatePrismButton(isOpen) {
     if (!prismButton) return;
+    
+    console.log('Updating PRISM button, isOpen:', isOpen);
     
     if (isOpen) {
       prismButton.classList.add('active');
@@ -8002,130 +8259,221 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // Enable the button initially
+  prismButton.disabled = false;
+  prismButton.style.cursor = 'pointer';
+  console.log('PRISM button enabled');
+  
   // Listen for PRISM window status updates
   if (window.electronAPI && window.electronAPI.onPrismStatus) {
+    console.log('Setting up PRISM status listener...');
     window.electronAPI.onPrismStatus((isOpen) => {
       console.log('PRISM status update received:', isOpen);
       updatePrismButton(isOpen);
     });
+  } else {
+    console.warn('electronAPI.onPrismStatus not available');
   }
   
-  if (prismButton) {
-    prismButton.addEventListener('click', async () => {
-      // Check if button is disabled or already compiling
-      if (prismButton.disabled || isCompiling) {
-        console.log('PRISM button is disabled or compilation in progress');
-        return;
+  // PRISM button click handler
+  prismButton.addEventListener('click', async () => {
+    console.log('=== PRISM BUTTON CLICKED ===');
+    console.log('Button disabled:', prismButton.disabled);
+    console.log('Is compiling:', isCompiling);
+    
+    // Check if button is disabled or already compiling
+    if (prismButton.disabled || isCompiling) {
+      console.log('PRISM button is disabled or compilation in progress - ignoring click');
+      return;
+    }
+    
+    try {
+      // Set compilation state
+      isCompiling = true;
+      console.log('Starting PRISM compilation...');
+      
+      // Update button appearance
+      prismButton.disabled = true;
+      prismButton.style.cursor = 'not-allowed';
+      prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Starting...';
+      
+      let isPrismOpen = false;
+      
+      // Check if PRISM window is already open
+      try {
+        if (window.electronAPI && window.electronAPI.checkPrismWindowOpen) {
+          isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
+          console.log('PRISM window open status:', isPrismOpen);
+        }
+      } catch (error) {
+        console.warn('Error checking PRISM window status:', error);
+        isPrismOpen = false;
       }
       
-      try {
-        // Set compilation state
-        isCompiling = true;
+      let result;
+      
+      if (isPrismOpen) {
+        // Recompile for existing window
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
+        console.log('Recompiling for existing PRISM window...');
         
-        // Check if PRISM window is already open
-        let isPrismOpen;
-        try {
-          isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
-        } catch (error) {
-          console.warn('Error checking PRISM window status:', error);
-          isPrismOpen = false;
-        }
-        
-        // Update button appearance
-        prismButton.disabled = true;
-        prismButton.style.cursor = 'not-allowed';
-        
-        let result;
-        
-        if (isPrismOpen) {
-          // Use recompile for existing window
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
-          console.log('Recompiling for existing PRISM window...');
-          
-          // Call recompile method if it exists, otherwise use regular compile
-          if (window.electronAPI.prismRecompile) {
-            result = await window.electronAPI.prismRecompile();
-          } else {
-            result = await window.electronAPI.prismCompile();
-          }
+        if (window.electronAPI.prismRecompile) {
+          result = await window.electronAPI.prismRecompile();
         } else {
-          // First time compilation
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
-          console.log('Starting PRISM compilation for new window...');
-          
-          // Use openPrismCompile to ensure window creation with compilation
-          if (window.electronAPI.openPrismCompile) {
-            result = await window.electronAPI.openPrismCompile();
-          } else {
-            result = await window.electronAPI.prismCompile();
-          }
+          console.warn('prismRecompile not available, using regular compile');
+          result = await window.electronAPI.prismCompile();
         }
+      } else {
+        // First time compilation or window was closed
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
+        console.log('Starting PRISM compilation for new window...');
         
-        if (result && result.success) {
-          console.log('PRISM compilation successful:', result.message);
-          
-          // Force update button status after successful compilation
-          setTimeout(async () => {
-            try {
-              const newStatus = await window.electronAPI.checkPrismWindowOpen();
-              updatePrismButton(newStatus);
-            } catch (error) {
-              console.warn('Error updating button status:', error);
-              // Default to showing recompile mode if compilation was successful
-              updatePrismButton(true);
-            }
-          }, 1000);
-          
+        // Try openPrismCompile first, fallback to regular compile
+        if (window.electronAPI.openPrismCompile) {
+          console.log('Using openPrismCompile...');
+          result = await window.electronAPI.openPrismCompile();
+        } else if (window.electronAPI.prismCompile) {
+          console.log('Using prismCompile...');
+          result = await window.electronAPI.prismCompile();
         } else {
-          const errorMessage = result ? result.message : 'Unknown error occurred';
-          console.error('PRISM compilation failed:', errorMessage);
-          
-          // Show error in terminal if available
-          if (window.terminalManager) {
-            window.terminalManager.appendToTerminal('tprism', `Compilation failed: ${errorMessage}`, 'error');
-          }
+          throw new Error('No PRISM compilation methods available');
+        }
+      }
+      
+      console.log('PRISM compilation result:', result);
+      
+      if (result && result.success) {
+        console.log('✅ PRISM compilation successful:', result.message);
+        
+        // Show success message if terminal is available
+        if (window.terminalManager) {
+          window.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully', 'success');
         }
         
-      } catch (error) {
-        console.error('PRISM compilation error:', error);
+        // Update button status after a delay to allow window to open
+        setTimeout(async () => {
+          try {
+            const newStatus = await window.electronAPI.checkPrismWindowOpen();
+            console.log('Post-compilation window status:', newStatus);
+            updatePrismButton(newStatus);
+          } catch (error) {
+            console.warn('Error updating button status:', error);
+            // Default to showing recompile mode if compilation was successful
+            updatePrismButton(true);
+          }
+        }, 2000); // Increased delay to 2 seconds
+        
+      } else {
+        const errorMessage = result ? result.message : 'Unknown error occurred';
+        console.error('❌ PRISM compilation failed:', errorMessage);
         
         // Show error in terminal if available
         if (window.terminalManager) {
-          window.terminalManager.appendToTerminal('tprism', `Compilation error: ${error.message}`, 'error');
+          window.terminalManager.appendToTerminal('tprism', `Compilation failed: ${errorMessage}`, 'error');
         }
         
-      } finally {
-        // Reset compilation state and button
-        isCompiling = false;
-        prismButton.disabled = false;
-        prismButton.style.cursor = 'pointer';
-        
-        // Check current PRISM window status to set correct button text
-        try {
-          const isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
-          updatePrismButton(isPrismOpen);
-        } catch (error) {
-          console.error('Error checking PRISM window status in finally:', error);
-          // Default button text
-          prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
+        // Show error dialog
+        if (window.electronAPI && window.electronAPI.showErrorDialog) {
+          window.electronAPI.showErrorDialog('PRISM Compilation Failed', errorMessage);
+        } else {
+          alert(`PRISM Compilation Failed: ${errorMessage}`);
         }
       }
-    });
-  }
-
-  // Listen for toggle UI state requests
-  if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
-    window.electronAPI.onGetToggleUIState((sendResponse) => {
-      // Get the actual toggle state from your UI
-      const toggleElement = document.getElementById('your-toggle-element'); // Substitua pelo ID correto
-      const isActive = toggleElement ? toggleElement.checked : false;
       
+    } catch (error) {
+      console.error('❌ PRISM compilation error:', error);
+      
+      // Show error in terminal if available
+      if (window.terminalManager) {
+        window.terminalManager.appendToTerminal('tprism', `Compilation error: ${error.message}`, 'error');
+      }
+      
+      // Show error dialog
+      if (window.electronAPI && window.electronAPI.showErrorDialog) {
+        window.electronAPI.showErrorDialog('PRISM Error', error.message);
+      } else {
+        alert(`PRISM Error: ${error.message}`);
+      }
+      
+    } finally {
+      console.log('PRISM compilation process finished, resetting button...');
+      
+      // Reset compilation state and button
+      isCompiling = false;
+      prismButton.disabled = false;
+      prismButton.style.cursor = 'pointer';
+      
+      // Check current PRISM window status to set correct button text
+      try {
+        const isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
+        console.log('Final PRISM window status:', isPrismOpen);
+        updatePrismButton(isPrismOpen);
+      } catch (error) {
+        console.error('Error checking PRISM window status in finally:', error);
+        // Default button text
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
+      }
+      
+      console.log('=== PRISM BUTTON PROCESS COMPLETE ===');
+    }
+  });
+
+  // Listen for toggle UI state requests from PRISM window
+  if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
+    console.log('Setting up toggle UI state listener...');
+    window.electronAPI.onGetToggleUIState((sendResponse) => {
+      console.log('Received request for toggle UI state');
+      
+      // Get the actual toggle state from your UI
+      // CORREÇÃO: Substitua 'your-toggle-element' pelo ID real do seu elemento toggle
+      const toggleElement = document.getElementById('toggle-ui') || 
+                           document.querySelector('.toggle-switch') ||
+                           document.querySelector('[data-toggle]');
+      
+      let isActive = false;
+      
+      if (toggleElement) {
+        // Verificar diferentes tipos de toggle
+        if (toggleElement.type === 'checkbox') {
+          isActive = toggleElement.checked;
+        } else if (toggleElement.classList.contains('active')) {
+          isActive = true;
+        } else if (toggleElement.getAttribute('data-active') === 'true') {
+          isActive = true;
+        }
+      }
+      
+      console.log('Toggle element found:', !!toggleElement);
       console.log('Sending toggle UI state:', isActive);
       sendResponse(isActive);
     });
+  } else {
+    console.warn('electronAPI.onGetToggleUIState not available');
   }
+  
+  console.log('PRISM button setup complete');
 });
 
+// Debug function to check if all required APIs are available
+function debugElectronAPI() {
+  console.log('=== ELECTRON API DEBUG ===');
+  console.log('window.electronAPI available:', !!window.electronAPI);
+  
+  if (window.electronAPI) {
+    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
+    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
+    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
+    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
+    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
+    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
+  }
+  
+  console.log('terminalManager available:', !!window.terminalManager);
+  console.log('=== END ELECTRON API DEBUG ===');
+}
+
+// Run debug on load
+debugElectronAPI();
 // Add to existing window message listeners
 window.addEventListener('message', (event) => {
   if (event.data.type === 'terminal-log') {

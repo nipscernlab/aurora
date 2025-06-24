@@ -2433,12 +2433,16 @@ async function createPrismWindow(compilationData = null) {
     // If compilation data is provided, send it to existing window
     if (compilationData) {
       console.log('Updating existing PRISM window with new compilation data:', compilationData);
-      // Wait for window to be ready before sending data
-      prismWindow.webContents.once('did-finish-load', () => {
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      });
+      // Check if the window is ready before sending data
+      if (!prismWindow.webContents.isLoading()) {
+        prismWindow.webContents.send('compilation-complete', compilationData);
+      } else {
+        prismWindow.webContents.once('did-finish-load', () => {
+          if (prismWindow && !prismWindow.isDestroyed()) {
+            prismWindow.webContents.send('compilation-complete', compilationData);
+          }
+        });
+      }
     }
     return prismWindow;
   }
@@ -2451,6 +2455,8 @@ async function createPrismWindow(compilationData = null) {
     console.error('Preload script not found at:', preloadPath);
     throw new Error(`Preload script not found: ${preloadPath}`);
   }
+
+  console.log('Creating new PRISM window...');
 
   prismWindow = new BrowserWindow({
     width: 1400,
@@ -2467,58 +2473,67 @@ async function createPrismWindow(compilationData = null) {
       allowRunningInsecureContent: true
     },
     backgroundColor: '#17151f',
-    show: false,
+    show: false, // Inicialmente oculta
     titleBarStyle: 'default'
   });
 
   // Load the HTML file
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-  
   console.log('Loading PRISM HTML from:', prismHtmlPath);
   
+  // CORREÇÃO PRINCIPAL: Verificar se o arquivo existe antes de tentar carregar
+  if (!require('fs').existsSync(prismHtmlPath)) {
+    console.error('PRISM HTML file not found at:', prismHtmlPath);
+    if (prismWindow) {
+      prismWindow.destroy();
+      prismWindow = null;
+    }
+    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
+  }
+  
   try {
+    // Carregar o arquivo HTML
     await prismWindow.loadFile(prismHtmlPath);
+    console.log('PRISM HTML loaded successfully');
     
-    // CORREÇÃO: Wait for did-finish-load before sending data and showing window
-    prismWindow.webContents.once('did-finish-load', () => {
-      console.log('PRISM window finished loading');
-      
-      // Show window after loading is complete
-      prismWindow.maximize();
-      prismWindow.show();
-      
-      // Send compilation data after page is fully loaded
-      if (compilationData) {
-        console.log('Sending compilation data to new PRISM window:', compilationData);
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          // Small delay to ensure DOM is ready
-          setTimeout(() => {
-            prismWindow.webContents.send('compilation-complete', compilationData);
-          }, 500);
-        }
-      }
-    });
+    // CORREÇÃO: Mostrar a janela imediatamente após carregar, sem esperar pelo evento
+    prismWindow.maximize();
+    prismWindow.show();
+    console.log('PRISM window shown');
     
-    // Notify main window that PRISM is open
+    // Notificar a janela principal que PRISM está aberto
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('prism-status', true);
     }
     
+    // Se há dados de compilação, enviar após um pequeno delay para garantir que o DOM está pronto
+    if (compilationData) {
+      console.log('Scheduling compilation data send...');
+      setTimeout(() => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          console.log('Sending compilation data to PRISM window:', compilationData);
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      }, 1000); // Delay de 1 segundo para garantir que a página está totalmente carregada
+    }
+    
   } catch (error) {
     console.error('Failed to load prism.html:', error);
+    
+    // Mostrar erro em dialog
     const { dialog } = require('electron');
     await dialog.showMessageBox({
       type: 'error',
-      title: 'Load Error',
+      title: 'PRISM Load Error',
       message: 'Failed to load PRISM viewer',
-      detail: error.message
+      detail: `Error: ${error.message}\nPath: ${prismHtmlPath}`
     });
     
     if (prismWindow) {
       prismWindow.destroy();
       prismWindow = null;
     }
-    return null;
+    throw error;
   }
 
   // Handle window closed
@@ -2534,14 +2549,35 @@ async function createPrismWindow(compilationData = null) {
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
     console.error(`Failed URL: ${validatedURL}`);
+    
+    // Mostrar erro específico
+    const { dialog } = require('electron');
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'PRISM Load Failed',
+      message: `Failed to load PRISM viewer (Error ${errorCode})`,
+      detail: `${errorDescription}\nURL: ${validatedURL}`
+    });
   });
 
   prismWindow.webContents.on('render-process-gone', (event, details) => {
     console.error('PRISM viewer renderer process crashed:', details);
   });
 
+  // Adicionar log quando o conteúdo terminar de carregar
+  prismWindow.webContents.on('did-finish-load', () => {
+    console.log('PRISM window content finished loading');
+  });
+
+  // Adicionar log quando começar a carregar
+  prismWindow.webContents.on('did-start-loading', () => {
+    console.log('PRISM window started loading');
+  });
+
+  console.log('PRISM window created successfully');
   return prismWindow;
 }
+
 
 
 function getExecutablePath(executableName) {
@@ -2710,25 +2746,40 @@ ipcMain.on('request-toggle-ui-state', (event) => {
   }
 });
 
-// Updated IPC handler for opening PRISM with compilation - prevents double creation
 ipcMain.handle('open-prism-compile', async (event) => {
   try {
-    console.log('Opening PRISM with compilation...');
+    console.log('=== STARTING PRISM COMPILATION ===');
     
-    // First compile
+    // Primeiro, realizar a compilação
     const compilationResult = await performPrismCompilation();
     
     if (!compilationResult.success) {
+      console.error('Compilation failed:', compilationResult.message);
       throw new Error(compilationResult.message);
     }
     
-    // Create or update window with compilation data
-    await createPrismWindow(compilationResult);
+    console.log('Compilation successful, creating PRISM window...');
     
-    return { success: true, message: 'PRISM window opened with compilation data' };
+    // Criar a janela PRISM com os dados da compilação
+    const window = await createPrismWindow(compilationResult);
+    
+    if (!window) {
+      throw new Error('Failed to create PRISM window');
+    }
+    
+    console.log('=== PRISM WINDOW CREATED SUCCESSFULLY ===');
+    return { success: true, message: 'PRISM window opened successfully' };
+    
   } catch (error) {
-    console.error('Error opening PRISM with compilation:', error);
-    throw error;
+    console.error('=== PRISM COMPILATION/WINDOW CREATION FAILED ===');
+    console.error('Error:', error);
+    
+    // Log adicional para debug
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', `Failed to open PRISM: ${error.message}`, 'error');
+    }
+    
+    return { success: false, message: error.message };
   }
 });
 
@@ -2929,43 +2980,82 @@ async function performPrismCompilation() {
 // Add recompile handler for existing PRISM window
 ipcMain.handle('prism-recompile', async (event) => {
   try {
-    console.log('Recompiling PRISM in existing window...');
+    console.log('=== STARTING PRISM RECOMPILATION ===');
     
-    // Perform compilation
+    // Realizar nova compilação
     const compilationResult = await performPrismCompilation();
     
     if (!compilationResult.success) {
       throw new Error(compilationResult.message);
     }
     
-    // If PRISM window exists, update it; otherwise create new one
+    // Se a janela PRISM existe, atualizar; senão criar nova
     if (prismWindow && !prismWindow.isDestroyed()) {
       console.log('Updating existing PRISM window with recompilation data');
-      // Wait for window to be ready before sending data
-      prismWindow.webContents.once('did-finish-load', () => {
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          prismWindow.webContents.send('compilation-complete', compilationResult);
-        }
-      });
       
-      // If window is already loaded, send immediately
-      if (prismWindow.webContents.isLoading() === false) {
+      // Enviar dados imediatamente se a janela não estiver carregando
+      if (!prismWindow.webContents.isLoading()) {
         prismWindow.webContents.send('compilation-complete', compilationResult);
+      } else {
+        // Esperar carregar se estiver carregando
+        prismWindow.webContents.once('did-finish-load', () => {
+          if (prismWindow && !prismWindow.isDestroyed()) {
+            prismWindow.webContents.send('compilation-complete', compilationResult);
+          }
+        });
       }
+      
+      // Focar na janela
+      prismWindow.focus();
     } else {
       console.log('Creating new PRISM window for recompilation');
       await createPrismWindow(compilationResult);
     }
     
+    console.log('=== PRISM RECOMPILATION COMPLETED ===');
     return compilationResult;
     
   } catch (error) {  
-    console.error('PRISM recompilation error:', error);
+    console.error('=== PRISM RECOMPILATION FAILED ===');
+    console.error('Error:', error);
     return { success: false, message: error.message };
   }
 });
 
+function debugPaths() {
+  console.log('=== DEBUG: Checking PRISM paths ===');
+  console.log('__dirname:', __dirname);
+  
+  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
+  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
+  
+  console.log('PRISM HTML path:', prismHtmlPath);
+  console.log('PRISM HTML exists:', require('fs').existsSync(prismHtmlPath));
+  
+  console.log('Preload path:', preloadPath);
+  console.log('Preload exists:', require('fs').existsSync(preloadPath));
+  
+  // Listar conteúdo do diretório html
+  const htmlDir = path.join(__dirname, 'html');
+  if (require('fs').existsSync(htmlDir)) {
+    console.log('HTML directory contents:', require('fs').readdirSync(htmlDir));
+  } else {
+    console.log('HTML directory does not exist:', htmlDir);
+  }
+  
+  // Listar conteúdo do diretório js
+  const jsDir = path.join(__dirname, 'js');
+  if (require('fs').existsSync(jsDir)) {
+    console.log('JS directory contents:', require('fs').readdirSync(jsDir));
+  } else {
+    console.log('JS directory does not exist:', jsDir);
+  }
+  
+  console.log('=== END DEBUG ===');
+}
 
+// Chamar debug na inicialização
+debugPaths();
 
 // Updated Yosys compilation function with optimized logging
 async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
@@ -3729,4 +3819,341 @@ app.on('before-quit', async () => {
   }
   activeWatchers.clear();
   fileStatsCache.clear();
+});
+
+/* VVP */
+// Adicione estas variáveis no topo do seu main.js (após as outras declarações)
+let currentVvpProcess = null;
+let vvpProcessPid = null;
+
+// Função auxiliar para matar processo por PID no Windows
+function killProcessByPid(pid) {
+  return new Promise((resolve, reject) => {
+    const killCmd = `taskkill /F /PID ${pid}`;
+    exec(killCmd, (error, stdout, stderr) => {
+      if (error) {
+        // Se o processo já não existe, consideramos como sucesso
+        if (error.message.includes('not found') || error.message.includes('not running')) {
+          resolve(true);
+        } else {
+          reject(error);
+        }
+      } else {
+        resolve(true);
+      }
+    });
+  });
+}
+
+// Função para matar todos os processos vvp.exe
+function killAllVvpProcesses() {
+  return new Promise((resolve, reject) => {
+    const killCmd = 'taskkill /F /IM vvp.exe';
+    exec(killCmd, (error, stdout, stderr) => {
+      if (error) {
+        // Se não encontrou processos, consideramos como sucesso
+        if (error.message.includes('not found') || error.message.includes('not running')) {
+          resolve(false); // Retorna false indicando que não havia processos rodando
+        } else {
+          reject(error);
+        }
+      } else {
+        resolve(true); // Retorna true indicando que processos foram mortos
+      }
+    });
+  });
+}
+
+// Função para verificar se existe processo vvp.exe rodando
+function checkVvpProcessRunning() {
+  return new Promise((resolve) => {
+    const checkCmd = 'tasklist /FI "IMAGENAME eq vvp.exe" /FO CSV';
+    exec(checkCmd, (error, stdout, stderr) => {
+      if (error) {
+        resolve(false);
+        return;
+      }
+      
+      // Verifica se há mais de uma linha (cabeçalho + processos)
+      const lines = stdout.trim().split('\n');
+      const hasProcesses = lines.length > 1 && !stdout.includes('No tasks are running');
+      resolve(hasProcesses);
+    });
+  });
+}
+
+// Handler para cancelar processos VVP
+// Handler para cancelar processos VVP (em inglês, sem criar ou renomear funções)
+ipcMain.handle('cancel-vvp-process', async () => {
+  try {
+    // Primeiro verifica se há processos vvp.exe rodando
+    const isRunning = await checkVvpProcessRunning();
+    
+    if (!isRunning) {
+      return { success: false, message: 'No compilation process is currently running.' };
+    }
+
+    // Se temos referência do processo atual, tenta matar especificamente
+    if (currentVvpProcess && !currentVvpProcess.killed) {
+      try {
+        // Kill the VVP process and its children
+        if (process.platform === 'win32') {
+          await killProcessByPid(currentVvpProcess.pid);
+        } else {
+          currentVvpProcess.kill('SIGKILL');
+        }
+        currentVvpProcess = null;
+        vvpProcessPid = null;
+      } catch (error) {
+        console.error('Error killing specific VVP process:', error);
+      }
+    }
+
+    // Como fallback, mata todos os processos vvp.exe
+    const killed = await killAllVvpProcesses();
+
+    // NOW: also kill any running GTKWave processes in the same function
+    try {
+      if (process.platform === 'win32') {
+        // On Windows, kill all gtkwave.exe processes
+        await new Promise((resolve, reject) => {
+          const killGtkCmd = 'taskkill /F /IM gtkwave.exe';
+          exec(killGtkCmd, (error, stdout, stderr) => {
+            if (error) {
+              // If no GTKWave processes found, consider as success
+              if (error.message.includes('not found') || error.message.includes('not running')) {
+                resolve(true);
+              } else {
+                console.error('Error killing GTKWave processes:', error);
+                resolve(false);
+              }
+            } else {
+              resolve(true);
+            }
+          });
+        });
+      } else {
+        // On Unix-like systems, attempt to kill by name
+        await new Promise((resolve) => {
+          // Use pkill; ignore errors if no process found
+          exec('pkill -f gtkwave', (error, stdout, stderr) => {
+            // pkill returns non-zero if no process matched; ignore that
+            resolve(true);
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error killing GTKWave:', error);
+    }
+    
+    if (killed) {
+      return {
+        success: true,
+        message: 'Compilation process canceled by user. GTKWave processes (if any) also terminated.'
+      };
+    } else {
+      // Even if no VVP was running, we still attempted to kill GTKWave above
+      return {
+        success: false,
+        message: 'No compilation process was running. GTKWave kill attempted if any instances were open.'
+      };
+    }
+    
+  } catch (error) {
+    console.error('Error canceling VVP process:', error);
+    // Still attempt to kill GTKWave if an unexpected error occurred earlier
+    try {
+      if (process.platform === 'win32') {
+        exec('taskkill /F /IM gtkwave.exe', () => {});
+      } else {
+        exec('pkill -f gtkwave', () => {});
+      }
+    } catch (_) {
+      // ignore
+    }
+    return { success: false, message: 'Error occurred while trying to cancel the process.' };
+  }
+});
+
+
+// Handler para executar comando VVP com streaming e gerenciamento de processo
+ipcMain.handle('run-vvp-command', async (event, vvpCmd, tempPath) => {
+  return new Promise((resolve, reject) => {
+    // Se já existe um processo rodando, mate-o primeiro
+    if (currentVvpProcess && !currentVvpProcess.killed) {
+      try {
+        currentVvpProcess.kill('SIGKILL');
+      } catch (error) {
+        console.error('Error killing existing VVP process:', error);
+      }
+    }
+
+    // Execute o comando VVP com streaming
+    currentVvpProcess = exec(vvpCmd, { 
+      cwd: tempPath,
+      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+      encoding: 'utf8'
+    });
+
+    // Armazena o PID para referência
+    if (currentVvpProcess) {
+      vvpProcessPid = currentVvpProcess.pid;
+      
+      // Envia PID para o renderer para tracking
+      event.sender.send('command-output-stream', { 
+        type: 'pid', 
+        pid: vvpProcessPid 
+      });
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    const processOutput = (buffer, type) => {
+      const lines = buffer.split('\n');
+      
+      // Process all complete lines
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i];
+        if (line.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: type, 
+            data: line + '\n'
+          });
+        }
+      }
+      
+      // Return the last partial line
+      return lines[lines.length - 1];
+    };
+
+    currentVvpProcess.stdout.on('data', (data) => {
+      const output = data.toString('utf8');
+      stdout += output;
+      stdoutBuffer += output;
+      
+      // Process complete lines and keep partial line in buffer
+      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
+      
+      // Also send immediately if we detect progress indicators
+      if (output.includes('Progress:') || output.includes('%') || output.includes('complete')) {
+        if (stdoutBuffer.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: 'stdout', 
+            data: stdoutBuffer 
+          });
+          stdoutBuffer = '';
+        }
+      }
+    });
+
+    currentVvpProcess.stderr.on('data', (data) => {
+      const errorOutput = data.toString('utf8');
+      stderr += errorOutput;
+      stderrBuffer += errorOutput;
+      
+      // Process stderr lines
+      stderrBuffer = processOutput(stderrBuffer, 'stderr');
+    });
+
+    currentVvpProcess.on('close', (code) => {
+      // Send any remaining buffered output
+      if (stdoutBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stdout', 
+          data: stdoutBuffer 
+        });
+      }
+      if (stderrBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stderr', 
+          data: stderrBuffer 
+        });
+      }
+      
+      // Limpa as referências do processo
+      currentVvpProcess = null;
+      vvpProcessPid = null;
+      
+      resolve({ 
+        code, 
+        stdout, 
+        stderr
+      });
+    });
+
+    currentVvpProcess.on('error', (err) => {
+      // Limpa as referências do processo
+      currentVvpProcess = null;
+      vvpProcessPid = null;
+      
+      reject({
+        code: -1,
+        stdout: '',
+        stderr: err.message || 'VVP process error',
+        error: err.message || 'VVP process error'
+      });
+    });
+
+    // Listener para quando o processo termina por signal
+    currentVvpProcess.on('exit', (code, signal) => {
+      currentVvpProcess = null;
+      vvpProcessPid = null;
+    });
+  }); 
+});
+
+// Handler para verificar se VVP está rodando (opcional, para UI)
+ipcMain.handle('check-vvp-running', async () => {
+  return await checkVvpProcessRunning();
+});
+
+/* handle file */
+// Handle binary file reading
+ipcMain.handle('read-file-buffer', async (event, filePath) => {
+  try {
+    const buffer = await fs.readFile(filePath);
+    return buffer;
+  } catch (error) {
+    console.error('Error reading binary file:', error);
+    throw error;
+  }
+});
+
+// Handle file stats (already exists in your code, but ensure it's there)
+ipcMain.handle('get-file-stats', async (event, filePath) => {
+  try {
+    const stats = await fs.stat(filePath);
+    return {
+      size: stats.size,
+      mtime: stats.mtime.getTime(),
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory()
+    };
+  } catch (error) {
+    console.error('Error getting file stats:', error);
+    throw error;
+  }
+});
+
+// Optional: Handle file type detection
+ipcMain.handle('get-file-type', async (event, filePath) => {
+  try {
+    const extension = path.extname(filePath).toLowerCase().slice(1);
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+    const pdfExtensions = ['pdf'];
+    
+    if (imageExtensions.includes(extension)) {
+      return 'image';
+    } else if (pdfExtensions.includes(extension)) {
+      return 'pdf';
+    } else {
+      return 'text';
+    }
+  } catch (error) {
+    console.error('Error detecting file type:', error);
+    return 'text';
+  }
 });

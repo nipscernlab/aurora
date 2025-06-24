@@ -4122,22 +4122,6 @@ ipcMain.handle('read-file-buffer', async (event, filePath) => {
   }
 });
 
-// Handle file stats (already exists in your code, but ensure it's there)
-ipcMain.handle('get-file-stats', async (event, filePath) => {
-  try {
-    const stats = await fs.stat(filePath);
-    return {
-      size: stats.size,
-      mtime: stats.mtime.getTime(),
-      isFile: stats.isFile(),
-      isDirectory: stats.isDirectory()
-    };
-  } catch (error) {
-    console.error('Error getting file stats:', error);
-    throw error;
-  }
-});
-
 // Optional: Handle file type detection
 ipcMain.handle('get-file-type', async (event, filePath) => {
   try {

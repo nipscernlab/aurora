@@ -398,16 +398,13 @@ static getActiveFilePath() {
 
   static initialize() {
   // Add this line to ensure relative positioning
-  this.editorContainer.style.position = 'relative';
+  //this.editorContainer.style.position = 'relative';
 
     this.editorContainer = document.getElementById('monaco-editor');
     if (!this.editorContainer) {
       console.error('Editor container not found');
       return;
     }
-    this.initSortableTabs();
-    this.restoreTabOrder();
-    this.initFileChangeListeners();
 
     // Add event listener to save tab order when tabs change
     const tabContainer = document.getElementById('tabs-container');
@@ -422,7 +419,7 @@ static getActiveFilePath() {
       });
     }
 
-     this.editorContainer.style.position = 'relative';
+    //this.editorContainer.style.position = 'relative';
     this.editorContainer.style.height = '100%';
     this.editorContainer.style.width = '100%';
     
@@ -1295,11 +1292,26 @@ class TabManager {
   static externalChangeQueue = new Set();
   static periodicCheckInterval = null;
   static isCheckingFiles = false;
+  static viewerInstances = new Map();
+  static pdfViewerStates = new Map();
 
   // Image and PDF extensions
   static imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
   static pdfExtensions = new Set(['pdf']);
+static hideOverlay() {
+  const overlay = document.getElementById('editor-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
 
+// Show overlay when no content
+static showOverlay() {
+  const overlay = document.getElementById('editor-overlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
   // Utility method to check if file is an image
   static isImageFile(filePath) {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -1318,120 +1330,244 @@ class TabManager {
   }
 
   // Create image viewer
-  static createImageViewer(filePath, container) {
-    const imageViewer = document.createElement('div');
-    imageViewer.className = 'image-viewer';
-    imageViewer.innerHTML = `
-      <div class="image-viewer-toolbar">
-        <div class="image-viewer-controls">
-          <button class="image-control-btn" id="zoom-in-btn" title="Zoom In">
-            <i class="fas fa-search-plus"></i>
-          </button>
-          <button class="image-control-btn" id="zoom-out-btn" title="Zoom Out">
-            <i class="fas fa-search-minus"></i>
-          </button>
-          <button class="image-control-btn" id="zoom-reset-btn" title="Reset Zoom">
-            <i class="fas fa-expand-arrows-alt"></i>
-          </button>
-          <span class="zoom-level" id="zoom-level">100%</span>
-        </div>
-        <div class="image-info">
-          <span id="image-name">${filePath.split(/[\\/]/).pop()}</span>
-        </div>
+  // Enhanced createImageViewer with drag and pan
+static createImageViewer(filePath, container) {
+  // Check if viewer already exists
+  if (this.viewerInstances.has(filePath)) {
+    return this.viewerInstances.get(filePath);
+  }
+
+  const imageViewer = document.createElement('div');
+  imageViewer.className = 'image-viewer';
+  imageViewer.innerHTML = `
+    <div class="image-viewer-toolbar">
+      <div class="image-viewer-controls">
+        <button class="image-control-btn" id="zoom-in-btn" title="Zoom In">
+          <i class="fas fa-search-plus"></i>
+        </button>
+        <button class="image-control-btn" id="zoom-out-btn" title="Zoom Out">
+          <i class="fas fa-search-minus"></i>
+        </button>
+        <button class="image-control-btn" id="zoom-reset-btn" title="Reset Zoom">
+          <i class="fas fa-expand-arrows-alt"></i>
+        </button>
+        <span class="zoom-level" id="zoom-level">100%</span>
       </div>
-    <div class="image-viewer-content" style="flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto;">
-      <div class="image-container" style="max-width: 100%; max-height: 100%;">
-        <img id="image-display" src="" alt="Image" style="max-width: 100%; max-height: 100%; object-fit: contain;"/>
+      <div class="image-info">
+        <span id="image-name">${filePath.split(/[\\/]/).pop()}</span>
       </div>
     </div>
-    `;
+    <div class="image-viewer-content" id="image-content">
+      <div class="image-container" id="image-container">
+        <img id="image-display" src="" alt="Image" />
+      </div>
+    </div>
+  `;
 
-    // Add event listeners for zoom controls
-    const zoomInBtn = imageViewer.querySelector('#zoom-in-btn');
-    const zoomOutBtn = imageViewer.querySelector('#zoom-out-btn');
-    const zoomResetBtn = imageViewer.querySelector('#zoom-reset-btn');
-    const zoomLevel = imageViewer.querySelector('#zoom-level');
-    const imageDisplay = imageViewer.querySelector('#image-display');
+  // Get elements
+  const zoomInBtn = imageViewer.querySelector('#zoom-in-btn');
+  const zoomOutBtn = imageViewer.querySelector('#zoom-out-btn');
+  const zoomResetBtn = imageViewer.querySelector('#zoom-reset-btn');
+  const zoomLevel = imageViewer.querySelector('#zoom-level');
+  const imageDisplay = imageViewer.querySelector('#image-display');
+  const imageContent = imageViewer.querySelector('#image-content');
+  const imageContainer = imageViewer.querySelector('#image-container');
 
-    let currentZoom = 1;
+  let currentZoom = 1;
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let scrollLeft = 0;
+  let scrollTop = 0;
 
-    const updateZoom = (newZoom) => {
-      currentZoom = Math.max(0.1, Math.min(5, newZoom));
-      imageDisplay.style.transform = `scale(${currentZoom})`;
-      zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
-    };
+  // Zoom functionality
+  const updateZoom = (newZoom) => {
+    currentZoom = Math.max(0.1, Math.min(5, newZoom));
+    imageDisplay.style.transform = `scale(${currentZoom})`;
+    zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+  };
 
-    zoomInBtn.addEventListener('click', () => updateZoom(currentZoom * 1.2));
-    zoomOutBtn.addEventListener('click', () => updateZoom(currentZoom / 1.2));
-    zoomResetBtn.addEventListener('click', () => updateZoom(1));
+  // Zoom controls
+  zoomInBtn.addEventListener('click', () => updateZoom(currentZoom * 1.2));
+  zoomOutBtn.addEventListener('click', () => updateZoom(currentZoom / 1.2));
+  zoomResetBtn.addEventListener('click', () => {
+    updateZoom(1);
+    imageContent.scrollLeft = 0;
+    imageContent.scrollTop = 0;
+  });
 
-    // Mouse wheel zoom
-    imageViewer.addEventListener('wheel', (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        updateZoom(currentZoom * delta);
+  // Mouse wheel zoom
+  imageContent.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      updateZoom(currentZoom * delta);
+    }
+  });
+
+  // Drag and pan functionality
+  imageContent.addEventListener('mousedown', (e) => {
+    if (e.button === 0) { // Left mouse button
+      isDragging = true;
+      imageContent.classList.add('dragging');
+      startX = e.pageX - imageContent.offsetLeft;
+      startY = e.pageY - imageContent.offsetTop;
+      scrollLeft = imageContent.scrollLeft;
+      scrollTop = imageContent.scrollTop;
+      e.preventDefault();
+    }
+  });
+
+  imageContent.addEventListener('mouseleave', () => {
+    isDragging = false;
+    imageContent.classList.remove('dragging');
+  });
+
+  imageContent.addEventListener('mouseup', () => {
+    isDragging = false;
+    imageContent.classList.remove('dragging');
+  });
+
+  imageContent.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - imageContent.offsetLeft;
+    const y = e.pageY - imageContent.offsetTop;
+    const walkX = (x - startX) * 2;
+    const walkY = (y - startY) * 2;
+    imageContent.scrollLeft = scrollLeft - walkX;
+    imageContent.scrollTop = scrollTop - walkY;
+  });
+
+  // Touch support for mobile drag and pan
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchScrollLeft = 0;
+  let touchScrollTop = 0;
+
+  imageContent.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartX = touch.pageX;
+      touchStartY = touch.pageY;
+      touchScrollLeft = imageContent.scrollLeft;
+      touchScrollTop = imageContent.scrollTop;
+    }
+  });
+
+  imageContent.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const walkX = touchStartX - touch.pageX;
+      const walkY = touchStartY - touch.pageY;
+      imageContent.scrollLeft = touchScrollLeft + walkX;
+      imageContent.scrollTop = touchScrollTop + walkY;
+    }
+  });
+
+  // Load image
+  this.loadImageFile(filePath, imageDisplay);
+
+  // Store viewer instance
+  this.viewerInstances.set(filePath, imageViewer);
+
+  return imageViewer;
+}
+
+ // Enhanced createPdfViewer with state preservation
+static createPdfViewer(filePath, container) {
+  // Check if viewer already exists
+  if (this.viewerInstances.has(filePath)) {
+    const existingViewer = this.viewerInstances.get(filePath);
+    // Restore the saved state if available
+    this.restorePdfViewerState(filePath, existingViewer);
+    return existingViewer;
+  }
+
+  const pdfViewer = document.createElement('div');
+  pdfViewer.className = 'pdf-viewer';
+  pdfViewer.innerHTML = `
+    <div class="pdf-viewer-content">
+      <iframe id="pdf-frame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+  `;
+
+  const pdfFrame = pdfViewer.querySelector('#pdf-frame');
+
+  // Add event listeners to track PDF state changes
+  pdfFrame.addEventListener('load', () => {
+    this.setupPdfStateTracking(filePath, pdfFrame);
+  });
+
+  // Load PDF
+  this.loadPdfFile(filePath, pdfFrame);
+
+  // Store viewer instance
+  this.viewerInstances.set(filePath, pdfViewer);
+
+  return pdfViewer;
+}
+
+// Setup PDF state tracking
+static setupPdfStateTracking(filePath, iframe) {
+  try {
+    // Listen for scroll and other changes in the PDF viewer
+    const saveState = () => {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (iframeDoc) {
+          const state = {
+            scrollTop: iframeDoc.documentElement.scrollTop || iframeDoc.body.scrollTop,
+            scrollLeft: iframeDoc.documentElement.scrollLeft || iframeDoc.body.scrollLeft,
+            zoom: iframe.contentWindow.PDFViewerApplication?.pdfViewer?.currentScale || 1
+          };
+          this.pdfViewerStates.set(filePath, state);
+        }
+      } catch (error) {
+        // Cross-origin restrictions, ignore
       }
-    });
-
-    // Load image
-    this.loadImageFile(filePath, imageDisplay);
-
-    return imageViewer;
-  }
-
-  // Create PDF viewer
-  static createPdfViewer(filePath, container) {
-    const pdfViewer = document.createElement('div');
-    pdfViewer.className = 'pdf-viewer';
-    pdfViewer.innerHTML = `
-      <div class="pdf-viewer-toolbar">
-        <div class="pdf-viewer-controls">
-          <button class="pdf-control-btn" id="pdf-zoom-in-btn" title="Zoom In">
-            <i class="fas fa-search-plus"></i>
-          </button>
-          <button class="pdf-control-btn" id="pdf-zoom-out-btn" title="Zoom Out">
-            <i class="fas fa-search-minus"></i>
-          </button>
-          <button class="pdf-control-btn" id="pdf-zoom-reset-btn" title="Reset Zoom">
-            <i class="fas fa-expand-arrows-alt"></i>
-          </button>
-          <span class="pdf-zoom-level" id="pdf-zoom-level">100%</span>
-        </div>
-        <div class="pdf-info">
-          <span id="pdf-name">${filePath.split(/[\\/]/).pop()}</span>
-        </div>
-      </div>
-      <div class="pdf-viewer-content" style="flex: 1; position: relative;">
-      <iframe id="pdf-frame" src="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
-      </div>
-    `;
-
-    // Add event listeners for PDF zoom controls
-    const zoomInBtn = pdfViewer.querySelector('#pdf-zoom-in-btn');
-    const zoomOutBtn = pdfViewer.querySelector('#pdf-zoom-out-btn');
-    const zoomResetBtn = pdfViewer.querySelector('#pdf-zoom-reset-btn');
-    const zoomLevel = pdfViewer.querySelector('#pdf-zoom-level');
-    const pdfFrame = pdfViewer.querySelector('#pdf-frame');
-
-    let currentZoom = 1;
-
-    const updatePdfZoom = (newZoom) => {
-      currentZoom = Math.max(0.5, Math.min(3, newZoom));
-      pdfFrame.style.transform = `scale(${currentZoom})`;
-      pdfFrame.style.transformOrigin = 'top left';
-      zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
     };
 
-    zoomInBtn.addEventListener('click', () => updatePdfZoom(currentZoom * 1.2));
-    zoomOutBtn.addEventListener('click', () => updatePdfZoom(currentZoom / 1.2));
-    zoomResetBtn.addEventListener('click', () => updatePdfZoom(1));
-
-    // Load PDF
-    this.loadPdfFile(filePath, pdfFrame);
-
-    return pdfViewer;
+    // Save state periodically and on events
+    iframe.contentWindow.addEventListener('scroll', saveState);
+    iframe.contentWindow.addEventListener('resize', saveState);
+    
+    // Save state every 2 seconds
+    setInterval(saveState, 2000);
+  } catch (error) {
+    // Handle cross-origin restrictions
+    console.log('PDF state tracking limited due to security restrictions');
   }
+}
+
+// Restore PDF viewer state
+static restorePdfViewerState(filePath, viewer) {
+  const state = this.pdfViewerStates.get(filePath);
+  if (!state) return;
+
+  const iframe = viewer.querySelector('#pdf-frame');
+  if (!iframe) return;
+
+  iframe.addEventListener('load', () => {
+    setTimeout(() => {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (iframeDoc) {
+          iframeDoc.documentElement.scrollTop = state.scrollTop;
+          iframeDoc.documentElement.scrollLeft = state.scrollLeft;
+          
+          // Try to restore zoom if PDF.js is available
+          if (iframe.contentWindow.PDFViewerApplication) {
+            iframe.contentWindow.PDFViewerApplication.pdfViewer.currentScale = state.zoom;
+          }
+        }
+      } catch (error) {
+        // Cross-origin restrictions, ignore
+      }
+    }, 500);
+  });
+}
 
   // Load image file
 static async loadImageFile(filePath, imgElement) {
@@ -1881,6 +2017,7 @@ static async closeAllTabs() {
   }
 }
 
+// Enhanced formatCurrentFile with undo history preservation
 static async formatCurrentFile() {
   if (!this.activeTab) {
     console.warn('No active tab to format');
@@ -1888,6 +2025,13 @@ static async formatCurrentFile() {
   }
 
   const filePath = this.activeTab;
+  
+  // Don't format binary files
+  if (this.isBinaryFile(filePath)) {
+    console.warn('Cannot format binary files');
+    return;
+  }
+
   const editor = EditorManager.getEditorForFile(filePath);
   
   if (!editor) {
@@ -1910,12 +2054,18 @@ static async formatCurrentFile() {
     const formattedCode = await CodeFormatter.formatCode(originalCode, filePath);
     
     if (formattedCode && formattedCode !== originalCode) {
+      // Create undo stop before formatting
+      editor.pushUndoStop();
+      
       // Store cursor position and selection
       const position = editor.getPosition();
       const selection = editor.getSelection();
       
       // Update editor content
       editor.setValue(formattedCode);
+      
+      // Create undo stop after formatting to make it undoable
+      editor.pushUndoStop();
       
       // Try to restore cursor position (approximate)
       if (position) {
@@ -1931,14 +2081,20 @@ static async formatCurrentFile() {
       this.markFileAsModified(filePath);
       
       // Show success feedback
-      showCardNotification('Code formatted successfully', 'success');
+      if (typeof showCardNotification === 'function') {
+        showCardNotification('Code formatted successfully', 'success');
+      }
     } else {
-      showCardNotification('Code is already properly formatted', 'info');
+      if (typeof showCardNotification === 'function') {
+        showCardNotification('Code is already properly formatted', 'info');
+      }
     }
     
   } catch (error) {
     console.error('Code formatting failed:', error);
-    showCardNotification(`Formatting failed: ${error.message}`, 'error');
+    if (typeof showCardNotification === 'function') {
+      showCardNotification(`Formatting failed: ${error.message}`, 'error');
+    }
   } finally {
     // Hide loading indicator
     this.showFormattingIndicator(false);
@@ -1959,41 +2115,253 @@ static showFormattingIndicator(show) {
   }
 }
 
-   // New method to make tabs sortable
-   static initSortableTabs() {
-    const tabContainer = document.getElementById('tabs-container');
-    if (!tabContainer) return;
+// Enhanced drag & drop functionality for tabs
+static initSortableTabs() {
+  const tabsContainer = document.getElementById('tabs-container');
+  if (!tabsContainer) return;
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+  let draggedTab = null;
+  let draggedTabPath = null;
+  let dropIndicator = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let hasMovedEnough = false;
 
-    let draggedTab = null;
+  // Create drop indicator
+  const createDropIndicator = () => {
+    if (dropIndicator) return dropIndicator;
+    dropIndicator = document.createElement('div');
+    dropIndicator.className = 'drop-indicator';
+    tabsContainer.appendChild(dropIndicator);
+    return dropIndicator;
+  };
 
-    tabContainer.addEventListener('dragstart', (e) => {
-      if (e.target.classList.contains('tab')) {
-        draggedTab = e.target;
-        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
-        e.target.classList.add('dragging');
-      }
-    });
+  // Remove drop indicator
+  const removeDropIndicator = () => {
+    if (dropIndicator) {
+      dropIndicator.remove();
+      dropIndicator = null;
+    }
+  };
 
+
+  // Get tab position in container
+  const getTabIndex = (tab) => {
+    return Array.from(tabsContainer.children).indexOf(tab);
+  };
+
+  // Find drop position based on mouse coordinates
+  const getDropPosition = (x, y) => {
+    const tabs = Array.from(tabsContainer.querySelectorAll('.tab:not(.dragging)'));
     
-
-    tabContainer.addEventListener('dragend', (e) => {
-      if (draggedTab) {
-        draggedTab.classList.remove('dragging');
-        draggedTab = null;
-      }
-    });
-
-    tabContainer.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const afterElement = this.getDragAfterElement(tabContainer, e.clientY);
+    for (let i = 0; i < tabs.length; i++) {
+      const tab = tabs[i];
+      const rect = tab.getBoundingClientRect();
+      const midpoint = rect.left + rect.width / 2;
       
-      if (afterElement == null) {
-        tabContainer.appendChild(draggedTab);
-      } else {
-        tabContainer.insertBefore(draggedTab, afterElement);
+      if (x < midpoint) {
+        return { index: i, side: 'left', tab };
       }
+    }
+    
+    // Drop at the end
+    return { 
+      index: tabs.length, 
+      side: 'right', 
+      tab: tabs[tabs.length - 1] 
+    };
+  };
+
+  // Update drop indicator position
+  const updateDropIndicator = (dropPosition) => {
+    const indicator = createDropIndicator();
+    
+    if (!dropPosition.tab) {
+      indicator.classList.remove('active');
+      return;
+    }
+
+    const rect = dropPosition.tab.getBoundingClientRect();
+    const containerRect = tabsContainer.getBoundingClientRect();
+    
+    let left;
+    if (dropPosition.side === 'left') {
+      left = rect.left - containerRect.left - 1;
+    } else {
+      left = rect.right - containerRect.left - 1;
+    }
+    
+    indicator.style.left = left + 'px';
+    indicator.classList.add('active');
+  };
+
+  // Reorder tabs in DOM
+  const reorderTabs = (draggedPath, targetIndex) => {
+    const tabs = Array.from(tabsContainer.querySelectorAll('.tab'));
+    const draggedTabElement = tabs.find(tab => tab.getAttribute('data-path') === draggedPath);
+    
+    if (!draggedTabElement) return;
+
+    // Remove dragged tab
+    draggedTabElement.remove();
+    
+    // Insert at new position
+    if (targetIndex >= tabs.length - 1) {
+      tabsContainer.appendChild(draggedTabElement);
+    } else {
+      const referenceTab = tabs[targetIndex];
+      tabsContainer.insertBefore(draggedTabElement, referenceTab);
+    }
+  };
+
+  // Event handlers
+  const handleDragStart = (e) => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+
+    draggedTab = tab;
+    draggedTabPath = tab.getAttribute('data-path');
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    hasMovedEnough = false;
+
+    // Set drag data
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedTabPath);
+    
+    // Create custom drag image (transparent)
+    const dragImage = document.createElement('div');
+    dragImage.style.opacity = '0';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => dragImage.remove(), 0);
+
+    // Add dragging class after a brief delay to allow drag image setup
+    setTimeout(() => {
+      if (draggedTab) {
+        tab.classList.add('dragging');
+        tabsContainer.classList.add('dragging-active');
+      }
+    }, 10);
+  };
+
+  const handleDrag = (e) => {
+    if (!draggedTab) return;
+    
+    // Check if mouse has moved enough to start visual feedback
+    if (!hasMovedEnough) {
+      const distance = Math.sqrt(
+        Math.pow(e.clientX - dragStartX, 2) + Math.pow(e.clientY - dragStartY, 2)
+      );
+      if (distance > 10) {
+        hasMovedEnough = true;
+      }
+    }
+
+    if (hasMovedEnough) {
+      
+      // Update drop indicator
+      const dropPosition = getDropPosition(e.clientX, e.clientY);
+      updateDropIndicator(dropPosition);
+    }
+  };
+
+  const handleDragEnd = () => {
+    // Clean up
+    if (draggedTab) {
+      draggedTab.classList.remove('dragging');
+    }
+    
+    tabsContainer.classList.remove('dragging-active');
+    removeDropIndicator();
+    
+    // Clear drag over states
+    tabsContainer.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('drag-over', 'drag-over-right');
     });
+
+    draggedTab = null;
+    draggedTabPath = null;
+    hasMovedEnough = false;
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    
+    if (!draggedTabPath) return;
+
+    const dropPosition = getDropPosition(e.clientX, e.clientY);
+    
+    // Calculate target index accounting for the dragged tab removal
+    let targetIndex = dropPosition.index;
+    const currentIndex = getTabIndex(draggedTab);
+    
+    if (currentIndex < targetIndex) {
+      targetIndex--;
+    }
+
+    // Only reorder if position actually changed
+    if (targetIndex !== currentIndex) {
+      reorderTabs(draggedTabPath, targetIndex);
+      this.saveTabOrder(); // Save new order
+    }
+    e.dataTransfer.clearData();
+
+    handleDragEnd();
+  };
+
+  // Add event listeners to all tabs
+  const addTabListeners = (tab) => {
+    tab.draggable = true;
+    tab.addEventListener('dragstart', handleDragStart);
+    tab.addEventListener('drag', handleDrag);
+    tab.addEventListener('dragend', handleDragEnd);
+  };
+
+  // Initialize existing tabs
+  tabsContainer.querySelectorAll('.tab').forEach(addTabListeners);
+
+  // Container event listeners
+  tabsContainer.addEventListener('dragover', handleDragOver);
+  tabsContainer.addEventListener('drop', handleDrop);
+
+
+  // Observer to add listeners to new tabs
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE && node.matches('.tab')) {
+          addTabListeners(node);
+        }
+      });
+    });
+  });
+
+  observer.observe(tabsContainer, { childList: true });
+
+  // Store observer reference for cleanup
+  this.tabObserver = observer;
+}
+
+// Method to save tab order (already exists in your code, keeping for reference)
+static saveTabOrder() {
+  const tabOrder = this.getTabOrder();
+  localStorage.setItem('editorTabOrder', JSON.stringify(tabOrder));
+}
+
+// Clean up method (call when destroying TabManager)
+static cleanup() {
+  if (this.tabObserver) {
+    this.tabObserver.disconnect();
+    this.tabObserver = null;
   }
+}
 
  // Enhanced updateContextPath method
   static updateContextPath(filePath) {
@@ -2195,38 +2563,124 @@ static restoreEditorState(filePath) {
     }
 }
 
-  static getFileIcon(filename) {
-    const extension = filename.split('.').pop().toLowerCase();
-    
-    // Image file icons
-    if (this.imageExtensions.has(extension)) {
-      return 'fas fa-image';
-    }
-    
-    // PDF file icons
-    if (extension === 'pdf') {
-      return 'fas fa-file-pdf';
-    }
-    
-    // Existing text file icons
-    const iconMap = {
-      'js': 'fab fa-js',
-      'jsx': 'fab fa-react',
-      'ts': 'fab fa-js',
-      'tsx': 'fab fa-react',
-      'html': 'fab fa-html5',
-      'css': 'fab fa-css3',
-      'json': 'fas fa-code',
-      'md': 'fab fa-markdown',
-      'py': 'fab fa-python',
-      'c': 'fas fa-code',
-      'cpp': 'fas fa-code',
-      'h': 'fas fa-code',
-      'hpp': 'fas fa-code'
+ // Enhanced getFileIcon method with more file types and better icons
+static getFileIcon(filename) {
+  const extension = filename.split('.').pop().toLowerCase();
+  
+  // Image file icons
+  if (this.imageExtensions.has(extension)) {
+    const imageIconMap = {
+      'jpg': 'fas fa-file-image',
+      'jpeg': 'fas fa-file-image',
+      'png': 'fas fa-file-image',
+      'gif': 'fas fa-file-image',
+      'bmp': 'fas fa-file-image',
+      'webp': 'fas fa-file-image',
+      'svg': 'fas fa-file-code',
+      'ico': 'fas fa-file-image'
     };
-    
-    return iconMap[extension] || 'fas fa-file-code';
+    return imageIconMap[extension] || 'fas fa-file-image';
   }
+  
+  // PDF file icons
+  if (extension === 'pdf') {
+    return 'fas fa-file-pdf';
+  }
+  
+  // Enhanced text file icons
+  const iconMap = {
+    // JavaScript/TypeScript
+    'js': 'fab fa-js-square',
+    'jsx': 'fab fa-react',
+    'ts': 'fab fa-js-square',
+    'tsx': 'fab fa-react',
+    'mjs': 'fab fa-js-square',
+    'vue': 'fab fa-vuejs',
+    
+    // Web technologies
+    'html': 'fab fa-html5',
+    'htm': 'fab fa-html5',
+    'css': 'fab fa-css3-alt',
+    'scss': 'fab fa-sass',
+    'sass': 'fab fa-sass',
+    'less': 'fas fa-file-code',
+    
+    // Data formats
+    'json': 'fas fa-file-code',
+    'xml': 'fas fa-file-code',
+    'yaml': 'fas fa-file-code',
+    'yml': 'fas fa-file-code',
+    'toml': 'fas fa-file-code',
+    
+    // Documentation
+    'md': 'fab fa-markdown',
+    'markdown': 'fab fa-markdown',
+    'txt': 'fas fa-file-alt',
+    'rtf': 'fas fa-file-alt',
+    
+    // Programming languages
+    'py': 'fab fa-python',
+    'java': 'fab fa-java',
+    'c': 'fas fa-file-code',
+    'cpp': 'fas fa-file-code',
+    'cc': 'fas fa-file-code',
+    'cxx': 'fas fa-file-code',
+    'h': 'fas fa-file-code',
+    'hpp': 'fas fa-file-code',
+    'cs': 'fas fa-file-code',
+    'php': 'fab fa-php',
+    'rb': 'fas fa-file-code',
+    'go': 'fas fa-file-code',
+    'rs': 'fas fa-file-code',
+    'swift': 'fab fa-swift',
+    'kt': 'fas fa-file-code',
+    'scala': 'fas fa-file-code',
+    
+    // Shell scripts
+    'sh': 'fas fa-terminal',
+    'bash': 'fas fa-terminal',
+    'zsh': 'fas fa-terminal',
+    'fish': 'fas fa-terminal',
+    'ps1': 'fas fa-terminal',
+    'bat': 'fas fa-terminal',
+    'cmd': 'fas fa-terminal',
+    
+    // Configuration files
+    'ini': 'fas fa-cog',
+    'conf': 'fas fa-cog',
+    'config': 'fas fa-cog',
+    'env': 'fas fa-cog',
+    
+    // Archive files
+    'zip': 'fas fa-file-archive',
+    'rar': 'fas fa-file-archive',
+    '7z': 'fas fa-file-archive',
+    'tar': 'fas fa-file-archive',
+    'gz': 'fas fa-file-archive',
+    
+    // Audio files
+    'mp3': 'fas fa-file-audio',
+    'wav': 'fas fa-file-audio',
+    'flac': 'fas fa-file-audio',
+    'ogg': 'fas fa-file-audio',
+    
+    // Video files
+    'mp4': 'fas fa-file-video',
+    'avi': 'fas fa-file-video',
+    'mkv': 'fas fa-file-video',
+    'mov': 'fas fa-file-video',
+    
+    // Office documents
+    'doc': 'fas fa-file-word',
+    'docx': 'fas fa-file-word',
+    'xls': 'fas fa-file-excel',
+    'xlsx': 'fas fa-file-excel',
+    'ppt': 'fas fa-file-powerpoint',
+    'pptx': 'fas fa-file-powerpoint'
+  };
+  
+  return iconMap[extension] || 'fas fa-file';
+}
 
    // Enhanced addTab method with binary file support
   static addTab(filePath, content = null) {
@@ -2345,91 +2799,166 @@ static restoreEditorState(filePath) {
     });
   }
   
- // Enhanced activateTab method with binary file support
-  static activateTab(filePath) {
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
+ // Enhanced activateTab with better viewer management
+static activateTab(filePath) {
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => tab.classList.remove('active'));
 
-    const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-    if (activeTab) {
-      activeTab.classList.add('active');
-      this.activeTab = filePath;
+  const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+    this.activeTab = filePath;
 
-      // Update context path
-      this.updateContextPath(filePath);
+    // Update context path
+    this.updateContextPath(filePath);
+    this.highlightFileInTree(filePath);
 
-      // Highlight the file in the tree
-      this.highlightFileInTree(filePath);
+    const editorContainer = document.getElementById('monaco-editor');
+    this.hideOverlay();
 
-      const editorContainer = document.getElementById('monaco-editor');
-  
-  // Handle binary files
-  if (this.isBinaryFile(filePath)) {
-    // Hide ALL editor instances
-    const editorInstances = editorContainer.querySelectorAll('.editor-instance');
-    editorInstances.forEach(el => el.style.display = 'none');
-    
-    // Remove existing viewers
-    const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
-    if (existingViewer) existingViewer.remove();
-    
-    // Create appropriate viewer
-    let viewer;
-    if (this.isImageFile(filePath)) {
-      viewer = this.createImageViewer(filePath, editorContainer);
-    } else if (this.isPdfFile(filePath)) {
-      viewer = this.createPdfViewer(filePath, editorContainer);
-    }
-    
-    if (viewer) {
-      // Position viewer absolutely to cover editor area
-      viewer.style.position = 'absolute';
-      viewer.style.top = '0';
-      viewer.style.left = '0';
-      viewer.style.right = '0';
-      viewer.style.bottom = '0';
-      editorContainer.appendChild(viewer);
-    }
-  }  else {
-        // Show Monaco editor for text files
-        const monacoEditorElement = editorContainer.querySelector('.monaco-editor-container');
-        if (monacoEditorElement) {
-          monacoEditorElement.style.display = 'block';
-        }
-
-        // Remove any existing viewers
-        const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
-        if (existingViewer) {
-          existingViewer.remove();
-        }
-
-        // Activate corresponding editor
-        EditorManager.setActiveEditor(filePath);
+    // Handle binary files
+    if (this.isBinaryFile(filePath)) {
+      // Save current PDF state before switching
+      if (this.activeTab && this.isPdfFile(this.activeTab)) {
+        this.savePdfViewerState(this.activeTab);
       }
-    }
-  }
 
-
-  static async saveAllFiles() {
-    for (const [filePath, originalContent] of this.tabs.entries()) {
-      const editor = EditorManager.getEditorForFile(filePath);
-      if (!editor) continue;
-  
-      const currentContent = editor.getValue();
+      // Hide ALL editor instances
+      const editorInstances = editorContainer.querySelectorAll('.editor-instance');
+      editorInstances.forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active');
+      });
       
-      // Só salva se tiver sido modificado
-      if (currentContent !== originalContent) {
-        try {
-          await window.electronAPI.writeFile(filePath, currentContent);
-          this.markFileAsSaved(filePath);
-          this.tabs.set(filePath, currentContent);
-        } catch (error) {
-          console.error(`Erro ao salvar o arquivo ${filePath}:`, error);
-          // Você pode adicionar uma notificação visual aqui
+      // Hide all viewers first
+      const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer');
+      allViewers.forEach(viewer => {
+        viewer.style.display = 'none';
+      });
+      
+      // Get or create appropriate viewer
+      let viewer = this.viewerInstances.get(filePath);
+      if (!viewer) {
+        if (this.isImageFile(filePath)) {
+          viewer = this.createImageViewer(filePath, editorContainer);
+        } else if (this.isPdfFile(filePath)) {
+          viewer = this.createPdfViewer(filePath, editorContainer);
         }
+      }
+      
+      // Add viewer to container if not already present
+      if (viewer && !editorContainer.contains(viewer)) {
+        editorContainer.appendChild(viewer);
+      }
+      
+      // Show only the current viewer
+      if (viewer) {
+        viewer.style.display = 'flex';
+        
+        // Restore PDF state if it's a PDF
+        if (this.isPdfFile(filePath)) {
+          this.restorePdfViewerState(filePath, viewer);
+        }
+      }
+      
+    } else {
+      // Hide all viewers for text files
+      const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer');
+      allViewers.forEach(viewer => {
+        viewer.style.display = 'none';
+      });
+
+      // Show and activate the appropriate editor instance
+      const editorInstances = editorContainer.querySelectorAll('.editor-instance');
+      editorInstances.forEach(el => {
+        if (el.dataset.filePath === filePath) {
+          el.style.display = 'block';
+          el.classList.add('active');
+        } else {
+          el.style.display = 'none';
+          el.classList.remove('active');
+        }
+      });
+
+      EditorManager.setActiveEditor(filePath);
+    }
+  }
+}
+
+// Save PDF viewer state before switching tabs
+static savePdfViewerState(filePath) {
+  const viewer = this.viewerInstances.get(filePath);
+  if (!viewer) return;
+
+  const iframe = viewer.querySelector('#pdf-frame');
+  if (!iframe) return;
+
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    if (iframeDoc) {
+      const state = {
+        scrollTop: iframeDoc.documentElement.scrollTop || iframeDoc.body.scrollTop,
+        scrollLeft: iframeDoc.documentElement.scrollLeft || iframeDoc.body.scrollLeft,
+        zoom: iframe.contentWindow.PDFViewerApplication?.pdfViewer?.currentScale || 1
+      };
+      this.pdfViewerStates.set(filePath, state);
+    }
+  } catch (error) {
+    // Cross-origin restrictions, ignore
+  }
+}
+
+// Comprehensive save method
+  static async saveCurrentFile() {
+    const currentPath = this.activeTab;
+    if (!currentPath) return;
+
+    try {
+      const currentEditor = EditorManager.getEditorForFile(currentPath);
+      if (!currentEditor) return;
+
+      const content = currentEditor.getValue();
+      await window.electronAPI.writeFile(currentPath, content);
+      this.markFileAsSaved(currentPath);
+      
+      // Update the content in tabs map to reflect saved content
+      this.tabs.set(currentPath, content);
+    } catch (error) {
+      console.error('Error saving file:', error);
+      // Optional: Show error dialog to user
+    }
+  }
+
+ // Enhanced saveAllFiles method with undo history preservation
+static async saveAllFiles() {
+  for (const [filePath, originalContent] of this.tabs.entries()) {
+    // Skip binary files
+    if (this.isBinaryFile(filePath)) continue;
+    
+    const editor = EditorManager.getEditorForFile(filePath);
+    if (!editor) continue;
+
+    const currentContent = editor.getValue();
+    
+    // Only save if modified
+    if (currentContent !== originalContent) {
+      try {
+        // Create undo stop before saving
+        editor.pushUndoStop();
+        
+        await window.electronAPI.writeFile(filePath, currentContent);
+        this.markFileAsSaved(filePath);
+        this.tabs.set(filePath, currentContent);
+        
+        // Create undo stop after saving
+        editor.pushUndoStop();
+        
+      } catch (error) {
+        console.error(`Error saving file ${filePath}:`, error);
       }
     }
   }
+}
   
    // Add listener for content changes
    static setupContentChangeListener(filePath, editor) {
@@ -2449,113 +2978,119 @@ static restoreEditorState(filePath) {
             static isClosingTab = false; // Prevent double closing
 
            // Enhanced closeTab method
-  static async closeTab(filePath) {
-    // Prevent multiple simultaneous closes
-    if (this.isClosingTab) return;
-    this.isClosingTab = true;
+ // Enhanced closeTab with viewer cleanup
+static async closeTab(filePath) {
+  // Prevent multiple simultaneous closes
+  if (this.isClosingTab) return;
+  this.isClosingTab = true;
 
-    try {
-      // Binary files don't have unsaved changes
-      if (!this.isBinaryFile(filePath) && this.unsavedChanges.has(filePath)) {
-        const fileName = filePath.split(/[\\/]/).pop();
-        const result = await showUnsavedChangesDialog(fileName);
-        
-        switch (result) {
-          case 'save':
-            try {
-              await this.saveFile(filePath);
-            } catch (error) {
-              console.error('Failed to save file:', error);
-              // Continue with closing even if save failed
-            }
-            break;
-          case 'dont-save':
-            // Continue with closing
-            break;
-          case 'cancel':
-          default:
-            return; // Don't close the tab
-        }
-      }
-
-      // Add to closed tabs stack for reopening
-      const currentContent = this.tabs.get(filePath);
-      this.closedTabsStack.push({
-        filePath: filePath,
-        content: currentContent,
-        timestamp: Date.now()
-      });
-
-      // Keep only last 10 closed tabs
-      if (this.closedTabsStack.length > 10) {
-        this.closedTabsStack.shift();
-      }
-
-      // Remove tab from UI
-      const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-      if (tab) {
-        tab.remove();
-      }
-
-      this.stopWatchingFile(filePath);
+  try {
+    // Handle unsaved changes for text files
+    if (!this.isBinaryFile(filePath) && this.unsavedChanges.has(filePath)) {
+      const fileName = filePath.split(/[\\/]/).pop();
+      const result = await showUnsavedChangesDialog(fileName);
       
-      // Stop periodic checking if no tabs left
-      if (this.tabs.size === 0) {
-        this.stopPeriodicFileCheck();
-      }
-
-      // Clean up editor and data
-      if (!this.isBinaryFile(filePath)) {
-        EditorManager.closeEditor(filePath);
-      }
-      
-      // Clean up viewers
-      const editorContainer = document.getElementById('monaco-editor');
-      const existingViewer = editorContainer.querySelector('.image-viewer, .pdf-viewer');
-      if (existingViewer) {
-        existingViewer.remove();
-      }
-
-      this.tabs.delete(filePath);
-      this.unsavedChanges.delete(filePath);
-      this.editorStates.delete(filePath);
-
-      // Handle active tab switching
-      if (this.activeTab === filePath) {
-        this.highlightFileInTree(null);
-        const remainingTabs = Array.from(this.tabs.keys());
-        
-        if (remainingTabs.length > 0) {
-          // Activate the last tab in the list
-          this.activateTab(remainingTabs[remainingTabs.length - 1]);
-        } else {
-          // No tabs left
-          this.activeTab = null;
-          this.updateContextPath(null);
-          
-          // Show Monaco editor and clear it
-          const monacoEditorElement = editorContainer.querySelector('.monaco-editor-container');
-          if (monacoEditorElement) {
-            monacoEditorElement.style.display = 'block';
+      switch (result) {
+        case 'save':
+          try {
+            await this.saveFile(filePath);
+          } catch (error) {
+            console.error('Failed to save file:', error);
           }
-          
-          // Clear the editor
-          const mainEditor = EditorManager.activeEditor;
-          if (mainEditor) {
-            mainEditor.setValue('');
-            const model = mainEditor.getModel();
-            if (model) {
-              monaco.editor.setModelLanguage(model, 'plaintext');
-            }
+          break;
+        case 'dont-save':
+          break;
+        case 'cancel':
+        default:
+          return;
+      }
+    }
+
+    // Clean up viewer instance
+    if (this.viewerInstances.has(filePath)) {
+      const viewer = this.viewerInstances.get(filePath);
+      if (viewer && viewer.parentNode) {
+        viewer.remove();
+      }
+      this.viewerInstances.delete(filePath);
+    }
+
+    // Add to closed tabs stack
+    const currentContent = this.tabs.get(filePath);
+    this.closedTabsStack.push({
+      filePath: filePath,
+      content: currentContent,
+      timestamp: Date.now()
+    });
+
+    if (this.closedTabsStack.length > 10) {
+      this.closedTabsStack.shift();
+    }
+
+    // Remove tab from UI
+    const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+    if (tab) {
+      tab.remove();
+    }
+
+    this.stopWatchingFile(filePath);
+    
+    if (this.tabs.size === 0) {
+      this.stopPeriodicFileCheck();
+    }
+
+    // Clean up editor and data
+    if (!this.isBinaryFile(filePath)) {
+      EditorManager.closeEditor(filePath);
+    }
+
+    this.tabs.delete(filePath);
+    this.unsavedChanges.delete(filePath);
+    this.editorStates.delete(filePath);
+
+    // Handle active tab switching
+    if (this.activeTab === filePath) {
+      this.highlightFileInTree(null);
+      const remainingTabs = Array.from(this.tabs.keys());
+      
+      if (remainingTabs.length > 0) {
+        this.activateTab(remainingTabs[remainingTabs.length - 1]);
+      } else {
+        // No tabs left - show overlay
+        this.activeTab = null;
+        this.updateContextPath(null);
+        this.showOverlay();
+        
+        // Clear the editor
+        const mainEditor = EditorManager.activeEditor;
+        if (mainEditor) {
+          mainEditor.setValue('');
+          const model = mainEditor.getModel();
+          if (model) {
+            monaco.editor.setModelLanguage(model, 'plaintext');
           }
         }
       }
+    }
 
-    } finally {
-      this.isClosingTab = false;
+  } finally {
+    this.isClosingTab = false;
+  }
+}
+
+// Enhanced cleanup method
+static cleanup() {
+  // Save all PDF states before cleanup
+  for (const [filePath, viewer] of this.viewerInstances.entries()) {
+    if (this.isPdfFile(filePath)) {
+      this.savePdfViewerState(filePath);
     }
   }
-
+  
+  this.viewerInstances.clear();
+  this.pdfViewerStates.clear();
+  this.stopAllWatchers();
+}
             // Method to stop all file watchers (call on app close)
   static stopAllWatchers() {
     for (const filePath of this.fileWatchers.keys()) {
@@ -2627,30 +3162,39 @@ static restoreEditorState(filePath) {
                 }
             }
         
-// Enhanced saveFile method
-            // Enhanced saveFile method
-            static async saveFile(filePath = null) {
-                const currentPath = filePath || this.activeTab;
-                if (!currentPath) return;
+// Enhanced saveFile method with undo history preservation
+static async saveFile(filePath = null) {
+  const currentPath = filePath || this.activeTab;
+  if (!currentPath) return;
 
-                try {
-                    const currentEditor = EditorManager.getEditorForFile(currentPath);
-                    if (!currentEditor) {
-                        throw new Error('Editor not found for file');
-                    }
+  // Don't save binary files
+  if (this.isBinaryFile(currentPath)) return;
 
-                    const content = currentEditor.getValue();
-                    await window.electronAPI.writeFile(currentPath, content);
-                    
-                    // Mark as saved and update stored content
-                    this.markFileAsSaved(currentPath);
-                    this.tabs.set(currentPath, content);
-                    
-                } catch (error) {
-                    console.error('Error saving file:', error);
-                    throw error;
-                }
-            }
+  try {
+    const currentEditor = EditorManager.getEditorForFile(currentPath);
+    if (!currentEditor) {
+      throw new Error('Editor not found for file');
+    }
+
+    const content = currentEditor.getValue();
+    
+    // Create a save point in the undo stack before saving
+    currentEditor.pushUndoStop();
+    
+    await window.electronAPI.writeFile(currentPath, content);
+    
+    // Mark as saved and update stored content
+    this.markFileAsSaved(currentPath);
+    this.tabs.set(currentPath, content);
+    
+    // Create another undo stop after saving to preserve undo history
+    currentEditor.pushUndoStop();
+    
+  } catch (error) {
+    console.error('Error saving file:', error);
+    throw error;
+  }
+}
 
             // Fixed reopenLastClosedTab method
             static async reopenLastClosedTab() {
@@ -6831,7 +7375,7 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     }
     
     // Comando com paleta
-    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 50 --height 50 --palette rainbow`;
+    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 128 --height 128 --palette rainbow`;
     
     this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
     this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);

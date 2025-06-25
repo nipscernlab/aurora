@@ -1,181 +1,220 @@
+/* Editor overlay adjustments */
+#editor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-10);
+  transition: opacity var(--transition-normal);
+}
+
+#editor-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Ensure editor instances are properly positioned */
+.editor-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-0);
+}
+
+.editor-instance.active {
+  z-index: var(--z-10);
+}
+
 /* Image Viewer Styles */
 .image-viewer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: #1e1e1e;
-  color: #cccccc;
+  z-index: var(--z-10);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .image-viewer-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
-  background: #2d2d30;
-  border-bottom: 1px solid #3e3e42;
-  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  min-height: 60px;
 }
 
 .image-viewer-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .image-control-btn {
-  background: transparent;
-  border: 1px solid #464647;
-  color: #cccccc;
-  padding: 6px 8px;
-  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--icon-primary);
   cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
+  font-size: var(--text-sm);
 }
 
 .image-control-btn:hover {
-  background: #0e639c;
-  border-color: #0e639c;
+  background: var(--bg-hover);
+  border-color: var(--border-focus);
+  color: var(--accent-primary);
+  transform: translateY(-1px);
 }
 
 .image-control-btn:active {
-  background: #094771;
+  transform: translateY(0);
+  background: var(--bg-active);
 }
 
 .zoom-level {
-  font-size: 12px;
-  color: #cccccc;
-  margin-left: 8px;
-  min-width: 40px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  min-width: 60px;
+  text-align: center;
 }
 
 .image-info {
-  font-size: 12px;
-  color: #cccccc;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.image-info span {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  background: var(--bg-tertiary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
 }
 
 .image-viewer-content {
   flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   overflow: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #1e1e1e;
-}
-
-.image-container {
-  max-width: 100%;
-  max-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.image-container img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  transition: transform 0.15s ease;
+  background: var(--bg-secondary);
+  position: relative;
   cursor: grab;
 }
 
-.image-container img:active {
+.image-viewer-content.dragging {
   cursor: grabbing;
+}
+
+.image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 100%;
+  min-height: 100%;
+  position: relative;
+}
+
+.image-container img {
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  transition: transform var(--transition-normal);
+  user-select: none;
+  pointer-events: none;
 }
 
 /* PDF Viewer Styles */
 .pdf-viewer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: #1e1e1e;
-  color: #cccccc;
-}
-
-.pdf-viewer-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background: #2d2d30;
-  border-bottom: 1px solid #3e3e42;
-  flex-shrink: 0;
-}
-
-.pdf-viewer-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pdf-control-btn {
-  background: transparent;
-  border: 1px solid #464647;
-  color: #cccccc;
-  padding: 6px 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s ease;
-}
-
-.pdf-control-btn:hover {
-  background: #0e639c;
-  border-color: #0e639c;
-}
-
-.pdf-control-btn:active {
-  background: #094771;
-}
-
-.pdf-zoom-level {
-  font-size: 12px;
-  color: #cccccc;
-  margin-left: 8px;
-  min-width: 40px;
-}
-
-.pdf-info {
-  font-size: 12px;
-  color: #cccccc;
+  z-index: var(--z-10);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .pdf-viewer-content {
   flex: 1;
-  overflow: auto;
-  background: #f0f0f0;
+  position: relative;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .pdf-viewer-content iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   border: none;
-  transition: transform 0.15s ease;
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
 }
 
 /* Binary file tab indicator */
-.tab.binary-file::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 6px;
-  height: 6px;
-  background: #4fc3f7;
-  border-radius: 50%;
-  z-index: 1;
+.tab.binary-file {
+  border-bottom: 2px solid var(--accent-secondary);
 }
 
-/* File type indicator in context path */
-.file-type-indicator {
-  background: #0e639c;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 500;
-  margin-left: 8px;
+.tab.binary-file .tab-name {
+  color: var(--accent-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .image-viewer-toolbar,
+  .pdf-viewer-toolbar {
+    padding: var(--space-2) var(--space-3);
+    min-height: 50px;
+  }
+  
+  .image-control-btn,
+  .pdf-control-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  
+  .image-info span,
+  .pdf-info span {
+    font-size: 12px;
+    padding: var(--space-1) var(--space-2);
+  }
 }
 
 /* Scrollbar styles for viewers */
@@ -187,59 +226,17 @@
 
 .image-viewer-content::-webkit-scrollbar-track,
 .pdf-viewer-content::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
 }
 
 .image-viewer-content::-webkit-scrollbar-thumb,
 .pdf-viewer-content::-webkit-scrollbar-thumb {
-  background: #424242;
-  border-radius: 4px;
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
 }
 
 .image-viewer-content::-webkit-scrollbar-thumb:hover,
 .pdf-viewer-content::-webkit-scrollbar-thumb:hover {
-  background: #4f4f4f;
-}
-
-/* Loading states */
-.image-viewer.loading .image-container::before,
-.pdf-viewer.loading .pdf-viewer-content::before {
-  content: 'Loading...';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #cccccc;
-  font-size: 14px;
-}
-
-/* Error states */
-.image-viewer.error .image-container::before,
-.pdf-viewer.error .pdf-viewer-content::before {
-  content: 'Failed to load file';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #f44336;
-  font-size: 14px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .image-viewer-toolbar,
-  .pdf-viewer-toolbar {
-    padding: 6px 12px;
-  }
-  
-  .image-control-btn,
-  .pdf-control-btn {
-    padding: 4px 6px;
-    font-size: 11px;
-  }
-  
-  .zoom-level,
-  .pdf-zoom-level {
-    font-size: 11px;
-  }
+  background: var(--accent-primary);
 }

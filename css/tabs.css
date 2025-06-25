@@ -1,314 +1,130 @@
-/* Tab container */
+/* ===== Full CSS (original styles) with consolidated Drag & Drop only ===== */
+
+/* Tab container and scrollbars */
 #editor-tabs {
   height: 0px;
-  }
-  
-  #editor-tabs::-webkit-scrollbar {
-    height: 5px;
-  }
-  
-  #editor-tabs::-webkit-scrollbar-track {
-    background: #1e1e1e;
-  }
-
-  #editor-tabs::-webkit-scrollbar-thumb {
-    background: #424242;
-    border-radius: 3px;
-  }
-  
-  /* Individual tab styling */
-  .tab {
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    height: 35px;
-    background-color: #2d2d2d;
-    border-right: 2px solid var(--border-color);
-    color: #969696;
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
-    min-width: 100px;
-    max-width: 200px;
-    position: relative;
-    transition: background-color 0.2s ease;
-  }
-  
-  .tab:hover {
-    background-color: #333333;
-  }
-
-  .tabs-container {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
 }
-
-.tabs-container::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+#editor-tabs::-webkit-scrollbar {
+  height: 5px;
 }
-
-/* Para permitir scroll horizontal com a roda do mouse */
-.tabs-container {
-  scroll-behavior: smooth;
-}
-  
-/* Aba ativa */
-.tab.active {
-  background-color: #0078d4; /* Cor de fundo para aba ativa */
-  color: white; /* Cor do texto na aba ativa */
-}
-
-/* Efeito de hover para outras abas */
-.tab:hover {
-  background-color: #0078d4;
-}
-
-.tab {
-  /*cursor: grab;*/
-  cursor: pointer;
-  user-select: none;
-}
-
-.tab.dragging {
-  opacity: 0.5;
-  /*cursor: grabbing;*/
-}
-
-/* Drop indicator styling */
-.drop-indicator {
-  position: absolute;
-  height: 2px;
-  background-color: #fff; /* Azul semelhante ao VSCode */
-  width: 100%;
-  pointer-events: none;
-  transition: all 0.2s ease-in-out;
-}
-
-
-#tabs-container {
-  display: flex;
-  overflow-x: auto;
-  /*background: var(--background-color);*/
-  border-bottom: 1px solid var(--border-color);
-}
-/* Estilo ao passar o mouse em abas inativas 
-.tab:not(.active):hover {
-  background-color: #e0e0e0; 
-}*/
-  
-  .tab i {
-    margin-right: 8px;
-    font-size: 14px;
-  }
-  
-  .tab .tab-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-  
-  /* Close button */
-  .close-tab {
-    margin-left: 8px;
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    padding: 0 4px;
-    font-size: 16px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.close-tab:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-  
-  /* Drag and drop styling */
-  .tab.dragging {
-    opacity: 0.5;
-    background-color: #333333;
-  }
-  
-  /* Animation for new tabs */
-  .tab {
-    animation: tabFadeIn 0.2s ease;
-  }
-  
-  @keyframes tabFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .tab {
-    padding: 8px 16px;
-    background-color: var(--bg-secondary);
-    display: flex;
-    align-items: center;
-    /* gap: 8px; */
-    min-width: 100px;
-    max-width: 200px;
-    font-size: 13px;
-  }
-
-/*STYLES*/
-
-
-.tab {
-  flex: 1;
-  padding: 10px;
-  text-align: center;
-  background-color: #333;
-  color: #fff;
-  outline: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  border-right: #0078d4 1px solid;
-
-}
-
-.tab:hover {
-  background-color: #0078d4;
-}
-
-/* Quando estiver arrastando, desativa a transição */
-.tabs-container.dragging .tab {
-  transition: none;
-}
-
-#tabs {
-  display: flex;
+#editor-tabs::-webkit-scrollbar-track {
   background: #1e1e1e;
-  border-bottom: 1px solid #333;
-  height: 36px;
-  overflow-x: scroll;
-  overflow-y: none;
+}
+#editor-tabs::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 3px;
 }
 
-
-.tabs-container {
+/* Core tab and container styles */
+.tabs-container, #tabs-container,
+.tabs {
   display: flex;
   flex-direction: row;
-  border-bottom: 1px solid #333;
-  height: 46px;
-  overflow-x: auto;      /* permite scroll horizontal */
-  overflow-y: hidden;    /* evita scroll vertical */
+  overflow-x: auto;
+  overflow-y: hidden;
   scroll-behavior: smooth;
-  white-space: nowrap;   /* evita quebra de linha entre tabs */
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  user-select: none;
+  position: relative;
 }
 
-
-/* Cada tab permanece inline-block para respeitar white-space */
-.tabs-container .tab {
-  display: inline-flex;
-}
-
-/* Permite usar a roda do mouse para navegar horizontalmente */
-/* Sem JS: quando não há scroll vertical possível, a roda já aciona o scroll horizontal */
+/* Hide native scrollbars */
 .tabs-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   overscroll-behavior-y: contain;
 }
-
-.tab-content {
-  padding: 0 8px;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.tabs-container::-webkit-scrollbar {
+  display: none;
 }
 
-.tab-title {
-  flex: 1;
+/* Individual tab styling */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  min-width: 100px;
+  max-width: 200px;
+  height: 35px;
+  background-color: #333; /* fallback */
+  background-color: var(--bg-secondary);
+  color: #969696;
+  color: var(--text-color-secondary);
+  border-right: 1px solid var(--border-color);
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
   white-space: nowrap;
+  transition: background-color 0.3s ease, transform 0.2s cubic-bezier(0.2,0,0.2,1);
+}
+.tab .tab-name, .tab .tab-title {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #969696;
+  white-space: nowrap;
+}
+.tab i {
+  margin-right: 8px;
+  font-size: 14px;
 }
 
-
-.tab-close {
-  width: 20px;
-  height: 20px;
+/* Close button */
+.tab-close, .close-tab {
+  margin-left: 8px;
+  padding: 0 4px;
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  color: #969696;
-  opacity: 0.7;
+  background: none;
   border: none;
-  background: transparent;
+  font-size: 16px;
+  color: var(--text-color-secondary);
+  opacity: 0.7;
   cursor: pointer;
+  border-radius: 4px;
+  transition: opacity 0.2s;
 }
-
-.tab-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+.tab-close:hover, .close-tab:hover {
   opacity: 1;
+  background: rgba(255,255,255,0.1);
 }
 
-.tab.modified .tab-title::after {
+/* Hover and active states */
+.tab:hover {
+  background-color: var(--hover-color);
+}
+.tab.active {
+  background-color: var(--accent-primary);
+  color: var(--text-color-on-accent);
+}
+.tab.modified .tab-name::after, .tab.modified .tab-title::after {
   content: '●';
   margin-left: 4px;
-  color: #007acc;
+  color: var(--accent-secondary);
 }
 
-
-.tabs {
-  background-color: var(--bg-secondary);
-  display: flex;
-  flex-direction: row; /* Ensure horizontal layout */
-  padding: 0;
-  overflow-x: auto;
-  user-select: none;
+/* Animation for new tabs */
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.tab { animation: tabFadeIn 0.2s ease; }
 
-.tab-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-close {
-  opacity: 0.7;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  padding: 2px;
-}
-
-.tab-close:hover {
-  background-color: var(--hover-color);
-  opacity: 1;
-}
-
-
-/*ARE YOU SURE?*/
+/* Confirm and conflict dialogs (unchanged) */
 .confirm-dialog {
   padding: 20px;
   background: var(--background-color);
   color: var(--text-color);
 }
-
 .dialog-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
 }
-
 .dialog-buttons button {
   padding: 5px 15px;
   cursor: pointer;
@@ -317,93 +133,84 @@
   color: var(--text-color);
   border-radius: 4px;
 }
-
 .dialog-buttons button:hover {
   background: var(--background-lighter-hover);
 }
+.conflict-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.conflict-modal.show { opacity: 1; }
+.conflict-modal-content {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.conflict-modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.conflict-modal-icon { font-size: 24px; }
+.conflict-modal-title { color: var(--text-primary); margin: 0; font-size: 18px; font-weight: 600; }
+.conflict-modal-message { color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; }
+.conflict-modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.conflict-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+.conflict-btn.keep-editor { background: var(--accent-primary); color: white; }
+.conflict-btn.use-disk { background: var(--bg-tertiary); color: var(--text-primary); }
+.conflict-btn.save-and-reload { background: var(--success-color); color: white; }
+.conflict-btn:hover { opacity: 0.9; }
 
- .conflict-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
+/* ===== Consolidated Drag & Drop Styles ===== */
+.tab.dragging {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: none;
+}
+.tabs-container.dragging-active, #tabs-container.dragging-active {
+  user-select: none;
+}
+.drop-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  z-index: 1001;
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleY(0);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.drop-indicator.active { opacity: 1; transform: scaleY(1); }
+.tab.drag-over::before,
+.tab.drag-over-right::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  z-index: 1002;
+  animation: dragIndicatorPulse 0.6s ease-in-out infinite alternate;
+}
+.tab.drag-over::before { left: -2px; }
+.tab.drag-over-right::before { right: -2px; }
 
-  .conflict-modal.show {
-    opacity: 1;
-  }
-
-  .conflict-modal-content {
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    padding: 24px;
-    max-width: 480px;
-    width: 90%;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  }
-
-  .conflict-modal-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .conflict-modal-icon {
-    font-size: 24px;
-  }
-
-  .conflict-modal-title {
-    color: var(--text-primary);
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-  }
-
-  .conflict-modal-message {
-    color: var(--text-secondary);
-    line-height: 1.5;
-    margin-bottom: 24px;
-  }
-
-  .conflict-modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-  }
-
-  .conflict-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.2s ease;
-  }
-
-  .conflict-btn.keep-editor {
-    background: var(--accent-primary);
-    color: white;
-  }
-
-  .conflict-btn.use-disk {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  .conflict-btn.save-and-reload {
-    background: var(--success-color, #28a745);
-    color: white;
-  }
-
-  .conflict-btn:hover {
-    opacity: 0.9;
-  }
+@keyframes dragIndicatorPulse {
+  from { opacity: 0.6; transform: scaleY(0.8); }
+  to   { opacity: 1; transform: scaleY(1); }
+}

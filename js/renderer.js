@@ -6429,7 +6429,7 @@ async cmmCompilation(processor) {
     statusUpdater.startCompilation('cmm');
 
     // Build command with selected CMM file: CMMComp.exe %CMM_FILE% %PROC_DIR% %MAC_DIR% %TMP_PRO%
-    const cmd = `"${cmmCompPath}" ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}"`;
+    const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}"`;
     this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
     
     const result = await window.electronAPI.execCommand(cmd);
@@ -7375,7 +7375,7 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     }
     
     // Comando com paleta
-    const command = `"${fancyFractalPath}" "${outputFilePath}" --width 128 --height 128 --palette rainbow`;
+    const command = `"${fancyFractalPath}" "${outputFilePath}"`;
     
     this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
     this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);

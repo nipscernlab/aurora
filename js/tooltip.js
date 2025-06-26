@@ -36,7 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'wavecomp': 'Analyzes Verilog output using VVP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
         'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
         'allcomp': 'Performs a full compilation workflow: CMM ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
-        
+        'fractalcomp': 'Performs a full compilation workflow and launches the Fractal Processor Simulator, allowing you to run and test your processor design interactively.',
+
         'themeToggle': 'Switches between light and dark themes for optimal comfort based on your environment.',
         'settings': 'Opens the processor configuration panel to customize hardware parameters and optimization settings.',
         

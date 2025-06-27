@@ -246,7 +246,7 @@ let tempProcessorConfigs = {};
 async function loadAvailableProcessors() {
   try {
     // First try to get current project info from the main process
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     
     if (projectInfo.projectOpen) {
       console.log("Current project found:", projectInfo);
@@ -355,7 +355,7 @@ async function loadCmmFiles(processorName) {
     console.log(`Loading CMM files for processor: ${processorName}`);
     
     // Get current project path
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     const currentProjectPath = projectInfo.projectPath || 
       window.currentProjectPath || 
       localStorage.getItem('currentProjectPath');
@@ -481,7 +481,7 @@ async function loadSimulationFiles(processorName) {
     console.log(`Loading simulation files for processor: ${processorName}`);
     
     // Get current project path from various possible sources
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     const currentProjectPath = projectInfo.projectPath || 
       window.currentProjectPath || 
       localStorage.getItem('currentProjectPath');
@@ -496,7 +496,7 @@ async function loadSimulationFiles(processorName) {
     }
     
     // Get the simulation folder path for this processor
-    const simulationFolderPath = await window.electronAPI.getSimulationFolderPath(processorName, currentProjectPath);
+    const simulationFolderPath = await window.electronAPI.pathExists(processorName, currentProjectPath);
     
     console.log(`Simulation folder path: ${simulationFolderPath}`);
     
@@ -804,7 +804,7 @@ deleteProcessorButton.addEventListener("click", function() {
 async function loadConfiguration() {
   try {
     // Get current project info
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     
     if (!projectInfo.projectOpen || !projectInfo.projectPath) {
       console.warn("No current project available for loading configuration");
@@ -989,7 +989,7 @@ saveConfigButton.addEventListener("click", async () => {
 
   try {
     // Get current project path
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     const currentProjectPath = projectInfo.projectPath || 
       window.currentProjectPath || 
       localStorage.getItem('currentProjectPath');

@@ -1420,10 +1420,10 @@ async function performRename(currentPath, newName, originalName) {
     const separator = parentDir.endsWith('\\') ? '' : '\\';
     const newPath = `${parentDir}${separator}${newName}`;
     
-    const newPathExists = await window.electronAPI.fileExists(newPath).catch(() => false);
-    const oldPathExists = await window.electronAPI.fileExists(currentPath).catch(() => true);
+    const newpathExists = await window.electronAPI.fileExists(newPath).catch(() => false);
+    const oldpathExists = await window.electronAPI.fileExists(currentPath).catch(() => true);
     
-    if (newPathExists && !oldPathExists) {
+    if (newpathExists && !oldpathExists) {
       // Rename succeeded despite error
       console.warn('Rename succeeded but with communication error:', error);
       showNotification(`Renamed to "${newName}" (with warnings)`, 'warning');

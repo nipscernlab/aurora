@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadAvailableProcessors() {
     try {
       // Obter informações do projeto atual usando a API Electron
-      const projectInfo = await window.electronAPI.getCurrentProject();
+      const projectInfo = await window.electronAPI.manageCurrentProject();
       
       if (projectInfo && projectInfo.projectOpen) {
         console.log("Projeto atual encontrado:", projectInfo);
@@ -352,7 +352,7 @@ async function parseProcessorInstances() {
     // Get project path
     let projectPath = window.currentProjectPath;
     if (!projectPath) {
-      const projectData = await window.electronAPI.getCurrentProject();
+      const projectData = await window.electronAPI.manageCurrentProject();
       projectPath = projectData?.projectPath;
     }
     
@@ -542,7 +542,7 @@ function getUsedInstances() {
       // Se não estiver definido, tenta obtê-lo via API
       if (!projectPath) {
         try {
-          const projectData = await window.electronAPI.getCurrentProject();
+          const projectData = await window.electronAPI.manageCurrentProject();
           // Verificar se projectData é um objeto e extrair o caminho correto
           if (projectData && typeof projectData === 'object' && projectData.projectPath) {
             projectPath = projectData.projectPath;
@@ -757,7 +757,7 @@ async function prepareModalBeforeOpen() {
       // Se não estiver definido, tenta obtê-lo via API
       if (!projectPath) {
         try {
-          const projectData = await window.electronAPI.getCurrentProject();
+          const projectData = await window.electronAPI.manageCurrentProject();
           // Verificar se projectData é um objeto e extrair o caminho correto
           if (projectData && typeof projectData === 'object' && projectData.projectPath) {
             projectPath = projectData.projectPath;
@@ -1032,7 +1032,7 @@ async function saveProjectConfiguration() {
     
     try {
       // Use the correct API call that returns an object with projectPath
-      const projectInfo = await window.electronAPI.getCurrentProject();
+      const projectInfo = await window.electronAPI.manageCurrentProject();
       projectPath = projectInfo.projectPath || window.currentProjectPath || localStorage.getItem('currentProjectPath');
     } catch (err) {
       console.warn('Failed to get project path via API:', err);

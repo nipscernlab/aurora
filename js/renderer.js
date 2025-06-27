@@ -3766,7 +3766,7 @@ async function refreshFileTree() {
       currentProjectPath = directoryPath;
       const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
       if (currentProjectPath) {
-        await window.electronAPI.setCurrentProject(currentProjectPath);
+        await window.electronAPI.manageCurrentProject(currentProjectPath);
       }
     }
 
@@ -6311,7 +6311,7 @@ async loadConfig() {
     this.isProjectOriented = toggleButton && toggleButton.classList.contains('active');
 
     // Get current project info to get the correct project path
-    const projectInfo = await window.electronAPI.getCurrentProject();
+    const projectInfo = await window.electronAPI.manageCurrentProject();
     const currentProjectPath = projectInfo.projectPath || this.projectPath;
     
     if (!currentProjectPath) {
@@ -6737,7 +6737,9 @@ async iverilogCompilation(processor) {
     statusUpdater.compilationError('verilog', error.message);
     throw error;
   }
-}// Updated runGtkWave method for processor mode
+}
+
+// Updated runGtkWave method for processor mode
 async runGtkWave(processor) {
   if (this.isProjectOriented) {
     checkCancellation();
@@ -6806,36 +6808,11 @@ async runGtkWave(processor) {
     const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
     await window.electronAPI.copyFile(instMemSource, instMemDest);
 
-    // 3) Prepare VCD file path (will be created by VVP)
+    // 3) Prepare VCD file path
     const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
 
-    // 4) Launch GTKWave in parallel with VVP
-    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave in parallel with VVP simulation...');
-    
-    // Determine GTKWave command based on configuration
-    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
-    let gtkwCmd;
-
-    if (useStandardGtkw) {
-      const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
-    } else {
-      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-      const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
-    }
-
-    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
-    
-    // Launch GTKWave asynchronously (don't wait for it to finish)
-    const gtkwavePromise = window.electronAPI.execCommand(gtkwCmd).catch(error => {
-      console.warn('GTKWave launch warning:', error);
-      // Don't throw here as GTKWave might exit normally when user closes it
-    });
-
-    // 5) Run VVP in parallel to generate VCD
+    // 4) First run VVP to generate VCD
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
-    this.terminalManager.appendToTerminal('twave', 'GTKWave will open and update automatically as VCD is generated!', 'info');
     
     const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
     await window.electronAPI.deleteFileOrDirectory(progressPath);
@@ -6876,28 +6853,47 @@ async runGtkWave(processor) {
       }
 
       this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-      this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - GTKWave should now show the results!', 'success');
       
     } catch (error) {
       if (error.message === 'Compilation canceled by user') {
         this.terminalManager.appendToTerminal('twave', 'VVP simulation canceled by user.', 'warning');
+        throw error;
       } else {
-        // Log more detailed error information
         console.error('VVP Error Details:', error);
         const errorMsg = error.error || error.stderr || error.message || 'Unknown VVP error';
         this.terminalManager.appendToTerminal('twave', `VVP Error: ${errorMsg}`, 'error');
         throw new Error(errorMsg);
       }
     } finally {
-      // Remove output listener
       window.electronAPI.removeCommandOutputListener(outputListener);
       hideVVPProgress();
     }
 
-    statusUpdater.compilationSuccess('wave');
+    // 5) Launch GTKWave after VCD is generated
+    this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
     
-    // Wait a bit for GTKWave to finish loading (optional)
-    await Promise.race([gtkwavePromise, new Promise(resolve => setTimeout(resolve, 2000))]);
+    // Determine GTKWave command based on configuration
+    const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
+    let gtkwCmd;
+
+    if (useStandardGtkw) {
+      const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+    } else {
+      const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+      const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
+    }
+
+    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
+    
+    // Launch GTKWave (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+    });
+
+    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
+    statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
@@ -6905,6 +6901,7 @@ async runGtkWave(processor) {
     throw error;
   }
 }
+
 
 // Updated runProjectGtkWave method for project mode
 async runProjectGtkWave() {
@@ -6938,26 +6935,22 @@ async runProjectGtkWave() {
       throw new Error("No processors defined in project configuration");
     }
 
-    // Get the first processor's CMM file name for Standard naming
     const firstProcessor = processors[0];
-    const firstProcessorCmmBaseName = firstProcessor.type; // Assuming type is the CMM base name
+    const firstProcessorCmmBaseName = firstProcessor.type;
 
-    // Handle standard testbench file
     let testbenchFile = this.projectConfig.testbenchFile;
     let tbModule;
     
     if (!testbenchFile || testbenchFile === 'Standard') {
-      // Use first processor CMM name as testbench name with _tb suffix
       testbenchFile = `${firstProcessorCmmBaseName}_tb.v`;
       tbModule = `${firstProcessorCmmBaseName}_tb`;
     } else {
       tbModule = testbenchFile.replace(/\.v$/i, '');
     }
 
-    const gtkwaveFile = this.projectConfig.gtkwaveFile; // can be "Standard" or custom name
+    const gtkwaveFile = this.projectConfig.gtkwaveFile;
 
-    // 3) Compile with Icarus Verilog (all .v files)
-    // 3.1) HDL files
+    // Compile with Icarus Verilog (all .v files)
     const hdlFiles = await window.electronAPI.readDir(hdlDir);
     let hdlVerilogFiles = "";
     for (const file of hdlFiles) {
@@ -6967,17 +6960,15 @@ async runProjectGtkWave() {
       }
     }
 
-    // 3.2) TopLevel files (EXCLUDING testbench file to avoid duplication)
     const topLevelFiles = await window.electronAPI.readDir(topLevelDir);
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
-      if (file.endsWith('.v') && file !== testbenchFile) { // Exclude testbench
+      if (file.endsWith('.v') && file !== testbenchFile) {
         const path = await window.electronAPI.joinPath(topLevelDir, file);
         topLevelVerilogFiles += `"${path}" `;
       }
     }
 
-    // 3.3) Processor files and create temporary folders
     let processorVerilogFiles = "";
     for (const processor of processors) {
       const procName = processor.type;
@@ -6985,20 +6976,14 @@ async runProjectGtkWave() {
         this.projectPath, procName, 'Hardware', `${procName}.v`
       );
       processorVerilogFiles += `"${procPath}" `;
-
-      // Ensure temporary directories for each processor exist
       await this.ensureDirectories(procName);
     }
 
     const flags = this.projectConfig.iverilogFlags || "";
-
     await TabManager.saveAllFiles();
 
-    // 3.4) Build iverilog command
-    const projectName    = this.projectPath.split(/[\/\\]/).pop();
+    const projectName = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
-
-    // Build testbench file path
     const testbenchFilePath = await window.electronAPI.joinPath(topLevelDir, testbenchFile);
 
     const iverilogCmd =
@@ -7009,7 +6994,6 @@ async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
 
-    // Log iverilog stdout/stderr
     if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
     if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
 
@@ -7018,20 +7002,19 @@ async runProjectGtkWave() {
       throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
     }
 
-    // 4) Copy .mif files and possible PC files to tempBaseDir
+    // Copy .mif files and possible PC files to tempBaseDir
     for (const processor of processors) {
-      const procName     = processor.type;
+      const procName = processor.type;
       const hardwarePath = await window.electronAPI.joinPath(this.projectPath, procName, 'Hardware');
 
       const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${procName}_data.mif`);
-      const dataMemDest   = await window.electronAPI.joinPath(tempBaseDir, `${procName}_data.mif`);
+      const dataMemDest = await window.electronAPI.joinPath(tempBaseDir, `${procName}_data.mif`);
       await window.electronAPI.copyFile(dataMemSource, dataMemDest);
 
       const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${procName}_inst.mif`);
-      const instMemDest   = await window.electronAPI.joinPath(tempBaseDir, `${procName}_inst.mif`);
+      const instMemDest = await window.electronAPI.joinPath(tempBaseDir, `${procName}_inst.mif`);
       await window.electronAPI.copyFile(instMemSource, instMemDest);
 
-      // PC memory (optional)
       const pcMemPath = await window.electronAPI.joinPath(
         'saphoComponents', 'Temp', procName, `pc_${procName}_mem.txt`
       );
@@ -7047,18 +7030,18 @@ async runProjectGtkWave() {
       }
     }
 
-    // 5) Copy any .txt files from TopLevel
+    // Copy any .txt files from TopLevel
     for (const file of topLevelFiles) {
       if (file.endsWith('.txt')) {
         const txtSource = await window.electronAPI.joinPath(topLevelDir, file);
-        const txtDest   = await window.electronAPI.joinPath(tempBaseDir, file);
+        const txtDest = await window.electronAPI.joinPath(tempBaseDir, file);
         await window.electronAPI.copyFile(txtSource, txtDest);
       }
     }
 
-    // 6) Generate tcl_infos.txt in tempBaseDir for the project
+    // Generate tcl_infos.txt in tempBaseDir for the project
     const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
-    let instanceList      = "";
+    let instanceList = "";
     let processorTypeList = "";
     for (const proc of processors) {
       instanceList += `${proc.instance} `;
@@ -7073,60 +7056,26 @@ async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt for project GTKWave.`);
     await window.electronAPI.writeFile(tclFilePath, tclContent);
 
-    // 7) Prepare VCD file path and launch GTKWave in parallel with VVP
+    // Prepare VCD file path
     const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
-    
-    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave in parallel with VVP simulation...');
-    
     await window.electronAPI.deleteFileOrDirectory(vcdPath);
 
-    // Build GTKWave command (can be standard or custom)
-    let gtkwCmd;
-    if (gtkwaveFile && gtkwaveFile !== "Standard") {
-      // Custom
-      const gtkwPath     = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
-      const posScriptPath= await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd =
-        `cd "${tempBaseDir}" && `
-        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
-    } else {
-      // Standard for project
-      const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-      gtkwCmd =
-        `cd "${tempBaseDir}" && `
-        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
-    }
-
-    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
-    
-    // Launch GTKWave asynchronously (don't wait for it to finish)
-    const gtkwavePromise = window.electronAPI.execCommand(gtkwCmd).catch(error => {
-      console.warn('GTKWave launch warning:', error);
-      // Don't throw here as GTKWave might exit normally when user closes it
-    });
-
-    // 8) Run VVP in parallel to generate the .vcd
+    // First run VVP simulation to generate VCD
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    this.terminalManager.appendToTerminal('twave', 'GTKWave will open and update automatically as VCD is generated!', 'info');
     
-    // Fix the VVP progress call - pass a string instead of undefined
     const projectName2 = this.projectPath.split(/[\/\\]/).pop() || 'project';
     await showVVPProgress(projectName2);
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
-    this.terminalManager.appendToTerminal('twave', `Executing command: ${vvpCmd}`);
+    this.terminalManager.appendToTerminal('twave', `Executing VVP command: ${vvpCmd}`);
 
-    // 8.1) Configure named listener BEFORE calling execCommandStream
     let isVvpRunning = true;
     let vvpProcessPid = null;
     const outputListener = (event, payload) => {
-      // payload = { type: 'stdout'|'stderr', data: string, pid?: number }
       if (!isVvpRunning) return;
       
-      // Capture VVP process PID if available
       if (payload.pid && !vvpProcessPid) {
         vvpProcessPid = payload.pid;
-        // Set global VVP PID for cancellation
         if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
           window.setCurrentVvpPid(vvpProcessPid);
         }
@@ -7136,7 +7085,6 @@ async runProjectGtkWave() {
       if (payload.type === 'stdout') {
         this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
       } else if (payload.type === 'stderr') {
-        // Generally VVP writes everything to stdout, but in case stderr is used:
         this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
       }
     };
@@ -7145,22 +7093,18 @@ async runProjectGtkWave() {
 
     let vvpResult;
     try {
-      // Set VVP running flag
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(true);
       }
       
-      // Execution (and wait for final output to get {code, stdout, stderr})
-      vvpResult = await window.electronAPI.execCommandStream(vvpCmd);
+      vvpResult = await window.electronAPI.execCommand(vvpCmd);
       isVvpRunning = false;
       
-      // Clear VVP running state
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(false);
         window.setCurrentVvpPid(null);
       }
   
-      // If there's remaining stdout, parse it (generally, execCommandStream sends everything at once at the end).
       if (vvpResult.stdout) {
         this.terminalManager.appendToTerminal('twave', vvpResult.stdout, 'stdout');
       }
@@ -7168,36 +7112,29 @@ async runProjectGtkWave() {
         this.terminalManager.appendToTerminal('twave', vvpResult.stderr, 'stderr');
       }
   
-      // Check for cancellation before checking result code
       checkCancellation();
   
       if (vvpResult.code !== 0) {
-        // If VVP fails, hide progress bar and throw error
         hideVVPProgress();
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
   
-      // If we got here, simulation was successful
-  
     } catch (err) {
       isVvpRunning = false;
       
-      // Clear VVP running state on error
       if (typeof window !== 'undefined' && window.setVvpRunning) {
         window.setVvpRunning(false);
         window.setCurrentVvpPid(null);
       }
       
-      // If it's a cancellation, kill the VVP process
       if (err.message === 'Compilation canceled by user' && vvpProcessPid) {
         try {
-          await window.electronAPI.killProcess(vvpProcessPid);
+          await window.electronAPI.terminateProcess(vvpProcessPid);
           this.terminalManager.appendToTerminal('twave', `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
         } catch (killError) {
           console.error('Error killing VVP process:', killError);
-          // Fallback: try killing by process name
           try {
-            await window.electronAPI.killProcessByName('vvp.exe');
+            await window.electronAPI.terminateProcess('vvp.exe');
             this.terminalManager.appendToTerminal('twave', 'VVP process terminated by name due to cancellation.', 'warning');
           } catch (killByNameError) {
             console.error('Error killing VVP process by name:', killByNameError);
@@ -7207,20 +7144,40 @@ async runProjectGtkWave() {
       
       throw err;
     } finally {
-      // Remove listener ALWAYS, both on success and error
       window.electronAPI.removeCommandOutputListener(outputListener);
     }
     
-    // Check for cancellation after VVP completion
     checkCancellation();
     hideVVPProgress();
 
     this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - GTKWave should now show the results!', 'success');
-    statusUpdater.compilationSuccess('wave');
 
-    // Wait a bit for GTKWave to finish loading (optional)
-    await Promise.race([gtkwavePromise, new Promise(resolve => setTimeout(resolve, 2000))]);
+    // Now launch GTKWave after VCD is generated
+    this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
+    
+    let gtkwCmd;
+    if (gtkwaveFile && gtkwaveFile !== "Standard") {
+      const gtkwPath = await window.electronAPI.joinPath(topLevelDir, gtkwaveFile);
+      const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
+    } else {
+      const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
+      gtkwCmd =
+        `cd "${tempBaseDir}" && `
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+    }
+
+    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
+    
+    // Launch GTKWave (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+    });
+
+    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
+    statusUpdater.compilationSuccess('wave');
 
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
@@ -7228,6 +7185,7 @@ async runProjectGtkWave() {
     throw error;
   }
 }
+
 
 // Add this method to your class for launching fractal visualizer
 async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
@@ -7291,117 +7249,93 @@ async launchFractalVisualizersForProject(palette = 'fire') {
   }
 }
 
-// Modified compileAll method with fractal visualization option
-async compileAll(withFractal = false, palette = 'fire') {
+// Simplified compileAll method
+async compileAll() {
   try {
     startCompilation();
     await this.loadConfig();
     
-    if (withFractal) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    // Function to switch between terminal tabs
-    function switchTerminal(targetId) {
-      // Hide all terminal content sections
-      const terminalContents = document.querySelectorAll('.terminal-content');
-      terminalContents.forEach(content => content.classList.add('hidden'));
-
-      // Remove the 'active' class from all tabs
-      const allTabs = document.querySelectorAll('.tab');
-      allTabs.forEach(tab => tab.classList.remove('active'));
-
-      // Show the selected terminal content
-      const targetContent = document.getElementById(targetId);
-      targetContent.classList.remove('hidden');
-
-      // Mark the corresponding tab as active
-      const activeTab = document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`);
-      if (activeTab) {
-        activeTab.classList.add('active');
-      }
-    }
-    
-    startCompilation();
-    // Load configurations
-    await this.loadConfig();
-    
-    // Different compilation flow based on mode
     if (this.isProjectOriented) {
-      // Project-oriented mode: compile all processors, then run project verilog and GTKWave
+      // Project mode: compile all processors, then run project verilog and GTKWave
       if (this.projectConfig && this.projectConfig.processors) {
-        // Track processed processor types to avoid duplicates
         const processedTypes = new Set();
         
-        // Compile each unique processor type
+        // Switch to CMM terminal for processor compilation
+        switchTerminal('terminal-tcmm');
+        
         for (const processor of this.projectConfig.processors) {
           checkCancellation();
-          // Skip if we've already processed this processor type
+          
           if (processedTypes.has(processor.type)) {
             this.terminalManager.appendToTerminal('tcmm', `Skipping duplicate processor type: ${processor.type}`);
             continue;
           }
           
-          // Add to processed set
           processedTypes.add(processor.type);
           
           try {
-            // Create processor object with correct structure for compilation functions
             const processorObj = {
               name: processor.type,
               type: processor.type,
               instance: processor.instance
             };
+            
             checkCancellation();
-            // First compile CMM
             this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
             await this.ensureDirectories(processor.type);
+            
+            // CMM compilation
             const asmPath = await this.cmmCompilation(processorObj);
             checkCancellation();
-            // Then compile ASM - pass 1 as the project parameter
+            
+            // ASM compilation
             await this.asmCompilation(processorObj, asmPath);
             
           } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
-            // Continue with next processor rather than stopping entire compilation
           }
         }
       }
       
+      // Switch to Verilog terminal
       switchTerminal('terminal-tveri');
       checkCancellation();
-      // Run project-level iverilog compilation
       await this.iverilogProjectCompilation();
 
+      // Switch to Wave terminal
       switchTerminal('terminal-twave');
       checkCancellation();
-      // Run project-level GTKWave
       await this.runProjectGtkWave();
       
     } else {
-      // Processor-oriented mode: run full pipeline for active processor only
+      // Processor mode: run full pipeline for active processor
       const activeProcessor = this.config.processors.find(p => p.isActive === true);
       if (!activeProcessor) {
         throw new Error("No active processor found. Please set one processor as active.");
       }
       
       const processor = activeProcessor;
-      
-      // Ensure temp directory for the active processor
       await this.ensureDirectories(processor.name);
+      
+      // Switch to CMM terminal
+      switchTerminal('terminal-tcmm');
       checkCancellation();
-      // CMM compilation
       const asmPath = await this.cmmCompilation(processor);
+      
       checkCancellation();
-      // ASM compilation
       await this.asmCompilation(processor, asmPath);
       
+      // Switch to Verilog terminal
+      switchTerminal('terminal-tveri');
       checkCancellation();
-      // Verilog compilation
       await this.iverilogCompilation(processor);
+      
+      // Switch to Wave terminal
+      switchTerminal('terminal-twave');
       checkCancellation();
-      // Run GTKWave
       await this.runGtkWave(processor);
     }
+    
     endCompilation();
     return true;
   } catch (error) {
@@ -7412,10 +7346,26 @@ async compileAll(withFractal = false, palette = 'fire') {
   }
 }
 
-
 }
 
+// Helper function to switch between terminal tabs
+function switchTerminal(targetId) {
+  const terminalContents = document.querySelectorAll('.terminal-content');
+  terminalContents.forEach(content => content.classList.add('hidden'));
 
+  const allTabs = document.querySelectorAll('.tab');
+  allTabs.forEach(tab => tab.classList.remove('active'));
+
+  const targetContent = document.getElementById(targetId);
+  if (targetContent) {
+    targetContent.classList.remove('hidden');
+  }
+
+  const activeTab = document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+  }
+}
 // Global functions to handle button clicks (put these outside your class)
 
 function setCompilerInstance(instance) {
@@ -7441,7 +7391,6 @@ async function handleFractalCompilation() {
       
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      await compilerInstance.compileAll(true);
     } catch (error) {
       console.error('Erro na compilação com fractal:', error);
       if (compilerInstance.terminalManager) {
@@ -7461,7 +7410,6 @@ async function handleRegularCompilation() {
   if (!compilerInstance.isCompiling) {
     try {
       console.log('Starting regular compilation...');
-      await compilerInstance.compileAll();
     } catch (error) {
       console.error('Error in regular compilation process:', error);
       if (compilerInstance.terminalManager) {
@@ -7504,8 +7452,8 @@ function hideVVPProgress(delay = 2000) {
   }, delay);
 }
 
+// Updated fractal compilation button handler
 document.getElementById('fractalcomp').addEventListener('click', async () => {
-  // Check if processor is configured
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
     return;
@@ -7516,24 +7464,26 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
     return;
   }
   
-  // Set compilation flags
   isCompilationRunning = true;
   compilationCanceled = false;
   
   try {
     const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig(); // Load config first
+    await compiler.loadConfig();
     
-    // Launch fractal visualizers first
-    await compiler.launchFractalVisualizersForProject();
-    
-    // Small delay to ensure visualizers are started
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Then start compilation with fractal flag
-    const success = await compiler.compileAll(true); // Pass true for withFractal
+    // First run complete compilation (same as clicking "Compile All")
+    const success = await compiler.compileAll();
     
     if (!compilationCanceled && success) {
+      // After successful compilation, launch fractal visualizer
+      if (compiler.isProjectOriented) {
+        await compiler.launchFractalVisualizersForProject('fire');
+      } else {
+        const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+        if (activeProcessor) {
+          await compiler.launchFractalVisualizerAsync(activeProcessor.name, 'fire');
+        }
+      }
       console.log('Fractal compilation completed successfully');
     }
   } catch (error) {
@@ -7542,16 +7492,13 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
       showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
     }
   } finally {
-    // Reset compilation flags
     isCompilationRunning = false;
     compilationCanceled = false;
   }
 });
 
-
-// Updated All Compilation Handler
+// Updated regular compilation button handler
 document.getElementById('allcomp').addEventListener('click', async () => {
-  // Check if processor is configured
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
     return;
@@ -7562,18 +7509,15 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     return;
   }
   
-  // Set compilation flags
   isCompilationRunning = true;
   compilationCanceled = false;
   
   try {
     const compiler = new CompilationModule(currentProjectPath);
-    setupCompilationButtons(currentProjectPath);
-    setCompilerInstance(currentProjectPath);
     const success = await compiler.compileAll();
     
     if (!compilationCanceled && success) {
-      console.log('All compilations completed successfully', 'success');
+      console.log('All compilations completed successfully');
     }
   } catch (error) {
     if (!compilationCanceled) {
@@ -7581,7 +7525,6 @@ document.getElementById('allcomp').addEventListener('click', async () => {
       showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
     }
   } finally {
-    // Reset compilation flags
     isCompilationRunning = false;
     compilationCanceled = false;
   }
@@ -7715,7 +7658,7 @@ async function killVvpProcess() {
   if (currentVvpPid && isVvpRunning) {
     try {
       console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
-      await window.electronAPI.killProcess(currentVvpPid);
+      await window.electronAPI.terminateProcess(currentVvpPid);
       console.log('VVP process killed successfully');
       
       hideVvpSpinner();
@@ -7725,7 +7668,7 @@ async function killVvpProcess() {
       
       // Also try killing by name as backup
       try {
-        await window.electronAPI.killProcessByName('vvp.exe');
+        await window.electronAPI.terminateProcess('vvp.exe');
         console.log('Additional VVP processes killed by name');
       } catch (nameKillError) {
         // Ignore if no processes found by name
@@ -7738,7 +7681,7 @@ async function killVvpProcess() {
       
       // Fallback: try killing by process name
       try {
-        await window.electronAPI.killProcessByName('vvp.exe');
+        await window.electronAPI.terminateProcess('vvp.exe');
         console.log('VVP process killed by name (fallback method)');
         
         hideVvpSpinner();

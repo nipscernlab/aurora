@@ -214,7 +214,7 @@ function createProgressWindow() {
   });
 }
 
-// Enhanced update checking with better error handling
+/* Enhanced update checking with better error handling
 function checkForUpdates(showNoUpdateDialog = false) {
   if (updateCheckInProgress) {
     log.info('Update check already in progress');
@@ -247,7 +247,7 @@ function checkForUpdates(showNoUpdateDialog = false) {
     });
   });
 }
-
+*/
 // Clear update cache for fresh downloads
 async function clearUpdateCache() {
   try {
@@ -459,7 +459,7 @@ function startUpdateDownload() {
 function setupIpcHandlers() {
   // Handle manual update check from renderer
   ipcMain.handle('check-for-updates', () => {
-    checkForUpdates(true); // Show "no update" dialog for manual checks
+    //checkForUpdates(true); // Show "no update" dialog for manual checks
   });
 
   // Handle cancel download request
@@ -527,7 +527,7 @@ function initializeUpdateSystem() {
   setTimeout(() => {
     if (!isDev && !updateCheckInProgress) {
       log.info('Starting initial update check...');
-      checkForUpdates(false);
+     // checkForUpdates(false);
     } else {
       log.info('Skipping update check - dev mode or already in progress');
     }
@@ -704,7 +704,7 @@ function createSplashScreen() {
   setTimeout(() => {
     splashWindow.close(); // Close splash screen
     createMainWindow(); // Create main application window
-    setTimeout(checkForUpdates, 2000); // Check for updates after a delay
+    //setTimeout(checkForUpdates, 2000); // Check for updates after a delay
   }, 4000);
 }
 

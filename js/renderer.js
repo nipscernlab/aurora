@@ -2349,12 +2349,6 @@ static initSortableTabs() {
   this.tabObserver = observer;
 }
 
-// Method to save tab order (already exists in your code, keeping for reference)
-static saveTabOrder() {
-  const tabOrder = this.getTabOrder();
-  localStorage.setItem('editorTabOrder', JSON.stringify(tabOrder));
-}
-
 // Clean up method (call when destroying TabManager)
 static cleanup() {
   if (this.tabObserver) {
@@ -2475,7 +2469,7 @@ static cleanup() {
       .map(tab => tab.getAttribute('data-path'));
   }
 
-  // Optional: Save tab order to localStorage
+// Optional: Save tab order to localStorage
   static saveTabOrder() {
     const tabOrder = this.getTabOrder();
     localStorage.setItem('editorTabOrder', JSON.stringify(tabOrder));
@@ -6379,16 +6373,16 @@ async getSelectedCmmFile(processor) {
   return selectedCmmFile;
 }
 
-// Fix 2: Get testbench file name correctly
+// Fixed getTestbenchInfo method
 async getTestbenchInfo(processor, cmmBaseName) {
   let tbModule, tbFile;
   
-  if (this.config.testbenchFile && this.config.testbenchFile !== 'Standard') {
+  if (this.config.testbenchFile && this.config.testbenchFile !== 'standard') {
     // User selected custom testbench
     tbFile = this.config.testbenchFile;
     tbModule = tbFile.replace(/\.v$/i, '');
   } else {
-    // Use standard testbench (same name as CMM)
+    // Use standard testbench (same name as CMM base name)
     tbModule = `${cmmBaseName}_tb`;
     tbFile = `${tbModule}.v`;
   }
@@ -6459,176 +6453,77 @@ async cmmCompilation(processor) {
   }
 }
   
-  async asmCompilation(processor, asmPath) {
-    const { name, clk, numClocks } = processor;
-    
-    try {
-      // Get all required paths
-      const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
-      const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      let   tbMod = this.config.testbenchFile.replace(/\.v$/i, '');
-   
- 
-     // Get the selected CMM file from configuration
-    let selectedCmmFile = null;
-    
-    // Try to get from processor object itself (fallback)
-    if (!selectedCmmFile && processor.cmmFile) {
-      selectedCmmFile = processor.cmmFile;
-      this.terminalManager.appendToTerminal('tcmm', `Using CMM file from processor config: ${selectedCmmFile}`);
-    }
-    
-    // Verify the CMM file exists before proceeding
-    const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');  
-    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-    // Extract filename without extension for ASM output
-        const asmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-
-    const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-
-    
-      statusUpdater.startCompilation('asm');
-
-      await TabManager.saveAllFiles();
-
-      // First run APP (Assembler Pre-Processor) as per the batch file
-      // APP.exe %ASM_FILE% %TMP_PRO%
-      let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
-
-      this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
-      this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
-      
-      const appResult = await window.electronAPI.execCommand(cmd);
-      
-      if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
-      if (appResult.stderr) this.terminalManager.appendToTerminal('tasm', appResult.stderr, 'stderr');
-
-      if (appResult.code !== 0) {
-        statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
-        throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
-      } 
-      
-      // Then run the ASM compiler as per the batch file
-      // ASM.exe %ASM_FILE% %PROC_DIR% %HDL_DIR% %TMP_PRO% %FRE_CLK% %NUM_CLK% 0
-      // The last parameter is project mode (0 or 1)
-      const projectParam = this.isProjectOriented ? "1" : "0";
-      cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
-
-      this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
-      this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${asmBaseName}...`);
-      this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
-      
-      const asmResult = await window.electronAPI.execCommand(cmd);
-      await refreshFileTree();
-      
-      if (asmResult.stdout) this.terminalManager.appendToTerminal('tasm', asmResult.stdout, 'stdout');
-      if (asmResult.stderr) this.terminalManager.appendToTerminal('tasm', asmResult.stderr, 'stderr');
-
-      if (asmResult.code !== 0) {
-        statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
-        throw new Error(`ASM compilation failed with code ${asmResult.code}`);
-      }
-
-      // Copy the testbench file if we're not in project-oriented mode
-      if (!this.isProjectOriented) {
-      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      const testbenchDestination = await window.electronAPI.joinPath(tempPath, `${tbMod}.v`);
-      const testbenchSource = await window.electronAPI.joinPath(simulationPath, `${tbMod}.v`);
-
-      await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
-    }
-      
-      this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.','success');
-      statusUpdater.compilationSuccess('asm');
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
-      statusUpdater.compilationError('asm', error.message);
-      throw error;
-    }
-  }
-
-
-
-// Fix 3: Updated iverilogCompilation method
-async iverilogCompilation(processor) {
-  if (this.isProjectOriented) {
-    return this.iverilogProjectCompilation();
-  }
-  
-  const { name } = processor;
-  this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
-  statusUpdater.startCompilation('verilog');
+ async asmCompilation(processor, asmPath) {
+  const { name, clk, numClocks } = processor;
   
   try {
-    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    // Get all required paths
+    const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
     const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-    const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-    
-    // Get selected CMM file and extract base name
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
+    const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+
+    // Get the selected CMM file consistently
     const selectedCmmFile = await this.getSelectedCmmFile(processor);
     const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
     
-    // Get testbench info
+    // Get testbench info using the corrected method
     const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
     
-    // Get flags from config
-    const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
-    
-    // Build list of verilog files to compile
-    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
-    const verilogFilesString = verilogFiles.join(' ');
-
+    statusUpdater.startCompilation('asm');
     await TabManager.saveAllFiles();
-    
-    // Build iverilog command
-    // Output file should be named after CMM base name, top module is testbench module
-    const outputFile = await window.electronAPI.joinPath(tempPath, cmmBaseName);
-    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
-    const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
-    
-    const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
-    
-    this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
-    
-    const result = await window.electronAPI.execCommand(cmd);
-    
-    if (result.stdout) {
-      this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
-    }
-    if (result.stderr) {
-      this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
-    }
-    
-    if (result.code !== 0) {
-      statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
-      throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
-    }
-    
-    // Copy .mif files (always named after CMM base name)
-    await window.electronAPI.copyFile(
-      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
-      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
-    );
 
-    await window.electronAPI.copyFile(
-      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
-      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
-    );
-    
-    this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
-    statusUpdater.compilationSuccess('verilog');
+    // First run APP (Assembler Pre-Processor) as per the batch file
+    let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
 
+    this.terminalManager.appendToTerminal('tasm', `Starting ASM Preprocessor for ${name}...`);
+    this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
+    
+    const appResult = await window.electronAPI.execCommand(cmd);
+    
+    if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
+    if (appResult.stderr) this.terminalManager.appendToTerminal('tasm', appResult.stderr, 'stderr');
+
+    if (appResult.code !== 0) {
+      statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
+      throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
+    } 
+    
+    // Then run the ASM compiler
+    const projectParam = this.isProjectOriented ? "1" : "0";
+    cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+
+    this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
+    this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${cmmBaseName}...`);
+    this.terminalManager.appendToTerminal('tasm', `Executing command: ${cmd}`);
+    
+    const asmResult = await window.electronAPI.execCommand(cmd);
     await refreshFileTree();
     
+    if (asmResult.stdout) this.terminalManager.appendToTerminal('tasm', asmResult.stdout, 'stdout');
+    if (asmResult.stderr) this.terminalManager.appendToTerminal('tasm', asmResult.stderr, 'stderr');
+
+    if (asmResult.code !== 0) {
+      statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
+      throw new Error(`ASM compilation failed with code ${asmResult.code}`);
+    }
+    
+    // Copy the testbench file if we're not in project-oriented mode
+    if (!this.isProjectOriented) {
+      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+      const testbenchDestination = await window.electronAPI.joinPath(tempPath, tbFile);
+      const testbenchSource  = await window.electronAPI.joinPath(simulationPath, tbFile);
+
+      await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
+    }
+    
+    this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.', 'success');
+    statusUpdater.compilationSuccess('asm');
   } catch (error) {
-    this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-    statusUpdater.compilationError('verilog', error.message);
+    this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('asm', error.message);
     throw error;
   }
 }
@@ -6653,15 +6548,18 @@ async iverilogProjectCompilation() {
       throw new Error("No processors defined in project configuration");
     }
     
+    // Get the first processor's CMM file name for Standard naming
+    const firstProcessor = processors[0];
+    const firstProcessorCmmBaseName = firstProcessor.type; // Assuming type is the CMM base name
+    
     // Get the testbench file - handle standard case
     let testbenchFile = this.projectConfig.testbenchFile;
     let topModuleName;
     
     if (!testbenchFile || testbenchFile === 'Standard') {
-      // Use first processor name as testbench name with _tb suffix
-      const firstProcessor = processors[0];
-      testbenchFile = `${firstProcessor.type}_tb.v`;
-      topModuleName = `${firstProcessor.type}_tb`;
+      // Use first processor CMM name as testbench name with _tb suffix
+      testbenchFile = `${firstProcessorCmmBaseName}_tb.v`;
+      topModuleName = `${firstProcessorCmmBaseName}_tb`;
     } else {
       topModuleName = testbenchFile.replace('.v', '');
     }
@@ -6670,9 +6568,8 @@ async iverilogProjectCompilation() {
     let topLevelFile = this.projectConfig.topLevelFile;
     
     if (!topLevelFile || topLevelFile === 'Standard') {
-      // Use first processor name as top level name
-      const firstProcessor = processors[0];
-      topLevelFile = `${firstProcessor.type}.v`;
+      // Use first processor CMM name as top level name
+      topLevelFile = `${firstProcessorCmmBaseName}.v`;
     }
     
     // Build list of HDL files
@@ -6762,23 +6659,6 @@ async getSelectedCmmFile(processor) {
   return selectedCmmFile;
 }
 
-// Fix 2: Get testbench file name correctly
-async getTestbenchInfo(processor, cmmBaseName) {
-  let tbModule, tbFile;
-  
-  if (this.config.testbenchFile && this.config.testbenchFile !== 'Standard') {
-    // User selected custom testbench
-    tbFile = this.config.testbenchFile;
-    tbModule = tbFile.replace(/\.v$/i, '');
-  } else {
-    // Use standard testbench (same name as CMM)
-    tbModule = `${cmmBaseName}_tb`;
-    tbFile = `${tbModule}.v`;
-  }
-  
-  return { tbModule, tbFile };
-}
-
 // Fix 3: Updated iverilogCompilation method
 async iverilogCompilation(processor) {
   if (this.isProjectOriented) {
@@ -6857,9 +6737,7 @@ async iverilogCompilation(processor) {
     statusUpdater.compilationError('verilog', error.message);
     throw error;
   }
-}
-// Fix 4: Updated runGtkWave method
-// Fix 4: Updated runGtkWave method - Cleaned version with VVP management
+}// Updated runGtkWave method for processor mode
 async runGtkWave(processor) {
   if (this.isProjectOriented) {
     checkCancellation();
@@ -6931,8 +6809,8 @@ async runGtkWave(processor) {
     // 3) Prepare VCD file path (will be created by VVP)
     const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
 
-    // 4) Launch GTKWave first with empty/non-existent VCD file
-    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave for real-time VCD viewing...');
+    // 4) Launch GTKWave in parallel with VVP
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave in parallel with VVP simulation...');
     
     // Determine GTKWave command based on configuration
     const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
@@ -6944,23 +6822,20 @@ async runGtkWave(processor) {
     } else {
       const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
       const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-      gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScript}"`;
+      gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
     }
 
     this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
     
     // Launch GTKWave asynchronously (don't wait for it to finish)
-    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+    const gtkwavePromise = window.electronAPI.execCommand(gtkwCmd).catch(error => {
       console.warn('GTKWave launch warning:', error);
       // Don't throw here as GTKWave might exit normally when user closes it
     });
 
-    // Give GTKWave a moment to start
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 5) Run VVP to generate VCD (while GTKWave is already open)
+    // 5) Run VVP in parallel to generate VCD
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
-    this.terminalManager.appendToTerminal('twave', 'GTKWave is now open - use File->Reload to see simulation progress!', 'info');
+    this.terminalManager.appendToTerminal('twave', 'GTKWave will open and update automatically as VCD is generated!', 'info');
     
     const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
     await window.electronAPI.deleteFileOrDirectory(progressPath);
@@ -7001,7 +6876,7 @@ async runGtkWave(processor) {
       }
 
       this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-      this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
+      this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - GTKWave should now show the results!', 'success');
       
     } catch (error) {
       if (error.message === 'Compilation canceled by user') {
@@ -7021,6 +6896,9 @@ async runGtkWave(processor) {
 
     statusUpdater.compilationSuccess('wave');
     
+    // Wait a bit for GTKWave to finish loading (optional)
+    await Promise.race([gtkwavePromise, new Promise(resolve => setTimeout(resolve, 2000))]);
+    
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
     statusUpdater.compilationError('wave', error.message);
@@ -7028,6 +6906,7 @@ async runGtkWave(processor) {
   }
 }
 
+// Updated runProjectGtkWave method for project mode
 async runProjectGtkWave() {
   this.terminalManager.appendToTerminal('twave', `Starting GTKWave for project...`);
   statusUpdater.startCompilation('wave');
@@ -7037,7 +6916,7 @@ async runProjectGtkWave() {
       throw new Error("Project configuration not loaded");
     }
 
-    // 1) Build all necessary directories
+    // Build all necessary directories
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const hdlDir      = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     const binDir      = await window.electronAPI.joinPath('saphoComponents', 'bin');
@@ -7053,21 +6932,24 @@ async runProjectGtkWave() {
       'saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe'
     );
 
-    // 2) Get processors and testbench from project
+    // Get processors and testbench from project
     const processors = this.projectConfig.processors || [];
     if (processors.length === 0) {
       throw new Error("No processors defined in project configuration");
     }
+
+    // Get the first processor's CMM file name for Standard naming
+    const firstProcessor = processors[0];
+    const firstProcessorCmmBaseName = firstProcessor.type; // Assuming type is the CMM base name
 
     // Handle standard testbench file
     let testbenchFile = this.projectConfig.testbenchFile;
     let tbModule;
     
     if (!testbenchFile || testbenchFile === 'Standard') {
-      // Use first processor name as testbench name with _tb suffix
-      const firstProcessor = processors[0];
-      testbenchFile = `${firstProcessor.type}_tb.v`;
-      tbModule = `${firstProcessor.type}_tb`;
+      // Use first processor CMM name as testbench name with _tb suffix
+      testbenchFile = `${firstProcessorCmmBaseName}_tb.v`;
+      tbModule = `${firstProcessorCmmBaseName}_tb`;
     } else {
       tbModule = testbenchFile.replace(/\.v$/i, '');
     }
@@ -7085,11 +6967,11 @@ async runProjectGtkWave() {
       }
     }
 
-    // 3.2) TopLevel files (EXCLUINDO o arquivo de testbench para evitar duplicação)
+    // 3.2) TopLevel files (EXCLUDING testbench file to avoid duplication)
     const topLevelFiles = await window.electronAPI.readDir(topLevelDir);
     let topLevelVerilogFiles = "";
     for (const file of topLevelFiles) {
-      if (file.endsWith('.v') && file !== testbenchFile) { // Excluir o testbench
+      if (file.endsWith('.v') && file !== testbenchFile) { // Exclude testbench
         const path = await window.electronAPI.joinPath(topLevelDir, file);
         topLevelVerilogFiles += `"${path}" `;
       }
@@ -7191,10 +7073,10 @@ async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt for project GTKWave.`);
     await window.electronAPI.writeFile(tclFilePath, tclContent);
 
-    // 7) Prepare VCD file path and launch GTKWave first
+    // 7) Prepare VCD file path and launch GTKWave in parallel with VVP
     const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
     
-    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave for real-time VCD viewing...');
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave in parallel with VVP simulation...');
     
     await window.electronAPI.deleteFileOrDirectory(vcdPath);
 
@@ -7206,9 +7088,9 @@ async runProjectGtkWave() {
       const posScriptPath= await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
       gtkwCmd =
         `cd "${tempBaseDir}" && `
-        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" "${gtkwPath}" --script="${posScriptPath}"`;
+        + `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScriptPath}"`;
     } else {
-      // Standard for project - no additional gtkwave file
+      // Standard for project
       const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
       gtkwCmd =
         `cd "${tempBaseDir}" && `
@@ -7218,17 +7100,14 @@ async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
     
     // Launch GTKWave asynchronously (don't wait for it to finish)
-    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+    const gtkwavePromise = window.electronAPI.execCommand(gtkwCmd).catch(error => {
       console.warn('GTKWave launch warning:', error);
       // Don't throw here as GTKWave might exit normally when user closes it
     });
 
-    // Give GTKWave a moment to start
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 8) Run VVP to generate the .vcd (while GTKWave is already open)
+    // 8) Run VVP in parallel to generate the .vcd
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation for project...');
-    this.terminalManager.appendToTerminal('twave', 'GTKWave is now open - use File->Reload to see simulation progress!', 'info');
+    this.terminalManager.appendToTerminal('twave', 'GTKWave will open and update automatically as VCD is generated!', 'info');
     
     // Fix the VVP progress call - pass a string instead of undefined
     const projectName2 = this.projectPath.split(/[\/\\]/).pop() || 'project';
@@ -7298,7 +7177,7 @@ async runProjectGtkWave() {
         throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
       }
   
-      // If we got here, simulation was successful: finish progress bar
+      // If we got here, simulation was successful
   
     } catch (err) {
       isVvpRunning = false;
@@ -7337,8 +7216,11 @@ async runProjectGtkWave() {
     hideVVPProgress();
 
     this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - reload GTKWave to see final results!', 'warning');
+    this.terminalManager.appendToTerminal('twave', 'VCD file generation complete - GTKWave should now show the results!', 'success');
     statusUpdater.compilationSuccess('wave');
+
+    // Wait a bit for GTKWave to finish loading (optional)
+    await Promise.race([gtkwavePromise, new Promise(resolve => setTimeout(resolve, 2000))]);
 
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
@@ -7346,7 +7228,6 @@ async runProjectGtkWave() {
     throw error;
   }
 }
-
 
 // Add this method to your class for launching fractal visualizer
 async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
@@ -7617,7 +7498,7 @@ function showVVPProgress(name) {
   return vvpProgressManager.show(name);
 }
 
-function hideVVPProgress(delay = 5000) {
+function hideVVPProgress(delay = 2000) {
   setTimeout(() => {
     vvpProgressManager.hide();
   }, delay);

@@ -3,7 +3,7 @@
     "productName": "Aurora IDE",
     "description": "Aurora IDE",
     "author": "NIPSCERN",
-    "version": "3.5.0-F",
+    "version": "3.5.0-TH",
     "win": {
         "icon": "./assets/icons/aurora_borealis-2.ico"
     },
@@ -52,7 +52,7 @@
                 }
             ],
             "icon": "./assets/icons/aurora_borealis-2.ico",
-            "artifactName": "AuroraIDE-Setup-3.5.0-F.${ext}"
+            "artifactName": "AuroraIDE-Setup-3.5.0-TH.${ext}"
         },
         "nsis": {
             "oneClick": false,

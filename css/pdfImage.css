@@ -19,15 +19,7 @@
   z-index: -1;
 }
 
-/* Ensure editor instances are properly positioned */
-.editor-instance {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: var(--z-0);
-}
+
 
 .editor-instance.active {
   z-index: var(--z-10);

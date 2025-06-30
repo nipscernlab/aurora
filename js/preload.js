@@ -359,6 +359,9 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
 
 const dialogOperations = {
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
+  // Add these to your contextBridge.exposeInMainWorld('electronAPI', { ... }) object
+  showOpenDialogImport: (options) => ipcRenderer.invoke('dialog:showOpenImportMultiple', options),
+  showItemInFolder: (itemPath) => ipcRenderer.invoke('shell:showItemInFolder', itemPath),
   getBasename: (fullPath) => path.basename(fullPath),
   openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
   selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),

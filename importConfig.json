@@ -1,0 +1,281 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-06-30T11:14:05.789Z",
+  "totalFiles": 30,
+  "files": [
+    {
+      "id": "mcj042tjhcvfdgqs6q9",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\layout.css",
+      "name": "layout.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjzaflrepxim",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\modalConfig.css",
+      "name": "modalConfig.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjyda82co1dtc",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\news.css",
+      "name": "news.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj2kj5vo00kgu",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\pdfImage.css",
+      "name": "pdfImage.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjd02mqoqwc4",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\processorHub.css",
+      "name": "processorHub.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjqzan5qmnekf",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\projectInfo.css",
+      "name": "projectInfo.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj9mg2jhxycys",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\rainbow.css",
+      "name": "rainbow.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj0qjn792ja6u",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\recentProjects.css",
+      "name": "recentProjects.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjri7cb7kp59c",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\report.css",
+      "name": "report.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj8pw6f6nlo6",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\saveFirst.css",
+      "name": "saveFirst.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjj8jx0la54wi",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\sidebar.css",
+      "name": "sidebar.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjbqh9j2q8cm7",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\statusUpdater.css",
+      "name": "statusUpdater.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj4k2j814u6oc",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\styles.css",
+      "name": "styles.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjuw83pardyo9",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\tabs.css",
+      "name": "tabs.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj5xe1a5lgx3g",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\terminal.css",
+      "name": "terminal.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjfkvkrvtdvf",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\theme-modal.css",
+      "name": "theme-modal.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tju5nefu9xl7d",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\themeVariables.css",
+      "name": "themeVariables.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj278fynbmetd",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\toolbar.css",
+      "name": "toolbar.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj87vva544ht4",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\tooltip.css",
+      "name": "tooltip.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj4kmsnyrxzg3",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\translation.css",
+      "name": "translation.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjlithh7mibw",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\vvpProgress.css",
+      "name": "vvpProgress.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjsltm0dqldhl",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\aiAssistant.css",
+      "name": "aiAssistant.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjhapbge8202",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\base.css",
+      "name": "base.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjh50n9q2neu",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\editor.css",
+      "name": "editor.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjqxerd1hllts",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\fileTree.css",
+      "name": "fileTree.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj55c2hibreva",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\hourglass.css",
+      "name": "hourglass.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tj4fevx81j76u",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\import.css",
+      "name": "import.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjq1mxh0ozrgo",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\importFile.css",
+      "name": "importFile.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tjnbpa0p19aao",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\infoAurora.css",
+      "name": "infoAurora.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    },
+    {
+      "id": "mcj042tja8elkookskj",
+      "path": "C:\\Users\\LCOM\\Desktop\\Github\\Aurora\\css\\info-box.css",
+      "name": "info-box.css",
+      "extension": "css",
+      "directory": "C:/Users/LCOM/Desktop/Github/Aurora/css",
+      "dateAdded": "2025-06-30T11:14:05.767Z",
+      "size": null
+    }
+  ],
+  "settings": {
+    "sortOrder": "date",
+    "sortDirection": "asc"
+  }
+}

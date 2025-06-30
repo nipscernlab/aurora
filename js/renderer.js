@@ -5513,7 +5513,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp', 'settings', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
       const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 

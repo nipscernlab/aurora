@@ -2205,6 +2205,32 @@ ipcMain.handle('dialog:showOpen', async () => {
   return result;
 });
 
+// Add these handlers to your main.js file
+
+// Handler to show an open file dialog for selecting multiple files
+ipcMain.handle('dialog:showOpenImportMultiple', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'All Files', extensions: ['*'] },
+      { name: 'Code Files', extensions: ['js', 'ts', 'jsx', 'tsx', 'html', 'css', 'scss', 'php', 'py'] },
+      { name: 'Documents', extensions: ['txt', 'md', 'json', 'xml', 'yaml', 'yml'] }
+    ]
+  });
+  return result;
+});
+
+// Handler to show a file/folder in the system explorer
+ipcMain.handle('shell:showItemInFolder', async (event, itemPath) => {
+  try {
+    shell.showItemInFolder(itemPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error showing item in folder:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Handler to get project information from a .spf file
 ipcMain.handle('project:getInfo', async (_, spfPath) => {
   try {

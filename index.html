@@ -100,6 +100,9 @@
             data-i18n-title="toolbar.toggleThemeTitle" title="">
       <i class="fas fa-sun"></i>
     </button>
+    <button id="importBtn" class="toolbar-button" disabled style="cursor: not-allowed;" title="">
+      <i class="fa-solid fa-list-ol"></i>
+    </button>
     <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;"
             data-i18n-title="toolbar.settingsTitle" title="">
       <i class="fa-solid fa-gears"></i>
@@ -144,6 +147,120 @@
       </li>
     </ul>
   </div>
+
+  <!-- Import Modal -->
+<div id="importModal" class="modal-overlay">
+  <div class="modal-container import-modal">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        <i class="fa-solid fa-list-ol"></i>
+        Import Files
+      </h2>
+      <button class="modal-close" id="closeImportModal">
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Search and Filter Section -->
+      <div class="import-controls">
+        <div class="search-container">
+          <i class="fa-solid fa-search search-icon"></i>
+          <input type="text" id="fileSearch" class="search-input" placeholder="Search imported files...">
+        </div>
+        
+        <div class="control-buttons">
+          <button id="browseFiles" class="control-btn primary">
+            <i class="fa-solid fa-folder-open"></i>
+            Browse Files
+          </button>
+          <button id="clearAll" class="control-btn secondary">
+            <i class="fa-solid fa-trash"></i>
+            Clear All
+          </button>
+        </div>
+      </div>
+      
+      <!-- Drop Zone -->
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-zone-content">
+          <i class="fa-solid fa-cloud-upload-alt drop-icon"></i>
+          <h3 class="drop-title">Drop files here</h3>
+          <p class="drop-subtitle">or click "Browse Files" to select files</p>
+          <div class="supported-formats">
+            <span class="format-tag">All formats supported</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Import Statistics -->
+      <div class="import-stats">
+        <div class="stat-item">
+          <i class="fa-solid fa-file"></i>
+          <span class="stat-label">Total Files:</span>
+          <span class="stat-value" id="totalFiles">0</span>
+        </div>
+        <div class="stat-item">
+          <i class="fa-solid fa-folder"></i>
+          <span class="stat-label">Unique Directories:</span>
+          <span class="stat-value" id="uniqueDirs">0</span>
+        </div>
+        <div class="stat-item">
+          <i class="fa-solid fa-file-code"></i>
+          <span class="stat-label">File Types:</span>
+          <span class="stat-value" id="fileTypes">0</span>
+        </div>
+      </div>
+      
+      <!-- File List -->
+      <div class="file-list-container">
+        <div class="file-list-header">
+          <h3>
+            <i class="fa-solid fa-list"></i>
+            Imported Files
+            <span class="file-count" id="fileCount">(0)</span>
+          </h3>
+          <div class="list-controls">
+            <button id="expandAll" class="list-control-btn" title="Expand All">
+              <i class="fa-solid fa-expand-alt"></i>
+            </button>
+            <button id="collapseAll" class="list-control-btn" title="Collapse All">
+              <i class="fa-solid fa-compress-alt"></i>
+            </button>
+            <button id="sortFiles" class="list-control-btn" title="Sort Files">
+              <i class="fa-solid fa-sort"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div id="fileList" class="file-list">
+          <div class="empty-state">
+            <i class="fa-solid fa-inbox"></i>
+            <p>No files imported yet</p>
+            <p class="empty-subtitle">Start by dropping files or clicking "Browse Files"</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <div class="footer-info">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>Files are saved as references, not copied</span>
+      </div>
+      <div class="footer-buttons">
+        <button id="exportList" class="footer-btn secondary">
+          <i class="fa-solid fa-download"></i>
+          Export List
+        </button>
+        <button id="saveImports" class="footer-btn primary">
+          <i class="fa-solid fa-save"></i>
+          Save Configuration
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- News Red Dot -->
   <div class="modal-backdrop" id="modalBackdrop"></div>
@@ -1170,6 +1287,7 @@ function closeAuroraAboutModal() {
   <script src="./js/theme-modal.js"></script>
   <script src="./js/recentProjects.js"></script>
   <script src="./js/translation.js"></script>
+  <script src="./js/importFile.js"></script>
     </script>
   </body>
 </html>

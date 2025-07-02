@@ -906,7 +906,7 @@ function setupASMLanguage() {
     instructions: [
         'LOD', 'P_LOD', 'LDI'    , 'ILI'   ,
         'SET', 'SET_P', 'SRF'    , 'IRF'   ,
-        'PSH', 'POP'  ,
+        'PSH', 'POP'  , 'P_LOD_V', 'MLT_V', 'F_MLT_V',
         'INN', 'OUT'  ,
         'ADD', 'S_ADD', 'F_ADD'  , 'SF_ADD',
         'MLT', 'S_MLT', 'F_MLT'  , 'SF_MLT',
@@ -1115,7 +1115,7 @@ function setupCMMLanguage() {
         [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
         // StdLib functions
-        [/\b(in|out|norm|pset|abs|sin|cos|complex|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+        [/\b(in|out|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
         // Array initialization from file
         [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],

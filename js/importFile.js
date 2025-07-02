@@ -20,7 +20,7 @@ class ImportModal {
   async getProjectPath() {
     if (!this.projectPath && window.electronAPI) {
       try {
-        this.projectPath = await window.electronAPI.getCurrentProjectPath();
+        this.projectPath = currentProjectPath;
       } catch (error) {
         console.warn('Could not get project path:', error);
         this.projectPath = './'; // Fallback

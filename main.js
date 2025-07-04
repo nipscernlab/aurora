@@ -18,24 +18,32 @@ const fs = require('fs').promises;
 const os = require('os');
 const { spawn } = require('child_process');
 const moment = require("moment");
+const electronFs = require('original-fs');
+const url = require('url');
 const log = require('electron-log');
 log.transports.file.level = 'debug';
-const chokidar = require('chokidar');
+const { promisify } = require('util');
+const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
 
 const isDev = process.env.NODE_ENV === 'development';
+
 const settingsPath = path.join(__dirname, 'saphoComponents', 'Scripts' ,'settings.json');
 
-let mainWindow, splashWindow;
+
 let progressWindow = null;
-let prismWindow = null;
 let downloadInProgress = false;
 let updateCheckInProgress = false;
 let updateAvailable = false;
 let updateInfo = null;
 let updateSystemInitialized = false;
 
-let currentVvpProcess = null;
-let vvpProcessPid = null;
+// Configure auto-updater logging
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+
+// Configure auto-updater settings
+autoUpdater.autoDownload = false; // We want to ask user first
+autoUpdater.autoInstallOnAppQuit = false; // We want to control installation
 
 // Variable to track the current open project path
 let currentOpenProjectPath = null;
@@ -45,13 +53,8 @@ let tray = null;
 let settingsWindow = null;
 let isQuitting = false;
 
-// Configure auto-updater logging
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+let mainWindow, splashWindow;
 
-// Configure auto-updater settings
-autoUpdater.autoDownload = false; // We want to ask user first
-autoUpdater.autoInstallOnAppQuit = false; // We want to control installation
 
 /*
  * 
@@ -157,38 +160,7 @@ if (process.platform === 'win32') {
   });
 }
 
-// Electron app lifecycle events
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
-
-
-// Function to create a splash screen
-function createSplashScreen() {
-  splashWindow = new BrowserWindow({
-    width: 400,
-    height: 500,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    webPreferences: { contextIsolation: true },
-  });
-
-  splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html'));
-  setTimeout(() => {
-    splashWindow.close(); // Close splash screen
-    createMainWindow(); // Create main application window
-    setTimeout(checkForUpdates, 2000); // Check for updates after a delay
-  }, 1000);
-}
-
-// Initialize the application when ready
-app.whenReady().then(createSplashScreen);
 // Create a modern progress window for updates
 function createProgressWindow() {
   if (progressWindow) {
@@ -242,7 +214,7 @@ function createProgressWindow() {
   });
 }
 
-// Enhanced update checking with better error handling
+/* Enhanced update checking with better error handling
 function checkForUpdates(showNoUpdateDialog = false) {
   if (updateCheckInProgress) {
     log.info('Update check already in progress');
@@ -275,7 +247,7 @@ function checkForUpdates(showNoUpdateDialog = false) {
     });
   });
 }
-
+*/
 // Clear update cache for fresh downloads
 async function clearUpdateCache() {
   try {
@@ -487,7 +459,7 @@ function startUpdateDownload() {
 function setupIpcHandlers() {
   // Handle manual update check from renderer
   ipcMain.handle('check-for-updates', () => {
-    checkForUpdates(true); // Show "no update" dialog for manual checks
+    //checkForUpdates(true); // Show "no update" dialog for manual checks
   });
 
   // Handle cancel download request
@@ -555,7 +527,7 @@ function initializeUpdateSystem() {
   setTimeout(() => {
     if (!isDev && !updateCheckInProgress) {
       log.info('Starting initial update check...');
-      checkForUpdates(false);
+     // checkForUpdates(false);
     } else {
       log.info('Skipping update check - dev mode or already in progress');
     }
@@ -716,160 +688,28 @@ ipcMain.on('open-settings', () => {
   createSettingsWindow(); // Open settings window
 });
 
-
-
-async function createPrismWindow(compilationData = null) {
-  // If already open, just focus and update content if data provided
-  if (prismWindow && !prismWindow.isDestroyed()) {
-    prismWindow.focus();
-    
-    // If compilation data is provided, send it to existing window
-    if (compilationData) {
-      console.log('Updating existing PRISM window with new compilation data:', compilationData);
-      // Check if the window is ready before sending data
-      if (!prismWindow.webContents.isLoading()) {
-        prismWindow.webContents.send('compilation-complete', compilationData);
-      } else {
-        prismWindow.webContents.once('did-finish-load', () => {
-          if (prismWindow && !prismWindow.isDestroyed()) {
-            prismWindow.webContents.send('compilation-complete', compilationData);
-          }
-        });
-      }
-    }
-    return prismWindow;
-  }
-
-  // Ensure preload script exists
-  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
-  console.log('Preload script path:', preloadPath);
-  
-  if (!require('fs').existsSync(preloadPath)) {
-    console.error('Preload script not found at:', preloadPath);
-    throw new Error(`Preload script not found: ${preloadPath}`);
-  }
-
-  console.log('Creating new PRISM window...');
-
-  prismWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 700,
-    autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: preloadPath,
-      webSecurity: false,
-      allowRunningInsecureContent: true
-    },
-    backgroundColor: '#17151f',
-    show: false, // Inicialmente oculta
-    titleBarStyle: 'default'
+// Function to create a splash screen
+function createSplashScreen() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 500,
+    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    webPreferences: { contextIsolation: true },
   });
 
-  // Load the HTML file
-  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-  console.log('Loading PRISM HTML from:', prismHtmlPath);
-  
-  // CORREÇÃO PRINCIPAL: Verificar se o arquivo existe antes de tentar carregar
-  if (!require('fs').existsSync(prismHtmlPath)) {
-    console.error('PRISM HTML file not found at:', prismHtmlPath);
-    if (prismWindow) {
-      prismWindow.destroy();
-      prismWindow = null;
-    }
-    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
-  }
-  
-  try {
-    // Carregar o arquivo HTML
-    await prismWindow.loadFile(prismHtmlPath);
-    console.log('PRISM HTML loaded successfully');
-    
-    // CORREÇÃO: Mostrar a janela imediatamente após carregar, sem esperar pelo evento
-    prismWindow.maximize();
-    prismWindow.show();
-    console.log('PRISM window shown');
-    
-    // Notificar a janela principal que PRISM está aberto
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('prism-status', true);
-    }
-    
-    // Se há dados de compilação, enviar após um pequeno delay para garantir que o DOM está pronto
-    if (compilationData) {
-      console.log('Scheduling compilation data send...');
-      setTimeout(() => {
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          console.log('Sending compilation data to PRISM window:', compilationData);
-          prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      }, 1000); // Delay de 1 segundo para garantir que a página está totalmente carregada
-    }
-    
-  } catch (error) {
-    console.error('Failed to load prism.html:', error);
-    
-    // Mostrar erro em dialog
-    const { dialog } = require('electron');
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'PRISM Load Error',
-      message: 'Failed to load PRISM viewer',
-      detail: `Error: ${error.message}\nPath: ${prismHtmlPath}`
-    });
-    
-    if (prismWindow) {
-      prismWindow.destroy();
-      prismWindow = null;
-    }
-    throw error;
-  }
-
-  // Handle window closed
-  prismWindow.on('closed', () => {
-    console.log('PRISM window closed');
-    prismWindow = null;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('prism-status', false);
-    }
-  });
-
-  // Enhanced error handling
-  prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
-    console.error(`Failed URL: ${validatedURL}`);
-    
-    // Mostrar erro específico
-    const { dialog } = require('electron');
-    dialog.showMessageBox({
-      type: 'error',
-      title: 'PRISM Load Failed',
-      message: `Failed to load PRISM viewer (Error ${errorCode})`,
-      detail: `${errorDescription}\nURL: ${validatedURL}`
-    });
-  });
-
-  prismWindow.webContents.on('render-process-gone', (event, details) => {
-    console.error('PRISM viewer renderer process crashed:', details);
-  });
-
-  // Adicionar log quando o conteúdo terminar de carregar
-  prismWindow.webContents.on('did-finish-load', () => {
-    console.log('PRISM window content finished loading');
-  });
-
-  // Adicionar log quando começar a carregar
-  prismWindow.webContents.on('did-start-loading', () => {
-    console.log('PRISM window started loading');
-  });
-
-  console.log('PRISM window created successfully');
-  return prismWindow;
+  splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html'));
+  setTimeout(() => {
+    splashWindow.close(); // Close splash screen
+    createMainWindow(); // Create main application window
+    //setTimeout(checkForUpdates, 2000); // Check for updates after a delay
+  }, 4000);
 }
+
+// Initialize the application when ready
+app.whenReady().then(createSplashScreen);
 
 /*
  * 
@@ -884,96 +724,6 @@ async function createPrismWindow(compilationData = null) {
  * 
  * 
 */
-// Unified handler for getting toggle UI state (replaces both 'get-toggle-ui-state' and 'get-toggle-ui-state-direct')
-ipcMain.handle('get-toggle-ui-state', async (event) => {
-  try {
-    if (mainWindow && mainWindow.webContents) {
-      // Send request and wait for response
-      return new Promise((resolve) => {
-        const responseHandler = (_, isActive) => {
-          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-          resolve(isActive);
-        };
-        
-        ipcMain.once('toggle-ui-state-response', responseHandler);
-        mainWindow.webContents.send('request-toggle-ui-state');
-        
-        // Timeout after 5 seconds
-        setTimeout(() => {
-          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-          resolve(false); // Default to false
-        }, 5000);
-      });
-    }
-    return false; // Default if no main window
-  } catch (error) {
-    console.error('Error getting toggle UI state:', error);
-    return false;
-  }
-});
-
-// Handler for toggle UI state response (kept as is since it's needed for communication)
-ipcMain.on('toggle-ui-state-response', (event, isActive) => {
-  // Store the response for the waiting function
-  event.sender.send('toggle-ui-state-response', isActive);
-});
-
-// Unified handler for managing current project (combines 'set-current-project' and 'get-current-project')
-ipcMain.handle('manage-current-project', async (event, action, projectPath = null) => {
-  try {
-    if (action === 'set') {
-      if (!projectPath) {
-        console.warn("manage-current-project: No project path provided");
-        return { success: false, message: "No project path provided" };
-      }
-      
-      console.log(`Setting current project path to: ${projectPath}`);
-      
-      // Update global variables
-      global.currentProjectPath = projectPath;
-      
-      // Also update the currentProject object if it exists
-      if (!global.currentProject) {
-        global.currentProject = {};
-      }
-      global.currentProject.path = projectPath;
-      
-      // Store the path in a file for persistence
-      const appDataPath = app.getPath('userData');
-      fs.writeFileSync(
-        path.join(appDataPath, 'lastProject.json'), 
-        JSON.stringify({ path: projectPath }, null, 2)
-      );
-      
-      console.log("Current project path successfully set");
-      return { success: true };
-      
-    } else if (action === 'get') {
-      if (!currentOpenProjectPath) {
-        return { projectOpen: false };
-      }
-      
-      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
-      const projectData = JSON.parse(spfData);
-      
-      return { 
-        projectOpen: true, 
-        projectPath: projectData.structure.basePath,
-        spfPath: currentOpenProjectPath,
-        processors: projectData.structure.processors.map(p => p.name)
-      };
-    } else {
-      return { success: false, message: "Invalid action. Use 'set' or 'get'" };
-    }
-  } catch (error) {
-    console.error('Error managing current project:', error);
-    if (action === 'set') {
-      return { success: false, message: `Error: ${error.message}` };
-    } else {
-      return { projectOpen: false };
-    }
-  }
-});
 
 // Handler to compile a file using a specified compiler
 ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDir, outputPath }) => {
@@ -1012,22 +762,61 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
   });
 });
 
-// Unified handler for executing shell commands (replaces both 'exec-command' and 'exec-command-stream')
-ipcMain.handle('execute-shell-command', (event, command, enableStreaming = false) => {
+// IPC handler to execute a shell command and return process info
+ipcMain.handle('exec-command', (event, command) => {
   return new Promise((resolve, reject) => {
     const child = exec(command, {
-      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
-      encoding: 'utf8'
+      maxBuffer: 1024 * 1024 * 10 // 10MB buffer
     });
 
     let stdout = '';
     let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+
+    });
+
+    child.stderr.on('data', (data) => {
+      const errorOutput = data.toString();
+      stderr += errorOutput;
+    });
+
+    child.on('close', (code) => {
+      resolve({
+        code,
+        stdout,
+        stderr,
+        pid: child.pid // Return the process ID
+      });
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+});
+
+// Enhanced IPC handler for better VVP output streaming
+ipcMain.handle('exec-command-stream', (event, command) => {
+  return new Promise((resolve, reject) => {
+    const { exec } = require('child_process');
+    
+    // Use exec with shell but with streaming capabilities
+    const child = exec(command, {
+      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+      encoding: 'utf8'
+    });
+    
+    let stdout = '';
+    let stderr = '';
+
+    // Buffer for managing partial output
     let stdoutBuffer = '';
     let stderrBuffer = '';
 
     const processOutput = (buffer, type) => {
-      if (!enableStreaming) return buffer;
-      
       const lines = buffer.split('\n');
       
       // Process all complete lines
@@ -1048,20 +837,19 @@ ipcMain.handle('execute-shell-command', (event, command, enableStreaming = false
     child.stdout.on('data', (data) => {
       const output = data.toString('utf8');
       stdout += output;
+      stdoutBuffer += output;
       
-      if (enableStreaming) {
-        stdoutBuffer += output;
-        stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
-        
-        // Also send immediately if we detect progress indicators
-        if (output.includes('Progress:') || output.includes('%') || output.includes('complete')) {
-          if (stdoutBuffer.trim()) {
-            event.sender.send('command-output-stream', { 
-              type: 'stdout', 
-              data: stdoutBuffer 
-            });
-            stdoutBuffer = '';
-          }
+      // Process complete lines and keep partial line in buffer
+      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
+      
+      // Also send immediately if we detect progress indicators
+      if (output.includes('Progress:') || output.includes('%') || output.includes('complete')) {
+        if (stdoutBuffer.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: 'stdout', 
+            data: stdoutBuffer 
+          });
+          stdoutBuffer = '';
         }
       }
     });
@@ -1069,35 +857,32 @@ ipcMain.handle('execute-shell-command', (event, command, enableStreaming = false
     child.stderr.on('data', (data) => {
       const errorOutput = data.toString('utf8');
       stderr += errorOutput;
+      stderrBuffer += errorOutput;
       
-      if (enableStreaming) {
-        stderrBuffer += errorOutput;
-        stderrBuffer = processOutput(stderrBuffer, 'stderr');
-      }
+      // Process stderr lines
+      stderrBuffer = processOutput(stderrBuffer, 'stderr');
     });
 
     child.on('close', (code) => {
-      if (enableStreaming) {
-        // Send any remaining buffered output
-        if (stdoutBuffer.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: 'stdout', 
-            data: stdoutBuffer 
-          });
-        }
-        if (stderrBuffer.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: 'stderr', 
-            data: stderrBuffer 
-          });
-        }
+      // Send any remaining buffered output
+      if (stdoutBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stdout', 
+          data: stdoutBuffer 
+        });
+      }
+      if (stderrBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stderr', 
+          data: stderrBuffer 
+        });
       }
       
-      resolve({
-        code,
-        stdout,
-        stderr,
-        pid: child.pid
+      resolve({ 
+        code, 
+        stdout, 
+        stderr, 
+        pid: child.pid 
       });
     });
 
@@ -1107,41 +892,44 @@ ipcMain.handle('execute-shell-command', (event, command, enableStreaming = false
   });
 });
 
-// Unified handler for killing processes (replaces both 'kill-process' and 'kill-process-by-name')
-ipcMain.handle('terminate-process', async (event, identifier, identifierType = 'pid') => {
+// Handler for killing process by PID - Enhanced version
+ipcMain.handle('kill-process', async (event, pid) => {
   return new Promise((resolve, reject) => {
-    let command;
+    console.log(`Attempting to kill process with PID: ${pid}`);
     
-    if (identifierType === 'pid') {
-      console.log(`Attempting to kill process with PID: ${identifier}`);
-      command = `taskkill /F /T /PID ${identifier}`;
-    } else if (identifierType === 'name') {
-      console.log(`Attempting to kill process by name: ${identifier}`);
-      command = `taskkill /F /IM ${identifier}`;
-    } else {
-      reject(new Error('Invalid identifier type. Use "pid" or "name"'));
-      return;
-    }
-    
-    // First try to kill the process tree (including child processes) for PID
-    exec(command, (error, stdout, stderr) => {
-      if (error && identifierType === 'pid') {
-        console.error(`Error killing process tree ${identifier}:`, error);
+    // First try to kill the process tree (including child processes)
+    exec(`taskkill /F /T /PID ${pid}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error killing process tree ${pid}:`, error);
         // If tree kill fails, try individual process kill
-        exec(`taskkill /F /PID ${identifier}`, (error2, stdout2, stderr2) => {
+        exec(`taskkill /F /PID ${pid}`, (error2, stdout2, stderr2) => {
           if (error2) {
-            console.error(`Error killing individual process ${identifier}:`, error2);
+            console.error(`Error killing individual process ${pid}:`, error2);
             reject(error2);
           } else {
-            console.log(`Process ${identifier} killed successfully (individual)`);
+            console.log(`Process ${pid} killed successfully (individual)`);
             resolve({ stdout: stdout2, stderr: stderr2 });
           }
         });
-      } else if (error) {
-        console.error(`Error killing process ${identifier}:`, error);
+      } else {
+        console.log(`Process tree ${pid} killed successfully`);
+        resolve({ stdout, stderr });
+      }
+    });
+  });
+});
+
+// Alternative handler for killing process by name (backup method)
+ipcMain.handle('kill-process-by-name', async (event, processName) => {
+  return new Promise((resolve, reject) => {
+    console.log(`Attempting to kill process by name: ${processName}`);
+    
+    exec(`taskkill /F /IM ${processName}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error killing process ${processName}:`, error);
         reject(error);
       } else {
-        console.log(`Process ${identifier} killed successfully`);
+        console.log(`Process ${processName} killed successfully`);
         resolve({ stdout, stderr });
       }
     });
@@ -1162,31 +950,13 @@ ipcMain.handle('check-process-running', async (event, pid) => {
   });
 });
 
-// Unified handler for path operations (replaces 'path-exists' and 'get-simulation-folder-path')
-ipcMain.handle('handle-path-operations', async (event, operation, ...args) => {
+
+ipcMain.handle('path-exists', async (event, filePath) => {
   try {
-    switch (operation) {
-      case 'exists':
-        const [filePath] = args;
-        try {
-          await fs.access(filePath);
-          return true;
-        } catch {
-          return false;
-        }
-        
-      case 'get-simulation-folder':
-        const [processorName, inputDir] = args;
-        const processorDir = path.join(inputDir);
-        const simulationFolderPath = path.join(processorDir, processorName, 'Simulation');
-        return simulationFolderPath;
-        
-      default:
-        throw new Error(`Invalid operation: ${operation}`);
-    }
-  } catch (error) {
-    console.error('Error in path operations:', error);
-    throw error;
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 });
 
@@ -1237,6 +1007,29 @@ ipcMain.handle('delete-processor', async (event, processorName) => {
   } catch (error) {
     console.error('Error deleting processor:', error);
     throw error;
+  }
+});
+
+
+// Add a new IPC handler to check current open project
+ipcMain.handle('get-current-project', async () => {
+  if (!currentOpenProjectPath) {
+    return { projectOpen: false };
+  }
+  
+  try {
+    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    
+    return { 
+      projectOpen: true, 
+      projectPath: projectData.structure.basePath,
+      spfPath: currentOpenProjectPath,
+      processors: projectData.structure.processors.map(p => p.name)
+    };
+  } catch (error) {
+    console.error('Error getting current project:', error);
+    return { projectOpen: false };
   }
 });
 
@@ -1314,6 +1107,7 @@ void main()
         throw err;
       }
     }
+
     
   } catch (error) {
     console.error('Error in create-processor-project:', error);
@@ -1368,6 +1162,13 @@ ipcMain.handle('get-available-processors', async (event, projectPath) => {
   }
 });
 
+// Handler to get the hardware folder path
+ipcMain.handle('get-simulation-folder-path', async (event, processorName, inputDir) => {
+  const processorDir = path.join(inputDir);
+  const simulationFolderPath = path.join(processorDir,processorName, 'Simulation');
+  return simulationFolderPath;
+});
+
 
 /*
  * 
@@ -1383,6 +1184,702 @@ ipcMain.handle('get-available-processors', async (event, projectPath) => {
  * 
  * 
 */
+
+
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, 'utf8'); // Read file content
+    return content;
+  } catch (error) {
+    console.error(`Error reading file: ${error.message}`);
+    throw error;
+  }
+});
+
+ipcMain.handle('save-file', async (event, { filePath, content }) => {
+  try {
+    await fs.writeFile(filePath, content, 'utf8'); // Save file content
+    return true;
+  } catch (error) {
+    console.error('Error saving file:', error.message);
+    return false;
+  }
+});
+
+/*
+ * 
+ *    END: FILE OPERATION ƒ
+ * 
+ * 
+*/
+
+/*
+ * 
+ *    START: FILE TREE ƒ
+ * 
+ * 
+*/
+
+// Function to scan a directory recursively
+async function scanDirectory(dirPath) {
+  const items = await fse.readdir(dirPath, { withFileTypes: true });
+  const files = await Promise.all(
+    items.map(async item => {
+      const fullPath = path.join(dirPath, item.name);
+      if (item.isDirectory()) {
+        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
+        return {
+          name: item.name,
+          path: fullPath,
+          type: 'directory',
+          children
+        };
+      }
+      return {
+        name: item.name,
+        path: fullPath,
+        type: 'file'
+      };
+    })
+  );
+  return files;
+}
+
+// Handler to refresh the folder structure
+ipcMain.handle('refreshFolder', async (event, projectPath) => {
+  try {
+    if (!projectPath) {
+      throw new Error('No project path provided');
+    }
+    const files = await scanDirectory(projectPath);
+    return { files };
+  } catch (error) {
+    console.error('Error scanning directory:', error);
+    throw error;
+  }
+});
+
+/*
+ * 
+ *    END: FILE TREE ƒ
+ * 
+ * 
+*/
+
+/*
+ * 
+ *    START: SIDEBAR MENU ƒ
+ * 
+ * 
+*/
+
+// Handler to open an external URL in the default browser
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return true;
+  } catch (error) {
+    console.error('Error opening external link:', error);
+    return false;
+  }
+});
+
+
+/*
+ * 
+ *    END: SIDEBAR MENU ƒ
+ * 
+ * 
+*/
+
+
+
+
+ipcMain.handle('list-files-directory', async (event, directoryPath) => {
+  try {
+    const files = await fs.readdir(directoryPath);
+    return files;
+  } catch (error) {
+    console.error('Error listing files:', error);
+    return [];
+  }
+});
+
+
+// Handler to show an open file dialog for selecting .spf files
+ipcMain.handle('dialog:showOpen', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Sapho Project Files', extensions: ['spf'] }]
+  });
+  return result;
+});
+
+// Handler to get project information from a .spf file
+ipcMain.handle('project:getInfo', async (_, spfPath) => {
+  try {
+    if (!spfPath) {
+      throw new Error('No project file path provided');
+    }
+
+    const exists = await fse.pathExists(spfPath); // Check if the file exists
+    if (!exists) {
+      throw new Error(`Project file not found at: ${spfPath}`);
+    }
+
+    const projectData = await fse.readJSON(spfPath); // Read and parse the project file
+    return projectData;
+  } catch (error) {
+    throw error;
+  }
+});
+
+
+// Class representing the structure of a .spf project file
+class ProjectFile {
+  constructor(projectPath) {
+    this.metadata = {
+      projectName: path.basename(projectPath),
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      computerName: process.env.COMPUTERNAME || os.hostname(),
+      appVersion: app.getVersion(),
+      projectPath: projectPath
+    };
+    
+    this.structure = {
+      basePath: projectPath,
+      processors: [],
+      folders: []
+    };
+  }
+
+  toJSON() {
+    return {
+      metadata: this.metadata,
+      structure: this.structure
+    };
+  }
+}
+
+// Function to update the project state and notify the renderer process
+function updateProjectState(window, projectPath, spfPath) {
+  window.webContents.send('project:stateChange', { projectPath, spfPath });
+}
+// Context: IPC handlers for project creation, opening, and folder operations in an Electron application
+
+ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
+  try {
+    // Create the project structure
+    await fse.mkdir(projectPath, { recursive: true });
+    const projectFile = new ProjectFile(projectPath);
+    await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
+
+    // Wait briefly to ensure the file system syncs
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Verify if the files exist
+    const projectExists = await fse.pathExists(projectPath);
+    const spfExists = await fse.pathExists(spfPath);
+
+    if (!projectExists || !spfExists) {
+      throw new Error('Failed to create project structure or .spf file');
+    }
+
+    // Read the files to confirm accessibility
+    const files = await fse.readdir(projectPath, { withFileTypes: true });
+    const fileList = files.map(file => ({
+      name: file.name,
+      isDirectory: file.isDirectory(),
+      path: path.join(projectPath, file.name)
+    }));
+
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+
+    // Simulate the response of the showOpenDialog event
+    focusedWindow.webContents.send('simulateOpenProject', {
+      canceled: false,
+      filePaths: [projectPath]
+    });
+
+    return { 
+      success: true, 
+      projectData: projectFile.toJSON(), 
+      files: fileList,
+      spfPath,
+      projectPath
+    };
+  } catch (error) {
+    console.error('Error creating project structure:', error);
+    throw error;
+  }
+});
+
+
+// Update the project:open handler to also set the global project path
+ipcMain.handle('project:open', async (_, spfPath) => {
+  try {
+    console.log('Opening project from:', spfPath);
+
+    // If the file does not exist, attempt to correct the path
+    if (!(await fse.pathExists(spfPath))) {
+      const projectName = path.basename(spfPath, '.spf');
+      const correctedSpfPath = path.join(path.dirname(spfPath), projectName, `${projectName}.spf`);
+      console.log(`SPF file not found at ${spfPath}. Trying corrected path: ${correctedSpfPath}`);
+      spfPath = correctedSpfPath;
+      if (!(await fse.pathExists(spfPath))) {
+        throw new Error(`SPF file not found at both original and corrected paths.`);
+      }
+    }
+
+    // Set the current open project path - IMPORTANT!
+    currentOpenProjectPath = spfPath;
+    
+    // Also set the global project path for other handlers
+    const projectDirPath = path.dirname(spfPath);
+    global.currentProjectPath = projectDirPath;
+    
+    // Update the currentProject object if it exists
+    if (!global.currentProject) {
+      global.currentProject = {};
+    }
+    global.currentProject.path = projectDirPath;
+    
+    console.log(`Global project path set to: ${projectDirPath}`);
+
+    const spfContent = await fse.readFile(spfPath, 'utf8');
+    const projectData = JSON.parse(spfContent);
+    
+    projectData.metadata.lastOpened = new Date().toISOString();
+
+    const oldBasePath = projectData.structure.basePath;
+    const basePathExists = await fse.pathExists(oldBasePath);
+
+    // Update the project state
+    projectState = {
+      spfLoaded: true,
+      projectPath: path.dirname(spfPath)
+    };
+
+    if (!basePathExists) {
+      const newBasePath = path.dirname(spfPath);
+      projectData.metadata.projectPath = newBasePath;
+      projectData.structure.basePath = newBasePath;
+      console.log(`Updating project path from ${oldBasePath} to ${newBasePath}`);
+    }
+
+    if (projectData.structure.processors) {
+      projectData.structure.processors = await Promise.all(
+        projectData.structure.processors.map(async processor => {
+          const processorPath = path.join(projectData.structure.basePath, processor.name);
+          const exists = await fse.pathExists(processorPath);
+          return { ...processor, exists };
+        })
+      );
+    } else {
+      projectData.structure.processors = [];
+    }
+
+    if (!projectData.structure.folders) {
+      projectData.structure.folders = [];
+    }
+
+    await fse.writeFile(spfPath, JSON.stringify(projectData, null, 2));
+
+    const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
+    const fileList = files.map(file => ({
+      name: file.name,
+      isDirectory: file.isDirectory(),
+      path: path.join(projectData.structure.basePath, file.name)
+    }));
+
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
+    
+    // Notify the renderer process to enable the Processor Hub
+    focusedWindow.webContents.send('project:processorHubState', { enabled: true });
+    
+    // Send processor list to the renderer 
+    focusedWindow.webContents.send('project:processors', { 
+      processors: projectData.structure.processors.map(p => p.name),
+      projectPath: projectData.structure.basePath
+    });
+
+    return {
+      projectData,
+      files: fileList,
+      spfPath
+    };
+  } catch (error) {
+    console.error('Error opening project file:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('isDirectory', async (_, path) => {
+  try {
+    const stats = await fse.stat(path);
+    return stats.isDirectory();
+  } catch (error) {
+    return false;
+  }
+});
+
+// Verificar se há um arquivo .spf nos argumentos de linha de comando
+const fileToOpen = process.argv.find(arg => arg.endsWith('.spf'));
+
+// Função para lidar com o single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Alguém tentou executar uma segunda instância com um arquivo .spf
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      
+      // Procurar por arquivos .spf nos argumentos
+      const spfFile = commandLine.find(arg => arg.endsWith('.spf'));
+      if (spfFile) {
+        mainWindow.webContents.send('open-spf-file', { filePaths: [spfFile] });
+      }
+    }
+  });
+}
+
+// Listar arquivos com uma extensão específica
+ipcMain.handle('get-files-with-extension', async (event, folderPath, extension) => {
+  try {
+    // Verificar se o diretório existe
+    const stats = await fs.stat(folderPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`${folderPath} não é um diretório válido`);
+    }
+
+    // Ler os arquivos no diretório
+    const files = await fs.readdir(folderPath);
+    
+    // Filtrar arquivos pela extensão e adicionar o caminho completo
+    const filteredFiles = files
+      .filter(file => file.toLowerCase().endsWith(extension.toLowerCase()))
+      .map(file => path.join(folderPath, file));
+    
+    log.debug(`Arquivos com extensão ${extension} encontrados em ${folderPath}:`, filteredFiles);
+    return filteredFiles;
+  } catch (error) {
+    log.error(`Erro ao obter arquivos com extensão ${extension}:`, error);
+    throw error;
+  }
+});
+
+// Verificar se um arquivo existe
+ipcMain.handle('file-exists', async (event, filePath) => {
+  try {
+    await fs.access(filePath);
+    log.debug(`Arquivo existe: ${filePath}`);
+    return true;
+  } catch (error) {
+    log.debug(`Arquivo não existe: ${filePath}`);
+    return false;
+  }
+});
+
+// Handler for reading folder contents
+ipcMain.handle('getFolderFiles', async (event, folderPath) => {
+  try {
+    if (!folderPath) {
+      throw new Error('Folder path is required');
+    }
+
+    const files = await fse.readdir(folderPath, { withFileTypes: true });
+    const fileList = files.map(file => ({
+      name: file.name,
+      isDirectory: file.isDirectory(),
+      path: path.join(folderPath, file.name)
+    }));
+
+    return fileList;
+  } catch (error) {
+    console.error('Error reading folder:', error);
+    throw new Error('Failed to read folder');
+  }
+});
+
+//SAVE FILE
+
+// In main.js
+/*
+ipcMain.handle('write-file', async (event, filePath, content) => {
+  try {
+    await fs.promises.writeFile(filePath, content, 'utf8');
+    return true;
+  } catch (error) {
+    throw error;
+  }
+});*/
+// Context: IPC handlers for Verilog, BlockView, VCD, Icarus, and directory watching functionalities
+
+// IPC handler to execute PowerShell commands for Verilog-related tasks
+ipcMain.handle('execute-powershell', async () => {
+  try {
+    const commandsFolder = path.join(__dirname, 'commands');
+    const commandFiles = [
+      'command1.ps1', // Start WSL
+      'command2.ps1', // Change directory
+      'command3.ps1', // Display Verilator version
+      'command4.ps1'  // Execute compilation
+    ];
+
+    let output = '';
+    let errorOutput = '';
+
+    for (const commandFile of commandFiles) {
+      const commandPath = path.join(commandsFolder, commandFile);
+      const commands = await fs.readFile(commandPath, 'utf8');
+      const commandResult = await executePowerShell(commands);
+      output += commandResult.output;
+      errorOutput += commandResult.errorOutput;
+    }
+
+    return { output, errorOutput };
+  } catch (error) {
+    throw error;
+  }
+});
+
+// Helper function to execute PowerShell commands
+function executePowerShell(commands) {
+  return new Promise((resolve, reject) => {
+    const powershell = exec('powershell.exe -NoProfile -ExecutionPolicy Bypass -Command -', (error) => {
+      if (error) {
+        reject(error);
+      }
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    powershell.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    powershell.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    powershell.on('close', () => {
+      resolve({ output, errorOutput });
+    });
+
+    powershell.stdin.write(commands);
+    powershell.stdin.end();
+  });
+}
+
+// IPC handler to create a directory
+ipcMain.handle('create-directory', async (event, dirPath) => {
+  try {
+    await fse.ensureDir(dirPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating directory:', error);
+    throw error;
+  }
+});
+
+// Handler to open a directory dialog
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled) {
+    return null; // Return null if the user cancels
+  }
+  return result.filePaths[0]; // Return the selected folder path
+});
+
+// IPC handler to write content to a file (improved with better error handling)
+ipcMain.handle('write-file', async (event, filePath, content) => {
+  try {
+    // Ensure the directory exists
+    const dir = path.dirname(filePath);
+    await fse.ensureDir(dir);
+    
+    // Write the file
+    await fse.writeFile(filePath, content);
+    console.log(`File written successfully: ${filePath}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error writing file:', error);
+    throw new Error(`Failed to write file: ${error.message}`);
+  }
+});
+
+// IPC handler to ensure directory exists
+ipcMain.handle('ensure-dir', async (event, dirPath) => {
+  try {
+    await fse.ensureDir(dirPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error ensuring directory:', error);
+    throw new Error(`Failed to create directory: ${error.message}`);
+  }
+});
+
+
+// IPC handler to validate path
+ipcMain.handle('validate-path', async (event, filePath) => {
+  try {
+    // Check if path is valid and accessible
+    await fse.access(filePath);
+    const stats = await fse.lstat(filePath);
+    
+    return {
+      exists: true,
+      isDirectory: stats.isDirectory(),
+      isFile: stats.isFile(),
+      readable: true,
+      writable: true // This is a simplified check
+    };
+  } catch (error) {
+    return {
+      exists: false,
+      isDirectory: false,
+      isFile: false,
+      readable: false,
+      writable: false,
+      error: error.message
+    };
+  }
+});
+
+// IPC handler to refresh the file tree
+ipcMain.on('refresh-file-tree', (event) => {
+  event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
+});
+
+function getProjectConfigPath(projectPath) {
+  if (!projectPath) {
+    throw new Error('Project path is required for configuration operations');
+  }
+  return path.join(projectPath, 'processorConfig.json');
+}
+
+// Define paths for configuration management
+const appPath = app.getAppPath();
+const rootPath = path.join(appPath, '..', '..'); // Navigate to the installation directory
+ipcMain.handle('load-config', async (event, projectPath) => {
+  try {
+    // Se projectPath não foi fornecido, usar o projeto atual
+    let configFilePath;
+    if (projectPath) {
+      configFilePath = getProjectConfigPath(projectPath);
+    } else {
+      // Extrair o projectPath do arquivo .spf atual
+      if (!currentOpenProjectPath) {
+        throw new Error('No project is currently open and no project path provided');
+      }
+      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+      const projectData = JSON.parse(spfData);
+      configFilePath = getProjectConfigPath(projectData.structure.basePath);
+    }
+    
+    // Check if config file exists
+    try {
+      await fs.access(configFilePath);
+    } catch (error) {
+      // If file doesn't exist, create a default config
+      const defaultConfig = { 
+        processors: [], 
+        iverilogFlags: [],
+        cmmCompFlags: [],
+        asmCompFlags: [],
+        testbenchFile: "standard",
+        gtkwFile: "standard"
+      };
+      await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
+      return defaultConfig;
+    }
+
+    const fileContent = await fs.readFile(configFilePath, 'utf-8');
+    const config = JSON.parse(fileContent);
+    
+    config.processors = config.processors.map((proc, index) => {
+      let isActive = false;
+      
+      if (proc.isActive !== undefined) {
+        isActive = proc.isActive === true || proc.isActive === "true";
+      } else if (index === 0) {
+        isActive = true;
+      }
+      
+      return {
+        ...proc,
+        isActive: isActive
+      };
+    });
+
+    const hasActiveProcessor = config.processors.some(p => p.isActive === true);
+    if (!hasActiveProcessor && config.processors.length > 0) {
+      config.processors[0].isActive = true;
+    }
+    
+    return config;
+  } catch (error) {
+    console.error('Failed to read configuration file:', error);
+    return { 
+      processors: [], 
+      iverilogFlags: [],
+      cmmCompFlags: [],
+      asmCompFlags: [],
+      testbenchFile: "standard",
+      gtkwFile: "standard"
+    };
+  }
+});
+
+ipcMain.handle('save-config', async (event, data) => {
+  try {
+    if (!currentOpenProjectPath) {
+      throw new Error('No project is currently open');
+    }
+    
+    // Extrair o projectPath do arquivo .spf
+    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+    const projectData = JSON.parse(spfData);
+    const projectPath = projectData.structure.basePath;
+
+    // Garantir que os processadores têm a propriedade isActive corretamente definida
+if (data.processors && data.processors.length > 0) {
+  // Garantir que apenas um processador está ativo
+  let hasActive = false;
+  data.processors = data.processors.map(proc => {
+    if (proc.isActive === true && !hasActive) {
+      hasActive = true;
+      return { ...proc, isActive: true };
+    }
+    return { ...proc, isActive: false };
+  });
+  
+  // Se nenhum processador estava ativo, ativar o primeiro
+  if (!hasActive) {
+    data.processors[0].isActive = true;
+  }
+}
+    
+    const configFilePath = getProjectConfigPath(projectPath);
+    await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
+    console.log('Configuration saved at:', configFilePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to save configuration file:', error);
+    throw error;
+  }
+});
 
 
 // IPC handler to join paths
@@ -1498,161 +1995,251 @@ ipcMain.handle('readDir', async (event, dirPath) => {
   }
 });
 
-// IPC handler to write content to a file (improved with better error handling)
-ipcMain.handle('write-file', async (event, filePath, content) => {
+// IPC handler to open a folder in the system's file explorer
+ipcMain.handle('folder:open', async (_, folderPath) => {
   try {
-    // Ensure the directory exists
-    const dir = path.dirname(filePath);
-    await fse.ensureDir(dir);
-    
-    // Write the file
-    await fse.writeFile(filePath, content);
-    console.log(`File written successfully: ${filePath}`);
+    await shell.openPath(folderPath);
     return { success: true };
   } catch (error) {
-    console.error('Error writing file:', error);
-    throw new Error(`Failed to write file: ${error.message}`);
+    console.error('Error opening folder:', error);
+    return { success: false, error: error.message };
   }
 });
 
-// IPC handler to ensure directory exists
-ipcMain.handle('ensure-dir', async (event, dirPath) => {
+// Context: Backup creation using 7-Zip
+// IPC handler to create a backup of a folder
+ipcMain.handle("create-backup", async (_, folderPath) => {
+  if (!folderPath) {
+    return { success: false, message: "No folder open for backup!" };
+  }
+
+  const folderName = path.basename(folderPath);
+  const backupFolderPath = path.join(folderPath, "Backup");
+  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss");
+  const tempBackupFolderName = `backup_${timestamp}`;
+  const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
+  const zipFileName = `${folderName}_${timestamp}.7z`;
+  const zipFilePath = path.join(backupFolderPath, zipFileName);
+
   try {
-    await fse.ensureDir(dirPath);
+    await fse.ensureDir(backupFolderPath);
+    await fse.ensureDir(tempBackupFolderPath);
+
+    const files = await fse.readdir(folderPath);
+    for (let file of files) {
+      const sourcePath = path.join(folderPath, file);
+      const destPath = path.join(tempBackupFolderPath, file);
+      if (file !== "Backup" && file !== tempBackupFolderName) {
+        await fse.copy(sourcePath, destPath);
+      }
+    }
+
+    const command = `"${sevenZipPath}" a "${zipFilePath}" "${tempBackupFolderName}"`;
+
+    return new Promise((resolve) => {
+      exec(command, { cwd: folderPath }, async (error, stdout, stderr) => {
+        if (error) {
+          console.error("Error creating backup:", stderr);
+          resolve({ success: false, message: "Error creating backup." });
+        } else {
+          try {
+            await fse.remove(tempBackupFolderPath);
+          } catch (deleteError) {
+            console.error("Error deleting temporary backup folder:", deleteError);
+          }
+          resolve({ success: true, message: `Backup created at: ${zipFilePath}` });
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error("Error creating backup:", error);
+    return { success: false, message: "Error creating backup." };
+  }
+});
+
+// Path to 7-Zip executable
+const sevenZipPath = "7z";
+
+app.whenReady().then(() => {
+  // Código existente...
+  
+  // Garantir que a pasta js existe para o gerenciador de blocos Verilog
+  const jsDir = path.join(app.getAppPath(), 'js');
+  if (!fs.existsSync(jsDir)) {
+    fs.mkdirSync(jsDir, { recursive: true });
+  }
+  
+  // Criar o arquivo verilog-block-manager.js se ele não existir
+  const verilogBlockManagerPath = path.join(jsDir, 'verilog-block-manager.js');
+  if (!fs.existsSync(verilogBlockManagerPath)) {
+    fs.copyFileSync(
+      path.join(app.getAppPath(), 'js', 'verilog-block-manager.js'),
+      verilogBlockManagerPath
+    );
+  }
+});
+
+ipcMain.handle('export-log', async (_, logData) => {
+  try {
+    // Descobrir o projeto aberto. Ajuste conforme sua lógica:
+    // Exemplo:
+    const projectPath = global.currentProjectPath || global.currentOpenProjectPath || (global.currentProject && global.currentProject.path);
+    if (!projectPath) {
+      return { success: false, message: 'Nenhum projeto aberto. Não foi possível exportar o log.' };
+    }
+
+    // Pasta de backup dentro do projeto:
+    const backupDir = path.join(projectPath, 'Backup');
+    // Garante existência:
+    await fse.ensureDir(backupDir);
+
+    // Caminho do arquivo:
+    const reportFilename = 'house_report.json';
+    const reportFilePath = path.join(backupDir, reportFilename);
+
+    // Escreve JSON com identação de 2 espaços:
+    await fse.writeJson(reportFilePath, logData, { spaces: 2 });
+    ipcMain.on('refresh-file-tree', (event) => {
+      event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
+    });
+  } catch (error) {
+    console.error('Erro ao exportar log:', error);
+    return { success: false, message: 'Erro ao exportar log: ' + error.message };
+  }
+});
+
+// Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
+
+// Handler for getting application information
+ipcMain.handle('get-app-info', async () => {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+    osInfo: `${os.type()} ${os.release()}`,
+    arch: os.arch(),
+    totalMemory: os.totalmem(),
+    buildDate: new Date().toLocaleDateString(),
+    environment: process.env.NODE_ENV || 'production'
+  };
+});
+
+// Handler for getting performance statistics
+ipcMain.handle('get-performance-stats', async () => {
+  const memUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
+  return {
+    uptime: process.uptime(),
+    memoryUsage: memUsage.heapUsed,
+    cpuUsage: Math.round((cpuUsage.user + cpuUsage.system) / 1000000), // Convert to percentage approximation
+    heapTotal: memUsage.heapTotal,
+    heapUsed: memUsage.heapUsed,
+    external: memUsage.external,
+    rss: memUsage.rss
+  };
+});
+
+// Handler to start a terminal (CMD) process
+ipcMain.on('start-terminal', (event) => {
+  const shell = spawn('cmd.exe', [], {
+    env: process.env,
+    cwd: process.env.USERPROFILE || process.env.HOME,
+    windowsHide: true
+  });
+
+  const webContents = event.sender;
+  const terminalId = Date.now().toString();
+
+  shell.stdout.on('data', (data) => {
+    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
+  });
+
+  shell.stderr.on('data', (data) => {
+    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
+  });
+
+  shell.on('exit', (code) => {
+    webContents.send('terminal-exit', { id: terminalId, code });
+  });
+
+  webContents.send('terminal-started', { id: terminalId });
+
+  ipcMain.on('terminal-input', (event, data) => {
+    if (data.id === terminalId && shell.stdin.writable) {
+      shell.stdin.write(data.data);
+    }
+  });
+});
+
+// Electron app lifecycle events
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+// Handler to open a browser with a specific URL
+ipcMain.on('open-browser', () => {
+  const { shell } = require('electron');
+  shell.openExternal('https://nipscern.com');
+});
+
+ipcMain.on('open-github-desktop', () => {
+  const githubPath = path.join(
+    process.env.LOCALAPPDATA,
+    'GitHubDesktop',
+    'GitHubDesktop.exe'
+  );
+  shell.openPath(githubPath);
+});
+
+
+// Handler to quit the app with a delay
+ipcMain.on('quit-app', () => {
+  setTimeout(() => {
+    app.quit();
+  }, 5000);
+});
+
+
+// New handler to set current project path in the main process
+ipcMain.handle('set-current-project', (_, projectPath) => {
+  try {
+    if (!projectPath) {
+      console.warn("set-current-project: No project path provided");
+      return { success: false, message: "No project path provided" };
+    }
+    
+    console.log(`Setting current project path to: ${projectPath}`);
+    
+    // Update global variables
+    global.currentProjectPath = projectPath;
+    
+    // Also update the currentProject object if it exists
+    if (!global.currentProject) {
+      global.currentProject = {};
+    }
+    global.currentProject.path = projectPath;
+    
+    // Store the path in a file for persistence
+    const appDataPath = app.getPath('userData');
+    fs.writeFileSync(
+      path.join(appDataPath, 'lastProject.json'), 
+      JSON.stringify({ path: projectPath }, null, 2)
+    );
+    
+    console.log("Current project path successfully set");
     return { success: true };
   } catch (error) {
-    console.error('Error ensuring directory:', error);
-    throw new Error(`Failed to create directory: ${error.message}`);
+    console.error("Error setting current project path:", error);
+    return { success: false, message: `Error: ${error.message}` };
   }
 });
-
-
-// IPC handler to validate path
-ipcMain.handle('validate-path', async (event, filePath) => {
-  try {
-    // Check if path is valid and accessible
-    await fse.access(filePath);
-    const stats = await fse.lstat(filePath);
-    
-    return {
-      exists: true,
-      isDirectory: stats.isDirectory(),
-      isFile: stats.isFile(),
-      readable: true,
-      writable: true // This is a simplified check
-    };
-  } catch (error) {
-    return {
-      exists: false,
-      isDirectory: false,
-      isFile: false,
-      readable: false,
-      writable: false,
-      error: error.message
-    };
-  }
-});
-
-
-ipcMain.handle('read-file', async (event, filePath) => {
-  try {
-    const content = await fs.readFile(filePath, 'utf8'); // Read file content
-    return content;
-  } catch (error) {
-    console.error(`Error reading file: ${error.message}`);
-    throw error;
-  }
-});
-
-ipcMain.handle('save-file', async (event, { filePath, content }) => {
-  try {
-    await fs.writeFile(filePath, content, 'utf8'); // Save file content
-    return true;
-  } catch (error) {
-    console.error('Error saving file:', error.message);
-    return false;
-  }
-});
-
-ipcMain.handle('list-files-directory', async (event, directoryPath) => {
-  try {
-    const files = await fs.readdir(directoryPath);
-    return files;
-  } catch (error) {
-    console.error('Error listing files:', error);
-    return [];
-  }
-});
-
-ipcMain.handle('isDirectory', async (_, path) => {
-  try {
-    const stats = await fse.stat(path);
-    return stats.isDirectory();
-  } catch (error) {
-    return false;
-  }
-});
-
-
-// Listar arquivos com uma extensão específica
-ipcMain.handle('get-files-with-extension', async (event, folderPath, extension) => {
-  try {
-    // Verificar se o diretório existe
-    const stats = await fs.stat(folderPath);
-    if (!stats.isDirectory()) {
-      throw new Error(`${folderPath} não é um diretório válido`);
-    }
-
-    // Ler os arquivos no diretório
-    const files = await fs.readdir(folderPath);
-    
-    // Filtrar arquivos pela extensão e adicionar o caminho completo
-    const filteredFiles = files
-      .filter(file => file.toLowerCase().endsWith(extension.toLowerCase()))
-      .map(file => path.join(folderPath, file));
-    
-    log.debug(`Arquivos com extensão ${extension} encontrados em ${folderPath}:`, filteredFiles);
-    return filteredFiles;
-  } catch (error) {
-    log.error(`Erro ao obter arquivos com extensão ${extension}:`, error);
-    throw error;
-  }
-});
-
-// Verificar se um arquivo existe
-ipcMain.handle('file-exists', async (event, filePath) => {
-  try {
-    await fs.access(filePath);
-    log.debug(`Arquivo existe: ${filePath}`);
-    return true;
-  } catch (error) {
-    log.debug(`Arquivo não existe: ${filePath}`);
-    return false;
-  }
-});
-
-// Handler for reading folder contents
-ipcMain.handle('getFolderFiles', async (event, folderPath) => {
-  try {
-    if (!folderPath) {
-      throw new Error('Folder path is required');
-    }
-
-    const files = await fse.readdir(folderPath, { withFileTypes: true });
-    const fileList = files.map(file => ({
-      name: file.name,
-      isDirectory: file.isDirectory(),
-      path: path.join(folderPath, file.name)
-    }));
-
-    return fileList;
-  } catch (error) {
-    console.error('Error reading folder:', error);
-    throw new Error('Failed to read folder');
-  }
-});
-
-
 
 // Create file handler
 ipcMain.handle('file:create', async (event, filePath) => {
@@ -1835,746 +2422,162 @@ ipcMain.on('app:reload', () => {
 });
 
 
+// Add this variable to track PRISM window
+let prismWindow = null;
 
-/*
- * 
- *    END: FILE OPERATION ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: FILE TREE ƒ
- * 
- * 
-*/
-
-// Function to scan a directory recursively
-async function scanDirectory(dirPath) {
-  const items = await fse.readdir(dirPath, { withFileTypes: true });
-  const files = await Promise.all(
-    items.map(async item => {
-      const fullPath = path.join(dirPath, item.name);
-      if (item.isDirectory()) {
-        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
-        return {
-          name: item.name,
-          path: fullPath,
-          type: 'directory',
-          children
-        };
-      }
-      return {
-        name: item.name,
-        path: fullPath,
-        type: 'file'
-      };
-    })
-  );
-  return files;
-}
-
-// Handler to refresh the folder structure
-ipcMain.handle('refreshFolder', async (event, projectPath) => {
-  try {
-    if (!projectPath) {
-      throw new Error('No project path provided');
-    }
-    const files = await scanDirectory(projectPath);
-    return { files };
-  } catch (error) {
-    console.error('Error scanning directory:', error);
-    throw error;
-  }
-});
-
-
-
-// IPC handler to refresh the file tree
-ipcMain.on('refresh-file-tree', (event) => {
-  event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
-});
-
-function getProjectConfigPath(projectPath) {
-  if (!projectPath) {
-    throw new Error('Project path is required for configuration operations');
-  }
-  return path.join(projectPath, 'processorConfig.json');
-}
-
-// Define paths for configuration management
-const appPath = app.getAppPath();
-const rootPath = path.join(appPath, '..', '..'); // Navigate to the installation directory
-ipcMain.handle('load-config', async (event, projectPath) => {
-  try {
-    // Se projectPath não foi fornecido, usar o projeto atual
-    let configFilePath;
-    if (projectPath) {
-      configFilePath = getProjectConfigPath(projectPath);
-    } else {
-      // Extrair o projectPath do arquivo .spf atual
-      if (!currentOpenProjectPath) {
-        throw new Error('No project is currently open and no project path provided');
-      }
-      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
-      const projectData = JSON.parse(spfData);
-      configFilePath = getProjectConfigPath(projectData.structure.basePath);
-    }
+async function createPrismWindow(compilationData = null) {
+  // If already open, just focus and update content if data provided
+  if (prismWindow && !prismWindow.isDestroyed()) {
+    prismWindow.focus();
     
-    // Check if config file exists
-    try {
-      await fs.access(configFilePath);
-    } catch (error) {
-      // If file doesn't exist, create a default config
-      const defaultConfig = { 
-        processors: [], 
-        iverilogFlags: [],
-        cmmCompFlags: [],
-        asmCompFlags: [],
-        testbenchFile: "standard",
-        gtkwFile: "standard"
-      };
-      await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
-      return defaultConfig;
-    }
-
-    const fileContent = await fs.readFile(configFilePath, 'utf-8');
-    const config = JSON.parse(fileContent);
-    
-    config.processors = config.processors.map((proc, index) => {
-      let isActive = false;
-      
-      if (proc.isActive !== undefined) {
-        isActive = proc.isActive === true || proc.isActive === "true";
-      } else if (index === 0) {
-        isActive = true;
-      }
-      
-      return {
-        ...proc,
-        isActive: isActive
-      };
-    });
-
-    const hasActiveProcessor = config.processors.some(p => p.isActive === true);
-    if (!hasActiveProcessor && config.processors.length > 0) {
-      config.processors[0].isActive = true;
-    }
-    
-    return config;
-  } catch (error) {
-    console.error('Failed to read configuration file:', error);
-    return { 
-      processors: [], 
-      iverilogFlags: [],
-      cmmCompFlags: [],
-      asmCompFlags: [],
-      testbenchFile: "standard",
-      gtkwFile: "standard"
-    };
-  }
-});
-
-
-/*
- * 
- *    END: FILE TREE ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: SIDEBAR MENU ƒ
- * 
- * 
-*/
-
-// Handler to open an external URL in the default browser
-ipcMain.handle('open-external', async (event, url) => {
-  try {
-    await shell.openExternal(url);
-    return true;
-  } catch (error) {
-    console.error('Error opening external link:', error);
-    return false;
-  }
-});
-
-
-/*
- * 
- *    END: SIDEBAR MENU ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: TOOLBAR MENU ƒ
- * 
- * 
-*/
-
-// IPC handler to open a folder in the system's file explorer
-ipcMain.handle('folder:open', async (_, folderPath) => {
-  try {
-    await shell.openPath(folderPath);
-    return { success: true };
-  } catch (error) {
-    console.error('Error opening folder:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// Context: Backup creation using 7-Zip
-// IPC handler to create a backup of a folder
-ipcMain.handle("create-backup", async (_, folderPath) => {
-  if (!folderPath) {
-    return { success: false, message: "No folder open for backup!" };
-  }
-
-  const folderName = path.basename(folderPath);
-  const backupFolderPath = path.join(folderPath, "Backup");
-  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss");
-  const tempBackupFolderName = `backup_${timestamp}`;
-  const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
-  const zipFileName = `${folderName}_${timestamp}.7z`;
-  const zipFilePath = path.join(backupFolderPath, zipFileName);
-
-  try {
-    await fse.ensureDir(backupFolderPath);
-    await fse.ensureDir(tempBackupFolderPath);
-
-    const files = await fse.readdir(folderPath);
-    for (let file of files) {
-      const sourcePath = path.join(folderPath, file);
-      const destPath = path.join(tempBackupFolderPath, file);
-      if (file !== "Backup" && file !== tempBackupFolderName) {
-        await fse.copy(sourcePath, destPath);
-      }
-    }
-
-    const command = `"${sevenZipPath}" a "${zipFilePath}" "${tempBackupFolderName}"`;
-
-    return new Promise((resolve) => {
-      exec(command, { cwd: folderPath }, async (error, stdout, stderr) => {
-        if (error) {
-          console.error("Error creating backup:", stderr);
-          resolve({ success: false, message: "Error creating backup." });
-        } else {
-          try {
-            await fse.remove(tempBackupFolderPath);
-          } catch (deleteError) {
-            console.error("Error deleting temporary backup folder:", deleteError);
+    // If compilation data is provided, send it to existing window
+    if (compilationData) {
+      console.log('Updating existing PRISM window with new compilation data:', compilationData);
+      // Check if the window is ready before sending data
+      if (!prismWindow.webContents.isLoading()) {
+        prismWindow.webContents.send('compilation-complete', compilationData);
+      } else {
+        prismWindow.webContents.once('did-finish-load', () => {
+          if (prismWindow && !prismWindow.isDestroyed()) {
+            prismWindow.webContents.send('compilation-complete', compilationData);
           }
-          resolve({ success: true, message: `Backup created at: ${zipFilePath}` });
+        });
+      }
+    }
+    return prismWindow;
+  }
+
+  // Ensure preload script exists
+  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
+  console.log('Preload script path:', preloadPath);
+  
+  if (!require('fs').existsSync(preloadPath)) {
+    console.error('Preload script not found at:', preloadPath);
+    throw new Error(`Preload script not found: ${preloadPath}`);
+  }
+
+  console.log('Creating new PRISM window...');
+
+  prismWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
+    autoHideMenuBar: false,
+    icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath,
+      webSecurity: false,
+      allowRunningInsecureContent: true
+    },
+    backgroundColor: '#17151f',
+    show: false, // Inicialmente oculta
+    titleBarStyle: 'default'
+  });
+
+  // Load the HTML file
+  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
+  console.log('Loading PRISM HTML from:', prismHtmlPath);
+  
+  // CORREÇÃO PRINCIPAL: Verificar se o arquivo existe antes de tentar carregar
+  if (!require('fs').existsSync(prismHtmlPath)) {
+    console.error('PRISM HTML file not found at:', prismHtmlPath);
+    if (prismWindow) {
+      prismWindow.destroy();
+      prismWindow = null;
+    }
+    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
+  }
+  
+  try {
+    // Carregar o arquivo HTML
+    await prismWindow.loadFile(prismHtmlPath);
+    console.log('PRISM HTML loaded successfully');
+    
+    // CORREÇÃO: Mostrar a janela imediatamente após carregar, sem esperar pelo evento
+    prismWindow.maximize();
+    prismWindow.show();
+    console.log('PRISM window shown');
+    
+    // Notificar a janela principal que PRISM está aberto
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('prism-status', true);
+    }
+    
+    // Se há dados de compilação, enviar após um pequeno delay para garantir que o DOM está pronto
+    if (compilationData) {
+      console.log('Scheduling compilation data send...');
+      setTimeout(() => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          console.log('Sending compilation data to PRISM window:', compilationData);
+          prismWindow.webContents.send('compilation-complete', compilationData);
         }
-      });
-    });
-
-  } catch (error) {
-    console.error("Error creating backup:", error);
-    return { success: false, message: "Error creating backup." };
-  }
-});
-
-// Path to 7-Zip executable
-const sevenZipPath = "7z";
-
-app.whenReady().then(() => {
-  // Código existente...
-  
-  // Garantir que a pasta js existe para o gerenciador de blocos Verilog
-  const jsDir = path.join(app.getAppPath(), 'js');
-  if (!fs.existsSync(jsDir)) {
-    fs.mkdirSync(jsDir, { recursive: true });
-  }
-  
-  // Criar o arquivo verilog-block-manager.js se ele não existir
-  const verilogBlockManagerPath = path.join(jsDir, 'verilog-block-manager.js');
-  if (!fs.existsSync(verilogBlockManagerPath)) {
-    fs.copyFileSync(
-      path.join(app.getAppPath(), 'js', 'verilog-block-manager.js'),
-      verilogBlockManagerPath
-    );
-  }
-});
-
-ipcMain.handle('export-log', async (_, logData) => {
-  try {
-    // Descobrir o projeto aberto. Ajuste conforme sua lógica:
-    // Exemplo:
-    const projectPath = global.currentProjectPath || global.currentOpenProjectPath || (global.currentProject && global.currentProject.path);
-    if (!projectPath) {
-      return { success: false, message: 'Nenhum projeto aberto. Não foi possível exportar o log.' };
+      }, 1000); // Delay de 1 segundo para garantir que a página está totalmente carregada
     }
-
-    // Pasta de backup dentro do projeto:
-    const backupDir = path.join(projectPath, 'Backup');
-    // Garante existência:
-    await fse.ensureDir(backupDir);
-
-    // Caminho do arquivo:
-    const reportFilename = 'house_report.json';
-    const reportFilePath = path.join(backupDir, reportFilename);
-
-    // Escreve JSON com identação de 2 espaços:
-    await fse.writeJson(reportFilePath, logData, { spaces: 2 });
-    ipcMain.on('refresh-file-tree', (event) => {
-      event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
-    });
-  } catch (error) {
-    console.error('Erro ao exportar log:', error);
-    return { success: false, message: 'Erro ao exportar log: ' + error.message };
-  }
-});
-
-// Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
-
-// Handler for getting application information
-ipcMain.handle('get-app-info', async () => {
-  return {
-    appVersion: app.getVersion(),
-    electronVersion: process.versions.electron,
-    chromeVersion: process.versions.chrome,
-    nodeVersion: process.versions.node,
-    osInfo: `${os.type()} ${os.release()}`,
-    arch: os.arch(),
-    totalMemory: os.totalmem(),
-    buildDate: new Date().toLocaleDateString(),
-    environment: process.env.NODE_ENV || 'production'
-  };
-});
-
-// Handler for getting performance statistics
-ipcMain.handle('get-performance-stats', async () => {
-  const memUsage = process.memoryUsage();
-  const cpuUsage = process.cpuUsage();
-  
-  return {
-    uptime: process.uptime(),
-    memoryUsage: memUsage.heapUsed,
-    cpuUsage: Math.round((cpuUsage.user + cpuUsage.system) / 1000000), // Convert to percentage approximation
-    heapTotal: memUsage.heapTotal,
-    heapUsed: memUsage.heapUsed,
-    external: memUsage.external,
-    rss: memUsage.rss
-  };
-});
-
-// Handler to start a terminal (CMD) process
-ipcMain.on('start-terminal', (event) => {
-  const shell = spawn('cmd.exe', [], {
-    env: process.env,
-    cwd: process.env.USERPROFILE || process.env.HOME,
-    windowsHide: true
-  });
-
-  const webContents = event.sender;
-  const terminalId = Date.now().toString();
-
-  shell.stdout.on('data', (data) => {
-    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
-  });
-
-  shell.stderr.on('data', (data) => {
-    webContents.send('terminal-output', { id: terminalId, data: data.toString() });
-  });
-
-  shell.on('exit', (code) => {
-    webContents.send('terminal-exit', { id: terminalId, code });
-  });
-
-  webContents.send('terminal-started', { id: terminalId });
-
-  ipcMain.on('terminal-input', (event, data) => {
-    if (data.id === terminalId && shell.stdin.writable) {
-      shell.stdin.write(data.data);
-    }
-  });
-});
-
-// Handler to show an open file dialog for selecting .spf files
-ipcMain.handle('dialog:showOpen', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'Sapho Project Files', extensions: ['spf'] }]
-  });
-  return result;
-});
-
-// Add these handlers to your main.js file
-
-// Handler to show an open file dialog for selecting multiple files
-ipcMain.handle('dialog:showOpenImportMultiple', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile', 'multiSelections'],
-    filters: [
-      { name: 'All Files', extensions: ['*'] },
-      { name: 'Code Files', extensions: ['js', 'ts', 'jsx', 'tsx', 'html', 'css', 'scss', 'php', 'py'] },
-      { name: 'Documents', extensions: ['txt', 'md', 'json', 'xml', 'yaml', 'yml'] }
-    ]
-  });
-  return result;
-});
-
-// Handler to show a file/folder in the system explorer
-ipcMain.handle('shell:showItemInFolder', async (event, itemPath) => {
-  try {
-    shell.showItemInFolder(itemPath);
-    return { success: true };
-  } catch (error) {
-    console.error('Error showing item in folder:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// Handler to get project information from a .spf file
-ipcMain.handle('project:getInfo', async (_, spfPath) => {
-  try {
-    if (!spfPath) {
-      throw new Error('No project file path provided');
-    }
-
-    const exists = await fse.pathExists(spfPath); // Check if the file exists
-    if (!exists) {
-      throw new Error(`Project file not found at: ${spfPath}`);
-    }
-
-    const projectData = await fse.readJSON(spfPath); // Read and parse the project file
-    return projectData;
-  } catch (error) {
-    throw error;
-  }
-});
-
-
-// IPC handler to create a directory
-ipcMain.handle('create-directory', async (event, dirPath) => {
-  try {
-    await fse.ensureDir(dirPath);
-    return { success: true };
-  } catch (error) {
-    console.error('Error creating directory:', error);
-    throw error;
-  }
-});
-
-// Handler to open a directory dialog
-ipcMain.handle('dialog:openDirectory', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory'],
-  });
-
-  if (result.canceled) {
-    return null; // Return null if the user cancels
-  }
-  return result.filePaths[0]; // Return the selected folder path
-});
-
-
-
-// Handler to open a browser with a specific URL
-ipcMain.on('open-browser', () => {
-  const { shell } = require('electron');
-  shell.openExternal('https://nipscern.com');
-});
-
-ipcMain.on('open-github-desktop', () => {
-  const githubPath = path.join(
-    process.env.LOCALAPPDATA,
-    'GitHubDesktop',
-    'GitHubDesktop.exe'
-  );
-  shell.openPath(githubPath);
-});
-
-
-// Handler to quit the app with a delay
-ipcMain.on('quit-app', () => {
-  setTimeout(() => {
-    app.quit();
-  }, 5000);
-});
-
-/*
- * 
- *    END: TOOLBAR MENU ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: SAPHO PROJECT FILE ƒ
- * 
- * 
-*/
-
-// Class representing the structure of a .spf project file
-class ProjectFile {
-  constructor(projectPath) {
-    this.metadata = {
-      projectName: path.basename(projectPath),
-      createdAt: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-      computerName: process.env.COMPUTERNAME || os.hostname(),
-      appVersion: app.getVersion(),
-      projectPath: projectPath
-    };
     
-    this.structure = {
-      basePath: projectPath,
-      processors: [],
-      folders: []
-    };
+  } catch (error) {
+    console.error('Failed to load prism.html:', error);
+    
+    // Mostrar erro em dialog
+    const { dialog } = require('electron');
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'PRISM Load Error',
+      message: 'Failed to load PRISM viewer',
+      detail: `Error: ${error.message}\nPath: ${prismHtmlPath}`
+    });
+    
+    if (prismWindow) {
+      prismWindow.destroy();
+      prismWindow = null;
+    }
+    throw error;
   }
 
-  toJSON() {
-    return {
-      metadata: this.metadata,
-      structure: this.structure
-    };
-  }
+  // Handle window closed
+  prismWindow.on('closed', () => {
+    console.log('PRISM window closed');
+    prismWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('prism-status', false);
+    }
+  });
+
+  // Enhanced error handling
+  prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
+    console.error(`Failed URL: ${validatedURL}`);
+    
+    // Mostrar erro específico
+    const { dialog } = require('electron');
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'PRISM Load Failed',
+      message: `Failed to load PRISM viewer (Error ${errorCode})`,
+      detail: `${errorDescription}\nURL: ${validatedURL}`
+    });
+  });
+
+  prismWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('PRISM viewer renderer process crashed:', details);
+  });
+
+  // Adicionar log quando o conteúdo terminar de carregar
+  prismWindow.webContents.on('did-finish-load', () => {
+    console.log('PRISM window content finished loading');
+  });
+
+  // Adicionar log quando começar a carregar
+  prismWindow.webContents.on('did-start-loading', () => {
+    console.log('PRISM window started loading');
+  });
+
+  console.log('PRISM window created successfully');
+  return prismWindow;
 }
 
-// Function to update the project state and notify the renderer process
-function updateProjectState(window, projectPath, spfPath) {
-  window.webContents.send('project:stateChange', { projectPath, spfPath });
-}
-// Context: IPC handlers for project creation, opening, and folder operations in an Electron application
-
-ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
-  try {
-    // Create the project structure
-    await fse.mkdir(projectPath, { recursive: true });
-    const projectFile = new ProjectFile(projectPath);
-    await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
-
-    // Wait briefly to ensure the file system syncs
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    // Verify if the files exist
-    const projectExists = await fse.pathExists(projectPath);
-    const spfExists = await fse.pathExists(spfPath);
-
-    if (!projectExists || !spfExists) {
-      throw new Error('Failed to create project structure or .spf file');
-    }
-
-    // Read the files to confirm accessibility
-    const files = await fse.readdir(projectPath, { withFileTypes: true });
-    const fileList = files.map(file => ({
-      name: file.name,
-      isDirectory: file.isDirectory(),
-      path: path.join(projectPath, file.name)
-    }));
-
-    const focusedWindow = BrowserWindow.getFocusedWindow();
-
-    // Simulate the response of the showOpenDialog event
-    focusedWindow.webContents.send('simulateOpenProject', {
-      canceled: false,
-      filePaths: [projectPath]
-    });
-
-    return { 
-      success: true, 
-      projectData: projectFile.toJSON(), 
-      files: fileList,
-      spfPath,
-      projectPath
-    };
-  } catch (error) {
-    console.error('Error creating project structure:', error);
-    throw error;
-  }
-});
-
-
-// Update the project:openFromSystem handler to also set the global project path
-ipcMain.handle('project:openFromSystem', async (_, spfPath) => {
-  try {
-    console.log('Opening project from:', spfPath);
-
-    // If the file does not exist, attempt to correct the path
-    if (!(await fse.pathExists(spfPath))) {
-      const projectName = path.basename(spfPath, '.spf');
-      const correctedSpfPath = path.join(path.dirname(spfPath), projectName, `${projectName}.spf`);
-      console.log(`SPF file not found at ${spfPath}. Trying corrected path: ${correctedSpfPath}`);
-      spfPath = correctedSpfPath;
-      if (!(await fse.pathExists(spfPath))) {
-        throw new Error(`SPF file not found at both original and corrected paths.`);
-      }
-    }
-
-    // Set the current open project path - IMPORTANT!
-    currentOpenProjectPath = spfPath;
-    
-    // Also set the global project path for other handlers
-    const projectDirPath = path.dirname(spfPath);
-    global.currentProjectPath = projectDirPath;
-    
-    // Update the currentProject object if it exists
-    if (!global.currentProject) {
-      global.currentProject = {};
-    }
-    global.currentProject.path = projectDirPath;
-    
-    console.log(`Global project path set to: ${projectDirPath}`);
-
-    const spfContent = await fse.readFile(spfPath, 'utf8');
-    const projectData = JSON.parse(spfContent);
-    
-    projectData.metadata.lastOpened = new Date().toISOString();
-
-    const oldBasePath = projectData.structure.basePath;
-    const basepathExists = await fse.pathExists(oldBasePath);
-
-    // Update the project state
-    projectState = {
-      spfLoaded: true,
-      projectPath: path.dirname(spfPath)
-    };
-
-    if (!basepathExists) {
-      const newBasePath = path.dirname(spfPath);
-      projectData.metadata.projectPath = newBasePath;
-      projectData.structure.basePath = newBasePath;
-      console.log(`Updating project path from ${oldBasePath} to ${newBasePath}`);
-    }
-
-    if (projectData.structure.processors) {
-      projectData.structure.processors = await Promise.all(
-        projectData.structure.processors.map(async processor => {
-          const processorPath = path.join(projectData.structure.basePath, processor.name);
-          const exists = await fse.pathExists(processorPath);
-          return { ...processor, exists };
-        })
-      );
-    } else {
-      projectData.structure.processors = [];
-    }
-
-    if (!projectData.structure.folders) {
-      projectData.structure.folders = [];
-    }
-
-    await fse.writeFile(spfPath, JSON.stringify(projectData, null, 2));
-
-    const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
-    const fileList = files.map(file => ({
-      name: file.name,
-      isDirectory: file.isDirectory(),
-      path: path.join(projectData.structure.basePath, file.name)
-    }));
-
-    const focusedWindow = BrowserWindow.getFocusedWindow();
-    updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
-    
-    // Notify the renderer process to enable the Processor Hub
-    focusedWindow.webContents.send('project:processorHubState', { enabled: true });
-    
-    // Send processor list to the renderer 
-    focusedWindow.webContents.send('project:processors', { 
-      processors: projectData.structure.processors.map(p => p.name),
-      projectPath: projectData.structure.basePath
-    });
-
-    return {
-      projectData,
-      files: fileList,
-      spfPath
-    };
-  } catch (error) {
-    console.error('Error opening project file:', error);
-    throw error;
-  }
-});
-
-
-// Verificar se há um arquivo .spf nos argumentos de linha de comando
-const fileToOpen = process.argv.find(arg => arg.endsWith('.spf'));
-
-// Função para lidar com o single instance lock
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // Alguém tentou executar uma segunda instância com um arquivo .spf
-    const mainWindow = BrowserWindow.getAllWindows()[0];
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-      
-      // Procurar por arquivos .spf nos argumentos
-      const spfFile = commandLine.find(arg => arg.endsWith('.spf'));
-      if (spfFile) {
-        mainWindow.webContents.send('open-spf-file', { filePaths: [spfFile] });
-      }
-    }
-  });
-}
-
-
-ipcMain.handle('save-config', async (event, data) => {
-  try {
-    if (!currentOpenProjectPath) {
-      throw new Error('No project is currently open');
-    }
-    
-    // Extrair o projectPath do arquivo .spf
-    const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
-    const projectData = JSON.parse(spfData);
-    const projectPath = projectData.structure.basePath;
-
-    // Garantir que os processadores têm a propriedade isActive corretamente definida
-if (data.processors && data.processors.length > 0) {
-  // Garantir que apenas um processador está ativo
-  let hasActive = false;
-  data.processors = data.processors.map(proc => {
-    if (proc.isActive === true && !hasActive) {
-      hasActive = true;
-      return { ...proc, isActive: true };
-    }
-    return { ...proc, isActive: false };
-  });
-  
-  // Se nenhum processador estava ativo, ativar o primeiro
-  if (!hasActive) {
-    data.processors[0].isActive = true;
-  }
-}
-    
-    const configFilePath = getProjectConfigPath(projectPath);
-    await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
-    console.log('Configuration saved at:', configFilePath);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to save configuration file:', error);
-    throw error;
-  }
-});
-
-/*
- * 
- *    END: SAPHO PROJECT FILE ƒ
- * 
- * 
-*/
-
-
-
-/*
- * 
- *    START: PRISM COMP ƒ
- * 
- * 
-*/
 
 
 function getExecutablePath(executableName) {
@@ -2600,6 +2603,51 @@ function getExecutablePath(executableName) {
   return executableName; // fallback
 }
 // Add these IPC handlers to your main process
+
+// Handler to request toggle UI state from main window
+ipcMain.on('get-toggle-ui-state', (event) => {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('request-toggle-ui-state');
+  } else {
+    // Default to false if main window is not available
+    event.sender.send('toggle-ui-state-response', false);
+  }
+});
+
+// Handler for toggle UI state response
+ipcMain.on('toggle-ui-state-response', (event, isActive) => {
+  // Store the response for the waiting function
+  event.sender.send('toggle-ui-state-response', isActive);
+});
+
+
+// Alternative simpler approach - get toggle state directly
+ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      // Send request and wait for response
+      return new Promise((resolve) => {
+        const responseHandler = (_, isActive) => {
+          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+          resolve(isActive);
+        };
+        
+        ipcMain.once('toggle-ui-state-response', responseHandler);
+        mainWindow.webContents.send('request-toggle-ui-state');
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+          resolve(false); // Default to false
+        }, 5000);
+      });
+    }
+    return false; // Default if no main window
+  } catch (error) {
+    console.error('Error getting toggle UI state:', error);
+    return false;
+  }
+});
 
 // IPC handler for PRISM compilation
 ipcMain.handle('prism-compile', async (event) => {
@@ -3582,19 +3630,6 @@ function debounce(func, wait) {
   };
 }
 
-/*
- * 
- *    END: PRISM COMP ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: ILUMINATTI ƒ
- * 
- * 
-*/
 // IPC handlers for file watching
 ipcMain.handle('get-file-stats', async (event, filePath) => {
   try {
@@ -3786,20 +3821,10 @@ app.on('before-quit', async () => {
   fileStatsCache.clear();
 });
 
-/*
- * 
- *    END: ILUMINATTI ƒ
- * 
- * 
-*/
-
-/*
- * 
- *    START: VVP KILL ƒ
- * 
- * 
-*/
+/* VVP */
 // Adicione estas variáveis no topo do seu main.js (após as outras declarações)
+let currentVvpProcess = null;
+let vvpProcessPid = null;
 
 // Função auxiliar para matar processo por PID no Windows
 function killProcessByPid(pid) {
@@ -4116,10 +4141,3 @@ ipcMain.handle('get-file-type', async (event, filePath) => {
     return 'text';
   }
 });
-
-/*
- * 
- *    START: VVP KILL ƒ
- * 
- * 
-*/

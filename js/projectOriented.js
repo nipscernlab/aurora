@@ -149,30 +149,57 @@ function unhighlight(dropArea) {
   dropArea.classList.remove('dragover');
 }
 
-// Handle file drop
+// Handle file drop events
 function handleDrop(e, type) {
-  const dt = e.dataTransfer;
-  const files = dt.files;
+  const files = e.dataTransfer.files;
   handleFileImport(files, type);
 }
 
-// Handle file import (both drag-drop and button click)
+// Handle file import (both drag & drop and button click) - IMPROVED
 function handleFileImport(files, type) {
-  const fileArray = Array.from(files);
+  const validFiles = [];
   
+  // Filter and validate files
+  for (let file of files) {
+    if (validateFile(file, type)) {
+      // Check for duplicates
+      const existingFiles = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
+      if (!existingFiles.some(f => f.name === file.name)) {
+        validFiles.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          starred: false,
+          lastModified: file.lastModified
+        });
+      } else {
+        showFileError(`File "${file.name}" already exists in the ${type} list.`);
+      }
+    }
+  }
+  
+  // Add valid files to appropriate array
   if (type === 'synthesizable') {
-    // Filter only .v files
-    const vFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.v'));
-    addFilesToList(vFiles, 'synthesizable');
+    synthesizableFiles.push(...validFiles);
+    updateFileList('synthesizable');
   } else if (type === 'testbench') {
-    // Filter .v and .gtkw files
-    const vFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.v'));
-    const gtkwFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.gtkw'));
-    
-    addFilesToList(vFiles, 'testbench');
-    addFilesToList(gtkwFiles, 'gtkw');
+    validFiles.forEach(file => {
+      if (file.name.endsWith('.gtkw')) {
+        gtkwFiles.push(file);
+      } else {
+        testbenchFiles.push(file);
+      }
+    });
+    updateFileList('testbench');
+  }
+  
+  // Save configuration if files were added
+  if (validFiles.length > 0) {
+    saveProjectConfiguration();
+    showFileSuccess(`Successfully added ${validFiles.length} file(s) to ${type} list.`);
   }
 }
+
 
 // Add files to the appropriate list
 function addFilesToList(files, listType) {
@@ -222,6 +249,139 @@ function updateFileListUI() {
   updateTestbenchFileList();
 }
 
+// Update file list display - IMPROVED
+function updateFileList(type) {
+  const fileList = type === 'synthesizable' ? synthesizableFileList : testbenchFileList;
+  const emptyState = type === 'synthesizable' ? synthesizableEmptyState : testbenchEmptyState;
+  
+  if (!fileList) {
+    console.error('File list element not found:', type);
+    return;
+  }
+  
+  // Clear current list
+  fileList.innerHTML = '';
+  
+  if (type === 'synthesizable') {
+    if (synthesizableFiles.length === 0) {
+      // Show empty state
+      if (emptyState) {
+        emptyState.style.display = 'flex';
+        fileList.appendChild(emptyState.cloneNode(true));
+      }
+    } else {
+      // Hide empty state and show files
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+      
+      // Sort files: starred first, then alphabetically
+      const sortedFiles = [...synthesizableFiles].sort((a, b) => {
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      sortedFiles.forEach((file, originalIndex) => {
+        const actualIndex = synthesizableFiles.findIndex(f => f.name === file.name);
+        const fileItem = createFileItem(file, actualIndex, 'synthesizable');
+        fileList.appendChild(fileItem);
+      });
+    }
+  } else if (type === 'testbench') {
+    const totalFiles = testbenchFiles.length + gtkwFiles.length;
+    
+    if (totalFiles === 0) {
+      // Show empty state
+      if (emptyState) {
+        emptyState.style.display = 'flex';
+        fileList.appendChild(emptyState.cloneNode(true));
+      }
+    } else {
+      // Hide empty state and show files
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+      
+      // Sort and display testbench files
+      const sortedTestbench = [...testbenchFiles].sort((a, b) => {
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      sortedTestbench.forEach((file, originalIndex) => {
+        const actualIndex = testbenchFiles.findIndex(f => f.name === file.name);
+        const fileItem = createFileItem(file, actualIndex, 'testbench');
+        fileList.appendChild(fileItem);
+      });
+      
+      // Sort and display GTKW files
+      const sortedGtkw = [...gtkwFiles].sort((a, b) => {
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      sortedGtkw.forEach((file, originalIndex) => {
+        const actualIndex = gtkwFiles.findIndex(f => f.name === file.name);
+        const fileItem = createFileItem(file, actualIndex, 'gtkw');
+        fileList.appendChild(fileItem);
+      });
+    }
+  }
+}
+
+// Utility function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Show file success message
+function showFileSuccess(message) {
+  // Create or update success message element
+  let successElement = document.getElementById('file-success-message');
+  if (!successElement) {
+    successElement = document.createElement('div');
+    successElement.id = 'file-success-message';
+    successElement.className = 'project-success-message';
+    
+    const modalBody = document.querySelector('.modalConfig-body');
+    if (modalBody) {
+      modalBody.insertBefore(successElement, modalBody.firstChild);
+    }
+  }
+  
+  successElement.innerHTML = `
+    <div class="project-alert project-alert-success">
+      <i class="fa-solid fa-check-circle"></i>
+      <span>${message}</span>
+      <button class="project-alert-close" onclick="hideFileSuccess()">
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // Auto-hide after 3 seconds
+  setTimeout(hideFileSuccess, 3000);
+}
+
+// Hide file success message
+function hideFileSuccess() {
+  const successElement = document.getElementById('file-success-message');
+  if (successElement) {
+    successElement.classList.add('fade-out');
+    setTimeout(() => {
+      successElement.remove();
+    }, 300);
+  }
+}
+
+
 // Update synthesizable file list UI
 function updateSynthesizableFileList() {
   if (!synthesizableFileList) return;
@@ -266,39 +426,61 @@ function updateTestbenchFileList() {
   });
 }
 
-// Create file item element
-function createFileItem(file, index, listType) {
+// Create file item element - UPDATED with starred styling
+function createFileItem(file, index, type) {
   const fileItem = document.createElement('div');
-  fileItem.className = 'modalConfig-file-item';
-  fileItem.setAttribute('data-list-type', listType);
-  fileItem.setAttribute('data-index', index);
+  fileItem.className = `project-file-item ${file.starred ? 'starred' : ''}`;
+  fileItem.dataset.fileIndex = index;
+  fileItem.dataset.fileType = type;
   
-  const fileIcon = getFileIcon(file.name);
+  // Add animation class for new files
+  setTimeout(() => fileItem.classList.add('file-animate-in'), 10);
+  
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  const isStarred = file.starred || false;
   
   fileItem.innerHTML = `
-    <div class="modalConfig-file-info">
-      <i class="${fileIcon}"></i>
-      <span class="modalConfig-file-name">${file.name}</span>
-      <span class="modalConfig-file-type">${getFileExtension(file.name)}</span>
+    <div class="project-file-info">
+      <div class="project-file-icon ${fileExtension === 'v' ? 'verilog-icon' : 'gtkw-icon'}">
+        ${fileExtension === 'v' ? 'V' : 'GTK'}
+      </div>
+      <div class="project-file-details">
+        <div class="project-file-name">${file.name}</div>
+        <div class="project-file-type">${fileExtension.toUpperCase()}</div>
+        <div class="project-file-size">${formatFileSize(file.size || 0)}</div>
+      </div>
     </div>
-    <div class="modalConfig-file-actions">
-      <button class="modalConfig-icon-btn copy-path-btn" title="Copy Path" data-path="${file.path}">
-        <i class="fa-solid fa-copy"></i>
-      </button>
-      <button class="modalConfig-icon-btn open-location-btn" title="Open Location" data-path="${file.path}">
-        <i class="fa-solid fa-folder-open"></i>
-      </button>
-      <button class="modalConfig-icon-btn star-btn ${file.isStarred ? 'starred' : ''}" title="Mark as Primary" data-list-type="${listType}" data-index="${index}">
+    <div class="project-file-actions">
+      <button class="project-icon-btn star-btn ${isStarred ? 'starred' : ''}" 
+              data-index="${index}" 
+              data-type="${type}"
+              title="${isStarred ? 'Remove from favorites' : 'Add to favorites'}">
         <i class="fa-solid fa-star"></i>
       </button>
-      <button class="modalConfig-icon-btn remove-btn" title="Remove File" data-list-type="${listType}" data-index="${index}">
+      <button class="project-icon-btn delete-btn" 
+              data-index="${index}" 
+              data-type="${type}"
+              title="Remove file">
         <i class="fa-solid fa-trash"></i>
       </button>
     </div>
   `;
   
-  // Add event listeners
-  setupFileItemEvents(fileItem);
+  // Add event listeners directly to the buttons
+  const starBtn = fileItem.querySelector('.star-btn');
+  const deleteBtn = fileItem.querySelector('.delete-btn');
+  
+  starBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFileStar(index, type);
+  });
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    removeFile(index, type);
+  });
   
   return fileItem;
 }
@@ -369,52 +551,266 @@ function setupFileItemEvents(fileItem) {
   }
 }
 
-// Toggle file star status
-function toggleFileStar(listType, index) {
-  let targetArray;
+// Toggle file star status - UPDATED with visual feedback
+function toggleFileStar(index, type) {
+  let files, targetFile;
   
-  if (listType === 'synthesizable') {
-    targetArray = synthesizableFiles;
-  } else if (listType === 'testbench') {
-    targetArray = testbenchFiles;
-  } else if (listType === 'gtkw') {
-    targetArray = gtkwFiles;
+  // Get the correct file array and target file
+  if (type === 'synthesizable') {
+    files = synthesizableFiles;
+    targetFile = files[index];
+  } else if (type === 'testbench') {
+    files = testbenchFiles;
+    targetFile = files[index];
+  } else if (type === 'gtkw') {
+    files = gtkwFiles;
+    targetFile = files[index];
   }
   
-  if (!targetArray || !targetArray[index]) return;
-  
-  // For synthesizable files, only one can be starred
-  if (listType === 'synthesizable') {
-    synthesizableFiles.forEach(file => file.isStarred = false);
-    targetArray[index].isStarred = true;
-  }
-  // For testbench files, only one .v can be starred
-  else if (listType === 'testbench') {
-    testbenchFiles.forEach(file => file.isStarred = false);
-    targetArray[index].isStarred = true;
-  }
-  // For GTKW files, only one can be starred
-  else if (listType === 'gtkw') {
-    gtkwFiles.forEach(file => file.isStarred = false);
-    targetArray[index].isStarred = true;
+  if (!targetFile) {
+    console.error('File not found for star toggle:', index, type);
+    return;
   }
   
-  // Update UI
-  updateFileListUI();
+  // Toggle starred status
+  targetFile.starred = !targetFile.starred;
+  
+  // Update the file item immediately with animation
+  const fileItem = document.querySelector(`[data-file-index="${index}"][data-file-type="${type}"]`);
+  if (fileItem) {
+    const starBtn = fileItem.querySelector('.star-btn');
+    
+    if (targetFile.starred) {
+      fileItem.classList.add('starred');
+      starBtn.classList.add('starred');
+      starBtn.title = 'Remove from favorites';
+    } else {
+      fileItem.classList.remove('starred');
+      starBtn.classList.remove('starred');
+      starBtn.title = 'Add to favorites';
+    }
+  }
+  
+  // Update the UI with new sorting
+  setTimeout(() => {
+    updateFileList(type === 'gtkw' ? 'testbench' : type);
+  }, 100);
+  
+  // Save configuration
+  saveProjectConfiguration();
+  
+  // Show feedback
+  const action = targetFile.starred ? 'added to' : 'removed from';
+  showFileSuccess(`File "${targetFile.name}" ${action} favorites.`);
 }
 
-// Remove file from list
-function removeFile(listType, index) {
-  if (listType === 'synthesizable') {
-    synthesizableFiles.splice(index, 1);
-  } else if (listType === 'testbench') {
-    testbenchFiles.splice(index, 1);
-  } else if (listType === 'gtkw') {
-    gtkwFiles.splice(index, 1);
+// Remove file from list - FIXED
+function removeFile(index, type) {
+  let files, targetFile;
+  
+  // Get the correct file array and target file
+  if (type === 'synthesizable') {
+    files = synthesizableFiles;
+    targetFile = files[index];
+  } else if (type === 'testbench') {
+    files = testbenchFiles;
+    targetFile = files[index];
+  } else if (type === 'gtkw') {
+    files = gtkwFiles;
+    targetFile = files[index];
   }
   
-  // Update UI
-  updateFileListUI();
+  if (!targetFile) {
+    console.error('File not found for removal:', index, type);
+    return;
+  }
+  
+  // Show confirmation dialog
+  if (!confirm(`Are you sure you want to remove "${targetFile.name}" from the project?`)) {
+    return;
+  }
+  
+  // Find and animate the file item
+  const fileItem = document.querySelector(`[data-file-index="${index}"][data-file-type="${type}"]`);
+  
+  if (fileItem) {
+    // Add removal animation
+    fileItem.classList.add('file-animate-out');
+    
+    setTimeout(() => {
+      // Remove from array
+      files.splice(index, 1);
+      
+      // Update UI
+      updateFileList(type === 'gtkw' ? 'testbench' : type);
+      
+      // Save configuration
+      saveProjectConfiguration();
+      
+      // Show feedback
+      showFileSuccess(`File "${targetFile.name}" removed successfully.`);
+    }, 300);
+  } else {
+    // Direct removal if animation element not found
+    files.splice(index, 1);
+    updateFileList(type === 'gtkw' ? 'testbench' : type);
+    saveProjectConfiguration();
+    showFileSuccess(`File "${targetFile.name}" removed successfully.`);
+  }
+}
+
+// Get starred files with proper filtering
+function getStarredFiles(type) {
+  const files = type === 'synthesizable' ? synthesizableFiles : 
+                type === 'testbench' ? testbenchFiles : 
+                type === 'gtkw' ? gtkwFiles : [];
+  return files.filter(file => file.starred === true);
+}
+
+// Enhanced clear all files function
+function clearAllFiles() {
+  if (confirm('Are you sure you want to remove all files from the project? This action cannot be undone.')) {
+    synthesizableFiles = [];
+    testbenchFiles = [];
+    gtkwFiles = [];
+    
+    updateFileList('synthesizable');
+    updateFileList('testbench');
+    
+    saveProjectConfiguration();
+    showFileSuccess('All files removed successfully.');
+  }
+}
+
+
+// Get file by name and type
+function getFileByName(fileName, type) {
+  const files = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
+  return files.find(file => file.name === fileName);
+}
+
+// Check if file exists in list
+function fileExists(fileName, type) {
+  const files = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
+  return files.some(file => file.name === fileName);
+}
+
+// Get all files of a specific extension
+function getFilesByExtension(extension, type) {
+  const files = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
+  return files.filter(file => file.name.toLowerCase().endsWith(extension.toLowerCase()));
+}
+
+// Enhanced file validation
+function validateFile(file, type) {
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  const allowedExtensions = type === 'synthesizable' ? ['.v'] : ['.v', '.gtkw'];
+  
+  // Check file size
+  if (file.size > maxSize) {
+    showFileError(`File "${file.name}" is too large. Maximum size is 10MB.`);
+    return false;
+  }
+  
+  // Check file extension
+  const hasValidExtension = allowedExtensions.some(ext => 
+    file.name.toLowerCase().endsWith(ext.toLowerCase())
+  );
+  
+  if (!hasValidExtension) {
+    showFileError(`File "${file.name}" has invalid extension. Allowed: ${allowedExtensions.join(', ')}`);
+    return false;
+  }
+  
+  // Check for empty file name
+  if (!file.name.trim()) {
+    showFileError('File name cannot be empty.');
+    return false;
+  }
+  
+  return true;
+}
+
+
+// Show file error message
+function showFileError(message) {
+  // Create or update error message element
+  let errorElement = document.getElementById('file-error-message');
+  if (!errorElement) {
+    errorElement = document.createElement('div');
+    errorElement.id = 'file-error-message';
+    errorElement.className = 'project-error-message';
+    
+    const modalBody = document.querySelector('.modalConfig-body');
+    if (modalBody) {
+      modalBody.insertBefore(errorElement, modalBody.firstChild);
+    }
+  }
+  
+  errorElement.innerHTML = `
+    <div class="project-alert project-alert-error">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>${message}</span>
+      <button class="project-alert-close" onclick="hideFileError()">
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // Auto-hide after 5 seconds
+  setTimeout(hideFileError, 5000);
+}
+
+// Hide file error message
+function hideFileError() {
+  const errorElement = document.getElementById('file-error-message');
+  if (errorElement) {
+    errorElement.classList.add('fade-out');
+    setTimeout(() => {
+      errorElement.remove();
+    }, 300);
+  }
+}
+
+// Export files data for saving
+function exportFilesData() {
+  return {
+    synthesizable: synthesizableFiles.map(file => ({
+      name: file.name,
+      starred: file.starred || false,
+      size: file.size,
+      type: file.type
+    })),
+    testbench: testbenchFiles.map(file => ({
+      name: file.name,
+      starred: file.starred || false,
+      size: file.size,
+      type: file.type
+    }))
+  };
+}
+
+// Import files data from saved configuration
+function importFilesData(data) {
+  if (data.synthesizable) {
+    synthesizableFiles = data.synthesizable.map(fileData => ({
+      name: fileData.name,
+      starred: fileData.starred || false,
+      size: fileData.size || 0,
+      type: fileData.type || 'text/plain'
+    }));
+    updateFileList('synthesizable');
+  }
+  
+  if (data.testbench) {
+    testbenchFiles = data.testbench.map(fileData => ({
+      name: fileData.name,
+      starred: fileData.starred || false,
+      size: fileData.size || 0,
+      type: fileData.type || 'text/plain'
+    }));
+    updateFileList('testbench');
+  }
 }
 
 // Clear all files
@@ -449,7 +845,7 @@ function init() {
   async function loadAvailableProcessors() {
     try {
       // Obter informações do projeto atual usando a API Electron
-      const projectInfo = await window.electronAPI.manageCurrentProject();
+      const projectInfo = await window.electronAPI.getCurrentProject();
       
       if (projectInfo && projectInfo.projectOpen) {
         console.log("Projeto atual encontrado:", projectInfo);
@@ -561,13 +957,13 @@ function init() {
     // Criar um novo botão para configuração de projeto (oculto por padrão)
     const projectSettingsButton = document.createElement('button');
     projectSettingsButton.id = 'settings-project';
-    projectSettingsButton.className = 'toolbar-button disabled style="cursor: not-allowed;"';
+    projectSettingsButton.className = 'toolbar-button';
     projectSettingsButton.setAttribute('titles', 'Project Configuration');
     projectSettingsButton.style.display = 'none'; // Início oculto
     
     // Adicionar ícone ao botão de projeto
     const projectIcon = document.createElement('i');
-    projectIcon.className = 'fa-solid fa-gear disabled style="cursor: not-allowed;"';
+    projectIcon.className = 'fa-solid fa-gear';
     projectSettingsButton.appendChild(projectIcon);
     
     // Inserir o novo botão após o botão original
@@ -700,23 +1096,63 @@ function init() {
     }, ICON_TRANSITION_DURATION);
   }
   
-  // Modificar a função addToggleStyles para incluir os novos elementos
-  function addToggleStyles() {
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        #settings, #settings-project {
-            transition: opacity ${ICON_TRANSITION_DURATION}ms ease;
-        }
-        
-        /* Garantir que os modais sejam visíveis quando abertos */
-        .modalConfig.active {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-    `;
-    document.head.appendChild(styleElement);
-  }
+ // Modern Toggle Styles Function
+function addToggleStyles() {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    /* Toggle UI Animation Styles */
+    #settings, #settings-project {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateY(0);
+    }
+    
+    #settings:hover, #settings-project:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    /* Modal visibility and animation */
+    .modalConfig {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    
+    .modalConfig.active {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      transform: scale(1);
+    }
+    
+    /* Status text transitions */
+    #processorProjectOriented, #processorNameID {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Smooth icon transitions */
+    .toolbar-button i {
+      transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .toolbar-button:hover i {
+      transform: scale(1.1);
+    }
+    
+    /* Disabled state styling */
+    .toolbar-button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed !important;
+      pointer-events: none;
+    }
+    
+    .toolbar-button.disabled i {
+      opacity: 0.5;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
+
   
   
 // Cache for processor instances mapping
@@ -735,7 +1171,7 @@ async function parseProcessorInstances() {
     // Get project path
     let projectPath = window.currentProjectPath;
     if (!projectPath) {
-      const projectData = await window.electronAPI.manageCurrentProject();
+      const projectData = await window.electronAPI.getCurrentProject();
       projectPath = projectData?.projectPath;
     }
     
@@ -925,7 +1361,7 @@ function getUsedInstances() {
       // Se não estiver definido, tenta obtê-lo via API
       if (!projectPath) {
         try {
-          const projectData = await window.electronAPI.manageCurrentProject();
+          const projectData = await window.electronAPI.getCurrentProject();
           // Verificar se projectData é um objeto e extrair o caminho correto
           if (projectData && typeof projectData === 'object' && projectData.projectPath) {
             projectPath = projectData.projectPath;
@@ -1076,106 +1512,68 @@ async function prepareModalBeforeOpen() {
   await loadProjectConfiguration();
 }
 
-// Add CSS for drag and drop styling
+// Modern Toggle Styles Function
+function addToggleStyles() {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    /* Toggle UI Animation Styles */
+    #settings, #settings-project {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateY(0);
+    }
+    
+    #settings:hover, #settings-project:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    /* Modal visibility and animation */
+    .modalConfig {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    
+    .modalConfig.active {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      transform: scale(1);
+    }
+    
+    /* Status text transitions */
+    #processorProjectOriented, #processorNameID {
+      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Smooth icon transitions */
+    .toolbar-button i {
+      transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .toolbar-button:hover i {
+      transform: scale(1.1);
+    }
+    
+    /* Disabled state styling */
+    .toolbar-button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed !important;
+      pointer-events: none;
+    }
+    
+    .toolbar-button.disabled i {
+      opacity: 0.5;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
+
+// Modern Drag and Drop Styles Function
 function addDragDropStyles() {
   const styleElement = document.createElement('style');
   styleElement.textContent = `
-    .modalConfig-import-area {
-      border: 2px dashed #e5e7eb;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      transition: all 0.3s ease;
-    }
-    
-    .modalConfig-import-area.dragover {
-      border-color: #3b82f6;
-      background-color: #eff6ff;
-    }
-    
-    .modalConfig-import-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    
-    .modalConfig-import-instructions {
-      color: #6b7280;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .modalConfig-file-list {
-      min-height: 60px;
-    }
-    
-    .modalConfig-file-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      margin-bottom: 8px;
-      background-color: #f9fafb;
-    }
-    
-    .modalConfig-file-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .modalConfig-file-name {
-      font-weight: 500;
-    }
-    
-    .modalConfig-file-type {
-      color: #6b7280;
-      font-size: 12px;
-      background-color: #e5e7eb;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    
-    .modalConfig-file-actions {
-      display: flex;
-      gap: 5px;
-    }
-    
-    .modalConfig-icon-btn {
-      padding: 5px 8px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .modalConfig-icon-btn:hover {
-      background-color: #e5e7eb;
-    }
-    
-    .star-btn.starred {
-      color: #fbbf24;
-    }
-    
-    .modalConfig-empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-      color: #9ca3af;
-      text-align: center;
-    }
-    
-    .modalConfig-empty-state i {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
+
   `;
   document.head.appendChild(styleElement);
 }
@@ -1246,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Se não estiver definido, tenta obtê-lo via API
       if (!projectPath) {
         try {
-          const projectData = await window.electronAPI.manageCurrentProject();
+          const projectData = await window.electronAPI.getCurrentProject();
           // Verificar se projectData é um objeto e extrair o caminho correto
           if (projectData && typeof projectData === 'object' && projectData.projectPath) {
             projectPath = projectData.projectPath;
@@ -1493,7 +1891,7 @@ async function saveProjectConfiguration() {
     
     try {
       // Use the correct API call that returns an object with projectPath
-      const projectInfo = await window.electronAPI.manageCurrentProject();
+      const projectInfo = await window.electronAPI.getCurrentProject();
       projectPath = projectInfo.projectPath || window.currentProjectPath || localStorage.getItem('currentProjectPath');
     } catch (err) {
       console.warn('Failed to get project path via API:', err);

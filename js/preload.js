@@ -188,15 +188,17 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 };
 
 const projectOperations = {
-  openProject: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
+  openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
   createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
+  getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
   loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
   cancelVvpProcess: () => ipcRenderer.invoke('cancel-vvp-process'),
 runVvpCommand: (vvpCmd, tempPath) => ipcRenderer.invoke('run-vvp-command', vvpCmd, tempPath),
 checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
+  getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
   saveCompilationResult: (hardwareFolderPath, fileName, content) => ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
   readDir: (dirPath) => ipcRenderer.invoke('readDir', dirPath),
   showSaveDialog: () => ipcRenderer.invoke('dialog:showSave'),
@@ -227,20 +229,19 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
 
-  execCommand: (command) => ipcRenderer.invoke('execute-shell-command', command),
-
-  terminateProcess: (pid) => ipcRenderer.invoke('terminate-process', processName, pid),
-
+  execCommand: (command) => ipcRenderer.invoke('exec-command', command),
+  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
+  killProcessByName: (processName) => ipcRenderer.invoke('kill-process-by-name', processName),
   checkProcessRunning: (pid) => ipcRenderer.invoke('check-process-running', pid),    
   // Check if file/directory exists
-  pathExists: (path) => ipcRenderer.invoke('handle-path-operations', path),
+  pathExists: (path) => ipcRenderer.invoke('path-exists', path),
 
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
   deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
 
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
-  onProjectOpen: (callback) => ipcRenderer.on('project:openFromSystemed', (_, data) => callback(data)),
+  onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
 
     onUpdateProgress: (callback) => {
@@ -311,7 +312,9 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
     };
   },
 
-  // Add these to your contextBridge.exposeInMainWorld:  
+  // Add these to your contextBridge.exposeInMainWorld:
+ execCommandStream: (command) => ipcRenderer.invoke('exec-command-stream', command),
+  
   onCommandOutputStream: (callback) => {
     ipcRenderer.on('command-output-stream', callback);
   },
@@ -359,9 +362,6 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
 
 const dialogOperations = {
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
-  // Add these to your contextBridge.exposeInMainWorld('electronAPI', { ... }) object
-  showOpenDialogImport: (options) => ipcRenderer.invoke('dialog:showOpenImportMultiple', options),
-  showItemInFolder: (itemPath) => ipcRenderer.invoke('shell:showItemInFolder', itemPath),
   getBasename: (fullPath) => path.basename(fullPath),
   openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
   selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
@@ -369,7 +369,7 @@ const dialogOperations = {
 
 const compileOperations = {
   compile: (options) => ipcRenderer.invoke('compile', options),
-  execCommand: (command) => ipcRenderer.invoke('execute-shell-command', command),
+  execCommand: (command) => ipcRenderer.invoke('exec-command', command),
 };
 
 const pathOperations = {
@@ -556,12 +556,28 @@ getToggleUIState: () => {
   return false;
 },
 
+// Listen for toggle UI state requests from main process
+onGetToggleUIState: (callback) => {
+  ipcRenderer.on('get-toggle-ui-state', () => {
+    // Get toggle UI state directly here instead of calling through window.electronAPI
+    const toggleButton = document.getElementById('toggle-ui');
+    let isActive = false;
+    
+    if (toggleButton) {
+      isActive = toggleButton.classList.contains('active') || 
+                 toggleButton.getAttribute('aria-pressed') === 'true' ||
+                 toggleButton.hasAttribute('data-active');
+    }
+    
+    ipcRenderer.send('toggle-ui-state-response', isActive);
+  });
+},
 
-  manageCurrentProject: (projectPath) => ipcRenderer.invoke('manage-current-project', projectPath),
+  setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
     
   // Event Listeners
-  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystemFromSystem', spfPath),
-  onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystemFromSystem', callback),
+  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
+  onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
@@ -652,4 +668,3 @@ function getProjectInfoFromArgs() {
         return null;
     }
 }
-

@@ -3766,7 +3766,7 @@ async function refreshFileTree() {
       currentProjectPath = directoryPath;
       const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
       if (currentProjectPath) {
-        await window.electronAPI.manageCurrentProject(currentProjectPath);
+        await window.electronAPI.getCurrentProject(currentProjectPath);
       }
     }
 
@@ -6311,7 +6311,7 @@ async loadConfig() {
     this.isProjectOriented = toggleButton && toggleButton.classList.contains('active');
 
     // Get current project info to get the correct project path
-    const projectInfo = await window.electronAPI.manageCurrentProject();
+    const projectInfo = await window.electronAPI.getCurrentProject();
     const currentProjectPath = projectInfo.projectPath || this.projectPath;
     
     if (!currentProjectPath) {

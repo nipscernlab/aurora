@@ -160,6 +160,7 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
+  max-height: 90px;
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-3);
@@ -197,6 +198,7 @@
   background: var(--bg-tertiary);
   border: 1px solid rgba(255, 193, 7, 0.3);
   position: relative;
+  max-height: 90px;
 }
 
 .project-file-item.starred::before {
@@ -263,8 +265,8 @@
 }
 
 .project-file-icon {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;

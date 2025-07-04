@@ -6513,8 +6513,8 @@ async cmmCompilation(processor) {
     // Copy the testbench file if we're not in project-oriented mode
     if (!this.isProjectOriented) {
       const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      const testbenchDestination = await window.electronAPI.joinPath(tempPath, tbFile);
-      const testbenchSource  = await window.electronAPI.joinPath(simulationPath, tbFile);
+      const testbenchSource = await window.electronAPI.joinPath(tempPath, tbFile);
+      const testbenchDestination  = await window.electronAPI.joinPath(simulationPath, tbFile);
 
       await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
     }

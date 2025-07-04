@@ -396,106 +396,128 @@
       </div>
     </div>
   </div>
-
-  <!-- Project Oriented Configuration Modal -->
-  <div id="modalProjectConfig" class="modalConfig">
-    <div class="modalConfig-content">
-      <div class="modalConfig-header">
-        <h2 class="modalConfig-title"><i class="fa-solid fa-gear" data-i18n-title="modal.projectConfig.title"></i> <span data-i18n="modal.projectConfig.title">Project Oriented Configuration</span></h2>
-        <button id="closeProjectModal" class="modalConfig-close-btn" data-i18n-aria-label="modal.closeModal" aria-label="Close Modal">&times;</button>
-      </div>
-      <div class="modalConfig-body">
-        <section class="modalConfig-section" id="verilogFiles">
-          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.files.title">Verilog & GTKW Files</h3>
-          
-          <div class="modalConfig-form-group">
-            <label for="topLevelSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.topLevelLabel">TopLevel File:</label>
-            <div class="modalConfig-select-container">
-              <select id="topLevelSelect" class="modalConfig-select">
-                <!-- TopLevel files will be dynamically added here -->
-                <option value="" data-i18n="modal.projectConfig.files.selectTopLevel">Select TopLevel File</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="modalConfig-form-group">
-            <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.testbenchLabel">Testbench File:</label>
-            <div class="modalConfig-select-container">
-              <select id="testbenchSelect" class="modalConfig-select">
-                <!-- Testbench files will be dynamically added here -->
-                <option value="" data-i18n="modal.projectConfig.files.selectTestbench">Select Testbench File</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="modalConfig-form-group">
-            <label for="gtkwaveSelect" class="modalConfig-label" data-i18n="modal.projectConfig.files.gtkwaveLabel">GTKWave File:</label>
-            <div class="modalConfig-select-container">
-              <select id="gtkwaveSelect" class="modalConfig-select">
-                <!-- GTKWave files will be dynamically added here -->
-                <option value="" data-i18n="modal.projectConfig.files.selectGtkwave">Select GTKWave File</option>
-              </select>
-            </div>
-          </div>
-        </section>
+<!-- Project Oriented Configuration Modal -->
+<div id="modalProjectConfig" class="modalConfig">
+  <div class="modalConfig-content">
+    <div class="modalConfig-header">
+      <h2 class="modalConfig-title">
+        <i class="fa-solid fa-gear" data-i18n-title="modal.projectConfig.title"></i> 
+        <span data-i18n="modal.projectConfig.title">Project Oriented Configuration</span>
+      </h2>
+      <button id="closeProjectModal" class="modalConfig-close-btn" data-i18n-aria-label="modal.closeModal" aria-label="Close Modal">&times;</button>
+    </div>
+    
+    <div class="modalConfig-body">
+      <!-- Synthesizable Files Section -->
+      <section class="modalConfig-section" id="synthesizableFiles">
+        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.synthesizable.title">Synthesizable Files (.v)</h3>
         
-        <section class="modalConfig-section" id="processors">
-          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.processors.title">Processors</h3>
-          
-          <div id="processorsList">
-            <!-- Processor rows will be added here -->
-            <div class="modalConfig-processor-row">
-              <div class="modalConfig-select-container">
-              
-              </div>
-              <div class="modalConfig-form-group instance-name-group">
-              </div>
-
+        <div class="modalConfig-import-area" id="synthesizableDropArea">
+          <div class="modalConfig-import-header">
+            <button id="importSynthesizableBtn" class="modalConfig-btn modalConfig-btn-secondary">
+              <i class="fa-solid fa-file-import"></i> <span data-i18n="modal.projectConfig.synthesizable.importBtn">Import Files</span>
+            </button>
+            <div class="modalConfig-import-instructions">
+              <i class="fa-solid fa-hand-pointer"></i>
+              <span data-i18n="modal.projectConfig.synthesizable.dragInstruction">Drag & drop .v files here or use import button</span>
             </div>
           </div>
           
-          <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
-            <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
-          </button>
-        </section>
+          <div class="modalConfig-file-list" id="synthesizableFileList">
+            <div class="modalConfig-empty-state" id="synthesizableEmptyState">
+              <i class="fa-solid fa-file-code"></i>
+              <span data-i18n="modal.projectConfig.synthesizable.emptyState">No synthesizable files imported yet</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Testbench & GTKW Files Section -->
+      <section class="modalConfig-section" id="testbenchGtkwFiles">
+        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.testbench.title">Testbench & GTKW Files</h3>
         
-        <section class="modalConfig-section" id="compilerSettings">
-          <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
+        <div class="modalConfig-import-area" id="testbenchDropArea">
+          <div class="modalConfig-import-header">
+            <button id="importTestbenchBtn" class="modalConfig-btn modalConfig-btn-secondary">
+              <i class="fa-solid fa-file-import"></i> <span data-i18n="modal.projectConfig.testbench.importBtn">Import Files</span>
+            </button>
+            <div class="modalConfig-import-instructions">
+              <i class="fa-solid fa-hand-pointer"></i>
+              <span data-i18n="modal.projectConfig.testbench.dragInstruction">Drag & drop .v and .gtkw files here or use import button</span>
+            </div>
+          </div>
           
-          <div class="modalConfig-form-group">
-            <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.projectConfig.compiler.iverilogLabel">Iverilog Flags</label>
-            <input 
-              type="text" 
-              id="iverilogFlags" 
-              class="modalConfig-input"
-              name="iverilogFlags"
-              data-i18n-placeholder="modal.projectConfig.compiler.iverilogPlaceholder"
-              placeholder="e.g., -Wall; -v; -s" 
-              aria-describedby="iverilogFlagsHelp"
-            >
-            <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.projectConfig.compiler.iverilogHelp">
-              Specify additional flags for Iverilog compilation (separate with semicolons)
-            </small>
+          <div class="modalConfig-file-list" id="testbenchFileList">
+            <div class="modalConfig-empty-state" id="testbenchEmptyState">
+              <i class="fa-solid fa-vial"></i>
+              <span data-i18n="modal.projectConfig.testbench.emptyState">No testbench or GTKW files imported yet</span>
+            </div>
           </div>
-        </section>
-      </div>
-      <div class="modalConfig-footer">
-        <div class="modalConfig-footer-actions">
-          <button id="clearAll" data-i18n-aria-label="modal.projectConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
-            <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.projectConfig.footer.clearBtn">Clear</span>
+        </div>
+      </section>
+      
+      <!-- Processors Section -->
+      <section class="modalConfig-section" id="processors">
+        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.processors.title">Processors</h3>
+        
+        <div id="processorsList">
+          <!-- Processor rows will be added here -->
+          <div class="modalConfig-processor-row">
+            <div class="modalConfig-select-container">
+            </div>
+            <div class="modalConfig-form-group instance-name-group">
+            </div>
+          </div>
+        </div>
+        
+        <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
+          <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
+        </button>
+      </section>
+      
+      <!-- Compiler Settings Section -->
+      <section class="modalConfig-section" id="compilerSettings">
+        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
+        
+        <div class="modalConfig-form-group">
+          <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.projectConfig.compiler.iverilogLabel">Iverilog Flags</label>
+          <input 
+            type="text" 
+            id="iverilogFlags" 
+            class="modalConfig-input"
+            name="iverilogFlags"
+            data-i18n-placeholder="modal.projectConfig.compiler.iverilogPlaceholder"
+            placeholder="e.g., -Wall; -v; -s" 
+            aria-describedby="iverilogFlagsHelp"
+          >
+          <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.projectConfig.compiler.iverilogHelp">
+            Specify additional flags for Iverilog compilation (separate with semicolons)
+          </small>
+        </div>
+      </section>
+    </div>
+    
+    <div class="modalConfig-footer">
+      <div class="modalConfig-footer-actions">
+        <button id="clearAll" data-i18n-aria-label="modal.projectConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
+          <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.projectConfig.footer.clearBtn">Clear</span>
+        </button>
+        <div class="modalConfig-footer-primary-actions">
+          <button id="cancelProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
+            <span data-i18n="modal.projectConfig.footer.cancelBtn">Cancel</span>
           </button>
-          <div class="modalConfig-footer-primary-actions">
-            <button id="cancelProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
-              <span data-i18n="modal.projectConfig.footer.cancelBtn">Cancel</span>
-            </button>
-            <button id="saveProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.saveBtn" aria-label="Save Settings" class="modalConfig-btn modalConfig-btn-primary">
-              <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="modal.projectConfig.footer.saveBtn">Save</span>
-            </button>
-          </div>
+          <button id="saveProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.saveBtn" aria-label="Save Settings" class="modalConfig-btn modalConfig-btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="modal.projectConfig.footer.saveBtn">Save</span>
+          </button>
         </div>
       </div>
     </div>
   </div>
+</div>
+
+<!-- Hidden file input for import functionality -->
+<input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
+<input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
 
  <!-- Modal Overlay -->
 <div id="newProjectModal" class="npmodal-overlay hidden">

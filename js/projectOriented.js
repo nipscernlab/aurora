@@ -38,30 +38,413 @@ document.addEventListener('DOMContentLoaded', () => {
   // Cache para os arquivos encontrados
   let foundVerilogFiles = [];
   let foundGtkwaveFiles = [];
+
+  // File management variables
+let synthesizableFiles = [];
+let testbenchFiles = [];
+let gtkwFiles = [];
+
+// File input elements
+const synthesizableFileInput = document.getElementById('synthesizableFileInput');
+const testbenchFileInput = document.getElementById('testbenchFileInput');
+
+// Import buttons
+const importSynthesizableBtn = document.getElementById('importSynthesizableBtn');
+const importTestbenchBtn = document.getElementById('importTestbenchBtn');
+
+// Drop areas
+const synthesizableDropArea = document.getElementById('synthesizableDropArea');
+const testbenchDropArea = document.getElementById('testbenchDropArea');
+
+// File lists
+const synthesizableFileList = document.getElementById('synthesizableFileList');
+const testbenchFileList = document.getElementById('testbenchFileList');
+
+// Empty state elements
+const synthesizableEmptyState = document.getElementById('synthesizableEmptyState');
+const testbenchEmptyState = document.getElementById('testbenchEmptyState');
+
+// Initialize file management system
+function initFileManagement() {
+  setupImportButtons();
+  setupDragAndDrop();
+  setupFileInputs();
+}
+
+// Setup import buttons
+function setupImportButtons() {
+  if (importSynthesizableBtn) {
+    importSynthesizableBtn.addEventListener('click', () => {
+      synthesizableFileInput.click();
+    });
+  }
   
-  // Inicialização
-  function init() {
-    // Verificar se os elementos necessários existem
-    if (!projectModal) {
-      console.error('Modal de configuração de projeto não encontrado');
+  if (importTestbenchBtn) {
+    importTestbenchBtn.addEventListener('click', () => {
+      testbenchFileInput.click();
+    });
+  }
+}
+
+// Setup file input handlers
+function setupFileInputs() {
+  if (synthesizableFileInput) {
+    synthesizableFileInput.addEventListener('change', (e) => {
+      handleFileImport(e.target.files, 'synthesizable');
+      e.target.value = ''; // Clear input
+    });
+  }
+  
+  if (testbenchFileInput) {
+    testbenchFileInput.addEventListener('change', (e) => {
+      handleFileImport(e.target.files, 'testbench');
+      e.target.value = ''; // Clear input
+    });
+  }
+}
+
+// Setup drag and drop functionality
+function setupDragAndDrop() {
+  // Synthesizable files drop area
+  if (synthesizableDropArea) {
+    setupDropArea(synthesizableDropArea, 'synthesizable');
+  }
+  
+  // Testbench files drop area
+  if (testbenchDropArea) {
+    setupDropArea(testbenchDropArea, 'testbench');
+  }
+}
+
+// Setup individual drop area
+function setupDropArea(dropArea, type) {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+  });
+  
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, () => highlight(dropArea), false);
+  });
+  
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, () => unhighlight(dropArea), false);
+  });
+  
+  dropArea.addEventListener('drop', (e) => handleDrop(e, type), false);
+}
+
+// Prevent default drag behaviors
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+// Highlight drop area
+function highlight(dropArea) {
+  dropArea.classList.add('dragover');
+}
+
+// Remove highlight from drop area
+function unhighlight(dropArea) {
+  dropArea.classList.remove('dragover');
+}
+
+// Handle file drop
+function handleDrop(e, type) {
+  const dt = e.dataTransfer;
+  const files = dt.files;
+  handleFileImport(files, type);
+}
+
+// Handle file import (both drag-drop and button click)
+function handleFileImport(files, type) {
+  const fileArray = Array.from(files);
+  
+  if (type === 'synthesizable') {
+    // Filter only .v files
+    const vFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.v'));
+    addFilesToList(vFiles, 'synthesizable');
+  } else if (type === 'testbench') {
+    // Filter .v and .gtkw files
+    const vFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.v'));
+    const gtkwFiles = fileArray.filter(file => file.name.toLowerCase().endsWith('.gtkw'));
+    
+    addFilesToList(vFiles, 'testbench');
+    addFilesToList(gtkwFiles, 'gtkw');
+  }
+}
+
+// Add files to the appropriate list
+function addFilesToList(files, listType) {
+  files.forEach(file => {
+    // Check if file already exists
+    const existingFile = getFileFromList(file.name, listType);
+    if (existingFile) {
+      console.log(`File ${file.name} already exists in ${listType} list`);
       return;
     }
     
-    // Configurar botões
-    setupModalButtons();
+    // Add file to appropriate array
+    const fileObj = {
+      name: file.name,
+      path: file.path,
+      isStarred: false
+    };
     
-    // Configurar adição de processadores
-    setupProcessorsSection();
-    
-    // Configurar toggle UI para alternar entre modais
-    setupToggleUI();
-    
-    // Carregar processadores disponíveis
-    loadAvailableProcessors();
-    
-    console.log('Sistema de configuração orientada a projetos inicializado');
+    if (listType === 'synthesizable') {
+      synthesizableFiles.push(fileObj);
+    } else if (listType === 'testbench') {
+      testbenchFiles.push(fileObj);
+    } else if (listType === 'gtkw') {
+      gtkwFiles.push(fileObj);
+    }
+  });
+  
+  // Update the UI
+  updateFileListUI();
+}
+
+// Get file from list by name
+function getFileFromList(fileName, listType) {
+  if (listType === 'synthesizable') {
+    return synthesizableFiles.find(file => file.name === fileName);
+  } else if (listType === 'testbench') {
+    return testbenchFiles.find(file => file.name === fileName);
+  } else if (listType === 'gtkw') {
+    return gtkwFiles.find(file => file.name === fileName);
+  }
+  return null;
+}
+
+// Update file list UI
+function updateFileListUI() {
+  updateSynthesizableFileList();
+  updateTestbenchFileList();
+}
+
+// Update synthesizable file list UI
+function updateSynthesizableFileList() {
+  if (!synthesizableFileList) return;
+  
+  // Clear current list
+  synthesizableFileList.innerHTML = '';
+  
+  if (synthesizableFiles.length === 0) {
+    synthesizableFileList.appendChild(synthesizableEmptyState);
+    return;
   }
   
+  // Create file items
+  synthesizableFiles.forEach((file, index) => {
+    const fileItem = createFileItem(file, index, 'synthesizable');
+    synthesizableFileList.appendChild(fileItem);
+  });
+}
+
+// Update testbench file list UI
+function updateTestbenchFileList() {
+  if (!testbenchFileList) return;
+  
+  // Clear current list
+  testbenchFileList.innerHTML = '';
+  
+  if (testbenchFiles.length === 0 && gtkwFiles.length === 0) {
+    testbenchFileList.appendChild(testbenchEmptyState);
+    return;
+  }
+  
+  // Create testbench file items
+  testbenchFiles.forEach((file, index) => {
+    const fileItem = createFileItem(file, index, 'testbench');
+    testbenchFileList.appendChild(fileItem);
+  });
+  
+  // Create GTKW file items
+  gtkwFiles.forEach((file, index) => {
+    const fileItem = createFileItem(file, index, 'gtkw');
+    testbenchFileList.appendChild(fileItem);
+  });
+}
+
+// Create file item element
+function createFileItem(file, index, listType) {
+  const fileItem = document.createElement('div');
+  fileItem.className = 'modalConfig-file-item';
+  fileItem.setAttribute('data-list-type', listType);
+  fileItem.setAttribute('data-index', index);
+  
+  const fileIcon = getFileIcon(file.name);
+  
+  fileItem.innerHTML = `
+    <div class="modalConfig-file-info">
+      <i class="${fileIcon}"></i>
+      <span class="modalConfig-file-name">${file.name}</span>
+      <span class="modalConfig-file-type">${getFileExtension(file.name)}</span>
+    </div>
+    <div class="modalConfig-file-actions">
+      <button class="modalConfig-icon-btn copy-path-btn" title="Copy Path" data-path="${file.path}">
+        <i class="fa-solid fa-copy"></i>
+      </button>
+      <button class="modalConfig-icon-btn open-location-btn" title="Open Location" data-path="${file.path}">
+        <i class="fa-solid fa-folder-open"></i>
+      </button>
+      <button class="modalConfig-icon-btn star-btn ${file.isStarred ? 'starred' : ''}" title="Mark as Primary" data-list-type="${listType}" data-index="${index}">
+        <i class="fa-solid fa-star"></i>
+      </button>
+      <button class="modalConfig-icon-btn remove-btn" title="Remove File" data-list-type="${listType}" data-index="${index}">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  `;
+  
+  // Add event listeners
+  setupFileItemEvents(fileItem);
+  
+  return fileItem;
+}
+
+// Get file icon based on extension
+function getFileIcon(fileName) {
+  const ext = getFileExtension(fileName);
+  switch(ext) {
+    case '.v':
+      return 'fa-solid fa-file-code';
+    case '.gtkw':
+      return 'fa-solid fa-chart-line';
+    default:
+      return 'fa-solid fa-file';
+  }
+}
+
+// Get file extension
+function getFileExtension(fileName) {
+  return fileName.substring(fileName.lastIndexOf('.'));
+}
+
+// Setup file item event listeners
+function setupFileItemEvents(fileItem) {
+  // Copy path button
+  const copyBtn = fileItem.querySelector('.copy-path-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const path = copyBtn.getAttribute('data-path');
+      navigator.clipboard.writeText(path).then(() => {
+        showNotification('Path copied to clipboard', 'success');
+      });
+    });
+  }
+  
+  // Open location button
+  const openBtn = fileItem.querySelector('.open-location-btn');
+  if (openBtn) {
+    openBtn.addEventListener('click', async () => {
+      const path = openBtn.getAttribute('data-path');
+      try {
+        await window.electronAPI.openFileLocation(path);
+      } catch (error) {
+        console.error('Error opening file location:', error);
+        showNotification('Error opening file location', 'error');
+      }
+    });
+  }
+  
+  // Star button
+  const starBtn = fileItem.querySelector('.star-btn');
+  if (starBtn) {
+    starBtn.addEventListener('click', () => {
+      const listType = starBtn.getAttribute('data-list-type');
+      const index = parseInt(starBtn.getAttribute('data-index'));
+      toggleFileStar(listType, index);
+    });
+  }
+  
+  // Remove button
+  const removeBtn = fileItem.querySelector('.remove-btn');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', () => {
+      const listType = removeBtn.getAttribute('data-list-type');
+      const index = parseInt(removeBtn.getAttribute('data-index'));
+      removeFile(listType, index);
+    });
+  }
+}
+
+// Toggle file star status
+function toggleFileStar(listType, index) {
+  let targetArray;
+  
+  if (listType === 'synthesizable') {
+    targetArray = synthesizableFiles;
+  } else if (listType === 'testbench') {
+    targetArray = testbenchFiles;
+  } else if (listType === 'gtkw') {
+    targetArray = gtkwFiles;
+  }
+  
+  if (!targetArray || !targetArray[index]) return;
+  
+  // For synthesizable files, only one can be starred
+  if (listType === 'synthesizable') {
+    synthesizableFiles.forEach(file => file.isStarred = false);
+    targetArray[index].isStarred = true;
+  }
+  // For testbench files, only one .v can be starred
+  else if (listType === 'testbench') {
+    testbenchFiles.forEach(file => file.isStarred = false);
+    targetArray[index].isStarred = true;
+  }
+  // For GTKW files, only one can be starred
+  else if (listType === 'gtkw') {
+    gtkwFiles.forEach(file => file.isStarred = false);
+    targetArray[index].isStarred = true;
+  }
+  
+  // Update UI
+  updateFileListUI();
+}
+
+// Remove file from list
+function removeFile(listType, index) {
+  if (listType === 'synthesizable') {
+    synthesizableFiles.splice(index, 1);
+  } else if (listType === 'testbench') {
+    testbenchFiles.splice(index, 1);
+  } else if (listType === 'gtkw') {
+    gtkwFiles.splice(index, 1);
+  }
+  
+  // Update UI
+  updateFileListUI();
+}
+
+// Clear all files
+function clearAllFiles() {
+  synthesizableFiles = [];
+  testbenchFiles = [];
+  gtkwFiles = [];
+  updateFileListUI();
+}
+  
+  // Modified init function to include file management
+function init() {
+  // Existing initialization code...
+  if (!projectModal) {
+    console.error('Project configuration modal not found');
+    return;
+  }
+  
+  setupModalButtons();
+  setupProcessorsSection();
+  setupToggleUI();
+  
+  // Add file management initialization
+  initFileManagement();
+  
+  loadAvailableProcessors();
+  
+  console.log('Project oriented configuration system initialized');
+}
+
   // Carregar processadores disponíveis
   async function loadAvailableProcessors() {
     try {
@@ -686,15 +1069,121 @@ function getUsedInstances() {
   }
 }
 
-// Update prepareModalBeforeOpen to include instance parsing
-// Update prepareModalBeforeOpen to include instance parsing
+// Modified prepareModalBeforeOpen function
 async function prepareModalBeforeOpen() {
   await loadAvailableProcessors();
-  await loadFileOptions();
-  await parseProcessorInstances(); // Parse instances from all .v files
+  await parseProcessorInstances();
   await loadProjectConfiguration();
-  showFileSelectionPrompt();
 }
+
+// Add CSS for drag and drop styling
+function addDragDropStyles() {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    .modalConfig-import-area {
+      border: 2px dashed #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .modalConfig-import-area.dragover {
+      border-color: #3b82f6;
+      background-color: #eff6ff;
+    }
+    
+    .modalConfig-import-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .modalConfig-import-instructions {
+      color: #6b7280;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .modalConfig-file-list {
+      min-height: 60px;
+    }
+    
+    .modalConfig-file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      background-color: #f9fafb;
+    }
+    
+    .modalConfig-file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .modalConfig-file-name {
+      font-weight: 500;
+    }
+    
+    .modalConfig-file-type {
+      color: #6b7280;
+      font-size: 12px;
+      background-color: #e5e7eb;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .modalConfig-file-actions {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .modalConfig-icon-btn {
+      padding: 5px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .modalConfig-icon-btn:hover {
+      background-color: #e5e7eb;
+    }
+    
+    .star-btn.starred {
+      color: #fbbf24;
+    }
+    
+    .modalConfig-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    
+    .modalConfig-empty-state i {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
+
+// Call addDragDropStyles when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  addDragDropStyles();
+});
   
   // Mostrar um prompt visual para selecionar arquivos se for necessário
   function showFileSelectionPrompt() {
@@ -804,68 +1293,23 @@ async function prepareModalBeforeOpen() {
     }
   }
   
-  // Atualizar formulário com a configuração carregada
-  function updateFormWithConfig() {
-    // Atualizar selects
-    if (topLevelSelect && currentConfig.topLevelFile) {
-      // Verificar se o arquivo existe nas opções
-      const exists = Array.from(topLevelSelect.options).some(opt => opt.value === currentConfig.topLevelFile);
-      
-      if (exists) {
-        topLevelSelect.value = currentConfig.topLevelFile;
-      } else if (foundVerilogFiles.length > 0) {
-        // Se o arquivo não existe mais, adicionar como opção para preservar a configuração
-        const option = document.createElement('option');
-        option.value = currentConfig.topLevelFile;
-        option.textContent = `${currentConfig.topLevelFile} (não encontrado)`;
-        option.classList.add('missing-file');
-        topLevelSelect.appendChild(option);
-        topLevelSelect.value = currentConfig.topLevelFile;
-        
-        console.warn(`Arquivo TopLevel configurado não encontrado: ${currentConfig.topLevelFile}`);
-      }
-    }
-    
-    if (testbenchSelect && currentConfig.testbenchFile) {
-      // Verificar se o arquivo existe nas opções
-      const exists = Array.from(testbenchSelect.options).some(opt => opt.value === currentConfig.testbenchFile);
-      
-      if (exists) {
-        testbenchSelect.value = currentConfig.testbenchFile;
-      } else if (foundVerilogFiles.length > 0) {
-        // Se o arquivo não existe mais, adicionar como opção para preservar a configuração
-        const option = document.createElement('option');
-        option.value = currentConfig.testbenchFile;
-        option.textContent = `${currentConfig.testbenchFile} (não encontrado)`;
-        option.classList.add('missing-file');
-        testbenchSelect.appendChild(option);
-        testbenchSelect.value = currentConfig.testbenchFile;
-        
-        console.warn(`Arquivo Testbench configurado não encontrado: ${currentConfig.testbenchFile}`);
-      }
-    }
-    
-    if (gtkwaveSelect && currentConfig.gtkwaveFile) {
-      // Verificar se o arquivo existe nas opções
-      const exists = Array.from(gtkwaveSelect.options).some(opt => opt.value === currentConfig.gtkwaveFile);
-      
-      if (exists) {
-        gtkwaveSelect.value = currentConfig.gtkwaveFile;
-      } else if (foundGtkwaveFiles.length > 0) {
-        // Se o arquivo não existe mais, adicionar como opção para preservar a configuração
-        const option = document.createElement('option');
-        option.value = currentConfig.gtkwaveFile;
-        option.textContent = `${currentConfig.gtkwaveFile} (não encontrado)`;
-        option.classList.add('missing-file');
-        gtkwaveSelect.appendChild(option);
-        gtkwaveSelect.value = currentConfig.gtkwaveFile;
-        
-        console.warn(`Arquivo GTKWave configurado não encontrado: ${currentConfig.gtkwaveFile}`);
-      }
-    }
-    
-    // Limpar lista de processadores e adicionar os salvos
-     // Clear and rebuild processor list
+// Modified updateFormWithConfig function to work with file lists
+function updateFormWithConfig() {
+  // Load file lists from config
+  if (currentConfig.synthesizableFiles) {
+    synthesizableFiles = currentConfig.synthesizableFiles;
+  }
+  if (currentConfig.testbenchFiles) {
+    testbenchFiles = currentConfig.testbenchFiles;
+  }
+  if (currentConfig.gtkwFiles) {
+    gtkwFiles = currentConfig.gtkwFiles;
+  }
+  
+  // Update UI
+  updateFileListUI();
+  
+  // Update processor list (keeping existing logic)
   if (processorsList) {
     processorsList.innerHTML = '';
     
@@ -901,11 +1345,9 @@ async function prepareModalBeforeOpen() {
         
         processorSelect.addEventListener('change', function() {
           updateInstanceSelect(this.value, instanceSelect);
-          // Refresh other selects to update available options
           setTimeout(refreshAllInstanceSelects, 100);
         });
         
-        // Add event listener for instance selection to refresh other selects
         instanceSelect.addEventListener('change', function() {
           setTimeout(refreshAllInstanceSelects, 100);
         });
@@ -922,12 +1364,12 @@ async function prepareModalBeforeOpen() {
       addProcessorRow();
     }
   }
-    
-    // Atualizar flags do iverilog
-    if (iverilogFlags) {
-      iverilogFlags.value = currentConfig.iverilogFlags || '';
-    }
+  
+  // Update iverilog flags
+  if (iverilogFlags) {
+    iverilogFlags.value = currentConfig.iverilogFlags || '';
   }
+}
   
   // Atualizar um select de processador com os processadores disponíveis
   function updateProcessorSelect(selectElement, selectedValue = '') {
@@ -962,17 +1404,36 @@ async function prepareModalBeforeOpen() {
     });
   }
   
-// Update collectFormData to use instance selects
+// Modified collectFormData function to work with file lists
 function collectFormData() {
+  const starredSynthesizable = synthesizableFiles.find(file => file.isStarred);
+  const starredTestbench = testbenchFiles.find(file => file.isStarred);
+  const starredGtkw = gtkwFiles.find(file => file.isStarred);
+  
   const config = {
-    topLevelFile: topLevelSelect ? topLevelSelect.value : '',
-    testbenchFile: testbenchSelect ? testbenchSelect.value : '',
-    gtkwaveFile: gtkwaveSelect ? gtkwaveSelect.value : '',
+    topLevelFile: starredSynthesizable ? starredSynthesizable.name : '',
+    testbenchFile: starredTestbench ? starredTestbench.name : '',
+    gtkwaveFile: starredGtkw ? starredGtkw.name : '',
+    synthesizableFiles: synthesizableFiles.map(file => ({
+      name: file.name,
+      path: file.path,
+      isStarred: file.isStarred
+    })),
+    testbenchFiles: testbenchFiles.map(file => ({
+      name: file.name,
+      path: file.path,
+      isStarred: file.isStarred
+    })),
+    gtkwFiles: gtkwFiles.map(file => ({
+      name: file.name,
+      path: file.path,
+      isStarred: file.isStarred
+    })),
     processors: [],
     iverilogFlags: iverilogFlags ? iverilogFlags.value : ''
   };
   
-  // Collect processor data
+  // Collect processor data (keeping existing logic)
   const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   processorRows.forEach(row => {
     const processorSelect = row.querySelector('.processor-select');
@@ -1070,34 +1531,23 @@ async function saveProjectConfiguration() {
   }
 }
 
-  // Limpar todas as configurações
-  function clearAllSettings() {
-    // Limpar selects
-    if (topLevelSelect) topLevelSelect.selectedIndex = 0;
-    if (testbenchSelect) testbenchSelect.selectedIndex = 0;
-    if (gtkwaveSelect) gtkwaveSelect.selectedIndex = 0;
-    
-    // Limpar processadores (manter apenas uma linha em branco)
-    if (processorsList) {
-      processorsList.innerHTML = '';
-      addProcessorRow();
-    }
-    
-    // Limpar flags do iverilog
-    if (iverilogFlags) iverilogFlags.value = '';
-    
-    // Atualizar a configuração atual
-    currentConfig = {
-      topLevelFile: '',
-      testbenchFile: '',
-      gtkwaveFile: '',
-      processors: [],
-      iverilogFlags: ''
-    };
-    
-    console.log('Todas as configurações foram limpas');
+// Modified clearAllSettings function
+function clearAllSettings() {
+  // Clear file lists
+  clearAllFiles();
+  
+  // Clear processor list
+  if (processorsList) {
+    processorsList.innerHTML = '';
+    addProcessorRow();
   }
   
+  // Clear iverilog flags
+  if (iverilogFlags) {
+    iverilogFlags.value = '';
+  }
+}
+
   // Função para fechar o modal do projeto
   function closeProjectModal() {
     if (projectModal) {

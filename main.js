@@ -2394,8 +2394,8 @@ ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) =>
 });
 
 
-// Update the project:open handler to also set the global project path
-ipcMain.handle('project:open', async (_, spfPath) => {
+// Update the project:openFromSystem handler to also set the global project path
+ipcMain.handle('project:openFromSystem', async (_, spfPath) => {
   try {
     console.log('Opening project from:', spfPath);
 

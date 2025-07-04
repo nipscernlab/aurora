@@ -188,7 +188,7 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 };
 
 const projectOperations = {
-  openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
+  openProject: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
   createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
@@ -240,7 +240,7 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
 
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
-  onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
+  onProjectOpen: (callback) => ipcRenderer.on('project:openFromSystemed', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
 
     onUpdateProgress: (callback) => {
@@ -560,8 +560,8 @@ getToggleUIState: () => {
   manageCurrentProject: (projectPath) => ipcRenderer.invoke('manage-current-project', projectPath),
     
   // Event Listeners
-  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
-  onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
+  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystemFromSystem', spfPath),
+  onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystemFromSystem', callback),
 
   getAppPath: () => ipcRenderer.invoke('getAppPath'),
   validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),

@@ -551,7 +551,7 @@ function setupFileItemEvents(fileItem) {
   }
 }
 
-// Toggle file star status - UPDATED with visual feedback
+// Toggle file star status - UPDATED with single star constraint
 function toggleFileStar(index, type) {
   let files, targetFile;
   
@@ -570,6 +570,37 @@ function toggleFileStar(index, type) {
   if (!targetFile) {
     console.error('File not found for star toggle:', index, type);
     return;
+  }
+  
+  // If trying to star a file, first check constraints
+  if (!targetFile.starred) {
+    // For synthesizable files: only one .v file can be starred
+    if (type === 'synthesizable') {
+      // Remove star from all other synthesizable files
+      synthesizableFiles.forEach(file => {
+        if (file !== targetFile) {
+          file.starred = false;
+        }
+      });
+    }
+    // For testbench files: only one .v file can be starred
+    else if (type === 'testbench') {
+      // Remove star from all other testbench files
+      testbenchFiles.forEach(file => {
+        if (file !== targetFile) {
+          file.starred = false;
+        }
+      });
+    }
+    // For gtkw files: only one .gtkw file can be starred
+    else if (type === 'gtkw') {
+      // Remove star from all other gtkw files
+      gtkwFiles.forEach(file => {
+        if (file !== targetFile) {
+          file.starred = false;
+        }
+      });
+    }
   }
   
   // Toggle starred status
@@ -591,20 +622,21 @@ function toggleFileStar(index, type) {
     }
   }
   
-  // Update the UI with new sorting
+  // Update the UI with new sorting - refresh all lists to update star states
   setTimeout(() => {
-    updateFileList(type === 'gtkw' ? 'testbench' : type);
+    updateFileList('synthesizable');
+    updateFileList('testbench');
   }, 100);
   
   // Save configuration
   saveProjectConfiguration();
   
   // Show feedback
-  const action = targetFile.starred ? 'added to' : 'removed from';
-  showFileSuccess(`File "${targetFile.name}" ${action} favorites.`);
+  const action = targetFile.starred ? 'selected as main file' : 'deselected';
+  showFileSuccess(`File "${targetFile.name}" ${action}.`);
 }
 
-// Remove file from list - FIXED
+// Remove file from list - UPDATED without confirmation
 function removeFile(index, type) {
   let files, targetFile;
   
@@ -625,11 +657,6 @@ function removeFile(index, type) {
     return;
   }
   
-  // Show confirmation dialog
-  if (!confirm(`Are you sure you want to remove "${targetFile.name}" from the project?`)) {
-    return;
-  }
-  
   // Find and animate the file item
   const fileItem = document.querySelector(`[data-file-index="${index}"][data-file-type="${type}"]`);
   
@@ -646,18 +673,15 @@ function removeFile(index, type) {
       
       // Save configuration
       saveProjectConfiguration();
-      
-      // Show feedback
-      showFileSuccess(`File "${targetFile.name}" removed successfully.`);
     }, 300);
   } else {
     // Direct removal if animation element not found
     files.splice(index, 1);
     updateFileList(type === 'gtkw' ? 'testbench' : type);
     saveProjectConfiguration();
-    showFileSuccess(`File "${targetFile.name}" removed successfully.`);
   }
 }
+
 
 // Get starred files with proper filtering
 function getStarredFiles(type) {
@@ -1626,146 +1650,135 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Função para carregar configurações do projeto do arquivo JSON
-  async function loadProjectConfiguration() {
-    try {
-      // Reset da configuração atual
-      currentConfig = {
-        topLevelFile: '',
-        testbenchFile: '',
-        gtkwaveFile: '',
-        processors: [],
-        iverilogFlags: ''
-      };
-      
-      // Verificar se temos o caminho do projeto
-      let projectPath = window.currentProjectPath;
-      
-      // Se não estiver definido, tenta obtê-lo via API
-      if (!projectPath) {
-        try {
-          const projectData = await window.electronAPI.getCurrentProject();
-          // Verificar se projectData é um objeto e extrair o caminho correto
-          if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-            projectPath = projectData.projectPath;
-            // Atualiza a variável global
-            window.currentProjectPath = projectPath;
-          } else if (typeof projectData === 'string') {
-            // Caso a API retorne diretamente o caminho como string
-            projectPath = projectData;
-            window.currentProjectPath = projectPath;
-          } else {
-            console.error('Formato de dados do projeto inválido:', projectData);
-          }
-        } catch (err) {
-          console.warn('Falha ao obter caminho do projeto via API:', err);
+  // Load project configuration - UPDATED to handle file paths
+async function loadProjectConfiguration() {
+  try {
+    // Reset current configuration
+    currentConfig = {
+      topLevelFile: '',
+      testbenchFile: '',
+      gtkwaveFile: '',
+      processors: [],
+      iverilogFlags: ''
+    };
+    
+    // Get project path
+    let projectPath = window.currentProjectPath;
+    
+    if (!projectPath) {
+      try {
+        const projectData = await window.electronAPI.getCurrentProject();
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
         }
+      } catch (err) {
+        console.warn('Failed to get project path via API:', err);
       }
-      
-      // Verifica novamente se o caminho do projeto está disponível
-      if (!projectPath) {
-        console.error('Caminho do projeto não disponível. Impossível carregar configuração.');
-        return;
-      }
-      
-      // Usar a função joinPath da API electron
-      const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
-      
-      // Verificar se o arquivo de configuração existe
-      const configExists = await window.electronAPI.fileExists(configPath);
-      
-      if (configExists) {
-        // Carregar configuração do arquivo
-        const configContent = await window.electronAPI.readFile(configPath);
-        currentConfig = JSON.parse(configContent);
-        
-        console.log('Configuração carregada:', currentConfig);
-        
-        // Atualizar campos do formulário
-        updateFormWithConfig();
-      } else {
-        console.log('Arquivo de configuração não encontrado. Usando configuração padrão.');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar configuração do projeto:', error);
     }
+    
+    if (!projectPath) {
+      console.error('Project path not available. Cannot load configuration.');
+      return;
+    }
+    
+    // Use joinPath API function
+    const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+    
+    // Check if configuration file exists
+    const configExists = await window.electronAPI.fileExists(configPath);
+    
+    if (configExists) {
+      // Load configuration from file
+      const configContent = await window.electronAPI.readFile(configPath);
+      currentConfig = JSON.parse(configContent);
+      
+      console.log('Configuration loaded:', currentConfig);
+      
+      // Load files from configuration
+      if (currentConfig.files) {
+        // Load synthesizable files
+        if (currentConfig.files.synthesizable) {
+          synthesizableFiles = currentConfig.files.synthesizable.map(fileData => ({
+            name: fileData.name,
+            starred: fileData.starred || false,
+            size: fileData.size || 0,
+            type: fileData.type || 'text/plain'
+          }));
+        }
+        
+        // Load testbench files
+        if (currentConfig.files.testbench) {
+          testbenchFiles = currentConfig.files.testbench.map(fileData => ({
+            name: fileData.name,
+            starred: fileData.starred || false,
+            size: fileData.size || 0,
+            type: fileData.type || 'text/plain'
+          }));
+        }
+        
+        // Load gtkw files
+        if (currentConfig.files.gtkw) {
+          gtkwFiles = currentConfig.files.gtkw.map(fileData => ({
+            name: fileData.name,
+            starred: fileData.starred || false,
+            size: fileData.size || 0,
+            type: fileData.type || 'text/plain'
+          }));
+        }
+        
+        // Update file lists
+        updateFileList('synthesizable');
+        updateFileList('testbench');
+      }
+      
+      // Update form with configuration
+      updateFormWithConfig();
+    } else {
+      console.log('Configuration file not found. Using default configuration.');
+    }
+  } catch (error) {
+    console.error('Error loading project configuration:', error);
   }
+}
   
-// Modified updateFormWithConfig function to work with file lists
+// Update form with loaded configuration
 function updateFormWithConfig() {
-  // Load file lists from config
-  if (currentConfig.synthesizableFiles) {
-    synthesizableFiles = currentConfig.synthesizableFiles;
-  }
-  if (currentConfig.testbenchFiles) {
-    testbenchFiles = currentConfig.testbenchFiles;
-  }
-  if (currentConfig.gtkwFiles) {
-    gtkwFiles = currentConfig.gtkwFiles;
+  // Update iverilog flags
+  if (iverilogFlags && currentConfig.iverilogFlags) {
+    iverilogFlags.value = currentConfig.iverilogFlags;
   }
   
-  // Update UI
-  updateFileListUI();
-  
-  // Update processor list (keeping existing logic)
-  if (processorsList) {
+  // Update processors
+  if (currentConfig.processors && currentConfig.processors.length > 0) {
+    // Clear existing processor rows
     processorsList.innerHTML = '';
     
-    if (currentConfig.processors && currentConfig.processors.length > 0) {
-      currentConfig.processors.forEach(processor => {
-        const newRow = document.createElement('div');
-        newRow.className = 'modalConfig-processor-row';
+    // Add processor rows from configuration
+    currentConfig.processors.forEach(processor => {
+      addProcessorRow();
+      const lastRow = processorsList.lastElementChild;
+      
+      if (lastRow) {
+        const processorSelect = lastRow.querySelector('.processor-select');
+        const instanceSelect = lastRow.querySelector('.processor-instance');
         
-        newRow.innerHTML = `
-          <div class="modalConfig-select-container">
-            <select class="processor-select modalConfig-select">
-              <option value="">Select Processor</option>
-              ${availableProcessors.map(proc => 
-                `<option value="${proc}" ${proc === processor.type ? 'selected' : ''}>${proc}</option>`
-              ).join('')}
-            </select>
-          </div>
-          <div class="modalConfig-select-container">
-            <select class="processor-instance modalConfig-select">
-              <option value="">Select Instance</option>
-            </select>
-          </div>
-          <button class="delete-processor modalConfig-icon-btn" aria-label="Delete Processor">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        `;
-        
-        processorsList.appendChild(newRow);
-        
-        // Setup event listeners and populate instance select
-        const processorSelect = newRow.querySelector('.processor-select');
-        const instanceSelect = newRow.querySelector('.processor-instance');
-        
-        processorSelect.addEventListener('change', function() {
-          updateInstanceSelect(this.value, instanceSelect);
-          setTimeout(refreshAllInstanceSelects, 100);
-        });
-        
-        instanceSelect.addEventListener('change', function() {
-          setTimeout(refreshAllInstanceSelects, 100);
-        });
-        
-        // Populate instances for the selected processor
-        if (processor.type) {
-          updateInstanceSelect(processor.type, instanceSelect);
-          if (processor.instance) {
-            instanceSelect.value = processor.instance;
+        if (processorSelect && processor.name) {
+          processorSelect.value = processor.name;
+          
+          // Update instance select and set value
+          if (instanceSelect && processor.instance) {
+            updateInstanceSelect(processor.name, instanceSelect);
+            setTimeout(() => {
+              instanceSelect.value = processor.instance;
+            }, 100);
           }
         }
-      });
-    } else {
-      addProcessorRow();
-    }
-  }
-  
-  // Update iverilog flags
-  if (iverilogFlags) {
-    iverilogFlags.value = currentConfig.iverilogFlags || '';
+      }
+    });
   }
 }
   
@@ -1883,51 +1896,121 @@ async function updateProcessorStatus() {
 }
 
 
-// Modificar a função saveProjectConfiguration para chamar updateProcessorStatus após salvar
+// Save project configuration - UPDATED to include file paths and starred files
 async function saveProjectConfiguration() {
   try {
-    // Check if we have the project path
-    let projectPath;
+    // Get current project path
+    let projectPath = window.currentProjectPath;
     
-    try {
-      // Use the correct API call that returns an object with projectPath
-      const projectInfo = await window.electronAPI.getCurrentProject();
-      projectPath = projectInfo.projectPath || window.currentProjectPath || localStorage.getItem('currentProjectPath');
-    } catch (err) {
-      console.warn('Failed to get project path via API:', err);
+    if (!projectPath) {
+      try {
+        const projectData = await window.electronAPI.getCurrentProject();
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
+        }
+      } catch (err) {
+        console.warn('Failed to get project path via API:', err);
+      }
     }
     
-    // Check again if project path is available
     if (!projectPath) {
-      console.error('Project path not available. Cannot save configuration.');
-      alert('Failed to save: no project open.');
+      showFileError('Project path not available. Cannot save configuration.');
       return;
     }
     
-    // Collect form data
-    const formData = collectFormData();
-    currentConfig = formData;
+    // Get starred files
+    const starredSynthesizable = synthesizableFiles.find(file => file.starred);
+    const starredTestbench = testbenchFiles.find(file => file.starred);
+    const starredGtkw = gtkwFiles.find(file => file.starred);
     
-    // Use the joinPath function from the electron API
+    // Validate that required files are selected
+    if (!starredSynthesizable) {
+      showFileError('Please select a main synthesizable file (click the star icon).');
+      return;
+    }
+    
+    if (!starredTestbench) {
+      showFileError('Please select a main testbench file (click the star icon).');
+      return;
+    }
+    
+    if (!starredGtkw) {
+      showFileError('Please select a main GTKWave file (click the star icon).');
+      return;
+    }
+    
+    // Get processors configuration
+    const processors = [];
+    const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
+    
+    processorRows.forEach(row => {
+      const processorSelect = row.querySelector('.processor-select');
+      const instanceSelect = row.querySelector('.processor-instance');
+      
+      if (processorSelect && instanceSelect && 
+          processorSelect.value && instanceSelect.value) {
+        processors.push({
+          name: processorSelect.value,
+          instance: instanceSelect.value
+        });
+      }
+    });
+    
+    // Get iverilog flags
+    const iverilogFlagsValue = iverilogFlags ? iverilogFlags.value : '';
+    projectPathFileName = await window.electronAPI.joinPath(projectPath, file.name);
+    // Create configuration object
+    const config = {
+      topLevelFile: starredSynthesizable.name,
+      testbenchFile: starredTestbench.name,
+      gtkwaveFile: starredGtkw.name,
+      processors: processors,
+      iverilogFlags: iverilogFlagsValue,
+      files: {
+        synthesizable: synthesizableFiles.map(file => ({
+          name: file.name,
+          path: projectPathFileName,
+          starred: file.starred || false,
+          size: file.size,
+          type: file.type
+        })),
+        testbench: testbenchFiles.map(file => ({
+          name: file.name,
+          path: projectPathFileName,
+          starred: file.starred || false,
+          size: file.size,
+          type: file.type
+        })),
+        gtkw: gtkwFiles.map(file => ({
+          name: file.name,
+          path: projectPathFileName,
+          starred: file.starred || false,
+          size: file.size,
+          type: file.type
+        }))
+      }
+    };
+    
+    // Save configuration to file
     const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+    await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
     
-    // Save to JSON file
-    await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
+    console.log('Project configuration saved:', config);
+    showFileSuccess('Project configuration saved successfully.');
     
-    console.log('Project configuration saved at:', configPath);
-    console.log('Saved configuration:', currentConfig);
-    
-    // Atualizar a exibição dos tipos de processadores
-    updateProcessorStatus();
-    
-    // Show success notification and close modal
-    showNotification("Configuration saved successfully", 'success');
+    // Update current config
+    currentConfig = config;
     
   } catch (error) {
-    console.error("Failed to save configuration:", error);
-    showNotification("Failed to save configuration: " + error.message, 'error');
+    console.error('Error saving project configuration:', error);
+    showFileError('Failed to save project configuration.');
   }
 }
+
 
 // Modified clearAllSettings function
 function clearAllSettings() {

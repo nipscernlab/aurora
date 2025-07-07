@@ -496,7 +496,8 @@ async function loadSimulationFiles(processorName) {
     }
     
     // Get the simulation folder path for this processor
-    const simulationFolderPath = await window.electronAPI.pathExists(processorName, currentProjectPath);
+    const simulationFolderPath =  await window.electronAPI.joinPath(currentProjectPath, processorName, 'Simulation');
+
     
     console.log(`Simulation folder path: ${simulationFolderPath}`);
     

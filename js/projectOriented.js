@@ -155,7 +155,7 @@ function handleDrop(e, type) {
   handleFileImport(files, type);
 }
 
-// Handle file import (both drag & drop and button click) - IMPROVED
+// Handle file import - FIXED to avoid duplicates and show proper errors
 function handleFileImport(files, type) {
   const validFiles = [];
   
@@ -170,10 +170,11 @@ function handleFileImport(files, type) {
           size: file.size,
           type: file.type,
           starred: false,
-          lastModified: file.lastModified
+          lastModified: file.lastModified,
+          path: file.path // Use just the name as path for now
         });
       } else {
-        showFileError(`File "${file.name}" already exists in the ${type} list.`);
+        showNotification(`File "${file.name}" already exists in the project`, 'warning', 3000);
       }
     }
   }
@@ -193,10 +194,11 @@ function handleFileImport(files, type) {
     updateFileList('testbench');
   }
   
-  // Save configuration if files were added
+  // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
+  
+  // Show feedback only if files were added
   if (validFiles.length > 0) {
-    saveProjectConfiguration();
-    showFileSuccess(`Successfully added ${validFiles.length} file(s) to ${type} list.`);
+    showNotification(`Successfully added ${validFiles.length} file(s) to ${type} list.`, 'success', 3000);
   }
 }
 
@@ -617,7 +619,7 @@ function toggleFileStar(index, type) {
       starBtn.title = 'Remove from favorites';
     } else {
       fileItem.classList.remove('starred');
-      starBtn.classList.remove('starred');
+      starBtn.classList.remove('aved');
       starBtn.title = 'Add to favorites';
     }
   }
@@ -628,8 +630,7 @@ function toggleFileStar(index, type) {
     updateFileList('testbench');
   }, 100);
   
-  // Save configuration
-  saveProjectConfiguration();
+  // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
   
   // Show feedback
   const action = targetFile.starred ? 'selected as main file' : 'deselected';
@@ -671,14 +672,13 @@ function removeFile(index, type) {
       // Update UI
       updateFileList(type === 'gtkw' ? 'testbench' : type);
       
-      // Save configuration
-      saveProjectConfiguration();
+      // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
     }, 300);
   } else {
     // Direct removal if animation element not found
     files.splice(index, 1);
     updateFileList(type === 'gtkw' ? 'testbench' : type);
-    saveProjectConfiguration();
+    // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
   }
 }
 
@@ -701,12 +701,10 @@ function clearAllFiles() {
     updateFileList('synthesizable');
     updateFileList('testbench');
     
-    saveProjectConfiguration();
+    // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
     showFileSuccess('All files removed successfully.');
   }
 }
-
-
 // Get file by name and type
 function getFileByName(fileName, type) {
   const files = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
@@ -1532,8 +1530,9 @@ function getUsedInstances() {
 // Modified prepareModalBeforeOpen function
 async function prepareModalBeforeOpen() {
   await loadAvailableProcessors();
-  await parseProcessorInstances();
   await loadProjectConfiguration();
+  await parseProcessorInstances();
+  updateFormWithConfig();
 }
 
 // Modern Toggle Styles Function
@@ -1650,8 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Load project configuration - UPDATED to handle file paths
-async function loadProjectConfiguration() {
+ async function loadProjectConfiguration() {
   try {
     // Reset current configuration
     currentConfig = {
@@ -1661,6 +1659,11 @@ async function loadProjectConfiguration() {
       processors: [],
       iverilogFlags: ''
     };
+    
+    // Clear file arrays
+    synthesizableFiles = [];
+    testbenchFiles = [];
+    gtkwFiles = [];
     
     // Get project path
     let projectPath = window.currentProjectPath;
@@ -1698,45 +1701,42 @@ async function loadProjectConfiguration() {
       
       console.log('Configuration loaded:', currentConfig);
       
-      // Load files from configuration
-      if (currentConfig.files) {
-        // Load synthesizable files
-        if (currentConfig.files.synthesizable) {
-          synthesizableFiles = currentConfig.files.synthesizable.map(fileData => ({
-            name: fileData.name,
-            starred: fileData.starred || false,
-            size: fileData.size || 0,
-            type: fileData.type || 'text/plain'
-          }));
-        }
-        
-        // Load testbench files
-        if (currentConfig.files.testbench) {
-          testbenchFiles = currentConfig.files.testbench.map(fileData => ({
-            name: fileData.name,
-            starred: fileData.starred || false,
-            size: fileData.size || 0,
-            type: fileData.type || 'text/plain'
-          }));
-        }
-        
-        // Load gtkw files
-        if (currentConfig.files.gtkw) {
-          gtkwFiles = currentConfig.files.gtkw.map(fileData => ({
-            name: fileData.name,
-            starred: fileData.starred || false,
-            size: fileData.size || 0,
-            type: fileData.type || 'text/plain'
-          }));
-        }
-        
-        // Update file lists
-        updateFileList('synthesizable');
-        updateFileList('testbench');
+      // Load synthesizable files
+      if (currentConfig.synthesizableFiles) {
+        synthesizableFiles = currentConfig.synthesizableFiles.map(fileData => ({
+          name: fileData.name,
+          path: fileData.path,
+          starred: fileData.path === currentConfig.topLevelFile,
+          size: 0,
+          type: 'text/plain'
+        }));
       }
       
-      // Update form with configuration
-      updateFormWithConfig();
+      // Load testbench files
+      if (currentConfig.testbenchFiles) {
+        testbenchFiles = currentConfig.testbenchFiles.map(fileData => ({
+          name: fileData.name,
+          path: fileData.path,
+          starred: fileData.path === currentConfig.testbenchFile,
+          size: 0,
+          type: 'text/plain'
+        }));
+      }
+      
+      // Load gtkw files
+      if (currentConfig.gtkwFiles) {
+        gtkwFiles = currentConfig.gtkwFiles.map(fileData => ({
+          name: fileData.name,
+          path: fileData.path,
+          starred: fileData.path === currentConfig.gtkwaveFile,
+          size: 0,
+          type: 'text/plain'
+        }));
+      }
+      
+      // Update file lists
+      updateFileList('synthesizable');
+      updateFileList('testbench');
     } else {
       console.log('Configuration file not found. Using default configuration.');
     }
@@ -1745,42 +1745,49 @@ async function loadProjectConfiguration() {
   }
 }
   
-// Update form with loaded configuration
 function updateFormWithConfig() {
-  // Update iverilog flags
-  if (iverilogFlags && currentConfig.iverilogFlags) {
-    iverilogFlags.value = currentConfig.iverilogFlags;
+  // Clear existing processor rows
+  if (processorsList) {
+    processorsList.innerHTML = '';
   }
   
-  // Update processors
+  // Set iverilog flags
+  if (iverilogFlags && currentConfig.iverilogFlags) {
+    iverilog
+
+s.value = currentConfig.iverilogFlags;
+  }
+  
+  // Load processor configuration from JSON
   if (currentConfig.processors && currentConfig.processors.length > 0) {
-    // Clear existing processor rows
-    processorsList.innerHTML = '';
-    
-    // Add processor rows from configuration
     currentConfig.processors.forEach(processor => {
       addProcessorRow();
-      const lastRow = processorsList.lastElementChild;
-      
+      const lastRow = processorsList.querySelector('.modalConfig-processor-row:last-child');
       if (lastRow) {
         const processorSelect = lastRow.querySelector('.processor-select');
         const instanceSelect = lastRow.querySelector('.processor-instance');
         
-        if (processorSelect && processor.name) {
-          processorSelect.value = processor.name;
-          
-          // Update instance select and set value
-          if (instanceSelect && processor.instance) {
-            updateInstanceSelect(processor.name, instanceSelect);
+        if (processorSelect && processor.type) {
+          processorSelect.value = processor.type;
+          // Update instance select based on processor type
+          if (processor.type) {
+            updateInstanceSelect(processor.type, instanceSelect);
+            // Set instance value after options are populated
             setTimeout(() => {
-              instanceSelect.value = processor.instance;
+              if (instanceSelect && processor.instance) {
+                instanceSelect.value = processor.instance;
+              }
             }, 100);
           }
         }
       }
     });
+  } else {
+    // If no processors configured, add one empty row
+    addProcessorRow();
   }
 }
+
   
   // Atualizar um select de processador com os processadores disponíveis
   function updateProcessorSelect(selectElement, selectedValue = '') {
@@ -1822,9 +1829,9 @@ function collectFormData() {
   const starredGtkw = gtkwFiles.find(file => file.isStarred);
   
   const config = {
-    topLevelFile: starredSynthesizable ? starredSynthesizable.name : '',
-    testbenchFile: starredTestbench ? starredTestbench.name : '',
-    gtkwaveFile: starredGtkw ? starredGtkw.name : '',
+    topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
+    testbenchFile: starredTestbench ? starredTestbench.path : '',
+    gtkwaveFile: starredGtkw ? starredGtkw.path : '',
     synthesizableFiles: synthesizableFiles.map(file => ({
       name: file.name,
       path: file.path,
@@ -1882,7 +1889,8 @@ async function updateProcessorStatus() {
   if (currentConfig?.processors?.length > 0) {
     const types = currentConfig.processors.map(p => p.type);
     const unique = [...new Set(types)];
-    const processorTb = testbenchSelect.value;
+    // CORREÇÃO: Verificar se testbenchSelect existe antes de acessar .value
+    const processorTb = testbenchSelect ? testbenchSelect.value : '';
 
     el.innerHTML = `${unique.join(' | ')} <i class="fa-solid fa-gear"></i> ${processorTb || 'None'}`;
     el.classList.add('has-processors');
@@ -1895,8 +1903,6 @@ async function updateProcessorStatus() {
   el.style.opacity = '1';
 }
 
-
-// Save project configuration - UPDATED to include file paths and starred files
 async function saveProjectConfiguration() {
   try {
     // Get current project path
@@ -1918,7 +1924,7 @@ async function saveProjectConfiguration() {
     }
     
     if (!projectPath) {
-      showFileError('Project path not available. Cannot save configuration.');
+      showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
       return;
     }
     
@@ -1927,72 +1933,52 @@ async function saveProjectConfiguration() {
     const starredTestbench = testbenchFiles.find(file => file.starred);
     const starredGtkw = gtkwFiles.find(file => file.starred);
     
-    // Validate that required files are selected
-    if (!starredSynthesizable) {
-      showFileError('Please select a main synthesizable file (click the star icon).');
-      return;
-    }
-    
-    if (!starredTestbench) {
-      showFileError('Please select a main testbench file (click the star icon).');
-      return;
-    }
-    
-    if (!starredGtkw) {
-      showFileError('Please select a main GTKWave file (click the star icon).');
-      return;
-    }
-    
     // Get processors configuration
     const processors = [];
     const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
-    
+
     processorRows.forEach(row => {
       const processorSelect = row.querySelector('.processor-select');
       const instanceSelect = row.querySelector('.processor-instance');
       
-      if (processorSelect && instanceSelect && 
-          processorSelect.value && instanceSelect.value) {
-        processors.push({
-          name: processorSelect.value,
-          instance: instanceSelect.value
-        });
+      if (processorSelect && instanceSelect) {
+        const processorType = processorSelect.value;
+        const instanceName = instanceSelect.value;
+        
+        // Only add if both values are selected and not empty
+        if (processorType && processorType !== '' && instanceName && instanceName !== '') {
+          processors.push({
+            type: processorType,
+            instance: instanceName
+          });
+        }
       }
     });
+
+    console.log('Processors found:', processors.length, processors);
     
     // Get iverilog flags
     const iverilogFlagsValue = iverilogFlags ? iverilogFlags.value : '';
-    projectPathFileName = await window.electronAPI.joinPath(projectPath, file.name);
+    
     // Create configuration object
     const config = {
-      topLevelFile: starredSynthesizable.name,
-      testbenchFile: starredTestbench.name,
-      gtkwaveFile: starredGtkw.name,
+      topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
+      testbenchFile: starredTestbench ? starredTestbench.path : '',
+      gtkwaveFile: starredGtkw ? starredGtkw.path : '', // CORREÇÃO: estava "ized.path"
+      synthesizableFiles: synthesizableFiles.map(file => ({
+        name: file.name,
+        path: file.path
+      })),
+      testbenchFiles: testbenchFiles.map(file => ({
+        name: file.name,
+        path: file.path
+      })),
+      gtkwFiles: gtkwFiles.map(file => ({
+        name: file.name,
+        path: file.path
+      })),
       processors: processors,
-      iverilogFlags: iverilogFlagsValue,
-      files: {
-        synthesizable: synthesizableFiles.map(file => ({
-          name: file.name,
-          path: projectPathFileName,
-          starred: file.starred || false,
-          size: file.size,
-          type: file.type
-        })),
-        testbench: testbenchFiles.map(file => ({
-          name: file.name,
-          path: projectPathFileName,
-          starred: file.starred || false,
-          size: file.size,
-          type: file.type
-        })),
-        gtkw: gtkwFiles.map(file => ({
-          name: file.name,
-          path: projectPathFileName,
-          starred: file.starred || false,
-          size: file.size,
-          type: file.type
-        }))
-      }
+      iverilogFlags: iverilogFlagsValue
     };
     
     // Save configuration to file
@@ -2000,22 +1986,31 @@ async function saveProjectConfiguration() {
     await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
     
     console.log('Project configuration saved:', config);
-    showFileSuccess('Project configuration saved successfully.');
+    showNotification('Project configuration saved successfully!', 'success', 3000);
     
     // Update current config
     currentConfig = config;
     
+    // Update processor status display
+    await updateProcessorStatus();
+    
   } catch (error) {
     console.error('Error saving project configuration:', error);
-    showFileError('Failed to save project configuration.');
+    showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
   }
 }
 
 
-// Modified clearAllSettings function
+// Clear all settings - FIXED
 function clearAllSettings() {
   // Clear file lists
-  clearAllFiles();
+  synthesizableFiles = [];
+  testbenchFiles = [];
+  gtkwFiles = [];
+  
+  // Update file lists UI
+  updateFileList('synthesizable');
+  updateFileList('testbench');
   
   // Clear processor list
   if (processorsList) {

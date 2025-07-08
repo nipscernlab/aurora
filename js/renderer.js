@@ -6531,7 +6531,6 @@ async cmmCompilation(processor) {
 async iverilogProjectCompilation() {
   this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog verification for project...`);
   statusUpdater.startCompilation('verilog');
-  
   try {
     if (!this.projectConfig) {
       throw new Error("Project configuration not loaded");
@@ -6539,7 +6538,7 @@ async iverilogProjectCompilation() {
     
     const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
     const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
     // Get top level file
     const topLevelFile = this.projectConfig.topLevelFile;
     if (!topLevelFile) {
@@ -6568,6 +6567,12 @@ async iverilogProjectCompilation() {
       synthesizableFilePaths += `"${file.path}" `;
     }
 
+    // Build list of verilog files to compile
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+    const verilogFilesString = verilogFiles
+      .map(f => `"${hdlPath}\\${f}"`)  // no Windows: usa '\\'
+      .join(' ');
+
     // Get flags
     const flags = this.projectConfig.iverilogFlags || "";
     
@@ -6579,7 +6584,7 @@ async iverilogProjectCompilation() {
     // Resolve output path
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}`);
     
-    const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" ${synthesizableFilePaths}`;
+    const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString}`;
     
     this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
     
@@ -6652,7 +6657,7 @@ async iverilogCompilation(processor) {
     const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
     
     // Build list of verilog files to compile
-    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
     const verilogFilesString = verilogFiles.join(' ');
 
     await TabManager.saveAllFiles();
@@ -6742,7 +6747,7 @@ async runGtkWave(processor) {
     await TabManager.saveAllFiles();
 
     // List of .v files to compile
-    const verilogFiles = ['addr_dec.v', 'instr_dec.v', 'processor.v', 'core.v', 'ula.v'];
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
     const verilogFilesString = verilogFiles.join(' ');
 
     // Build paths
@@ -6884,6 +6889,7 @@ async runProjectGtkWave() {
     const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
     const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
     const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
 
     // Get testbench file and extract module name
     const testbenchFile = this.projectConfig.testbenchFile;
@@ -6905,6 +6911,11 @@ async runProjectGtkWave() {
     for (const file of synthesizableFiles) {
       synthesizableFilePaths += `"${file.path}" `;
     }
+    // Build list of verilog files to compile
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+    const verilogFilesString = verilogFiles
+      .map(f => `"${hdlPath}\\${f}"`)  // no Windows: usa '\\'
+      .join(' ');
 
     const flags = this.projectConfig.iverilogFlags || "";
     await TabManager.saveAllFiles();
@@ -6912,7 +6923,7 @@ async runProjectGtkWave() {
     const projectName = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
 
-    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths}`;
+    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString}`;
 
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);

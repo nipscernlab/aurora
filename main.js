@@ -4,10 +4,10 @@
 
 /*
  * 
- *    START: ALL IMPORTS AND CONST ƒ
+ *    START: ALL IMPORTS AND CONST ƒ 
  * 
- * 
-*/
+ * -
+*/ 
 
 const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');

@@ -17,6 +17,9 @@ textarea:focus-visible,
   border-radius: 6px;
   transition: outline 0.2s ease-in-out;
 }
+.theme-light #fractalcomp img {
+  filter: invert(0%) !important;
+}
 
 
   /* Custom scrollbar */

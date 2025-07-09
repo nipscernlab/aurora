@@ -61,7 +61,8 @@
 /* Smooth Header Hover Effect */
 #refresh-button,
 #open-folder-button,
-#open-hdl-button {
+#open-hdl-button,
+#close-button {
   position: relative;
   transition: color 0.3s ease;
 }
@@ -70,7 +71,8 @@
 
 #refresh-button:hover,
 #open-folder-button:hover,
-#open-hdl-button:hover {
+#open-hdl-button:hover,
+#close-button:hover {
   color: var(--accent-primary);
 }
 

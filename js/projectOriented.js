@@ -723,36 +723,98 @@ function getFilesByExtension(extension, type) {
   return files.filter(file => file.name.toLowerCase().endsWith(extension.toLowerCase()));
 }
 
-// Enhanced file validation
+// Updated validateFile function to accept any file type for import
+// while maintaining selection restrictions for top level, testbench, and gtkwave
 function validateFile(file, type) {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  const allowedExtensions = type === 'synthesizable' ? ['.v'] : ['.v', '.gtkw'];
+  // Allow any file type to be imported into both synthesizable and testbench lists
+  // The restrictions only apply when selecting files for top level, testbench, and gtkwave
   
-  // Check file size
-  if (file.size > maxSize) {
-    showFileError(`File "${file.name}" is too large. Maximum size is 10MB.`);
+  // Basic file validation
+  if (!file || !file.name) {
+    showNotification('Invalid file selected', 'error', 3000);
     return false;
   }
   
-  // Check file extension
-  const hasValidExtension = allowedExtensions.some(ext => 
-    file.name.toLowerCase().endsWith(ext.toLowerCase())
-  );
-  
-  if (!hasValidExtension) {
-    showFileError(`File "${file.name}" has invalid extension. Allowed: ${allowedExtensions.join(', ')}`);
+  // Check file size (optional - adjust limit as needed)
+  const maxFileSize = 50 * 1024 * 1024; // 50MB limit
+  if (file.size > maxFileSize) {
+    showNotification(`File "${file.name}" is too large (max 50MB)`, 'error', 3000);
     return false;
   }
   
-  // Check for empty file name
-  if (!file.name.trim()) {
-    showFileError('File name cannot be empty.');
-    return false;
-  }
-  
+  // All files are valid for import - restrictions only apply during selection
   return true;
 }
 
+// Update the populateSelect functions to filter by file extension
+function populateTopLevelSelect() {
+  if (!topLevelSelect) return;
+  
+  topLevelSelect.innerHTML = '<option value="">Select top level file (.v only)</option>';
+  
+  // Only show .v files for top level selection
+  const verilogFiles = synthesizableFiles.filter(file => 
+    file.name.toLowerCase().endsWith('.v')
+  );
+  
+  verilogFiles.forEach(file => {
+    const option = document.createElement('option');
+    option.value = file.name;
+    option.textContent = file.name;
+    topLevelSelect.appendChild(option);
+  });
+  
+  // Restore selected value if it exists and is still valid
+  if (currentConfig.topLevelFile && verilogFiles.some(f => f.name === currentConfig.topLevelFile)) {
+    topLevelSelect.value = currentConfig.topLevelFile;
+  }
+}
+
+function populateTestbenchSelect() {
+  if (!testbenchSelect) return;
+  
+  testbenchSelect.innerHTML = '<option value="">Select testbench file (.v only)</option>';
+  
+  // Only show .v files for testbench selection
+  const verilogFiles = testbenchFiles.filter(file => 
+    file.name.toLowerCase().endsWith('.v')
+  );
+  
+  verilogFiles.forEach(file => {
+    const option = document.createElement('option');
+    option.value = file.name;
+    option.textContent = file.name;
+    testbenchSelect.appendChild(option);
+  });
+  
+  // Restore selected value if it exists and is still valid
+  if (currentConfig.testbenchFile && verilogFiles.some(f => f.name === currentConfig.testbenchFile)) {
+    testbenchSelect.value = currentConfig.testbenchFile;
+  }
+}
+
+function populateGtkwaveSelect() {
+  if (!gtkwaveSelect) return;
+  
+  gtkwaveSelect.innerHTML = '<option value="">Select GTKWave file (.gtkw only)</option>';
+  
+  // Only show .gtkw files for gtkwave selection
+  const gtkwFiles = [...testbenchFiles, ...gtkwFiles].filter(file => 
+    file.name.toLowerCase().endsWith('.gtkw')
+  );
+  
+  gtkwFiles.forEach(file => {
+    const option = document.createElement('option');
+    option.value = file.name;
+    option.textContent = file.name;
+    gtkwaveSelect.appendChild(option);
+  });
+  
+  // Restore selected value if it exists and is still valid
+  if (currentConfig.gtkwaveFile && gtkwFiles.some(f => f.name === currentConfig.gtkwaveFile)) {
+    gtkwaveSelect.value = currentConfig.gtkwaveFile;
+  }
+}
 
 // Show file error message
 function showFileError(message) {

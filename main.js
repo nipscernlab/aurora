@@ -1516,6 +1516,72 @@ ipcMain.handle('project:open', async (_, spfPath) => {
   }
 });
 
+// Adicione este handler IPC no main.js
+ipcMain.handle('project:close', async () => {
+  try {
+    console.log('Closing project...');
+    
+    // Limpar as variáveis globais do projeto
+    currentOpenProjectPath = null;
+    global.currentProjectPath = null;
+    
+    if (global.currentProject) {
+      global.currentProject = {};
+    }
+    
+    // Resetar o estado do projeto
+    projectState = {
+      spfLoaded: false,
+      projectPath: null
+    };
+    
+    // Obter a janela focada
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    
+    if (focusedWindow) {
+      // Notificar o renderer para desabilitar o Processor Hub
+      focusedWindow.webContents.send('project:processorHubState', { enabled: false });
+      
+      // Limpar a lista de processors
+      focusedWindow.webContents.send('project:processors', { 
+        processors: [],
+        projectPath: null
+      });
+      
+      // Atualizar o estado do projeto na interface
+      updateProjectState(focusedWindow, null, null);
+      
+      // Limpar a árvore de arquivos
+      focusedWindow.webContents.send('project:fileTree', { 
+        files: [],
+        projectPath: null
+      });
+      
+      // Notificar que o projeto foi fechado
+      focusedWindow.webContents.send('project:closed', { success: true });
+    }
+    
+    console.log('Project closed successfully');
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error closing project:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Função auxiliar para atualizar o estado do projeto (caso não exista)
+function updateProjectState(window, projectPath, spfPath) {
+  if (window && window.webContents) {
+    window.webContents.send('project:stateUpdate', {
+      projectPath,
+      spfPath,
+      isOpen: !!projectPath
+    });
+  }
+}
+
 ipcMain.handle('isDirectory', async (_, path) => {
   try {
     const stats = await fse.stat(path);

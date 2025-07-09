@@ -189,6 +189,7 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 
 const projectOperations = {
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
+  closeProject: (spfPath) => ipcRenderer.invoke('project:close'),
   createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
   getCurrentProject: () => ipcRenderer.invoke('get-current-project'),

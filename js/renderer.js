@@ -6447,7 +6447,7 @@ class CompilationModule {
     }
   }
     
-  async asmCompilation(processor, asmPath) {
+  async asmCompilation(processor, asmPath, projectParam = null) {
     const { name, clk, numClocks } = processor;
     
     try {
@@ -6487,8 +6487,12 @@ class CompilationModule {
 
       // Then run the ASM compiler with corrected parameters
       // Fixed: Use clk and numClocks with proper defaults, and project mode parameter
-      const projectParam = this.isProjectOriented ? "1" : "0";
+      if (projectParam === null) {
+          projectParam = this.isProjectOriented ? 1 : 0;
+      }
+      
       cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+      this.terminalManager.appendToTerminal('twave', `Executing command: ${cmd}`);
 
       this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
       this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation for ${cmmBaseName}...`);
@@ -6541,9 +6545,18 @@ class CompilationModule {
         throw new Error("No top level file specified in project configuration");
       }
 
+      // Get testbench file (topLevel file in project mode)
+      const testbenchFile = this.projectConfig.testbenchFile;
+      if (!testbenchFile) {
+        throw new Error("No top level file specified in project configuration");
+      }
+
       // Extract top module name from testbench file
       const topLevelFileName = topLevelFile.split(/[\/\\]/).pop();
       const topModuleName = topLevelFileName.replace('.v', '');
+
+      // Extract top module name from testbench file
+      const tbFile = testbenchFile;
 
       // Get synthesizable files
       const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
@@ -6575,7 +6588,7 @@ class CompilationModule {
       const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
       
       // Fixed: Command should change directory to tempBaseDir and use proper output path
-      const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString}`;
+      const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -tnull ${synthesizableFilePaths} ${verilogFilesString} ${tbFile}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
       
@@ -6603,7 +6616,7 @@ class CompilationModule {
       statusUpdater.compilationError('verilog', error.message);
       throw error;
     }
-  }
+}
 
   // Updated iverilogCompilation method for processor mode
   async iverilogCompilation(processor) {
@@ -6918,14 +6931,15 @@ class CompilationModule {
         this.terminalManager.appendToTerminal('twave', `Error copying processor memory file ${sourceMemoryFile}: ${error.message}`, 'warning');
       }
     }
-
+    // Extract top module name from testbench file
+    const tbFile = testbenchFile;
     const flags = this.projectConfig.iverilogFlags || "";
     await TabManager.saveAllFiles();
 
     const projectName = this.projectPath.split(/[\/\\]/).pop();
     const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
 
-    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString}`;
+    const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} ${tbFile}`;
 
     this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
@@ -6962,8 +6976,6 @@ class CompilationModule {
     
     const projectName2 = this.projectPath.split(/[\/\\]/).pop() || 'project';
     await showVVPProgress(projectName2);
-
-    const tbPath = testbenchFile.replace(/[\/\\][^\/\\]*$/, '');
 
     const vvpCmd = `cd "${tempBaseDir}" && "${vvpCompPath}" "${projectName}" -fst -v`;
     this.terminalManager.appendToTerminal('twave', `Executing VVP command: ${vvpCmd}`);
@@ -7144,7 +7156,7 @@ async launchFractalVisualizersForProject(palette = 'fire') {
   }
 }
 
-// Simplified compileAll method
+// Refactored compileAll method
 async compileAll() {
   try {
     startCompilation();
@@ -7183,8 +7195,8 @@ async compileAll() {
             const asmPath = await this.cmmCompilation(processorObj);
             checkCancellation();
             
-            // ASM compilation
-            await this.asmCompilation(processorObj, asmPath);
+            // ASM compilation with project parameter = 1
+            await this.asmCompilation(processorObj, asmPath, 1);
             
           } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
@@ -7218,7 +7230,8 @@ async compileAll() {
       const asmPath = await this.cmmCompilation(processor);
       
       checkCancellation();
-      await this.asmCompilation(processor, asmPath);
+      // ASM compilation with project parameter = 0
+      await this.asmCompilation(processor, asmPath, 0);
       
       // Switch to Verilog terminal
       switchTerminal('terminal-tveri');
@@ -7267,29 +7280,41 @@ function setCompilerInstance(instance) {
   compilerInstance = instance;
 }
 
-// Fractal compilation handler
+// Updated fractal compilation handler
 async function handleFractalCompilation() {
   if (!compilerInstance) {
-    console.error('Instância do compilador não definida');
+    console.error('Compiler instance not defined');
     return;
   }
   
   if (!compilerInstance.isCompiling) {
     try {
-      console.log('Iniciando compilação com fractal...');
+      console.log('Starting fractal compilation...');
       await compilerInstance.loadConfig();
       
-      // Perguntar ao usuário qual paleta usar (opcional)
-      const palette = 'fire'; // ou permitir seleção: prompt("Escolha a paleta (grayscale, fire, ocean, rainbow):", "fire");
+      // Force project mode for fractal compilation
+      const originalMode = compilerInstance.isProjectOriented;
+      compilerInstance.isProjectOriented = true;
       
-      // Lançar visualizadores com paleta específica
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
+      try {
+        // Run complete compilation in project mode
+        const success = await compilerInstance.compileAll();
+        
+        if (!compilationCanceled && success) {
+          // After successful compilation, launch fractal visualizer
+          const palette = 'fire'; // or allow user selection
+          await compilerInstance.launchFractalVisualizersForProject(palette);
+          console.log('Fractal compilation completed successfully');
+        }
+      } finally {
+        // Restore original mode
+        compilerInstance.isProjectOriented = originalMode;
+      }
       
     } catch (error) {
-      console.error('Erro na compilação com fractal:', error);
+      console.error('Error in fractal compilation:', error);
       if (compilerInstance.terminalManager) {
-        compilerInstance.terminalManager.appendToTerminal('tcmm', `Erro: ${error.message}`, 'error');
+        compilerInstance.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
       }
     }
   }
@@ -7347,7 +7372,7 @@ function hideVVPProgress(delay = 2000) {
   }, delay);
 }
 
-// Updated fractal compilation button handler
+// Updated fractal compilation button event listener
 document.getElementById('fractalcomp').addEventListener('click', async () => {
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
@@ -7366,21 +7391,24 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
     const compiler = new CompilationModule(currentProjectPath);
     await compiler.loadConfig();
     
-    // First run complete compilation (same as clicking "Compile All")
-    const success = await compiler.compileAll();
+    // Force project mode for fractal compilation
+    const originalMode = compiler.isProjectOriented;
+    compiler.isProjectOriented = true;
     
-    if (!compilationCanceled && success) {
-      // After successful compilation, launch fractal visualizer
-      if (compiler.isProjectOriented) {
+    try {
+      // Run complete compilation in project mode
+      const success = await compiler.compileAll();
+      
+      if (!compilationCanceled && success) {
+        // After successful compilation, launch fractal visualizer
         await compiler.launchFractalVisualizersForProject('fire');
-      } else {
-        const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-        if (activeProcessor) {
-          await compiler.launchFractalVisualizerAsync(activeProcessor.name, 'fire');
-        }
+        console.log('Fractal compilation completed successfully');
       }
-      console.log('Fractal compilation completed successfully');
+    } finally {
+      // Restore original mode
+      compiler.isProjectOriented = originalMode;
     }
+    
   } catch (error) {
     if (!compilationCanceled) {
       console.error('Fractal compilation error:', error);
@@ -7391,6 +7419,7 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
     compilationCanceled = false;
   }
 });
+
 
 // Updated regular compilation button handler
 document.getElementById('allcomp').addEventListener('click', async () => {

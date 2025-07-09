@@ -364,8 +364,8 @@
 }
 
 .project-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 32px;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;

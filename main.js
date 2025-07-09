@@ -2660,9 +2660,9 @@ function getExecutablePath(executableName) {
     // Em produção (app empacotado)
     const resourcesPath = process.resourcesPath;
     if (executableName === 'yosys') {
-      return path.join(resourcesPath, 'bin', 'yosys.exe');
+      return path.join(resourcesPath, '..', 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
     } else if (executableName === 'netlistsvg') {
-      return path.join(resourcesPath, 'bin', 'netlistsvg.exe');
+      return path.join(resourcesPath, '..', 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
     }
   }
   

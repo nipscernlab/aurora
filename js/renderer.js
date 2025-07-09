@@ -8802,41 +8802,50 @@ class VVPProgressManager {
     this.readIntervalMs = 1500; // Read file every 250ms
   }
 
-  async show(name) {
-    if (this.isVisible) return;
+async show(name) {
+  if (this.isVisible) return;
+  
+  try {
+    // Check if toggle-ui button is active
+    const toggleButton = document.getElementById('toggle-ui');
+    const isToggleActive = toggleButton && toggleButton.classList.contains('active');
     
-    try {
-      // Get progress file path
+    // Determine progress file path based on toggle state
+    if (isToggleActive) {
+      this.progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', 'progress.txt');
+    } else {
+      // Use default path in saphoComponents/Temp
       this.progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-      
-      // Create overlay if it doesn't exist
-      if (!this.overlay) {
-        this.createOverlay();
-      }
-      
-      // Reset progress
-      this.currentProgress = 0;
-      this.targetProgress = 0;
-      this.startTime = Date.now();
-      this.eventsCount = 0;
-      
-      // Show overlay
-      this.overlay.classList.add('vvp-progress-visible');
-      this.isVisible = true;
-      
-      // Start reading progress file
-      this.startProgressReading();
-      
-      // Start animation loop
-      this.startAnimationLoop();
-      
-      // Start time counter
-      this.startTimeCounter();
-      
-    } catch (error) {
-      console.error('Error showing VVP progress:', error);
     }
+    
+    // Create overlay if it doesn't exist
+    if (!this.overlay) {
+      this.createOverlay();
+    }
+    
+    // Reset progress
+    this.currentProgress = 0;
+    this.targetProgress = 0;
+    this.startTime = Date.now();
+    this.eventsCount = 0;
+    
+    // Show overlay
+    this.overlay.classList.add('vvp-progress-visible');
+    this.isVisible = true;
+    
+    // Start reading progress file
+    this.startProgressReading();
+    
+    // Start animation loop
+    this.startAnimationLoop();
+    
+    // Start time counter
+    this.startTimeCounter();
+    
+  } catch (error) {
+    console.error('Error showing VVP progress:', error);
   }
+}
 
   hide() {
     if (!this.isVisible) return;
@@ -8862,24 +8871,39 @@ class VVPProgressManager {
   }
 
   // Function to delete the progress.txt file before compilation
-  async deleteProgressFile(name) {
-    try {
-      const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-      const fileExists = await window.electronAPI.fileExists(progressPath);
-      
-      if (fileExists) {
-        await window.electronAPI.deleteFile(progressPath);
-        console.log(`Progress file deleted: ${progressPath}`);
-        return true;
-      } else {
-        console.log(`Progress file does not exist: ${progressPath}`);
-        return false;
-      }
-    } catch (error) {
-      console.error('Error deleting progress file:', error);
+ async deleteProgressFile(name) {
+  try {
+    let progressPath;
+    
+    // Check if toggle-ui button is active
+    const toggleButton = document.getElementById('toggle-ui');
+    const isToggleActive = toggleButton && toggleButton.classList.contains('active');
+    
+    // Determine progress file path based on toggle state
+    if (isToggleActive && this.projectConfig && this.projectConfig.testbenchFile) {
+      // Get directory from testbench file path (remove filename)
+      const testbenchDir = this.projectConfig.testbenchFile.substring(0, this.projectConfig.testbenchFile.lastIndexOf('\\'));
+      progressPath = await window.electronAPI.joinPath(testbenchDir, 'progress.txt');
+    } else {
+      // Use default path in saphoComponents/Temp
+      progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+    }
+    
+    const fileExists = await window.electronAPI.fileExists(progressPath);
+    
+    if (fileExists) {
+      await window.electronAPI.deleteFile(progressPath);
+      console.log(`Progress file deleted: ${progressPath}`);
+      return true;
+    } else {
+      console.log(`Progress file does not exist: ${progressPath}`);
       return false;
     }
+  } catch (error) {
+    console.error('Error deleting progress file:', error);
+    return false;
   }
+}
 
   createOverlay() {
     // Create overlay HTML

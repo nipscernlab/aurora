@@ -1,18 +1,26 @@
-/* VVP Progress Overlay - Modern Aurora Design */
+/*
+ * =====================================================================================
+ *
+ *       Filename:  vvpProgress.css
+ *
+ *    Description:  V2 - A focused, modern progress widget.
+ *                  Redesigned for superior layout, hierarchy, and integrated animation.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  OVERLAY & MAIN CARD
+ * =================================================================================== */
 .vvp-progress-overlay {
-  position: absolute;
-  bottom: var(--space-6);
+  position: fixed;
+  bottom: var(--space-8);
   left: 50%;
   transform: translateX(-50%);
-  width: auto;
-  height: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: var(--z-max);
   opacity: 0;
   visibility: hidden;
-  transition: all var(--transition-slow) var(--transition-bounce);
+  transition: opacity var(--transition-slow), visibility var(--transition-slow);
   pointer-events: none;
 }
 
@@ -20,488 +28,235 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-}
-
-.vvp-progress-info {
-  background: var(--bg-elevated);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--border-accent);
-  border-radius: 20px;
-  max-height: 220px;
-  padding: 10px 20px;
-  min-width: 650px;
-  max-width: 500px;
-  box-shadow: 
-    var(--shadow-xl),
-    0 0 0 1px var(--border-primary),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
+  transform: translateX(-50%); /* Reset transform for entry animation */
   animation: floatIn var(--transition-slow) var(--transition-bounce);
 }
 
-.vvp-progress-info::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: var(--gradient-subtle);
-  animation: scanline 4s infinite ease-in-out;
-}
+.vvp-progress-info {
+  width: clamp(340px, 90vw, 550px); /* Responsive width */
+  padding: var(--space-6);
+  
+  background: color-mix(in srgb, var(--bg-elevated) 30%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 
-.vvp-progress-info::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  background: var(--gradient-subtle);
-  opacity: 0.5;
-  z-index: -1;
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
 }
 
 @keyframes floatIn {
   from {
-    transform: translateY(var(--space-8)) scale(0.92);
     opacity: 0;
-    filter: blur(4px);
+    transform: translate(-50%, var(--space-4));
   }
   to {
-    transform: translateY(0) scale(1);
     opacity: 1;
-    filter: blur(0);
+    transform: translate(-50%, 0);
   }
 }
 
-@keyframes scanline {
-  0%, 100% {
-    left: -100%;
-    opacity: 0;
-  }
-  25% {
-    opacity: 1;
-  }
-  75% {
-    opacity: 1;
-  }
-  100% {
-    left: 100%;
-    opacity: 0;
-  }
+/* ===================================================================================
+ *  HEADER
+ * =================================================================================== */
+.vvp-progress-header {
+  text-align: center;
 }
 
-.vvp-progress-icon {
-  margin-bottom: var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-}
-
-.vvp-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--bg-tertiary);
-  border-top: 3px solid var(--accent-primary);
-  border-right: 3px solid var(--accent-secondary);
-  border-radius: var(--radius-full);
-  animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
-  filter: drop-shadow(var(--shadow-glow));
-  position: relative;
-}
-
-.vvp-spinner::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: var(--radius-full);
-  background: var(--gradient-primary);
-  opacity: 0.3;
-  filter: blur(8px);
-  animation: pulseGlow 2s ease-in-out infinite alternate;
-}
-
-@keyframes spin {
-  0% { 
-    transform: rotate(0deg);
-  }
-  100% { 
-    transform: rotate(360deg);
-  }
-}
-
-.vvp-progress-text {
-  display: block;
+.vvp-progress-title {
+  margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
-  margin-bottom: var(--space-5);
-  text-align: center;
-  letter-spacing: var(--tracking-tight);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  line-height: var(--leading-tight);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: color var(--transition-normal);
 }
 
-.vvp-progress-bar-wrapper {
-  margin-bottom: var(--space-5);
+/* ===================================================================================
+ *  MAIN PROGRESS BAR SECTION
+ * =================================================================================== */
+.vvp-progress-main {
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 
 .vvp-progress-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--bg-tertiary);
+  flex-grow: 1;
+  height: 16px;
+  background-color: var(--bg-tertiary);
   border-radius: var(--radius-full);
   overflow: hidden;
   position: relative;
-  border: 1px solid var(--border-primary);
-  box-shadow: 
-    inset 0 1px 3px rgba(0, 0, 0, 0.3),
-    0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .vvp-progress-fill {
   height: 100%;
-  background: var(--gradient-primary);
+  width: 0%; /* Controlled by JS */
   border-radius: var(--radius-full);
-  width: 0%;
-  transition: width var(--transition-normal);
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--shadow-glow);
-}
-
-.vvp-progress-fill::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
+  transition: width var(--transition-normal), background-color var(--transition-normal);
+  
+  /* The new "Aurora Flow" animation - replaces the spinner */
+  background-color: var(--accent-primary);
+  background-image: linear-gradient(
     90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.6) 50%,
-    transparent 100%
+    var(--accent-primary) 0%,
+    var(--accent-secondary) 25%,
+    var(--accent-bright) 50%,
+    var(--accent-secondary) 75%,
+    var(--accent-primary) 100%
   );
-  animation: shimmer 2.5s infinite ease-in-out;
+  background-size: 200% 100%;
+  animation: aurora-flow 3s linear infinite;
 }
 
-.vvp-progress-fill::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: var(--radius-full);
-  background: var(--gradient-primary);
-  opacity: 0.4;
-  filter: blur(6px);
-  z-index: -1;
-  animation: pulseGlow 2.5s ease-in-out infinite alternate;
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(200%);
-  }
-}
-
-@keyframes pulseGlow {
-  from {
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0.7;
-    transform: scale(1.05);
-  }
+@keyframes aurora-flow {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .vvp-progress-percentage {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
   font-weight: var(--font-bold);
-  color: var(--accent-primary);
-  min-width: 48px;
+  color: var(--text-accent);
+  text-shadow: 0 0 8px var(--accent-primary);
+  min-width: 60px;
   text-align: right;
-  text-shadow: var(--shadow-glow);
-  letter-spacing: var(--tracking-wide);
+  transition: color var(--transition-normal), text-shadow var(--transition-normal);
 }
 
+/* ===================================================================================
+ *  STATS FOOTER
+ * =================================================================================== */
 .vvp-progress-stats {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-primary);
 }
 
 .vvp-stat {
-  flex: 1;
-  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-2);
 }
 
 .vvp-stat-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wider);
-  margin-bottom: var(--space-1);
+  letter-spacing: var(--tracking-wide);
+}
+
+.vvp-stat-label i {
+  font-size: var(--text-sm);
+  color: var(--icon-muted);
 }
 
 .vvp-stat-value {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  letter-spacing: var(--tracking-tight);
+  align-self: center;
 }
 
-.vvp-stat-value i {
-  color: var(--accent-primary);
-  font-size: var(--text-xs);
-  filter: drop-shadow(0 0 4px var(--accent-primary));
-}
+/* ===================================================================================
+ *  COMPONENT STATES (COMPLETE & ERROR)
+ * =================================================================================== */
 
-/* Enhanced animations for better UX */
-.vvp-progress-info {
-  animation: 
-    floatIn var(--transition-slow) var(--transition-bounce),
-    breathe 4s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.01);
-  }
-}
-
-/* Responsive design */
-@media (max-width: 640px) {
-  .vvp-progress-info {
-    margin: 0 var(--space-4);
-    min-width: auto;
-    padding: var(--space-5) var(--space-6);
-  }
-  
-  .vvp-progress-text {
-    font-size: var(--text-sm);
-  }
-  
-  .vvp-progress-stats {
-    gap: var(--space-4);
-  }
-  
-  .vvp-spinner {
-    width: 28px;
-    height: 28px;
-  }
-}
-
-@media (max-width: 480px) {
-  .vvp-progress-info {
-    padding: var(--space-4) var(--space-5);
-  }
-  
-  .vvp-progress-stats {
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  
-  .vvp-stat {
-    flex-direction: row;
-    justify-content: space-between;
-    text-align: left;
-  }
-}
-
-/* Completion state animations */
-.vvp-progress-fill[style*="100%"] {
-  background: var(--gradient-accent);
-  box-shadow: 
-    0 0 20px var(--success),
-    0 0 40px rgba(52, 211, 153, 0.3);
-  animation: completePulse 1.5s ease-in-out infinite alternate;
-}
-
-.vvp-progress-fill[style*="100%"]::after {
-  background: linear-gradient(
-    90deg,
-    var(--success) 0%,
-    #34d399 50%,
-    #6ee7b7 100%
-  );
-  opacity: 0.8;
-  animation: completeGlow 1.5s ease-in-out infinite alternate;
-}
-
-@keyframes completePulse {
-  from {
-    transform: scale(1);
-    filter: hue-rotate(0deg);
-  }
-  to {
-    transform: scale(1.02);
-    filter: hue-rotate(10deg);
-  }
-}
-
-@keyframes completeGlow {
-  from {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
-/* Success state for the entire progress component */
+/* --- COMPLETE STATE --- */
 .vvp-progress-info.vvp-complete {
   border-color: var(--success);
-  box-shadow: 
-    var(--shadow-xl),
-    0 0 0 1px var(--success),
-    0 0 30px rgba(52, 211, 153, 0.2);
+  box-shadow: var(--shadow-xl), 0 0 25px rgba(52, 211, 153, 0.4);
 }
-
-.vvp-progress-info.vvp-complete .vvp-spinner {
-  border-color: var(--success);
-  border-top-color: var(--success);
-  border-right-color: #34d399;
-  animation: spin 0.6s ease-out, completeScale 0.8s ease-out;
-}
-
-@keyframes completeScale {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.vvp-progress-info.vvp-complete .vvp-progress-text {
+.vvp-progress-info.vvp-complete .vvp-progress-title {
   color: var(--success);
 }
-
+.vvp-progress-info.vvp-complete .vvp-progress-fill {
+  background-image: none;
+  background-color: var(--success);
+  animation: none; /* Stop the flow animation */
+}
 .vvp-progress-info.vvp-complete .vvp-progress-percentage {
   color: var(--success);
+  text-shadow: 0 0 8px var(--success);
 }
 
-/* Error state */
+/* --- ERROR STATE --- */
 .vvp-progress-info.vvp-error {
   border-color: var(--error);
-  box-shadow: 
-    var(--shadow-xl),
-    0 0 0 1px var(--error),
-    0 0 30px rgba(248, 113, 113, 0.2);
+  box-shadow: var(--shadow-xl), 0 0 25px rgba(248, 113, 113, 0.4);
+  animation: floatIn var(--transition-slow) var(--transition-bounce), errorShake 0.5s var(--transition-bounce);
 }
-
-.vvp-progress-info.vvp-error .vvp-spinner {
-  border-color: var(--error);
-  border-top-color: var(--error);
-  animation: spin 0.3s ease-out, errorShake 0.6s ease-out;
+.vvp-progress-info.vvp-error .vvp-progress-title {
+  color: var(--error);
+}
+.vvp-progress-info.vvp-error .vvp-progress-fill {
+  background-image: none;
+  background-color: var(--error);
+  animation: none;
+}
+.vvp-progress-info.vvp-error .vvp-progress-percentage {
+  color: var(--error);
+  text-shadow: 0 0 8px var(--error);
 }
 
 @keyframes errorShake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-4px);
-  }
-  75% {
-    transform: translateX(4px);
-  }
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
 }
 
-.vvp-progress-info.vvp-error .vvp-progress-fill {
-  background: linear-gradient(
-    90deg,
-    var(--error) 0%,
-    #f87171 50%,
-    #fca5a5 100%
-  );
-  box-shadow: 0 0 20px var(--error);
-}
+/* ===================================================================================
+ *  THEME & RESPONSIVE ADJUSTMENTS
+ * =================================================================================== */
 
-/* Ensure the terminal-container has relative positioning */
-.terminal-container {
-  position: relative;
-}
-
-/* Dark theme specific adjustments */
-@media (prefers-color-scheme: dark) {
-  .vvp-progress-info {
-    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-  }
-}
-
-/* Light theme specific adjustments */
+/* --- Light Theme Adjustments --- */
 body.theme-light .vvp-progress-info {
-  backdrop-filter: blur(24px) saturate(180%) brightness(0.95);
-  border-color: var(--border-accent);
-  box-shadow: 
-    var(--shadow-lg),
-    0 0 0 1px var(--border-secondary),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-body.theme-light .vvp-progress-bar {
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
   border-color: var(--border-secondary);
-  box-shadow: 
-    inset 0 1px 3px rgba(0, 0, 0, 0.1),
-    0 1px 0 rgba(255, 255, 255, 0.8);
+}
+body.theme-light .vvp-progress-bar {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+body.theme-light .vvp-progress-info.vvp-complete {
+  box-shadow: var(--shadow-xl), 0 0 25px rgba(5, 150, 105, 0.2);
+}
+body.theme-light .vvp-progress-info.vvp-error {
+  box-shadow: var(--shadow-xl), 0 0 25px rgba(220, 38, 38, 0.2);
 }
 
-/* High contrast theme adjustments */
-body.theme-dark-high-contrast .vvp-progress-info,
-body.theme-light-high-contrast .vvp-progress-info {
-  border-width: 2px;
-  box-shadow: var(--shadow-xl);
+/* --- Responsive Design --- */
+@media (max-width: 480px) {
+  .vvp-progress-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
 }
 
-body.theme-dark-high-contrast .vvp-spinner,
-body.theme-light-high-contrast .vvp-spinner {
-  border-width: 4px;
-}
-
-/* Accessibility improvements */
+/* --- Accessibility --- */
 @media (prefers-reduced-motion: reduce) {
   .vvp-progress-overlay,
-  .vvp-progress-info,
-  .vvp-spinner,
-  .vvp-progress-fill,
-  .vvp-progress-fill::before,
-  .vvp-progress-fill::after {
+  .vvp-progress-fill {
     animation: none !important;
-    transition: none !important;
+    transition-duration: 0.01ms !important;
   }
-  
   .vvp-progress-fill {
     transition: width var(--transition-fast) !important;
   }

@@ -1,53 +1,69 @@
-/* Enhanced Aurora IDE Theme - Elegant Purple */
+/*
+ * =====================================================================================
+ *
+ *       Filename:  themeVariables.css
+ *
+ *    Description:  Enhanced Aurora IDE Theme - A complete design system with a focus
+ *                  on an elegant purple dark theme, a refined light theme, and
+ *                  high-contrast accessibility modes.
+ *
+ *        Version:  1.0
+ *        Created:  [Current Date]
+ *       Revision:  none
+ *
+ * =====================================================================================
+ */
 
-/* Import professional fonts */
+/* Import professional fonts for UI and code */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Dark theme - Deep Elegant Purple */
+  /* ===================================================================================
+   *  DEFAULT THEME: DARK - ELEGANT PURPLE
+   * =================================================================================== */
   
-  /* Base colors - Deeper, more sophisticated */
-  --bg-primary: #0d0b14;
-  --bg-secondary: #151220;
-  --bg-tertiary: #1c1829;
-  --bg-quaternary: #241f35;
-  --bg-hover: #2a2440;
-  --bg-active: #332a4a;
-  --bg-elevated: #1a1527;
+  /* Base Colors - Deeper, more sophisticated darks with a hint of purple/blue */
+  --bg-primary: #0d0b14;        /* Deep space background */
+  --bg-secondary: #151220;      /* Panels, sidebars */
+  --bg-tertiary: #1c1829;       /* Input fields, list items */
+  --bg-quaternary: #241f35;    /* Subtle dividers, inactive elements */
+  --bg-hover: #2a2440;          /* Hover states for list items */
+  --bg-active: #332a4a;         /* Active/pressed states */
+  --bg-elevated: #1a1527;      /* Modals, popovers, floating elements */
   
-  /* Purple accent palette - More vivid and elegant */
-  --accent-primary: #a855f7;
-  --accent-secondary: #8b3dff;
-  --accent-tertiary: #7c3aed;
-  --accent-hover: #c084fc;
-  --accent-focus: #ddd6fe;
-  --accent-muted: #6d28d9;
-  --accent-bright: #e879f9;
+  /* Accent Palette (Purple) - Vivid, elegant, and harmonious */
+  --accent-primary: #a855f7;   /* Main interactive elements, buttons */
+  --accent-secondary: #8b3dff;  /* Secondary accents, highlights */
+  --accent-tertiary: #7c3aed;   /* Deeper accent for pressed states */
+  --accent-hover: #c084fc;      /* Lighter accent for hovers */
+  --accent-focus: #ddd6fe;      /* Very light for focus rings content */
+  --accent-muted: #6d28d9;      /* Muted version for less important accents */
+  --accent-bright: #e879f9;     /* Brightest accent for special highlights */
   
-  /* Text colors - Better contrast and hierarchy */
-  --text-primary: #f8fafc;
-  --text-secondary: #e2e8f0;
-  --text-tertiary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-disabled: #64748b;
-  --text-accent: #c084fc;
+  /* Text Colors - High contrast and clear hierarchy */
+  --text-primary: #f8fafc;      /* Main text, headings */
+  --text-secondary: #e2e8f0;    /* Secondary text, labels */
+  --text-tertiary: #cbd5e1;     /* Tertiary/placeholder text */
+  --text-muted: #94a3b8;        /* Muted text, metadata */
+  --text-disabled: #64748b;    /* Disabled text */
+  --text-accent: #c084fc;       /* Text on accent-colored backgrounds */
   
-  /* Border colors - More refined */
-  --border-primary: #2d2642;
-  --border-secondary: #241f35;
-  --border-accent: #a855f7;
-  --border-focus: #c084fc;
-  --border-subtle: #1e1b2e;
+  /* Border Colors - Refined and subtle */
+  --border-primary: #2d2642;    /* Main borders, component outlines */
+  --border-secondary: #241f35;  /* Subtle inner borders */
+  --border-accent: #a855f7;     /* Borders for accented elements */
+  --border-focus: #c084fc;      /* Focus ring color */
+  --border-subtle: #1e1b2e;     /* The most subtle borders, almost invisible */
   
-  /* Icon colors */
-  --icon-primary: #a855f7;
-  --icon-secondary: #e2e8f0;
-  --icon-muted: #94a3b8;
-  --icon-accent: #c084fc;
+  /* Icon Colors */
+  --icon-primary: #a855f7;      /* Primary icons */
+  --icon-secondary: #e2e8f0;    /* Secondary/standard icons */
+  --icon-muted: #94a3b8;        /* Muted icons */
+  --icon-accent: #c084fc;       /* Icons that need to stand out */
   
-  /* Status colors - More sophisticated */
+  /* Status Colors - WCAG-compliant and visually distinct */
   --error: #f87171;
   --warning: #fbbf24;
   --success: #34d399;
@@ -57,13 +73,13 @@
   --success-bg: rgba(52, 211, 153, 0.1);
   --info-bg: rgba(96, 165, 250, 0.1);
   
-  /* Interactive states */
+  /* Interactive States Overlays */
   --hover-overlay: rgba(168, 85, 247, 0.12);
   --active-overlay: rgba(168, 85, 247, 0.24);
   --focus-overlay: rgba(168, 85, 247, 0.16);
   --disabled-overlay: rgba(255, 255, 255, 0.06);
   
-  /* Shadows - More depth */
+  /* Shadows - Designed for dark backgrounds */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.8);
@@ -71,20 +87,24 @@
   --shadow-focus: 0 0 0 3px rgba(168, 85, 247, 0.5);
   --shadow-glow: 0 0 20px rgba(168, 85, 247, 0.3);
   
-  /* Gradients - More sophisticated */
+  /* Gradients - Sophisticated blends of the accent palette */
   --gradient-primary: linear-gradient(135deg, #a855f7 0%, #8b3dff 50%, #7c3aed 100%);
   --gradient-secondary: linear-gradient(135deg, #c084fc 0%, #a855f7 100%);
   --gradient-tertiary: linear-gradient(135deg, #ddd6fe 0%, #c084fc 100%);
   --gradient-accent: linear-gradient(135deg, #e879f9 0%, #a855f7 100%);
   --gradient-subtle: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
   
-  /* Animations - More polished */
+  /* ===================================================================================
+   *  DESIGN SYSTEM TOKENS (Shared across themes)
+   * =================================================================================== */
+  
+  /* Transitions & Animations - Polished and consistent motion */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
   
-  /* Spacing scale - More refined */
+  /* Spacing Scale (4px base grid) - For consistent layouts */
   --space-1: 0.25rem;   /* 4px */
   --space-2: 0.5rem;    /* 8px */
   --space-3: 0.75rem;   /* 12px */
@@ -95,23 +115,20 @@
   --space-10: 2.5rem;   /* 40px */
   --space-12: 3rem;     /* 48px */
   --space-16: 4rem;     /* 64px */
-  --space-20: 5rem;     /* 80px */
-  --space-24: 6rem;     /* 96px */
   
-  /* Border radius - More modern */
+  /* Border Radius - Modern and consistent shapes */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
   --radius-full: 9999px;
   
-  /* Typography - Professional and elegant */
+  /* Typography - Professional and elegant font stacks */
   --font-sans: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
   --font-display: 'Geist', system-ui, sans-serif;
   
-  /* Font sizes - More comprehensive scale */
+  /* Font Sizes - Comprehensive and responsive scale */
   --text-xs: 0.75rem;     /* 12px */
   --text-sm: 0.875rem;    /* 14px */
   --text-base: 1rem;      /* 16px */
@@ -119,52 +136,32 @@
   --text-xl: 1.25rem;     /* 20px */
   --text-2xl: 1.5rem;     /* 24px */
   --text-3xl: 1.875rem;   /* 30px */
-  --text-4xl: 2.25rem;    /* 36px */
-  --text-5xl: 3rem;       /* 48px */
   
-  /* Font weights */
+  /* Font Weights */
   --font-light: 300;
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
   
-  /* Line heights */
-  --leading-none: 1;
+  /* Line Heights */
   --leading-tight: 1.25;
-  --leading-snug: 1.375;
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
-  --leading-loose: 2;
   
-  /* Letter spacing */
-  --tracking-tighter: -0.05em;
-  --tracking-tight: -0.025em;
-  --tracking-normal: 0;
-  --tracking-wide: 0.025em;
-  --tracking-wider: 0.05em;
-  
-  /* Z-index scale */
-  --z-0: 0;
+  /* Z-Index Scale */
   --z-10: 10;
   --z-20: 20;
   --z-30: 30;
   --z-40: 40;
   --z-50: 50;
-  --z-auto: auto;
   --z-max: 9999;
-  
-  /* Container widths */
-  --container-sm: 640px;
-  --container-md: 768px;
-  --container-lg: 1024px;
-  --container-xl: 1280px;
-  --container-2xl: 1536px;
 }
 
-/* Light theme - Refined and elegant */
+/* ===================================================================================
+ *  LIGHT THEME - REFINED & ELEGANT
+ * =================================================================================== */
 body.theme-light {
-  /* Base colors - Clean and sophisticated */
   --bg-primary: #fefefe;
   --bg-secondary: #f8f9fa;
   --bg-tertiary: #f1f3f5;
@@ -173,7 +170,6 @@ body.theme-light {
   --bg-active: #cbd5e1;
   --bg-elevated: #ffffff;
   
-  /* Purple accent palette - Adjusted for light theme */
   --accent-primary: #7c3aed;
   --accent-secondary: #6d28d9;
   --accent-tertiary: #5b21b6;
@@ -182,28 +178,24 @@ body.theme-light {
   --accent-muted: #9333ea;
   --accent-bright: #c084fc;
   
-  /* Text colors - Excellent contrast */
   --text-primary: #0f172a;
   --text-secondary: #1e293b;
   --text-tertiary: #475569;
   --text-muted: #64748b;
   --text-disabled: #94a3b8;
-  --text-accent: #7c3aed;
+  --text-accent: #ffffff;
   
-  /* Border colors */
   --border-primary: #e2e8f0;
   --border-secondary: #f1f5f9;
   --border-accent: #7c3aed;
   --border-focus: #8b5cf6;
   --border-subtle: #f8fafc;
   
-  /* Icon colors */
   --icon-primary: #7c3aed;
   --icon-secondary: #475569;
   --icon-muted: #64748b;
   --icon-accent: #8b5cf6;
   
-  /* Status colors */
   --error: #dc2626;
   --warning: #d97706;
   --success: #059669;
@@ -212,14 +204,12 @@ body.theme-light {
   --warning-bg: rgba(217, 119, 6, 0.1);
   --success-bg: rgba(5, 150, 105, 0.1);
   --info-bg: rgba(37, 99, 235, 0.1);
-  
-  /* Interactive states */
+
   --hover-overlay: rgba(124, 58, 237, 0.08);
   --active-overlay: rgba(124, 58, 237, 0.16);
   --focus-overlay: rgba(124, 58, 237, 0.12);
   --disabled-overlay: rgba(0, 0, 0, 0.04);
   
-  /* Shadows - Subtle and refined */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
@@ -227,7 +217,6 @@ body.theme-light {
   --shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.3);
   --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.2);
   
-  /* Gradients */
   --gradient-primary: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
   --gradient-secondary: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   --gradient-tertiary: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
@@ -235,7 +224,11 @@ body.theme-light {
   --gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(109, 40, 217, 0.05) 100%);
 }
 
-/* Dark high contrast theme - Enhanced accessibility */
+/* ===================================================================================
+ *  HIGH-CONTRAST THEMES - For enhanced accessibility
+ * =================================================================================== */
+
+/* Dark High Contrast Theme */
 body.theme-dark-high-contrast {
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
@@ -249,28 +242,23 @@ body.theme-dark-high-contrast {
   --accent-secondary: #c084fc;
   --accent-tertiary: #a855f7;
   --accent-hover: #e9d5ff;
-  --accent-focus: #f3e8ff;
-  --accent-muted: #a855f7;
-  --accent-bright: #f3e8ff;
   
   --text-primary: #ffffff;
   --text-secondary: #f1f5f9;
   --text-tertiary: #e2e8f0;
   --text-muted: #cbd5e1;
-  --text-disabled: #94a3b8;
-  --text-accent: #d8b4fe;
+  --text-accent: #000000;
   
-  --border-primary: #404040;
+  --border-primary: #4a4a4a;
   --border-secondary: #2a2a2a;
   --border-accent: #d8b4fe;
   --border-focus: #e9d5ff;
-  --border-subtle: #1a1a1a;
-  
-  --shadow-focus: 0 0 0 3px rgba(216, 180, 254, 0.8);
+
+  --shadow-focus: 0 0 0 2px #e9d5ff;
   --shadow-glow: 0 0 20px rgba(216, 180, 254, 0.5);
 }
 
-/* Light high contrast theme - Enhanced accessibility */
+/* Light High Contrast Theme */
 body.theme-light-high-contrast {
   --bg-primary: #ffffff;
   --bg-secondary: #fafafa;
@@ -278,36 +266,35 @@ body.theme-light-high-contrast {
   --bg-quaternary: #e4e4e7;
   --bg-hover: #d4d4d8;
   --bg-active: #a1a1aa;
-  --bg-elevated: #ffffff;
   
   --accent-primary: #4c1d95;
   --accent-secondary: #3730a3;
   --accent-tertiary: #312e81;
   --accent-hover: #6d28d9;
-  --accent-focus: #7c3aed;
-  --accent-muted: #5b21b6;
-  --accent-bright: #8b5cf6;
   
   --text-primary: #000000;
   --text-secondary: #0f172a;
   --text-tertiary: #1e293b;
   --text-muted: #334155;
-  --text-disabled: #64748b;
-  --text-accent: #4c1d95;
+  --text-accent: #ffffff;
   
-  --border-primary: #d1d5db;
+  --border-primary: #a1a1aa;
   --border-secondary: #e5e7eb;
   --border-accent: #4c1d95;
   --border-focus: #6d28d9;
-  --border-subtle: #f3f4f6;
   
-  --shadow-focus: 0 0 0 3px rgba(76, 29, 149, 0.8);
+  --shadow-focus: 0 0 0 2px #4c1d95;
   --shadow-glow: 0 0 20px rgba(76, 29, 149, 0.4);
 }
 
-/* Automatic theme detection */
+/* ===================================================================================
+ *  GLOBAL & BASE STYLES
+ * =================================================================================== */
+
+/* Automatic theme detection based on OS preference */
+/* Applies light theme if no specific theme class is set on the body */
 @media (prefers-color-scheme: light) {
-  body:not(.theme-dark):not(.theme-dark-high-contrast):not(.theme-light-high-contrast) {
+  body:not([class*="theme-"]) {
     --bg-primary: #fefefe;
     --bg-secondary: #f8f9fa;
     --bg-tertiary: #f1f3f5;
@@ -320,43 +307,38 @@ body.theme-light-high-contrast {
     --accent-secondary: #6d28d9;
     --accent-tertiary: #5b21b6;
     --accent-hover: #8b5cf6;
-    --accent-focus: #a78bfa;
-    --accent-muted: #9333ea;
-    --accent-bright: #c084fc;
     
     --text-primary: #0f172a;
     --text-secondary: #1e293b;
     --text-tertiary: #475569;
     --text-muted: #64748b;
-    --text-disabled: #94a3b8;
-    --text-accent: #7c3aed;
+    --text-accent: #ffffff;
     
     --border-primary: #e2e8f0;
     --border-secondary: #f1f5f9;
     --border-accent: #7c3aed;
-    --border-focus: #8b5cf6;
-    --border-subtle: #f8fafc;
     
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
     --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
     --shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.3);
-    --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.2);
   }
 }
 
-/* Global styles for enhanced appearance */
-* {
+/* Universal box-sizing and font smoothing */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
   font-size: 16px;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -365,73 +347,51 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   font-weight: var(--font-normal);
-  line-height: var(--leading-normal);
   color: var(--text-primary);
   background-color: var(--bg-primary);
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Selection styling */
+/* Selection Styling */
 ::selection {
   background-color: var(--accent-primary);
-  color: var(--bg-primary);
+  color: var(--text-accent);
 }
-
 ::-moz-selection {
   background-color: var(--accent-primary);
-  color: var(--bg-primary);
+  color: var(--text-accent);
 }
 
-/* Focus styling */
+/* Focus Styling for Accessibility */
 :focus {
   outline: none;
 }
-
 :focus-visible {
-  outline: 2px solid var(--accent-focus);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-/* Scrollbar styling */
+/* Custom Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
-
 ::-webkit-scrollbar-track {
   background: var(--bg-secondary);
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--accent-muted);
   border-radius: var(--radius-full);
+  border: 2px solid var(--bg-secondary);
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
 }
 
-/* Utility classes */
-.text-accent {
-  color: var(--accent-primary);
-}
-
-.bg-accent {
-  background-color: var(--accent-primary);
-}
-
-.border-accent {
-  border-color: var(--accent-primary);
-}
-
-.shadow-glow {
-  box-shadow: var(--shadow-glow);
-}
+/* ===================================================================================
+ *  UTILITY CLASSES & ANIMATIONS
+ * =================================================================================== */
 
 .gradient-text {
   background: var(--gradient-primary);
@@ -441,60 +401,26 @@ html {
 }
 
 .transition-all {
-  transition: all var(--transition-normal);
+  transition-property: all;
+  transition-timing-function: var(--transition-normal);
+  transition-duration: var(--transition-normal);
 }
 
-/* Animation utilities */
+/* Keyframe Animations */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn var(--transition-normal) ease-out;
-}
-
-.animate-slide-in {
-  animation: slideIn var(--transition-normal) ease-out;
+  animation: fadeIn var(--transition-slow) ease-out;
 }
 
 .animate-pulse {
   animation: pulse 2s infinite;
-}
-
-/* Responsive design helpers */
-@media (max-width: 768px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 480px) {
-  html {
-    font-size: 13px;
-  }
 }

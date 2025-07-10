@@ -8937,11 +8937,10 @@ window.addEventListener('message', (event) => {
     }
   }
 });
-
-// VVPProgressManager class - Add this to your renderer.js
+// VVPProgressManager class - CORRECTED to always be on top.
 class VVPProgressManager {
   constructor() {
-    this.overlay = null;
+    this.overlay = null; // This will now be the main container div
     this.progressFill = null;
     this.progressPercentage = null;
     this.elapsedTimeElement = null;
@@ -8958,7 +8957,7 @@ class VVPProgressManager {
     
     // Smooth interpolation settings
     this.interpolationSpeed = 0.05; // Lower = smoother
-    this.readIntervalMs = 1500; // Read file every 250ms
+    this.readIntervalMs = 1500; // Read file every 1.5s
   }
 
   async resolveProgressPath(name) {
@@ -8983,14 +8982,13 @@ class VVPProgressManager {
     }
   }
 
-  // Delete before you show
   async deleteProgressFile(name) {
     try {
       const pathToDelete = await this.resolveProgressPath(name);
       const exists = await window.electronAPI.fileExists(pathToDelete);
 
       if (!exists) {
-        console.log(`No progress file to delete at ${pathToDelete}`);
+        // console.log(`No progress file to delete at ${pathToDelete}`);
         return false;
       }
 
@@ -9004,23 +9002,21 @@ class VVPProgressManager {
     }
   }
 
-  // Show the overlay and start polling
   async show(name) {
     if (this.isVisible) return;
 
     try {
-      // 1) delete old file first
       await this.deleteProgressFile(name);
-
-      // 2) now resolve and store for future reads
       this.progressPath = await this.resolveProgressPath(name);
 
-      // 3) build UI
-      if (!this.overlay) this.createOverlay();
-      this.currentProgress = this.targetProgress = 0;
-      this.startTime = Date.now();
-      this.eventsCount = 0;
-
+      // --- CHANGE ---
+      // Ensure the overlay is created before showing
+      if (!this.overlay) {
+        this.createOverlay();
+      }
+      
+      this.resetState();
+      
       this.overlay.classList.add('vvp-progress-visible');
       this.isVisible = true;
 
@@ -9039,7 +9035,6 @@ class VVPProgressManager {
     this.isVisible = false;
     this.isReading = false;
     
-    // Clear intervals and animation
     if (this.readInterval) {
       clearInterval(this.readInterval);
       this.readInterval = null;
@@ -9050,62 +9045,85 @@ class VVPProgressManager {
       this.animationFrame = null;
     }
     
-    // Hide overlay
     if (this.overlay) {
       this.overlay.classList.remove('vvp-progress-visible');
     }
   }
 
+  /**
+   * Resets the visual state of the progress bar for a new run.
+   */
+  resetState() {
+    this.currentProgress = 0;
+    this.targetProgress = 0;
+    this.startTime = Date.now();
+    this.eventsCount = 0;
+    
+    const infoElement = this.overlay.querySelector('.vvp-progress-info');
+    if (infoElement) {
+        infoElement.classList.remove('vvp-complete', 'vvp-error');
+    }
 
+    if (this.progressFill) this.progressFill.style.width = '0%';
+    if (this.progressPercentage) this.progressPercentage.textContent = '0%';
+    if (this.elapsedTimeElement) this.elapsedTimeElement.textContent = '0s';
+    if (this.eventsCountElement) this.eventsCountElement.textContent = '0';
+  }
+
+
+  // =================================================================
+  //  CORE CHANGE: This function now creates the overlay correctly.
+  // =================================================================
   createOverlay() {
-    // Create overlay HTML
-    const overlayHTML = `
-      <div class="vvp-progress-overlay">
+    // 1. Check if it already exists in the DOM to prevent duplicates.
+    if (document.querySelector('.vvp-progress-overlay')) {
+      this.overlay = document.querySelector('.vvp-progress-overlay');
+    } else {
+      // 2. Define the INNER HTML of the overlay.
+      const infoHTML = `
         <div class="vvp-progress-info">
-          <div class="vvp-progress-icon">
-            <div class="vvp-spinner"></div>
+          <div class="vvp-progress-header">
+            <h2 class="vvp-progress-title">VVP Simulation</h2> <i class="fa-solid fa-circle-notch fa-spin"></i>
           </div>
-          <span class="vvp-progress-text">
-            VVP Simulation in Progress
-          </span>
-          
-          <div class="vvp-progress-bar-wrapper">
+          <div class="vvp-progress-main">
             <div class="vvp-progress-bar">
               <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
-              <div class="vvp-progress-glow"></div>
             </div>
             <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
           </div>
-          
           <div class="vvp-progress-stats">
             <div class="vvp-stat">
-              <span class="vvp-stat-label"><i class="fa-solid fa-clock"></i> Time</span>
+              <span class="vvp-stat-label">
+                <i class="fa-solid fa-clock"></i>
+                Elapsed Time
+              </span>
               <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
             </div>
             <div class="vvp-stat">
-            <span class="vvp-stat-label"><i class="fa-solid fa-arrow-rotate-right"></i> Events</span>
-             <span class="vvp-stat-value" id="vvp-events-count">0</span>
+              <span class="vvp-stat-label">
+                <i class="fa-solid fa-arrow-rotate-right"></i>
+                Processed Events
+              </span>
+              <span class="vvp-stat-value" id="vvp-events-count">0</span>
             </div>
           </div>
         </div>
-      </div>
-    `;
-    
-    // Find the TWAVE terminal and add the overlay after it
-    const twaveTerminal = document.getElementById('terminal-twave');
-    if (twaveTerminal) {
-      twaveTerminal.insertAdjacentHTML('afterend', overlayHTML);
-    } else {
-      // Fallback: add to body if terminal not found
-      document.body.insertAdjacentHTML('beforeend', overlayHTML);
+      `;
+      
+      // 3. Create the main container element.
+      this.overlay = document.createElement('div');
+      this.overlay.className = 'vvp-progress-overlay';
+      this.overlay.innerHTML = infoHTML;
+      
+      // 4. CRITICAL: Append the container to the document body.
+      document.body.appendChild(this.overlay);
     }
     
-    // Get references
-    this.overlay = document.querySelector('.vvp-progress-overlay');
-    this.progressFill = document.getElementById('vvp-progress-fill');
-    this.progressPercentage = document.getElementById('vvp-progress-percentage');
-    this.elapsedTimeElement = document.getElementById('vvp-elapsed-time');
-    this.eventsCountElement = document.getElementById('vvp-events-count');
+    // 5. Get references to the inner elements.
+    this.progressFill = this.overlay.querySelector('#vvp-progress-fill');
+    this.progressPercentage = this.overlay.querySelector('#vvp-progress-percentage');
+    this.elapsedTimeElement = this.overlay.querySelector('#vvp-elapsed-time');
+    this.eventsCountElement = this.overlay.querySelector('#vvp-events-count');
   }
 
   async startProgressReading() {
@@ -9116,35 +9134,30 @@ class VVPProgressManager {
       
       try {
         const fileExists = await window.electronAPI.fileExists(this.progressPath);
-        console.log(`File exists check: ${this.progressPath} - ${fileExists ? 'EXISTS' : 'NOT FOUND'}`);
+        // console.log(`File exists check: ${this.progressPath} - ${fileExists ? 'EXISTS' : 'NOT FOUND'}`);
         
         if (fileExists) {
           const content = await window.electronAPI.readFile(this.progressPath);
-          console.log('Raw file content:', JSON.stringify(content));
+          // console.log('Raw file content:', JSON.stringify(content));
           
-          // Split by lines and get the last non-empty line (latest progress)
           const lines = content.split('\n').filter(line => line.trim() !== '');
-          console.log('Progress lines found:', lines);
+          // console.log('Progress lines found:', lines);
           
           if (lines.length > 0) {
             const lastLine = lines[lines.length - 1].trim();
             const progress = parseInt(lastLine);
             
-            console.log(`Latest progress line: "${lastLine}" -> Parsed: ${progress}`);
+            // console.log(`Latest progress line: "${lastLine}" -> Parsed: ${progress}`);
             
             if (!isNaN(progress) && progress >= 0 && progress <= 100) {
-              console.log(`Progress updated from ${this.targetProgress}% to ${progress}%`);
+              // console.log(`Progress updated from ${this.targetProgress}% to ${progress}%`);
               this.targetProgress = progress;
               
-              // Calculate simulated events count based on progress
-              // This simulates the number of simulation events processed
-              // Formula: progress * 10 + random variation (0-50) to make it look realistic
               this.eventsCount = Math.floor(progress * 10 + Math.random() * 50);
               if (this.eventsCountElement) {
                 this.eventsCountElement.textContent = this.eventsCount.toLocaleString();
               }
 
-              // Stop reading and timing when compilation reaches 100%
               if (progress >= 100) {
                 console.log('Compilation completed (100%), stopping progress monitoring');
                 this.isReading = false;
@@ -9152,25 +9165,21 @@ class VVPProgressManager {
                   clearInterval(this.readInterval);
                   this.readInterval = null;
                 }
+                const infoElement = this.overlay.querySelector('.vvp-progress-info');
+                if (infoElement) infoElement.classList.add('vvp-complete');
               }
-            } else {
-              console.warn(`Invalid progress value: "${lastLine}" -> ${progress}`);
             }
-          } else {
-            console.log('No progress lines found in file');
           }
-        } else {
-          console.log('Progress file does not exist yet');
         }
       } catch (error) {
         console.error('Error reading progress file:', error);
+        const infoElement = this.overlay.querySelector('.vvp-progress-info');
+        if (infoElement) infoElement.classList.add('vvp-error');
+        this.isReading = false;
       }
     };
     
-    // Read immediately
     await readProgress();
-    
-    // Set up interval
     this.readInterval = setInterval(readProgress, this.readIntervalMs);
   }
 
@@ -9178,27 +9187,24 @@ class VVPProgressManager {
     const animate = () => {
       if (!this.isVisible) return;
       
-      // Smooth interpolation
       const diff = this.targetProgress - this.currentProgress;
       if (Math.abs(diff) > 0.1) {
         this.currentProgress += diff * this.interpolationSpeed;
-        console.log(`Animating progress: ${this.currentProgress.toFixed(1)}% -> target: ${this.targetProgress}%`);
+        // console.log(`Animating progress: ${this.currentProgress.toFixed(1)}% -> target: ${this.targetProgress}%`);
       } else {
         this.currentProgress = this.targetProgress;
       }
       
-      // Update UI
-      const roundedProgress = Math.round(this.currentProgress * 10) / 10;
+      const roundedProgress = Math.round(this.currentProgress);
       
       if (this.progressFill) {
-        this.progressFill.style.width = `${roundedProgress}%`;
+        this.progressFill.style.width = `${this.currentProgress}%`;
       }
       
       if (this.progressPercentage) {
-        this.progressPercentage.textContent = `${Math.round(roundedProgress)}%`;
+        this.progressPercentage.textContent = `${roundedProgress}%`;
       }
       
-      // Continue animation
       this.animationFrame = requestAnimationFrame(animate);
     };
     
@@ -9221,7 +9227,6 @@ class VVPProgressManager {
         this.elapsedTimeElement.textContent = timeString;
       }
       
-      // Stop timer when compilation is complete (100%)
       if (this.isVisible && this.targetProgress < 100) {
         setTimeout(updateTime, 1000);
       }
@@ -9233,4 +9238,3 @@ class VVPProgressManager {
 
 // Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
-

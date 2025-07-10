@@ -1180,65 +1180,6 @@ function init() {
     }, ICON_TRANSITION_DURATION);
   }
   
- // Modern Toggle Styles Function
-function addToggleStyles() {
-  const styleElement = document.createElement('style');
-  styleElement.textContent = `
-    /* Toggle UI Animation Styles */
-    #settings, #settings-project {
-      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-      transform: translateY(0);
-    }
-    
-    #settings:hover, #settings-project:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-    
-    /* Modal visibility and animation */
-    .modalConfig {
-      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-      transform: scale(0.95);
-      opacity: 0;
-    }
-    
-    .modalConfig.active {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      transform: scale(1);
-    }
-    
-    /* Status text transitions */
-    #processorProjectOriented, #processorNameID {
-      transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    /* Smooth icon transitions */
-    .toolbar-button i {
-      transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .toolbar-button:hover i {
-      transform: scale(1.1);
-    }
-    
-    /* Disabled state styling */
-    .toolbar-button.disabled {
-      opacity: 0.4;
-      cursor: not-allowed !important;
-      pointer-events: none;
-    }
-    
-    .toolbar-button.disabled i {
-      opacity: 0.5;
-    }
-  `;
-  document.head.appendChild(styleElement);
-}
-
-  
-  
 // Cache for processor instances mapping
 let processorInstancesMap = {};
 
@@ -1631,25 +1572,7 @@ function addToggleStyles() {
       transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    /* Smooth icon transitions */
-    .toolbar-button i {
-      transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .toolbar-button:hover i {
-      transform: scale(1.1);
-    }
-    
-    /* Disabled state styling */
-    .toolbar-button.disabled {
-      opacity: 0.4;
-      cursor: not-allowed !important;
-      pointer-events: none;
-    }
-    
-    .toolbar-button.disabled i {
-      opacity: 0.5;
-    }
+
   `;
   document.head.appendChild(styleElement);
 }

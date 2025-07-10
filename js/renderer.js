@@ -6490,7 +6490,7 @@ class CompilationModule {
       if (projectParam === null) {
           projectParam = this.isProjectOriented ? 1 : 0;
       }
-      
+
       cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
       this.terminalManager.appendToTerminal('twave', `Executing command: ${cmd}`);
 
@@ -7362,7 +7362,7 @@ function setupCompilationButtons() {
 
 // Functions to use in your renderer.js
 function showVVPProgress(name) {
-
+  vvpProgressManager.deleteProgressFile(name);
   return vvpProgressManager.show(name);
 }
 
@@ -7420,7 +7420,7 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
   }
 });
 
-
+// Updated regular compilation button handler
 // Updated regular compilation button handler
 document.getElementById('allcomp').addEventListener('click', async () => {
   if (!isProcessorConfigured()) {
@@ -7438,11 +7438,99 @@ document.getElementById('allcomp').addEventListener('click', async () => {
   
   try {
     const compiler = new CompilationModule(currentProjectPath);
-    const success = await compiler.compileAll();
+    await compiler.loadConfig();
     
-    if (!compilationCanceled && success) {
-      console.log('All compilations completed successfully');
+    // Check toggle-ui button state to determine compilation mode
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    if (isProjectMode) {
+      // PROJECT MODE: Process all processors from projectoriented.json
+      if (compiler.projectConfig && compiler.projectConfig.processors) {
+        const processedTypes = new Set();
+        
+        // Switch to CMM terminal for processor compilation
+        switchTerminal('terminal-tcmm');
+        
+        for (const processor of compiler.projectConfig.processors) {
+          checkCancellation();
+          
+          if (processedTypes.has(processor.type)) {
+            compiler.terminalManager.appendToTerminal('tcmm', `Skipping duplicate processor type: ${processor.type}`);
+            continue;
+          }
+          
+          processedTypes.add(processor.type);
+          
+          try {
+            const processorObj = {
+              name: processor.type,
+              type: processor.type,
+              instance: processor.instance
+            };
+            
+            checkCancellation();
+            compiler.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
+            await compiler.ensureDirectories(processor.type);
+            
+            // CMM compilation
+            const asmPath = await compiler.cmmCompilation(processorObj);
+            checkCancellation();
+            
+            // ASM compilation with project parameter = 1
+            await compiler.asmCompilation(processorObj, asmPath, 1);
+            
+          } catch (error) {
+            compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
+            throw error; // Re-throw to stop compilation
+          }
+        }
+        
+        // After processing all processors, run project verilog and GTKWave
+        switchTerminal('terminal-tveri');
+        checkCancellation();
+        await compiler.iverilogProjectCompilation();
+        
+        switchTerminal('terminal-twave');
+        checkCancellation();
+        await compiler.runProjectGtkWave();
+        
+      } else {
+        throw new Error('No processors defined in projectoriented.json');
+      }
+      
+    } else {
+      // PROCESSOR MODE: Process only the active processor
+      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
+      }
+      
+      const processor = activeProcessor;
+      await compiler.ensureDirectories(processor.name);
+      
+      // CMM -> ASM -> Verilog -> GTKWave sequence
+      switchTerminal('terminal-tcmm');
+      checkCancellation();
+      const asmPath = await compiler.cmmCompilation(processor);
+      
+      checkCancellation();
+      await compiler.asmCompilation(processor, asmPath, 0); // Project parameter = 0
+      
+      switchTerminal('terminal-tveri');
+      checkCancellation();
+      await compiler.iverilogCompilation(processor);
+      
+      switchTerminal('terminal-twave');
+      checkCancellation();
+      await compiler.runGtkWave(processor);
     }
+    
+    if (!compilationCanceled) {
+      console.log('All compilations completed successfully');
+      await refreshFileTree();
+    }
+    
   } catch (error) {
     if (!compilationCanceled) {
       console.error('Compilation error:', error);
@@ -7451,6 +7539,52 @@ document.getElementById('allcomp').addEventListener('click', async () => {
   } finally {
     isCompilationRunning = false;
     compilationCanceled = false;
+    endCompilation();
+  }
+});
+
+// Updated fractal compilation button event listener
+document.getElementById('fractalcomp').addEventListener('click', async () => {
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
+    return;
+  }
+  
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+  
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  
+  try {
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    // Check toggle-ui button state to determine compilation mode
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    // Set compiler mode and run the appropriate compileAll method
+    compiler.isProjectOriented = isProjectMode;
+    const success = await compiler.compileAll();
+    
+    if (!compilationCanceled && success) {
+      // After successful compilation, launch fractal visualizer
+      await compiler.launchFractalVisualizersForProject('fire');
+      console.log('Fractal compilation completed successfully');
+    }
+    
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Fractal compilation error:', error);
+      showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    isCompilationRunning = false;
+    compilationCanceled = false;
+    endCompilation();
   }
 });
 
@@ -7636,8 +7770,6 @@ function checkCancellation() {
   }
 }
 
-
-
 // Add this to your existing keyboard event handler or create a new one
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
@@ -7769,67 +7901,74 @@ class CompilationButtonManager {
     });
 
     // ASM Compilation
-    document.getElementById('asmcomp').addEventListener('click', async () => {
-      try {
-        // Check if processor is configured
-        if (!isProcessorConfigured()) {
-          showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
-          return;
-        }
-        startCompilation();
-        
-        // Set compilation flags
-        isCompilationRunning = true;
-        compilationCanceled = false;
-        
-        if (!this.compiler) this.initializeCompiler();
-        
-        await this.compiler.loadConfig();
-        
-        // Check if canceled before proceeding
-        if (compilationCanceled) return;
-        
-        // Get the active processor instead of the first one
-        const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
-        if (!activeProcessor) {
-          throw new Error("No active processor found. Please set isActive: true for one processor.");
-        }
-        
-        const processor = activeProcessor;
-        
-        // Find the most recent .asm file
-        const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
-        const files = await window.electronAPI.readDir(softwarePath);
-        const asmFile = files.find(file => file.endsWith('.asm'));
-        
-        if (!asmFile) {
-          throw new Error('No .asm file found. Please compile CMM first.');
-        }
+    // ASM Compilation
+document.getElementById('asmcomp').addEventListener('click', async () => {
+  try {
+    // Check if processor is configured
+    if (!isProcessorConfigured()) {
+      showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
+      return;
+    }
+    startCompilation();
+    
+    // Set compilation flags
+    isCompilationRunning = true;
+    compilationCanceled = false;
+    
+    if (!this.compiler) this.initializeCompiler();
+    
+    await this.compiler.loadConfig();
+    
+    // Check if canceled before proceeding
+    if (compilationCanceled) return;
+    
+    // Get the active processor instead of the first one
+    const activeProcessor = this.compiler.config.processors.find(p => p.isActive === true);
+    if (!activeProcessor) {
+      throw new Error("No active processor found. Please set isActive: true for one processor.");
+    }
+    
+    const processor = activeProcessor;
+    
+    // Find the most recent .asm file
+    const softwarePath = await window.electronAPI.joinPath(currentProjectPath, processor.name, 'Software');
+    const files = await window.electronAPI.readDir(softwarePath);
+    const asmFile = files.find(file => file.endsWith('.asm'));
+    
+    if (!asmFile) {
+      throw new Error('No .asm file found. Please compile CMM first.');
+    }
 
-        // Check if canceled before proceeding
-        if (compilationCanceled) return;
+    // Check if canceled before proceeding
+    if (compilationCanceled) return;
 
-        const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
-        await this.compiler.asmCompilation(processor, asmPath);
-        
-        // Check if canceled before completing
-        if (!compilationCanceled) {
-          // Update file tree after compilation
-          await refreshFileTree();
-        }
-      } catch (error) {
-        if (!compilationCanceled) {
-          console.error('ASM compilation error:', error);
-          showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
-          endCompilation();
-        }
-      } finally {
-        // Reset compilation flags
-        isCompilationRunning = false;
-        compilationCanceled = false;
-        endCompilation();
-      }
-    });
+    const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
+    
+    // Check toggle-ui button state and pass the correct projectParam
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    const projectParam = isProjectMode ? 1 : 0;
+    
+    await this.compiler.asmCompilation(processor, asmPath, projectParam);
+    
+    // Check if canceled before completing
+    if (!compilationCanceled) {
+      // Update file tree after compilation
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('ASM compilation error:', error);
+      showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
+      endCompilation();
+    }
+  } finally {
+    // Reset compilation flags
+    isCompilationRunning = false;
+    compilationCanceled = false;
+    endCompilation();
+  }
+});
 
     // Verilog Compilation
     document.getElementById('vericomp').addEventListener('click', async () => {
@@ -8802,50 +8941,77 @@ class VVPProgressManager {
     this.readIntervalMs = 1500; // Read file every 250ms
   }
 
-async show(name) {
-  if (this.isVisible) return;
-  
-  try {
-    // Check if toggle-ui button is active
-    const toggleButton = document.getElementById('toggle-ui');
-    const isToggleActive = toggleButton && toggleButton.classList.contains('active');
-    
-    // Determine progress file path based on toggle state
-    if (isToggleActive) {
-      this.progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', 'progress.txt');
+  async resolveProgressPath(name) {
+    const toggleBtn = document.getElementById('toggle-ui');
+    const useFlat = toggleBtn && toggleBtn.classList.contains('active');
+
+    if (useFlat) {
+      // flat file under Temp
+      return await window.electronAPI.joinPath(
+        'saphoComponents',
+        'Temp',
+        'progress.txt'
+      );
     } else {
-      // Use default path in saphoComponents/Temp
-      this.progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+      // per-run subfolder under Temp
+      return await window.electronAPI.joinPath(
+        'saphoComponents',
+        'Temp',
+        name,
+        'progress.txt'
+      );
     }
-    
-    // Create overlay if it doesn't exist
-    if (!this.overlay) {
-      this.createOverlay();
-    }
-    
-    // Reset progress
-    this.currentProgress = 0;
-    this.targetProgress = 0;
-    this.startTime = Date.now();
-    this.eventsCount = 0;
-    
-    // Show overlay
-    this.overlay.classList.add('vvp-progress-visible');
-    this.isVisible = true;
-    
-    // Start reading progress file
-    this.startProgressReading();
-    
-    // Start animation loop
-    this.startAnimationLoop();
-    
-    // Start time counter
-    this.startTimeCounter();
-    
-  } catch (error) {
-    console.error('Error showing VVP progress:', error);
   }
-}
+
+  // Delete before you show
+  async deleteProgressFile(name) {
+    try {
+      const pathToDelete = await this.resolveProgressPath(name);
+      const exists = await window.electronAPI.fileExists(pathToDelete);
+
+      if (!exists) {
+        console.log(`No progress file to delete at ${pathToDelete}`);
+        return false;
+      }
+
+      await window.electronAPI.deleteFileOrDirectory(pathToDelete);
+      console.log(`Deleted progress file at ${pathToDelete}`);
+      return true;
+
+    } catch (err) {
+      console.error('Failed to delete progress file:', err);
+      return false;
+    }
+  }
+
+  // Show the overlay and start polling
+  async show(name) {
+    if (this.isVisible) return;
+
+    try {
+      // 1) delete old file first
+      await this.deleteProgressFile(name);
+
+      // 2) now resolve and store for future reads
+      this.progressPath = await this.resolveProgressPath(name);
+
+      // 3) build UI
+      if (!this.overlay) this.createOverlay();
+      this.currentProgress = this.targetProgress = 0;
+      this.startTime = Date.now();
+      this.eventsCount = 0;
+
+      this.overlay.classList.add('vvp-progress-visible');
+      this.isVisible = true;
+
+      this.startProgressReading();
+      this.startAnimationLoop();
+      this.startTimeCounter();
+
+    } catch (error) {
+      console.error('Error showing VVP progress:', error);
+    }
+  }
 
   hide() {
     if (!this.isVisible) return;
@@ -8870,40 +9036,6 @@ async show(name) {
     }
   }
 
-  // Function to delete the progress.txt file before compilation
- async deleteProgressFile(name) {
-  try {
-    let progressPath;
-    
-    // Check if toggle-ui button is active
-    const toggleButton = document.getElementById('toggle-ui');
-    const isToggleActive = toggleButton && toggleButton.classList.contains('active');
-    
-    // Determine progress file path based on toggle state
-    if (isToggleActive && this.projectConfig && this.projectConfig.testbenchFile) {
-      // Get directory from testbench file path (remove filename)
-      const testbenchDir = this.projectConfig.testbenchFile.substring(0, this.projectConfig.testbenchFile.lastIndexOf('\\'));
-      progressPath = await window.electronAPI.joinPath(testbenchDir, 'progress.txt');
-    } else {
-      // Use default path in saphoComponents/Temp
-      progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-    }
-    
-    const fileExists = await window.electronAPI.fileExists(progressPath);
-    
-    if (fileExists) {
-      await window.electronAPI.deleteFile(progressPath);
-      console.log(`Progress file deleted: ${progressPath}`);
-      return true;
-    } else {
-      console.log(`Progress file does not exist: ${progressPath}`);
-      return false;
-    }
-  } catch (error) {
-    console.error('Error deleting progress file:', error);
-    return false;
-  }
-}
 
   createOverlay() {
     // Create overlay HTML

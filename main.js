@@ -71,95 +71,314 @@ let mainWindow, splashWindow;
  * 
 */
 
-// Function to create the main application window
+// Enhanced createMainWindow function with Windows-like behavior and smooth animations
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    minWidth: 800,
+    minHeight: 600,
+    frame: false,
+    transparent: true,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: true,
       webviewTag: true,
       preload: path.join(__dirname, 'js', 'preload.js'),
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false
     },
-    backgroundColor: '#1e1e1e',
     show: false,
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 10, y: 10 },
+    vibrancy: 'ultra-dark',
+    visualEffectState: 'followWindow',
+    backgroundMaterial: 'acrylic',
+    roundedCorners: true,
   });
 
+  // Load the main HTML file
   mainWindow.loadFile('index.html');
 
-   // Verificar se há um arquivo .spf para abrir
-   mainWindow.webContents.on('did-finish-load', () => {
+  // Handle file opening
+  mainWindow.webContents.on('did-finish-load', () => {
     if (fileToOpen) {
       mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
     }
   });
 
-  // Registrar o protocolo sapho: e a extensão .spf
-if (process.platform === 'win32') {
-  app.setAsDefaultProtocolClient('sapho');
-  app.setAppUserModelId(process.execPath);
-}
+  // Register protocol for Windows
+  if (process.platform === 'win32') {
+    app.setAsDefaultProtocolClient('sapho');
+    app.setAppUserModelId(process.execPath);
+  }
 
-  // Load user settings
   const settings = await loadSettings();
-  
-  // Apply auto-start setting
   applyAutoStartSettings(settings.startWithWindows);
-
-  // Create tray icon
   createTray();
 
-  // Handle window close
+  // Setup all window management features
+  setupWindowEventHandlers(settings);
+  setupWindowAnimations();
+  setupWindowStateManagement();
+  setupSmoothResizing();
+  setupWindowDragHandling();
+
+  // Handle app quit
+  app.on('before-quit', async () => {
+    isQuitting = true;
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+    try {
+      const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+      await fs.rm(tempFolderPath, { recursive: true, force: true });
+      await fs.mkdir(tempFolderPath, { recursive: true });
+      console.log('Temp folder cleared successfully');
+    } catch (error) {
+      console.error('Failed to clear temp folder:', error);
+    }
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+    mainWindow.webContents.send('window-maximized');
+    
+    setTimeout(() => {
+      initializeUpdateSystem();
+    }, 2000);
+  });
+
+  return mainWindow;
+}
+
+// Enhanced window event handlers with smooth animations
+function setupWindowEventHandlers(settings) {
   mainWindow.on('close', async (event) => {
     if (isQuitting) return;
-  
+
     try {
       const settings = await loadSettings();
-      
       if (settings.minimizeToTray) {
         event.preventDefault();
-        mainWindow.hide();
+        
+        // Smooth fade out animation
+        const originalOpacity = mainWindow.getOpacity();
+        const fadeSteps = 10;
+        const fadeDelay = 15;
+        
+        for (let i = fadeSteps; i >= 0; i--) {
+          setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.setOpacity(originalOpacity * (i / fadeSteps));
+              if (i === 0) {
+                mainWindow.hide();
+                mainWindow.setOpacity(originalOpacity);
+              }
+            }
+          }, (fadeSteps - i) * fadeDelay);
+        }
         return;
       }
     } catch (error) {
       console.error('Error checking settings:', error);
     }
   });
-  
-  // Handle app quit
-  app.on('before-quit', async () => {
-  isQuitting = true;
 
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
+  mainWindow.on('blur', () => {
+    mainWindow.webContents.send('window-blur');
+  });
 
-  try {
-    const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
-    await fs.rm(tempFolderPath, { recursive: true, force: true });
-    await fs.mkdir(tempFolderPath, { recursive: true });
-    console.log('Temp folder successfully cleared before quitting.');
-  } catch (error) {
-    console.error('Failed to clear Temp folder on app exit:', error);
-  }
-});
+  mainWindow.on('focus', () => {
+    mainWindow.webContents.send('window-focus');
+  });
 
+  mainWindow.on('move', debounce(() => {
+    mainWindow.webContents.send('window-moved');
+  }, 100));
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
-    mainWindow.show();
+  mainWindow.on('resize', debounce(() => {
+    mainWindow.webContents.send('window-resized');
+  }, 100));
+
+}
+
+// Setup smooth window animations
+function setupWindowAnimations() {
+  let animationTimeout;
+
+  mainWindow.on('maximize', () => {
+    clearTimeout(animationTimeout);
+    mainWindow.webContents.send('window-maximized');
     
-    // Inicializar sistema de updates com delay
-    setTimeout(() => {
-      initializeUpdateSystem();
-    }, 2000);
+    // Smooth animation
+    animationTimeout = setTimeout(() => {
+      mainWindow.webContents.send('window-animation-complete');
+    }, 300);
+  });
+
+  mainWindow.on('unmaximize', () => {
+    clearTimeout(animationTimeout);
+    mainWindow.webContents.send('window-restored');
+    
+    // Smooth animation
+    animationTimeout = setTimeout(() => {
+      mainWindow.webContents.send('window-animation-complete');
+    }, 300);
+  });
+
+  mainWindow.on('minimize', () => {
+    mainWindow.webContents.send('window-minimized');
+  });
+
+  mainWindow.on('restore', () => {
+    // Smooth restore animation
+    const targetOpacity = mainWindow.getOpacity();
+    mainWindow.setOpacity(0);
+    
+    const steps = 8;
+    const delay = 12;
+    
+    for (let i = 0; i <= steps; i++) {
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setOpacity(targetOpacity * (i / steps));
+        }
+      }, delay * i);
+    }
+    
+    mainWindow.webContents.send('window-restored-from-minimize');
   });
 }
 
+// Setup window state management IPC handlers
+function setupWindowStateManagement() {
+  ipcMain.on('minimize-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.on('maximize-restore-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.on('close-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+  }
+});
+
+ipcMain.on('set-window-bounds', (event, bounds) => {
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+    mainWindow.setBounds(bounds);
+  }
+});
+
+  ipcMain.on('show-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  ipcMain.on('hide-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.hide();
+    }
+  });
+}
+
+// Setup smooth resizing with enhanced performance
+function setupSmoothResizing() {
+  let resizeTimeout;
+  let isResizing = false;
+
+  mainWindow.on('will-resize', (event, newBounds) => {
+    if (isResizing) return;
+    
+    isResizing = true;
+    clearTimeout(resizeTimeout);
+    
+    // Throttle resize events for better performance
+    resizeTimeout = setTimeout(() => {
+      isResizing = false;
+    }, 16); // ~60fps
+  });
+
+  mainWindow.on('resize', () => {
+    mainWindow.webContents.send('window-resized');
+  });
+}
+
+// Setup window drag handling for custom title bar
+function setupWindowDragHandling() {
+  let isDragging = false;
+  let dragStartPos = { x: 0, y: 0 };
+  let windowStartPos = { x: 0, y: 0 };
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseDown' && input.button === 'left') {
+      const cursor = screen.getCursorScreenPoint();
+      const windowBounds = mainWindow.getBounds();
+      
+      // Check if cursor is in title bar area (assuming 32px height)
+      if (cursor.y >= windowBounds.y && cursor.y <= windowBounds.y + 32) {
+        isDragging = true;
+        dragStartPos = cursor;
+        windowStartPos = { x: windowBounds.x, y: windowBounds.y };
+      }
+    }
+  });
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseMove' && isDragging) {
+      const cursor = screen.getCursorScreenPoint();
+      const deltaX = cursor.x - dragStartPos.x;
+      const deltaY = cursor.y - dragStartPos.y;
+      
+      mainWindow.setPosition(
+        windowStartPos.x + deltaX,
+        windowStartPos.y + deltaY
+      );
+    }
+  });
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseUp' && input.button === 'left') {
+      isDragging = false;
+    }
+  });
+}
+
+// Utility function for smooth easing
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// Utility function for debouncing events
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 // Create a modern progress window for updates
 function createProgressWindow() {

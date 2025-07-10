@@ -187,6 +187,7 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 
 };
 
+
 const projectOperations = {
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
   closeProject: (spfPath) => ipcRenderer.invoke('project:close'),
@@ -244,6 +245,18 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
   onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
+
+minimizeWindow: () => ipcRenderer.send('minimize-window'),
+maximizeRestoreWindow: () => ipcRenderer.send('maximize-restore-window'),
+closeWindow: () => ipcRenderer.send('close-window'),
+getWindowState: () => ipcRenderer.invoke('get-window-state'),
+setWindowBounds: (bounds) => ipcRenderer.send('set-window-bounds', bounds),
+
+// Add these listeners
+onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
+onWindowRestored: (callback) => ipcRenderer.on('window-restored', callback),
+onWindowBlur: (callback) => ipcRenderer.on('window-blur', callback),
+onWindowFocus: (callback) => ipcRenderer.on('window-focus', callback),
 
     onUpdateProgress: (callback) => {
     const wrappedCallback = (event, data) => callback(data);

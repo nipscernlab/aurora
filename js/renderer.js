@@ -7421,7 +7421,6 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
 });
 
 // Updated regular compilation button handler
-// Updated regular compilation button handler
 document.getElementById('allcomp').addEventListener('click', async () => {
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
@@ -7447,41 +7446,62 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     if (isProjectMode) {
       // PROJECT MODE: Process all processors from projectoriented.json
       if (compiler.projectConfig && compiler.projectConfig.processors) {
-        const processedTypes = new Set();
+        // Load processor configuration to get CMM files and settings
+        const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
+        const processorConfigExists = await window.electronAPI.pathExists(configFilePath);
+        let processorConfig = null;
+        
+        if (processorConfigExists) {
+          const configContent = await window.electronAPI.readFile(configFilePath);
+          processorConfig = JSON.parse(configContent);
+        }
         
         // Switch to CMM terminal for processor compilation
         switchTerminal('terminal-tcmm');
         
-        for (const processor of compiler.projectConfig.processors) {
+        // First, compile CMM and ASM for all processors
+        for (const projectProcessor of compiler.projectConfig.processors) {
           checkCancellation();
           
-          if (processedTypes.has(processor.type)) {
-            compiler.terminalManager.appendToTerminal('tcmm', `Skipping duplicate processor type: ${processor.type}`);
+          // Find matching processor in config
+          const configProcessor = processorConfig ? 
+            processorConfig.processors.find(p => p.name === projectProcessor.type) : null;
+          
+          if (!configProcessor) {
+            compiler.terminalManager.appendToTerminal('tcmm', `Warning: No configuration found for processor ${projectProcessor.type}`, 'warning');
             continue;
           }
           
-          processedTypes.add(processor.type);
+          // Create processor object with all required properties
+          const processorObj = {
+            name: projectProcessor.type,
+            type: projectProcessor.type,
+            instance: projectProcessor.instance,
+            clk: configProcessor.clk || 1000,
+            numClocks: configProcessor.numClocks || 2000,
+            testbenchFile: configProcessor.testbenchFile || 'standard',
+            gtkwFile: configProcessor.gtkwFile || 'standard',
+            cmmFile: configProcessor.cmmFile || `${projectProcessor.type}.cmm`,
+            isActive: false // Not needed in project mode
+          };
           
           try {
-            const processorObj = {
-              name: processor.type,
-              type: processor.type,
-              instance: processor.instance
-            };
-            
-            checkCancellation();
-            compiler.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
-            await compiler.ensureDirectories(processor.type);
+            compiler.terminalManager.appendToTerminal('tcmm', `Processing ${projectProcessor.type}...`);
+            await compiler.ensureDirectories(projectProcessor.type);
             
             // CMM compilation
-            const asmPath = await compiler.cmmCompilation(processorObj);
             checkCancellation();
+            const asmPath = await compiler.cmmCompilation(processorObj);
             
             // ASM compilation with project parameter = 1
+            checkCancellation();
+            switchTerminal('terminal-tasm');
             await compiler.asmCompilation(processorObj, asmPath, 1);
             
+            switchTerminal('terminal-tcmm');
+            
           } catch (error) {
-            compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${processor.type}: ${error.message}`, 'error');
+            compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${projectProcessor.type}: ${error.message}`, 'error');
             throw error; // Re-throw to stop compilation
           }
         }
@@ -7500,7 +7520,7 @@ document.getElementById('allcomp').addEventListener('click', async () => {
       }
       
     } else {
-      // PROCESSOR MODE: Process only the active processor
+      // PROCESSOR MODE: Process only the active processor (unchanged)
       const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
       if (!activeProcessor) {
         throw new Error("No active processor found. Please set isActive: true for one processor.");

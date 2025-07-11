@@ -24,6 +24,7 @@ const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
 const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
+const { screen } = require('electron');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -72,6 +73,7 @@ let mainWindow, splashWindow;
 */
 
 // Enhanced createMainWindow function with Windows-like behavior and smooth animations
+// Enhanced createMainWindow function with proper Windows-like behavior
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -93,11 +95,14 @@ async function createMainWindow() {
     },
     show: false,
     titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 10, y: 10 },
-    vibrancy: 'ultra-dark',
-    visualEffectState: 'followWindow',
-    backgroundMaterial: 'acrylic',
+    backgroundColor: '#00000000', // Fully transparent
+    hasShadow: true,
     roundedCorners: true,
+    // Windows-specific properties
+    ...(process.platform === 'win32' && {
+      thickFrame: false,
+      skipTaskbar: false,
+    })
   });
 
   // Load the main HTML file
@@ -125,7 +130,6 @@ async function createMainWindow() {
   setupWindowAnimations();
   setupWindowStateManagement();
   setupSmoothResizing();
-  setupWindowDragHandling();
 
   // Handle app quit
   app.on('before-quit', async () => {
@@ -145,9 +149,14 @@ async function createMainWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
+    // Show window with smooth fade-in animation
+    mainWindow.setOpacity(0);
     mainWindow.show();
-    mainWindow.webContents.send('window-maximized');
+    
+    // Smooth fade-in animation
+    animateOpacity(mainWindow, 0, 1, 200, () => {
+      mainWindow.focus();
+    });
     
     setTimeout(() => {
       initializeUpdateSystem();
@@ -157,7 +166,7 @@ async function createMainWindow() {
   return mainWindow;
 }
 
-// Enhanced window event handlers with smooth animations
+// Enhanced window event handlers with proper state management
 function setupWindowEventHandlers(settings) {
   mainWindow.on('close', async (event) => {
     if (isQuitting) return;
@@ -167,22 +176,11 @@ function setupWindowEventHandlers(settings) {
       if (settings.minimizeToTray) {
         event.preventDefault();
         
-        // Smooth fade out animation
-        const originalOpacity = mainWindow.getOpacity();
-        const fadeSteps = 10;
-        const fadeDelay = 15;
-        
-        for (let i = fadeSteps; i >= 0; i--) {
-          setTimeout(() => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.setOpacity(originalOpacity * (i / fadeSteps));
-              if (i === 0) {
-                mainWindow.hide();
-                mainWindow.setOpacity(originalOpacity);
-              }
-            }
-          }, (fadeSteps - i) * fadeDelay);
-        }
+        // Smooth fade out animation before hiding
+        animateOpacity(mainWindow, mainWindow.getOpacity(), 0, 150, () => {
+          mainWindow.hide();
+          mainWindow.setOpacity(1);
+        });
         return;
       }
     } catch (error) {
@@ -199,37 +197,24 @@ function setupWindowEventHandlers(settings) {
   });
 
   mainWindow.on('move', debounce(() => {
-    mainWindow.webContents.send('window-moved');
-  }, 100));
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-moved');
+    }
+  }, 50));
 
   mainWindow.on('resize', debounce(() => {
-    mainWindow.webContents.send('window-resized');
-  }, 100));
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-resized');
+    }
+  }, 50));
 
-}
-
-// Setup smooth window animations
-function setupWindowAnimations() {
-  let animationTimeout;
-
+  // Handle window state changes
   mainWindow.on('maximize', () => {
-    clearTimeout(animationTimeout);
     mainWindow.webContents.send('window-maximized');
-    
-    // Smooth animation
-    animationTimeout = setTimeout(() => {
-      mainWindow.webContents.send('window-animation-complete');
-    }, 300);
   });
 
   mainWindow.on('unmaximize', () => {
-    clearTimeout(animationTimeout);
     mainWindow.webContents.send('window-restored');
-    
-    // Smooth animation
-    animationTimeout = setTimeout(() => {
-      mainWindow.webContents.send('window-animation-complete');
-    }, 300);
   });
 
   mainWindow.on('minimize', () => {
@@ -238,20 +223,7 @@ function setupWindowAnimations() {
 
   mainWindow.on('restore', () => {
     // Smooth restore animation
-    const targetOpacity = mainWindow.getOpacity();
-    mainWindow.setOpacity(0);
-    
-    const steps = 8;
-    const delay = 12;
-    
-    for (let i = 0; i <= steps; i++) {
-      setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.setOpacity(targetOpacity * (i / steps));
-        }
-      }, delay * i);
-    }
-    
+    animateOpacity(mainWindow, 0, 1, 200);
     mainWindow.webContents.send('window-restored-from-minimize');
   });
 }
@@ -259,43 +231,75 @@ function setupWindowAnimations() {
 // Setup window state management IPC handlers
 function setupWindowStateManagement() {
   ipcMain.on('minimize-window', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.minimize();
-  }
-});
-
-ipcMain.on('maximize-restore-window', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize();
     }
-  }
-});
+  });
 
-ipcMain.on('close-window', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.close();
-  }
-});
+  ipcMain.on('maximize-restore-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+    }
+  });
 
-ipcMain.on('set-window-bounds', (event, bounds) => {
-  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
-    mainWindow.setBounds(bounds);
-  }
-});
+  ipcMain.on('close-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Smooth close animation
+      animateOpacity(mainWindow, mainWindow.getOpacity(), 0, 200, () => {
+        mainWindow.close();
+      });
+    }
+  });
+
+  ipcMain.handle('get-window-state', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      return {
+        isMaximized: mainWindow.isMaximized(),
+        isMinimized: mainWindow.isMinimized(),
+        isFullScreen: mainWindow.isFullScreen(),
+        bounds: mainWindow.getBounds(),
+        position: mainWindow.getPosition(),
+        size: mainWindow.getSize()
+      };
+    }
+    return null;
+  });
+
+  ipcMain.on('set-window-bounds', (event, bounds) => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+      // Validate bounds
+      const displays = screen.getAllDisplays();
+      const primaryDisplay = screen.getPrimaryDisplay();
+      
+      // Ensure window stays within screen bounds
+      bounds.x = Math.max(0, Math.min(bounds.x, primaryDisplay.workAreaSize.width - bounds.width));
+      bounds.y = Math.max(0, Math.min(bounds.y, primaryDisplay.workAreaSize.height - bounds.height));
+      
+      mainWindow.setBounds(bounds, true);
+    }
+  });
 
   ipcMain.on('show-window', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      } else {
+        mainWindow.show();
+      }
       mainWindow.focus();
     }
   });
 
   ipcMain.on('hide-window', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.hide();
+      animateOpacity(mainWindow, mainWindow.getOpacity(), 0, 150, () => {
+        mainWindow.hide();
+        mainWindow.setOpacity(1);
+      });
     }
   });
 }
@@ -318,48 +322,70 @@ function setupSmoothResizing() {
   });
 
   mainWindow.on('resize', () => {
-    mainWindow.webContents.send('window-resized');
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-resized');
+    }
   });
 }
 
-// Setup window drag handling for custom title bar
-function setupWindowDragHandling() {
-  let isDragging = false;
-  let dragStartPos = { x: 0, y: 0 };
-  let windowStartPos = { x: 0, y: 0 };
+// Setup window animations
+function setupWindowAnimations() {
+  let animationTimeout;
 
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'mouseDown' && input.button === 'left') {
-      const cursor = screen.getCursorScreenPoint();
-      const windowBounds = mainWindow.getBounds();
-      
-      // Check if cursor is in title bar area (assuming 32px height)
-      if (cursor.y >= windowBounds.y && cursor.y <= windowBounds.y + 32) {
-        isDragging = true;
-        dragStartPos = cursor;
-        windowStartPos = { x: windowBounds.x, y: windowBounds.y };
+  mainWindow.on('maximize', () => {
+    clearTimeout(animationTimeout);
+    
+    // Add smooth transition class
+    mainWindow.webContents.send('window-maximized');
+    
+    animationTimeout = setTimeout(() => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('window-animation-complete');
       }
-    }
+    }, 300);
   });
 
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'mouseMove' && isDragging) {
-      const cursor = screen.getCursorScreenPoint();
-      const deltaX = cursor.x - dragStartPos.x;
-      const deltaY = cursor.y - dragStartPos.y;
-      
-      mainWindow.setPosition(
-        windowStartPos.x + deltaX,
-        windowStartPos.y + deltaY
-      );
-    }
+  mainWindow.on('unmaximize', () => {
+    clearTimeout(animationTimeout);
+    
+    mainWindow.webContents.send('window-restored');
+    
+    animationTimeout = setTimeout(() => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('window-animation-complete');
+      }
+    }, 300);
   });
+}
 
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'mouseUp' && input.button === 'left') {
-      isDragging = false;
+// Utility function for smooth opacity animations (CORRIGIDA)
+function animateOpacity(window, fromOpacity, toOpacity, duration, callback) {
+  if (!window || window.isDestroyed()) return;
+  
+  const startTime = Date.now();
+  const opacityDiff = toOpacity - fromOpacity;
+  
+  const animate = () => {
+    if (!window || window.isDestroyed()) return;
+    
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Smooth easing function
+    const eased = easeOutCubic(progress);
+    const currentOpacity = fromOpacity + (opacityDiff * eased);
+    
+    window.setOpacity(currentOpacity);
+    
+    if (progress < 1) {
+      // Use setTimeout instead of requestAnimationFrame in main process
+      setTimeout(animate, 16); // ~60fps
+    } else if (callback) {
+      callback();
     }
-  });
+  };
+  
+  animate();
 }
 
 // Utility function for smooth easing

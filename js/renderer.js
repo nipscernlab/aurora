@@ -6644,9 +6644,17 @@ class CompilationModule {
       const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
       const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
       const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
+      // Get testbench file (topLevel file in project mode)
+      const topLevelFile = this.projectConfig.topLevelFile;
+      if (!topLevelFile) {
+        throw new Error("No top level file specified in project configuration");
+      }
+
+      // Extract top module name from testbench file
+      const topLevelFileName = topLevelFile.split(/[\/\\]/).pop();
       
       // Fixed: Use tbModule as top module, not cmmBaseName
-      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
+      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${topLevelFileName} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       
@@ -8097,18 +8105,6 @@ window.addEventListener('load', () => {
 });
 
 //TERMINAL      ======================================================================================================================================================== ƒ
-
-// Global references and state management
-let globalTerminalManager = null;
-let currentCompiler = null;
-
-// Initialize terminal manager globally
-function initializeGlobalTerminalManager() {
-  if (!globalTerminalManager) {
-    globalTerminalManager = new TerminalManager();
-  }
-  return globalTerminalManager;
-}
 class TerminalManager {
   constructor() {
     this.terminals = {
@@ -8118,16 +8114,19 @@ class TerminalManager {
       twave: document.querySelector('#terminal-twave .terminal-body'),
       tprism: document.querySelector('#terminal-tprism .terminal-body'),
       tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
-      
     };
     
     this.setupTerminalTabs();
     this.setupAutoScroll();
     this.setupGoDownButton();
     this.setupTerminalLogListener();
+    
+    // Initialize message buffers for each terminal
     this.messageBuffers = {};
+    this.groupedCards = {};
     Object.keys(this.terminals).forEach(id => {
       this.messageBuffers[id] = [];
+      this.groupedCards[id] = {};
     });
       
     if (!TerminalManager.clearButtonInitialized) {
@@ -8135,7 +8134,7 @@ class TerminalManager {
       TerminalManager.clearButtonInitialized = true;
     }
 
-    this.activeFilter = null; // 'error', 'warning', 'info', 'success', or null
+    this.activeFilter = null;
     this.setupFilterButtons();
   }
 
@@ -8167,40 +8166,35 @@ class TerminalManager {
   setupFilterButtons() {
     const errorBtn = document.getElementById('filter-error');
     const warningBtn = document.getElementById('filter-warning');
-    const infoBtn = document.getElementById('filter-tip'); // Changed from filter-info to filter-tip
+    const infoBtn = document.getElementById('filter-tip');
     const successBtn = document.getElementById('filter-success');
     
     if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
 
     const filterButtons = [errorBtn, warningBtn, infoBtn, successBtn];
     
-    // Clear any existing event listeners
     filterButtons.forEach(btn => {
       btn.replaceWith(btn.cloneNode(true));
     });
     
-    // Get fresh references after cloning
     const newErrorBtn = document.getElementById('filter-error');
     const newWarningBtn = document.getElementById('filter-warning');
-    const newInfoBtn = document.getElementById('filter-tip'); // Changed from filter-info to filter-tip
+    const newInfoBtn = document.getElementById('filter-tip');
     const newSuccessBtn = document.getElementById('filter-success');
     
     const newFilterButtons = [newErrorBtn, newWarningBtn, newInfoBtn, newSuccessBtn];
     
     newErrorBtn.addEventListener('click', () => this.toggleFilter('error', newErrorBtn, newFilterButtons));
     newWarningBtn.addEventListener('click', () => this.toggleFilter('warning', newWarningBtn, newFilterButtons));
-    newInfoBtn.addEventListener('click', () => this.toggleFilter('info', newInfoBtn, newFilterButtons));
+    newInfoBtn.addEventListener('click', () => this.toggleFilter('tips', newInfoBtn, newFilterButtons));
     newSuccessBtn.addEventListener('click', () => this.toggleFilter('success', newSuccessBtn, newFilterButtons));
   }
 
-  // Fixed toggleFilter method
   toggleFilter(filterType, clickedBtn, allButtons) {
     if (this.activeFilter === filterType) {
-      // Deactivate current filter
       this.activeFilter = null;
       clickedBtn.classList.remove('active');
     } else {
-      // Activate new filter
       this.activeFilter = filterType;
       allButtons.forEach(btn => btn.classList.remove('active'));
       clickedBtn.classList.add('active');
@@ -8209,278 +8203,253 @@ class TerminalManager {
     this.applyFilterToAllTerminals();
   }
 
-  // Added missing method
   applyFilterToAllTerminals() {
     Object.keys(this.terminals).forEach(terminalId => {
       this.applyFilter(terminalId);
     });
   }
 
-  // Fixed applyFilter method
   applyFilter(terminalId) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
 
-    const logEntries = terminal.querySelectorAll('.log-entry');
+    const cards = terminal.querySelectorAll('.log-entry');
     
-    logEntries.forEach(entry => {
+    cards.forEach(card => {
       if (this.activeFilter === null) {
-        // Show all entries
-        entry.classList.remove('filtered-out');
-        entry.style.display = '';
+        card.classList.remove('filtered-out');
+        card.style.display = '';
       } else {
-        // Show only entries matching the active filter
-        if (entry.classList.contains(this.activeFilter)) {
-          entry.classList.remove('filtered-out');
-          entry.style.display = '';
+        if (card.classList.contains(this.activeFilter)) {
+          card.classList.remove('filtered-out');
+          card.style.display = '';
         } else {
-          entry.classList.add('filtered-out');
-          entry.style.display = 'none';
+          card.classList.add('filtered-out');
+          card.style.display = 'none';
         }
       }
     });
   }
 
-  detectMessageType(content, terminalId) {
-  const text = typeof content === 'string'
-    ? content
-    : (content.stdout || '') + ' ' + (content.stderr || '');
+  detectMessageType(content) {
+    const text = typeof content === 'string'
+      ? content
+      : (content.stdout || '') + ' ' + (content.stderr || '');
 
-  if (text.includes('Atenção')) return 'warning';
-  if (text.includes('Erro'))     return 'error';
-  if (text.includes('Sucesso'))  return 'success';
-  if (text.includes('Info'))     return 'info';
-  return 'info';
-}
+    // Portuguese keywords detection
+    if (text.includes('Atenção')) return 'warning';
+    if (text.includes('Erro')) return 'error';
+    if (text.includes('Sucesso')) return 'success';
+    if (text.includes('Info')) return 'tips';
+    
+    // Additional detection patterns
+    if (text.includes('não está sendo usada') || text.includes('Economize memória')) return 'tips';
+    if (text.includes('de sintaxe') || text.includes('cadê a função')) return 'error';
+    
+    return 'plain';
+  }
 
-// Override appendToTerminal to buffer and then render in the desired order
-appendToTerminal(terminalId, content) {
-  const type = this.detectMessageType(content, terminalId);
+  makeLineNumbersClickable(text) {
+    // Replace "linha" followed by space and number with clickable link
+    return text.replace(/linha\s+(\d+)/gi, (match, lineNumber) => {
+      return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" style="color: #10b981; cursor: pointer; text-decoration: underline;">${match}</span>`;
+    });
+  }
 
-  // extract raw text
-  let text = typeof content === 'string'
-    ? content
-    : (content.stdout || '') + (content.stderr || '');
-
-  // normalize colon spacing: no space before “:”, one space after
-  text = text.replace(/\s*:\s*/, ': ');
-
-  // buffer the normalized text
-  this.messageBuffers[terminalId].push({ text, type });
-  this.renderBuffer(terminalId);
-}
-
-// New method: clear + re‐render buffer sorted by [info, warning, error, success]
-renderBuffer(terminalId) {
-  const terminal = this.terminals[terminalId];
-  const buffer   = this.messageBuffers[terminalId];
-  const order    = ['info', 'warning', 'error', 'success'];
-
-  terminal.innerHTML = ''; // clear old cards
-
-  order.forEach(type => {
-    const msgs = buffer
-      .filter(item => item.type === type)
-      .map(item => item.text);
-
-    if (msgs.length > 0) {
-      // create a single card for this type
-      const card = document.createElement('div');
-      card.classList.add('card', type);
-
-      // append each message as its own paragraph
-      msgs.forEach(text => {
-        const p = document.createElement('p');
-        p.textContent = text;
-        card.appendChild(p);
-      });
-
-      terminal.appendChild(card);
-    }
-  });
-
-  this.scrollToBottom(terminalId);
-}
-
-  // Updated appendToTerminal method
   appendToTerminal(terminalId, content, type = 'info') {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
 
-    // Auto-detect message type
-    const detectedType = this.detectMessageType(content, terminalId);
-    const messageType = type !== 'info' ? type : detectedType;
-
-    // Check if it's a special message format for TCMM/TASM
-    const isSpecialMessage = ['tcmm', 'tasm'].includes(terminalId) && 
-                           typeof content === 'string' && 
-                           (content.includes('Info') || content.includes('Erro') || 
-                            content.includes('Atenção') || content.includes('Sucesso'));
-
-    const timestamp = new Date().toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-
+    // Extract text content from different sources
+    let text = '';
     if (typeof content === 'string') {
-      // For TCMM/TASM, always treat as special message and parse accordingly
-      if (['tcmm', 'tasm'].includes(terminalId)) {
-        // Split by Portuguese keywords to handle concatenated messages
-        let processedContent = content;
-        
-        // Add separators before keywords for better parsing
-        processedContent = processedContent.replace(/(?<!^)(?=Atenção|Erro|Sucesso|Info)/g, '\n');
-        
-        // Split into lines and process each
-        const lines = processedContent.split('\n').filter(line => line.trim());
-        
-        lines.forEach(line => {
-          let lineType = 'info';
-          let identifier = '';
-          let message = line;
-          
-          if (line.includes('Atenção')) {
-            lineType = 'warning';
-            identifier = 'Atenção';
-            message = line.replace('Atenção', '').trim();
-          } else if (line.includes('Erro')) {
-            lineType = 'error';
-            identifier = 'Erro';
-            message = line.replace('Erro', '').trim();
-          } else if (line.includes('Sucesso')) {
-            lineType = 'success';
-            identifier = 'Sucesso';
-            message = line.replace('Sucesso', '').trim();
-          } else if (line.includes('Info')) {
-            lineType = 'info';
-            identifier = 'Info';
-            message = line.replace('Info', '').trim();
-          }
-          
-          // Create separate log entry for each line
-          if (line.trim()) {
-            const separateLogEntry = document.createElement('div');
-            separateLogEntry.classList.add('log-entry', lineType);
-            separateLogEntry.setAttribute('data-type', lineType); // Add data attribute for filtering
-            
-            const separateTimestamp = document.createElement('span');
-            separateTimestamp.classList.add('timestamp');
-            separateTimestamp.textContent = `[${timestamp}]`;
-            separateLogEntry.appendChild(separateTimestamp);
-            
-            const separateContentWrapper = document.createElement('div');
-            separateContentWrapper.classList.add('message-content');
-            
-            if (identifier) {
-              const identifierSpan = document.createElement('span');
-              identifierSpan.classList.add('message-identifier');
-              identifierSpan.textContent = identifier + ' ';
-              
-              const messageSpan = document.createElement('span');
-              messageSpan.classList.add('message-text');
-              messageSpan.innerHTML = message.split('\n')
-                .map(line => line.replace(/\s/g, '&nbsp;'))
-                .join('<br>');
-              
-              separateContentWrapper.appendChild(identifierSpan);
-              separateContentWrapper.appendChild(messageSpan);
-            } else {
-              separateContentWrapper.innerHTML = message.split('\n')
-                .map(line => line.replace(/\s/g, '&nbsp;'))
-                .join('<br>');
-            }
-            
-            separateLogEntry.appendChild(separateContentWrapper);
-            terminal.appendChild(separateLogEntry);
-          }
-        });
-        
-        // Apply filter and scroll for TCMM/TASM
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
-        return; // Exit early for TCMM/TASM
-      } else {
-        // For other terminals, use standard processing
-        const logEntry = document.createElement('div');
-        logEntry.classList.add('log-entry', messageType);
-        logEntry.setAttribute('data-type', messageType); // Add data attribute for filtering
-
-        const timestampSpan = document.createElement('span');
-        timestampSpan.classList.add('timestamp');
-        timestampSpan.textContent = `[${timestamp}]`;
-        logEntry.appendChild(timestampSpan);
-
-        const contentWrapper = document.createElement('div');
-        contentWrapper.classList.add('message-content');
-        contentWrapper.innerHTML = content.split('\n')
-          .map(line => line.replace(/\s/g, '&nbsp;'))
-          .join('<br>');
-        
-        logEntry.appendChild(contentWrapper);
-        terminal.appendChild(logEntry);
-      }
+      text = content;
     } else if (content.stdout || content.stderr) {
-      const logEntry = document.createElement('div');
-      logEntry.classList.add('log-entry', messageType);
-      logEntry.setAttribute('data-type', messageType); // Add data attribute for filtering
-
-      const timestampSpan = document.createElement('span');
-      timestampSpan.classList.add('timestamp');
-      timestampSpan.textContent = `[${timestamp}]`;
-      logEntry.appendChild(timestampSpan);
-
-      const contentWrapper = document.createElement('div');
-      contentWrapper.classList.add('message-content');
-      
-      if (content.stdout?.trim()) {
-        const stdoutDiv = document.createElement('div');
-        stdoutDiv.classList.add('stdout');
-        stdoutDiv.innerHTML = this.formatOutput(content.stdout);
-        contentWrapper.appendChild(stdoutDiv);
-      }
-      
-      if (content.stderr?.trim()) {
-        const stderrDiv = document.createElement('div');
-        stderrDiv.classList.add('stderr');
-        stderrDiv.innerHTML = this.formatOutput(content.stderr);
-        contentWrapper.appendChild(stderrDiv);
-      }
-
-      logEntry.appendChild(contentWrapper);
-      terminal.appendChild(logEntry);
+      text = (content.stdout || '') + (content.stderr || '');
     }
 
-    // Apply current filter to the new entry and scroll
+    if (!text.trim()) return;
+
+    // Split by lines and process each line
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    lines.forEach(line => {
+      const messageType = this.detectMessageType(line);
+      
+      if (messageType && messageType !== 'plain') {
+        this.addToGroupedCard(terminalId, line.trim(), messageType);
+      } else {
+        // For plain messages, create individual entries
+        const timestamp = new Date().toLocaleString('en-US', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        });
+        this.createLogEntry(terminal, line.trim(), 'plain', timestamp);
+      }
+    });
+
+    // Apply current filter and scroll
     this.applyFilter(terminalId);
     this.scrollToBottom(terminalId);
   }
 
-  formatOutput(text) {
-    return text
-      .split('\n')
-      .map(line => {
-        const indent = line.match(/^\s*/)[0].length;
-        const indentSpaces = '&nbsp;'.repeat(indent);
-        return indentSpaces + line.trim();
-      })
-      .join('<br>');
-  }
-
-  scrollToBottom(terminalId) {
+  addToGroupedCard(terminalId, text, type) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
 
-    requestAnimationFrame(() => {
-      terminal.scrollTop = terminal.scrollHeight;
+    // Get or create the grouped card for this type
+    let card = this.groupedCards[terminalId][type];
+    
+    if (!card) {
+      const timestamp = new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
       
-      setTimeout(() => {
-        terminal.scrollTop = terminal.scrollHeight;
-      }, 100);
+      card = this.createGroupedCard(terminal, type, timestamp);
+      this.groupedCards[terminalId][type] = card;
+    }
+
+    // Add the message to the card
+    this.addMessageToCard(card, text, type);
+  }
+
+  createGroupedCard(terminal, type, timestamp) {
+    const logEntry = document.createElement('div');
+    logEntry.classList.add('log-entry', type);
+    
+    // Add timestamp
+    const timestampElement = document.createElement('span');
+    timestampElement.classList.add('timestamp');
+    timestampElement.textContent = `[${timestamp}]`;
+    
+    // Add message content container
+    const messageContent = document.createElement('div');
+    messageContent.classList.add('message-content');
+    
+    // Add header for the message type
+    const header = document.createElement('div');
+    header.classList.add('message-header');
+    header.style.fontWeight = 'bold';
+    header.style.marginBottom = '0.5rem';
+    
+    const typeHeaders = {
+      'warning': 'Atenção',
+      'error': 'Erro',
+      'success': 'Sucesso',
+      'tips': 'Info'
+    };
+    
+    header.textContent = typeHeaders[type] || type;
+    
+    // Create messages container
+    const messagesContainer = document.createElement('div');
+    messagesContainer.classList.add('messages-container');
+    
+    //messageContent.appendChild(header);
+    messageContent.appendChild(messagesContainer);
+    
+    // Append elements
+    logEntry.appendChild(timestampElement);
+    logEntry.appendChild(messageContent);
+    
+    // Add fade-in animation
+    logEntry.style.opacity = '0';
+    logEntry.style.transform = 'translateY(10px)';
+    
+    terminal.appendChild(logEntry);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      logEntry.style.opacity = '1';
+      logEntry.style.transform = 'translateY(0)';
+    });
+    
+    return logEntry;
+  }
+
+  addMessageToCard(card, text, type) {
+    const messagesContainer = card.querySelector('.messages-container');
+    if (!messagesContainer) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('grouped-message');
+    messageDiv.style.marginBottom = '0.25rem';
+    
+    // Process text for clickable line numbers only
+    let processedText = this.makeLineNumbersClickable(text);
+    
+    messageDiv.innerHTML = processedText;
+    
+    // Add line link click handlers
+    const lineLinks = messageDiv.querySelectorAll('.line-link');
+    lineLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const lineNumber = link.getAttribute('data-line');
+        console.log(`Clicked on line ${lineNumber}`);
+        // Future implementation: navigate to line in Monaco editor
+      });
+    });
+    
+    messagesContainer.appendChild(messageDiv);
+  }
+
+  createLogEntry(terminal, text, type, timestamp) {
+    const logEntry = document.createElement('div');
+    logEntry.classList.add('log-entry', type);
+    
+    // Add timestamp
+    const timestampElement = document.createElement('span');
+    timestampElement.classList.add('timestamp');
+    timestampElement.textContent = `[${timestamp}]`;
+    
+    // Add message content
+    const messageContent = document.createElement('div');
+    messageContent.classList.add('message-content');
+    
+    // Process text for clickable line numbers only
+    let processedText = this.makeLineNumbersClickable(text);
+    
+    messageContent.innerHTML = processedText;
+    
+    // Append elements
+    logEntry.appendChild(timestampElement);
+    logEntry.appendChild(messageContent);
+    
+    // Add line link click handlers
+    const lineLinks = logEntry.querySelectorAll('.line-link');
+    lineLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const lineNumber = link.getAttribute('data-line');
+        console.log(`Clicked on line ${lineNumber}`);
+        // Future implementation: navigate to line in Monaco editor
+      });
+    });
+    
+    // Add fade-in animation
+    logEntry.style.opacity = '0';
+    logEntry.style.transform = 'translateY(10px)';
+    
+    terminal.appendChild(logEntry);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      logEntry.style.opacity = '1';
+      logEntry.style.transform = 'translateY(0)';
     });
   }
 
@@ -8516,7 +8485,7 @@ renderBuffer(terminalId) {
         if ((direction > 0 && next < maxScroll) || (direction < 0 && next > 0)) {
           animationFrameId = requestAnimationFrame(scrollLoop);
         } else {
-          stopScrolling();
+          isScrolling = false;
         }
       };
 
@@ -8588,10 +8557,25 @@ renderBuffer(terminalId) {
     });
   }
 
+  scrollToBottom(terminalId) {
+    const terminal = this.terminals[terminalId];
+    if (!terminal) return;
+
+    requestAnimationFrame(() => {
+      terminal.scrollTop = terminal.scrollHeight;
+      
+      setTimeout(() => {
+        terminal.scrollTop = terminal.scrollHeight;
+      }, 100);
+    });
+  }
+
   clearTerminal(terminalId) {
     const terminal = this.terminals[terminalId];
     if (terminal) {
       terminal.innerHTML = '';
+      this.messageBuffers[terminalId] = [];
+      this.groupedCards[terminalId] = {};
     }
   }
 
@@ -8613,6 +8597,29 @@ renderBuffer(terminalId) {
       clearButton.setAttribute('title', 'Clear Terminal');
     }
   }
+
+  formatOutput(text) {
+    return text
+      .split('\n')
+      .map(line => {
+        const indent = line.match(/^\s*/)[0].length;
+        const indentSpaces = '&nbsp;'.repeat(indent);
+        return indentSpaces + line.trim();
+      })
+      .join('<br>');
+  }
+}
+
+// Global references and state management
+let globalTerminalManager = null;
+let currentCompiler = null;
+
+// Initialize terminal manager globally
+function initializeGlobalTerminalManager() {
+  if (!globalTerminalManager) {
+    globalTerminalManager = new TerminalManager();
+  }
+  return globalTerminalManager;
 }
 
 document.getElementById("backupFolderBtn").addEventListener("click", async () => {

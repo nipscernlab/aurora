@@ -100,7 +100,7 @@
   overflow-x: auto;
   position: relative;
   font-family: var(--font-mono);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 /* Enhanced Error Handling */
@@ -143,10 +143,10 @@
 /* Plain Text Styling - Enhanced */
 .log-entry.plain,
 .log-entry:not(.error):not(.warning):not(.info):not(.success):not(.tips) {
-  background-color: rgba(107, 114, 128, 0.05);
-  border-color: rgba(107, 114, 128, 0.15);
+  /*background-color: rgba(107, 114, 128, 0.05);
+  border-color: rgba(107, 114, 128, 0.15);*/
   border-left: 3px solid rgba(107, 114, 128, 0.3);
-  color: var(--text-primary);
+  /*color: var(--text-primary); */
   font-weight: 400;
   opacity: 0.95;
 }

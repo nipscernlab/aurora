@@ -8118,13 +8118,18 @@ class TerminalManager {
       twave: document.querySelector('#terminal-twave .terminal-body'),
       tprism: document.querySelector('#terminal-tprism .terminal-body'),
       tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
+      
     };
     
     this.setupTerminalTabs();
     this.setupAutoScroll();
     this.setupGoDownButton();
     this.setupTerminalLogListener();
-    
+    this.messageBuffers = {};
+    Object.keys(this.terminals).forEach(id => {
+      this.messageBuffers[id] = [];
+    });
+      
     if (!TerminalManager.clearButtonInitialized) {
       this.setupClearButton();
       TerminalManager.clearButtonInitialized = true;
@@ -8237,65 +8242,65 @@ class TerminalManager {
   }
 
   detectMessageType(content, terminalId) {
-    const contentStr = typeof content === 'string' ? content : 
-                      (content.stdout + ' ' + content.stderr);
-    
-    // Handle TCMM and TASM (custom format) - Always filter these
-    if (['tcmm', 'tasm'].includes(terminalId)) {
-      // Check for Portuguese keywords - handle concatenated messages
-      if (contentStr.includes('Atenção') || contentStr.startsWith('Atenção')) return 'warning';
-      if (contentStr.includes('Erro') || contentStr.startsWith('Erro')) return 'error';
-      if (contentStr.includes('Sucesso') || contentStr.startsWith('Sucesso')) return 'success';
-      if (contentStr.includes('Info') || contentStr.startsWith('Info')) return 'info';
-      
-      // Check for English keywords as fallback
-      const lowerContent = contentStr.toLowerCase();
-      if (lowerContent.includes('warning') || lowerContent.includes('warn')) return 'warning';
-      if (lowerContent.includes('error') || lowerContent.includes('failed')) return 'error';
-      if (lowerContent.includes('success') || lowerContent.includes('complete')) return 'success';
-      if (lowerContent.includes('info') || lowerContent.includes('information')) return 'info';
-      
-      // Default to info for TCMM/TASM if no specific type found
-      return 'info';
+  const text = typeof content === 'string'
+    ? content
+    : (content.stdout || '') + ' ' + (content.stderr || '');
+
+  if (text.includes('Atenção')) return 'warning';
+  if (text.includes('Erro'))     return 'error';
+  if (text.includes('Sucesso'))  return 'success';
+  if (text.includes('Info'))     return 'info';
+  return 'info';
+}
+
+// Override appendToTerminal to buffer and then render in the desired order
+appendToTerminal(terminalId, content) {
+  const type = this.detectMessageType(content, terminalId);
+
+  // extract raw text
+  let text = typeof content === 'string'
+    ? content
+    : (content.stdout || '') + (content.stderr || '');
+
+  // normalize colon spacing: no space before “:”, one space after
+  text = text.replace(/\s*:\s*/, ': ');
+
+  // buffer the normalized text
+  this.messageBuffers[terminalId].push({ text, type });
+  this.renderBuffer(terminalId);
+}
+
+// New method: clear + re‐render buffer sorted by [info, warning, error, success]
+renderBuffer(terminalId) {
+  const terminal = this.terminals[terminalId];
+  const buffer   = this.messageBuffers[terminalId];
+  const order    = ['info', 'warning', 'error', 'success'];
+
+  terminal.innerHTML = ''; // clear old cards
+
+  order.forEach(type => {
+    const msgs = buffer
+      .filter(item => item.type === type)
+      .map(item => item.text);
+
+    if (msgs.length > 0) {
+      // create a single card for this type
+      const card = document.createElement('div');
+      card.classList.add('card', type);
+
+      // append each message as its own paragraph
+      msgs.forEach(text => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        card.appendChild(p);
+      });
+
+      terminal.appendChild(card);
     }
-    
-    // Handle TVERI (Icarus Verilog) - Standard stderr/stdout filtering
-    if (terminalId === 'tveri') {
-      const lowerContent = contentStr.toLowerCase();
-      if (lowerContent.includes('error') || lowerContent.includes('syntax error')) return 'error';
-      if (lowerContent.includes('warning')) return 'warning';
-      if (lowerContent.includes('compile') || lowerContent.includes('elaboration')) return 'info';
-      if (lowerContent.includes('finished') || lowerContent.includes('done')) return 'success';
-    }
-    
-    // Handle TWAVE (GTKWave) - Standard stderr/stdout filtering
-    if (terminalId === 'twave') {
-      const lowerContent = contentStr.toLowerCase();
-      if (lowerContent.includes('error') || lowerContent.includes('failed')) return 'error';
-      if (lowerContent.includes('warning')) return 'warning';
-      if (lowerContent.includes('loading') || lowerContent.includes('reading')) return 'info';
-      if (lowerContent.includes('loaded') || lowerContent.includes('ready')) return 'success';
-    }
-    
-    // General fallback patterns
-    const lowerContent = contentStr.toLowerCase();
-    if (lowerContent.includes('error') || lowerContent.includes('failed') || 
-        lowerContent.includes('exception') || lowerContent.includes('fatal')) {
-      return 'error';
-    }
-    
-    if (lowerContent.includes('warning') || lowerContent.includes('warn') || 
-        lowerContent.includes('deprecated')) {
-      return 'warning';
-    }
-    
-    if (lowerContent.includes('success') || lowerContent.includes('complete') || 
-        lowerContent.includes('finished') || lowerContent.includes('done')) {
-      return 'success';
-    }
-    
-    return 'info';
-  }
+  });
+
+  this.scrollToBottom(terminalId);
+}
 
   // Updated appendToTerminal method
   appendToTerminal(terminalId, content, type = 'info') {
@@ -8648,12 +8653,21 @@ document.getElementById('close-bug-report')?.addEventListener('click', () => clo
 
 //TESTE         ======================================================================================================================================================== ƒ
 document.addEventListener('DOMContentLoaded', () => {
-  // Get sidebar elements
-  const browseWebItem = document.querySelector('.sidebar-menu li[title="Browse the web"]');
-  const githubDesktopItem = document.querySelector('.sidebar-menu li[title="Open GitHub Desktop"]');
-  const shutdownItem = document.querySelector('.sidebar-menu li[title="Shut down the application"]');
+  // Get the overlay link
+  const overlayLink = document.querySelector('.overlay-subtitle a[href="https://nipscern.com"]');
   
-  // Browse the web - Open nipscern.com in default browser
+  // Get sidebar elements
+  const browseWebItem      = document.querySelector('.sidebar-menu li[title="Browse the web"]');
+  const githubDesktopItem  = document.querySelector('.sidebar-menu li[title="Open GitHub Desktop"]');
+  const shutdownItem       = document.querySelector('.sidebar-menu li[title="Shut down the application"]');
+  
+  // Overlay link – open nipscern.com in default browser
+  overlayLink.addEventListener('click', e => {
+    e.preventDefault();
+    window.electronAPI.openBrowser();
+  });
+  
+  // Browse the web – open nipscern.com in default browser
   browseWebItem.addEventListener('click', () => {
     window.electronAPI.openBrowser();
   });
@@ -8679,6 +8693,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+
 // CORREÇÃO: Event handler do botão PRISM com debugging melhorado
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, setting up PRISM button...');
@@ -9235,4 +9251,5 @@ class VVPProgressManager {
 
 // Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
+
 

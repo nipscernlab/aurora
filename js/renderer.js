@@ -6437,7 +6437,7 @@ class CompilationModule {
         throw new Error(`CMM compilation failed with code ${result.code}`);
       }
 
-      this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.', 'success');
+      //this.terminalManager.appendToTerminal('tcmm', 'CMM compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('cmm');
       return asmPath;
     } catch (error) {
@@ -6518,7 +6518,7 @@ class CompilationModule {
         await window.electronAPI.copyFile(testbenchSource, testbenchDestination);
       }
       
-      this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.', 'success');
+      //this.terminalManager.appendToTerminal('tasm', 'ASM compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('asm');
     } catch (error) {
       this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
@@ -6687,7 +6687,7 @@ class CompilationModule {
         await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
       );
       
-      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+      //this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('verilog');
 
       await refreshFileTree();
@@ -7875,7 +7875,8 @@ class CompilationButtonManager {
           return;
         }
         startCompilation();
-        
+        const manager = initializeGlobalTerminalManager();
+        manager.clearTerminal('tcmm');
         // Set compilation flags
         isCompilationRunning = true;
         compilationCanceled = false;
@@ -7930,8 +7931,8 @@ document.getElementById('asmcomp').addEventListener('click', async () => {
       return;
     }
     startCompilation();
-    
-    // Set compilation flags
+    const manager = initializeGlobalTerminalManager();
+    manager.clearTerminal('tasm');    // Set compilation flags
     isCompilationRunning = true;
     compilationCanceled = false;
     
@@ -8000,7 +8001,8 @@ document.getElementById('asmcomp').addEventListener('click', async () => {
         }
         
         startCompilation();
-
+        const manager = initializeGlobalTerminalManager();
+        manager.clearTerminal('tveri');
         // Set compilation flags
         isCompilationRunning = true;
         compilationCanceled = false;
@@ -8053,6 +8055,8 @@ document.getElementById('asmcomp').addEventListener('click', async () => {
           return;
         }
         startCompilation();
+        const manager = initializeGlobalTerminalManager();
+        manager.clearTerminal('twave');
         // Set compilation flags
         isCompilationRunning = true;
         compilationCanceled = false;
@@ -8139,8 +8143,8 @@ class TerminalManager {
       TerminalManager.clearButtonInitialized = true;
     }
 
-    this.activeFilter = null; // 'error', 'warning', 'tips', or null
-    this.setupFilterButtons()
+    this.activeFilter = null; // 'error', 'warning', 'info', 'success', or null
+    this.setupFilterButtons();
   }
 
   setupTerminalLogListener() {
@@ -8163,7 +8167,6 @@ class TerminalManager {
         const terminal = document.getElementById(`terminal-${terminalId}`);
         terminal.classList.remove('hidden');
         
-        // Scroll to bottom when switching tabs
         this.scrollToBottom(terminalId);
       });
     });
@@ -8172,34 +8175,29 @@ class TerminalManager {
   setupFilterButtons() {
     const errorBtn = document.getElementById('filter-error');
     const warningBtn = document.getElementById('filter-warning');
+    const infoBtn = document.getElementById('filter-info');
     const successBtn = document.getElementById('filter-success');
-    const tipsBtn = document.getElementById('filter-tip');
     
-    if (!errorBtn || !warningBtn || !successBtn || !tipsBtn) return;
+    if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
 
-    const filterButtons = [errorBtn, warningBtn, successBtn, tipsBtn];
+    const filterButtons = [errorBtn, warningBtn, infoBtn, successBtn];
     
     errorBtn.addEventListener('click', () => this.toggleFilter('error', errorBtn, filterButtons));
     warningBtn.addEventListener('click', () => this.toggleFilter('warning', warningBtn, filterButtons));
-    successBtn.addEventListener('click', () => this.toggleFilter('success', successBtn, filterButtons))
-    tipsBtn.addEventListener('click', () => this.toggleFilter('tips', tipsBtn, filterButtons));
+    infoBtn.addEventListener('click', () => this.toggleFilter('info', infoBtn, filterButtons));
+    successBtn.addEventListener('click', () => this.toggleFilter('success', successBtn, filterButtons));
   }
 
   toggleFilter(filterType, clickedBtn, allButtons) {
-    // If clicking the same filter, turn it off
     if (this.activeFilter === filterType) {
       this.activeFilter = null;
       clickedBtn.classList.remove('active');
     } else {
-      // Set new filter
       this.activeFilter = filterType;
-      
-      // Update button states
       allButtons.forEach(btn => btn.classList.remove('active'));
       clickedBtn.classList.add('active');
     }
     
-    // Apply filter to all terminals
     this.applyFilterToAllTerminals();
   }
 
@@ -8209,7 +8207,6 @@ class TerminalManager {
     });
   }
 
-
   applyFilter(terminalId) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
@@ -8218,10 +8215,8 @@ class TerminalManager {
     
     logEntries.forEach(entry => {
       if (this.activeFilter === null) {
-        // Show all entries
         entry.classList.remove('filtered-out');
       } else {
-        // Show only entries matching the active filter
         if (entry.classList.contains(this.activeFilter)) {
           entry.classList.remove('filtered-out');
         } else {
@@ -8231,20 +8226,78 @@ class TerminalManager {
     });
   }
 
+  detectMessageType(content, terminalId) {
+    const contentStr = typeof content === 'string' ? content : 
+                      (content.stdout + ' ' + content.stderr);
+    
+    // Handle TCMM, TASM, and TPRISM (custom format)
+    if (['tcmm', 'tasm', 'tprism'].includes(terminalId)) {
+      if (contentStr.startsWith('INFO:')) return 'info';
+      if (contentStr.startsWith('ERRO:')) return 'error';
+      if (contentStr.startsWith('ATENÇÃO')) return 'warning';
+      if (contentStr.startsWith('SUCESSO:')) return 'success';
+    }
+    
+    // Handle TVERI (Icarus Verilog)
+    if (terminalId === 'tveri') {
+      const lowerContent = contentStr.toLowerCase();
+      if (lowerContent.includes('error') || lowerContent.includes('syntax error')) return 'error';
+      if (lowerContent.includes('warning')) return 'warning';
+      if (lowerContent.includes('compile') || lowerContent.includes('elaboration')) return 'info';
+      if (lowerContent.includes('finished') || lowerContent.includes('done')) return 'success';
+    }
+    
+    // Handle TWAVE (GTKWave)
+    if (terminalId === 'twave') {
+      const lowerContent = contentStr.toLowerCase();
+      if (lowerContent.includes('error') || lowerContent.includes('failed')) return 'error';
+      if (lowerContent.includes('warning')) return 'warning';
+      if (lowerContent.includes('loading') || lowerContent.includes('reading')) return 'info';
+      if (lowerContent.includes('loaded') || lowerContent.includes('ready')) return 'success';
+    }
+    
+    // General fallback patterns
+    const lowerContent = contentStr.toLowerCase();
+    if (lowerContent.includes('error') || lowerContent.includes('failed') || 
+        lowerContent.includes('exception') || lowerContent.includes('fatal')) {
+      return 'error';
+    }
+    
+    if (lowerContent.includes('warning') || lowerContent.includes('warn') || 
+        lowerContent.includes('deprecated')) {
+      return 'warning';
+    }
+    
+    if (lowerContent.includes('success') || lowerContent.includes('complete') || 
+        lowerContent.includes('finished') || lowerContent.includes('done')) {
+      return 'success';
+    }
+    
+    return 'info';
+  }
+
   appendToTerminal(terminalId, content, type = 'info') {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
-  
+
+    // Auto-detect message type
+    const detectedType = this.detectMessageType(content, terminalId);
+    const messageType = type !== 'info' ? type : detectedType;
+
+    // Check if it's a special message format for TCMM/TASM/TPRISM
+    const isSpecialMessage = ['tcmm', 'tasm', 'tprism'].includes(terminalId) && 
+                           typeof content === 'string' && 
+                           (content.startsWith('INFO:') || content.startsWith('ERRO:') || 
+                            content.startsWith('ATENÇÃO:') || content.startsWith('SUCESSO:'));
+
     const logEntry = document.createElement('div');
-    logEntry.classList.add('log-entry', type);
-  
-    // Auto-detect message type based on content
-    const messageType = this.detectMessageType(content);
-    if (messageType) {
-      logEntry.classList.add(messageType);
+    logEntry.classList.add('log-entry', messageType);
+
+    if (isSpecialMessage) {
+      logEntry.classList.add('special-message');
     }
 
-    const timestamp = new Date().toLocaleString('pt-BR', {
+    const timestamp = new Date().toLocaleString('en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -8253,230 +8306,180 @@ class TerminalManager {
       second: '2-digit',
       hour12: false,
     });
-  
+
     const timestampSpan = document.createElement('span');
     timestampSpan.classList.add('timestamp');
     timestampSpan.textContent = `[${timestamp}]`;
     logEntry.appendChild(timestampSpan);
-  
-    // Process content (existing code)
+
+    const contentWrapper = document.createElement('div');
+    contentWrapper.classList.add('message-content');
+
     if (typeof content === 'string') {
-      const contentWrapper = document.createElement('div');
-      contentWrapper.style.marginTop = '0.5rem';
-      
-      if (content.toLowerCase().includes('compilação concluída') || 
-          content.toLowerCase().includes('compilation successful')) {
-        logEntry.classList.add('success');
+      if (isSpecialMessage) {
+        // Extract identifier and message
+        const parts = content.split(':', 2);
+        const identifier = parts[0];
+        const message = parts[1]?.trim() || '';
+
+        const identifierSpan = document.createElement('span');
+        identifierSpan.classList.add('message-identifier');
+        identifierSpan.textContent = identifier;
+
+        const messageSpan = document.createElement('span');
+        messageSpan.classList.add('message-text');
+        messageSpan.innerHTML = message.split('\n')
+          .map(line => line.replace(/\s/g, '&nbsp;'))
+          .join('<br>');
+
+        contentWrapper.appendChild(identifierSpan);
+        contentWrapper.appendChild(messageSpan);
+      } else {
+        contentWrapper.innerHTML = content.split('\n')
+          .map(line => line.replace(/\s/g, '&nbsp;'))
+          .join('<br>');
       }
-      
-      const lines = content.split('\n');
-      contentWrapper.innerHTML = lines
-        .map(line => line.replace(/\s/g, '&nbsp;'))
-        .join('<br>');
-      
-      logEntry.appendChild(contentWrapper);
-    } 
-    else if (content.stdout || content.stderr) {
+    } else if (content.stdout || content.stderr) {
       if (content.stdout?.trim()) {
         const stdoutDiv = document.createElement('div');
         stdoutDiv.classList.add('stdout');
         stdoutDiv.innerHTML = this.formatOutput(content.stdout);
-        logEntry.appendChild(stdoutDiv);
+        contentWrapper.appendChild(stdoutDiv);
       }
       
       if (content.stderr?.trim()) {
         const stderrDiv = document.createElement('div');
         stderrDiv.classList.add('stderr');
         stderrDiv.innerHTML = this.formatOutput(content.stderr);
-        logEntry.appendChild(stderrDiv);
-        // stderr is usually an error
-        logEntry.classList.add('error');
+        contentWrapper.appendChild(stderrDiv);
       }
     }
-  
+
+    logEntry.appendChild(contentWrapper);
     terminal.appendChild(logEntry);
 
-    // Apply current filter to new entry
     this.applyFilter(terminalId);
     this.scrollToBottom(terminalId);
   }
 
-  detectMessageType(content) {
-    const contentStr = typeof content === 'string' ? content.toLowerCase() : 
-                      (content.stdout + ' ' + content.stderr).toLowerCase();
-    
-    // Error patterns
-    if (contentStr.includes('error') || 
-        contentStr.includes('failed') || 
-        contentStr.includes('exception') ||
-        contentStr.includes('fatal') ||
-        contentStr.includes('critical')) {
-      return 'error';
-    }
-    
-    // Warning patterns
-    if (contentStr.includes('warning') || 
-        contentStr.includes('warn') || 
-        contentStr.includes('caution') ||
-        contentStr.includes('deprecated')) {
-      return 'warning';
-    }
-    
-    // Tips patterns
-    if (contentStr.includes('tip') || 
-        contentStr.includes('hint') || 
-        contentStr.includes('suggestion') ||
-        contentStr.includes('note') ||
-        contentStr.includes('info') ||
-        contentStr.includes('help')) {
-      return 'tips';
-    }
-    
-    return null;
+  formatOutput(text) {
+    return text
+      .split('\n')
+      .map(line => {
+        const indent = line.match(/^\s*/)[0].length;
+        const indentSpaces = '&nbsp;'.repeat(indent);
+        return indentSpaces + line.trim();
+      })
+      .join('<br>');
   }
 
   scrollToBottom(terminalId) {
     const terminal = this.terminals[terminalId];
-    if (terminal) {
-      terminal.scrollTop = terminal.scrollHeight;
-    }
-  }
-
-  updateLastLine(terminalId, content, type = 'info') {
-    const terminal = this.terminals[terminalId];
-    if (terminal && terminal.lastChild) {
-      const lastLine = terminal.lastChild;
-      lastLine.innerHTML = content;
-      lastLine.className = `terminal-line ${type}`;
-    } else if (terminal) {
-      this.appendToTerminal(terminalId, content, type);
-    }
-  }
-
-// Fixed updateLastLine method
-updateLastLine(terminalId, content, type = 'info') {
-  const terminal = this.terminals[terminalId];
-  if (terminal && terminal.lastChild) {
-    // Update the last line with new content
-    const lastLine = terminal.lastChild;
-    lastLine.innerHTML = content;
-    lastLine.className = `terminal-line ${type}`;
-  } else if (terminal) {
-    // If no last child exists, append new content
-    this.appendToTerminal(terminalId, content, type);
-  }
-}
-  // Add this to your TerminalManager class
-
-setupGoDownButton() {
-  const goDownButton = document.getElementById('godown-terminal');
-  const goUpButton   = document.getElementById('goup-terminal');
-
-  if (!goDownButton && !goUpButton) return;
-
-  let isScrolling = false;
-  let animationFrameId = null;
-  const STEP = 200; // pixels por frame
-
-  const startScrolling = (direction, e) => {
-    if (e.type === 'touchstart') e.preventDefault();
-    if (isScrolling) return;
-    isScrolling = true;
-
-    const activeTab = document.querySelector('.terminal-tabs .tab.active');
-    if (!activeTab) return;
-    const termId = activeTab.getAttribute('data-terminal');
-    const terminal = this.terminals[termId];
     if (!terminal) return;
 
-    const scrollLoop = () => {
-      if (!isScrolling) return;
+    requestAnimationFrame(() => {
+      terminal.scrollTop = terminal.scrollHeight;
+      
+      setTimeout(() => {
+        terminal.scrollTop = terminal.scrollHeight;
+      }, 100);
+    });
+  }
 
-      // calcula nova posição
-      const maxScroll = terminal.scrollHeight - terminal.clientHeight;
-      let next = terminal.scrollTop + direction;
-      next = Math.max(0, Math.min(next, maxScroll));
-      terminal.scrollTop = next;
+  setupGoDownButton() {
+    const goDownButton = document.getElementById('godown-terminal');
+    const goUpButton = document.getElementById('goup-terminal');
 
-      // continua enquanto não chegar ao fim/início
-      if ((direction > 0 && next < maxScroll) || (direction < 0 && next > 0)) {
-        animationFrameId = requestAnimationFrame(scrollLoop);
-      } else {
-        stopScrolling();
+    if (!goDownButton && !goUpButton) return;
+
+    let isScrolling = false;
+    let animationFrameId = null;
+    const STEP = 200;
+
+    const startScrolling = (direction, e) => {
+      if (e.type === 'touchstart') e.preventDefault();
+      if (isScrolling) return;
+      isScrolling = true;
+
+      const activeTab = document.querySelector('.terminal-tabs .tab.active');
+      if (!activeTab) return;
+      const termId = activeTab.getAttribute('data-terminal');
+      const terminal = this.terminals[termId];
+      if (!terminal) return;
+
+      const scrollLoop = () => {
+        if (!isScrolling) return;
+
+        const maxScroll = terminal.scrollHeight - terminal.clientHeight;
+        let next = terminal.scrollTop + direction;
+        next = Math.max(0, Math.min(next, maxScroll));
+        terminal.scrollTop = next;
+
+        if ((direction > 0 && next < maxScroll) || (direction < 0 && next > 0)) {
+          animationFrameId = requestAnimationFrame(scrollLoop);
+        } else {
+          stopScrolling();
+        }
+      };
+
+      animationFrameId = requestAnimationFrame(scrollLoop);
+    };
+
+    const stopScrolling = () => {
+      cancelAnimationFrame(animationFrameId);
+      isScrolling = false;
+    };
+
+    if (goDownButton) {
+      goDownButton.addEventListener('mousedown', e => startScrolling(+STEP, e));
+      goDownButton.addEventListener('touchstart', e => startScrolling(+STEP, e), { passive: false });
+    }
+    if (goUpButton) {
+      goUpButton.addEventListener('mousedown', e => startScrolling(-STEP, e));
+      goUpButton.addEventListener('touchstart', e => startScrolling(-STEP, e), { passive: false });
+    }
+
+    document.addEventListener('mouseup', stopScrolling);
+    document.addEventListener('touchend', stopScrolling);
+    document.addEventListener('mouseleave', stopScrolling);
+    document.addEventListener('touchcancel', stopScrolling);
+  }
+
+  setupClearButton() {
+    const clearButton = document.getElementById('clear-terminal');
+    
+    clearButton.removeEventListener('click', this.handleClearClick);
+    clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
+    
+    this.handleClearClick = (event) => {
+      if (event.button === 0) {
+        const icon = clearButton.querySelector('i');
+        if (icon.classList.contains('fa-trash-can')) {
+          const activeTab = document.querySelector('.terminal-tabs .tab.active');
+          if (activeTab) {
+            const terminalId = activeTab.getAttribute('data-terminal');
+            this.clearTerminal(terminalId);
+          }
+        } else if (icon.classList.contains('fa-dumpster')) {
+          this.clearAllTerminals();
+        }
       }
     };
 
-    animationFrameId = requestAnimationFrame(scrollLoop);
-  };
-
-  const stopScrolling = () => {
-    cancelAnimationFrame(animationFrameId);
-    isScrolling = false;
-  };
-
-  // mapeia eventos de mouse/touch
-  if (goDownButton) {
-    goDownButton.addEventListener('mousedown', e => startScrolling(+STEP, e));
-    goDownButton.addEventListener('touchstart', e => startScrolling(+STEP, e), { passive: false });
-  }
-  if (goUpButton) {
-    goUpButton.addEventListener('mousedown', e => startScrolling(-STEP, e));
-    goUpButton.addEventListener('touchstart', e => startScrolling(-STEP, e), { passive: false });
-  }
-
-  // término do scroll
-  document.addEventListener('mouseup',   stopScrolling);
-  document.addEventListener('touchend',  stopScrolling);
-  document.addEventListener('mouseleave', stopScrolling);
-  document.addEventListener('touchcancel',stopScrolling);
-}
-
-
-
-  setupClearButton() {
-  const clearButton = document.getElementById('clear-terminal');
-  
-  // Remova quaisquer event listeners anteriores para evitar duplicação
-  clearButton.removeEventListener('click', this.handleClearClick);
-  clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
-  
-  // Defina as funções de manipulação de eventos como propriedades da classe
-  this.handleClearClick = (event) => {
-    if (event.button === 0) { // Botão esquerdo
-      const icon = clearButton.querySelector('i');
-      if (icon.classList.contains('fa-trash-can')) {
-        // Limpa apenas o terminal ativo
-        const activeTab = document.querySelector('.terminal-tabs .tab.active');
-        if (activeTab) {
-          const terminalId = activeTab.getAttribute('data-terminal');
-          this.clearTerminal(terminalId);
-        }
-      } else if (icon.classList.contains('fa-dumpster')) {
-        // Limpa todos os terminais
-        this.clearAllTerminals();
+    this.handleClearContextMenu = (event) => {
+      event.preventDefault();
+      if (event.button === 2) { 
+        setTimeout(() => {
+          this.changeClearIcon(clearButton);
+        }, 50);
       }
-    }
-  };
+    };
 
-  this.handleClearContextMenu = (event) => {
-    event.preventDefault();
-    console.log("Botão direito detectado!");
-
-    if (event.button === 2) { 
-      setTimeout(() => {
-        this.changeClearIcon(clearButton);
-      }, 50); // Pequeno atraso para garantir a renderização
-    }
-  };
-
-  // Adicione os event listeners
-  clearButton.addEventListener('click', this.handleClearClick);
-  clearButton.addEventListener('contextmenu', this.handleClearContextMenu);
-}
-  
+    clearButton.addEventListener('click', this.handleClearClick);
+    clearButton.addEventListener('contextmenu', this.handleClearContextMenu);
+  }
 
   setupAutoScroll() {
-    // Observa mudanças no conteúdo do terminal
     const config = { childList: true, subtree: true };
     
     Object.entries(this.terminals).forEach(([id, terminal]) => {
@@ -8487,107 +8490,13 @@ setupGoDownButton() {
     });
   }
 
-  scrollToBottom(terminalId) {
-    const terminal = this.terminals[terminalId];
-    if (!terminal) return;
-
-    // Força o scroll para o final do terminal
-    requestAnimationFrame(() => {
-      terminal.scrollTop = terminal.scrollHeight;
-      
-      // Dupla verificação para garantir o scroll
-      setTimeout(() => {
-        terminal.scrollTop = terminal.scrollHeight;
-      }, 100);
-    });
-  }
-
-  appendToTerminal(terminalId, content, type = 'info') {
-    const terminal = this.terminals[terminalId];
-    if (!terminal) return;
-  
-    const logEntry = document.createElement('div');
-    logEntry.classList.add('log-entry', type);
-  
-    const timestamp = new Date().toLocaleString('pt-BR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-  
-    const timestampSpan = document.createElement('span');
-    timestampSpan.classList.add('timestamp');
-    timestampSpan.textContent = `[${timestamp}]`;
-    logEntry.appendChild(timestampSpan);
-  
-    // Processa o conteúdo
-    if (typeof content === 'string') {
-      const contentWrapper = document.createElement('div');
-      contentWrapper.style.marginTop = '0.5rem';
-      
-      if (content.toLowerCase().includes('compilação concluída') || 
-          content.toLowerCase().includes('compilation successful')) {
-        logEntry.classList.add('success');
-      }
-      
-      const lines = content.split('\n');
-      contentWrapper.innerHTML = lines
-        .map(line => line.replace(/\s/g, '&nbsp;'))
-        .join('<br>');
-      
-      logEntry.appendChild(contentWrapper);
-    } 
-    else if (content.stdout || content.stderr) {
-      if (content.stdout?.trim()) {
-        const stdoutDiv = document.createElement('div');
-        stdoutDiv.classList.add('stdout');
-        stdoutDiv.innerHTML = this.formatOutput(content.stdout);
-        logEntry.appendChild(stdoutDiv);
-      }
-      
-      if (content.stderr?.trim()) {
-        const stderrDiv = document.createElement('div');
-        stderrDiv.classList.add('stderr');
-        stderrDiv.innerHTML = this.formatOutput(content.stderr);
-        logEntry.appendChild(stderrDiv);
-      }
-    }
-  
-    terminal.appendChild(logEntry);
-
-    // Garante que o scroll aconteça após o conteúdo ser realmente adicionado
-    this.scrollToBottom(terminalId);
-
-    // Adiciona um observer para garantir que qualquer mudança futura também faça scroll
-    const observer = new MutationObserver(() => this.scrollToBottom(terminalId));
-    observer.observe(terminal, { childList: true, subtree: true });
-  }
-
-
-  formatOutput(text) {
-    return text
-      .split('\n')
-      .map(line => {
-        // Preserva a indentação usando espaços não-quebráveis
-        const indent = line.match(/^\s*/)[0].length;
-        const indentSpaces = '&nbsp;'.repeat(indent);
-        return indentSpaces + line.trim();
-      })
-      .join('<br>');
-  }
-
-   clearTerminal(terminalId) {
+  clearTerminal(terminalId) {
     const terminal = this.terminals[terminalId];
     if (terminal) {
       terminal.innerHTML = '';
     }
   }
 
-  // Override clearAllTerminals to reset filter
   clearAllTerminals() {
     Object.keys(this.terminals).forEach(terminalId => {
       this.clearTerminal(terminalId);
@@ -8599,11 +8508,11 @@ setupGoDownButton() {
     if (icon.classList.contains('fa-trash-can')) {
       icon.classList.remove('fa-trash-can');
       icon.classList.add('fa-dumpster');
-      clearButton.setAttribute('title', 'Clear All Terminals'); // Altera o título
+      clearButton.setAttribute('title', 'Clear All Terminals');
     } else {
       icon.classList.remove('fa-dumpster');
       icon.classList.add('fa-trash-can');
-      clearButton.setAttribute('title', 'Clear Terminal'); // Restaura o título original
+      clearButton.setAttribute('title', 'Clear Terminal');
     }
   }
 }

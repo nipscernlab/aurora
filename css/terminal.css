@@ -1,7 +1,7 @@
 /* Terminal Container */
 .terminal-container {
   background-color: var(--bg-tertiary);
- /* border-top: 1px solid var(--border-primary);*/
+  /* border-top: 1px solid var(--border-primary); */
   max-height: 1000px !important;
   min-height: inherit;
   display: flex;
@@ -12,6 +12,8 @@
   font-size: 14px;
   line-height: 1.5;
   z-index: 2;
+  border-radius: 8px; /* Added rounded corners */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
 }
 
 /* Terminal Tabs */
@@ -21,6 +23,8 @@
   border-bottom: 1px solid var(--border-primary);
   padding: 0;
   margin: 0;
+  border-radius: 8px 8px 0 0; /* Rounded top corners */
+  overflow: hidden;
 }
 
 .terminal-tab {
@@ -32,6 +36,7 @@
   background: none;
   font-size: 0.9rem;
   position: relative;
+  user-select: none;
 }
 
 .terminal-tab.active {
@@ -62,67 +67,126 @@
   overflow: auto;
   word-wrap: break-word;
   white-space: pre-wrap;
+  border-radius: 0 0 8px 8px; /* Rounded bottom corners */
 }
 
 .terminal-body {
   padding: 0.5rem;
+  border-radius: 0 0 8px 8px; /* Rounded bottom corners */
 }
 
 /* Terminal Types */
-.terminal-content.cmd { background-color: var(--bg-tertiary); }
-.terminal-content.cmm { background-color: rgba(87, 0, 43, 0.3); }
-.terminal-content.asm { background-color: rgba(71, 14, 0, 0.3); }
+.terminal-content.cmd { 
+  background-color: var(--bg-tertiary);
+  border-radius: 0 0 8px 8px;
+}
+.terminal-content.cmm { 
+  background-color: rgba(87, 0, 43, 0.3);
+  border-radius: 0 0 8px 8px;
+}
+.terminal-content.asm { 
+  background-color: rgba(71, 14, 0, 0.3);
+  border-radius: 0 0 8px 8px;
+}
 
 /* Log Entries */
 .log-entry {
   margin-bottom: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.375rem;
+  border-radius: 6px; /* Increased border radius */
   border: 1px solid transparent;
   transition: all 0.2s ease;
   max-width: 100%;
   overflow-x: auto;
+  position: relative;
+  font-family: var(--font-mono);
+  line-height: 1.4;
 }
 
-.log-entry.info {
-  background-color: rgba(122, 162, 247, 0.1);
-  border-color: rgba(122, 162, 247, 0.2);
-}
-
+/* Enhanced Error Handling */
 .log-entry.error {
-  background-color: rgba(247, 118, 142, 0.1);
-  border-color: rgba(247, 118, 142, 0.2);
+  background-color: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  border-left: 4px solid #ef4444;
+  color: #fca5a5;
 }
 
 .log-entry.warning {
-  background-color: rgba(224, 175, 104, 0.1);
-  border-color: rgba(224, 175, 104, 0.2);
+  background-color: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  border-left: 4px solid #f59e0b;
+  color: #fbbf24;
 }
 
+/*
+.log-entry.info {
+  background-color: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+  border-left: 4px solid #3b82f6;
+  color: #93c5fd;
+}
+*/
 .log-entry.success {
-  background-color: rgba(34, 197, 94, 0.1);
+  background-color: rgba(34, 197, 94, 0.08);
   border-color: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  border-left: 4px solid #22c55e;
+  color: #86efac;
+}
+
+.log-entry.tips {
+  background-color: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+  border-left: 4px solid #a855f7;
+  color: #c4b5fd;
+}
+
+/* Plain Text Styling - Enhanced */
+.log-entry.plain,
+.log-entry:not(.error):not(.warning):not(.info):not(.success):not(.tips) {
+  background-color: rgba(107, 114, 128, 0.05);
+  border-color: rgba(107, 114, 128, 0.15);
+  border-left: 3px solid rgba(107, 114, 128, 0.3);
+  color: var(--text-primary);
+  font-weight: 400;
+  opacity: 0.95;
+}
+
+.log-entry.plain:hover,
+.log-entry:not(.error):not(.warning):not(.info):not(.success):not(.tips):hover {
+  background-color: rgba(107, 114, 128, 0.08);
+  border-color: rgba(107, 114, 128, 0.25);
+  transform: translateX(2px);
 }
 
 /* Timestamp */
 .timestamp {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-family: var(--font-mono);
-  opacity: 0.8;
+  opacity: 0.7;
+  font-weight: 500;
 }
 
 /* Code Output */
 .stdout, .stderr {
   margin-top: 0.5rem;
   padding: 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   font-size: 0.9rem;
+  font-family: var(--font-mono);
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .stderr {
   color: #f87171;
+  background-color: rgba(248, 113, 113, 0.1);
+  border-left: 3px solid #f87171;
+}
+
+.stdout {
+  color: #a3a3a3;
+  background-color: rgba(163, 163, 163, 0.05);
+  border-left: 3px solid rgba(163, 163, 163, 0.3);
 }
 
 /* Scrollbar Styling */
@@ -133,11 +197,13 @@
 
 .terminal-container::-webkit-scrollbar-track {
   background: var(--bg-secondary);
+  border-radius: 4px;
 }
 
 .terminal-container::-webkit-scrollbar-thumb {
   background: var(--border-primary);
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .terminal-container::-webkit-scrollbar-thumb:hover {
@@ -149,16 +215,18 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .terminal-container {
-  height: 250px; /* Altura inicial do terminal */
+  height: 250px; /* Initial terminal height */
   min-height: 35px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  transition: height 0.4s ease; /* Adiciona uma transição suave ao redimensionar */
-  overflow-y: auto; /* Para rolagem quando o terminal é muito pequeno */
+  transition: height 0.4s ease; /* Smooth resize transition */
+  overflow-y: auto; /* Scroll when terminal is too small */
 }
 
 .editor-terminal-container {
@@ -168,13 +236,13 @@
   overflow: hidden;
 }
 
-/* Editor abaixo das abas */
+/* Editor below tabs */
 .monaco-editor {
-  flex: 1; /* Preenche o espaço restante */
+  flex: 1; /* Fill remaining space */
   overflow: hidden;
 }
 
-/*ROLAGEM*/
+/* SCROLLING */
 .terminal-body {
   overflow-y: auto;
   max-height: 100%;
@@ -204,15 +272,16 @@
   }
 }
 
-
 /* TERMINAL CMD */
 #terminal-tcmd {
   display: flex;
   flex-direction: column;
   height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* Container do terminal CMD */
+/* CMD Terminal Container */
 #terminal-tcmd .cmd-terminal-container {
   flex: 1;
   padding: 10px;
@@ -232,7 +301,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Header do terminal TCMD */
+/* TCMD Terminal Header */
 #terminal-tcmd .terminal-header {
   background: linear-gradient(to right, #2d2d2d, #252525);
   color: #dbdbdb;
@@ -243,18 +312,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-radius: 8px 8px 0 0;
 }
 
-/* Corpo do terminal TCMD */
+/* TCMD Terminal Body */
 #terminal-tcmd .terminal-body {
   flex: 1;
   padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border-radius: 0 0 8px 8px;
 }
 
-/* Container do terminal real */
+/* Real Terminal Container */
 #terminal-tcmd #terminal-container {
   flex: 1;
   padding: 10px;
@@ -262,7 +333,7 @@
   background-color: #1e1e1e;
 }
 
-/* Elemento do terminal */
+/* Terminal Element */
 #terminal-tcmd .terminal {
   height: 100%;
   display: flex;
@@ -272,7 +343,7 @@
   line-height: 1.4;
 }
 
-/* Saída do terminal */
+/* Terminal Output */
 #terminal-tcmd .terminal-output {
   flex: 1;
   overflow-y: auto;
@@ -280,21 +351,71 @@
   color: #e0e0e0;
 }
 
-/* Linhas do terminal */
+/* Terminal Lines */
 #terminal-tcmd .terminal-line {
   white-space: pre-wrap;
   word-break: break-word;
   padding: 2px 0;
+  transition: opacity 0.2s ease;
 }
 
-/* Linha de input */
+/* Enhanced Terminal Line Types */
+#terminal-tcmd .terminal-line.command {
+  color: #9cdcfe;
+  font-weight: 500;
+}
+
+#terminal-tcmd .terminal-line.error {
+  color: #f48771;
+  background-color: rgba(244, 135, 113, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #f48771;
+  margin: 2px 0;
+}
+
+#terminal-tcmd .terminal-line.success {
+  color: #4ec9b0;
+  background-color: rgba(78, 201, 176, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #4ec9b0;
+  margin: 2px 0;
+}
+
+#terminal-tcmd .terminal-line.warning {
+  color: #ffb86c;
+  background-color: rgba(255, 184, 108, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #ffb86c;
+  margin: 2px 0;
+}
+
+#terminal-tcmd .terminal-line.info {
+  color: #82aaff;
+  background-color: rgba(130, 170, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #82aaff;
+  margin: 2px 0;
+}
+
+/* Input Line */
 #terminal-tcmd .terminal-input-line {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
   background-color: #252525;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 6px 8px;
+  border: 1px solid rgba(78, 201, 176, 0.2);
+  transition: border-color 0.2s ease;
+}
+
+#terminal-tcmd .terminal-input-line:focus-within {
+  border-color: rgba(78, 201, 176, 0.5);
+  box-shadow: 0 0 0 2px rgba(78, 201, 176, 0.1);
 }
 
 /* Prompt */
@@ -302,9 +423,10 @@
   color: #4ec9b0;
   margin-right: 8px;
   user-select: none;
+  font-weight: 600;
 }
 
-/* Campo de input */
+/* Input Field */
 #terminal-tcmd .terminal-input {
   flex: 1;
   background: transparent;
@@ -316,10 +438,10 @@
   caret-color: #4ec9b0;
 }
 
- /* Terminal styles */
- .terminal-content {
+/* Terminal styles */
+.terminal-content {
   background-color: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   font-family: var(--font-mono);
   box-shadow: var(--shadow-md);
@@ -330,6 +452,8 @@
   font-weight: bold;
   border-bottom: 1px solid var(--border-primary);
   padding: 10px 10px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(to right, var(--bg-secondary), var(--bg-tertiary));
 }
 
 .terminal-body {
@@ -346,10 +470,13 @@
   text-underline-offset: 2px;
   font-weight: bold;
   transition: color 0.2s ease;
+  border-radius: 3px;
+  padding: 1px 3px;
 }
 
 .keyword:hover {
   color: var(--accent-hover);
+  background-color: rgba(var(--accent-primary), 0.1);
 }
 
 /* Terminal keyword styles */
@@ -357,6 +484,13 @@
   color: var(--success);
   font-weight: bold;
   cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 3px;
+  transition: background-color 0.2s ease;
+}
+
+.terminal-keyword:hover {
+  background-color: rgba(var(--success), 0.1);
 }
 
 /* Button highlight effect */
@@ -366,16 +500,17 @@
   z-index: 1;
 }
 
-/* Botão ativo ao clique: mais saturado e com destaque */
+/* Active button on click: more saturated and highlighted */
 .button-highlight-active {
   box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary) !important;
   transform: translateY(-1px);
   filter: saturate(1.5) brightness(1.1);
-  background-color: rgba(0, 170, 255, 0.1); /* Exemplo azul claro */
+  background-color: rgba(0, 170, 255, 0.1);
   backdrop-filter: blur(2px);
+  border-radius: 6px;
 }
 
-/* Efeito de fundo animado ao estado ativo */
+/* Animated background effect when active */
 .button-highlight-active::before {
   content: '';
   position: absolute;
@@ -391,38 +526,38 @@
   animation: highlight-pulse 2s ease-in-out infinite;
 }
 
-/* --- Estado padrão dos botões --- */
+/* Default button state */
 .filter-btn {
   background: transparent;
   border: none;
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   transition: background var(--transition-normal), filter var(--transition-normal);
   cursor: pointer;
 }
 
-/* Ícone padrão */
+/* Default icon */
 .filter-btn i {
   color: currentColor;
   font-size: 1rem;
   transition: color var(--transition-normal), filter var(--transition-normal);
 }
 
-/* Cores por tipo */
+/* Colors by type */
 .filter-error   { color: var(--error); }
 .filter-warning { color: var(--warning); }
 .filter-success { color: var(--success); }
-.filter-tip    { color: var(--info); }
+.filter-tip     { color: var(--info); }
 
-/* Hover/Active rápido */
+/* Quick hover/active */
 .filter-btn:hover {
   background: var(--hover-overlay);
+  border-radius: 6px;
 }
 
-/* --- Estado ATIVO (clicado) --- */
-/* Estado ATIVO (clicado) mais suave e gradiente atrás do ícone */
+/* ACTIVE state (clicked) smoother and gradient behind icon */
 
-/* Erro (#ff7eb6 → rgb(255,126,182)) */
+/* Error (#ff7eb6 → rgb(255,126,182)) */
 .filter-error.active {
   background: linear-gradient(
     135deg,
@@ -430,6 +565,7 @@
     rgba(255, 126, 182, 0.05) 100%
   );
   transition: background 0.2s ease;
+  border-radius: 6px;
 }
 .filter-error.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -444,6 +580,7 @@
     rgba(255, 184, 108, 0.05) 100%
   );
   transition: background 0.2s ease;
+  border-radius: 6px;
 }
 .filter-warning.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -458,6 +595,7 @@
     rgba(165, 224, 117, 0.05) 100%
   );
   transition: background 0.2s ease;
+  border-radius: 6px;
 }
 .filter-success.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -472,27 +610,30 @@
     rgba(130, 207, 251, 0.05) 100%
   );
   transition: background 0.2s ease;
+  border-radius: 6px;
 }
 .filter-tip.active i {
   filter: saturate(1.2) brightness(1.1);
   transition: filter 0.2s ease;
 }
 
-
 /* Message type styles */
 .log-entry.error {
   border-left: 3px solid #ff4444;
   background: rgba(255, 68, 68, 0.1);
+  border-radius: 6px;
 }
 
 .log-entry.warning {
   border-left: 3px solid #ffaa00;
   background: rgba(255, 170, 0, 0.1);
+  border-radius: 6px;
 }
 
 .log-entry.tips {
   border-left: 3px solid #00aaff;
   background: rgba(0, 170, 255, 0.1);
+  border-radius: 6px;
 }
 
 .log-entry.hidden {
@@ -509,20 +650,7 @@
   100% { opacity: 0.3; }
 }
 
-/* Estilos para diferentes tipos de mensagens */
-#terminal-tcmd .terminal-line.command {
-  color: #9cdcfe;
-}
-
-#terminal-tcmd .terminal-line.error {
-  color: #f48771;
-}
-
-#terminal-tcmd .terminal-line.success {
-  color: #4ec9b0;
-}
-
-/* Scrollbar personalizada */
+/* Custom scrollbar */
 #terminal-tcmd #terminal-container::-webkit-scrollbar {
   width: 8px;
 }
@@ -535,18 +663,19 @@
 #terminal-tcmd #terminal-container::-webkit-scrollbar-thumb {
   background: #4a4a4a;
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 #terminal-tcmd #terminal-container::-webkit-scrollbar-thumb:hover {
   background: #5a5a5a;
 }
 
-/* Efeito de foco no input */
+/* Input focus effect */
 #terminal-tcmd .terminal-input:focus {
   box-shadow: 0 0 0 1px rgba(78, 201, 176, 0.3);
 }
 
-/* Responsividade */
+/* Responsiveness */
 @media (max-width: 768px) {
   #terminal-tcmd .terminal-header {
     font-size: 12px;
@@ -557,21 +686,24 @@
   #terminal-tcmd .terminal-line {
     font-size: 12px;
   }
+  
+  .terminal-container {
+    border-radius: 6px;
+  }
 }
 
-/* Add this CSS to your stylesheet for smooth line transitions */
-
+/* Smooth line transitions */
 #editorStatus {
   transition: all 0.15s ease-out;
   transform: translateZ(0); /* Hardware acceleration */
 }
 
-/* Optional: Add a subtle highlight effect when cursor moves */
+/* Optional: Add subtle highlight effect when cursor moves */
 #editorStatus.updating {
   opacity: 0.8;
 }
 
-/* Alternative smooth transition for the entire status bar */
+/* Alternative smooth transition for entire status bar */
 .status-item {
   transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
 }

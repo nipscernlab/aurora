@@ -187,7 +187,6 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 
 };
 
-
 const projectOperations = {
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
   closeProject: (spfPath) => ipcRenderer.invoke('project:close'),
@@ -245,47 +244,6 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
   onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
   onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
-
- // Window control functions
-  minimizeWindow: () => ipcRenderer.send('minimize-window'),
-  maximizeRestoreWindow: () => ipcRenderer.send('maximize-restore-window'),
-  closeWindow: () => ipcRenderer.send('close-window'),
-  
-  // Window state management
-  getWindowState: () => ipcRenderer.invoke('get-window-state'),
-  setWindowBounds: (bounds) => ipcRenderer.send('set-window-bounds', bounds),
-  showWindow: () => ipcRenderer.send('show-window'),
-  hideWindow: () => ipcRenderer.send('hide-window'),
-  
-  // Window event listeners
-  onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
-  onWindowRestored: (callback) => ipcRenderer.on('window-restored', callback),
-  onWindowMinimized: (callback) => ipcRenderer.on('window-minimized', callback),
-  onWindowRestoredFromMinimize: (callback) => ipcRenderer.on('window-restored-from-minimize', callback),
-  
-  // Window focus/blur events
-  onWindowBlur: (callback) => ipcRenderer.on('window-blur', callback),
-  onWindowFocus: (callback) => ipcRenderer.on('window-focus', callback),
-  
-  // Window movement/resize events
-  onWindowMoved: (callback) => ipcRenderer.on('window-moved', callback),
-  onWindowResized: (callback) => ipcRenderer.on('window-resized', callback),
-  
-  // Animation completion events
-  onWindowAnimationComplete: (callback) => ipcRenderer.on('window-animation-complete', callback),
-  
-  // Remove event listeners (cleanup)
-  removeWindowListener: (eventName, callback) => ipcRenderer.removeListener(eventName, callback),
-  removeAllWindowListeners: (eventName) => ipcRenderer.removeAllListeners(eventName),
-  
-  // Additional helper functions
-  isWindowMaximized: () => ipcRenderer.invoke('is-window-maximized'),
-  isWindowMinimized: () => ipcRenderer.invoke('is-window-minimized'),
-  isWindowFullScreen: () => ipcRenderer.invoke('is-window-fullscreen'),
-  
-  // Screen information
-  getScreenInfo: () => ipcRenderer.invoke('get-screen-info'),
-  getPrimaryDisplayBounds: () => ipcRenderer.invoke('get-primary-display-bounds'),
 
     onUpdateProgress: (callback) => {
     const wrappedCallback = (event, data) => callback(data);

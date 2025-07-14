@@ -406,18 +406,6 @@ static getActiveFilePath() {
       return;
     }
 
-    // Add event listener to save tab order when tabs change
-    const tabContainer = document.getElementById('tabs-container');
-    if (tabContainer) {
-      const observer = new MutationObserver(() => {
-        this.saveTabOrder();
-      });
-      
-      observer.observe(tabContainer, { 
-        childList: true, 
-        subtree: true 
-      });
-    }
 
     //this.editorContainer.style.position = 'relative';
     this.editorContainer.style.height = '100%';
@@ -6687,7 +6675,7 @@ class CompilationModule {
         await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
       );
       
-      //this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
       statusUpdater.compilationSuccess('verilog');
 
       await refreshFileTree();
@@ -8232,10 +8220,10 @@ class TerminalManager {
     
     // Handle TCMM, TASM, and TPRISM (custom format)
     if (['tcmm', 'tasm', 'tprism'].includes(terminalId)) {
-      if (contentStr.startsWith('INFO:')) return 'info';
-      if (contentStr.startsWith('ERRO:')) return 'error';
+      if (contentStr.startsWith('INFO')) return 'info';
+      if (contentStr.startsWith('ERRO')) return 'error';
       if (contentStr.startsWith('ATENÇÃO')) return 'warning';
-      if (contentStr.startsWith('SUCESSO:')) return 'success';
+      if (contentStr.startsWith('SUCESSO')) return 'success';
     }
     
     // Handle TVERI (Icarus Verilog)
@@ -8287,8 +8275,8 @@ class TerminalManager {
     // Check if it's a special message format for TCMM/TASM/TPRISM
     const isSpecialMessage = ['tcmm', 'tasm', 'tprism'].includes(terminalId) && 
                            typeof content === 'string' && 
-                           (content.startsWith('INFO:') || content.startsWith('ERRO:') || 
-                            content.startsWith('ATENÇÃO:') || content.startsWith('SUCESSO:'));
+                           (content.startsWith('INFO') || content.startsWith('ERRO') || 
+                            content.startsWith('ATENÇÃO') || content.startsWith('SUCESSO'));
 
     const logEntry = document.createElement('div');
     logEntry.classList.add('log-entry', messageType);

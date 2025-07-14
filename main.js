@@ -1068,7 +1068,7 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 
 void main() 
 {
-    // He, he, he - Funcionou!
+    // Ok. Funcionou, mas e agora?
 }`;
 
         const cmmFilePath = path.join(softwarePath, `${formData.processorName}.cmm`);

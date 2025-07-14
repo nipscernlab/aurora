@@ -748,7 +748,7 @@ button:disabled::after {
   margin: 2rem auto;
   width: 95%;
   max-width: 600px;
-  height: 88vh;
+  height: 84vh;
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
   animation: modalConfigSlideIn 0.3s ease;

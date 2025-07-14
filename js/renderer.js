@@ -8109,7 +8109,6 @@ function initializeGlobalTerminalManager() {
   }
   return globalTerminalManager;
 }
-
 class TerminalManager {
   constructor() {
     this.terminals = {
@@ -8163,24 +8162,40 @@ class TerminalManager {
   setupFilterButtons() {
     const errorBtn = document.getElementById('filter-error');
     const warningBtn = document.getElementById('filter-warning');
-    const infoBtn = document.getElementById('filter-info');
+    const infoBtn = document.getElementById('filter-tip'); // Changed from filter-info to filter-tip
     const successBtn = document.getElementById('filter-success');
     
     if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
 
     const filterButtons = [errorBtn, warningBtn, infoBtn, successBtn];
     
-    errorBtn.addEventListener('click', () => this.toggleFilter('error', errorBtn, filterButtons));
-    warningBtn.addEventListener('click', () => this.toggleFilter('warning', warningBtn, filterButtons));
-    infoBtn.addEventListener('click', () => this.toggleFilter('info', infoBtn, filterButtons));
-    successBtn.addEventListener('click', () => this.toggleFilter('success', successBtn, filterButtons));
+    // Clear any existing event listeners
+    filterButtons.forEach(btn => {
+      btn.replaceWith(btn.cloneNode(true));
+    });
+    
+    // Get fresh references after cloning
+    const newErrorBtn = document.getElementById('filter-error');
+    const newWarningBtn = document.getElementById('filter-warning');
+    const newInfoBtn = document.getElementById('filter-tip'); // Changed from filter-info to filter-tip
+    const newSuccessBtn = document.getElementById('filter-success');
+    
+    const newFilterButtons = [newErrorBtn, newWarningBtn, newInfoBtn, newSuccessBtn];
+    
+    newErrorBtn.addEventListener('click', () => this.toggleFilter('error', newErrorBtn, newFilterButtons));
+    newWarningBtn.addEventListener('click', () => this.toggleFilter('warning', newWarningBtn, newFilterButtons));
+    newInfoBtn.addEventListener('click', () => this.toggleFilter('info', newInfoBtn, newFilterButtons));
+    newSuccessBtn.addEventListener('click', () => this.toggleFilter('success', newSuccessBtn, newFilterButtons));
   }
 
+  // Fixed toggleFilter method
   toggleFilter(filterType, clickedBtn, allButtons) {
     if (this.activeFilter === filterType) {
+      // Deactivate current filter
       this.activeFilter = null;
       clickedBtn.classList.remove('active');
     } else {
+      // Activate new filter
       this.activeFilter = filterType;
       allButtons.forEach(btn => btn.classList.remove('active'));
       clickedBtn.classList.add('active');
@@ -8189,12 +8204,14 @@ class TerminalManager {
     this.applyFilterToAllTerminals();
   }
 
+  // Added missing method
   applyFilterToAllTerminals() {
     Object.keys(this.terminals).forEach(terminalId => {
       this.applyFilter(terminalId);
     });
   }
 
+  // Fixed applyFilter method
   applyFilter(terminalId) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
@@ -8203,12 +8220,17 @@ class TerminalManager {
     
     logEntries.forEach(entry => {
       if (this.activeFilter === null) {
+        // Show all entries
         entry.classList.remove('filtered-out');
+        entry.style.display = '';
       } else {
+        // Show only entries matching the active filter
         if (entry.classList.contains(this.activeFilter)) {
           entry.classList.remove('filtered-out');
+          entry.style.display = '';
         } else {
           entry.classList.add('filtered-out');
+          entry.style.display = 'none';
         }
       }
     });
@@ -8218,15 +8240,26 @@ class TerminalManager {
     const contentStr = typeof content === 'string' ? content : 
                       (content.stdout + ' ' + content.stderr);
     
-    // Handle TCMM, TASM, and TPRISM (custom format)
-    if (['tcmm', 'tasm', 'tprism'].includes(terminalId)) {
-      if (contentStr.startsWith('INFO')) return 'info';
-      if (contentStr.startsWith('ERRO')) return 'error';
-      if (contentStr.startsWith('ATENÇÃO')) return 'warning';
-      if (contentStr.startsWith('SUCESSO')) return 'success';
+    // Handle TCMM and TASM (custom format) - Always filter these
+    if (['tcmm', 'tasm'].includes(terminalId)) {
+      // Check for Portuguese keywords - handle concatenated messages
+      if (contentStr.includes('Atenção') || contentStr.startsWith('Atenção')) return 'warning';
+      if (contentStr.includes('Erro') || contentStr.startsWith('Erro')) return 'error';
+      if (contentStr.includes('Sucesso') || contentStr.startsWith('Sucesso')) return 'success';
+      if (contentStr.includes('Info') || contentStr.startsWith('Info')) return 'info';
+      
+      // Check for English keywords as fallback
+      const lowerContent = contentStr.toLowerCase();
+      if (lowerContent.includes('warning') || lowerContent.includes('warn')) return 'warning';
+      if (lowerContent.includes('error') || lowerContent.includes('failed')) return 'error';
+      if (lowerContent.includes('success') || lowerContent.includes('complete')) return 'success';
+      if (lowerContent.includes('info') || lowerContent.includes('information')) return 'info';
+      
+      // Default to info for TCMM/TASM if no specific type found
+      return 'info';
     }
     
-    // Handle TVERI (Icarus Verilog)
+    // Handle TVERI (Icarus Verilog) - Standard stderr/stdout filtering
     if (terminalId === 'tveri') {
       const lowerContent = contentStr.toLowerCase();
       if (lowerContent.includes('error') || lowerContent.includes('syntax error')) return 'error';
@@ -8235,7 +8268,7 @@ class TerminalManager {
       if (lowerContent.includes('finished') || lowerContent.includes('done')) return 'success';
     }
     
-    // Handle TWAVE (GTKWave)
+    // Handle TWAVE (GTKWave) - Standard stderr/stdout filtering
     if (terminalId === 'twave') {
       const lowerContent = contentStr.toLowerCase();
       if (lowerContent.includes('error') || lowerContent.includes('failed')) return 'error';
@@ -8264,6 +8297,7 @@ class TerminalManager {
     return 'info';
   }
 
+  // Updated appendToTerminal method
   appendToTerminal(terminalId, content, type = 'info') {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
@@ -8272,18 +8306,11 @@ class TerminalManager {
     const detectedType = this.detectMessageType(content, terminalId);
     const messageType = type !== 'info' ? type : detectedType;
 
-    // Check if it's a special message format for TCMM/TASM/TPRISM
-    const isSpecialMessage = ['tcmm', 'tasm', 'tprism'].includes(terminalId) && 
+    // Check if it's a special message format for TCMM/TASM
+    const isSpecialMessage = ['tcmm', 'tasm'].includes(terminalId) && 
                            typeof content === 'string' && 
-                           (content.startsWith('INFO') || content.startsWith('ERRO') || 
-                            content.startsWith('ATENÇÃO') || content.startsWith('SUCESSO'));
-
-    const logEntry = document.createElement('div');
-    logEntry.classList.add('log-entry', messageType);
-
-    if (isSpecialMessage) {
-      logEntry.classList.add('special-message');
-    }
+                           (content.includes('Info') || content.includes('Erro') || 
+                            content.includes('Atenção') || content.includes('Sucesso'));
 
     const timestamp = new Date().toLocaleString('en-US', {
       year: 'numeric',
@@ -8295,39 +8322,116 @@ class TerminalManager {
       hour12: false,
     });
 
-    const timestampSpan = document.createElement('span');
-    timestampSpan.classList.add('timestamp');
-    timestampSpan.textContent = `[${timestamp}]`;
-    logEntry.appendChild(timestampSpan);
-
-    const contentWrapper = document.createElement('div');
-    contentWrapper.classList.add('message-content');
-
     if (typeof content === 'string') {
-      if (isSpecialMessage) {
-        // Extract identifier and message
-        const parts = content.split(':', 2);
-        const identifier = parts[0];
-        const message = parts[1]?.trim() || '';
-
-        const identifierSpan = document.createElement('span');
-        identifierSpan.classList.add('message-identifier');
-        identifierSpan.textContent = identifier;
-
-        const messageSpan = document.createElement('span');
-        messageSpan.classList.add('message-text');
-        messageSpan.innerHTML = message.split('\n')
-          .map(line => line.replace(/\s/g, '&nbsp;'))
-          .join('<br>');
-
-        contentWrapper.appendChild(identifierSpan);
-        contentWrapper.appendChild(messageSpan);
+      // For TCMM/TASM, always treat as special message and parse accordingly
+      if (['tcmm', 'tasm'].includes(terminalId)) {
+        // Split by Portuguese keywords to handle concatenated messages
+        let processedContent = content;
+        
+        // Add separators before keywords for better parsing
+        processedContent = processedContent.replace(/(?<!^)(?=Atenção|Erro|Sucesso|Info)/g, '\n');
+        
+        // Split into lines and process each
+        const lines = processedContent.split('\n').filter(line => line.trim());
+        
+        lines.forEach(line => {
+          let lineType = 'info';
+          let identifier = '';
+          let message = line;
+          
+          if (line.includes('Atenção')) {
+            lineType = 'warning';
+            identifier = 'Atenção';
+            message = line.replace('Atenção', '').trim();
+          } else if (line.includes('Erro')) {
+            lineType = 'error';
+            identifier = 'Erro';
+            message = line.replace('Erro', '').trim();
+          } else if (line.includes('Sucesso')) {
+            lineType = 'success';
+            identifier = 'Sucesso';
+            message = line.replace('Sucesso', '').trim();
+          } else if (line.includes('Info')) {
+            lineType = 'info';
+            identifier = 'Info';
+            message = line.replace('Info', '').trim();
+          }
+          
+          // Create separate log entry for each line
+          if (line.trim()) {
+            const separateLogEntry = document.createElement('div');
+            separateLogEntry.classList.add('log-entry', lineType);
+            separateLogEntry.setAttribute('data-type', lineType); // Add data attribute for filtering
+            
+            const separateTimestamp = document.createElement('span');
+            separateTimestamp.classList.add('timestamp');
+            separateTimestamp.textContent = `[${timestamp}]`;
+            separateLogEntry.appendChild(separateTimestamp);
+            
+            const separateContentWrapper = document.createElement('div');
+            separateContentWrapper.classList.add('message-content');
+            
+            if (identifier) {
+              const identifierSpan = document.createElement('span');
+              identifierSpan.classList.add('message-identifier');
+              identifierSpan.textContent = identifier + ' ';
+              
+              const messageSpan = document.createElement('span');
+              messageSpan.classList.add('message-text');
+              messageSpan.innerHTML = message.split('\n')
+                .map(line => line.replace(/\s/g, '&nbsp;'))
+                .join('<br>');
+              
+              separateContentWrapper.appendChild(identifierSpan);
+              separateContentWrapper.appendChild(messageSpan);
+            } else {
+              separateContentWrapper.innerHTML = message.split('\n')
+                .map(line => line.replace(/\s/g, '&nbsp;'))
+                .join('<br>');
+            }
+            
+            separateLogEntry.appendChild(separateContentWrapper);
+            terminal.appendChild(separateLogEntry);
+          }
+        });
+        
+        // Apply filter and scroll for TCMM/TASM
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
+        return; // Exit early for TCMM/TASM
       } else {
+        // For other terminals, use standard processing
+        const logEntry = document.createElement('div');
+        logEntry.classList.add('log-entry', messageType);
+        logEntry.setAttribute('data-type', messageType); // Add data attribute for filtering
+
+        const timestampSpan = document.createElement('span');
+        timestampSpan.classList.add('timestamp');
+        timestampSpan.textContent = `[${timestamp}]`;
+        logEntry.appendChild(timestampSpan);
+
+        const contentWrapper = document.createElement('div');
+        contentWrapper.classList.add('message-content');
         contentWrapper.innerHTML = content.split('\n')
           .map(line => line.replace(/\s/g, '&nbsp;'))
           .join('<br>');
+        
+        logEntry.appendChild(contentWrapper);
+        terminal.appendChild(logEntry);
       }
     } else if (content.stdout || content.stderr) {
+      const logEntry = document.createElement('div');
+      logEntry.classList.add('log-entry', messageType);
+      logEntry.setAttribute('data-type', messageType); // Add data attribute for filtering
+
+      const timestampSpan = document.createElement('span');
+      timestampSpan.classList.add('timestamp');
+      timestampSpan.textContent = `[${timestamp}]`;
+      logEntry.appendChild(timestampSpan);
+
+      const contentWrapper = document.createElement('div');
+      contentWrapper.classList.add('message-content');
+      
       if (content.stdout?.trim()) {
         const stdoutDiv = document.createElement('div');
         stdoutDiv.classList.add('stdout');
@@ -8341,11 +8445,12 @@ class TerminalManager {
         stderrDiv.innerHTML = this.formatOutput(content.stderr);
         contentWrapper.appendChild(stderrDiv);
       }
+
+      logEntry.appendChild(contentWrapper);
+      terminal.appendChild(logEntry);
     }
 
-    logEntry.appendChild(contentWrapper);
-    terminal.appendChild(logEntry);
-
+    // Apply current filter to the new entry and scroll
     this.applyFilter(terminalId);
     this.scrollToBottom(terminalId);
   }

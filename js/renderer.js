@@ -187,16 +187,60 @@ class EditorManager {
     editor: editor,
     container: editorDiv
   });
+  this.decorateVerticalBar(editor);
 
   this.setupResponsiveObserver(editor);
   this.updateOverlayVisibility();
   this.setupCursorListener(editor);
+  editor.onDidChangeModelContent(() => {
+  this.decorateBraKet(editor);
+
+});
 
   return editor;
 }
 
 static findStates = new Map(); // Store find widget states per file
+static decorateBraKet(editor) {
+  const model = editor.getModel();
+  if (!model) return;
 
+  // Encontra todas as ocorrências de '⟩'
+  const matches = model.findMatches('⟩', false, false, false, null, true);
+
+  // Constrói as novas decorações
+  const newDecorations = matches.map(m => ({
+    range: m.range,
+    options: {
+      // aplica a classe CSS que vamos definir
+      inlineClassName: 'bra-ket-padding'
+    }
+  }));
+
+  // substitui todas as decorações anteriores dessa categoria
+  // (você pode armazenar o array anterior em uma propriedade para removê-las,
+  // mas aqui substituímos sem persistir IDs antigos)
+  editor.deltaDecorations([], newDecorations);
+}
+
+static decorateVerticalBar(editor) {
+  const model = editor.getModel();
+  if (!model) return;
+
+  // encontra todas as ocorrências de '|'
+  const matches = model.findMatches('\\|', /* isRegex */ true, false, false, null, true);
+
+  // cria decorações inline para cada ocorrência
+  const newDecorations = matches.map(m => ({
+    range: m.range,
+    options: {
+      inlineClassName: 'vertical-bar-lower'
+    }
+  }));
+
+  // aplica as decorações (substitui as anteriores dessa categoria)
+  editor.deltaDecorations([], newDecorations);
+}
 // Modified setupEnhancedFeatures method with per-tab find functionality
 static setupEnhancedFeatures(editor) {
   const commands = [
@@ -8238,13 +8282,16 @@ class TerminalManager {
     
     return 'plain';
   }
-
+  
   makeLineNumbersClickable(text) {
-    // Replace "linha" followed by space and number with clickable link
-    return text.replace(/linha\s+(\d+)/gi, (match, lineNumber) => {
-    return `<span id="line-number" title="Opa. Bão?" class="line-link" data-line="${lineNumber}" style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">${match}</span>`;
-    });
-  }
+  // Replace "linha" or "line" followed by space and number with clickable link
+  return text.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
+    return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" ` +
+           `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
+           `${match}</span>`;
+  });
+}
+
 
   appendToTerminal(terminalId, content, type = 'info') {
     const terminal = this.terminals[terminalId];

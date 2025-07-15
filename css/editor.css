@@ -371,8 +371,25 @@ body {
   transform: scale(1.05);
   user-select: none;
   -webkit-user-drag: none;
-  filter: saturate(0.5);
+  filter: saturate(1.5);
 }
+/* Define o padding horizontal só para o caractere ⟩ */
+.monaco-editor .bra-ket-padding {
+  margin-left: 0.0em;
+  margin-right: 0.2em;
+  /* opcional: garante que o line-height não seja alterado */
+  line-height: inherit;
+}
+/* Rebaixa a barra vertical um pouco */
+.monaco-editor .vertical-bar-lower {
+  position: relative;
+  top: 0.2em;    /* ajuste conforme precisar */
+  /* opcional: preserve line-height, fundo, etc */
+  line-height: inherit;
+  background: transparent;
+}
+
+
 
 #editor-overlay .overlay-title {
   font-size: 2rem;

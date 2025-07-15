@@ -856,6 +856,7 @@ async function loadConfiguration() {
       if (cmmFileSelect) cmmFileSelect.disabled = true; // CORRIGIDO
     }
     
+    /*
     // Populate compiler flags inputs
     if (config.iverilogFlags) {
       iverilogFlagsInput.value = config.iverilogFlags.join("; ");
@@ -873,7 +874,7 @@ async function loadConfiguration() {
       asmCompFlagsInput.value = config.asmCompFlags.join("; ");
     } else {
       asmCompFlagsInput.value = "";
-    }
+    } */
     
     // Update the processor select dropdown
     updateProcessorSelect();
@@ -955,7 +956,7 @@ saveConfigButton.addEventListener("click", async () => {
     ...proc,
     isActive: proc.name === selectedProcessor
   }));
-
+/*
   const iverilogFlags = iverilogFlagsInput.value
     .split(";")
     .map(flag => flag.trim())
@@ -970,16 +971,16 @@ saveConfigButton.addEventListener("click", async () => {
     .split(";")
     .map(flag => flag.trim())
     .filter(flag => flag);
-
+*/
   // Get the current simulation file selections
   const selectedTestbench = testbenchSelect ? testbenchSelect.value : "standard";
   const selectedGtkw = gtkwSelect ? gtkwSelect.value : "standard";
 
   const config = {
     processors,
-    iverilogFlags,
-    cmmCompFlags,
-    asmCompFlags,
+    //iverilogFlags,
+    //cmmCompFlags,
+    //asmCompFlags,
     testbenchFile: selectedTestbench,
     gtkwFile: selectedGtkw
     // NOTA: O arquivo CMM agora está sendo salvo dentro de cada processador individual

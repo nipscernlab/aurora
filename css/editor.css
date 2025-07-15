@@ -561,3 +561,10 @@ body.theme-light .monaco-editor .monaco-scrollable-element .slider {
   border-radius: 6px !important;
 }
 
+.myBreakpointGlyph {
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;      /* adjust to center it */
+  border-radius: 6px;
+  background-color: red;
+}

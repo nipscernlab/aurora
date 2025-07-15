@@ -247,37 +247,17 @@ static setupEnhancedFeatures(editor) {
     {
       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF,
       action: () => {
-        const activeFilePath = this.getActiveFilePath();
+        // Get the currently active editor instance
+        const activeEditor = EditorManager.activeEditor;
+        if (!activeEditor) return;
         
-        // Get or create find state for this file
-        if (!this.findStates.has(activeFilePath)) {
-          this.findStates.set(activeFilePath, {
-            isOpen: false,
-            searchTerm: '',
-            position: null
-          });
-        }
-        
-        const findAction = editor.getAction('actions.find');
+        const findAction = activeEditor.getAction('actions.find');
         if (findAction) {
           findAction.run().then(() => {
-            // Mark find widget as open for this file
-            const state = this.findStates.get(activeFilePath);
-            state.isOpen = true;
-            
             setTimeout(() => {
               const input = document.querySelector('.monaco-findInput input');
               if (input) {
-                // Restore previous search term if exists
-                if (state.searchTerm) {
-                  input.value = state.searchTerm;
-                }
                 input.focus();
-                
-                // Save search term when it changes
-                input.addEventListener('input', () => {
-                  state.searchTerm = input.value;
-                });
               }
             }, 50);
           });
@@ -285,21 +265,36 @@ static setupEnhancedFeatures(editor) {
       }
     },
     {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
-      action: () => editor.getAction('editor.action.startFindReplaceAction').run().then(() => {
-        setTimeout(() => {
-          const input = document.querySelector('.monaco-findInput input');
-          if (input) input.focus();
-        }, 50);
-      })
+       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH,
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        if (!activeEditor) return;
+        
+        activeEditor.getAction('editor.action.startFindReplaceAction').run().then(() => {
+          setTimeout(() => {
+            const input = document.querySelector('.monaco-findInput input');
+            if (input) input.focus();
+          }, 50);
+        });
+      }
     },
     {
-      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-      action: () => editor.getAction('editor.action.formatDocument').run()
+     key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        if (activeEditor) {
+          activeEditor.getAction('editor.action.formatDocument').run();
+        }
+      }
     },
     {
       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG,
-      action: () => editor.getAction('editor.action.gotoLine').run()
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        if (activeEditor) {
+          activeEditor.getAction('editor.action.gotoLine').run();
+        }
+      }
     },
     {
       key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
@@ -323,7 +318,12 @@ static setupEnhancedFeatures(editor) {
     },
     {
       key: monaco.KeyMod.Shift | monaco.KeyCode.F12,
-      action: () => editor.getAction('editor.action.goToReferences').run()
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        if (activeEditor) {
+          activeEditor.getAction('editor.action.goToReferences').run();
+        }
+      }
     }
   ];
 
@@ -1833,101 +1833,129 @@ static async loadImageFile(filePath, imgElement) {
 
    // Enhanced handleExternalFileChange method
   static async handleExternalFileChange(filePath) {
-    // Prevent multiple simultaneous checks for the same file
-    if (this.externalChangeQueue.has(filePath)) {
+  // Prevent multiple simultaneous checks for the same file
+  if (this.externalChangeQueue.has(filePath)) {
+    return;
+  }
+
+  this.externalChangeQueue.add(filePath);
+
+  try {
+    // Double-check that file still exists and is accessible
+    const stats = await window.electronAPI.getFileStats(filePath);
+    const lastKnownTime = this.lastModifiedTimes.get(filePath);
+
+    // Check if file was actually modified (with small tolerance for clock differences)
+    if (lastKnownTime && Math.abs(stats.mtime - lastKnownTime) < 1000) {
+      return; // No significant change
+    }
+
+    // Update last known modification time
+    this.lastModifiedTimes.set(filePath, stats.mtime);
+
+    // Check if file is currently open in a tab
+    if (!this.tabs.has(filePath)) {
+      return; // File not open, nothing to do
+    }
+
+    // Get current editor content
+    const editor = EditorManager.getEditorForFile(filePath);
+    if (!editor) {
       return;
     }
 
-    this.externalChangeQueue.add(filePath);
+    const currentEditorContent = editor.getValue();
+    const originalTabContent = this.tabs.get(filePath);
 
-    try {
-      // Double-check that file still exists and is accessible
-      const stats = await window.electronAPI.getFileStats(filePath);
-      const lastKnownTime = this.lastModifiedTimes.get(filePath);
+    // Read the new file content from disk
+    const newFileContent = await window.electronAPI.readFile(filePath);
 
-      // Check if file was actually modified (with small tolerance for clock differences)
-      if (lastKnownTime && Math.abs(stats.mtime - lastKnownTime) < 1000) {
-        return; // No significant change
-      }
+    // CRITICAL FIX: Check if this change was caused by our own save operation
+    const hasUnsavedChanges = this.unsavedChanges.has(filePath);
+    const editorContentChanged = currentEditorContent !== originalTabContent;
 
-      // Update last known modification time
-      this.lastModifiedTimes.set(filePath, stats.mtime);
-
-      // Check if file is currently open in a tab
-      if (!this.tabs.has(filePath)) {
-        return; // File not open, nothing to do
-      }
-
-      // Get current editor content
-      const editor = EditorManager.getEditorForFile(filePath);
-      if (!editor) {
-        return;
-      }
-
-      const currentEditorContent = editor.getValue();
-      const originalTabContent = this.tabs.get(filePath);
-
-      // Read the new file content from disk
-      const newFileContent = await window.electronAPI.readFile(filePath);
-
-      // Check if there are unsaved changes in the editor
-      const hasUnsavedChanges = this.unsavedChanges.has(filePath);
-      const editorContentChanged = currentEditorContent !== originalTabContent;
-
-      if (hasUnsavedChanges || editorContentChanged) {
-        // There are local changes - show conflict resolution dialog
-        const resolution = await this.showFileConflictDialog(filePath, newFileContent, currentEditorContent);
-        await this.handleConflictResolution(filePath, resolution, newFileContent, currentEditorContent);
-      } else {
-        // No local changes - safe to update with external content
-        await this.updateTabWithExternalContent(filePath, newFileContent, editor);
-      }
-
-    } catch (error) {
-      console.error(`Error handling external change for ${filePath}:`, error);
-    } finally {
-      this.externalChangeQueue.delete(filePath);
+    // If editor content matches the new file content, this was likely our own save
+    if (currentEditorContent === newFileContent) {
+      // This was our own save operation - just update the stored content
+      // DO NOT call updateTabWithExternalContent as it destroys undo history
+      this.tabs.set(filePath, newFileContent);
+      this.markFileAsSaved(filePath);
+      return;
     }
+
+    if (hasUnsavedChanges || editorContentChanged) {
+      // There are local changes - show conflict resolution dialog
+      const resolution = await this.showFileConflictDialog(filePath, newFileContent, currentEditorContent);
+      await this.handleConflictResolution(filePath, resolution, newFileContent, currentEditorContent);
+    } else {
+      // No local changes - safe to update with external content
+      await this.updateTabWithExternalContent(filePath, newFileContent, editor);
+    }
+
+  } catch (error) {
+    console.error(`Error handling external change for ${filePath}:`, error);
+  } finally {
+    this.externalChangeQueue.delete(filePath);
   }
+}
 
   // Update tab with external content
   static async updateTabWithExternalContent(filePath, newContent, editor) {
-    // Save current cursor position and scroll
-    const position = editor.getPosition();
-    const scrollTop = editor.getScrollTop();
-
-    // Update editor content
-    editor.setValue(newContent);
-
-    // Restore cursor position if still valid
-    try {
-      const model = editor.getModel();
-      const lineCount = model.getLineCount();
-      if (position.lineNumber <= lineCount) {
-        const maxColumn = model.getLineMaxColumn(position.lineNumber);
-        const newPosition = {
-          lineNumber: position.lineNumber,
-          column: Math.min(position.column, maxColumn)
-        };
-        editor.setPosition(newPosition);
-      }
-    } catch (error) {
-      // Position restoration failed, place cursor at start
-      editor.setPosition({ lineNumber: 1, column: 1 });
-    }
-
-    // Restore scroll position
-    editor.setScrollTop(scrollTop);
-
-    // Update stored content
+  const currentContent = editor.getValue();
+  
+  // If content is the same, don't do anything to preserve undo history
+  if (currentContent === newContent) {
     this.tabs.set(filePath, newContent);
-
-    // Mark as saved (no unsaved changes)
     this.markFileAsSaved(filePath);
-
-    // Show notification
-    this.showExternalChangeNotification(filePath, 'updated');
+    return;
   }
+
+  // Save current cursor position and scroll
+  const position = editor.getPosition();
+  const scrollTop = editor.getScrollTop();
+
+  // CRITICAL: Use pushEditOperations instead of setValue to preserve undo history
+  const model = editor.getModel();
+  const fullRange = model.getFullModelRange();
+  
+  // Create an edit operation that can be undone
+  const editOperation = {
+    range: fullRange,
+    text: newContent,
+    forceMoveMarkers: true
+  };
+
+  // Apply the edit operation - this preserves undo history
+  model.pushEditOperations([], [editOperation], () => null);
+
+  // Restore cursor position if still valid
+  try {
+    const lineCount = model.getLineCount();
+    if (position.lineNumber <= lineCount) {
+      const maxColumn = model.getLineMaxColumn(position.lineNumber);
+      const newPosition = {
+        lineNumber: position.lineNumber,
+        column: Math.min(position.column, maxColumn)
+      };
+      editor.setPosition(newPosition);
+    }
+  } catch (error) {
+    // Position restoration failed, place cursor at start
+    editor.setPosition({ lineNumber: 1, column: 1 });
+  }
+
+  // Restore scroll position
+  editor.setScrollTop(scrollTop);
+
+  // Update stored content
+  this.tabs.set(filePath, newContent);
+
+  // Mark as saved (no unsaved changes)
+  this.markFileAsSaved(filePath);
+
+  // Show notification
+  this.showExternalChangeNotification(filePath, 'updated');
+}
 
   // Show file conflict dialog
   static async showFileConflictDialog(filePath, diskContent, editorContent) {
@@ -1989,31 +2017,31 @@ static async loadImageFile(filePath, imgElement) {
 
   // Handle conflict resolution
   static async handleConflictResolution(filePath, resolution, diskContent, editorContent) {
-    const editor = EditorManager.getEditorForFile(filePath);
-    if (!editor) return;
+  const editor = EditorManager.getEditorForFile(filePath);
+  if (!editor) return;
 
-    switch (resolution) {
-      case 'keep-editor':
-        // Save current editor content to disk
-        await this.saveFile(filePath);
-        this.showExternalChangeNotification(filePath, 'kept-editor');
-        break;
+  switch (resolution) {
+    case 'keep-editor':
+      // Save current editor content to disk
+      await this.saveFile(filePath);
+      this.showExternalChangeNotification(filePath, 'kept-editor');
+      break;
 
-      case 'use-disk':
-        // Replace editor content with disk content
-        await this.updateTabWithExternalContent(filePath, diskContent, editor);
-        break;
+    case 'use-disk':
+      // Replace editor content with disk content - use the fixed method
+      await this.updateTabWithExternalContent(filePath, diskContent, editor);
+      break;
 
-      case 'save-and-reload':
-        // Save current content first, then reload from disk
-        await this.saveFile(filePath);
-        // Read again in case save triggered another change
-        const freshContent = await window.electronAPI.readFile(filePath);
-        await this.updateTabWithExternalContent(filePath, freshContent, editor);
-        this.showExternalChangeNotification(filePath, 'saved-and-reloaded');
-        break;
-    }
+    case 'save-and-reload':
+      // Save current content first, then reload from disk
+      await this.saveFile(filePath);
+      // Read again in case save triggered another change
+      const freshContent = await window.electronAPI.readFile(filePath);
+      await this.updateTabWithExternalContent(filePath, freshContent, editor);
+      this.showExternalChangeNotification(filePath, 'saved-and-reloaded');
+      break;
   }
+}
 
   // Show notification for external changes
   static showExternalChangeNotification(filePath, action) {
@@ -2936,24 +2964,34 @@ static savePdfViewerState(filePath) {
 
 // Comprehensive save method
   static async saveCurrentFile() {
-    const currentPath = this.activeTab;
-    if (!currentPath) return;
+  const currentPath = this.activeTab;
+  if (!currentPath) return;
 
+  try {
+    const currentEditor = EditorManager.getEditorForFile(currentPath);
+    if (!currentEditor) return;
+
+    const content = currentEditor.getValue();
+    
+    // Update stored content first
+    this.tabs.set(currentPath, content);
+    
+    // Save file without interfering with undo history
+    await window.electronAPI.writeFile(currentPath, content);
+    this.markFileAsSaved(currentPath);
+    
+    // Update last modified time
     try {
-      const currentEditor = EditorManager.getEditorForFile(currentPath);
-      if (!currentEditor) return;
-
-      const content = currentEditor.getValue();
-      await window.electronAPI.writeFile(currentPath, content);
-      this.markFileAsSaved(currentPath);
-      
-      // Update the content in tabs map to reflect saved content
-      this.tabs.set(currentPath, content);
+      const stats = await window.electronAPI.getFileStats(currentPath);
+      this.lastModifiedTimes.set(currentPath, stats.mtime);
     } catch (error) {
-      console.error('Error saving file:', error);
-      // Optional: Show error dialog to user
+      // Ignore stats errors
     }
+    
+  } catch (error) {
+    console.error('Error saving file:', error);
   }
+}
 
  // Enhanced saveAllFiles method with undo history preservation
 static async saveAllFiles() {
@@ -2969,15 +3007,20 @@ static async saveAllFiles() {
     // Only save if modified
     if (currentContent !== originalContent) {
       try {
-        // Create undo stop before saving
-        editor.pushUndoStop();
-        
-        await window.electronAPI.writeFile(filePath, currentContent);
-        this.markFileAsSaved(filePath);
+        // Update stored content first
         this.tabs.set(filePath, currentContent);
         
-        // Create undo stop after saving
-        editor.pushUndoStop();
+        // Save without creating undo stops
+        await window.electronAPI.writeFile(filePath, currentContent);
+        this.markFileAsSaved(filePath);
+        
+        // Update last modified time
+        try {
+          const stats = await window.electronAPI.getFileStats(filePath);
+          this.lastModifiedTimes.set(filePath, stats.mtime);
+        } catch (error) {
+          // Ignore stats errors
+        }
         
       } catch (error) {
         console.error(`Error saving file ${filePath}:`, error);
@@ -2999,6 +3042,7 @@ static async saveAllFiles() {
       }
     });
   }
+
 
   
             static isClosingTab = false; // Prevent double closing
@@ -3189,7 +3233,7 @@ static cleanup() {
             }
         
 // Enhanced saveFile method with undo history preservation
-static async saveFile(filePath = null) {
+ static async saveFile(filePath = null) {
   const currentPath = filePath || this.activeTab;
   if (!currentPath) return;
 
@@ -3204,23 +3248,54 @@ static async saveFile(filePath = null) {
 
     const content = currentEditor.getValue();
     
-    // Create a save point in the undo stack before saving
-    currentEditor.pushUndoStop();
-    
-    await window.electronAPI.writeFile(currentPath, content);
-    
-    // Mark as saved and update stored content
-    this.markFileAsSaved(currentPath);
+    // IMPORTANT: Update our stored content BEFORE writing to disk
+    // This helps the external change handler recognize this as our own save
     this.tabs.set(currentPath, content);
     
-    // Create another undo stop after saving to preserve undo history
-    currentEditor.pushUndoStop();
+    // Save file without interfering with undo history
+    await window.electronAPI.writeFile(currentPath, content);
+    
+    // Mark as saved
+    this.markFileAsSaved(currentPath);
+    
+    // Update the last modified time to prevent false external change detection
+    try {
+      const stats = await window.electronAPI.getFileStats(currentPath);
+      this.lastModifiedTimes.set(currentPath, stats.mtime);
+    } catch (error) {
+      // If we can't get stats, that's okay - the content comparison will handle it
+    }
     
   } catch (error) {
     console.error('Error saving file:', error);
     throw error;
   }
 }
+
+  // Optional: Method to manually create undo stops when needed
+  static createUndoStop(filePath = null) {
+    const currentPath = filePath || this.activeTab;
+    if (!currentPath) return;
+
+    const editor = EditorManager.getEditorForFile(currentPath);
+    if (editor && typeof editor.pushUndoStop === 'function') {
+      editor.pushUndoStop();
+    }
+  }
+
+  // Optional: Method to get undo/redo state information
+  static getUndoRedoState(filePath = null) {
+    const currentPath = filePath || this.activeTab;
+    if (!currentPath) return null;
+
+    const editor = EditorManager.getEditorForFile(currentPath);
+    if (!editor) return null;
+
+    return {
+      canUndo: editor.getModel() ? editor.getModel().canUndo() : false,
+      canRedo: editor.getModel() ? editor.getModel().canRedo() : false
+    };
+  }
 
             // Fixed reopenLastClosedTab method
             static async reopenLastClosedTab() {
@@ -6690,7 +6765,7 @@ class CompilationModule {
       const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
       
       // Fixed: Use tbModule as top module, not cmmBaseName
-      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
+      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       

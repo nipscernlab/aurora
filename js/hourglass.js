@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleElementsVisibility();
       }
     });
-    toggleButton.setAttribute('title', 'Toggle UI elements (Ctrl+R)');
+    toggleButton.setAttribute('titles', 'Toggle UI elements (Ctrl+R)');
     console.log('UI control system initialized');
   }
   

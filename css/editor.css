@@ -368,7 +368,7 @@ body {
 }
 
 #editor-overlay.visible .overlay-icon {
-  transform: scale(1.05);
+  transform: scale(1.5);
   user-select: none;
   -webkit-user-drag: none;
   filter: saturate(1.5);

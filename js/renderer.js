@@ -6644,17 +6644,9 @@ class CompilationModule {
       const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
       const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
       const testbenchFile = await window.electronAPI.joinPath(simulationPath, tbFile);
-      // Get testbench file (topLevel file in project mode)
-      const topLevelFile = this.projectConfig.topLevelFile;
-      if (!topLevelFile) {
-        throw new Error("No top level file specified in project configuration");
-      }
-
-      // Extract top module name from testbench file
-      const topLevelFileName = topLevelFile.split(/[\/\\]/).pop();
       
       // Fixed: Use tbModule as top module, not cmmBaseName
-      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${topLevelFileName} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
+      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${testbenchFile}" "${hardwareFile}" ${verilogFilesString}`;
       
       this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
       
@@ -6817,7 +6809,7 @@ class CompilationModule {
         } else {
           console.error('VVP Error Details:', error);
           const errorMsg = error.error || error.stderr || error.message || 'Unknown VVP error';
-          this.terminalManager.appendToTerminal('twave', `VVP Error: ${errorMsg}`, 'error');
+          //this.terminalManager.appendToTerminal('twave', `VVP Error: ${errorMsg}`, 'error');
           throw new Error(errorMsg);
         }
       } finally {
@@ -7680,7 +7672,7 @@ document.getElementById('cancel-everything').addEventListener('click', async () 
     }
   } catch (error) {
     console.error('Error canceling VVP process:', error);
-    showCardNotification('Error occurred while trying to cancel the process.', 'error', 3000);
+    //showCardNotification('Error occurred while trying to cancel the process.', 'error', 3000);
   }
 });
 
@@ -8121,12 +8113,10 @@ class TerminalManager {
     this.setupGoDownButton();
     this.setupTerminalLogListener();
     
-    // Initialize message buffers for each terminal
-    this.messageBuffers = {};
-    this.groupedCards = {};
+    // Initialize current session grouped cards for each terminal
+    this.currentSessionCards = {};
     Object.keys(this.terminals).forEach(id => {
-      this.messageBuffers[id] = [];
-      this.groupedCards[id] = {};
+      this.currentSessionCards[id] = {};
     });
       
     if (!TerminalManager.clearButtonInitialized) {
@@ -8252,7 +8242,7 @@ class TerminalManager {
   makeLineNumbersClickable(text) {
     // Replace "linha" followed by space and number with clickable link
     return text.replace(/linha\s+(\d+)/gi, (match, lineNumber) => {
-      return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" style="color: #10b981; cursor: pointer; text-decoration: underline;">${match}</span>`;
+    return `<span id="line-number" title="Opa. Bão?" class="line-link" data-line="${lineNumber}" style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">${match}</span>`;
     });
   }
 
@@ -8270,6 +8260,9 @@ class TerminalManager {
 
     if (!text.trim()) return;
 
+    // Reset current session cards for this terminal (new compiler run)
+    this.currentSessionCards[terminalId] = {};
+
     // Split by lines and process each line
     const lines = text.split('\n').filter(line => line.trim());
     
@@ -8277,7 +8270,7 @@ class TerminalManager {
       const messageType = this.detectMessageType(line);
       
       if (messageType && messageType !== 'plain') {
-        this.addToGroupedCard(terminalId, line.trim(), messageType);
+        this.addToSessionCard(terminalId, line.trim(), messageType);
       } else {
         // For plain messages, create individual entries
         const timestamp = new Date().toLocaleString('en-US', {
@@ -8298,12 +8291,12 @@ class TerminalManager {
     this.scrollToBottom(terminalId);
   }
 
-  addToGroupedCard(terminalId, text, type) {
+  addToSessionCard(terminalId, text, type) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
 
-    // Get or create the grouped card for this type
-    let card = this.groupedCards[terminalId][type];
+    // Get or create the session card for this type
+    let card = this.currentSessionCards[terminalId][type];
     
     if (!card) {
       const timestamp = new Date().toLocaleString('en-US', {
@@ -8317,7 +8310,7 @@ class TerminalManager {
       });
       
       card = this.createGroupedCard(terminal, type, timestamp);
-      this.groupedCards[terminalId][type] = card;
+      this.currentSessionCards[terminalId][type] = card;
     }
 
     // Add the message to the card
@@ -8379,32 +8372,74 @@ class TerminalManager {
     return logEntry;
   }
 
-  addMessageToCard(card, text, type) {
-    const messagesContainer = card.querySelector('.messages-container');
-    if (!messagesContainer) return;
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('grouped-message');
-    messageDiv.style.marginBottom = '0.25rem';
-    
-    // Process text for clickable line numbers only
-    let processedText = this.makeLineNumbersClickable(text);
-    
-    messageDiv.innerHTML = processedText;
-    
-    // Add line link click handlers
-    const lineLinks = messageDiv.querySelectorAll('.line-link');
-    lineLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const lineNumber = link.getAttribute('data-line');
-        console.log(`Clicked on line ${lineNumber}`);
-        // Future implementation: navigate to line in Monaco editor
-      });
+ addMessageToCard(card, text, type) {
+  const messagesContainer = card.querySelector('.messages-container');
+  if (!messagesContainer) return;
+  
+  const messageDiv = document.createElement('div');
+  messageDiv.classList.add('grouped-message');
+  messageDiv.style.marginBottom = '0.25rem';
+  
+  // Process text for clickable line numbers only
+  let processedText = this.makeLineNumbersClickable(text);
+  
+  messageDiv.innerHTML = processedText;
+  
+  // Add line link click handlers
+  const lineLinks = messageDiv.querySelectorAll('.line-link');
+  lineLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const lineNumber = parseInt(link.getAttribute('data-line'));
+      console.log(`Clicked on line ${lineNumber}`);
+      
+      // Navigate to line in Monaco editor
+      this.goToLine(lineNumber);
     });
-    
-    messagesContainer.appendChild(messageDiv);
+  });
+  
+  messagesContainer.appendChild(messageDiv);
+}
+
+// Helper method to navigate to a specific line in Monaco Editor
+goToLine(lineNumber) {
+  // Get the active editor from EditorManager
+  const activeEditor = EditorManager.activeEditor;
+  if (!activeEditor) {
+    console.warn('No active editor found');
+    return;
   }
+  
+  // Ensure line number is valid
+  const model = activeEditor.getModel();
+  if (!model) {
+    console.warn('No model found in active editor');
+    return;
+  }
+  
+  const totalLines = model.getLineCount();
+  const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
+  
+  // Set cursor position to the beginning of the target line
+  activeEditor.setPosition({
+    lineNumber: targetLine,
+    column: 1
+  });
+  
+  // Center the line in the viewport
+  activeEditor.revealLineInCenter(targetLine);
+  
+  // Focus the editor
+  activeEditor.focus();
+  
+  // Optional: Select the entire line
+  activeEditor.setSelection({
+    startLineNumber: targetLine,
+    startColumn: 1,
+    endLineNumber: targetLine,
+    endColumn: model.getLineMaxColumn(targetLine)
+  });
+}
 
   createLogEntry(terminal, text, type, timestamp) {
     const logEntry = document.createElement('div');
@@ -8574,8 +8609,7 @@ class TerminalManager {
     const terminal = this.terminals[terminalId];
     if (terminal) {
       terminal.innerHTML = '';
-      this.messageBuffers[terminalId] = [];
-      this.groupedCards[terminalId] = {};
+      this.currentSessionCards[terminalId] = {};
     }
   }
 
@@ -8609,7 +8643,6 @@ class TerminalManager {
       .join('<br>');
   }
 }
-
 // Global references and state management
 let globalTerminalManager = null;
 let currentCompiler = null;

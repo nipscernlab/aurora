@@ -6499,7 +6499,7 @@ class CompilationModule {
     return { tbModule, tbFile };
   }
 
-  async modifyTestbenchForSimulation(testbenchPath, tbModuleName, tempBaseDir, simuDelay = "200000") {
+  async modifyTestbenchForSimulation(testbenchPath, tbModuleName, tempBaseDir, simuDelay = "200000.00000") {
   try {
     // Read original testbench content
     const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });

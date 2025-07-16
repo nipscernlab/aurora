@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'palette': 'Add some colors and personalize your AURORA IDE!',
         'aiAssistant': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
         'translate': 'You know what it does.',
+        'clear-terminal': 'Clear terminal content.',
         'goup-terminal': 'Go Up',
         'godown-terminal': 'Go Down',
         'export-log': 'Export Log',

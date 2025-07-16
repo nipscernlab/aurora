@@ -820,7 +820,16 @@ async function loadConfiguration() {
     
     // Reset temp storage when loading new configuration
     tempProcessorConfigs = {};
-    
+     const projectSimuDelayInput = document.getElementById('projectSimuDelay');
+  if (projectSimuDelayInput && config.simuDelay) {
+    projectSimuDelayInput.value = config.simuDelay;
+  }
+  
+  // Load simuDelay for processor configuration
+  const processorSimuDelayInput = document.getElementById('processorSimuDelay');
+  if (processorSimuDelayInput && config.simuDelay) {
+    processorSimuDelayInput.value = config.simuDelay;
+  }
     // Populate processor selection if available
     if (config.processors && config.processors.length > 0) {
       // Initialize temp configs with current configs
@@ -956,35 +965,20 @@ saveConfigButton.addEventListener("click", async () => {
     ...proc,
     isActive: proc.name === selectedProcessor
   }));
-/*
-  const iverilogFlags = iverilogFlagsInput.value
-    .split(";")
-    .map(flag => flag.trim())
-    .filter(flag => flag);
 
-  const cmmCompFlags = cmmCompFlagsInput.value
-    .split(";")
-    .map(flag => flag.trim())
-    .filter(flag => flag);
-
-  const asmCompFlags = asmCompFlagsInput.value
-    .split(";")
-    .map(flag => flag.trim())
-    .filter(flag => flag);
-*/
   // Get the current simulation file selections
   const selectedTestbench = testbenchSelect ? testbenchSelect.value : "standard";
   const selectedGtkw = gtkwSelect ? gtkwSelect.value : "standard";
+  
+  // Get simulation delay
+  const processorSimuDelayInput = document.getElementById('processorSimuDelay');
+  const simuDelayValue = processorSimuDelayInput ? processorSimuDelayInput.value : '200000';
 
   const config = {
     processors,
-    //iverilogFlags,
-    //cmmCompFlags,
-    //asmCompFlags,
     testbenchFile: selectedTestbench,
-    gtkwFile: selectedGtkw
-    // NOTA: O arquivo CMM agora está sendo salvo dentro de cada processador individual
-    // em vez de como uma propriedade global da configuração
+    gtkwFile: selectedGtkw,
+    simuDelay: simuDelayValue
   };
 
   console.log("Saving Configuration:", config);

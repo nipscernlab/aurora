@@ -181,6 +181,21 @@
               <input type="number" id="processorNumClocks" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.numClocksPlaceholder" placeholder="Number of clocks" max="1000">
             </div>
           </div>
+          <div class="modalConfig-form-group">
+            <label for="processorSimuDelay" class="modalConfig-label" data-i18n="modal.processorConfig.processors.simuDelayLabel">Simulation Delay</label>
+            <input 
+              type="text" 
+              id="processorSimuDelay" 
+              class="modalConfig-input"
+              data-i18n-placeholder="modal.processorConfig.processors.simuDelayPlaceholder"
+              placeholder="e.g., 200000" 
+              value="200000"
+              aria-describedby="processorSimuDelayHelp"
+            >
+            <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
+              Simulation delay value used in testbench timing
+            </small>
+          </div>
 
           <div class="modalConfig-form-group">
             <div class="modalConfig-cmm-selector">
@@ -360,7 +375,26 @@
           <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
         </button>
       </section>
-      
+      <section class="modalConfig-section" id="simulationSettings">
+        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.simulation.title">Simulation Settings</h3>
+        
+        <div class="modalConfig-form-group">
+          <label for="projectSimuDelay" class="modalConfig-label" data-i18n="modal.projectConfig.simulation.simuDelayLabel">Simulation Delay</label>
+          <input 
+            type="text" 
+            id="projectSimuDelay" 
+            class="modalConfig-input"
+            name="simuDelay"
+            data-i18n-placeholder="modal.projectConfig.simulation.simuDelayPlaceholder"
+            placeholder="e.g., 200000" 
+            value="200000"
+            aria-describedby="projectSimuDelayHelp"
+          >
+          <small id="projectSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.projectConfig.simulation.simuDelayHelp">
+            Simulation delay value used in testbench timing
+          </small>
+        </div>
+      </section>
       <!-- Compiler Settings Section -->
       <section class="modalConfig-section" id="compilerSettings">
         <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
@@ -460,7 +494,7 @@
     <div class="file-tree-container">
     <div class="file-tree-header">
     <span data-i18n="ui.fileTree.title">FILE TREE</span>
-    <span data-i18n-title="ui.fileTree.refresh" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui.fileTree.refreshButton">Refresh</span></span> <span id="close-button" style="cursor: pointer;"><i class="fa-solid fa-circle-xmark"></i> Close</span></span><br>
+    <span data-i18n-title="ui.fileTree.refresh" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui.fileTree.refreshButton">Refresh</span></span> <span data-i18n-title="ui.fileTree.closeBtn" id="close-button" style="cursor: pointer;"><i class="fa-solid fa-circle-xmark"></i> Close</span></span><br>
     <span id="current-spf-name" data-i18n-title="ui.fileTree.currentProject">No project open</span>
     <span data-i18n-title="ui.fileTree.openProject" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> <span data-i18n="ui.fileTree.project">Project</span></span>
     <span data-i18n-title="ui.fileTree.openHDL" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> <span data-i18n="ui.fileTree.hdl">HDL</span></span>
@@ -504,7 +538,9 @@
         <div id="editor-overlay" class="visible">
       <div class="overlay-content">
         <div id="icon-container">
-          <img id="aurora-icon" src="./assets/icons/chameleon-reptile-shape-svgrepo-com.svg" data-i18n-title="ui.editor.auroraIcon" alt="Aurora Background" class="overlay-icon" />
+          <img id="fly" src="./assets/icons/bug.gif" style="width: 30px; filter: contrast(0); margin-right: 50%;">
+
+          <img id="aurora-icon" src="./assets/icons/aurora-chameleon-animal-by-Vexels.svg" width="100px" data-i18n-title="ui.editor.auroraIcon" alt="Aurora Background" class="overlay-icon" />
           <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
 
           <!-- Existing change icon button -->
@@ -548,7 +584,7 @@
       <div class="resizer-horizontal"></div>
       <div id="terminal-container" class="terminal-container">
         <div class="terminal-tabs">
-          <button id="clear-terminal" data-i18n-title="ui.terminal.clearTerminal" titles="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
+          <button id="clear-terminal"  titles="Clear Terminal" class="toolbar-button"><i class="fa-solid fa-trash-can"></i></button>
           
           <!-- Botões de filtro no terminal-tabs -->
           <button id="filter-error" data-i18n-title="ui.terminal.filterErrors" titles="Filter Errors" class="toolbar-button filter-btn filter-error">

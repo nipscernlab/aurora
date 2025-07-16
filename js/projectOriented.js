@@ -1945,11 +1945,15 @@ async function saveProjectConfiguration() {
     // Get iverilog flags
     const iverilogFlagsValue = iverilogFlags ? iverilogFlags.value : '';
     
+    // Get simulation delay
+    const projectSimuDelayInput = document.getElementById('projectSimuDelay');
+    const simuDelayValue = projectSimuDelayInput ? projectSimuDelayInput.value : '200000';
+    
     // Create configuration object
     const config = {
       topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
       testbenchFile: starredTestbench ? starredTestbench.path : '',
-      gtkwaveFile: starredGtkw ? starredGtkw.path : '', // CORREÇÃO: estava "ized.path"
+      gtkwaveFile: starredGtkw ? starredGtkw.path : '',
       synthesizableFiles: synthesizableFiles.map(file => ({
         name: file.name,
         path: file.path
@@ -1963,7 +1967,8 @@ async function saveProjectConfiguration() {
         path: file.path
       })),
       processors: processors,
-      iverilogFlags: iverilogFlagsValue
+      iverilogFlags: iverilogFlagsValue,
+      simuDelay: simuDelayValue
     };
     
     // Save configuration to file
@@ -1985,8 +1990,7 @@ async function saveProjectConfiguration() {
   }
 }
 
-
-// Clear all settings - FIXED
+// Updated clearAllSettings function
 function clearAllSettings() {
   // Clear file lists
   synthesizableFiles = [];
@@ -2006,6 +2010,12 @@ function clearAllSettings() {
   // Clear iverilog flags
   if (iverilogFlags) {
     iverilogFlags.value = '';
+  }
+  
+  // Reset simulation delay to default
+  const projectSimuDelayInput = document.getElementById('projectSimuDelay');
+  if (projectSimuDelayInput) {
+    projectSimuDelayInput.value = '200000';
   }
 }
 

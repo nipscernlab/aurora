@@ -1,30 +1,7 @@
 {
     "en": {
         "toolbar": {
-            "sidebarMenuTitle": "Open sidebar menu",
-            "newProject": "New Project",
-            "newProjectTitle": "Create a new project",
-            "backup": "Backup",
-            "backupTitle": "Create backup of current project",
-            "openProject": "Open Project",
-            "openProjectTitle": "Open existing project",
-            "saveFile": "Save",
-            "saveFileTitle": "Save current file",
-            "compileCMMTitle": "Compile C-- code",
-            "compileASMTitle": "Compile Assembly code",
-            "compileVerilogTitle": "Compile Verilog code",
-            "openWaveTitle": "Open waveform viewer",
-            "openPRISMTitle": "Open PRISM model checker",
-            "prism": "PRISM",
-            "toggleUITitle": "Toggle user interface",
-            "cancelEverythingTitle": "Cancel all operations",
-            "compileAll": "Compile All",
-            "compileAllTitle": "Compile all source files",
-            "toggleThemeTitle": "Switch between light and dark theme",
-            "settingsTitle": "Open application settings",
-            "aboutAuroraTitle": "About Aurora IDE",
-            "paletteTitle": "Change color theme",
-            "changeLanguageTitle": "Change application language"
+            
         },
         "modal": {
             "closeModal": "Close Modal",
@@ -106,6 +83,7 @@
         "currentProject": "Project Currently Open",
         "openProject": "Open Project Folder",
         "openHDL": "Open HDL Folder",
+        "closeBtn": "Close Project",
         "project": "Project",
         "hdl": "HDL",
         "searchPlaceholder": "Search files...",
@@ -122,15 +100,7 @@
         "openProjectHint": "Open a project to see it appear here"
       },
       "terminal": {
-        "clearTerminal": "Clear Terminal",
-        "filterErrors": "Filter Errors",
-        "filterWarnings": "Filter Warnings",
-        "filterSuccesses": "Filter Successes",
-        "filterTips": "Filter Tips",
-        "goUp": "Go Up",
-        "goDown": "Go Down",
-        "exportLog": "Export Log",
-        "reloadEverything": "Reload Everything",
+       
         "tcmmHeader": "TCMM Terminal",
         "tcmmWelcome": "Welcome to the TCMM Terminal!",
         "tasmHeader": "TASM Terminal",

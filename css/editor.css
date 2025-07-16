@@ -361,6 +361,7 @@ body {
 #editor-overlay .overlay-icon {
   max-width: 150px;
   margin-bottom: 1.5rem;
+  margin-top: 1.5rem;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
   transition: transform 0.3s ease;
   opacity: 60%;
@@ -368,7 +369,7 @@ body {
 }
 
 #editor-overlay.visible .overlay-icon {
-  transform: scale(1.5);
+  transform: scale(2.5);
   user-select: none;
   -webkit-user-drag: none;
   filter: saturate(1.5);

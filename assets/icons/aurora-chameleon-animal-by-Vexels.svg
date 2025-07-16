@@ -1,34 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 =================================================================
 SVG Chameleon Icon - Aurora Borealis Theme
 =================================================================
 - Author: Gemini (Color Redesign)
-- Date: 16 de Julho de 2025
-- Description: The original chameleon shape has been recolored 
-  with a professional Aurora Borealis color palette using a 
-  dynamic gradient to preserve detail and depth.
+- Date: July 16, 2025
+- Description: The original chameleon shape has been recolored
+  with a professional Aurora Borealis color palette. A dynamic
+  gradient preserves detail and depth, and subtle stars have
+  been added to enhance the night-sky theme.
 =================================================================
 -->
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 1200 1200" enable-background="new 0 0 1200 1200" xml:space="preserve">
 
 <defs>
-    <!-- 
-    Aurora Borealis Gradient Definition 
-    Colors chosen to represent the northern lights, flowing from deep purple to vibrant green and teal. [1, 5]
+    <!--
+    Aurora Borealis Gradient Definition
+    Colors are chosen to represent the northern lights, flowing from deep purple to vibrant green.
     -->
     <linearGradient id="auroraGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#2C1F58; stop-opacity:1" />   <!-- Deep Indigo [1] -->
-        <stop offset="35%" style="stop-color:#5B2E91; stop-opacity:1" />  <!-- Vibrant Purple [1] -->
-        <stop offset="60%" style="stop-color:#04E2B7; stop-opacity:1" />  <!-- Bright Teal [5] -->
-        <stop offset="100%" style="stop-color:#0EF3C5; stop-opacity:1" /> <!-- Luminous Green [5] -->
+        <stop offset="0%" style="stop-color:#2C1F58; stop-opacity:1" />   <!-- Deep Indigo -->
+        <stop offset="45%" style="stop-color:#5B2E91; stop-opacity:1" />  <!-- Vibrant Purple -->
+        <stop offset="75%" style="stop-color:#04E2B7; stop-opacity:1" />  <!-- Bright Teal -->
+        <stop offset="100%" style="stop-color:#92FCE4; stop-opacity:1" /> <!-- Luminous Mint -->
     </linearGradient>
+
+    <!-- Accent gradient for highlights -->
     <linearGradient id="auroraAccentGradient" x1="100%" y1="100%" x2="0%" y2="0%">
-        <stop offset="0%" style="stop-color:#0EF3C5; stop-opacity:1" /> <!-- Luminous Green [5] -->
+        <stop offset="0%" style="stop-color:#0EF3C5; stop-opacity:1" /> <!-- Luminous Green -->
         <stop offset="100%" style="stop-color:#92FCE4; stop-opacity:1" /> <!-- Light Mint -->
     </linearGradient>
+
+    <!-- Star definition -->
+    <symbol id="star" viewBox="0 0 50 50">
+        <path d="M25,0 L31.25,18.75 L50,18.75 L34.375,31.25 L40.625,50 L25,37.5 L9.375,50 L15.625,31.25 L0,18.75 L18.75,18.75 Z" fill="#FFFFFF"/>
+    </symbol>
 </defs>
+
+<!-- Star background -->
+<g id="stars" opacity="0.6">
+    <use xlink:href="#star" x="850" y="150" width="20" height="20" opacity="0.8"/>
+    <use xlink:href="#star" x="150" y="200" width="15" height="15" opacity="0.9"/>
+    <use xlink:href="#star" x="920" y="320" width="12" height="12" opacity="0.6"/>
+    <use xlink:href="#star" x="400" y="100" width="18" height="18" opacity="1"/>
+    <use xlink:href="#star" x="1000" y="550" width="16" height="16" opacity="0.7"/>
+    <use xlink:href="#star" x="200" y="800" width="14" height="14" opacity="0.9"/>
+    <use xlink:href="#star" x="1100" y="100" width="22" height="22" opacity="0.8"/>
+</g>
+
 
 <g>
 	<!-- Primary head and back shapes, filled with the main gradient -->
@@ -104,7 +124,7 @@ SVG Chameleon Icon - Aurora Borealis Theme
 	<path fill="#5B2E91" d="M138.686,436.476c3,4.161-2.193,17.002-9.108,17.817c-8.163,0.962-3.917-11.03-0.605-15.251
 		C131.658,435.62,135.279,433.744,138.686,436.476z"/>
 	<!-- Underbelly shadow using a mix of dark purple and indigo -->
-	<path fill="#3A0B45" d="M1080.204,694.93c-33.217-1.923-62.967-9.214-95.296-13.676c-45.112-6.227-89.039-16.611-133.573-25.774
+	<path fill="#3A2A69" d="M1080.204,694.93c-33.217-1.923-62.967-9.214-95.296-13.676c-45.112-6.227-89.039-16.611-133.573-25.774
 		c-38.905-8.005-80.672-21.279-121.129-16.957c-31.019,3.314-61.337,13.942-91.428,20.639c-31.627,7.038-63.356,8.802-95.981,11.888
 		c-29.929,2.831-62.994,5.071-93.437,4.146c-42.268-1.284-81.892-14.331-123.967-11.81c-25.729,1.541-52.147,6.511-77.995,6.642
 		c-35.033,0.178-68.638-12.811-102.722-16.196c-14.137-1.404-28.823-1.857-42.825-1.547c-7.5,0.166-16.176,0.875-23.672-0.39

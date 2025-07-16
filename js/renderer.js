@@ -6510,13 +6510,14 @@ class CompilationModule {
     // Create the VCD dump and progress tracking code
     const vcdDumpCode = `
 
-    integer prog, chrys
+    integer prog, chrys;
 initial begin
     $dumpfile("${tbModuleName}.vcd");
     $dumpvars(0, ${tbModuleName});
     prog = $fopen("${fixedTempBaseDir}\\\\progress.txt", "w");
     for (chrys = 10; chrys <= 100; chrys = chrys + 10) begin
         #${simuDelay};
+        $fdisplay(prog,"%0d",chrys);
         $fflush(prog);
     end
     $fclose(prog);

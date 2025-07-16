@@ -506,3 +506,141 @@ body.theme-light-high-contrast .vvp-spinner {
     transition: width var(--transition-fast) !important;
   }
 }
+
+/* VVP Progress Minimize Functionality CSS */
+
+.vvp-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.vvp-progress-header .vvp-progress-icon {
+  flex-shrink: 0;
+}
+
+.vvp-progress-header .vvp-progress-text {
+  flex: 1;
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.vvp-minimize-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.vvp-minimize-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.vvp-minimize-btn:active {
+  transform: translateY(0);
+}
+
+.vvp-progress-minimized-info {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.vvp-minimized-time {
+  font-size: 14px;
+  color: #ffffff;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* Minimized state styles */
+.vvp-progress-overlay.vvp-progress-minimized {
+  padding: 15px 20px;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-info {
+  padding: 15px 50px;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-header {
+  display: none;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper {
+  margin-bottom: 0;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper .vvp-progress-percentage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper .vvp-progress-percentage::after {
+  content: attr(data-time);
+  font-size: 14px;
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-stats {
+  display: none;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-minimized-info {
+  display: flex;
+}
+
+/* Smooth transitions */
+.vvp-progress-overlay {
+  transition: all 0.3s ease;
+}
+
+.vvp-progress-info {
+  transition: all 0.3s ease;
+}
+
+.vvp-progress-header,
+.vvp-progress-stats {
+  transition: opacity 0.3s ease;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-header,
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-stats {
+  opacity: 0;
+}
+
+/* Expand button when minimized */
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper::after {
+  content: '\f065'; /* FontAwesome expand icon */
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ffffff;
+  opacity: 0.7;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.vvp-progress-overlay.vvp-progress-minimized .vvp-progress-bar-wrapper:hover::after {
+  opacity: 1;
+}

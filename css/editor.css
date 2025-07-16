@@ -370,6 +370,7 @@ body {
 
 #editor-overlay.visible .overlay-icon {
   transform: scale(2.5);
+  padding: 4rem 0rem;
   user-select: none;
   -webkit-user-drag: none;
   filter: saturate(1.5);

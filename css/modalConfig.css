@@ -748,7 +748,7 @@ button:disabled::after {
   margin: 2rem auto;
   width: 95%;
   max-width: 600px;
-  height: 90vh;
+  max-height: 84vh;
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
   animation: modalConfigSlideIn 0.3s ease;
@@ -1116,4 +1116,20 @@ button:disabled::after {
 
 .modalConfig-select-container {
   flex: 2;
+}
+
+/* Correção para fixar o footer no modal */
+.modalConfig-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.modalConfig-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modalConfig-footer {
+  flex-shrink: 0;
+  margin-top: auto;
 }

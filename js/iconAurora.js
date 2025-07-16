@@ -15,10 +15,21 @@ const fallbackIcon = document.getElementById('fallback-icon');
 const iconUpload = document.getElementById('icon-upload');
 const changeIconBtn = document.getElementById('change-icon-btn');
 const iconContainer = document.getElementById('icon-container');
+const flyIcon = document.getElementById('fly'); // Elemento fly para remoção
 
 // Estado da aplicação
 let currentIconPath = DEFAULT_ICON_PATH;
 let isIconLoaded = false;
+
+/**
+ * Remove o elemento fly quando uma nova imagem é selecionada
+ */
+function removeFlyIcon() {
+  if (flyIcon) {
+    console.log('Removendo ícone fly');
+    flyIcon.remove();
+  }
+}
 
 /**
  * Exibe o ícone de fallback quando não é possível carregar a imagem
@@ -185,6 +196,9 @@ function processNewIcon(file) {
   
   const filePath = file.path;
   console.log(`Novo ícone selecionado: ${filePath}`);
+  
+  // Remove o ícone fly quando uma nova imagem é selecionada
+  removeFlyIcon();
   
   // Criar um FileReader para ler o arquivo como DataURL
   const reader = new FileReader();

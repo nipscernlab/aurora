@@ -534,7 +534,7 @@ select[data-point-type]:focus {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 16px;
+    padding: 6px 14px;
     font-size: 0.9rem;
     font-weight: 500;
     border-radius: 8px;

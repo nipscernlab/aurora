@@ -6470,19 +6470,29 @@ class CompilationModule {
   }
 
   async getTestbenchInfo(processor, cmmBaseName) {
-    let tbModule, tbFile;
-    const testbenchFilePath = processor.testbenchFile;
-    if (testbenchFilePath && testbenchFilePath !== 'standard') {
+  let tbModule, tbFile;
+  const testbenchFilePath = processor.testbenchFile;
+  
+  if (testbenchFilePath && testbenchFilePath !== 'standard') {
+    if (this.isProjectOriented) {
+      // Project mode - use the path as is
       tbFile = testbenchFilePath;
-      const tbFileName = tbFile.split(/[\\\/]/).pop();
-      tbModule = tbFileName.replace(/\.v$/i, '');
     } else {
-      tbModule = `${cmmBaseName}_tb`;
+      // Processor mode - testbenchFilePath is just the filename
       const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
-      tbFile = await window.electronAPI.joinPath(simulationPath, `${tbModule}.v`);
+      tbFile = await window.electronAPI.joinPath(simulationPath, testbenchFilePath);
     }
-    return { tbModule, tbFile };
+    // Extract just the filename from the path to get the module name
+    const tbFileName = testbenchFilePath.split(/[\\\/]/).pop();
+    tbModule = tbFileName.replace(/\.v$/i, '');
+  } else {
+    tbModule = `${cmmBaseName}_tb`;
+    const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
+    tbFile = await window.electronAPI.joinPath(simulationPath, `${tbModule}.v`);
   }
+  
+  return { tbModule, tbFile };
+}
 
   async modifyTestbenchForSimulation(testbenchPath, tbModuleName, tempBaseDir, simuDelay = "200000") {
     try {
@@ -6632,7 +6642,7 @@ end`;
         throw new Error(`ASM compilation failed with code ${asmResult.code}`);
       }
       
-      if (!this.isProjectOriented && processor.testbenchFile && processor.testbenchFile !== 'standard') {
+      if (!this.isProjectOriented && processor.testbenchFile == 'standard') {
         const tbFileName = tbFile.split(/[\\\/]/).pop();
         const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
         const destinationTestbench = tbFile;
@@ -6742,71 +6752,74 @@ end`;
 }
 
   // Updated iverilogCompilation method for processor mode
-    async iverilogCompilation(processor) {
-    if (this.isProjectOriented) {
-      return this.iverilogProjectCompilation();
-    }
-    
-    const { name } = processor;
-    this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
-    statusUpdater.startCompilation('verilog');
-    
-    try {
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-      const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-      
-      const selectedCmmFile = await this.getSelectedCmmFile(processor);
-      const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-      
-      const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
-      
-      const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
-      
-      const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-      const verilogFilesString = verilogFiles.join(' ');
-
-      await TabManager.saveAllFiles();
-      
-      const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
-      const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
-      
-      const cmd = `cd "${hdlPath}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
-      
-      this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
-      
-      const result = await window.electronAPI.execCommand(cmd);
-      
-      if (result.stdout) this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
-      if (result.stderr) this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
-      
-      if (result.code !== 0) {
-        statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
-        throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
-      }
-      
-      await window.electronAPI.copyFile(
-        await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
-        await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
-      );
-
-      await window.electronAPI.copyFile(
-        await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
-        await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
-      );
-      
-      this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
-      statusUpdater.compilationSuccess('verilog');
-
-      await refreshFileTree();
-      
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-      statusUpdater.compilationError('verilog', error.message);
-      throw error;
-    }
+   async iverilogCompilation(processor) {
+  if (this.isProjectOriented) {
+    return this.iverilogProjectCompilation();
   }
+  
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
+  statusUpdater.startCompilation('verilog');
+  
+  try {
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+    
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    
+    const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+    
+    const tbFilePath = tbFile;
+    const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
+    
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+    const verilogFilesString = verilogFiles
+      .map(f => `"${hdlPath}\\${f}"`)
+      .join(' ');
+
+    await TabManager.saveAllFiles();
+    
+    const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
+    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+    
+    const cmd = `"${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${tbFilePath}" "${hardwareFile}" ${verilogFilesString}`;
+    
+    this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+    
+    const result = await window.electronAPI.execCommand(cmd);
+    
+    if (result.stdout) this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
+    if (result.stderr) this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
+    
+    if (result.code !== 0) {
+      statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
+      throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+    }
+    
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+    );
+
+    await window.electronAPI.copyFile(
+      await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
+      await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
+    );
+    
+    this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+    statusUpdater.compilationSuccess('verilog');
+
+    await refreshFileTree();
+    
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('verilog', error.message);
+    throw error;
+  }
+}
 
 
   // Updated runGtkWave method for processor mode
@@ -8477,86 +8490,58 @@ class TerminalManager {
   }
 
   createGroupedCard(terminal, type, timestamp) {
-    const logEntry = document.createElement('div');
-    logEntry.classList.add('log-entry', type);
-    
-    // Add timestamp
-    const timestampElement = document.createElement('span');
-    timestampElement.classList.add('timestamp');
-    timestampElement.textContent = `[${timestamp}]`;
-    
-    // Add message content container
-    const messageContent = document.createElement('div');
-    messageContent.classList.add('message-content');
-    
-    // Add header for the message type
-    const header = document.createElement('div');
-    header.classList.add('message-header');
-    header.style.fontWeight = 'bold';
-    header.style.marginBottom = '0.5rem';
-    
-    const typeHeaders = {
-      'warning': 'Atenção',
-      'error': 'Erro',
-      'success': 'Sucesso',
-      'tips': 'Info'
-    };
-    
-    header.textContent = typeHeaders[type] || type;
-    
-    // Create messages container
-    const messagesContainer = document.createElement('div');
-    messagesContainer.classList.add('messages-container');
-    
-    //messageContent.appendChild(header);
-    messageContent.appendChild(messagesContainer);
-    
-    // Append elements
-    logEntry.appendChild(timestampElement);
-    logEntry.appendChild(messageContent);
-    
-    // Add fade-in animation
-    logEntry.style.opacity = '0';
-    logEntry.style.transform = 'translateY(10px)';
-    
-    terminal.appendChild(logEntry);
-    
-    // Trigger animation
-    requestAnimationFrame(() => {
-      logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      logEntry.style.opacity = '1';
-      logEntry.style.transform = 'translateY(0)';
-    });
-    
-    return logEntry;
-  }
+  const logEntry = document.createElement('div');
+  logEntry.classList.add('log-entry', type);
 
- addMessageToCard(card, text, type) {
+  // Add timestamp
+  const timestampElement = document.createElement('span');
+  timestampElement.classList.add('timestamp');
+  timestampElement.textContent = `[${timestamp}]`;
+
+  // Container for all messages in this group
+  const messageContent = document.createElement('div');
+  messageContent.classList.add('message-content');
+
+  // Only messages container—no separate header
+  const messagesContainer = document.createElement('div');
+  messagesContainer.classList.add('messages-container');
+
+  messageContent.appendChild(messagesContainer);
+  logEntry.appendChild(timestampElement);
+  logEntry.appendChild(messageContent);
+  terminal.appendChild(logEntry);
+
+  // Fade‑in
+  logEntry.style.opacity = '0';
+  logEntry.style.transform = 'translateY(10px)';
+  requestAnimationFrame(() => {
+    logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    logEntry.style.opacity = '1';
+    logEntry.style.transform = 'translateY(0)';
+  });
+
+  return logEntry;
+}
+
+addMessageToCard(card, text, type) {
   const messagesContainer = card.querySelector('.messages-container');
   if (!messagesContainer) return;
-  
+
   const messageDiv = document.createElement('div');
   messageDiv.classList.add('grouped-message');
   messageDiv.style.marginBottom = '0.25rem';
-  
-  // Process text for clickable line numbers only
+
+  // 1) make line‑numbers clickable
+  // 2) bold the keyword at the start of the message
   let processedText = this.makeLineNumbersClickable(text);
-  
+  processedText = processedText.replace(
+  /^(Atenção|Erro|Sucesso|Info)(:)?/i,
+  (_, word, colon) => `<strong style="font-weight:900">${word}</strong>${colon || ''}`
+);
+
   messageDiv.innerHTML = processedText;
-  
-  // Add line link click handlers
-  const lineLinks = messageDiv.querySelectorAll('.line-link');
-  lineLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const lineNumber = parseInt(link.getAttribute('data-line'));
-      console.log(`Clicked on line ${lineNumber}`);
-      
-      // Navigate to line in Monaco editor
-      this.goToLine(lineNumber);
-    });
-  });
-  
+
+  // ... (line‑link handlers, etc.)
   messagesContainer.appendChild(messageDiv);
 }
 
@@ -8600,52 +8585,36 @@ goToLine(lineNumber) {
   });
 }
 
-  createLogEntry(terminal, text, type, timestamp) {
-    const logEntry = document.createElement('div');
-    logEntry.classList.add('log-entry', type);
-    
-    // Add timestamp
-    const timestampElement = document.createElement('span');
-    timestampElement.classList.add('timestamp');
-    timestampElement.textContent = `[${timestamp}]`;
-    
-    // Add message content
-    const messageContent = document.createElement('div');
-    messageContent.classList.add('message-content');
-    
-    // Process text for clickable line numbers only
-    let processedText = this.makeLineNumbersClickable(text);
-    
-    messageContent.innerHTML = processedText;
-    
-    // Append elements
-    logEntry.appendChild(timestampElement);
-    logEntry.appendChild(messageContent);
-    
-    // Add line link click handlers
-    const lineLinks = logEntry.querySelectorAll('.line-link');
-    lineLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const lineNumber = link.getAttribute('data-line');
-        console.log(`Clicked on line ${lineNumber}`);
-        // Future implementation: navigate to line in Monaco editor
-      });
-    });
-    
-    // Add fade-in animation
-    logEntry.style.opacity = '0';
-    logEntry.style.transform = 'translateY(10px)';
-    
-    terminal.appendChild(logEntry);
-    
-    // Trigger animation
-    requestAnimationFrame(() => {
-      logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      logEntry.style.opacity = '1';
-      logEntry.style.transform = 'translateY(0)';
-    });
-  }
+createLogEntry(terminal, text, type, timestamp) {
+  const logEntry = document.createElement('div');
+  logEntry.classList.add('log-entry', type);
+
+  const timestampElement = document.createElement('span');
+  timestampElement.classList.add('timestamp');
+  timestampElement.textContent = `[${timestamp}]`;
+
+  const messageContent = document.createElement('div');
+  messageContent.classList.add('message-content');
+
+  let processedText = this.makeLineNumbersClickable(text);
+  processedText = processedText.replace(
+    /^(Atenção|Erro|Sucesso|Info)(:)?/i,
+    (_, word, colon) => `<strong>${word}</strong>${colon || ''}`
+  );
+  messageContent.innerHTML = processedText;
+
+  logEntry.appendChild(timestampElement);
+  logEntry.appendChild(messageContent);
+  terminal.appendChild(logEntry);
+
+  logEntry.style.opacity = '0';
+  logEntry.style.transform = 'translateY(10px)';
+  requestAnimationFrame(() => {
+    logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    logEntry.style.opacity = '1';
+    logEntry.style.transform = 'translateY(0)';
+  });
+}
 
   setupGoDownButton() {
     const goDownButton = document.getElementById('godown-terminal');

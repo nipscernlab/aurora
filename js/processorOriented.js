@@ -970,15 +970,11 @@ saveConfigButton.addEventListener("click", async () => {
   const selectedTestbench = testbenchSelect ? testbenchSelect.value : "standard";
   const selectedGtkw = gtkwSelect ? gtkwSelect.value : "standard";
   
-  // Get simulation delay
-  const processorSimuDelayInput = document.getElementById('processorSimuDelay');
-  const simuDelayValue = processorSimuDelayInput ? processorSimuDelayInput.value : '200000';
-
+  // The global 'simuDelay' is no longer needed here; it's handled by 'numClocks' per processor.
   const config = {
     processors,
     testbenchFile: selectedTestbench,
     gtkwFile: selectedGtkw,
-    simuDelay: simuDelayValue
   };
 
   console.log("Saving Configuration:", config);

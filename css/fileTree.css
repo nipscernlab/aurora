@@ -6,7 +6,8 @@
   flex-direction: column;
   width: 250px;
   min-width: 15px;
-  height: 100%;
+  position: relative;
+  height: 100vh;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-primary);
   transition: width 0.3s ease, transform 0.3s ease;
@@ -16,11 +17,14 @@
 
 /* File Tree Header */
 .file-tree-header {
-  flex-direction: column;
+  flex: 0 0 auto; /* don't grow or shrink */
+  height: 120px; /* fixed height - adjust as needed */
   padding: 16px;
   gap: 12px;
   border-bottom: 1px solid var(--border-primary);
   background-color: var(--bg-secondary);
+  white-space: nowrap; /* prevent text wrapping */
+  min-width: 200px; /* minimum width to maintain readability */
 }
 
 .file-tree-header > span:first-child {
@@ -89,7 +93,8 @@
 
 /* File Tree Actions Container */
 .file-tree-actions {
-  flex: 1;
+  flex: 1 1 auto; /* grow to fill remaining space */
+  display: flex;
   overflow-y: auto;
   position: relative;
   scrollbar-width: thin;
@@ -189,6 +194,9 @@
 }
 
 #file-tree {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: opacity 0.3s ease;
   opacity: 1;
 }

@@ -18,7 +18,7 @@ let rafIdVertical = null;
 let rafIdHorizontal = null;
 
 // Minimum sizes
-const MIN_FILE_TREE_WIDTH = 15; // px
+const MIN_FILE_TREE_WIDTH = 10; // px - increased for better header layout
 const MIN_TERMINAL_HEIGHT = 40; // px
 
 // CSS for cursor and no-select during resizing
@@ -102,12 +102,12 @@ function constrainFileTreeWidth(width) {
  * @returns {number}
  */
 function constrainTerminalHeight(height) {
-  const max = window.innerHeight * 0.8;
+  const max = Math.max(900, window.innerHeight * 0.8); // Allow up to 900px or 80% of window height, whichever is larger
   return Math.max(MIN_TERMINAL_HEIGHT, Math.min(height, max));
 }
 
-
-function setupResizer({
+// Unified smooth resizer function
+function setupSmoothResizer({
   resizerEl,
   panelEl,
   orientation,
@@ -123,6 +123,7 @@ function setupResizer({
 
   const mouseMoveHandler = (e) => {
     if (!isResizing) return;
+    
     let delta;
     let newSize;
 
@@ -134,7 +135,7 @@ function setupResizer({
       newSize = initialSize - delta;
     }
 
-    // Constrain and animate with requestAnimationFrame
+    // Use requestAnimationFrame for smooth updates
     if (rafIdRef) cancelAnimationFrame(rafIdRef);
     rafIdRef = requestAnimationFrame(() => {
       const constrained = constrainFn(newSize);
@@ -156,6 +157,7 @@ function setupResizer({
   resizerEl.addEventListener('mousedown', (e) => {
     e.preventDefault();
     isResizing = true;
+    
     if (orientation === 'vertical') {
       startPos = e.clientX;
       initialSize = panelEl.offsetWidth;
@@ -163,14 +165,15 @@ function setupResizer({
       startPos = e.clientY;
       initialSize = panelEl.offsetHeight;
     }
+    
     document.body.classList.add('resizing', orientation === 'vertical' ? 'resizing-vertical' : 'resizing-horizontal');
     document.addEventListener('mousemove', mouseMoveHandler);
     document.addEventListener('mouseup', mouseUpHandler);
   });
 }
 
-// Setup vertical (file tree) resizer
-setupResizer({
+// Setup vertical (file tree) resizer with smooth animation
+setupSmoothResizer({
   resizerEl: verticalResizer,
   panelEl: fileTreeContainer,
   orientation: 'vertical',
@@ -180,8 +183,8 @@ setupResizer({
   onResizeCallback: () => { /* no extra callback needed for width */ }
 });
 
-// Setup horizontal (terminal) resizer
-setupResizer({
+// Setup horizontal (terminal) resizer with smooth animation
+setupSmoothResizer({
   resizerEl: horizontalResizer,
   panelEl: terminalContainer,
   orientation: 'horizontal',

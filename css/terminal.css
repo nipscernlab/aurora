@@ -25,6 +25,7 @@
   margin: 0;
   border-radius: 8px 8px 0 0; /* Rounded top corners */
   overflow: hidden;
+  padding: 1px;
 }
 
 .terminal-tab {
@@ -221,7 +222,7 @@
 
 .terminal-container {
   height: 250px; /* Initial terminal height */
-  min-height: 35px;
+  min-height: 100px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

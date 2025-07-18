@@ -28,7 +28,7 @@
   background: var(--bg-elevated);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--border-accent);
-  border-radius: 20px;
+  border-radius: 10px;
   max-height: 220px;
   padding: 10px 20px;
   min-width: 650px;
@@ -551,7 +551,7 @@ body.theme-light-high-contrast .vvp-spinner {
 /* --- 3. Minimized State --- */
 .vvp-progress-overlay.minimized {
   bottom: var(--space-4);
-  right: var(--space-4);
+  right: var(--space-10);
   left: auto;
   transform: translateX(0) scale(1); /* Final scale is 1 */
 }
@@ -587,7 +587,7 @@ body.theme-light-high-contrast .vvp-spinner {
 }
 
 .vvp-progress-overlay.minimized .vvp-progress-bar {
-  height: 20px; /* Taller bar is easier to see */
+  height: 22px; /* Taller bar is easier to see */
 }
 
 .vvp-progress-overlay.minimized .vvp-progress-percentage {
@@ -607,7 +607,7 @@ body.theme-light-high-contrast .vvp-spinner {
 .vvp-progress-overlay.minimized .vvp-progress-time-minimized {
   display: block;
   position: absolute;
-  bottom: 0;
+  /*bottom: 0; */
   right: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--text-xs);

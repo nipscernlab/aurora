@@ -78,6 +78,7 @@ body {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  max-height: 900px;
 }
 
 /* Tabs Container */

@@ -313,13 +313,28 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
     };
   },
 
-  // Add these to your contextBridge.exposeInMainWorld:
- execCommandStream: (command) => ipcRenderer.invoke('exec-command-stream', command),
+  // Optimized VVP execution
+  execVvpOptimized: (command, workingDir, options = {}) => 
+    ipcRenderer.invoke('exec-vvp-optimized', command, workingDir, options),
   
+  // Enhanced command execution with performance optimization
+  execCommandStream: (command, workingDir = null, options = {}) => 
+    ipcRenderer.invoke('exec-command-stream', command, workingDir, options),
+  
+  // Process priority management
+  setProcessPriority: (pid, priority = 'high') => 
+    ipcRenderer.invoke('set-process-priority', pid, priority),
+  
+  // System performance monitoring
+  getSystemPerformance: () => 
+    ipcRenderer.invoke('get-system-performance'),
+  
+  // Enhanced command output streaming
   onCommandOutputStream: (callback) => {
     ipcRenderer.on('command-output-stream', callback);
   },
- removeCommandOutputListener: (callback) => {
+  
+  removeCommandOutputListener: (callback) => {
     ipcRenderer.removeListener('command-output-stream', callback);
   },
 

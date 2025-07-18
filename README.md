@@ -1,7 +1,7 @@
 # Aurora IDE
 
 <div align="center">
-  <img src="https://github.com/nipscernlab/Aurora/blob/main/assets/icons/aurora_borealis-2.ico" alt="Aurora Logo" width="200"/>
+  <img src="https://github.com/nipscernlab/Aurora/blob/main/assets/icons/sapho&aurora_icon.ico" alt="Aurora Logo" width="200"/>
 </div>
 
 ## About

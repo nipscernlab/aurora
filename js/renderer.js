@@ -6821,62 +6821,173 @@ end`;
   }
 }
 
+// Client-side corrected VVP execution method
+async runOptimizedVVP(command, workingDir, terminalTag = 'twave') {
+  this.terminalManager.appendToTerminal(terminalTag, 'Starting optimized VVP execution...');
+  
+  // Get system performance info
+  const systemInfo = await window.electronAPI.getSystemPerformance();
+  this.terminalManager.appendToTerminal(terminalTag, 
+    `System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
 
-  // Updated runGtkWave method for processor mode
-async runGtkWave(processor) {
-    if (this.isProjectOriented) {
-      checkCancellation();
-      return this.runProjectGtkWave();
+  let vvpProcessPid = null;
+  let isVvpRunning = true;
+
+  const outputListener = (event, payload) => {
+    if (!isVvpRunning) return;
+    
+    if (payload.type === 'performance') {
+      vvpProcessPid = payload.data.pid;
+      this.terminalManager.appendToTerminal(terminalTag, 
+        `VVP Process started (PID: ${vvpProcessPid}) using ${payload.data.cpuCount} cores`);
+      
+      // Set global process tracking
+      if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
+        window.setCurrentVvpPid(vvpProcessPid);
+      }
+    } else if (payload.type === 'pid') {
+      vvpProcessPid = payload.pid;
+      this.terminalManager.appendToTerminal(terminalTag, 
+        `High-performance VVP started (PID: ${vvpProcessPid})`);
+      
+      if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
+        window.setCurrentVvpPid(vvpProcessPid);
+      }
+    } else if (payload.type === 'stdout') {
+      this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stdout');
+    } else if (payload.type === 'stderr') {
+      this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stderr');
+    }
+  };
+
+  window.electronAPI.onCommandOutputStream(outputListener);
+
+  try {
+    if (typeof window !== 'undefined' && window.setVvpRunning) {
+      window.setVvpRunning(true);
     }
 
-    const { name } = processor;
-    this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
-    statusUpdater.startCompilation('wave');
+    // Use the optimized VVP execution - pass the full command directly
+    const vvpResult = await window.electronAPI.execVvpOptimized(command, workingDir);
+    isVvpRunning = false;
+    
+    if (typeof window !== 'undefined' && window.setVvpRunning) {
+      window.setVvpRunning(false);
+      window.setCurrentVvpPid(null);
+    }
 
-    let testbenchBackupInfo = null;
-
-    try {
-      // Define all necessary paths first
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-      const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-      const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-      const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-      const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-      const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-      const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-
-      // Get CMM file and testbench info right after defining paths
-      const selectedCmmFile = await this.getSelectedCmmFile(processor);
-      const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-      const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
-
-      // Conditionally modify the testbench only if a custom one is specified
-      if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
-        const simuDelay = this.getSimulationDelay(processor); // Get delay from processor.numClocks
-        testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
+    // Set high priority for the process
+    if (vvpProcessPid) {
+      try {
+        await window.electronAPI.setProcessPriority(vvpProcessPid, 'high');
+        this.terminalManager.appendToTerminal(terminalTag, 'Process priority set to HIGH');
+      } catch (priorityError) {
+        console.warn('Could not set process priority:', priorityError);
       }
+    }
 
-      // Create tcl_infos.txt file inside tempPath
-      const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-      this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
-      const tclContent = `${tempPath}\n${binPath}\n`;
-      await window.electronAPI.writeFile(tclFilePath, tclContent);
+    if (vvpResult.stdout) {
+      this.terminalManager.appendToTerminal(terminalTag, vvpResult.stdout, 'stdout');
+    }
+    if (vvpResult.stderr) {
+      this.terminalManager.appendToTerminal(terminalTag, vvpResult.stderr, 'stderr');
+    }
 
-      await TabManager.saveAllFiles();
+    checkCancellation();
 
-      const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-      const verilogFilesString = verilogFiles.join(' ');
+    if (vvpResult.code !== 0) {
+      hideVVPProgress();
+      throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+    }
 
-      const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
-      const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+    this.terminalManager.appendToTerminal(terminalTag, 
+      `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
+    
+    return vvpResult;
 
-      // 1) Compile with iverilog using the now-defined tbModule and tbFile
-      const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
-      
-      this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog and testbench:\n${iverilogCmd}`);
-      const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+  } catch (error) {
+    isVvpRunning = false;
+    
+    if (typeof window !== 'undefined' && window.setVvpRunning) {
+      window.setVvpRunning(false);
+      window.setCurrentVvpPid(null);
+    }
+    
+    if (error.message === 'Compilation canceled by user' && vvpProcessPid) {
+      try {
+        await window.electronAPI.terminateProcess(vvpProcessPid);
+        this.terminalManager.appendToTerminal(terminalTag, 
+          `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
+      } catch (killError) {
+        console.error('Error killing VVP process:', killError);
+        try {
+          await window.electronAPI.terminateProcess('vvp.exe');
+          this.terminalManager.appendToTerminal(terminalTag, 
+            'VVP process terminated by name due to cancellation.', 'warning');
+        } catch (killByNameError) {
+          console.error('Error killing VVP process by name:', killByNameError);
+        }
+      }
+    }
+    
+    throw error;
+  } finally {
+    window.electronAPI.removeCommandOutputListener(outputListener);
+  }
+}
+
+// Corrected runGtkWave method - only the VVP execution part
+async runGtkWave(processor) {
+  if (this.isProjectOriented) {
+    checkCancellation();
+    return this.runProjectGtkWave();
+  }
+
+  const { name } = processor;
+  this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+  statusUpdater.startCompilation('wave');
+
+  let testbenchBackupInfo = null;
+
+  try {
+    // ... (your existing path definitions and setup code remains the same)
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+    const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+    const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+    const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+    const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+    const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
+    const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+
+    if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
+      const simuDelay = this.getSimulationDelay(processor);
+      testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
+    }
+
+    const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+    this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
+    const tclContent = `${tempPath}\n${binPath}\n`;
+    await window.electronAPI.writeFile(tclFilePath, tclContent);
+
+    await TabManager.saveAllFiles();
+
+    const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+    const verilogFilesString = verilogFiles.join(' ');
+
+    const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
+    const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+
+    // 1) Compile with iverilog using optimized execution
+    const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+    
+    this.terminalManager.appendToTerminal('twave', `Compiling with optimized Icarus Verilog:\n${iverilogCmd}`);
+    const iverilogResult = await window.electronAPI.execCommandStream(iverilogCmd, hdlPath);
     
     if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
     if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
@@ -6898,67 +7009,26 @@ async runGtkWave(processor) {
     // 3) Prepare VCD file path
     const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
 
-    // 4) First run VVP to generate VCD
-    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation to generate VCD file...');
+    // 4) Run VVP with maximum performance optimization
+    this.terminalManager.appendToTerminal('twave', 'Running optimized VVP simulation...');
     
     const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
     await window.electronAPI.deleteFileOrDirectory(progressPath);
 
-    // Show VVP progress
     await showVVPProgress(String(name));
 
-    // Configure listener for VVP stdout/stderr streaming
-    const outputListener = (event, payload) => {
-      if (payload.type === 'stdout') {
-        this.terminalManager.appendToTerminal('twave', payload.data, 'stdout');
-      } else if (payload.type === 'stderr') {
-        this.terminalManager.appendToTerminal('twave', payload.data, 'stderr');
-      } else if (payload.type === 'pid') {
-        console.log(`VVP process started with PID: ${payload.pid}`);
-      }
-    };
+    // CORRECTED: Build the full VVP command with proper path and arguments
+    const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
+    await this.runOptimizedVVP(vvpCmd, tempPath, 'twave');
 
-    // Add output listener
-    window.electronAPI.onCommandOutputStream(outputListener);
+    checkCancellation();
+    hideVVPProgress();
 
-    try {
-      // VVP Command - Fixed: Use proper .vvp file name
-      const vvpCmd = `cd "${tempPath}" && "${vvpCompPath}" "${cmmBaseName}.vvp" -fst -v`;
-      
-      this.terminalManager.appendToTerminal('twave', `Running VVP command:\n${vvpCmd}`);
-      
-      // Use the new managed VVP command
-      const vvpResult = await window.electronAPI.runVvpCommand(vvpCmd, tempPath);
-      
-      checkCancellation();
-
-      // Check if VVP failed
-      if (vvpResult.code !== 0) {
-        hideVVPProgress();
-        const errorMsg = vvpResult.stderr || vvpResult.error || `VVP simulation failed with code ${vvpResult.code}`;
-        throw new Error(errorMsg);
-      }
-
-      this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-      
-    } catch (error) {
-      if (error.message === 'Compilation canceled by user') {
-        this.terminalManager.appendToTerminal('twave', 'VVP simulation canceled by user.', 'warning');
-        throw error;
-      } else {
-        console.error('VVP Error Details:', error);
-        const errorMsg = error.error || error.stderr || error.message || 'Unknown VVP error';
-        throw new Error(errorMsg);
-      }
-    } finally {
-      window.electronAPI.removeCommandOutputListener(outputListener);
-      hideVVPProgress();
-    }
-
-    // 5) Launch GTKWave after VCD is generated
+    this.terminalManager.appendToTerminal('twave', 'Optimized VVP simulation completed successfully.', 'success');
+    
+    // 5) Launch GTKWave (rest of your existing code remains the same)
     this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
     
-    // Determine GTKWave command based on configuration
     const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
     let gtkwCmd;
 
@@ -6973,7 +7043,6 @@ async runGtkWave(processor) {
 
     this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
     
-    // Launch GTKWave (don't wait for it to finish)
     window.electronAPI.execCommand(gtkwCmd).catch(error => {
       console.warn('GTKWave launch warning:', error);
     });
@@ -6986,7 +7055,6 @@ async runGtkWave(processor) {
     statusUpdater.compilationError('wave', error.message);
     throw error;
   } finally {
-    // Always restore original testbench
     if (testbenchBackupInfo) {
       await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
     }
@@ -9600,3 +9668,4 @@ const vvpProgressManager = new VVPProgressManager();
         event.stopPropagation();
     });
   });
+

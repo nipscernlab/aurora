@@ -1,0 +1,121 @@
+<?xml version="1.0" standalone="no"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="100%" height="100%" 
+     viewBox="1720 1520 4500 4500" 
+     preserveAspectRatio="xMidYMid meet">
+    
+    <!-- 
+    NOTA: Versão Final Definitiva.
+    1. A orientação rotacionada foi mantida.
+    2. A viewBox foi ajustada para centralizar perfeitamente o desenho, resolvendo o problema de corte.
+    3. Todos os elementos artísticos (cores, estrelas) foram preservados.
+    -->
+    
+    <defs>
+        <!-- Gradiente Aurora Boreal - Céu Noturno com Rastros de Aurora -->
+        <linearGradient id="finalAurora" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#0a0015;"/>      <!-- Roxo quase preto da noite profunda -->
+          <stop offset="15%" style="stop-color:#1a0040;"/>     <!-- Roxo escuro -->
+          <stop offset="30%" style="stop-color:#2d1b69;"/>     <!-- Azul-roxo profundo -->
+          <stop offset="45%" style="stop-color:#00ff9d;"/>     <!-- Verde aurora vibrante -->
+          <stop offset="55%" style="stop-color:#00d4ff;"/>     <!-- Azul aurora luminoso -->
+          <stop offset="70%" style="stop-color:#4c00ff;"/>     <!-- Roxo aurora -->
+          <stop offset="85%" style="stop-color:#1a0040;"/>     <!-- Volta ao roxo escuro -->
+          <stop offset="100%" style="stop-color:#0a0015;"/>    <!-- Retorno ao roxo quase preto -->
+        </linearGradient>
+        
+        <!-- Gradiente secundário para criar ondulação da aurora -->
+        <radialGradient id="auroraWave" cx="40%" cy="30%" r="60%">
+          <stop offset="0%" style="stop-color:#00ffaa;stop-opacity:0.8"/>      <!-- Verde aurora central -->
+          <stop offset="30%" style="stop-color:#00ccff;stop-opacity:0.6"/>     <!-- Azul aurora -->
+          <stop offset="60%" style="stop-color:#6600ff;stop-opacity:0.4"/>     <!-- Roxo aurora -->
+          <stop offset="100%" style="stop-color:#0a0015;stop-opacity:0.2"/>    <!-- Transparente para o fundo -->
+        </radialGradient>
+        
+        <!-- Padrão com estrelas variadas e bem distribuídas -->
+        <pattern id="finalStarsPattern" patternUnits="userSpaceOnUse" width="300" height="300">
+            <!-- Estrelas grandes -->
+            <circle cx="50" cy="80" r="3" fill="#ffffff" fill-opacity="0.95" />
+            <circle cx="220" cy="150" r="2.5" fill="#e0e0ff" fill-opacity="0.9" />
+            <circle cx="180" cy="50" r="3.5" fill="#ffffff" fill-opacity="1" />
+            
+            <!-- Estrelas médias -->
+            <circle cx="120" cy="200" r="2" fill="#f0f0ff" fill-opacity="0.85" />
+            <circle cx="280" cy="90" r="2" fill="#ffffff" fill-opacity="0.8" />
+            <circle cx="80" cy="250" r="1.8" fill="#e5e5ff" fill-opacity="0.9" />
+            <circle cx="250" cy="220" r="2.2" fill="#ffffff" fill-opacity="0.95" />
+            
+            <!-- Estrelas pequenas -->
+            <circle cx="30" cy="180" r="1.2" fill="#ffffff" fill-opacity="0.7" />
+            <circle cx="150" cy="120" r="1" fill="#f5f5ff" fill-opacity="0.8" />
+            <circle cx="200" cy="280" r="1.5" fill="#ffffff" fill-opacity="0.75" />
+            <circle cx="90" cy="30" r="1" fill="#e8e8ff" fill-opacity="0.8" />
+            <circle cx="270" cy="180" r="1.3" fill="#ffffff" fill-opacity="0.85" />
+            <circle cx="40" cy="120" r="1.1" fill="#f0f0ff" fill-opacity="0.7" />
+            <circle cx="160" cy="250" r="1.4" fill="#ffffff" fill-opacity="0.8" />
+            <circle cx="210" cy="40" r="1.2" fill="#e5e5ff" fill-opacity="0.75" />
+            
+            <!-- Estrelas muito pequenas para criar densidade -->
+            <circle cx="70" cy="160" r="0.8" fill="#ffffff" fill-opacity="0.6" />
+            <circle cx="190" cy="110" r="0.7" fill="#f8f8ff" fill-opacity="0.65" />
+            <circle cx="130" cy="70" r="0.9" fill="#ffffff" fill-opacity="0.7" />
+            <circle cx="240" cy="250" r="0.8" fill="#eeeeee" fill-opacity="0.6" />
+            <circle cx="60" cy="220" r="0.6" fill="#ffffff" fill-opacity="0.55" />
+            <circle cx="170" cy="180" r="0.7" fill="#f5f5ff" fill-opacity="0.6" />
+            <circle cx="290" cy="130" r="0.8" fill="#ffffff" fill-opacity="0.65" />
+            <circle cx="110" cy="290" r="0.6" fill="#e8e8ff" fill-opacity="0.6" />
+        </pattern>
+    </defs>
+    
+    <!-- O grupo abaixo aplica a rotação de 180 graus. O enquadramento é feito pela viewBox. -->
+    <g transform="rotate(180, 4550, 3770)">
+        
+        <!-- CAMADA 1: O fundo com o gradiente da aurora boreal -->
+        <path fill="url(#finalAurora)"
+              d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
+              -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
+              80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
+              -806 -333 -145 -15 -316 0 -479 40 -563 138 -914 496 -1050 1070 -30 130 -42
+              390 -24 521 80 553 453 1004 978 1178 165 55 239 66 458 66 213 0 264 -7 440
+              -62 83 -26 249 -102 323 -148 l42 -26 0 315 c0 208 3 316 10 316 21 0 187 -89
+              275 -147 301 -199 532 -454 691 -765 l55 -108 -48 0 c-26 0 -430 5 -897 10
+              -888 11 -940 10 -1078 -31 -437 -128 -726 -557 -678 -1009 12 -118 38 -210 90
+              -318 50 -104 86 -157 169 -244 201 -214 502 -324 793 -290 179 21 380 106 495
+              208 l48 43 -174 174 -174 175 -49 -34 c-94 -64 -240 -90 -357 -63 -195 45
+              -350 238 -351 436 0 203 128 381 319 443 l70 22 1231 -8 1230 -9 0 31 c0 63
+              -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
+              -118 34 -309 75 -354 75 l-24 0 0 -281z" />
+        
+        <!-- CAMADA 2: Ondulação da aurora boreal -->
+        <path fill="url(#auroraWave)"
+              d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
+              -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
+              80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
+              -806 -333 -145 -15 -316 0 -479 40 -563 138 -914 496 -1050 1070 -30 130 -42
+              390 -24 521 80 553 453 1004 978 1178 165 55 239 66 458 66 213 0 264 -7 440
+              -62 83 -26 249 -102 323 -148 l42 -26 0 315 c0 208 3 316 10 316 21 0 187 -89
+              275 -147 301 -199 532 -454 691 -765 l55 -108 -48 0 c-26 0 -430 5 -897 10
+              -888 11 -940 10 -1078 -31 -437 -128 -726 -557 -678 -1009 12 -118 38 -210 90
+              -318 50 -104 86 -157 169 -244 201 -214 502 -324 793 -290 179 21 380 106 495
+              208 l48 43 -174 174 -174 175 -49 -34 c-94 -64 -240 -90 -357 -63 -195 45
+              -350 238 -351 436 0 203 128 381 319 443 l70 22 1231 -8 1230 -9 0 31 c0 63
+              -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
+              -118 34 -309 75 -354 75 l-24 0 0 -281z" />
+        
+        <!-- CAMADA 3: Estrelas densas e variadas -->
+        <path fill="url(#finalStarsPattern)"
+              d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
+              -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
+              80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
+              -806 -333 -145 -15 -316 0 -479 40 -563 138 -914 496 -1050 1070 -30 130 -42
+              390 -24 521 80 553 453 1004 978 1178 165 55 239 66 458 66 213 0 264 -7 440
+              -62 83 -26 249 -102 323 -148 l42 -26 0 315 c0 208 3 316 10 316 21 0 187 -89
+              275 -147 301 -199 532 -454 691 -765 l55 -108 -48 0 c-26 0 -430 5 -897 10
+              -888 11 -940 10 -1078 -31 -437 -128 -726 -557 -678 -1009 12 -118 38 -210 90
+              -318 50 -104 86 -157 169 -244 201 -214 502 -324 793 -290 179 21 380 106 495
+              208 l48 43 -174 174 -174 175 -49 -34 c-94 -64 -240 -90 -357 -63 -195 45
+              -350 238 -351 436 0 203 128 381 319 443 l70 22 1231 -8 1230 -9 0 31 c0 63
+              -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
+              -118 34 -309 75 -354 75 l-24 0 0 -281z" />
+    </g>
+</svg>

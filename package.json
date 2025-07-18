@@ -5,7 +5,7 @@
     "author": "NIPSCERN",
     "version": "v4.0.0",
     "win": {
-        "icon": "./assets/icons/aurora_borealis-2.ico"
+        "icon": "./assets/icons/sapho&aurora_icon.ico"
     },
     "main": "main.js",
     "scripts": {
@@ -22,7 +22,7 @@
                 "name": "SAPHO Project File",
                 "description": "SAPHO Project File",
                 "role": "Editor",
-                "icon": "./assets/icons/aurora_borealis-2.ico"
+                "icon": "./assets/icons/sapho&aurora_icon.ico"
             }
         ],
         "protocols": [
@@ -51,7 +51,7 @@
                     ]
                 }
             ],
-            "icon": "./assets/icons/aurora_borealis-2.ico",
+            "icon": "./assets/icons/sapho&aurora_icon.ico",
             "artifactName": "AuroraIDE-Setup-v4.0.0.${ext}"
         },
         "nsis": {

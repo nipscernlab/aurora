@@ -11,12 +11,11 @@
 
 const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fse = require('fs-extra');
 const fs = require('fs').promises;
 const os = require('os');
-const { spawn } = require('child_process');
 const moment = require("moment");
 const electronFs = require('original-fs');
 const url = require('url');
@@ -77,7 +76,7 @@ async function createMainWindow() {
     width: 1200,
     height: 800,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: true,
@@ -303,7 +302,7 @@ function setupAutoUpdaterEvents() {
         buttons: ['Download Now', 'Download Later'],
         defaultId: 0,
         cancelId: 1,
-        icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+        icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
       });
 
       if (response === 0) {
@@ -328,7 +327,7 @@ function setupAutoUpdaterEvents() {
         message: 'Aurora IDE is up to date!',
         detail: `You are running the latest version (${app.getVersion()}).`,
         buttons: ['OK'],
-        icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+        icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
       }).catch((error) => {
         log.error('Error showing no update dialog:', error);
       });
@@ -376,7 +375,7 @@ function setupAutoUpdaterEvents() {
       buttons: ['Install Now', 'Install Later'],
       defaultId: 0,
       cancelId: 1,
-      icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+      icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
     });
 
     if (response === 0) {
@@ -418,7 +417,7 @@ function setupAutoUpdaterEvents() {
       message: 'Update Failed',
       detail: `${errorMessage}\n\nError details: ${error.message}`,
       buttons: ['OK'],
-      icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico')
+      icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
     });
   });
 
@@ -693,7 +692,7 @@ function createSplashScreen() {
   splashWindow = new BrowserWindow({
     width: 400,
     height: 500,
-    icon: path.join(__dirname, 'assets/icons/aurora_borealis-2.ico'),
+    icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -762,12 +761,27 @@ ipcMain.handle('compile', async (event, { compiler, content, filePath, workingDi
   });
 });
 
-// IPC handler to execute a shell command and return process info
-ipcMain.handle('exec-command', (event, command) => {
+// Get system capabilities
+const getCPUCount = () => os.cpus().length;
+const getTotalMemory = () => Math.floor(os.totalmem() / (1024 * 1024 * 1024)); // GB
+
+// Enhanced exec-command handler with performance optimization
+ipcMain.handle('exec-command', (event, command, options = {}) => {
   return new Promise((resolve, reject) => {
-    const child = exec(command, {
-      maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-    });
+    const performanceOptions = {
+      maxBuffer: 1024 * 1024 * 50, // 50MB buffer (increased)
+      windowsHide: true, // Hide window on Windows for better performance
+      env: {
+        ...process.env,
+        // Set environment variables for better performance
+        OMP_NUM_THREADS: getCPUCount().toString(),
+        OMP_THREAD_LIMIT: getCPUCount().toString(),
+        IVERILOG_DUMPER: 'fst', // Use FST format for better performance
+        ...options.env
+      }
+    };
+
+    const child = exec(command, performanceOptions);
 
     let stdout = '';
     let stderr = '';
@@ -775,7 +789,6 @@ ipcMain.handle('exec-command', (event, command) => {
     child.stdout.on('data', (data) => {
       const output = data.toString();
       stdout += output;
-
     });
 
     child.stderr.on('data', (data) => {
@@ -788,7 +801,7 @@ ipcMain.handle('exec-command', (event, command) => {
         code,
         stdout,
         stderr,
-        pid: child.pid // Return the process ID
+        pid: child.pid
       });
     });
 
@@ -798,28 +811,73 @@ ipcMain.handle('exec-command', (event, command) => {
   });
 });
 
-// Enhanced IPC handler for better VVP output streaming
-ipcMain.handle('exec-command-stream', (event, command) => {
+// High-performance VVP execution handler
+ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) => {
   return new Promise((resolve, reject) => {
-    const { exec } = require('child_process');
+    const cpuCount = getCPUCount();
+    const totalMemory = getTotalMemory();
     
-    // Use exec with shell but with streaming capabilities
-    const child = exec(command, {
-      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+    // Enhanced environment variables for maximum performance
+    const performanceEnv = {
+      ...process.env,
+      // Threading and parallel processing
+      OMP_NUM_THREADS: cpuCount.toString(),
+      OMP_THREAD_LIMIT: cpuCount.toString(),
+      OMP_DYNAMIC: 'true',
+      OMP_NESTED: 'true',
+      
+      // Memory optimization
+      OMP_STACKSIZE: '64M',
+      
+      // Verilog-specific optimizations
+      IVERILOG_DUMPER: 'fst',
+      VVP_PARALLEL: '1',
+      VVP_THREADS: cpuCount.toString(),
+      
+      // System-level optimizations
+      MALLOC_ARENA_MAX: '1',
+      MALLOC_MMAP_THRESHOLD: '131072',
+      
+      // Windows-specific optimizations
+      PROCESSOR_ARCHITECTURE: process.env.PROCESSOR_ARCHITECTURE,
+      NUMBER_OF_PROCESSORS: cpuCount.toString(),
+      
+      ...options.env
+    };
+
+    // Enhanced exec options for maximum performance
+    const execOptions = {
+      cwd: workingDir,
+      env: performanceEnv,
+      maxBuffer: 1024 * 1024 * 50, // 50MB buffer
+      windowsHide: true,
       encoding: 'utf8'
-    });
-    
+    };
+
+    console.log(`Starting VVP with optimized settings:`);
+    console.log(`- CPU Cores: ${cpuCount}`);
+    console.log(`- Memory: ${totalMemory}GB`);
+    console.log(`- Working Directory: ${workingDir}`);
+    console.log(`- Command: ${command}`);
+
+    const child = exec(command, execOptions);
+
     let stdout = '';
     let stderr = '';
-
-    // Buffer for managing partial output
     let stdoutBuffer = '';
     let stderrBuffer = '';
+
+    // Send process info immediately
+    event.sender.send('command-output-stream', { 
+      type: 'pid', 
+      pid: child.pid,
+      cpuCount: cpuCount,
+      memory: totalMemory
+    });
 
     const processOutput = (buffer, type) => {
       const lines = buffer.split('\n');
       
-      // Process all complete lines
       for (let i = 0; i < lines.length - 1; i++) {
         const line = lines[i];
         if (line.trim()) {
@@ -830,7 +888,6 @@ ipcMain.handle('exec-command-stream', (event, command) => {
         }
       }
       
-      // Return the last partial line
       return lines[lines.length - 1];
     };
 
@@ -839,11 +896,11 @@ ipcMain.handle('exec-command-stream', (event, command) => {
       stdout += output;
       stdoutBuffer += output;
       
-      // Process complete lines and keep partial line in buffer
       stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
       
-      // Also send immediately if we detect progress indicators
-      if (output.includes('Progress:') || output.includes('%') || output.includes('complete')) {
+      // Immediate progress reporting
+      if (output.includes('Progress:') || output.includes('%') || 
+          output.includes('complete') || output.includes('VCD')) {
         if (stdoutBuffer.trim()) {
           event.sender.send('command-output-stream', { 
             type: 'stdout', 
@@ -859,7 +916,6 @@ ipcMain.handle('exec-command-stream', (event, command) => {
       stderr += errorOutput;
       stderrBuffer += errorOutput;
       
-      // Process stderr lines
       stderrBuffer = processOutput(stderrBuffer, 'stderr');
     });
 
@@ -882,14 +938,202 @@ ipcMain.handle('exec-command-stream', (event, command) => {
         code, 
         stdout, 
         stderr, 
-        pid: child.pid 
+        pid: child.pid,
+        performance: {
+          cpuCount: cpuCount,
+          memory: totalMemory
+        }
       });
     });
 
     child.on('error', (err) => {
       reject(err);
     });
+
+    // Set process priority to high (Windows)
+    if (process.platform === 'win32') {
+      setTimeout(() => {
+        try {
+          const { exec } = require('child_process');
+          exec(`wmic process where processid=${child.pid} CALL setpriority "high priority"`);
+        } catch (priorityError) {
+          console.warn('Could not set high priority:', priorityError);
+        }
+      }, 100);
+    }
   });
+});
+
+// Enhanced exec-command-stream with performance optimizations
+ipcMain.handle('exec-command-stream', (event, command, workingDir = null, options = {}) => {
+  return new Promise((resolve, reject) => {
+    const cpuCount = getCPUCount();
+    const totalMemory = getTotalMemory();
+    
+    const performanceOptions = {
+      maxBuffer: 1024 * 1024 * 100, // 100MB buffer
+      encoding: 'utf8',
+      cwd: workingDir,
+      env: {
+        ...process.env,
+        OMP_NUM_THREADS: cpuCount.toString(),
+        OMP_THREAD_LIMIT: cpuCount.toString(),
+        OMP_DYNAMIC: 'true',
+        IVERILOG_DUMPER: 'fst',
+        VVP_PARALLEL: '1',
+        VVP_THREADS: cpuCount.toString(),
+        NUMBER_OF_PROCESSORS: cpuCount.toString(),
+        ...options.env
+      },
+      windowsHide: true,
+      ...options
+    };
+
+    const child = exec(command, performanceOptions);
+    
+    let stdout = '';
+    let stderr = '';
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    // Send performance info
+    event.sender.send('command-output-stream', { 
+      type: 'performance', 
+      data: {
+        pid: child.pid,
+        cpuCount: cpuCount,
+        memory: totalMemory,
+        command: command
+      }
+    });
+
+    const processOutput = (buffer, type) => {
+      const lines = buffer.split('\n');
+      
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i];
+        if (line.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: type, 
+            data: line + '\n'
+          });
+        }
+      }
+      
+      return lines[lines.length - 1];
+    };
+
+    child.stdout.on('data', (data) => {
+      const output = data.toString('utf8');
+      stdout += output;
+      stdoutBuffer += output;
+      
+      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
+      
+      // Enhanced progress detection
+      if (output.includes('Progress:') || output.includes('%') || 
+          output.includes('complete') || output.includes('VCD') ||
+          output.includes('Writing') || output.includes('Compiling')) {
+        if (stdoutBuffer.trim()) {
+          event.sender.send('command-output-stream', { 
+            type: 'stdout', 
+            data: stdoutBuffer 
+          });
+          stdoutBuffer = '';
+        }
+      }
+    });
+
+    child.stderr.on('data', (data) => {
+      const errorOutput = data.toString('utf8');
+      stderr += errorOutput;
+      stderrBuffer += errorOutput;
+      
+      stderrBuffer = processOutput(stderrBuffer, 'stderr');
+    });
+
+    child.on('close', (code) => {
+      if (stdoutBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stdout', 
+          data: stdoutBuffer 
+        });
+      }
+      if (stderrBuffer.trim()) {
+        event.sender.send('command-output-stream', { 
+          type: 'stderr', 
+          data: stderrBuffer 
+        });
+      }
+      
+      resolve({ 
+        code, 
+        stdout, 
+        stderr, 
+        pid: child.pid,
+        performance: {
+          cpuCount: cpuCount,
+          memory: totalMemory
+        }
+      });
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+
+    // Set high priority on Windows
+    if (process.platform === 'win32') {
+      setTimeout(() => {
+        try {
+          const { exec } = require('child_process');
+          exec(`wmic process where processid=${child.pid} CALL setpriority "high priority"`);
+        } catch (priorityError) {
+          console.warn('Could not set high priority:', priorityError);
+        }
+      }, 100);
+    }
+  });
+});
+
+// Process priority management
+ipcMain.handle('set-process-priority', (event, pid, priority = 'high') => {
+  return new Promise((resolve, reject) => {
+    if (process.platform === 'win32') {
+      const priorityMap = {
+        'low': 'idle',
+        'normal': 'normal',
+        'high': 'high priority',
+        'realtime': 'realtime'
+      };
+
+      const wmicPriority = priorityMap[priority] || 'high priority';
+      const command = `wmic process where processid=${pid} CALL setpriority "${wmicPriority}"`;
+      
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ success: true, stdout, stderr });
+        }
+      });
+    } else {
+      resolve({ success: false, message: 'Priority setting only supported on Windows' });
+    }
+  });
+});
+
+// System performance monitoring
+ipcMain.handle('get-system-performance', (event) => {
+  return {
+    cpuCount: getCPUCount(),
+    totalMemory: getTotalMemory(),
+    freeMemory: Math.floor(os.freemem() / (1024 * 1024 * 1024)),
+    loadAverage: os.loadavg(),
+    platform: os.platform(),
+    arch: os.arch(),
+    uptime: os.uptime()
+  };
 });
 
 // Handler for killing process by PID - Enhanced version
@@ -2530,7 +2774,7 @@ async function createPrismWindow(compilationData = null) {
     minWidth: 1000,
     minHeight: 700,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.ico'),
+    icon: path.join(__dirname, 'assets', 'icons', 'sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

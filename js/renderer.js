@@ -8293,7 +8293,7 @@ class TerminalManager {
       TerminalManager.clearButtonInitialized = true;
     }
 
-    this.activeFilter = null;
+    this.activeFilters = new Set();
     this.setupFilterButtons();
   }
 
@@ -8329,24 +8329,24 @@ class TerminalManager {
     const successBtn = document.getElementById('filter-success');
     
     if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
+    
+    // It's good practice to re-clone nodes to avoid stale event listeners
+    const buttons = {
+      error: errorBtn.cloneNode(true),
+      warning: warningBtn.cloneNode(true),
+      tips: infoBtn.cloneNode(true),
+      success: successBtn.cloneNode(true)
+    };
+    
+    errorBtn.parentNode.replaceChild(buttons.error, errorBtn);
+    warningBtn.parentNode.replaceChild(buttons.warning, warningBtn);
+    infoBtn.parentNode.replaceChild(buttons.tips, infoBtn);
+    successBtn.parentNode.replaceChild(buttons.success, successBtn);
 
-    const filterButtons = [errorBtn, warningBtn, infoBtn, successBtn];
-    
-    filterButtons.forEach(btn => {
-      btn.replaceWith(btn.cloneNode(true));
-    });
-    
-    const newErrorBtn = document.getElementById('filter-error');
-    const newWarningBtn = document.getElementById('filter-warning');
-    const newInfoBtn = document.getElementById('filter-tip');
-    const newSuccessBtn = document.getElementById('filter-success');
-    
-    const newFilterButtons = [newErrorBtn, newWarningBtn, newInfoBtn, newSuccessBtn];
-    
-    newErrorBtn.addEventListener('click', () => this.toggleFilter('error', newErrorBtn, newFilterButtons));
-    newWarningBtn.addEventListener('click', () => this.toggleFilter('warning', newWarningBtn, newFilterButtons));
-    newInfoBtn.addEventListener('click', () => this.toggleFilter('tips', newInfoBtn, newFilterButtons));
-    newSuccessBtn.addEventListener('click', () => this.toggleFilter('success', newSuccessBtn, newFilterButtons));
+    buttons.error.addEventListener('click', () => this.toggleFilter('error', buttons.error));
+    buttons.warning.addEventListener('click', () => this.toggleFilter('warning', buttons.warning));
+    buttons.tips.addEventListener('click', () => this.toggleFilter('tips', buttons.tips));
+    buttons.success.addEventListener('click', () => this.toggleFilter('success', buttons.success));
   }
 
   toggleFilter(filterType, clickedBtn, allButtons) {
@@ -8368,24 +8368,43 @@ class TerminalManager {
     });
   }
 
+  toggleFilter(filterType, clickedBtn) {
+    // Check if the filter is already active
+    if (this.activeFilters.has(filterType)) {
+      // If so, remove it from the set and deactivate the button
+      this.activeFilters.delete(filterType);
+      clickedBtn.classList.remove('active');
+    } else {
+      // If not, add it to the set and activate the button
+      this.activeFilters.add(filterType);
+      clickedBtn.classList.add('active');
+    }
+    
+    // Apply the updated filters to all terminals
+    this.applyFilterToAllTerminals();
+  }
+
   applyFilter(terminalId) {
     const terminal = this.terminals[terminalId];
     if (!terminal) return;
 
     const cards = terminal.querySelectorAll('.log-entry');
-    
+    const hasActiveFilters = this.activeFilters.size > 0;
+
     cards.forEach(card => {
-      if (this.activeFilter === null) {
-        card.classList.remove('filtered-out');
+      if (!hasActiveFilters) {
+        // If no filters are active, show all cards
+        card.style.display = '';
+        return;
+      }
+      
+      // Check if the card has at least one of the active filter classes
+      const shouldShow = [...this.activeFilters].some(filter => card.classList.contains(filter));
+
+      if (shouldShow) {
         card.style.display = '';
       } else {
-        if (card.classList.contains(this.activeFilter)) {
-          card.classList.remove('filtered-out');
-          card.style.display = '';
-        } else {
-          card.classList.add('filtered-out');
-          card.style.display = 'none';
-        }
+        card.style.display = 'none';
       }
     });
   }
@@ -8541,6 +8560,18 @@ addMessageToCard(card, text, type) {
 
   messageDiv.innerHTML = processedText;
 
+   const lineLinks = messageDiv.querySelectorAll('.line-link');
+  lineLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const lineNumber = parseInt(link.getAttribute('data-line'));
+      console.log(`Clicked on line ${lineNumber}`);
+      
+      // Navigate to line in Monaco editor
+      this.goToLine(lineNumber);
+    });
+  });
+  
   // ... (line‑link handlers, etc.)
   messagesContainer.appendChild(messageDiv);
 }
@@ -9123,17 +9154,18 @@ window.addEventListener('message', (event) => {
     }
   }
 });
-
-// VVPProgressManager class - Add this to your renderer.js
+// VVPProgressManager class - Improved version with visible controls
 class VVPProgressManager {
   constructor() {
     this.overlay = null;
     this.progressFill = null;
     this.progressPercentage = null;
     this.elapsedTimeElement = null;
+    this.elapsedTimeMinimizedElement = null;
     this.eventsCountElement = null;
     this.isVisible = false;
     this.isReading = false;
+    this.isMinimized = false;
     this.progressPath = null;
     this.startTime = null;
     this.currentProgress = 0;
@@ -9141,10 +9173,10 @@ class VVPProgressManager {
     this.animationFrame = null;
     this.readInterval = null;
     this.eventsCount = 0;
-    
+
     // Smooth interpolation settings
-    this.interpolationSpeed = 0.05; // Lower = smoother
-    this.readIntervalMs = 1500; // Read file every 250ms
+    this.interpolationSpeed = 0.05;
+    this.readIntervalMs = 1500;
   }
 
   async resolveProgressPath(name) {
@@ -9152,14 +9184,12 @@ class VVPProgressManager {
     const useFlat = toggleBtn && toggleBtn.classList.contains('active');
 
     if (useFlat) {
-      // flat file under Temp
       return await window.electronAPI.joinPath(
         'saphoComponents',
         'Temp',
         'progress.txt'
       );
     } else {
-      // per-run subfolder under Temp
       return await window.electronAPI.joinPath(
         'saphoComponents',
         'Temp',
@@ -9169,7 +9199,6 @@ class VVPProgressManager {
     }
   }
 
-  // Delete before you show
   async deleteProgressFile(name) {
     try {
       const pathToDelete = await this.resolveProgressPath(name);
@@ -9190,22 +9219,19 @@ class VVPProgressManager {
     }
   }
 
-  // Show the overlay and start polling
   async show(name) {
     if (this.isVisible) return;
 
     try {
-      // 1) delete old file first
       await this.deleteProgressFile(name);
-
-      // 2) now resolve and store for future reads
       this.progressPath = await this.resolveProgressPath(name);
 
-      // 3) build UI
       if (!this.overlay) this.createOverlay();
       this.currentProgress = this.targetProgress = 0;
       this.startTime = Date.now();
       this.eventsCount = 0;
+      
+      this.maximize();
 
       this.overlay.classList.add('vvp-progress-visible');
       this.isVisible = true;
@@ -9225,7 +9251,6 @@ class VVPProgressManager {
     this.isVisible = false;
     this.isReading = false;
     
-    // Clear intervals and animation
     if (this.readInterval) {
       clearInterval(this.readInterval);
       this.readInterval = null;
@@ -9236,62 +9261,104 @@ class VVPProgressManager {
       this.animationFrame = null;
     }
     
-    // Hide overlay
     if (this.overlay) {
       this.overlay.classList.remove('vvp-progress-visible');
     }
   }
-
+  
+  minimize() {
+    if (!this.overlay || this.isMinimized) return;
+    this.isMinimized = true;
+    this.overlay.classList.add('minimized');
+    console.log('Progress card minimized');
+  }
+  
+  maximize() {
+    if (!this.overlay || !this.isMinimized) return;
+    this.isMinimized = false;
+    this.overlay.classList.remove('minimized');
+    console.log('Progress card maximized');
+  }
 
   createOverlay() {
-    // Create overlay HTML
+    // Create overlay HTML with improved FontAwesome icons and better structure
     const overlayHTML = `
       <div class="vvp-progress-overlay">
         <div class="vvp-progress-info">
-          <div class="vvp-progress-icon">
-            <div class="vvp-spinner"></div>
-          </div>
-          <span class="vvp-progress-text">
-            VVP Simulation in Progress
-          </span>
-          
-          <div class="vvp-progress-bar-wrapper">
-            <div class="vvp-progress-bar">
-              <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
-              <div class="vvp-progress-glow"></div>
-            </div>
-            <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+          <div class="vvp-progress-controls">
+            <button class="vvp-progress-control-btn vvp-minimize-btn" id="vvp-minimize-btn" title="Minimize">
+              <i class="fa-solid fa-window-minimize"></i>
+            </button>
+            <button class="vvp-progress-control-btn vvp-maximize-btn" id="vvp-maximize-btn" title="Maximize">
+              <i class="fa-solid fa-expand"></i>
+            </button>
           </div>
           
-          <div class="vvp-progress-stats">
-            <div class="vvp-stat">
-              <span class="vvp-stat-label"><i class="fa-solid fa-clock"></i> Time</span>
-              <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+          <div class="vvp-progress-content">
+            <div class="vvp-progress-icon">
+              <div class="vvp-spinner"></div>
             </div>
-            <div class="vvp-stat">
-            <span class="vvp-stat-label"><i class="fa-solid fa-arrow-rotate-right"></i> Events</span>
-             <span class="vvp-stat-value" id="vvp-events-count">0</span>
+            <span class="vvp-progress-text">
+              VVP Simulation in Progress
+            </span>
+            
+            <div class="vvp-progress-bar-wrapper">
+              <div class="vvp-progress-bar">
+                <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
+                <div class="vvp-progress-glow"></div>
+              </div>
+              <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+              <span class="vvp-progress-time-minimized" id="vvp-elapsed-time-minimized">0s</span>
+            </div>
+            
+            <div class="vvp-progress-stats">
+              <div class="vvp-stat">
+                <span class="vvp-stat-label"><i class="fas fa-clock"></i> Time</span>
+                <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
+              </div>
+              <div class="vvp-stat">
+                <span class="vvp-stat-label"><i class="fas fa-sync-alt"></i> Events</span>
+                <span class="vvp-stat-value" id="vvp-events-count">0</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     `;
     
-    // Find the TWAVE terminal and add the overlay after it
     const twaveTerminal = document.getElementById('terminal-twave');
     if (twaveTerminal) {
       twaveTerminal.insertAdjacentHTML('afterend', overlayHTML);
     } else {
-      // Fallback: add to body if terminal not found
       document.body.insertAdjacentHTML('beforeend', overlayHTML);
     }
     
-    // Get references
     this.overlay = document.querySelector('.vvp-progress-overlay');
     this.progressFill = document.getElementById('vvp-progress-fill');
     this.progressPercentage = document.getElementById('vvp-progress-percentage');
     this.elapsedTimeElement = document.getElementById('vvp-elapsed-time');
+    this.elapsedTimeMinimizedElement = document.getElementById('vvp-elapsed-time-minimized');
     this.eventsCountElement = document.getElementById('vvp-events-count');
+    
+    // Add event listeners for the buttons with proper error handling
+    const minimizeBtn = document.getElementById('vvp-minimize-btn');
+    const maximizeBtn = document.getElementById('vvp-maximize-btn');
+    
+    if (minimizeBtn) {
+      minimizeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.minimize();
+      });
+    }
+    
+    if (maximizeBtn) {
+      maximizeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.maximize();
+      });
+    }
+    
+    console.log('VVP Progress overlay created with controls');
   }
 
   async startProgressReading() {
@@ -9302,61 +9369,39 @@ class VVPProgressManager {
       
       try {
         const fileExists = await window.electronAPI.fileExists(this.progressPath);
-        console.log(`File exists check: ${this.progressPath} - ${fileExists ? 'EXISTS' : 'NOT FOUND'}`);
         
         if (fileExists) {
           const content = await window.electronAPI.readFile(this.progressPath);
-          console.log('Raw file content:', JSON.stringify(content));
-          
-          // Split by lines and get the last non-empty line (latest progress)
           const lines = content.split('\n').filter(line => line.trim() !== '');
-          console.log('Progress lines found:', lines);
           
           if (lines.length > 0) {
             const lastLine = lines[lines.length - 1].trim();
             const progress = parseInt(lastLine);
             
-            console.log(`Latest progress line: "${lastLine}" -> Parsed: ${progress}`);
-            
             if (!isNaN(progress) && progress >= 0 && progress <= 100) {
-              console.log(`Progress updated from ${this.targetProgress}% to ${progress}%`);
               this.targetProgress = progress;
-              
-              // Calculate simulated events count based on progress
-              // This simulates the number of simulation events processed
-              // Formula: progress * 10 + random variation (0-50) to make it look realistic
               this.eventsCount = Math.floor(progress * 10 + Math.random() * 50);
+              
               if (this.eventsCountElement) {
                 this.eventsCountElement.textContent = this.eventsCount.toLocaleString();
               }
 
-              // Stop reading and timing when compilation reaches 100%
               if (progress >= 100) {
-                console.log('Compilation completed (100%), stopping progress monitoring');
                 this.isReading = false;
                 if (this.readInterval) {
                   clearInterval(this.readInterval);
                   this.readInterval = null;
                 }
               }
-            } else {
-              console.warn(`Invalid progress value: "${lastLine}" -> ${progress}`);
             }
-          } else {
-            console.log('No progress lines found in file');
           }
-        } else {
-          console.log('Progress file does not exist yet');
         }
       } catch (error) {
         console.error('Error reading progress file:', error);
       }
     };
     
-    // Read immediately
     await readProgress();
-    
-    // Set up interval
     this.readInterval = setInterval(readProgress, this.readIntervalMs);
   }
 
@@ -9364,16 +9409,13 @@ class VVPProgressManager {
     const animate = () => {
       if (!this.isVisible) return;
       
-      // Smooth interpolation
       const diff = this.targetProgress - this.currentProgress;
       if (Math.abs(diff) > 0.1) {
         this.currentProgress += diff * this.interpolationSpeed;
-        console.log(`Animating progress: ${this.currentProgress.toFixed(1)}% -> target: ${this.targetProgress}%`);
       } else {
         this.currentProgress = this.targetProgress;
       }
       
-      // Update UI
       const roundedProgress = Math.round(this.currentProgress * 10) / 10;
       
       if (this.progressFill) {
@@ -9384,30 +9426,47 @@ class VVPProgressManager {
         this.progressPercentage.textContent = `${Math.round(roundedProgress)}%`;
       }
       
-      // Continue animation
       this.animationFrame = requestAnimationFrame(animate);
     };
     
     animate();
+  }
+  
+  formatElapsedTime(seconds) {
+    if (seconds < 60) {
+      return `${seconds}s`;
+    }
+    const days = Math.floor(seconds / (24 * 3600));
+    seconds %= (24 * 3600);
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    let parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (remainingSeconds > 0 && days === 0 && hours === 0) parts.push(`${remainingSeconds}s`);
+    
+    return parts.join(' ');
   }
 
   startTimeCounter() {
     const updateTime = () => {
       if (!this.isVisible || !this.startTime) return;
       
-      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      
-      const timeString = minutes > 0 
-        ? `${minutes}m ${seconds}s`
-        : `${seconds}s`;
+      const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
+      const timeString = this.formatElapsedTime(elapsedSeconds);
       
       if (this.elapsedTimeElement) {
         this.elapsedTimeElement.textContent = timeString;
       }
       
-      // Stop timer when compilation is complete (100%)
+      if (this.elapsedTimeMinimizedElement) {
+        this.elapsedTimeMinimizedElement.textContent = timeString;
+      }
+      
       if (this.isVisible && this.targetProgress < 100) {
         setTimeout(updateTime, 1000);
       }
@@ -9419,7 +9478,6 @@ class VVPProgressManager {
 
 // Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
-
 
 
   // Wait for the DOM to fully load before executing the script

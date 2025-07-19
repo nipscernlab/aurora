@@ -1183,7 +1183,7 @@ function init() {
 // Cache for processor instances mapping
 let processorInstancesMap = {};
 
-// Parse Verilog files to extract processor instances
+// Parse Verilog files to extract processor instances from synthesizable files
 async function parseProcessorInstances() {
   try {
     processorInstancesMap = {};
@@ -1193,44 +1193,60 @@ async function parseProcessorInstances() {
       processorInstancesMap[processor] = [];
     }
     
-    // Get project path
-    let projectPath = window.currentProjectPath;
-    if (!projectPath) {
-      const projectData = await window.electronAPI.getCurrentProject();
-      projectPath = projectData?.projectPath;
+    // Load current project configuration to get synthesizable files
+    const configData = await loadProjectConfiguration();
+    
+    if (!configData || !configData.synthesizableFiles || configData.synthesizableFiles.length === 0) {
+      console.warn('No synthesizable files found in project configuration');
+      return;
     }
     
-    if (!projectPath) return;
+    console.log('Processing synthesizable files:', configData.synthesizableFiles);
     
-    // Check for TopLevel folder
-    const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
-    const topLevelExists = await window.electronAPI.directoryExists(topLevelPath);
-    const searchPath = topLevelExists ? topLevelPath : projectPath;
-    
-    // Get all .v files in the search path
-    const verilogFiles = await window.electronAPI.getFilesWithExtension(searchPath, '.v');
-    
-    // Process each .v file to find processor instances
-    for (const verilogFile of verilogFiles) {
-      const fileContent = await window.electronAPI.readFile(verilogFile);
-      extractAllInstancesFromContent(fileContent);
+    // Process each synthesizable file to find processor instances
+    for (const fileInfo of configData.synthesizableFiles) {
+      try {
+        // Use the full path from the configuration
+        const filePath = fileInfo.path;
+        
+        // Check if file exists
+        const fileExists = await window.electronAPI.fileExists(filePath);
+        if (!fileExists) {
+          console.warn(`File does not exist: ${filePath}`);
+          continue;
+        }
+        
+        console.log(`Reading file: ${filePath}`);
+        const fileContent = await window.electronAPI.readFile(filePath);
+        extractAllInstancesFromContent(fileContent, fileInfo.name);
+        
+      } catch (error) {
+        console.error(`Error processing file ${fileInfo.name}:`, error);
+        continue;
+      }
     }
     
     console.log('Processor instances map:', processorInstancesMap);
+    
   } catch (error) {
     console.error('Error parsing processor instances:', error);
   }
 }
 
 // Extract all processor instances from a single Verilog file content
-function extractAllInstancesFromContent(content) {
+function extractAllInstancesFromContent(content, fileName) {
+  if (!content) {
+    console.warn(`Empty content for file: ${fileName}`);
+    return;
+  }
+  
   const lines = content.split('\n');
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
-    // Skip comments
-    if (line.startsWith('//') || line.startsWith('/*')) continue;
+    // Skip comments and empty lines
+    if (line.startsWith('//') || line.startsWith('/*') || line.length === 0) continue;
     
     // Check each available processor
     for (const processorName of availableProcessors) {
@@ -1240,28 +1256,49 @@ function extractAllInstancesFromContent(content) {
         let lineIndex = i;
         
         // Sometimes the instance name is on the next line, so we concatenate lines
-        // until we find the opening parenthesis
-        while (lineIndex < lines.length - 1 && !instanceLine.includes('(')) {
+        // until we find the opening parenthesis or semicolon
+        while (lineIndex < lines.length - 1 && !instanceLine.includes('(') && !instanceLine.includes(';')) {
           lineIndex++;
-          instanceLine += ' ' + lines[lineIndex].trim();
+          const nextLine = lines[lineIndex].trim();
+          if (nextLine && !nextLine.startsWith('//')) {
+            instanceLine += ' ' + nextLine;
+          }
         }
         
-        // Extract instance name using regex
-        // Pattern: processor_name instance_name (
-        const regex = new RegExp(`\\b${processorName}\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(`);
-        const match = instanceLine.match(regex);
+        // Extract instance name using multiple regex patterns
+        const patterns = [
+          // Standard pattern: processor_name instance_name (
+          new RegExp(`\\b${processorName}\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(`),
+          // Pattern with parameters: processor_name #(...) instance_name (
+          new RegExp(`\\b${processorName}\\s*#\\s*\\([^)]*\\)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(`),
+          // Simple pattern: processor_name instance_name;
+          new RegExp(`\\b${processorName}\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*;`)
+        ];
         
-        if (match && match[1]) {
-          const instanceName = match[1];
-          // Add instance to the processor if not already present
-          if (!processorInstancesMap[processorName].includes(instanceName)) {
-            processorInstancesMap[processorName].push(instanceName);
+        for (const regex of patterns) {
+          const match = instanceLine.match(regex);
+          
+          if (match && match[1]) {
+            const instanceName = match[1];
+            
+            // Validate instance name (shouldn't be a Verilog keyword)
+            const verilogKeywords = ['module', 'endmodule', 'input', 'output', 'wire', 'reg', 'always', 'assign'];
+            if (!verilogKeywords.includes(instanceName.toLowerCase())) {
+              
+              // Add instance to the processor if not already present
+              if (!processorInstancesMap[processorName].includes(instanceName)) {
+                processorInstancesMap[processorName].push(instanceName);
+                console.log(`Found instance "${instanceName}" of processor "${processorName}" in file "${fileName}"`);
+              }
+            }
+            break; // Found a match, no need to try other patterns
           }
         }
       }
     }
   }
 }
+
 
 // Update processor row to use select for instances
 function addProcessorRow() {
@@ -1303,9 +1340,9 @@ function addProcessorRow() {
   processorsList.appendChild(newRow);
 }
 
-// Update instance select based on processor selection
+// Update instance select dropdown based on selected processor
 function updateInstanceSelect(processorName, instanceSelect) {
-  // Clear current options
+  // Clear previous options
   instanceSelect.innerHTML = '<option value="">Select Instance</option>';
   
   if (!processorName || !processorInstancesMap[processorName]) {
@@ -1313,45 +1350,38 @@ function updateInstanceSelect(processorName, instanceSelect) {
     return;
   }
   
-  // Get available instances for this specific processor
-  const availableInstances = processorInstancesMap[processorName];
-  const usedInstances = getUsedInstances();
+  const instances = processorInstancesMap[processorName];
+  const usedInstances = getUsedInstances(processorName);
   
-  // Add available instances (excluding already used ones)
-  const unusedInstances = availableInstances.filter(instance => !usedInstances.includes(instance));
+  if (instances.length === 0) {
+    instanceSelect.innerHTML = '<option value="">No instances found</option>';
+    instanceSelect.disabled = true;
+    return;
+  }
   
-  unusedInstances.forEach(instance => {
-    const option = document.createElement('option');
-    option.value = instance;
-    option.textContent = instance;
-    instanceSelect.appendChild(option);
+  // Add available instances (exclude already used ones)
+  instances.forEach(instance => {
+    if (!usedInstances.includes(instance)) {
+      const option = document.createElement('option');
+      option.value = instance;
+      option.textContent = instance;
+      instanceSelect.appendChild(option);
+    }
   });
   
-  // Enable/disable based on available instances
-  instanceSelect.disabled = unusedInstances.length === 0;
-  
-  // Show message if no instances available
-  if (availableInstances.length === 0) {
-    const option = document.createElement('option');
-    option.value = '';
-    option.textContent = 'No instances found';
-    instanceSelect.appendChild(option);
-  } else if (unusedInstances.length === 0) {
-    const option = document.createElement('option');
-    option.value = '';
-    option.textContent = 'All instances already used';
-    instanceSelect.appendChild(option);
-  }
+  instanceSelect.disabled = false;
 }
 
-// Get list of currently used instances
-function getUsedInstances() {
+// Get list of already used instances for a specific processor
+function getUsedInstances(processorName) {
   const usedInstances = [];
   const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   
   processorRows.forEach(row => {
+    const processorSelect = row.querySelector('.processor-select');
     const instanceSelect = row.querySelector('.processor-instance');
-    if (instanceSelect && instanceSelect.value) {
+    
+    if (processorSelect.value === processorName && instanceSelect.value) {
       usedInstances.push(instanceSelect.value);
     }
   });
@@ -1359,19 +1389,21 @@ function getUsedInstances() {
   return usedInstances;
 }
 
-  function refreshAllInstanceSelects() {
+// Refresh all instance selects to update available options
+function refreshAllInstanceSelects() {
   const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   
   processorRows.forEach(row => {
     const processorSelect = row.querySelector('.processor-select');
     const instanceSelect = row.querySelector('.processor-instance');
+    const currentInstance = instanceSelect.value;
     
-    if (processorSelect && instanceSelect && processorSelect.value) {
-      const currentValue = instanceSelect.value;
+    if (processorSelect.value) {
       updateInstanceSelect(processorSelect.value, instanceSelect);
-      // Restore selection if still valid
-      if (instanceSelect.querySelector(`option[value="${currentValue}"]`)) {
-        instanceSelect.value = currentValue;
+      
+      // Restore selected instance if it's still available
+      if (currentInstance && Array.from(instanceSelect.options).some(option => option.value === currentInstance)) {
+        instanceSelect.value = currentInstance;
       }
     }
   });
@@ -1681,9 +1713,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (configExists) {
       // Load configuration from file
+      const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
+    
+    // Check if config file exists
       const configContent = await window.electronAPI.readFile(configPath);
       currentConfig = JSON.parse(configContent);
-      
+    const configData = JSON.parse(configContent);
       console.log('Configuration loaded:', currentConfig);
       
       // Load synthesizable files
@@ -1722,6 +1757,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update file lists
       updateFileList('synthesizable');
       updateFileList('testbench');
+          return configData;
+
     } else {
       console.log('Configuration file not found. Using default configuration.');
     }

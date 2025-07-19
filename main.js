@@ -1312,7 +1312,7 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 
 void main() 
 {
-    // Øk. Você criou um processador, mas e agora?
+    // Øk. Você criou um processador em C±, mas e agora?
 }`;
 
         const cmmFilePath = path.join(softwarePath, `${formData.processorName}.cmm`);

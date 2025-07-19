@@ -336,13 +336,13 @@ function updateProcessorSelect() {
 // Update the saveCurrentProcessorToTemp function to save simulation file selections
 async function loadCmmFiles(processorName) {
   if (!cmmFileSelect) {
-    console.error("CMM file select element not found");
+    console.error("C± file select element not found");
     return;
   }
 
   if (!processorName) {
     // Reset and disable select if no processor is selected
-    cmmFileSelect.innerHTML = '<option value="" selected>Select CMM File</option>';
+    cmmFileSelect.innerHTML = '<option value="" selected>Select C± File</option>';
     cmmFileSelect.disabled = true;
     selectedCmmFile = null;
     return;
@@ -352,7 +352,7 @@ async function loadCmmFiles(processorName) {
     cmmFileSelect.disabled = true;
     cmmFileSelect.innerHTML = '<option value="">Loading...</option>';
     
-    console.log(`Loading CMM files for processor: ${processorName}`);
+    console.log(`Loading C± files for processor: ${processorName}`);
     
     // Get current project path
     const projectInfo = await window.electronAPI.getCurrentProject();
@@ -373,15 +373,15 @@ async function loadCmmFiles(processorName) {
     const files = await window.electronAPI.listFilesInDirectory(softwareFolderPath);
     const cmmFiles = files.filter(file => file.toLowerCase().endsWith('.cmm'));
     
-    console.log(`Found ${cmmFiles.length} CMM files`);
+    console.log(`Found ${cmmFiles.length} C± files`);
     
     // Update CMM file select
-    cmmFileSelect.innerHTML = '<option value="">Select CMM File</option>';
+    cmmFileSelect.innerHTML = '<option value="">Select C± File</option>';
     
     if (cmmFiles.length === 0) {
       const noFilesOption = document.createElement('option');
       noFilesOption.value = "";
-      noFilesOption.textContent = "No CMM files found";
+      noFilesOption.textContent = "No C± files found";
       noFilesOption.disabled = true;
       cmmFileSelect.appendChild(noFilesOption);
     } else {
@@ -405,16 +405,16 @@ async function loadCmmFiles(processorName) {
     cmmFileSelect.disabled = false;
     
   } catch (error) {
-    console.error("Failed to load CMM files:", error);
+    console.error("Failed to load C± files:", error);
     cmmFileSelect.innerHTML = '<option value="">Error Loading Files</option>';
-    showNotification("Failed to load CMM files", 'error');
+    showNotification("Failed to load C± files", 'error');
   }
 }
 
 // Add event listener for CMM file selection
 cmmFileSelect.addEventListener("change", function() {
   selectedCmmFile = this.value;
-  console.log(`Selected CMM file: ${selectedCmmFile}`);
+  console.log(`Selected C± file: ${selectedCmmFile}`);
   
   // Save to temp config if processor is selected
   if (selectedProcessor && selectedCmmFile) {

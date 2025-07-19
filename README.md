@@ -22,7 +22,7 @@ Aurora IDE is the official integrated development environment for SAPHO (Scalabl
 - File tree navigation
 - Multiple dark/light themes
 - Five specialized terminals:
-  - TCMM: CMM compilation
+  - TCMM: C± compilation
   - TASM: Assembly compilation
   - TIVERI: Verilog processing
   - TWAVE: Waveform visualization

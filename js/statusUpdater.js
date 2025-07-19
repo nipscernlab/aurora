@@ -26,7 +26,7 @@ class StatusUpdater {
       let compilationName = '';
       switch(type) {
         case 'cmm':
-          compilationName = 'CMM';
+          compilationName = 'C±';
           break;
         case 'asm':
           compilationName = 'Assembly';
@@ -62,7 +62,7 @@ class StatusUpdater {
       let compilationName = '';
       switch(type) {
         case 'cmm':
-          compilationName = 'CMM';
+          compilationName = 'C±';
           break;
         case 'asm':
           compilationName = 'Assembly';
@@ -99,7 +99,7 @@ class StatusUpdater {
       let compilationName = '';
       switch(type) {
         case 'cmm':
-          compilationName = 'CMM';
+          compilationName = 'C±';
           break;
         case 'asm':
           compilationName = 'Assembly';

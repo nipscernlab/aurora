@@ -49,10 +49,12 @@ class EditorManager {
 
   this.editorContainer.appendChild(editorDiv);
 
-  // Configuração aprimorada do editor
+   const language = this.getLanguageFromPath(filePath);
+  const theme = language === 'cmm' ? (this.currentTheme === 'cmm-dark' ? 'cmm-dark' : 'cmm-light') : this.currentTheme;
+  
   const editor = monaco.editor.create(editorDiv, {
-    theme: this.currentTheme,
-    language: this.getLanguageFromPath(filePath),
+    theme: theme, // ← Use o tema específico
+    language: language, // ← Use a linguagem correta
     automaticLayout: true,
     
     // CONFIGURAÇÕES DE BUSCA MELHORADAS
@@ -423,22 +425,37 @@ static getActiveFilePath() {
       });
     });
   }
+  
 
 
   static setTheme(isDark) {
-    this.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
+  this.currentTheme = isDark ? 'cmm-dark' : 'cmm-light';
+  
+  // Apply to body for global theme
+  document.body.className = isDark ? 'theme-dark' : 'theme-light';
+  
+  // Apply to all editors with specific theme based on language
+  this.editors.forEach(({editor}, filePath) => {
+    const language = this.getLanguageFromPath(filePath);
+    let theme;
     
-    // Apply to body for global theme
-    document.body.className = isDark ? 'theme-dark' : 'theme-light';
+    if (language === 'cmm') {
+      theme = isDark ? 'cmm-dark' : 'cmm-light';
+    } else if (language === 'asm') {
+      theme = isDark ? 'asm-dark' : 'asm-light';
+    } else {
+      theme = isDark ? 'vs-dark' : 'vs';
+    }
     
-    // Apply to all editors
-    this.editors.forEach(({editor}) => {
-      editor.updateOptions({ theme: this.currentTheme });
-    });
-    
-    // Save theme preference
-    localStorage.setItem('editorTheme', isDark ? 'dark' : 'light');
-  }
+    editor.updateOptions({ theme: theme });
+  });
+  
+  // Save theme preference
+  localStorage.setItem('editorTheme', isDark ? 'dark' : 'light');
+  
+}
+
+
 
   static initialize() {
   // Add this line to ensure relative positioning
@@ -484,27 +501,27 @@ static getActiveFilePath() {
   }
 
     static getLanguageFromPath(filePath) {
-    const extension = filePath.split('.').pop().toLowerCase();
-    const languageMap = {
-      'js': 'javascript',
-      'jsx': 'javascript',
-      'ts': 'typescript',
-      'tsx': 'typescript',
-      'html': 'html',
-      'css': 'css',
-      'json': 'json',
-      'md': 'markdown',
-      'py': 'python',
-      'c': 'c',
-      'cpp': 'cpp',
-      'h': 'c',
-      'hpp': 'cpp',
-      'cmm': 'c', // Changed from 'cmm' to 'c'
-      'asm': 'asm',
-      'v': 'verilog'
-    };
-    return languageMap[extension] || 'plaintext';
-  }
+  const extension = filePath.split('.').pop().toLowerCase();
+  const languageMap = {
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'html': 'html',
+    'css': 'css',
+    'json': 'json',
+    'md': 'markdown',
+    'py': 'python',
+    'c': 'c',
+    'cpp': 'cpp',
+    'h': 'c',
+    'hpp': 'cpp',
+    'cmm': 'cmm', // ← ALTERADO: era 'c', agora é 'cmm'
+    'asm': 'asm',
+    'v': 'verilog'
+  };
+  return languageMap[extension] || 'plaintext';
+}
 
 static setActiveEditor(filePath) {
   // Save current find state before switching
@@ -575,13 +592,57 @@ static setActiveEditor(filePath) {
     }
     this.updateOverlayVisibility();
   }
+
+  static async initialize() {
+  await ensureMonacoInitialized();
+  
+  this.editorContainer = document.getElementById('monaco-editor');
+  if (!this.editorContainer) {
+    console.error('Editor container not found');
+    return;
+  }
+
+  this.editorContainer.style.height = '100%';
+  this.editorContainer.style.width = '100%';
+  
+  // Load saved theme preference
+  const savedTheme = localStorage.getItem('editorTheme');
+  const isDark = savedTheme ? savedTheme === 'dark' : true;
+  this.setTheme(isDark);
+  
+  // Setup responsive observer
+  this.setupResponsiveObserver(null);
+
+  // Start periodic checking if tabs are already open
+  if (this.tabs && this.tabs.size > 0) {
+    this.startPeriodicFileCheck();
+  }
+}
+
+}
+
+async function ensureMonacoInitialized() {
+  return new Promise((resolve) => {
+    if (window.monaco) {
+      resolve();
+    } else {
+      // Aguarda o Monaco estar disponível
+      const checkMonaco = setInterval(() => {
+        if (window.monaco) {
+          clearInterval(checkMonaco);
+          resolve();
+        }
+      }, 100);
+    }
+  });
 }
 
 // Enhanced Monaco initialization with custom themes
 async function initMonaco() {
-  require(['vs/editor/editor.main'], function() {
-    setupCMMLanguage();
-    setupASMLanguage();
+  return new Promise((resolve) => {
+    require(['vs/editor/editor.main'], function() {
+      setupCMMLanguage(); // ← Certifique-se de que esta linha está presente
+      setupASMLanguage();
     
     // Define enhanced dark theme
     monaco.editor.defineTheme('cmm-dark', {
@@ -917,7 +978,28 @@ async function initMonaco() {
       });
     }
   });
+        resolve();
+  })
 }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  initializeTheme();
+  
+  // Inicializa o Monaco antes de qualquer outra coisa
+  await initMonaco();
+  
+  const themeToggleBtn = document.getElementById('themeToggle');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+  }
+  
+  // Handle window resize for responsive behavior
+  window.addEventListener('resize', () => {
+    if (EditorManager.editors.size > 0) {
+      EditorManager.updateResponsiveSettings();
+    }
+  });
+});
 
 function setupASMLanguage() {
   monaco.languages.register({ id: 'asm' });
@@ -939,11 +1021,11 @@ function setupASMLanguage() {
         'LOD', 'P_LOD', 'LDI'    , 'ILI'   ,
         'SET', 'SET_P', 'SRF'    , 'IRF'   ,
         'PSH', 'POP'  , 'P_LOD_V', 'MLT_V', 'F_MLT_V',
-        'INN', 'OUT'  ,
-        'ADD', 'S_ADD', 'F_ADD'  , 'SF_ADD',
-        'MLT', 'S_MLT', 'F_MLT'  , 'SF_MLT',
-        'DIV', 'S_DIV', 'F_DIV'  , 'SF_DIV',
-        'MOD', 'S_MOD',
+        'INN', 'OUT'  , 'STI', 'ISI', 'PST', 'PST_M', 
+        'ADD', 'S_ADD', 'F_ADD'  , 'SF_ADD', 'P_PST_M',
+        'MLT', 'S_MLT', 'F_MLT'  , 'SF_MLT', 'F_PST', 
+        'DIV', 'S_DIV', 'F_DIV'  , 'SF_DIV', 'F_PST_M',
+        'MOD', 'S_MOD', 'PF_PST_M', 'ADD_V',
         'SGN', 'S_SGN', 'F_SGN'  , 'SF_SGN', 'F_ADD_V',
         'NEG', 'NEG_M', 'P_NEG_M', 'F_NEG' , 'F_NEG_M', 'PF_NEG_M',
         'ABS', 'ABS_M', 'P_ABS_M', 'F_ABS' , 'F_ABS_M', 'PF_ABS_M',
@@ -1143,11 +1225,69 @@ function setupCMMLanguage() {
 
     tokenizer: {
       root: [
-        // CMM directives (incluindo as novas)
+        // CMM directives (including new ones)
         [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
         // StdLib functions
-        [/\b(in|out|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+        [/\b(in|out|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|mod2|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+
+        // Dirac notation - Complex assignment statements
+        // Pattern: variable # expression|vector⟩ or variable # |matrix|vector⟩
+        [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([^⟨|⟩\s]+)(\|)\s*([^⟨|⟩\s]+)?\s*(⟩)/, 
+         ['identifier', 'operator', 'identifier', 'dirac.bar', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
+        
+        // Pattern: variable # constant|matrix| (identity matrix case)
+        [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([BI])(\|)/, 
+         ['identifier', 'operator', 'identifier', 'dirac.bar', 'keyword.special.dirac', 'dirac.bar']],
+        
+        // Pattern: variable # |vector⟩⟨vector| (outer product)
+        [/(\w+)\s*(#)\s*(\|)([^⟨|⟩\s]+)(⟩⟨)([^⟨|⟩\s]+)(\|)/, 
+         ['identifier', 'operator', 'dirac.bar', 'identifier', 'dirac.bracket', 'identifier', 'dirac.bar']],
+        
+        // Pattern: variable # |matrix| - |vector⟩⟨vector| (matrix subtraction)
+        [/(\w+)\s*(#)\s*(\|)([^⟨|⟩\s]+)(\|)\s*(-)\s*(\|)([^⟨|⟩\s]+)(⟩⟨)([^⟨|⟩\s]+)(\|)/, 
+         ['identifier', 'operator', 'dirac.bar', 'identifier', 'dirac.bar', 'operator', 'dirac.bar', 'identifier', 'dirac.bracket', 'identifier', 'dirac.bar']],
+        
+        // Pattern: variable # |0⟩ (zero vector assignment)
+        [/(\w+)\s*(#)\s*(\|)(0)(⟩)/, 
+         ['identifier', 'operator', 'dirac.bar', 'keyword.special.dirac', 'dirac.bracket']],
+        
+        // Pattern: variable # constant|in(port)⟩ (input with gain)
+        [/(\w+)\s*(#)\s*([^⟨|⟩\s]+)\s*(\|)(in\([^)]+\))(⟩)/, 
+         ['identifier', 'operator', 'identifier', 'dirac.bar', 'keyword.function.stdlib.cmm', 'dirac.bracket']],
+        
+        // Pattern: out(port, constant|vector⟩) (output function)
+        [/(out)\s*\(\s*([^,]+)\s*,\s*([^⟨|⟩\s]+)?\s*(\|)([^⟨|⟩\s]+)(⟩)\s*\)/, 
+         ['keyword.function.stdlib.cmm', 'identifier', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
+
+        // Dirac notation - Basic patterns
+        // Inner product ⟨a|b⟩
+        [/(⟨)([^⟨⟩|]+)(\|)([^⟨⟩|]+)(⟩)/, 
+         ['dirac.bracket', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
+        
+        // Ket |a⟩
+        [/(\|)([^⟨⟩|\s]+)(⟩)/, 
+         ['dirac.bar', 'identifier', 'dirac.bracket']],
+        
+        // Bra ⟨a|
+        [/(⟨)([^⟨⟩|]+)(\|)/, 
+         ['dirac.bracket', 'identifier', 'dirac.bar']],
+        
+        // Special cases - identity matrix |I|, basis matrix |B|
+        [/(\|)([IB])(\|)/, 
+         ['dirac.bar', 'keyword.special.dirac', 'dirac.bar']],
+        
+        // Special case - zero vector |0⟩
+        [/(\|)(0)(⟩)/, 
+         ['dirac.bar', 'keyword.special.dirac', 'dirac.bracket']],
+        
+        // Special functions in Dirac notation - |in(x)⟩
+        [/(\|)(in\([^)]+\))(⟩)/, 
+         ['dirac.bar', 'keyword.function.stdlib.cmm', 'dirac.bracket']],
+        
+        // Standalone Dirac brackets and bars
+        [/[⟨⟩]/, 'dirac.bracket'],
+        [/\|/, 'dirac.bar'],
 
         // Array initialization from file
         [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
@@ -1212,7 +1352,7 @@ function setupCMMLanguage() {
     }
   });
 
-  // Define tema escuro personalizado para CMM
+  // Define dark theme for CMM with enhanced Dirac notation styling
   monaco.editor.defineTheme('cmm-dark', {
     base: 'vs-dark',
     inherit: true,
@@ -1220,12 +1360,17 @@ function setupCMMLanguage() {
       { token: 'keyword.directive.cmm', foreground: '#569CD6' },
       { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#DCDCAA' },
       { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#D4D4D4' },
-      { token: 'delimiter.square.inverted', foreground: '#CE9178' }
+      { token: 'delimiter.square.inverted', foreground: '#CE9178' },
+      
+      // Enhanced Dirac notation styling - Dark purple that works on both themes
+      { token: 'dirac.bracket', fontStyle: 'bold', foreground: '#8B5CF6' },
+      { token: 'dirac.bar', fontStyle: 'bold', foreground: '#8B5CF6' },
+      { token: 'keyword.special.dirac', fontStyle: 'bold', foreground: '#A855F7' }
     ],
     colors: {}
   });
 
-  // Define tema claro personalizado para CMM
+  // Define light theme for CMM with enhanced Dirac notation styling
   monaco.editor.defineTheme('cmm-light', {
     base: 'vs',
     inherit: true,
@@ -1233,7 +1378,12 @@ function setupCMMLanguage() {
       { token: 'keyword.directive.cmm', fontStyle: 'bold', foreground: '#0000FF' },
       { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '#795E26' },
       { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '#000000' },
-      { token: 'delimiter.square.inverted', foreground: '#A31515' }
+      { token: 'delimiter.square.inverted', foreground: '#A31515' },
+      
+      // Enhanced Dirac notation styling - Same dark purple for light theme
+      { token: 'dirac.bracket', fontStyle: 'bold', foreground: '#7C3AED' },
+      { token: 'dirac.bar', fontStyle: 'bold', foreground: '#7C3AED' },
+      { token: 'keyword.special.dirac', fontStyle: 'bold', foreground: '#8B5CF6' }
     ],
     colors: {}
   });
@@ -6036,6 +6186,7 @@ function initAIAssistant() {
         <select id="ai-provider-select" class="ai-provider-select">
           <option value="chatgpt">ChatGPT</option>
           <option value="claude">Claude</option>
+          <option value="gemini">Gemini</option>
           <option value="deepseek">DeepSeek</option>
         </select>
       </div>
@@ -6096,11 +6247,13 @@ function initAIAssistant() {
     const urlMap = {
       chatgpt: 'https://chatgpt.com/?model=auto',
       claude: 'https://claude.ai',
+      gemini: 'https://gemini.google.com/',
       deepseek: 'https://www.deepseek.com/'
     };
     
     const iconMap = {
       chatgpt: './assets/icons/chatgpt.svg',
+      gemini: './assets/icons/gemini.svg',
       claude: './assets/icons/claude.svg',
       deepseek: './assets/icons/deepseek.svg'
     };
@@ -6464,7 +6617,7 @@ class CompilationModule {
     } else if (processor.cmmFile) {
       selectedCmmFile = processor.cmmFile;
     } else {
-      throw new Error('No CMM file selected. Please select a CMM file to compile.');
+      throw new Error('No C± file selected. Please select one to compile.');
     }
     return selectedCmmFile;
   }
@@ -6558,7 +6711,7 @@ end`;
 
   async cmmCompilation(processor) {
     const { name } = processor;
-    this.terminalManager.appendToTerminal('tcmm', `Starting CMM compilation for ${name}...`);
+    this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
     try {
       const selectedCmmFile = await this.getSelectedCmmFile(processor);
       const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -6594,71 +6747,73 @@ end`;
     }
   }
     
-  async asmCompilation(processor, asmPath, projectParam = null) {
-    const { name, clk, numClocks } = processor;
-    this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation process for ${name}...`);
+  async asmCompilation(processor, projectParam = null) {
+  const { name, clk, numClocks } = processor;
+  this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation process for ${name}...`);
+  
+  try {
+    const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
+    const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+    const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
+    const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
+    const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+    const selectedCmmFile = await this.getSelectedCmmFile(processor);
+    const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+    const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
+    const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+    const { tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
     
-    try {
-      const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-      const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
-      const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      const selectedCmmFile = await this.getSelectedCmmFile(processor);
-      const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-      const { tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
-      
-      statusUpdater.startCompilation('asm');
-      await TabManager.saveAllFiles();
+    statusUpdater.startCompilation('asm');
+    await TabManager.saveAllFiles();
 
-      let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
-      this.terminalManager.appendToTerminal('tasm', `Executing ASM Preprocessor: ${cmd}`);
-      const appResult = await window.electronAPI.execCommand(cmd);
-      
-      if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
-      if (appResult.stderr) this.terminalManager.appendToTerminal('tasm', appResult.stderr, 'stderr');
+    let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
+    this.terminalManager.appendToTerminal('tasm', `Executing ASM Preprocessor: ${cmd}`);
+    const appResult = await window.electronAPI.execCommand(cmd);
+    
+    if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
+    if (appResult.stderr) this.terminalManager.appendToTerminal('tasm', appResult.stderr, 'stderr');
 
-      if (appResult.code !== 0) {
-        statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
-        throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
-      } 
-      this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
+    if (appResult.code !== 0) {
+      statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
+      throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
+    } 
+    this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
 
-      if (projectParam === null) {
-          projectParam = this.isProjectOriented ? 1 : 0;
-      }
-
-      cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
-      this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
-      
-      const asmResult = await window.electronAPI.execCommand(cmd);
-      await refreshFileTree();
-      
-      if (asmResult.stdout) this.terminalManager.appendToTerminal('tasm', asmResult.stdout, 'stdout');
-      if (asmResult.stderr) this.terminalManager.appendToTerminal('tasm', asmResult.stderr, 'stderr');
-
-      if (asmResult.code !== 0) {
-        statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
-        throw new Error(`ASM compilation failed with code ${asmResult.code}`);
-      }
-      
-      if (!this.isProjectOriented && processor.testbenchFile == 'standard') {
-        const tbFileName = tbFile.split(/[\\\/]/).pop();
-        const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
-        const destinationTestbench = tbFile;
-
-        this.terminalManager.appendToTerminal('tasm', `Copying testbench from "${sourceTestbench}" to "${destinationTestbench}"`);
-        await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
-        this.terminalManager.appendToTerminal('tasm', 'Testbench updated in project folder.', 'success');
-      }
-
-      statusUpdater.compilationSuccess('asm');
-    } catch (error) {
-      this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
-      statusUpdater.compilationError('asm', error.message);
-      throw error;
+    if (projectParam === null) {
+        projectParam = this.isProjectOriented ? 1 : 0;
     }
+
+    cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+    this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
+    
+    const asmResult = await window.electronAPI.execCommand(cmd);
+    await refreshFileTree();
+    
+    if (asmResult.stdout) this.terminalManager.appendToTerminal('tasm', asmResult.stdout, 'stdout');
+    if (asmResult.stderr) this.terminalManager.appendToTerminal('tasm', asmResult.stderr, 'stderr');
+
+    if (asmResult.code !== 0) {
+      statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
+      throw new Error(`ASM compilation failed with code ${asmResult.code}`);
+    }
+    
+    if (!this.isProjectOriented && processor.testbenchFile == 'standard') {
+      const tbFileName = tbFile.split(/[\\\/]/).pop();
+      const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
+      const destinationTestbench = tbFile;
+
+      this.terminalManager.appendToTerminal('tasm', `Copying testbench from "${sourceTestbench}" to "${destinationTestbench}"`);
+      await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
+      this.terminalManager.appendToTerminal('tasm', 'Testbench updated in project folder.', 'success');
+    }
+
+    statusUpdater.compilationSuccess('asm');
+  } catch (error) {
+    this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
+    statusUpdater.compilationError('asm', error.message);
+    throw error;
   }
+}
 
   async iverilogProjectCompilation() {
     this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog verification for project...`);
@@ -8097,7 +8252,7 @@ class CompilationButtonManager {
       try {
         // Check if processor is configured
         if (!isProcessorConfigured()) {
-          showCardNotification('Please configure a processor first before CMM compilation.', 'warning', 4000);
+          showCardNotification('Please configure a processor first before C± compilation.', 'warning', 4000);
           return;
         }
         startCompilation();
@@ -8135,8 +8290,8 @@ class CompilationButtonManager {
         }
       } catch (error) {
         if (!compilationCanceled) {
-          console.error('CMM compilation error:', error);
-          showCardNotification('CMM compilation failed. Check terminal for details.', 'error', 4000);
+          console.error('C± compilation error:', error);
+          showCardNotification('C± compilation failed. Check terminal for details.', 'error', 4000);
           endCompilation();
         }
       } finally {
@@ -8182,7 +8337,7 @@ document.getElementById('asmcomp').addEventListener('click', async () => {
     const asmFile = files.find(file => file.endsWith('.asm'));
     
     if (!asmFile) {
-      throw new Error('No .asm file found. Please compile CMM first.');
+      throw new Error('No .asm file found. Please compile C± first.');
     }
 
     // Check if canceled before proceeding
@@ -8622,25 +8777,101 @@ addMessageToCard(card, text, type) {
   // 2) bold the keyword at the start of the message
   let processedText = this.makeLineNumbersClickable(text);
   processedText = processedText.replace(
-  /^(Atenção|Erro|Sucesso|Info)(:)?/i,
-  (_, word, colon) => `<strong style="font-weight:900">${word}</strong>${colon || ''}`
-);
+    /^(Atenção|Erro|Sucesso|Info)(:)?/i,
+    (_, word, colon) => `<strong style="font-weight:900">${word}</strong>${colon || ''}`
+  );
 
   messageDiv.innerHTML = processedText;
 
-   const lineLinks = messageDiv.querySelectorAll('.line-link');
+  const lineLinks = messageDiv.querySelectorAll('.line-link');
   lineLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
+    link.addEventListener('click', async (e) => {
       e.preventDefault();
       const lineNumber = parseInt(link.getAttribute('data-line'));
       console.log(`Clicked on line ${lineNumber}`);
       
-      // Navigate to line in Monaco editor
-      this.goToLine(lineNumber);
+      try {
+        // Extract CMM file path from recent compilation data
+        let cmmFilePath = null;
+        
+        // First, try to get from compilation manager if available
+        if (window.compilationManager?.getCurrentProcessor) {
+          const currentProcessor = window.compilationManager.getCurrentProcessor();
+          if (currentProcessor) {
+            try {
+              const selectedCmmFile = await window.compilationManager.getSelectedCmmFile(currentProcessor);
+              if (selectedCmmFile) {
+                // Construct full path: project path + processor name + Software + selectedCmmFile
+                const projectPath = window.compilationManager.projectPath;
+                const softwarePath = await window.electronAPI.joinPath(projectPath, currentProcessor.name, 'Software');
+                cmmFilePath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
+              }
+            } catch (error) {
+              console.log('Error getting CMM file from compilation manager:', error);
+            }
+          }
+        }
+        
+        // If that fails, try to extract from terminal content
+        if (!cmmFilePath) {
+          const terminalContent = card.closest('.terminal-content');
+          if (terminalContent) {
+            const logEntries = terminalContent.querySelectorAll('.log-entry');
+            
+            // Look for compilation command in recent log entries
+            for (const entry of Array.from(logEntries).reverse()) {
+              const entryText = entry.textContent || '';
+              
+              // Look for cmmcomp.exe command
+              const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
+              if (cmmCompMatch) {
+                const cmmFileName = cmmCompMatch[1];
+                const processorName = cmmCompMatch[2];
+                const projectPath = cmmCompMatch[3];
+                
+                // Construct full CMM file path
+                cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);
+                break;
+              }
+            }
+          }
+        }
+        
+        if (!cmmFilePath) {
+          console.log('Could not determine CMM file path');
+          return;
+        }
+
+        // Check if file exists
+        const fileExists = await window.electronAPI.fileExists(cmmFilePath);
+        if (!fileExists) {
+          console.log(`CMM file does not exist: ${cmmFilePath}`);
+          return;
+        }
+
+        // Check if the CMM file is already open in tabs
+        const isFileOpen = TabManager.tabs.has(cmmFilePath);
+        
+        if (!isFileOpen) {
+          // Read file content and open it in a new tab
+          const content = await window.electronAPI.readFile(cmmFilePath, { encoding: 'utf8' });
+          TabManager.addTab(cmmFilePath, content);
+        } else {
+          // File is already open, just activate it
+          TabManager.activateTab(cmmFilePath);
+        }
+
+        // Navigate to line in Monaco editor after a small delay to ensure tab is active
+        setTimeout(() => {
+          this.goToLine(lineNumber);
+        }, 100);
+
+      } catch (error) {
+        console.error('Error opening CMM file and navigating to line:', error);
+      }
     });
   });
   
-  // ... (line‑link handlers, etc.)
   messagesContainer.appendChild(messageDiv);
 }
 
@@ -9222,6 +9453,7 @@ window.addEventListener('message', (event) => {
     }
   }
 });
+
 // VVPProgressManager class - Improved version with visible controls
 class VVPProgressManager {
   constructor() {
@@ -9241,8 +9473,8 @@ class VVPProgressManager {
     this.animationFrame = null;
     this.readInterval = null;
     this.eventsCount = 0;
+    this.minimizeTimeout = null;
 
-    // Smooth interpolation settings
     this.interpolationSpeed = 0.05;
     this.readIntervalMs = 1500;
   }
@@ -9273,12 +9505,10 @@ class VVPProgressManager {
       const exists = await window.electronAPI.fileExists(pathToDelete);
 
       if (!exists) {
-        console.log(`No progress file to delete at ${pathToDelete}`);
         return false;
       }
 
       await window.electronAPI.deleteFileOrDirectory(pathToDelete);
-      console.log(`Deleted progress file at ${pathToDelete}`);
       return true;
 
     } catch (err) {
@@ -9299,10 +9529,18 @@ class VVPProgressManager {
       this.startTime = Date.now();
       this.eventsCount = 0;
       
-      this.maximize();
+      this.isMinimized = false;
+      this.overlay.classList.remove('minimized');
 
       this.overlay.classList.add('vvp-progress-visible');
       this.isVisible = true;
+
+      if (this.minimizeTimeout) {
+        clearTimeout(this.minimizeTimeout);
+      }
+      this.minimizeTimeout = setTimeout(() => {
+        this.minimize();
+      }, 2000);
 
       this.startProgressReading();
       this.startAnimationLoop();
@@ -9318,6 +9556,11 @@ class VVPProgressManager {
     
     this.isVisible = false;
     this.isReading = false;
+
+    if (this.minimizeTimeout) {
+      clearTimeout(this.minimizeTimeout);
+      this.minimizeTimeout = null;
+    }
     
     if (this.readInterval) {
       clearInterval(this.readInterval);
@@ -9335,21 +9578,23 @@ class VVPProgressManager {
   }
   
   minimize() {
-    if (!this.overlay || this.isMinimized) return;
+    if (!this.overlay) return;
     this.isMinimized = true;
     this.overlay.classList.add('minimized');
-    console.log('Progress card minimized');
   }
   
   maximize() {
-    if (!this.overlay || !this.isMinimized) return;
+    if (!this.overlay) return;
     this.isMinimized = false;
     this.overlay.classList.remove('minimized');
-    console.log('Progress card maximized');
+
+    if (this.minimizeTimeout) {
+      clearTimeout(this.minimizeTimeout);
+      this.minimizeTimeout = null;
+    }
   }
 
   createOverlay() {
-    // Create overlay HTML with improved FontAwesome icons and better structure
     const overlayHTML = `
       <div class="vvp-progress-overlay">
         <div class="vvp-progress-info">
@@ -9408,7 +9653,6 @@ class VVPProgressManager {
     this.elapsedTimeMinimizedElement = document.getElementById('vvp-elapsed-time-minimized');
     this.eventsCountElement = document.getElementById('vvp-events-count');
     
-    // Add event listeners for the buttons with proper error handling
     const minimizeBtn = document.getElementById('vvp-minimize-btn');
     const maximizeBtn = document.getElementById('vvp-maximize-btn');
     
@@ -9425,8 +9669,6 @@ class VVPProgressManager {
         this.maximize();
       });
     }
-    
-    console.log('VVP Progress overlay created with controls');
   }
 
   async startProgressReading() {
@@ -9544,7 +9786,6 @@ class VVPProgressManager {
   }
 }
 
-// Create singleton instance
 const vvpProgressManager = new VVPProgressManager();
 
 

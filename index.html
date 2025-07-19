@@ -108,6 +108,7 @@
             data-i18n-title="toolbar.aboutAuroraTitle" title="">
       <i class="fa-solid fa-circle-info"></i>
     </button>
+    <!--
     <button id="palette" class="toolbar-button" onclick="openThemeModal()"
             data-i18n-title="toolbar.paletteTitle" title="">
       <i class="fa-solid fa-palette"></i>
@@ -115,6 +116,10 @@
     <button id="translate" class="toolbar-button"
             data-i18n-title="toolbar.changeLanguageTitle">
       <i class="fa-solid fa-language"></i>
+    </button> -->
+    <button id="aurora-settings" class="toolbar-button"
+            data-i18n-title="toolbar.changeLanguageTitle">
+      <i class="fa-solid fa-sliders"></i> Settings
     </button>
   </div>
 </div>
@@ -200,9 +205,9 @@
           <div class="modalConfig-form-group">
             <div class="modalConfig-cmm-selector">
             <div class="modalConfig-form-group">
-              <label for="cmmFileSelect">CMM File:</label>
+              <label for="cmmFileSelect">C± File:</label>
               <select id="cmmFileSelect" class="modalConfig-select" disabled>
-                <option value="">Select CMM File</option>
+                <option value="">Select C± File</option>
               </select>
             </div>
           </div>
@@ -395,7 +400,7 @@
           </small>
         </div>
       </section>
-      <!-- Compiler Settings Section -->
+      <!-- Compiler Settings Section
       <section class="modalConfig-section" id="compilerSettings">
         <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
         
@@ -414,7 +419,7 @@
             Specify additional flags for Iverilog compilation (separate with semicolons)
           </small>
         </div>
-      </section>
+      </section>  -->
     </div>
     
     <div class="modalConfig-footer">
@@ -618,7 +623,7 @@
 
             <span style="color: #f8fafc;">To create a Processor project, click on</span> <span class="keyword" onclick="activateButton('newProjectBtn')" data-i18n="ui.buttons.newProject">New Project</span>. <span style="color: #f8fafc;">Give your project a name and select the installation location. Then, the .spf project will open automatically and the</span> <span class="keyword" onclick="activateButton('processorHub')" data-i18n="ui.buttons.processorHub">Processor Hub</span> <span style="color: #f8fafc;">button will be enabled. If you already have a created project, click on</span> <span class="keyword" onclick="activateButton('openProjectBtn')" data-i18n="ui.buttons.openProject">Open Project</span>
             <br>
-              <span style="color: #f8fafc;">Click on</span> <span class="keyword" onclick="activateButton('processorHub')" data-i18n="ui.buttons.processorHub">Processor Hub</span> <span style="color: #f8fafc;">to create a processor with all parameters pre-defined by you. Program your processor using the CMM language in the .cmm file within the Software folder of your project. When modifying a file, click on</span> <span class="keyword" onclick="activateButton('saveFileBtn')" data-i18n="ui.buttons.save">Save</span> <span style="color: #f8fafc;">to save it.</span>
+              <span style="color: #f8fafc;">Click on</span> <span class="keyword" onclick="activateButton('processorHub')" data-i18n="ui.buttons.processorHub">Processor Hub</span> <span style="color: #f8fafc;">to create a processor with all parameters pre-defined by you. Program your processor using the C± language in the .cmm file within the Software folder of your project. When modifying a file, click on</span> <span class="keyword" onclick="activateButton('saveFileBtn')" data-i18n="ui.buttons.save">Save</span> <span style="color: #f8fafc;">to save it.</span>
             <br>
             <span style="color: #f8fafc;">Next, configure the compilation in the</span> <span class="keyword" onclick="activateButton('settings')" data-i18n="ui.buttons.processorConfig">Processor Config</span> <span style="color: #f8fafc;">button, setting up the processor to be compiled, the number of clocks and cycles (frequency) for simulation, as well as the compilation flags for cmmcomp, asmcomp, and iverilog.</span>
             <br>

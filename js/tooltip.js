@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
         'wavecomp': 'Analyzes Verilog output using VVP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
         'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
-        'allcomp': 'Performs a full compilation workflow: CMM ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
+        'allcomp': 'Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
         'fractalcomp': 'Performs a full compilation workflow and launches the Fractal Processor Simulator, allowing you to run and test your processor design interactively.',
         'importBtn': 'Import all files to the compilation enviroment. Supports drag&drop.',
         'line-number': 'Opa. Bão?',

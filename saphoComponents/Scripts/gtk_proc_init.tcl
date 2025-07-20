@@ -65,7 +65,12 @@ gtkwave::/Edit/Insert_Comment {I/O ****************}
 set req_in  [listFac "req_in_sim"]
 set entrada [listFac "in_sim"    ]
 
+puts "Info: found [llength $req_in] input ports in use."
+
 for {set i 0} {$i < [llength $req_in] } {incr i} {
+
+    puts "Info: adding signals for input port $i."
+
     addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
     addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
 }
@@ -75,7 +80,12 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 set out_en [listFac "out_en_sim"]
 set saida  [listFac "out_sig"   ]
 
+puts "Info: found [llength $out_en] output ports in use."
+
 for {set i 0} {$i < [llength $out_en] } {incr i} {
+
+    puts "Info: adding signals for output port $i."
+
     addFac [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""
     addFac [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
 }
@@ -83,6 +93,8 @@ for {set i 0} {$i < [llength $out_en] } {incr i} {
 # Separador de Instrucoes -----------------------------------------------------
 
 gtkwave::/Edit/Insert_Comment {Instructions *******}
+
+puts "Info: adding Assembly and C+- instructions."
 
 # Assembly --------------------------------------------------------------------
 

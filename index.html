@@ -503,7 +503,7 @@
     <span id="current-spf-name" data-i18n-title="ui.fileTree.currentProject">No project open</span>
     <span data-i18n-title="ui.fileTree.openProject" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> <span data-i18n="ui.fileTree.project">Project</span></span>
     <span data-i18n-title="ui.fileTree.openHDL" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> <span data-i18n="ui.fileTree.hdl">HDL</span></span>
-    <span data-i18n-title="ui.fileTree.collapse" id="toggle-file-tree" style="cursor: pointer;" title="Collapse All"> <i class="fa-solid fa-compress-arrows-alt"></i>
+    <span id="toggle-file-tree" style="cursor: pointer;" title="Collapse All"> <i class="fa-solid fa-compress-arrows-alt"></i></span>
     <!-- Search Section -->
     <div class="file-search-container">
       <div class="search-input-wrapper">
@@ -523,8 +523,9 @@
       <div class="search-results-info">
         <span id="search-results-count"></span>
       </div>
-    </div>
-  </div>
+    </div><br>
+  </div><br>
+      <span id="hierarchy-tree" class="overlay-title">Standard Tree <i class="fa-solid fa-toggle-off"></i></span> 
 
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
@@ -612,6 +613,7 @@
           <button class="tab" data-terminal="tprism"><img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> TPRISM</button>
           <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
           <button id="goup-terminal" data-i18n-title="ui.terminal.goUp" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
+          <button id="goup-terminal" data-i18n-title="ui.terminal.goUp" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-bolt"></i></i></button>
           <button id="godown-terminal" data-i18n-title="ui.terminal.goDown" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
           <button id="export-log" data-i18n-title="ui.terminal.exportLog" titles="Export Log" class="toolbar-button"><i class="fa-solid fa-file-export"></i></button>
           <button id="reload-everything-terminal" data-i18n-title="ui.terminal.reloadEverything" titles="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
@@ -1078,7 +1080,7 @@
     <div class="status-item" id="processorProjectOriented"><i class="fa-solid fa-lock-open"></i> Processor Oriented</div>
     <div class="status-item" id="statusUpdater"><i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation</div>
     <div class="status-item" id="processorNameID" ><i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured</div>
-    <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Ln 33, Col 33</div>
+    <div class="status-item" id="editorStatus"><i class="fa-solid fa-align-left"></i> Ln 3, Col 3</div>
   </div>
 
 <script>

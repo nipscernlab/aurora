@@ -588,12 +588,13 @@ body.theme-light-high-contrast .vvp-spinner {
 
 .vvp-progress-overlay.minimized .vvp-progress-bar {
   height: 22px; /* Taller bar is easier to see */
+  margin-top: 3px;
 }
 
 .vvp-progress-overlay.minimized .vvp-progress-percentage {
   /* Position the percentage over the bar */
   position: absolute;
-  top: 10px; /* Vertical center of the 20px bar */
+  top: 14px; /* Vertical center of the 20px bar */
   left: 50%;
   transform: translate(-50%, -50%);
   color: var(--text-accent);

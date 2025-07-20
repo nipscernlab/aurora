@@ -2321,7 +2321,7 @@ static showFormattingIndicator(show) {
   } else {
     broomIcon.classList.remove('formatting');
     broomIcon.style.animation = '';
-    broomIcon.title = 'Code Refactoring';
+    broomIcon.title = 'Code Formatter';
   }
 }
 
@@ -2603,7 +2603,9 @@ static cleanup() {
       html += `<span class="file-type-indicator">${fileType}</span>`;
     } else {
       // Add formatting button (broom icon) only for text files
-      html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Code Refactoring" style="margin-left: auto; cursor: pointer;"></i>`;
+      html += `<i class="fa-solid fa-broom context-refactor-button toolbar-button" title="Code Formatter" style="margin-left: auto; cursor: pointer;"></i>`;
+
+      //html += `<i class="fa-solid fa-table-columns context-split-button toolbar-button" title="Split Monaco Editor" style="margin-left: auto; cursor: pointer;"></i>`;
     }
 
     contextContainer.innerHTML = html;
@@ -3704,8 +3706,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
-
-// Enhanced Code Formatter Implementation
+// Enhanced Code Formatter Implementation with Smart Detection
 // Add this to your TabManager class or create a separate CodeFormatter class
 
 class CodeFormatter {
@@ -3721,13 +3722,238 @@ class CodeFormatter {
       throw new Error(`No formatter available for file type: ${fileExtension}`);
     }
 
+    // First, check if the code is already well-formatted
+    if (this.isCodeAlreadyWellFormatted(code, fileExtension)) {
+      console.log('Code is already well-formatted, skipping formatting');
+      return code; // Return original code unchanged
+    }
+
     try {
+      console.log('Applying aggressive formatting to improve code structure');
       const formattedCode = await this.executeFormatter(formatter, code, fileExtension);
-      return formattedCode;
+      
+      // Apply post-processing for final touches
+      const finalCode = this.postProcessFormatting(formattedCode, fileExtension);
+      
+      return finalCode;
     } catch (error) {
       console.error('Formatting error:', error);
-      throw new Error(`Failed to refact code: ${error.message}`);
+      throw new Error(`Failed to format code: ${error.message}`);
     }
+  }
+
+  static isCodeAlreadyWellFormatted(code, extension) {
+    // Comprehensive check to determine if code is already well-formatted
+    const lines = code.split('\n');
+    
+    // Check for consistent indentation (4 spaces, no tabs)
+    if (!this.hasConsistentIndentation(lines)) {
+      console.log('Inconsistent indentation detected');
+      return false;
+    }
+    
+    // Check for proper operator spacing
+    if (!this.hasProperOperatorSpacing(code)) {
+      console.log('Improper operator spacing detected');
+      return false;
+    }
+    
+    // Check for proper brace placement (Allman style)
+    if (!this.hasProperBracePlacement(lines, extension)) {
+      console.log('Improper brace placement detected');
+      return false;
+    }
+    
+    // Check for excessive empty lines
+    if (!this.hasProperLineSpacing(lines)) {
+      console.log('Excessive empty lines detected');
+      return false;
+    }
+    
+    // Check for trailing whitespace
+    if (this.hasTrailingWhitespace(lines)) {
+      console.log('Trailing whitespace detected');
+      return false;
+    }
+    
+    // Check for proper comma spacing
+    if (!this.hasProperCommaSpacing(code)) {
+      console.log('Improper comma spacing detected');
+      return false;
+    }
+    
+    // Language-specific checks
+    if (extension === 'v' || extension === 'sv' || extension === 'vh' || extension === 'svh') {
+      if (!this.isVerilogWellFormatted(code)) {
+        console.log('Verilog-specific formatting issues detected');
+        return false;
+      }
+    } else if (extension === 'cmm' || extension === 'c' || extension === 'cpp' || extension === 'h' || extension === 'hpp') {
+      if (!this.isCmmWellFormatted(code)) {
+        console.log('C/CMM-specific formatting issues detected');
+        return false;
+      }
+    }
+    
+    console.log('Code appears to be well-formatted');
+    return true;
+  }
+
+  static hasConsistentIndentation(lines) {
+    let expectedIndent = 0;
+    const indentSize = 4;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Skip empty lines and comments that might be at column 0
+      if (!line.trim() || line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*')) {
+        continue;
+      }
+      
+      // Skip preprocessor directives and module-level declarations
+      if (line.trim().match(/^(#|`|module|endmodule|function|endfunction|task|endtask)/) && expectedIndent === 0) {
+        continue;
+      }
+      
+      // Count leading spaces
+      const leadingSpaces = line.match(/^ */)[0].length;
+      
+      // Check for tabs (not allowed)
+      if (line.includes('\t')) {
+        return false;
+      }
+      
+      // Adjust expected indent based on closing braces
+      if (line.trim().includes('}') && !line.trim().includes('{')) {
+        expectedIndent = Math.max(0, expectedIndent - 1);
+      }
+      
+      // Check if indentation matches expected (allow some flexibility for complex statements)
+      const expectedSpaces = expectedIndent * indentSize;
+      if (leadingSpaces !== expectedSpaces && line.trim() !== '') {
+        // Allow for continuation lines and special cases
+        if (Math.abs(leadingSpaces - expectedSpaces) > indentSize) {
+          return false;
+        }
+      }
+      
+      // Adjust expected indent based on opening braces
+      if (line.includes('{') && !line.includes('}')) {
+        expectedIndent++;
+      }
+    }
+    
+    return true;
+  }
+
+  static hasProperOperatorSpacing(code) {
+    // Check for proper spacing around common operators
+    const operatorPatterns = [
+      /[a-zA-Z0-9]\=[^=]/,           // assignment without space before
+      /[^=<>!]\=[a-zA-Z0-9]/,       // assignment without space after
+      /[a-zA-Z0-9]\=\=[^=]/,        // equality without space before  
+      /[^=]\=\=[a-zA-Z0-9]/,        // equality without space after
+      /[a-zA-Z0-9]\!\=[^=]/,        // inequality without space before
+      /[^!]\!\=[a-zA-Z0-9]/,        // inequality without space after
+      /[a-zA-Z0-9]\+[^+=]/,         // addition without space before
+      /[^+]\+[a-zA-Z0-9]/,          // addition without space after
+      /[a-zA-Z0-9]\-[^-=]/,         // subtraction without space before
+      /[^-]\-[a-zA-Z0-9]/           // subtraction without space after
+    ];
+    
+    return !operatorPatterns.some(pattern => pattern.test(code));
+  }
+
+  static hasProperBracePlacement(lines, extension) {
+    // Check for Allman-style brace placement
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check for opening braces that should be on their own line
+      if (line.match(/\)\s*\{/) || line.match(/else\s*\{/)) {
+        return false;
+      }
+      
+      // Check for closing braces that should be aligned properly
+      if (line === '}' || line.startsWith('}')) {
+        const leadingSpaces = lines[i].match(/^ */)[0].length;
+        // Closing brace should have proper indentation
+        if (leadingSpaces % 4 !== 0) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  }
+
+  static hasProperLineSpacing(lines) {
+    let consecutiveEmpty = 0;
+    
+    for (const line of lines) {
+      if (!line.trim()) {
+        consecutiveEmpty++;
+        if (consecutiveEmpty > 2) { // More than 2 consecutive empty lines
+          return false;
+        }
+      } else {
+        consecutiveEmpty = 0;
+      }
+    }
+    
+    return true;
+  }
+
+  static hasTrailingWhitespace(lines) {
+    return lines.some(line => line.match(/\s+$/));
+  }
+
+  static hasProperCommaSpacing(code) {
+    // Check for proper spacing after commas
+    return !code.match(/,[a-zA-Z0-9_]/);
+  }
+
+  static isVerilogWellFormatted(code) {
+    // Verilog-specific formatting checks
+    
+    // Check for proper always block formatting
+    if (code.match(/always\s*@\s*\([^)]*\)\s*[^{]/)) {
+      return false;
+    }
+    
+    // Check for proper case statement formatting
+    if (code.match(/case\s*\([^)]*\)[^:]/) && !code.match(/case\s*\([^)]*\)\s*:/)) {
+      return false;
+    }
+    
+    // Check for proper port list formatting in modules
+    if (code.match(/module\s+\w+\s*\([^)]*[^,\s][^)]*\)/)) {
+      // Port list should have proper spacing
+      return !code.match(/module\s+\w+\s*\([^)]*,[^\s]/);
+    }
+    
+    return true;
+  }
+
+  static isCmmWellFormatted(code) {
+    // C/CMM-specific formatting checks
+    
+    // Check for proper function definition formatting
+    if (code.match(/^\w+[\w\s\*]+\w+\s*\(/m) && !code.match(/^\w+[\w\s\*]+\n\w+\s*\(/m)) {
+      // Function definitions should potentially have return type on separate line for complex types
+      const functionDefs = code.match(/^\w+[\w\s\*]+\w+\s*\([^)]*\)/gm);
+      if (functionDefs && functionDefs.some(def => def.length > 50)) {
+        return false; // Long function signatures should be broken up
+      }
+    }
+    
+    // Check for proper control structure formatting
+    if (code.match(/(if|while|for)\s*\([^)]*\)\s*[^{\n]/)) {
+      return false;
+    }
+    
+    return true;
   }
 
   static getFileExtension(filePath) {
@@ -3750,7 +3976,7 @@ class CodeFormatter {
       'java': 'astyle',    // Java
       'cs': 'astyle',      // C#
       'js': 'astyle',      // JavaScript (basic formatting)
-      'cmm': 'astyle',      // JavaScript (basic formatting)
+      'cmm': 'astyle',     // CMM (subset-C) - enhanced formatting
     };
 
     return formatters[extension];
@@ -3780,29 +4006,42 @@ class CodeFormatter {
       // Ensure temp directory exists
       await window.electronAPI.createDirectory(tempDir);
       
-      // Write code to temporary file
-      await window.electronAPI.writeFile(tempFilePath, code);
+      // Pre-process the code for aggressive formatting
+      const preprocessedCode = this.preprocessVerilogCode(code);
       
-      // Execute verible formatter
-      const command = `"${veriblePath}" --inplace "${tempFilePath}"`;
+      // Write code to temporary file
+      await window.electronAPI.writeFile(tempFilePath, preprocessedCode);
+      
+      // Aggressive verible formatting options for first-time formatting
+      const veribleOptions = [
+        '--indentation_spaces=4',
+        '--wrap_spaces=4',
+        '--column_limit=100',
+        '--assignment_statement_alignment=infer',
+        '--case_items_alignment=infer',
+        '--formal_parameters_alignment=infer',
+        '--named_parameter_alignment=infer',
+        '--named_port_alignment=infer',
+        '--port_declarations_alignment=infer',
+        '--try_wrap_long_lines=true'
+      ];
+      
+      // Execute verible with aggressive formatting
+      const command = `"${veriblePath}" --inplace ${veribleOptions.join(' ')} "${tempFilePath}"`;
       const result = await window.electronAPI.execCommand(command);
       
-      if (result.error && result.code !== 0) {
-        // If inplace formatting failed, try standard output
-        const stdCommand = `"${veriblePath}" "${tempFilePath}"`;
+      let formattedCode;
+      
+      if (!result.error || result.code === 0) {
+        formattedCode = await window.electronAPI.readFile(tempFilePath);
+      } else {
+        // Fallback to standard output
+        const stdCommand = `"${veriblePath}" ${veribleOptions.join(' ')} "${tempFilePath}"`;
         const stdResult = await window.electronAPI.execCommand(stdCommand);
-        
-        if (stdResult.error) {
-          throw new Error(`Verible formatting failed: ${stdResult.stderr || stdResult.error}`);
-        }
-        
-        return stdResult.stdout || code;
+        formattedCode = stdResult.stdout || preprocessedCode;
       }
       
-      // Read the formatted file
-      const formattedCode = await window.electronAPI.readFile(tempFilePath);
-      
-      // Clean up temporary file
+      // Clean up
       try {
         await window.electronAPI.deleteFileOrDirectory(tempFilePath);
       } catch (cleanupError) {
@@ -3813,7 +4052,7 @@ class CodeFormatter {
       
     } catch (error) {
       console.error('Verible formatting error:', error);
-      throw error;
+      return this.preprocessVerilogCode(code);
     }
   }
 
@@ -3825,16 +4064,20 @@ class CodeFormatter {
       
       // Create temporary file path
       const tempDir = await window.electronAPI.joinPath(packagesPath, 'temp');
-      const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.${extension}`);
+      const fileExt = extension === 'cmm' ? 'c' : extension;
+      const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.${fileExt}`);
       
       // Ensure temp directory exists
       await window.electronAPI.createDirectory(tempDir);
       
-      // Write code to temporary file
-      await window.electronAPI.writeFile(tempFilePath, code);
+      // Pre-process code for aggressive formatting
+      const preprocessedCode = this.preprocessCmmCode(code, extension);
       
-      // Build astyle command with appropriate options
-      const astyleOptions = this.getAstyleOptions(extension);
+      // Write code to temporary file
+      await window.electronAPI.writeFile(tempFilePath, preprocessedCode);
+      
+      // Get aggressive formatting options for first-time formatting
+      const astyleOptions = this.getAggressiveAstyleOptions(extension);
       const command = `"${astylePath}" ${astyleOptions} "${tempFilePath}"`;
       
       // Execute astyle formatter
@@ -3847,7 +4090,7 @@ class CodeFormatter {
       // Read the formatted file
       const formattedCode = await window.electronAPI.readFile(tempFilePath);
       
-      // Clean up temporary files (astyle creates .orig backup)
+      // Clean up temporary files
       try {
         await window.electronAPI.deleteFileOrDirectory(tempFilePath);
         await window.electronAPI.deleteFileOrDirectory(tempFilePath + '.orig');
@@ -3859,48 +4102,112 @@ class CodeFormatter {
       
     } catch (error) {
       console.error('Astyle formatting error:', error);
-      throw error;
+      return this.preprocessCmmCode(code, extension);
     }
   }
 
-  static getAstyleOptions(extension) {
-    // Base options for all file types
+  static getAggressiveAstyleOptions(extension) {
+    // Aggressive but stable formatting options for one-time formatting
     let options = [
-      '--style=allman',        // Allman/BSD/ANSI style
-      '--indent=spaces=4',     // 4-space indentation
-      '--indent-switches',     // Indent switch cases
-      '--indent-cases',        // Indent case statements
-      '--indent-namespaces',   // Indent namespaces
-      '--indent-labels',       // Indent labels
-      '--pad-oper',           // Pad operators with spaces
-      '--pad-comma',          // Pad commas with spaces
-      '--pad-header',         // Pad headers
-      '--unpad-paren',        // Remove padding around parentheses
-      '--align-pointer=type', // Align pointers to type
-      '--align-reference=type', // Align references to type
-      '--break-closing-brackets', // Break closing brackets
-      '--convert-tabs',       // Convert tabs to spaces
-      '--max-code-length=100', // Maximum line length
-      '--break-after-logical', // Break after logical operators
+      '--style=allman',              // Allman style braces
+      '--indent=spaces=4',           // 4-space indentation
+      '--indent-switches',           // Indent switch cases
+      '--indent-cases',              // Indent case statements
+      '--indent-namespaces',         // Indent namespaces
+      '--indent-labels',             // Indent labels
+      '--min-conditional-indent=2',  // Minimum conditional indent
+      '--pad-oper',                  // Pad operators
+      '--pad-comma',                 // Pad commas
+      '--pad-header',                // Pad headers
+      '--unpad-paren',               // Remove excess paren padding
+      '--align-pointer=type',        // Align pointers to type
+      '--align-reference=type',      // Align references to type
+      '--break-closing-brackets',    // Break closing brackets
+      '--add-brackets',              // Add brackets to single line statements
+      '--convert-tabs',              // Convert tabs to spaces
+      '--max-code-length=100',       // Maximum line length
+      '--break-after-logical',       // Break after logical operators
+      '--delete-empty-lines',        // Remove excessive empty lines
+      '--squeeze-lines=2'            // Maximum 2 consecutive empty lines
     ];
     
     // Language-specific options
     switch (extension) {
+      case 'cmm':
+        options.push('--mode=c');
+        options.push('--break-blocks');  // Break blocks for better CMM structure
+        break;
       case 'java':
+        options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
         options.push('--mode=java');
         break;
       case 'cs':
+        options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
         options.push('--mode=cs');
         break;
       case 'js':
-        options.push('--mode=java'); // Use Java mode for basic JS formatting
+        options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
+        options.push('--mode=java');
         break;
       default:
-        options.push('--mode=c'); // Default to C/C++ mode
+        options.push('--mode=c');
         break;
     }
     
     return options.join(' ');
+  }
+
+  static preprocessVerilogCode(code) {
+    let processed = code;
+    
+    // Normalize line endings
+    processed = processed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // Fix spacing around operators and punctuation
+    processed = processed.replace(/([^<>=!])=([^=])/g, '$1 = $2');
+    processed = processed.replace(/([^<>=!])==([^=])/g, '$1 == $2');
+    processed = processed.replace(/([^<>=!])!=([^=])/g, '$1 != $2');
+    processed = processed.replace(/,([^\s])/g, ', $1');
+    
+    // Ensure proper spacing in always blocks
+    processed = processed.replace(/always\s*@\s*\(/g, 'always @(');
+    processed = processed.replace(/case\s*\(/g, 'case (');
+    
+    return processed;
+  }
+
+  static preprocessCmmCode(code, extension) {
+    let processed = code;
+    
+    // Normalize line endings
+    processed = processed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // Fix operator spacing
+    processed = processed.replace(/([^<>=!+\-*/%&|^])=([^=])/g, '$1 = $2');
+    processed = processed.replace(/([^<>=!])==([^=])/g, '$1 == $2');
+    processed = processed.replace(/([^<>=!])!=([^=])/g, '$1 != $2');
+    processed = processed.replace(/,([^\s])/g, ', $1');
+    
+    // Prepare braces for proper formatting
+    processed = processed.replace(/\)\s*\{/g, ')\n{');
+    processed = processed.replace(/\}\s*else\s*\{/g, '}\nelse\n{');
+    
+    return processed;
+  }
+
+  static postProcessFormatting(code, extension) {
+    let processed = code;
+    
+    // Remove trailing whitespace
+    processed = processed.replace(/[ \t]+$/gm, '');
+    
+    // Ensure single newline at end
+    processed = processed.replace(/\n*$/, '\n');
+    
+    // Limit consecutive empty lines to maximum of 2
+    processed = processed.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    return processed;
   }
 }
 

@@ -184,7 +184,8 @@ class EditorManager {
 
   // INICIALIZAR FUNCIONALIDADES MELHORADAS
   this.setupEnhancedFeatures(editor);
-  
+  BreakpointManager.initializeBreakpoints(editor, filePath);
+
   this.editors.set(filePath, {
     editor: editor,
     container: editorDiv
@@ -325,6 +326,37 @@ static setupEnhancedFeatures(editor) {
         if (activeEditor) {
           activeEditor.getAction('editor.action.goToReferences').run();
         }
+      }
+    },
+
+    // Add breakpoint-specific commands
+    {
+      key: monaco.KeyCode.F9,
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        const activeFilePath = this.getActiveFilePath();
+        if (activeEditor && activeFilePath) {
+          const position = activeEditor.getPosition();
+          if (position) {
+            BreakpointManager.toggleBreakpoint(activeEditor, activeFilePath, position.lineNumber);
+          }
+        }
+      }
+    },
+    {
+      key: monaco.KeyMod.Shift | monaco.KeyCode.F9,
+      action: () => {
+        const activeEditor = EditorManager.activeEditor;
+        const activeFilePath = this.getActiveFilePath();
+        if (activeEditor && activeFilePath) {
+          BreakpointManager.goToNextBreakpoint(activeEditor, activeFilePath);
+        }
+      }
+    },
+    {
+      key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.F9,
+      action: () => {
+        BreakpointManager.clearAllBreakpoints();
       }
     }
   ];
@@ -580,18 +612,60 @@ static setActiveEditor(filePath) {
     return editorData ? editorData.editor : null;
   }
 
-  static closeEditor(filePath) {
-    const editorData = this.editors.get(filePath);
-    if (editorData) {
-      editorData.editor.dispose();
-      this.editorContainer.removeChild(editorData.container);
-      this.editors.delete(filePath);
-      
-      // Clean up find state
-      this.findStates.delete(filePath);
-    }
-    this.updateOverlayVisibility();
+  // Modified closeEditor method - add cleanup
+static closeEditor(filePath) {
+  const editorData = this.editors.get(filePath);
+  if (editorData) {
+    // Cleanup breakpoints before disposing editor
+    BreakpointManager.onFileClose(filePath);
+    
+    editorData.editor.dispose();
+    this.editorContainer.removeChild(editorData.container);
+    this.editors.delete(filePath);
+    
+    // Clean up find state
+    this.findStates.delete(filePath);
   }
+  this.updateOverlayVisibility();
+}
+
+// Add these new methods to EditorManager for breakpoint keyboard shortcuts
+static setupBreakpointKeyboardShortcuts() {
+  // Global keyboard shortcuts for breakpoint operations
+  document.addEventListener('keydown', (e) => {
+    // F9 - Toggle breakpoint
+    if (e.key === 'F9' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      const activeEditor = this.activeEditor;
+      const activeFilePath = this.getActiveFilePath();
+      
+      if (activeEditor && activeFilePath) {
+        const position = activeEditor.getPosition();
+        if (position) {
+          BreakpointManager.toggleBreakpoint(activeEditor, activeFilePath, position.lineNumber);
+        }
+      }
+    }
+    
+    // Shift+F9 - Go to next breakpoint
+    if (e.key === 'F9' && e.shiftKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const activeEditor = this.activeEditor;
+      const activeFilePath = this.getActiveFilePath();
+      
+      if (activeEditor && activeFilePath) {
+        BreakpointManager.goToNextBreakpoint(activeEditor, activeFilePath);
+      }
+    }
+    
+    // Ctrl+Shift+F9 - Clear all breakpoints
+    if (e.key === 'F9' && e.ctrlKey && e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      BreakpointManager.clearAllBreakpoints();
+    }
+  });
+}
+
 
   static async initialize() {
   await ensureMonacoInitialized();
@@ -601,6 +675,21 @@ static setActiveEditor(filePath) {
     console.error('Editor container not found');
     return;
   }
+
+   // Initialize breakpoint keyboard shortcuts
+  this.setupBreakpointKeyboardShortcuts();
+  
+  // Listen for breakpoint change events
+  document.addEventListener('breakpointChange', (e) => {
+    const { filePath, lineNumbers } = e.detail;
+    console.log(`Breakpoints updated for ${filePath}:`, lineNumbers);
+    
+    // Here you can integrate with your debugger/compiler
+    // For example, send breakpoints to your CMM compiler
+    if (window.compiler) {
+      window.compiler.setBreakpoints(filePath, lineNumbers);
+    }
+  });
 
   this.editorContainer.style.height = '100%';
   this.editorContainer.style.width = '100%';
@@ -617,6 +706,157 @@ static setActiveEditor(filePath) {
   if (this.tabs && this.tabs.size > 0) {
     this.startPeriodicFileCheck();
   }
+}
+
+// Add utility methods for breakpoint management
+static getBreakpointsForFile(filePath) {
+  return BreakpointManager.getFileBreakpoints(filePath);
+}
+
+static getAllBreakpoints() {
+  return BreakpointManager.getAllBreakpoints();
+}
+
+static setBreakpointsForFile(filePath, lineNumbers) {
+  BreakpointManager.setBreakpoints(filePath, lineNumbers);
+}
+
+static clearBreakpointsForFile(filePath) {
+  const editor = this.getEditorForFile(filePath);
+  if (editor) {
+    BreakpointManager.clearFileBreakpoints(editor, filePath);
+  }
+}
+
+static exportBreakpoints() {
+  return BreakpointManager.exportBreakpoints();
+}
+
+static importBreakpoints(jsonData) {
+  return BreakpointManager.importBreakpoints(jsonData);
+}
+
+// Optional: Add breakpoint panel UI
+static createBreakpointPanel() {
+  const panel = document.createElement('div');
+  panel.className = 'breakpoint-panel';
+  panel.innerHTML = `
+    <div class="breakpoint-header">
+      <span>Breakpoints</span>
+      <div>
+        <button class="breakpoint-action-btn" onclick="EditorManager.clearAllBreakpoints()" title="Clear All">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+        <button class="breakpoint-action-btn" onclick="EditorManager.exportBreakpointsToFile()" title="Export">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button class="breakpoint-action-btn" onclick="EditorManager.importBreakpointsFromFile()" title="Import">
+          <i class="fa-solid fa-upload"></i>
+        </button>
+      </div>
+    </div>
+    <div class="breakpoint-list" id="breakpoint-list">
+      <div class="no-breakpoints">No breakpoints set</div>
+    </div>
+  `;
+  
+  return panel;
+}
+
+static updateBreakpointPanel() {
+  const listElement = document.getElementById('breakpoint-list');
+  if (!listElement) return;
+  
+  const allBreakpoints = this.getAllBreakpoints();
+  const hasBreakpoints = Object.keys(allBreakpoints).length > 0;
+  
+  if (!hasBreakpoints) {
+    listElement.innerHTML = '<div class="no-breakpoints">No breakpoints set</div>';
+    return;
+  }
+  
+  let html = '';
+  Object.entries(allBreakpoints).forEach(([filePath, lineNumbers]) => {
+    const fileName = filePath.split(/[\\/]/).pop();
+    lineNumbers.forEach(lineNumber => {
+      html += `
+        <div class="breakpoint-item" onclick="EditorManager.navigateToBreakpoint('${filePath}', ${lineNumber})">
+          <div class="breakpoint-indicator"></div>
+          <div class="breakpoint-location">
+            <strong>${fileName}</strong>:${lineNumber}
+          </div>
+          <div class="breakpoint-actions">
+            <button class="breakpoint-action-btn" 
+                    onclick="event.stopPropagation(); EditorManager.removeBreakpoint('${filePath}', ${lineNumber})" 
+                    title="Remove">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  });
+  
+  listElement.innerHTML = html;
+}
+
+static navigateToBreakpoint(filePath, lineNumber) {
+  // Switch to the file if not already active
+  if (this.tabs && this.tabs.has(filePath)) {
+    this.activateTab(filePath);
+  }
+  
+  // Navigate to the breakpoint line
+  const editor = this.getEditorForFile(filePath);
+  if (editor) {
+    editor.setPosition({ lineNumber, column: 1 });
+    editor.revealLineInCenter(lineNumber);
+    editor.focus();
+  }
+}
+
+static removeBreakpoint(filePath, lineNumber) {
+  const editor = this.getEditorForFile(filePath);
+  if (editor) {
+    BreakpointManager.toggleBreakpoint(editor, filePath, lineNumber);
+  }
+}
+
+static exportBreakpointsToFile() {
+  const breakpointData = this.exportBreakpoints();
+  const blob = new Blob([breakpointData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'breakpoints.json';
+  a.click();
+  
+  URL.revokeObjectURL(url);
+}
+
+static importBreakpointsFromFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const success = this.importBreakpoints(e.target.result);
+        if (success) {
+          console.log('Breakpoints imported successfully');
+        } else {
+          console.error('Failed to import breakpoints');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+  
+  input.click();
 }
 
 }
@@ -636,6 +876,7 @@ async function ensureMonacoInitialized() {
     }
   });
 }
+
 
 // Enhanced Monaco initialization with custom themes
 async function initMonaco() {
@@ -1461,6 +1702,367 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+
+// BreakpointManager - Handles all breakpoint functionality for Monaco Editor
+class BreakpointManager {
+  static breakpoints = new Map(); // Map<filePath, Set<lineNumber>>
+  static decorations = new Map(); // Map<filePath, decorationIds[]>
+  static glyphDecorations = new Map(); // Map<filePath, glyphDecorationIds[]>
+  static isEnabled = true;
+  
+  /**
+   * Initialize breakpoint functionality for an editor instance
+   */
+  static initializeBreakpoints(editor, filePath) {
+    if (!editor || !filePath) return;
+    
+    // Initialize breakpoint storage for this file
+    if (!this.breakpoints.has(filePath)) {
+      this.breakpoints.set(filePath, new Set());
+      this.decorations.set(filePath, []);
+      this.glyphDecorations.set(filePath, []);
+    }
+    
+    // Add click listener for gutter margin
+    editor.onMouseDown((e) => {
+      if (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+        this.toggleBreakpoint(editor, filePath, e.target.position.lineNumber);
+      }
+    });
+    
+    // Restore existing breakpoints for this file
+    this.restoreBreakpoints(editor, filePath);
+    
+    // Add context menu items
+    this.addContextMenuItems(editor, filePath);
+  }
+  
+  /**
+   * Toggle breakpoint on a specific line
+   */
+  static toggleBreakpoint(editor, filePath, lineNumber) {
+    if (!this.isEnabled) return;
+    
+    const fileBreakpoints = this.breakpoints.get(filePath);
+    if (!fileBreakpoints) return;
+    
+    if (fileBreakpoints.has(lineNumber)) {
+      // Remove breakpoint
+      fileBreakpoints.delete(lineNumber);
+      this.removeBreakpointDecoration(editor, filePath, lineNumber);
+    } else {
+      // Add breakpoint
+      fileBreakpoints.add(lineNumber);
+      this.addBreakpointDecoration(editor, filePath, lineNumber);
+    }
+    
+    // Trigger breakpoint change event
+    this.onBreakpointChange(filePath, Array.from(fileBreakpoints));
+  }
+  
+  /**
+   * Add breakpoint decoration to editor
+   */
+  static addBreakpointDecoration(editor, filePath, lineNumber) {
+    const model = editor.getModel();
+    if (!model) return;
+    
+    // Add line decoration (red background)
+    const lineDecorations = editor.deltaDecorations([], [{
+      range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+      options: {
+        isWholeLine: true,
+        className: 'breakpoint-line',
+        glyphMarginClassName: 'breakpoint-glyph',
+        glyphMarginHoverMessage: { value: 'Breakpoint' },
+        overviewRuler: {
+          color: '#ff0000',
+          position: monaco.editor.OverviewRulerLane.Left
+        }
+      }
+    }]);
+    
+    // Store decoration IDs
+    const existingDecorations = this.decorations.get(filePath) || [];
+    this.decorations.set(filePath, [...existingDecorations, ...lineDecorations]);
+  }
+  
+  /**
+   * Remove breakpoint decoration from editor
+   */
+  static removeBreakpointDecoration(editor, filePath, lineNumber) {
+    const decorationIds = this.decorations.get(filePath) || [];
+    const model = editor.getModel();
+    if (!model) return;
+    
+    // Find decorations for this line
+    const decorationsToRemove = [];
+    decorationIds.forEach(decorationId => {
+      const decoration = model.getDecorationRange(decorationId);
+      if (decoration && decoration.startLineNumber === lineNumber) {
+        decorationsToRemove.push(decorationId);
+      }
+    });
+    
+    // Remove decorations
+    editor.deltaDecorations(decorationsToRemove, []);
+    
+    // Update stored decorations
+    const remainingDecorations = decorationIds.filter(id => 
+      !decorationsToRemove.includes(id)
+    );
+    this.decorations.set(filePath, remainingDecorations);
+  }
+  
+  /**
+   * Restore breakpoints when opening a file
+   */
+  static restoreBreakpoints(editor, filePath) {
+    const fileBreakpoints = this.breakpoints.get(filePath);
+    if (!fileBreakpoints) return;
+    
+    fileBreakpoints.forEach(lineNumber => {
+      this.addBreakpointDecoration(editor, filePath, lineNumber);
+    });
+  }
+  
+  /**
+   * Clear all breakpoints for a file
+   */
+  static clearFileBreakpoints(editor, filePath) {
+    const decorationIds = this.decorations.get(filePath) || [];
+    
+    if (decorationIds.length > 0) {
+      editor.deltaDecorations(decorationIds, []);
+    }
+    
+    this.breakpoints.set(filePath, new Set());
+    this.decorations.set(filePath, []);
+    this.glyphDecorations.set(filePath, []);
+    
+    this.onBreakpointChange(filePath, []);
+  }
+  
+  /**
+   * Clear all breakpoints in all files
+   */
+  static clearAllBreakpoints() {
+    EditorManager.editors.forEach(({ editor }, filePath) => {
+      this.clearFileBreakpoints(editor, filePath);
+    });
+  }
+  
+  /**
+   * Get breakpoints for a specific file
+   */
+  static getFileBreakpoints(filePath) {
+    const fileBreakpoints = this.breakpoints.get(filePath);
+    return fileBreakpoints ? Array.from(fileBreakpoints).sort((a, b) => a - b) : [];
+  }
+  
+  /**
+   * Get all breakpoints across all files
+   */
+  static getAllBreakpoints() {
+    const allBreakpoints = {};
+    this.breakpoints.forEach((lineNumbers, filePath) => {
+      if (lineNumbers.size > 0) {
+        allBreakpoints[filePath] = Array.from(lineNumbers).sort((a, b) => a - b);
+      }
+    });
+    return allBreakpoints;
+  }
+  
+  /**
+   * Set breakpoints programmatically
+   */
+  static setBreakpoints(filePath, lineNumbers) {
+    const editor = EditorManager.getEditorForFile(filePath);
+    if (!editor) return;
+    
+    // Clear existing breakpoints
+    this.clearFileBreakpoints(editor, filePath);
+    
+    // Add new breakpoints
+    const fileBreakpoints = new Set(lineNumbers);
+    this.breakpoints.set(filePath, fileBreakpoints);
+    
+    lineNumbers.forEach(lineNumber => {
+      this.addBreakpointDecoration(editor, filePath, lineNumber);
+    });
+    
+    this.onBreakpointChange(filePath, lineNumbers);
+  }
+  
+  /**
+   * Enable/disable breakpoint functionality
+   */
+  static setEnabled(enabled) {
+    this.isEnabled = enabled;
+    
+    if (!enabled) {
+      // Hide all breakpoint decorations
+      EditorManager.editors.forEach(({ editor }, filePath) => {
+        const decorationIds = this.decorations.get(filePath) || [];
+        if (decorationIds.length > 0) {
+          editor.deltaDecorations(decorationIds, []);
+        }
+      });
+    } else {
+      // Restore all breakpoint decorations
+      EditorManager.editors.forEach(({ editor }, filePath) => {
+        this.restoreBreakpoints(editor, filePath);
+      });
+    }
+  }
+  
+  /**
+   * Add context menu items for breakpoint operations
+   */
+  static addContextMenuItems(editor, filePath) {
+    editor.addAction({
+      id: 'toggle-breakpoint',
+      label: 'Toggle Breakpoint',
+      keybindings: [monaco.KeyCode.F9],
+      contextMenuGroupId: 'debug',
+      contextMenuOrder: 1,
+      run: () => {
+        const position = editor.getPosition();
+        if (position) {
+          this.toggleBreakpoint(editor, filePath, position.lineNumber);
+        }
+      }
+    });
+    
+    editor.addAction({
+      id: 'clear-all-breakpoints',
+      label: 'Remove All Breakpoints',
+      contextMenuGroupId: 'debug',
+      contextMenuOrder: 2,
+      run: () => {
+        this.clearFileBreakpoints(editor, filePath);
+      }
+    });
+    
+    editor.addAction({
+      id: 'clear-all-breakpoints-workspace',
+      label: 'Remove All Breakpoints in Workspace',
+      contextMenuGroupId: 'debug',
+      contextMenuOrder: 3,
+      run: () => {
+        this.clearAllBreakpoints();
+      }
+    });
+  }
+  
+  /**
+   * Handle file close - cleanup breakpoints if needed
+   */
+  static onFileClose(filePath) {
+    // Keep breakpoints in memory for when file is reopened
+    // Only clear decorations map since editor instance is destroyed
+    this.decorations.delete(filePath);
+    this.glyphDecorations.delete(filePath);
+  }
+  
+  /**
+   * Export breakpoints to JSON
+   */
+  static exportBreakpoints() {
+    const breakpointData = {};
+    this.breakpoints.forEach((lineNumbers, filePath) => {
+      if (lineNumbers.size > 0) {
+        breakpointData[filePath] = Array.from(lineNumbers);
+      }
+    });
+    return JSON.stringify(breakpointData, null, 2);
+  }
+  
+  /**
+   * Import breakpoints from JSON
+   */
+  static importBreakpoints(jsonData) {
+    try {
+      const breakpointData = JSON.parse(jsonData);
+      
+      // Clear existing breakpoints
+      this.clearAllBreakpoints();
+      
+      // Import new breakpoints
+      Object.entries(breakpointData).forEach(([filePath, lineNumbers]) => {
+        if (Array.isArray(lineNumbers)) {
+          this.setBreakpoints(filePath, lineNumbers);
+        }
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to import breakpoints:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Event handler for breakpoint changes - override this in your application
+   */
+  static onBreakpointChange(filePath, lineNumbers) {
+    // Emit custom event for external listeners
+    const event = new CustomEvent('breakpointChange', {
+      detail: { filePath, lineNumbers }
+    });
+    document.dispatchEvent(event);
+    
+    // You can also call your debugger/compiler integration here
+    console.log(`Breakpoints changed for ${filePath}:`, lineNumbers);
+  }
+  
+  /**
+   * Navigate to next breakpoint
+   */
+  static goToNextBreakpoint(editor, filePath) {
+    const fileBreakpoints = this.getFileBreakpoints(filePath);
+    if (fileBreakpoints.length === 0) return;
+    
+    const currentPosition = editor.getPosition();
+    const currentLine = currentPosition ? currentPosition.lineNumber : 1;
+    
+    // Find next breakpoint after current line
+    let nextBreakpoint = fileBreakpoints.find(line => line > currentLine);
+    
+    // If no breakpoint after current line, wrap to first breakpoint
+    if (!nextBreakpoint) {
+      nextBreakpoint = fileBreakpoints[0];
+    }
+    
+    // Navigate to breakpoint
+    editor.setPosition({ lineNumber: nextBreakpoint, column: 1 });
+    editor.revealLineInCenter(nextBreakpoint);
+  }
+  
+  /**
+   * Navigate to previous breakpoint
+   */
+  static goToPreviousBreakpoint(editor, filePath) {
+    const fileBreakpoints = this.getFileBreakpoints(filePath);
+    if (fileBreakpoints.length === 0) return;
+    
+    const currentPosition = editor.getPosition();
+    const currentLine = currentPosition ? currentPosition.lineNumber : 1;
+    
+    // Find previous breakpoint before current line
+    let previousBreakpoint = fileBreakpoints.slice().reverse().find(line => line < currentLine);
+    
+    // If no breakpoint before current line, wrap to last breakpoint
+    if (!previousBreakpoint) {
+      previousBreakpoint = fileBreakpoints[fileBreakpoints.length - 1];
+    }
+    
+    // Navigate to breakpoint
+    editor.setPosition({ lineNumber: previousBreakpoint, column: 1 });
+    editor.revealLineInCenter(previousBreakpoint);
+  }
+}
 
 //TAB MANAGER   ======================================================================================================================================================== ƒ
 class TabManager {
@@ -3571,8 +4173,8 @@ contextPathStyles.textContent = `
     border-bottom: 1px solid var(--border-primary);
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 28px;
+    gap: 8px;
+    height: 34px;
     overflow: hidden;
     white-space: nowrap;
     font-family: var(--font-sans);
@@ -5138,7 +5740,7 @@ class FileTreeSearch {
 
       /* Search Results Info */
       .search-results-info {
-        margin-top: var(--space-2);
+        margin-top: var(--space-4);
         font-size: var(--text-xs);
         color: var(--text-muted);
         text-align: center;

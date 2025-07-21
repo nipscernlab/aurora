@@ -499,11 +499,11 @@
     <div class="file-tree-container">
     <div class="file-tree-header">
     <span data-i18n="ui.fileTree.title">FILE TREE</span>
-    <span data-i18n-title="ui.fileTree.refresh" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui.fileTree.refreshButton">Refresh</span></span> <span data-i18n-title="ui.fileTree.closeBtn" id="close-button" style="cursor: pointer;"><i class="fa-solid fa-circle-xmark"></i> Close</span></span><br>
+     
     <span id="current-spf-name" data-i18n-title="ui.fileTree.currentProject">No project open</span>
-    <span data-i18n-title="ui.fileTree.openProject" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> <span data-i18n="ui.fileTree.project">Project</span></span>
-    <span data-i18n-title="ui.fileTree.openHDL" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> <span data-i18n="ui.fileTree.hdl">HDL</span></span>
-    <span id="toggle-file-tree" style="cursor: pointer;" title="Collapse All"> <i class="fa-solid fa-compress-arrows-alt"></i></span>
+ 
+
+
     <!-- Search Section -->
     <div class="file-search-container">
       <div class="search-input-wrapper">
@@ -525,7 +525,10 @@
       </div>
     </div>
   </div>
-      <span id="hierarchy-tree" class="overlay-title">Standard Tree <i class="fa-solid fa-list-ul"></i></span> 
+      <span id="hierarchy-tree" class="overlay-title">Standard Tree <span data-i18n-title="ui.fileTree.refresh" id="refresh-button" style="cursor: pointer;"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui.fileTree.refreshButton"></span> </span>   <span data-i18n-title="ui.fileTree.openHDL" id="open-hdl-button" style="cursor: pointer;"><i class="fa-solid fa-hashtag"></i> <span data-i18n="ui.fileTree.hdl"></span></span>   <span data-i18n-title="ui.fileTree.openProject" id="open-folder-button" style="cursor: pointer;"><i class="fa-solid fa-folder-open"></i> <span data-i18n="ui.fileTree.project"></span></span> <span data-i18n-title="ui.fileTree.closeBtn" id="close-button" style="cursor: pointer;"><i class="fa-solid fa-circle-xmark"></i>  </span> <span id="toggle-file-tree" style="cursor: pointer;" title="Collapse All"> <i class="fa-solid fa-compress-arrows-alt"></i> </span>
+    <i class="fa-solid fa-list-ul"></i>
+    
+    </span> 
 
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>

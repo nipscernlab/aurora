@@ -6560,7 +6560,7 @@ function initAIAssistant() {
     
     const iconMap = {
       chatgpt: './assets/icons/chatgpt.svg',
-      gemini: './assets/icons/gemini.svg',
+      gemini: './assets/icons/Google_Bard_animated.webp',
       claude: './assets/icons/claude.svg',
       deepseek: './assets/icons/deepseek.svg'
     };
@@ -7913,7 +7913,7 @@ enableHierarchicalTreeToggle() {
     // Update text and icon
     const icon = toggleButton.querySelector('i');
     if (icon) {
-      icon.className = 'fa-solid fa-toggle-off';
+      icon.className = 'fa-solid fa-list-ul';
     }
     
     // Add click event listener if not already added
@@ -7934,7 +7934,7 @@ disableHierarchicalTreeToggle() {
     toggleButton.style.cursor = 'not-allowed';
     
     // Reset to standard tree
-    toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-toggle-off"></i>';
+    toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-list-ul"></i>';
     
     // Reset tree view if currently hierarchical
     if (this.isHierarchicalView) {
@@ -7988,10 +7988,10 @@ toggleHierarchicalView() {
     
     // Update button appearance
     if (this.isHierarchicalView) {
-      toggleButton.innerHTML = 'Hierarchical Tree <i class="fa-solid fa-toggle-on"></i>';
+      toggleButton.innerHTML = 'Hierarchical Tree <i class="fa-solid fa-sitemap"></i>';
       toggleButton.classList.add('active');
     } else {
-      toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-toggle-off"></i>';
+      toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-list-ul"></i>';
       toggleButton.classList.remove('active');
     }
     

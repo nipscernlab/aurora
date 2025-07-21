@@ -431,9 +431,10 @@
 
 /* Toggle Icons */
 #hierarchy-tree i {
-  font-size: 14px; /* Increased from 12px */
+  font-size: 12px; /* Increased from 12px */
   transition: color 0.3s ease, transform 0.2s ease;
   margin-left: auto;
+  padding: 2px;
 }
 
 #hierarchy-tree:hover:not(.disabled) i {

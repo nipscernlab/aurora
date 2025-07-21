@@ -7849,7 +7849,7 @@ end`;
     const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
     const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
     
-    const cmd = `"${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${tbFilePath}" "${hardwareFile}" ${verilogFilesString}`;
+    const cmd = `"${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${tbFilePath}" "${hardwareFile}" ${verilogFilesString}`;
     
     this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
     

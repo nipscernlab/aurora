@@ -122,6 +122,7 @@
 /* Log Entries */
 .log-entry {
   padding: 0.75rem;
+  margin-bottom: 0.75rem;
   border-radius: 6px; /* Increased border radius */
   border: 1px solid transparent;
   transition: all 0.2s ease;

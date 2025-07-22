@@ -32,6 +32,8 @@ proc addFac {facname dataFormat color alias tradutor filter} {
 # adiciona uma variavel de acordo com o tipo de dado
 proc addVar {padrao tipo dataFormat filter} {
     set var_typ [listFac $padrao]
+
+    puts "Info: found [llength $var_typ] $tipo type variables."
     
     for {set i 0} {$i < [llength $var_typ] } {incr i} {
         set facname [lindex $var_typ $i]
@@ -43,6 +45,8 @@ proc addVar {padrao tipo dataFormat filter} {
 }
 
 # Pega infos do processador ---------------------------------------------------
+
+puts "Info: running standard GTKWave file..."
 
 set    fileID [open "tcl_infos.txt" r]
 gets  $fileID tmp_dir
@@ -94,7 +98,7 @@ for {set i 0} {$i < [llength $out_en] } {incr i} {
 
 gtkwave::/Edit/Insert_Comment {Instructions *******}
 
-puts "Info: adding Assembly and C+- instructions."
+puts "Info: adding Assembly and C± instructions."
 
 # Assembly --------------------------------------------------------------------
 
@@ -107,6 +111,8 @@ addFac [getFac "proc.linetabs"] "Signed_Decimal" "Violet" "C+-" "$tmp_dir/trad_c
 # Separador de Variaveis ------------------------------------------------------
 
 gtkwave::/Edit/Insert_Comment {Variables **********}
+
+puts "Info: adding variables..."
 
 # Tipo int --------------------------------------------------------------------
 
@@ -124,3 +130,5 @@ addVar "proc.comp_me3" "comp" "Binary" "$bin_dir/comp2gtkw.exe"
 
 gtkwave::/Time/Zoom/Zoom_Best_Fit
 gtkwave::/View/Left_Justified_Signals
+
+puts "Sucesso: sinais e variáveis adicionados corretamente."

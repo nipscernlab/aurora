@@ -2889,30 +2889,18 @@ async function createPrismWindow(compilationData = null) {
 }
 
 
-
 function getExecutablePath(executableName) {
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  // Get the directory where the main executable is located
+  const executableDir = path.dirname(process.execPath);
   
-  if (isDev) {
-    // Em desenvolvimento, usar caminhos relativos
-    if (executableName === 'yosys') {
-      return path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-    } else if (executableName === 'netlistsvg') {
-      return path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
-    }
-  } else {
-    // Em produção (app empacotado)
-    const resourcesPath = process.resourcesPath;
-    if (executableName === 'yosys') {
-      return path.join(resourcesPath, '..', 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-    } else if (executableName === 'netlistsvg') {
-      return path.join(resourcesPath, '..', 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
-    }
+  if (executableName === 'yosys') {
+    return path.join(executableDir, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+  } else if (executableName === 'netlistsvg') {
+    return path.join(executableDir, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg.exe');
   }
   
   return executableName; // fallback
 }
-// Add these IPC handlers to your main process
 
 // Handler to request toggle UI state from main window
 ipcMain.on('get-toggle-ui-state', (event) => {
@@ -3498,7 +3486,6 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
-  // CORREÇÃO: Usar o caminho correto do executável
   const yosysExe = getExecutablePath('yosys');
   
   // Try compilation with hierarchy check first
@@ -3607,6 +3594,7 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
     });
   });
 }
+
 
 
 // 2. Function to clean module names
@@ -3891,7 +3879,6 @@ async function generateModuleSVG(moduleName, tempDir) {
     throw new Error(errorMsg);
   }
   
-  // CORREÇÃO: Usar o caminho correto do executável
   const netlistsvgExe = getExecutablePath('netlistsvg');
   const netlistSvgCommand = `"${netlistsvgExe}" "${inputJsonPath}" -o "${outputSvgPath}"`;
   

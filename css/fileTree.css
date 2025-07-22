@@ -66,7 +66,8 @@
 #refresh-button,
 #open-folder-button,
 #open-hdl-button,
-#close-button {
+#close-button,
+#toggle-file-tree {
   position: relative;
   transition: color 0.3s ease;
 }
@@ -76,7 +77,8 @@
 #refresh-button:hover,
 #open-folder-button:hover,
 #open-hdl-button:hover,
-#close-button:hover {
+#close-button:hover,
+#toggle-file-tree:hover {
   color: var(--accent-primary);
 }
 

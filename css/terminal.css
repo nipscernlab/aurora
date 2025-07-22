@@ -15,6 +15,36 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
 }
 
+.terminal-container {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Ensure editor-terminal-container fills available space properly */
+.editor-terminal-container {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Make terminal content fill container completely */
+.terminal-content {
+  margin-bottom: 0;
+  padding-bottom: 1rem; /* Keep internal padding for content readability */
+  border-bottom: none;
+}
+
+/* Ensure terminal body extends to bottom */
+.terminal-body {
+  margin-bottom: 0;
+  padding-bottom: 0.5rem; /* Minimal padding for last content */
+}
+
+/* Fix any gaps in terminal tabs */
+.terminal-tabs {
+  margin-bottom: 0;
+}
+
 /* Terminal Tabs */
 .terminal-tabs {
   display: flex;
@@ -91,7 +121,6 @@
 
 /* Log Entries */
 .log-entry {
-  margin-bottom: 0.75rem;
   padding: 0.75rem;
   border-radius: 6px; /* Increased border radius */
   border: 1px solid transparent;
@@ -213,7 +242,7 @@
 .editor-terminal-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   border-radius: 8px;
   overflow: hidden;
@@ -346,7 +375,6 @@
 #terminal-tcmd .terminal-output {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 8px;
   color: #e0e0e0;
 }
 
@@ -404,7 +432,6 @@
 #terminal-tcmd .terminal-input-line {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
   background-color: #252525;
   border-radius: 6px;
   padding: 6px 8px;

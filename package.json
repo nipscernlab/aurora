@@ -15,7 +15,7 @@
     },
     "build": {
         "appId": "com.nipscern.auroraide",
-        "productName": "Aurora IDE",
+        "productName": "Aurora-IDE",
         "fileAssociations": [
             {
                 "ext": "spf",

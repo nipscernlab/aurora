@@ -75,7 +75,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -549,7 +549,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2773,7 +2773,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icons', 'sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -2888,17 +2888,20 @@ async function createPrismWindow(compilationData = null) {
   return prismWindow;
 }
 
-
 function getExecutablePath(executableName) {
-  // Get the directory where the main executable is located
-  const executableDir = path.dirname(process.execPath);
+  console.log(`Main executable directory: ${__dirname}`);
   
   if (executableName === 'yosys') {
-    return path.join(executableDir, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    const yosysPath = path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    console.log(`Yosys path: ${yosysPath}`);
+    return yosysPath;
   } else if (executableName === 'netlistsvg') {
-    return path.join(executableDir, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg.exe');
+    const netlistsvgPath = path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+    console.log(`Netlistsvg path: ${netlistsvgPath}`);
+    return netlistsvgPath;
   }
   
+  console.log(`Using fallback for: ${executableName}`);
   return executableName; // fallback
 }
 

@@ -75,7 +75,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -549,7 +549,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2773,7 +2773,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon: path.join(__dirname, 'assets', 'icons', 'sapho&aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,

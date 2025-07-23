@@ -6794,16 +6794,16 @@ function createProcessorHubModal() {
       </div>
 
       <div class="form-group">
-      <label for="nBits">Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
+      <label for="nBits">Total Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
 
         <input type="number" id="nBits" required min="1" value="23">
       </div>
       <div class="form-group floating-point-options">
-        <label for="nbMantissa">Number of Mantissa</label>
+        <label for="nbMantissa">Mantissa Bit Number</label>
         <input type="number" id="nbMantissa" min="1" value="16">
       </div>
       <div class="form-group floating-point-options">
-        <label for="nbExponent">Number of Exponent</label>
+        <label for="nbExponent">Exponent Bit Number</label>
         <input type="number" id="nbExponent" min="1" value="6">
       </div>
       <div class="form-group">

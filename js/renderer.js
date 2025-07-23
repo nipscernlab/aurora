@@ -8939,7 +8939,6 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     );
     
     // Limpar arquivo anterior
-    await window.electronAPI.deleteFileOrDirectory(outputFilePath);
     
     // Verificar se executável existe
     const executableExists = await window.electronAPI.pathExists(fancyFractalPath);
@@ -8949,7 +8948,9 @@ async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
     
     // Comando com paleta
     const command = `"${fancyFractalPath}" "${outputFilePath}"`;
-    
+
+    await window.electronAPI.deleteFileOrDirectory(outputFilePath);
+
     this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
     this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);
     
@@ -9105,15 +9106,13 @@ async function handleFractalCompilation() {
       compilerInstance.isProjectOriented = true;
       
       try {
+        // After successful compilation, launch fractal visualizer
+        const palette = 'fire'; // or allow user selection
+        await compilerInstance.launchFractalVisualizersForProject(palette);
+        console.log('Fractal compilation completed successfully');
         // Run complete compilation in project mode
         const success = await compilerInstance.compileAll();
-        
-        if (!compilationCanceled && success) {
-          // After successful compilation, launch fractal visualizer
-          const palette = 'fire'; // or allow user selection
-          await compilerInstance.launchFractalVisualizersForProject(palette);
-          console.log('Fractal compilation completed successfully');
-        }
+      
       } finally {
         // Restore original mode
         compilerInstance.isProjectOriented = originalMode;
@@ -9734,12 +9733,22 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
   compilationCanceled = false;
 
   try {
-    startCompilation();
+
     const compiler = new CompilationModule(currentProjectPath);
     await compiler.loadConfig();
     
     const toggleButton = document.getElementById('toggle-ui');
     const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    if (!compilationCanceled) {
+      // Launch fractal visualizer after successful compilation
+      await compiler.launchFractalVisualizersForProject('fire');
+      console.log('Fractal compilation completed successfully');
+      await refreshFileTree();
+    }
+    
+    startCompilation();
+   
     
     if (isProjectMode) {
       // Project oriented: full pipeline + fractal
@@ -9749,12 +9758,6 @@ document.getElementById('fractalcomp').addEventListener('click', async () => {
       await runProcessorPipeline(compiler);
     }
     
-    if (!compilationCanceled) {
-      // Launch fractal visualizer after successful compilation
-      await compiler.launchFractalVisualizersForProject('fire');
-      console.log('Fractal compilation completed successfully');
-      await refreshFileTree();
-    }
   } catch (error) {
     if (!compilationCanceled) {
       console.error('Fractal compilation error:', error);

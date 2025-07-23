@@ -221,7 +221,8 @@
 
 .terminal-container {
   height: 250px; /* Initial terminal height */
-  min-height: 100px;
+  min-height: 9vh;
+  max-height: 100vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

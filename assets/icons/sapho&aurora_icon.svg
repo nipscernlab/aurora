@@ -5,46 +5,45 @@
      preserveAspectRatio="xMidYMid meet">
 
     <!--
-    NOTA: Versão otimizada para alto contraste em fundos claros e escuros.
-    1. A orientação rotacionada foi mantida.
-    2. A viewBox foi ajustada para centralizar perfeitamente o desenho.
-    3. O gradiente foi ajustado para ter bordas mais claras, garantindo visibilidade em fundos pretos.
+    NOTA: Versão redesenhada para atender à solicitação de um fundo mais claro
+    com uma faixa de aurora escura na diagonal.
     -->
 
     <defs>
-        <!-- Gradiente Aurora Boreal de Alto Contraste -->
-        <linearGradient id="finalAurora" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#3E206B;"/>      <!-- Roxo-azulado médio para contraste no escuro -->
-          <stop offset="15%" style="stop-color:#562994;"/>     <!-- Roxo mais aberto -->
-          <stop offset="35%" style="stop-color:#A059F7;"/>     <!-- Lilás super brilhante (centro da aurora) -->
-          <stop offset="50%" style="stop-color:#56B4F6;"/>     <!-- Azul-neon vibrante -->
-          <stop offset="65%" style="stop-color:#A059F7;"/>     <!-- Retorno ao Lilás super brilhante -->
-          <stop offset="85%" style="stop-color:#562994;"/>     <!-- Roxo mais aberto -->
-          <stop offset="100%" style="stop-color:#3E206B;"/>    <!-- Roxo-azulado médio para contraste no escuro -->
+        <!-- 1. GRADIENTE DE FUNDO: Um gradiente de base claro e luminoso. -->
+        <linearGradient id="auroraClara" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   style="stop-color:#A49BFF;"/> <!-- Lilás bem claro (início) -->
+          <stop offset="20%"  style="stop-color:#7E75D8;"/> <!-- Transição para roxo médio-claro -->
+          <stop offset="50%"  style="stop-color:#89CFF0;"/> <!-- Azul celeste brilhante no centro -->
+          <stop offset="80%"  style="stop-color:#7E75D8;"/> <!-- Retorno para roxo médio-claro -->
+          <stop offset="100%" style="stop-color:#A49BFF;"/> <!-- Lilás bem claro (fim) -->
         </linearGradient>
 
-        <!-- Gradiente secundário para ondulação com brilho intenso -->
-        <radialGradient id="auroraWave" cx="40%" cy="30%" r="60%">
-          <stop offset="0%" style="stop-color:#C299FF; stop-opacity:0.9"/>    <!-- Lilás quase branco no centro para brilho máximo -->
-          <stop offset="30%" style="stop-color:#73AFFF; stop-opacity:0.75"/>   <!-- Azul-claro luminoso -->
-          <stop offset="60%" style="stop-color:#8A42D3; stop-opacity:0.55"/>   <!-- Roxo vibrante -->
-          <stop offset="100%" style="stop-color:#3E206B; stop-opacity:0.3"/>   <!-- Transparente para o fundo -->
-        </radialGradient>
+        <!-- 2. GRADIENTE DA AURORA: Uma faixa diagonal escura com bordas definidas. -->
+        <linearGradient id="auroraDiagonaOscura" x1="100%" y1="0%" x2="0%" y2="100%">
+          <!-- Este gradiente é transparente na maior parte do tempo -->
+          <stop offset="0%"   style="stop-color:#1A0D3B; stop-opacity:0" />
+          <stop offset="40%"  style="stop-color:#1A0D3B; stop-opacity:0" />
+          
+          <!-- A faixa escura aparece aqui -->
+          <stop offset="48%"  style="stop-color:#150930; stop-opacity:0.8" /> <!-- Borda suave da faixa -->
+          <stop offset="52%"  style="stop-color:#1A0D3B; stop-opacity:0.95" /> <!-- Centro opaco da faixa roxa-escura -->
+          <stop offset="56%"  style="stop-color:#2C1E5D; stop-opacity:0.8" /> <!-- Outra borda suave com sub-tom índigo -->
 
-        <!-- Padrão com estrelas variadas e bem distribuídas (mantido) -->
+          <!-- Volta a ser transparente -->
+          <stop offset="65%"  style="stop-color:#2C1E5D; stop-opacity:0" />
+          <stop offset="100%" style="stop-color:#2C1E5D; stop-opacity:0" />
+        </linearGradient>
+
+        <!-- Padrão de estrelas (mantido como estava) -->
         <pattern id="finalStarsPattern" patternUnits="userSpaceOnUse" width="300" height="300">
-            <!-- Estrelas grandes -->
             <circle cx="50" cy="80" r="3" fill="#ffffff" fill-opacity="0.95" />
             <circle cx="220" cy="150" r="2.5" fill="#e0e0ff" fill-opacity="0.9" />
             <circle cx="180" cy="50" r="3.5" fill="#ffffff" fill-opacity="1" />
-
-            <!-- Estrelas médias -->
             <circle cx="120" cy="200" r="2" fill="#f0f0ff" fill-opacity="0.85" />
             <circle cx="280" cy="90" r="2" fill="#ffffff" fill-opacity="0.8" />
             <circle cx="80" cy="250" r="1.8" fill="#e5e5ff" fill-opacity="0.9" />
             <circle cx="250" cy="220" r="2.2" fill="#ffffff" fill-opacity="0.95" />
-
-            <!-- Estrelas pequenas -->
             <circle cx="30" cy="180" r="1.2" fill="#ffffff" fill-opacity="0.7" />
             <circle cx="150" cy="120" r="1" fill="#f5f5ff" fill-opacity="0.8" />
             <circle cx="200" cy="280" r="1.5" fill="#ffffff" fill-opacity="0.75" />
@@ -53,8 +52,6 @@
             <circle cx="40" cy="120" r="1.1" fill="#f0f0ff" fill-opacity="0.7" />
             <circle cx="160" cy="250" r="1.4" fill="#ffffff" fill-opacity="0.8" />
             <circle cx="210" cy="40" r="1.2" fill="#e5e5ff" fill-opacity="0.75" />
-
-            <!-- Estrelas muito pequenas para criar densidade -->
             <circle cx="70" cy="160" r="0.8" fill="#ffffff" fill-opacity="0.6" />
             <circle cx="190" cy="110" r="0.7" fill="#f8f8ff" fill-opacity="0.65" />
             <circle cx="130" cy="70" r="0.9" fill="#ffffff" fill-opacity="0.7" />
@@ -66,11 +63,11 @@
         </pattern>
     </defs>
 
-    <!-- O grupo abaixo aplica a rotação de 180 graus. O enquadramento é feito pela viewBox. -->
+    <!-- Grupo de rotação (mantido como estava) -->
     <g transform="rotate(180, 4550, 3770)">
 
-        <!-- CAMADA 1: O fundo com o gradiente da aurora boreal -->
-        <path fill="url(#finalAurora)"
+        <!-- CAMADA 1: O fundo claro e luminoso -->
+        <path fill="url(#auroraClara)"
               d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
               -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
               80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
@@ -85,8 +82,8 @@
               -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
               -118 34 -309 75 -354 75 l-24 0 0 -281z" />
 
-        <!-- CAMADA 2: Ondulação da aurora boreal -->
-        <path fill="url(#auroraWave)"
+        <!-- CAMADA 2: A faixa escura da aurora, sobreposta -->
+        <path fill="url(#auroraDiagonaOscura)"
               d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
               -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
               80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
@@ -101,7 +98,7 @@
               -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
               -118 34 -309 75 -354 75 l-24 0 0 -281z" />
 
-        <!-- CAMADA 3: Estrelas densas e variadas -->
+        <!-- CAMADA 3: Estrelas, sobrepostas a tudo -->
         <path fill="url(#finalStarsPattern)"
               d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
               -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161

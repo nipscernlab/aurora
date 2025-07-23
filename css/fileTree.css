@@ -487,11 +487,6 @@
   font-style: italic;
 }
 
-/* Hover effects for hierarchy items */
-.hierarchy-item .file-item.hierarchy-file-item:hover .file-item-icon i {
-  transform: scale(1.1);
-}
-
 /* Module depth-based color variations */
 .hierarchy-item .hierarchy-item[data-type="module"] .file-item-icon i {
   color: #5DADE2; /* Lighter blue for second level */

@@ -10,7 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
   <link rel="stylesheet" href="./css/import.css">
-  
+  <link rel="stylesheet" href="node_modules\golden-layout\src\scss\goldenlayout-base.scss">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/goldenlayout.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/css/goldenlayout-base.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/css/goldenlayout-dark-theme.css">
+
 </head>
 
 <body class="theme-dark">
@@ -81,14 +86,13 @@
   </button>
 
 <div class="compile-all-group">
-  <button id="cancel-everything" class="toolbar-button" 
-          data-i18n-title="toolbar.cancelEverythingTitle" title="">
+  <button id="cancel-everything" class="toolbar-button"  disabled style="cursor: not-allowed;  padding: 9.0px;" data-i18n-title="toolbar.cancelEverythingTitle" title="">
           <i class="fa-solid fa-ban" style="color: #f200ff;"></i>
   </button>
 
   <button id="allcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
           data-i18n-title="toolbar.compileAllTitle" title="">
-    <i class="fa-solid fa-bolt" style="color: #f200ff;"></i>
+    <i class="fa-solid fa-flag-checkered" style="color: #f200ff;"></i>
     <span data-i18n="toolbar.compileAll">Compile All</span>
   </button>
 </div>
@@ -124,6 +128,7 @@
   </div>
 </div>
 
+
   <!-- Sidebar -->
   <div id="sidebar" class="sidebar">
     <ul class="sidebar-menu">
@@ -149,7 +154,6 @@
       </li>
     </ul>
   </div>
-
 
   <!-- News Red Dot -->
   <div class="modal-backdrop" id="modalBackdrop"></div>
@@ -1126,7 +1130,7 @@ document.getElementById('reload-everything-terminal').addEventListener('click', 
     // Add button-highlight class to all buttons referenced in keywords
     const buttons = [
       'newProjectBtn', 'processorHub', 'openProjectBtn', 'saveFileBtn', 
-      'settings', 'allcomp', 'clear-terminal', 'backupFolderBtn', 
+      'settings', 'allcomp', '#cancel-everything', 'clear-terminal', 'backupFolderBtn', 
       'aiAssistant', 'themeToggle', 'projectInfo', 'info-aurora', 
       'sidebarMenu', 'change-icon-btn', 'saveConfig', 'cancelConfig',
       'saveProjectConfig', 'cancelProjectConfig', 'clearAll',
@@ -1245,7 +1249,8 @@ function closeAuroraAboutModal() {
   <script src="./js/recentProjects.js"></script>
   <script src="./js/translation.js"></script>
   <script src="./js/closeProject.js"></script>
-    <script src="./js/fileTreeToggler.js"></script>
+  <script src="./js/fileTreeToggler.js"></script>
+  <script src="./js/layout-manager.js"></script>
 
     </script>
   </body>

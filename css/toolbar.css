@@ -269,9 +269,28 @@
   border-bottom-right-radius: 6px;
 }
 
-/* Envolve os botões juntos se quiser mais controle */
+/* Unite the two buttons as one */
 .compile-all-group {
   display: inline-flex;
   align-items: center;
   gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.compile-all-group #cancel-everything,
+.compile-all-group #allcomp {
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+.compile-all-group #cancel-everything {
+  border-right: 1px solid var(--border-color);
+}
+
+/* Remove individual button borders when inside the group */
+.compile-all-group .toolbar-button {
+  border: none;
 }

@@ -232,7 +232,7 @@ body.dark-mode .resizer-vertical {
   cursor: not-allowed;
 }
 
-#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #settings, #settings-project {
+#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #cancel-everything, #settings, #settings-project {
   background-color: var(--bg-hover);
   cursor: pointer;
   transition: background-color 0.2s;
@@ -304,3 +304,4 @@ body.dark-mode .resizer-vertical {
   height: 100%;
   border: none;
 }
+

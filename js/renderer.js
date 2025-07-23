@@ -6679,7 +6679,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
       const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 
@@ -8550,23 +8550,31 @@ parseYosysHierarchy(jsonData, topLevelModule) {
   const hierarchy = {
     topLevel: topLevelModule,
     modules: {},
-    dependencies: new Map()
+    dependencies: new Map(),
+    allModules: new Set()
   };
 
-  // Parse each module
+  // First pass: collect all modules
+  for (const moduleName of Object.keys(modules)) {
+    hierarchy.allModules.add(moduleName);
+  }
+
+  // Second pass: parse each module and its dependencies
   for (const [moduleName, moduleData] of Object.entries(modules)) {
     const cells = moduleData.cells || {};
     const submodules = [];
+    const allDependencies = new Set();
 
-    // Extract submodule instances - filter out synthesis primitives
+    // Extract all cell instances (both user modules and primitives)
     for (const [cellName, cellData] of Object.entries(cells)) {
-      if (cellData.type && cellData.type !== '$and' && cellData.type !== '$or' && 
-          !cellData.type.startsWith('$') && cellData.type !== 'DFF') {
+      if (cellData.type) {
         submodules.push({
           instance: cellName,
           type: cellData.type,
-          parameters: cellData.parameters || {}
+          parameters: cellData.parameters || {},
+          isUserModule: hierarchy.allModules.has(cellData.type)
         });
+        allDependencies.add(cellData.type);
       }
     }
 
@@ -8577,11 +8585,23 @@ parseYosysHierarchy(jsonData, topLevelModule) {
       attributes: moduleData.attributes || {}
     };
 
-    // Build dependency map
-    hierarchy.dependencies.set(moduleName, submodules.map(sub => sub.type));
+    // Store all dependencies (both user modules and primitives)
+    hierarchy.dependencies.set(moduleName, Array.from(allDependencies));
   }
 
   return hierarchy;
+}
+
+getModuleNumber(moduleName, parentNumber = '', moduleIndex = 0) {
+  if (moduleName === this.hierarchyData.topLevel) {
+    return ''; // Top level has no number prefix
+  }
+  
+  if (parentNumber === '') {
+    return `${moduleIndex + 1}`;
+  }
+  
+  return `${parentNumber}.${moduleIndex + 1}`;
 }
 
 // Enable hierarchical tree toggle button
@@ -8668,12 +8688,29 @@ toggleHierarchicalView() {
     // Toggle state
     this.isHierarchicalView = !this.isHierarchicalView;
     
-    // Update button appearance
+    // Update button appearance - keep all other icons intact
+    const buttonContent = toggleButton.innerHTML;
     if (this.isHierarchicalView) {
-      toggleButton.innerHTML = 'Hierarchical Tree <i class="fa-solid fa-sitemap"></i>';
+      // Replace only the tree icon and text, preserve other buttons
+      const updatedContent = buttonContent.replace(
+        'Standard Tree',
+        'Hierarchical Tree'
+      ).replace(
+        'fa-list-ul',
+        'fa-sitemap'
+      );
+      toggleButton.innerHTML = updatedContent;
       toggleButton.classList.add('active');
     } else {
-      toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-list-ul"></i>';
+      // Replace only the tree icon and text, preserve other buttons
+      const updatedContent = buttonContent.replace(
+        'Hierarchical Tree',
+        'Standard Tree'
+      ).replace(
+        'fa-sitemap',
+        'fa-list-ul'
+      );
+      toggleButton.innerHTML = updatedContent;
       toggleButton.classList.remove('active');
     }
     
@@ -8695,21 +8732,6 @@ toggleHierarchicalView() {
   }
 }
 
-// Get standardized icon based on hierarchy type (matching standard file tree)
-getHierarchyIcon(type) {
-  switch (type) {
-    case 'top-level':
-      return 'fa-solid fa-microchip'; // Same as .cmm files
-    case 'module':
-      return 'fa-solid fa-a'; // Same as directories
-    case 'instance':
-      return 'fa-solid fa-b'; // Same as .v files
-    case 'primitive':
-      return 'fa-solid fa-square-binary'; // Same as .mif files
-    default:
-      return 'fa-solid fa-file';
-  }
-}
 
 // Render hierarchical tree view
 renderHierarchicalTree() {
@@ -8725,18 +8747,19 @@ renderHierarchicalTree() {
   const hierarchyContainer = document.createElement('div');
   hierarchyContainer.className = 'hierarchy-container';
 
-  // Add top-level module
+  // Add top-level module (no numbering, chip icon)
   const topLevelItem = this.createHierarchyItem(
     this.hierarchyData.topLevel,
     'top-level',
-    this.getHierarchyIcon('top-level'),
-    true
+    'fa-solid fa-microchip',
+    true,
+    '' // No number for top level
   );
 
   hierarchyContainer.appendChild(topLevelItem);
 
-  // Build hierarchy tree recursively
-  this.buildHierarchyTree(topLevelItem, this.hierarchyData.topLevel, new Set(), 0);
+  // Build hierarchy tree recursively starting from top level
+  this.buildHierarchyTree(topLevelItem, this.hierarchyData.topLevel, new Set(), 0, '');
 
   fileTreeElement.appendChild(hierarchyContainer);
   
@@ -8747,7 +8770,7 @@ renderHierarchicalTree() {
 }
 
 // Create hierarchy item element with click-to-expand functionality
-createHierarchyItem(name, type, icon, isExpanded = false) {
+createHierarchyItem(name, type, icon, isExpanded = false, moduleNumber = '') {
   const itemContainer = document.createElement('div');
   itemContainer.className = 'file-tree-item hierarchy-item';
   itemContainer.setAttribute('data-type', type);
@@ -8761,7 +8784,6 @@ createHierarchyItem(name, type, icon, isExpanded = false) {
     toggle.className = `folder-toggle ${isExpanded ? 'rotated' : ''}`;
     toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
     
-    // Toggle click handler (stops propagation to prevent double-click)
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleHierarchyItem(itemContainer);
@@ -8776,15 +8798,19 @@ createHierarchyItem(name, type, icon, isExpanded = false) {
     itemElement.appendChild(spacer);
   }
 
-  // Add icon
+  // Add icon (keep original icons)
   const iconElement = document.createElement('div');
   iconElement.className = 'file-item-icon';
   iconElement.innerHTML = `<i class="${icon}"></i>`;
   itemElement.appendChild(iconElement);
 
-  // Add label
+  // Add label with numbering
   const label = document.createElement('span');
-  label.textContent = name;
+  if (moduleNumber && type !== 'top-level') {
+    label.textContent = `${moduleNumber}. ${name}`;
+  } else {
+    label.textContent = name;
+  }
   label.className = 'hierarchy-label';
   itemElement.appendChild(label);
 
@@ -8795,16 +8821,13 @@ createHierarchyItem(name, type, icon, isExpanded = false) {
   childrenContainer.className = `folder-content ${isExpanded ? '' : 'hidden'}`;
   itemContainer.appendChild(childrenContainer);
 
-  // Make the entire card clickable for expandable items
+  // Make expandable items clickable
   if (type === 'top-level' || type === 'module') {
     itemElement.addEventListener('click', (e) => {
-      // Only expand if we didn't click on the toggle
       if (!e.target.closest('.folder-toggle')) {
         this.toggleHierarchyItem(itemContainer);
       }
     });
-    
-    // Add hover effect for expandable items
     itemElement.style.cursor = 'pointer';
   }
 
@@ -8812,21 +8835,21 @@ createHierarchyItem(name, type, icon, isExpanded = false) {
 }
 
 // Build hierarchy tree recursively with standardized icons
-buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0) {
-  if (visited.has(moduleName) || depth > 10) { // Prevent infinite recursion
+buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0, parentNumber = '') {
+  if (visited.has(moduleName) || depth > 15) { // Prevent infinite recursion
     return;
   }
 
   visited.add(moduleName);
   
   const moduleData = this.hierarchyData.modules[moduleName];
-  if (!moduleData || !moduleData.submodules) {
+  if (!moduleData || !moduleData.submodules || moduleData.submodules.length === 0) {
     return;
   }
 
   const childrenContainer = parentItem.querySelector('.folder-content');
   
-  // Group submodules by type
+  // Group all submodules by type (both user modules and primitives)
   const moduleGroups = new Map();
   
   moduleData.submodules.forEach(submodule => {
@@ -8836,59 +8859,79 @@ buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0) {
     moduleGroups.get(submodule.type).push(submodule);
   });
 
-  // Create items for each module type
-  let itemIndex = 0;
-  for (const [moduleType, instances] of moduleGroups) {
+  // Sort module types: user modules first, then primitives
+  const sortedTypes = Array.from(moduleGroups.keys()).sort((a, b) => {
+    const aIsUser = this.hierarchyData.modules[a];
+    const bIsUser = this.hierarchyData.modules[b];
+    
+    if (aIsUser && !bIsUser) return -1;
+    if (!aIsUser && bIsUser) return 1;
+    return a.localeCompare(b);
+  });
+
+  // Create items for each module type with numbering
+  let moduleIndex = 0;
+  for (const moduleType of sortedTypes) {
+    const instances = moduleGroups.get(moduleType);
+    const currentModuleNumber = this.getModuleNumber(moduleType, parentNumber, moduleIndex);
+    
     if (this.hierarchyData.modules[moduleType]) {
-      // This is a user-defined module - create expandable item
+      // User-defined module - create expandable item
       const moduleItem = this.createHierarchyItem(
         `${moduleType} (${instances.length} instance${instances.length > 1 ? 's' : ''})`,
         'module',
-        this.getHierarchyIcon('module')
+        'fa-solid fa-cube', // Use cube icon instead of 'A'
+        false,
+        currentModuleNumber
       );
       
-      // Set animation delay
-      moduleItem.style.setProperty('--index', itemIndex++);
+      moduleItem.style.setProperty('--index', moduleIndex);
       childrenContainer.appendChild(moduleItem);
       
-      // Add instances as children
+      // Add instances as children with sub-numbering
       instances.forEach((instance, instanceIndex) => {
+        const instanceNumber = `${currentModuleNumber}.${instanceIndex + 1}`;
         const instanceItem = this.createHierarchyItem(
           instance.instance,
           'instance',
-          this.getHierarchyIcon('instance')
+          'fa-solid fa-microchip', // Use microchip icon instead of 'B'
+          false,
+          instanceNumber
         );
         
-        // Set animation delay
         instanceItem.style.setProperty('--index', instanceIndex);
         
         const moduleChildrenContainer = moduleItem.querySelector('.folder-content');
         moduleChildrenContainer.appendChild(instanceItem);
         
         // Recursively build for this module type
-        this.buildHierarchyTree(instanceItem, moduleType, new Set(visited), depth + 1);
+        this.buildHierarchyTree(instanceItem, moduleType, new Set(visited), depth + 1, currentModuleNumber);
       });
     } else {
-      // This is a primitive or external module - create leaf items
+      // Primitive or external module - create leaf items
       instances.forEach((instance, instanceIndex) => {
+        const primitiveNumber = `${currentModuleNumber}.${instanceIndex + 1}`;
         const primitiveItem = this.createHierarchyItem(
           `${instance.instance} (${instance.type})`,
           'primitive',
-          this.getHierarchyIcon('primitive')
+          'fa-solid fa-square', // Use square icon for primitives
+          false,
+          primitiveNumber
         );
         
-        // Set animation delay
-        primitiveItem.style.setProperty('--index', itemIndex++);
+        primitiveItem.style.setProperty('--index', moduleIndex);
         childrenContainer.appendChild(primitiveItem);
       });
     }
+    
+    moduleIndex++;
   }
 }
 
 // Toggle hierarchy item expansion with improved animation
 toggleHierarchyItem(itemElement) {
   const content = itemElement.querySelector('.folder-content');
-  const icon = itemElement.querySelector('.file-item-icon i');
+  const toggle = itemElement.querySelector('.folder-toggle');
   
   if (!content) return;
 
@@ -8898,12 +8941,6 @@ toggleHierarchyItem(itemElement) {
     // Collapse
     content.classList.add('hidden');
     if (toggle) toggle.classList.remove('rotated');
-    
-    // Update folder icon (if it's a folder-like item)
-    if (icon && icon.classList.contains('fa-solid fa-a')) {
-      icon.classList.remove('fa-solid fa-a');
-      icon.classList.add('fas', 'fa-a');
-    }
   } else {
     // Expand
     content.classList.remove('hidden');
@@ -11394,3 +11431,27 @@ const vvpProgressManager = new VVPProgressManager();
     });
   });
 
+// Add this function to your main JS file
+function addLayoutResetButton() {
+  const resetBtn = document.createElement('button');
+  resetBtn.innerHTML = '<i class="fa-solid fa-undo"></i> <span>Reset Layout</span>';
+  resetBtn.className = 'toolbar-button';
+  resetBtn.title = 'Reset layout to default';
+  resetBtn.onclick = () => {
+    if (confirm('Reset layout to default configuration?')) {
+      if (window.dragHandlesManager) {
+        window.dragHandlesManager.resetLayout();
+      }
+    }
+  };
+  
+  const toolbarRight = document.querySelector('.toolbar-right');
+  if (toolbarRight) {
+    toolbarRight.appendChild(resetBtn);
+  }
+}
+
+// Call this after DOM loads
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(addLayoutResetButton, 1000);
+});

@@ -1,0 +1,294 @@
+/* Drag Handles - Hidden by default */
+.drag-handle {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(135deg, #007acc, #005a9e);
+  color: white;
+  z-index: 500;
+  cursor: move;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+/* Show handles in drag mode */
+.drag-mode-active .drag-handle {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.drag-handle-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+.drag-handle:hover {
+  background: linear-gradient(135deg, #0099ff, #007acc);
+  box-shadow: 0 2px 8px rgba(0,122,204,0.3);
+}
+
+.drag-handle .fa-grip-vertical {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.drag-handle .fa-arrows-alt {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* Container adjustments in drag mode */
+.drag-mode-active .file-tree-container,
+.drag-mode-active .editor-container,
+.drag-mode-active #terminal-container {
+  padding-top: 30px;
+  box-sizing: border-box;
+}
+
+/* Drop Zones */
+.drop-zone {
+  position: absolute;
+  background: rgba(0, 122, 204, 0.1);
+  border: 2px dashed #007acc;
+  color: #007acc;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  z-index: 999;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.drag-mode-active .drop-zone {
+  display: flex;
+}
+
+/* Drop zone positions */
+#drop-left {
+  top: 60px;
+  left: 10px;
+  width: 150px;
+  bottom: 40px;
+}
+
+#drop-right {
+  top: 60px;
+  right: 10px;
+  width: 150px;
+  bottom: 40px;
+}
+
+#drop-top {
+  top: 60px;
+  left: 170px;
+  right: 170px;
+  height: 100px;
+}
+
+#drop-bottom {
+  bottom: 40px;
+  left: 170px;
+  right: 170px;
+  height: 100px;
+}
+
+#drop-center {
+  top: 170px;
+  left: 170px;
+  right: 170px;
+  bottom: 150px;
+}
+
+/* Highlighted drop zone */
+.drop-zone.highlight {
+  background: rgba(0, 122, 204, 0.3);
+  border-color: #0099ff;
+  color: #0099ff;
+  box-shadow: 0 0 20px rgba(0, 122, 204, 0.5);
+  transform: scale(1.05);
+}
+
+/* Dragging states */
+.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  transition: all 0.2s ease;
+}
+
+.dragging-active {
+  cursor: grabbing !important;
+}
+
+.dragging-active * {
+  cursor: grabbing !important;
+}
+
+/* Drag ghost */
+.drag-ghost {
+  border: 2px solid #007acc;
+  background: rgba(0, 122, 204, 0.1);
+  border-radius: 4px;
+}
+
+.drag-ghost .drag-handle {
+  background: #007acc;
+  opacity: 1;
+  transform: translateY(0);
+  display: flex;
+}
+
+/* Layout Instructions */
+#layout-instructions {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  z-index: 1001;
+  font-size: 12px;
+  max-width: 250px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.layout-instructions-content h3 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #007acc;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.layout-instructions-content p {
+  margin: 4px 0;
+  opacity: 0.9;
+  line-height: 1.3;
+}
+
+/* Toolbar button active state */
+.toolbar-button.active {
+  background: #007acc !important;
+  color: white !important;
+  box-shadow: 0 0 10px rgba(0, 122, 204, 0.5);
+}
+
+/* Layout panels */
+.layout-row {
+  display: flex;
+  height: 100%;
+  gap: 2px;
+}
+
+.layout-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 2px;
+}
+
+.layout-panel {
+  background: var(--bg-secondary, #2d2d30);
+  border: 1px solid var(--border-color, #3e3e42);
+  border-radius: 4px;
+  overflow: auto;
+  position: relative;
+}
+
+/* Resize handles */
+.layout-panel:not(:last-child) {
+  position: relative;
+}
+
+.layout-row .layout-panel:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 4px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+.layout-column .layout-panel:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  cursor: ns-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+/* Hover effects for resize handles */
+.layout-row .layout-panel:not(:last-child):hover::after {
+  background: rgba(0, 122, 204, 0.3);
+}
+
+.layout-column .layout-panel:not(:last-child):hover::after {
+  background: rgba(0, 122, 204, 0.3);
+}
+
+/* Main container adjustments */
+.drag-mode-active .main-container {
+  position: relative;
+}
+
+/* Smooth transitions */
+.file-tree-container,
+.editor-container,
+#terminal-container {
+  transition: all 0.3s ease;
+}
+
+/* Pulse animation for drag handles */
+.drag-mode-active .drag-handle {
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+  }
+}

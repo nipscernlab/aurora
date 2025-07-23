@@ -10542,50 +10542,6 @@ document.getElementById('close-bug-report')?.addEventListener('click', () => clo
 
 //TESTE         ======================================================================================================================================================== ƒ
 document.addEventListener('DOMContentLoaded', () => {
-  // Get the overlay link
-  const overlayLink = document.querySelector('.overlay-subtitle a[href="https://nipscern.com"]');
-  
-  // Get sidebar elements
-  const browseWebItem      = document.querySelector('.sidebar-menu li[title="Browse the web"]');
-  const githubDesktopItem  = document.querySelector('.sidebar-menu li[title="Open GitHub Desktop"]');
-  const shutdownItem       = document.querySelector('.sidebar-menu li[title="Shut down the application"]');
-  
-  // Overlay link – open nipscern.com in default browser
-  overlayLink.addEventListener('click', e => {
-    e.preventDefault();
-    window.electronAPI.openBrowser();
-  });
-  
-  // Browse the web – open nipscern.com in default browser
-  browseWebItem.addEventListener('click', () => {
-    window.electronAPI.openBrowser();
-  });
-  
-  // Open GitHub Desktop
-  githubDesktopItem.addEventListener('click', () => {
-    window.electronAPI.openGithubDesktop();
-  });
-  
-  // Shut down the application
-  shutdownItem.addEventListener('click', () => {
-    window.electronAPI.quitApp();
-  });
-  
-  // Add hover effect for better user feedback
-  const sidebarItems = document.querySelectorAll('.sidebar-menu li');
-  sidebarItems.forEach(item => {
-    item.addEventListener('mouseenter', () => {
-      item.style.backgroundColor = '#444';
-    });
-    item.addEventListener('mouseleave', () => {
-      item.style.backgroundColor = '';
-    });
-  });
-});
-
-
-// CORREÇÃO: Event handler do botão PRISM com debugging melhorado
-document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, setting up PRISM button...');
   
   const prismButton = document.getElementById('prismcomp');
@@ -10616,6 +10572,85 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+
+  // Function to acquire all necessary paths for PRISM compilation
+  async function acquirePrismPaths() {
+    console.log('=== ACQUIRING PRISM PATHS ===');
+    
+    try {
+      // Get project path - fix global reference issue
+      let projectPath = null;
+      if (window.currentProjectPath) {
+        projectPath = window.currentProjectPath;
+      } else if (window.currentOpenProjectPath) {
+        projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
+      } else if (window.currentProject && window.currentProject.path) {
+        projectPath = window.currentProject.path;
+      }
+      
+      if (!projectPath) {
+        throw new Error('No project path available. Please open a project first.');
+      }
+      
+      console.log('✓ Project path acquired:', projectPath);
+      
+      // Acquire component paths using electronAPI
+      console.log('Acquiring saphoComponents path...');
+      const saphoComponentsPath = await window.electronAPI.joinPath('saphoComponents');
+      console.log('✓ SaphoComponents path:', saphoComponentsPath);
+      
+      console.log('Acquiring HDL path...');
+      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+      console.log('✓ HDL path:', hdlPath);
+      
+      console.log('Acquiring temp path...');
+      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', 'PRISM');
+      console.log('✓ Temp path:', tempPath);
+      
+      console.log('Acquiring Yosys executable path...');
+      const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+      console.log('✓ Yosys executable path:', yosysPath);
+      
+      console.log('Acquiring NetlistSVG executable path...');
+      const netlistsvgPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+      console.log('✓ NetlistSVG executable path:', netlistsvgPath);
+      
+      // Configuration file paths
+      console.log('Acquiring processor config path...');
+      const processorConfigPath = await window.electronAPI.joinPath(projectPath, 'processorConfig.json');
+      console.log('✓ Processor config path:', processorConfigPath);
+      
+      console.log('Acquiring project oriented config path...');
+      const projectOrientedConfigPath = await window.electronAPI.joinPath(projectPath, 'projectOriented.json');
+      console.log('✓ Project oriented config path:', projectOrientedConfigPath);
+      
+      // TopLevel directory path
+      console.log('Acquiring TopLevel directory path...');
+      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
+      console.log('✓ TopLevel directory path:', topLevelPath);
+      
+      const compilationPaths = {
+        projectPath,
+        saphoComponentsPath,
+        hdlPath,
+        tempPath,
+        yosysPath,
+        netlistsvgPath,
+        processorConfigPath,
+        projectOrientedConfigPath,
+        topLevelPath
+      };
+      
+      console.log('=== ALL PRISM PATHS ACQUIRED SUCCESSFULLY ===');
+      console.log('Compilation paths object:', compilationPaths);
+      
+      return compilationPaths;
+      
+    } catch (error) {
+      console.error('Failed to acquire PRISM paths:', error);
+      throw new Error(`Path acquisition failed: ${error.message}`);
+    }
+  }
   
   // Enable the button initially
   prismButton.disabled = false;
@@ -10633,7 +10668,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('electronAPI.onPrismStatus not available');
   }
   
-  // PRISM button click handler
+  // PRISM button click handler - UNIFIED FOR BOTH COMPILE AND RECOMPILE
   prismButton.addEventListener('click', async () => {
     console.log('=== PRISM BUTTON CLICKED ===');
     console.log('Button disabled:', prismButton.disabled);
@@ -10648,16 +10683,19 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       // Set compilation state
       isCompiling = true;
-      console.log('Starting PRISM compilation...');
+      console.log('Starting PRISM compilation process...');
       
       // Update button appearance
       prismButton.disabled = true;
       prismButton.style.cursor = 'not-allowed';
-      prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Starting...';
+      prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Preparing...';
       
+      // Step 1: Acquire all necessary paths
+      console.log('Step 1: Acquiring compilation paths...');
+      const compilationPaths = await acquirePrismPaths();
+      
+      // Step 2: Check if PRISM window is already open
       let isPrismOpen = false;
-      
-      // Check if PRISM window is already open
       try {
         if (window.electronAPI && window.electronAPI.checkPrismWindowOpen) {
           isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
@@ -10668,40 +10706,52 @@ document.addEventListener('DOMContentLoaded', () => {
         isPrismOpen = false;
       }
       
+      // Step 3: Update button text based on operation type
+      if (isPrismOpen) {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
+        console.log('Starting PRISM recompilation...');
+      } else {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
+        console.log('Starting PRISM compilation...');
+      }
+      
+      // Step 4: Send paths and execute compilation - FIXED VERSION
+      console.log('Step 4: Executing PRISM compilation with acquired paths...');
       let result;
       
       if (isPrismOpen) {
-        // Recompile for existing window
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
-        console.log('Recompiling for existing PRISM window...');
-        
+        // Use recompile for existing window
         if (window.electronAPI.prismRecompile) {
-          result = await window.electronAPI.prismRecompile();
+          console.log('Using prismRecompile method...');
+          result = await window.electronAPI.prismRecompile(compilationPaths);
+        } else if (window.electronAPI.prismCompileWithPaths) {
+          console.log('prismRecompile not available, using prismCompileWithPaths...');
+          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
         } else {
-          console.warn('prismRecompile not available, using regular compile');
-          result = await window.electronAPI.prismCompile();
+          console.log('Using legacy openPrismCompile with paths...');
+          result = await window.electronAPI.openPrismCompile(compilationPaths);
         }
       } else {
-        // First time compilation or window was closed
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
-        console.log('Starting PRISM compilation for new window...');
-        
-        // Try openPrismCompile first, fallback to regular compile
-        if (window.electronAPI.openPrismCompile) {
-          console.log('Using openPrismCompile...');
-          result = await window.electronAPI.openPrismCompile();
+        // Use the best available method for new compilation
+        if (window.electronAPI.prismCompileWithPaths) {
+          console.log('Using prismCompileWithPaths method...');
+          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
         } else if (window.electronAPI.prismCompile) {
-          console.log('Using prismCompile...');
-          result = await window.electronAPI.prismCompile();
+          console.log('Using prismCompile method...');
+          result = await window.electronAPI.prismCompile(compilationPaths);
+        } else if (window.electronAPI.openPrismCompile) {
+          console.log('Using legacy openPrismCompile with paths...');
+          result = await window.electronAPI.openPrismCompile(compilationPaths);
         } else {
-          throw new Error('No PRISM compilation methods available');
+          throw new Error('No PRISM compilation method available in electronAPI');
         }
       }
       
       console.log('PRISM compilation result:', result);
       
+      // Check if result is valid and has success property
       if (result && result.success) {
-        console.log('✅ PRISM compilation successful:', result.message);
+        console.log('PRISM compilation successful:', result.message);
         
         // Show success message if terminal is available
         if (window.terminalManager) {
@@ -10719,11 +10769,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Default to showing recompile mode if compilation was successful
             updatePrismButton(true);
           }
-        }, 2000); // Increased delay to 2 seconds
+        }, 2000);
         
       } else {
-        const errorMessage = result ? result.message : 'Unknown error occurred';
-        console.error('❌ PRISM compilation failed:', errorMessage);
+        // Handle failed compilation
+        const errorMessage = result && result.message 
+          ? result.message 
+          : result && result.error 
+            ? result.error 
+            : 'Unknown error occurred during compilation';
+            
+        console.error('PRISM compilation failed:', errorMessage);
         
         // Show error in terminal if available
         if (window.terminalManager) {
@@ -10739,7 +10795,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
     } catch (error) {
-      console.error('❌ PRISM compilation error:', error);
+      console.error('PRISM compilation error:', error);
       
       // Show error in terminal if available
       if (window.terminalManager) {
@@ -10763,9 +10819,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Check current PRISM window status to set correct button text
       try {
-        const isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
-        console.log('Final PRISM window status:', isPrismOpen);
-        updatePrismButton(isPrismOpen);
+        const isPrismOpenFinal = await window.electronAPI.checkPrismWindowOpen();
+        console.log('Final PRISM window status:', isPrismOpenFinal);
+        updatePrismButton(isPrismOpenFinal);
       } catch (error) {
         console.error('Error checking PRISM window status in finally:', error);
         // Default button text
@@ -10783,7 +10839,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Received request for toggle UI state');
       
       // Get the actual toggle state from your UI
-      // CORREÇÃO: Substitua 'your-toggle-element' pelo ID real do seu elemento toggle
       const toggleElement = document.getElementById('toggle-ui') || 
                            document.querySelector('.toggle-switch') ||
                            document.querySelector('[data-toggle]');
@@ -10791,7 +10846,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let isActive = false;
       
       if (toggleElement) {
-        // Verificar diferentes tipos de toggle
+        // Check different types of toggle
         if (toggleElement.type === 'checkbox') {
           isActive = toggleElement.checked;
         } else if (toggleElement.classList.contains('active')) {
@@ -10810,6 +10865,41 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   console.log('PRISM button setup complete');
+});
+
+// Debug function to check if all required APIs are available
+function debugElectronAPI() {
+  console.log('=== ELECTRON API DEBUG ===');
+  console.log('window.electronAPI available:', !!window.electronAPI);
+  
+  if (window.electronAPI) {
+    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
+    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
+    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
+    console.log('prismCompileWithPaths available:', !!window.electronAPI.prismCompileWithPaths);
+    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
+    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
+    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
+  }
+  
+  console.log('terminalManager available:', !!window.terminalManager);
+  console.log('=== END ELECTRON API DEBUG ===');
+}
+
+// Run debug on load
+debugElectronAPI();
+
+// Add to existing window message listeners
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'terminal-log') {
+    if (window.terminalManager) {
+      window.terminalManager.appendToTerminal(
+        event.data.terminal, 
+        event.data.message, 
+        event.data.logType
+      );
+    }
+  }
 });
 
 // Debug function to check if all required APIs are available

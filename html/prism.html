@@ -339,16 +339,22 @@
             filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1));
         }
 
-        .svg-content svg rect[fill="#ffffff"],
-        .svg-content svg rect:not([fill]) {
-            fill: var(--bg-card) !important;
-            stroke: var(--purple-400) !important;
-        }
+        .svg-content svg rect {
+    rx: 0 !important;
+    ry: 0 !important;
+}
 
-        .svg-content svg rect[fill="#000000"] {
-            fill: var(--bg-tertiary) !important;
-            stroke: var(--purple-500) !important;
-        }
+/* Suas regras de estilo específicas para cores podem vir depois */
+.svg-content svg rect[fill="#ffffff"],
+.svg-content svg rect:not([fill]) {
+    fill: var(--bg-primary) !important;
+    stroke: var(--module-stroke-hover);
+}
+
+.svg-content svg rect[fill="#000000"] {
+    fill: var(--bg-tertiary) !important;
+    stroke: var(--purple-500) !important;
+}
 
         /* Wire Connections with Highlight Support */
         .svg-content svg path,
@@ -381,6 +387,11 @@
             stroke: var(--purple-300) !important;
             stroke-width: 2 !important;
             opacity: 0.9 !important;
+        }
+
+        .svg-content svg text[class*="busLabel_"] {
+            font-size: 8px !important;       /* Tamanho da fonte para caber no espaço */
+            fill: var(--text-accent) !important; /* Cor de destaque para fácil visualização */
         }
 
 :root {
@@ -840,7 +851,7 @@ class PRISMViewer {
         this.updateModuleInfo(moduleName, svgPath);
         this.updateBreadcrumbs();
         this.setupSVGInteractions();
-
+        this.adjustBusLabels(); 
         this.hideStatus();
 
         // Fit to screen após um breve delay (mantido)
@@ -856,6 +867,28 @@ class PRISMViewer {
     }
 }
 
+adjustBusLabels() {
+    if (!this.svgContent) return;
+
+    // Selects all <text> elements containing 'busLabel_' in their class
+    const busLabels = this.svgContent.querySelectorAll('text[class*="busLabel_"]');
+
+    busLabels.forEach(label => {
+        // --- Part 1: Adjust the <text> element ---
+        // Set the 'dx' SVG attribute to shift the text horizontally
+        label.setAttribute('dx', '5');
+
+        // --- Part 2: Adjust the associated <rect> element ---
+        // Get the element immediately preceding the <text> element
+        const associatedRect = label.previousElementSibling;
+
+        // Check if it exists and is a <rect> before modifying it
+        if (associatedRect && associatedRect.tagName.toLowerCase() === 'rect') {
+            // Set the width of the background rectangle to 20
+            associatedRect.setAttribute('width', '20');
+        }
+    });
+}
 
     async navigateToModule(moduleName) {
         if (moduleName === this.currentModule || !this.tempDir) {
@@ -1144,8 +1177,8 @@ zoom(factor, centerX = null, centerY = null) {
             }
 
             updateTransform() {
-                this.svgWrapper.style.transform = `translate(${this.currentX}px, ${this.currentY}px) scale(${this.currentScale})`;
-            }
+                this.svgWrapper.style.transform = `translate(${this.currentX}px, ${this.currentY}px) scale(${this.currentScale}) translateZ(0)`;
+                }
 
             // Enhanced fit to screen with proper SVG bounds calculation
  fitToScreen() {

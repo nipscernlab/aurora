@@ -5,11 +5,34 @@ console.log('Preload script loading...');
 
 try {
   contextBridge.exposeInMainWorld('electronAPI', {
+
+    joinPath: async (...pathSegments) => {
+    console.log('joinPath called with:', pathSegments);
+    return ipcRenderer.invoke('join-path', pathSegments);
+  },
+
+  dirname: async (filePath) => {
+    console.log('dirname called with:', filePath);
+    return ipcRenderer.invoke('get-dirname', filePath);
+  },
+
+  // Add the missing method for PRISM compilation with paths
+  prismCompileWithPaths: (compilationPaths) => {
+    console.log('prismCompileWithPaths called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
+  },
+
+  // Add the missing method for PRISM recompile
+  prismRecompile: (compilationPaths) => {
+    console.log('prismRecompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-recompile', compilationPaths);
+  },
+
     // PRISM compilation methods
-    prismCompile: () => {
-      console.log('prismCompile called');
-      return ipcRenderer.invoke('prism-compile');
-    },
+    prismCompile: (compilationPaths) => {
+    console.log('prismCompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile', compilationPaths);
+  },
     
     // Fix for the missing openPrismCompile function
     openPrismCompile: () => {

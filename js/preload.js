@@ -4,6 +4,10 @@ const path = require('path');
 
 // Grouping functions by category
 const fileOperations = {
+    prismCompileWithPaths: (compilationPaths) => {
+    console.log('prismCompileWithPaths called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
+  },
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
@@ -51,10 +55,10 @@ const fileOperations = {
     ipcRenderer.removeAllListeners('file-watcher-error');
   },
  // PRISM compilation methods
-    prismCompile: () => {
-      console.log('prismCompile called');
-      return ipcRenderer.invoke('prism-compile');
-    },
+     prismCompile: (compilationPaths) => {
+    console.log('prismCompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile', compilationPaths);
+  },
     
     // Check if PRISM window is open
     checkPrismWindowOpen: () => {
@@ -141,6 +145,10 @@ const fileOperations = {
       console.log('openPrismCompile called');
       return ipcRenderer.invoke('open-prism-compile');
     },
+     prismRecompile: (compilationPaths) => {
+    console.log('prismRecompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-recompile', compilationPaths);
+  },
     
     exportLog: (logData) => ipcRenderer.invoke('export-log', logData),
     
@@ -433,7 +441,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExe: () => ipcRenderer.invoke('open-exe'),
   executePowerShell: () => ipcRenderer.invoke('execute-powershell'),
   openGTKWave: (filePath) => ipcRenderer.invoke('open-gtkwave', filePath),
-  
+  prismCompileWithPaths: (compilationPaths) => {
+    console.log('prismCompileWithPaths called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
+  },
   // Config Operations
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   loadConfig: () => ipcRenderer.invoke('load-config'),

@@ -23,6 +23,8 @@ const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
 const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
+require('./js/preload-prism.js');
+require('./js/preload-prism.js');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -2888,6 +2890,39 @@ async function createPrismWindow(compilationData = null) {
   return prismWindow;
 }
 
+
+ipcMain.handle('prism-compile-with-paths', async (event, compilationPaths) => {
+  try {
+    console.log('=== STARTING PRISM COMPILATION WITH PROVIDED PATHS ===');
+    
+    if (!compilationPaths || !compilationPaths.projectPath) {
+      throw new Error('Invalid compilation paths provided');
+    }
+    
+    // This function contains the core compilation logic
+    const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
+    
+    if (!compilationResult.success) {
+      throw new Error(compilationResult.message);
+    }
+    
+    // This function creates the PRISM window
+    const window = await createPrismWindow(compilationResult);
+    
+    if (!window) {
+      throw new Error('Failed to create PRISM window');
+    }
+    
+    console.log('=== PRISM COMPILATION WITH PATHS COMPLETED SUCCESSFULLY ===');
+    return compilationResult;
+    
+  } catch (error) {
+    console.error('=== PRISM COMPILATION WITH PATHS FAILED ===');
+    console.error('Error:', error);
+    return { success: false, message: error.message };
+  }
+});
+
 function getExecutablePath(executableName) {
   console.log(`Main executable directory: ${__dirname}`);
   
@@ -2951,17 +2986,18 @@ ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
 });
 
 // IPC handler for PRISM compilation
-ipcMain.handle('prism-compile', async (event) => {
+ipcMain.handle('prism-compile', async (event, compilationPaths) => {
   try {
+    if (!compilationPaths) {
+      throw new Error("Compilation paths are required.");
+    }
     
-    // Get compilation result
-    const compilationResult = await performPrismCompilation();
+    const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
     
     if (!compilationResult.success) {
       throw new Error(compilationResult.message);
     }
     
-    // Create or update PRISM window with compilation data
     const window = await createPrismWindow(compilationResult);
     
     if (!window) {
@@ -2996,7 +3032,7 @@ ipcMain.handle('generate-svg-from-module', async (event, moduleName, tempDir) =>
     }
     
     // Generate SVG for the module
-    const svgPath = await generateModuleSVG(moduleName, tempDir);
+    const svgPath = await generateModuleSVGWithPaths(moduleName, tempDir);
     
     return { 
       success: true, 
@@ -3047,12 +3083,15 @@ ipcMain.on('request-toggle-ui-state', (event) => {
   }
 });
 
-ipcMain.handle('open-prism-compile', async (event) => {
+ipcMain.handle('open-prism-compile', async (event, compilationPaths) => {
   try {
     console.log('=== STARTING PRISM COMPILATION ===');
     
-    // Primeiro, realizar a compilação
-    const compilationResult = await performPrismCompilation();
+    if (!compilationPaths) {
+        throw new Error("Compilation paths are required.");
+    }
+
+    const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
     
     if (!compilationResult.success) {
       console.error('Compilation failed:', compilationResult.message);
@@ -3061,7 +3100,6 @@ ipcMain.handle('open-prism-compile', async (event) => {
     
     console.log('Compilation successful, creating PRISM window...');
     
-    // Criar a janela PRISM com os dados da compilação
     const window = await createPrismWindow(compilationResult);
     
     if (!window) {
@@ -3075,7 +3113,6 @@ ipcMain.handle('open-prism-compile', async (event) => {
     console.error('=== PRISM COMPILATION/WINDOW CREATION FAILED ===');
     console.error('Error:', error);
     
-    // Log adicional para debug
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', `Failed to open PRISM: ${error.message}`, 'error');
     }
@@ -3083,6 +3120,7 @@ ipcMain.handle('open-prism-compile', async (event) => {
     return { success: false, message: error.message };
   }
 });
+
 
 // Helper function to filter and group log messages
 function shouldLogMessage(message, source) {
@@ -3152,36 +3190,27 @@ async function getToggleUIStateFromMain() {
 }
 
 // Updated performPrismCompilation - only generates SVG once
-async function performPrismCompilation() {
+async function performPrismCompilationWithPaths(compilationPaths) {
   try {
+    console.log('=== PERFORMING PRISM COMPILATION WITH PROVIDED PATHS ===');
+    
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
     }
-  
     
-    if (global.currentProjectPath) {
-      projectPath = global.currentProjectPath;
-    } else if (global.currentOpenProjectPath) {
-      projectPath = path.dirname(global.currentOpenProjectPath);
-    } else if (global.currentProject && global.currentProject.path) {
-      projectPath = global.currentProject.path;
-    }
+    // Use provided paths instead of resolving them here
+    const projectPath = compilationPaths.projectPath;
+    const hdlPath = compilationPaths.hdlPath;
+    const tempDir = compilationPaths.tempPath;
+    const yosysPath = compilationPaths.yosysPath;
+    const netlistsvgPath = compilationPaths.netlistsvgPath;
     
-    if (!projectPath) {
-      const errorMsg = 'No project path set. Please open a project first.';
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
-      }
-      throw new Error(errorMsg);
-    }
-    
-    console.log(`Working with project path: ${projectPath}`);
+    console.log(`Using project path: ${projectPath}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', `Project: ${path.basename(projectPath)}`, 'info');
     }
     
     // Create temp directory
-    const tempDir = path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM');
     await fse.ensureDir(tempDir);
     
     // Get toggle state from main window
@@ -3194,7 +3223,7 @@ async function performPrismCompilation() {
     
     if (isProjectOriented) {
       console.log('Running in Project Oriented mode...');
-      const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+      const projectConfigPath = compilationPaths.projectOrientedConfigPath;
       
       if (!await fse.pathExists(projectConfigPath)) {
         const errorMsg = 'projectOriented.json not found in project root';
@@ -3211,7 +3240,7 @@ async function performPrismCompilation() {
       }
     } else {
       console.log('Running in Processor Oriented mode...');
-      const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+      const processorConfigPath = compilationPaths.processorConfigPath;
       
       if (!await fse.pathExists(processorConfigPath)) {
         const errorMsg = 'processorConfig.json not found in project root';
@@ -3237,11 +3266,16 @@ async function performPrismCompilation() {
       }
     }
     
-    // Run Yosys compilation
+    // Run Yosys compilation with provided paths
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Starting Yosys synthesis...', 'info');
     }
-    const hierarchyJsonPath = await runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented);
+    const hierarchyJsonPath = await runYosysCompilationWithPaths(
+      compilationPaths, 
+      topLevelModule, 
+      tempDir, 
+      isProjectOriented
+    );
     
     // Split JSON into individual module files
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3249,13 +3283,13 @@ async function performPrismCompilation() {
     }
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
     
-    // Generate SVG for the top level module - ONLY ONCE HERE
+    // Generate SVG for the top level module
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', `Generating SVG diagram...`, 'info');
     }
-    const svgPath = await generateModuleSVG(topLevelModule, tempDir);
+    const svgPath = await generateModuleSVGWithPaths(topLevelModule, tempDir, netlistsvgPath);
     
-    console.log('PRISM compilation completed successfully');
+    console.log('PRISM compilation with paths completed successfully');
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
     }
@@ -3270,7 +3304,7 @@ async function performPrismCompilation() {
     };
     
   } catch (error) {
-    console.error('PRISM compilation error:', error);
+    console.error('PRISM compilation with paths error:', error);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error.message}`, 'error');
     }
@@ -3279,26 +3313,26 @@ async function performPrismCompilation() {
 }
 
 // Add recompile handler for existing PRISM window
-ipcMain.handle('prism-recompile', async (event) => {
+ipcMain.handle('prism-recompile', async (event, compilationPaths) => {
   try {
     console.log('=== STARTING PRISM RECOMPILATION ===');
     
-    // Realizar nova compilação
-    const compilationResult = await performPrismCompilation();
+    if (!compilationPaths) {
+        throw new Error("Compilation paths are required for re-compilation.");
+    }
+
+    const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
     
     if (!compilationResult.success) {
       throw new Error(compilationResult.message);
     }
     
-    // Se a janela PRISM existe, atualizar; senão criar nova
     if (prismWindow && !prismWindow.isDestroyed()) {
       console.log('Updating existing PRISM window with recompilation data');
       
-      // Enviar dados imediatamente se a janela não estiver carregando
       if (!prismWindow.webContents.isLoading()) {
         prismWindow.webContents.send('compilation-complete', compilationResult);
       } else {
-        // Esperar carregar se estiver carregando
         prismWindow.webContents.once('did-finish-load', () => {
           if (prismWindow && !prismWindow.isDestroyed()) {
             prismWindow.webContents.send('compilation-complete', compilationResult);
@@ -3306,7 +3340,6 @@ ipcMain.handle('prism-recompile', async (event) => {
         });
       }
       
-      // Focar na janela
       prismWindow.focus();
     } else {
       console.log('Creating new PRISM window for recompilation');
@@ -3355,35 +3388,57 @@ function debugPaths() {
   console.log('=== END DEBUG ===');
 }
 
+
+ipcMain.handle('get-dirname', async (event, filePath) => {
+  try {
+    console.log('Getting dirname for:', filePath);
+    const dirname = path.dirname(filePath);
+    console.log('Dirname result:', dirname);
+    return dirname;
+  } catch (error) {
+    console.error('Error getting dirname:', error);
+    throw error;
+  }
+});
+
 // Chamar debug na inicialização
 debugPaths();
 
+
+
 // Updated Yosys compilation function with optimized logging
-async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProjectOriented) {
-  console.log('Running Yosys compilation...');
+async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented) {
+  console.log('=== RUNNING YOSYS COMPILATION WITH PROVIDED PATHS ===');
   
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
+  const projectPath = compilationPaths.projectPath;
+  const hdlPath = compilationPaths.hdlPath;
+  const yosysExe = compilationPaths.yosysPath;
   
-  // Build file list for Yosys
+  // Build file list for Yosys using provided paths
   let fileList = [];
   let hdlFileCount = 0, processorFileCount = 0, topLevelFileCount = 0;
   
-  // Add HDL files
-  const hdlDir = path.join(__dirname, 'saphoComponents', 'HDL');
-  if (await fse.pathExists(hdlDir)) {
-    const hdlFiles = await fse.readdir(hdlDir);
+  // Add HDL files using provided HDL path
+  console.log('Scanning HDL directory:', hdlPath);
+  if (await fse.pathExists(hdlPath)) {
+    const hdlFiles = await fse.readdir(hdlPath);
     const vFiles = hdlFiles.filter(file => 
       file.endsWith('.v') && 
       !file.includes('_tb') && 
       !file.includes('_testbench') &&
       !file.toLowerCase().includes('test')
     );
-    fileList = fileList.concat(vFiles.map(file => path.join(hdlDir, file)));
+    fileList = fileList.concat(vFiles.map(file => path.join(hdlPath, file)));
     hdlFileCount = vFiles.length;
+    console.log(`Found ${hdlFileCount} HDL files`);
+  } else {
+    console.warn('HDL directory not found:', hdlPath);
   }
   
   // Add processor files from processorConfig.json
-  const processorConfigPath = path.join(projectPath, 'processorConfig.json');
+  const processorConfigPath = compilationPaths.processorConfigPath;
+  console.log('Checking processor config:', processorConfigPath);
   if (await fse.pathExists(processorConfigPath)) {
     const processorConfig = await fse.readJson(processorConfigPath);
     
@@ -3393,12 +3448,13 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
         const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
         const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
         
+        console.log(`Checking processor file: ${processorVFile}`);
         if (await fse.pathExists(processorVFile)) {
           fileList.push(processorVFile);
           processorFileCount++;
-          console.log(`Added processor file: ${processorVFile}`);
+          console.log(`✓ Added processor file: ${processorVFile}`);
         } else {
-          console.warn(`Processor file not found: ${processorVFile}`);
+          console.warn(`✗ Processor file not found: ${processorVFile}`);
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('terminal-log', 'tprism', `Missing: ${processorName}.v`, 'warning');
           }
@@ -3423,11 +3479,13 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   
   if (isProjectOriented) {
     // Project Oriented Mode: Include all TopLevel files except the top level file
-    const projectConfigPath = path.join(projectPath, 'projectOriented.json');
+    const topLevelDir = compilationPaths.topLevelPath;
+    console.log('Scanning TopLevel directory:', topLevelDir);
+    
+    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
     const projectConfig = await fse.readJson(projectConfigPath);
     const topLevelFileName = projectConfig.topLevelFile;
     
-    const topLevelDir = path.join(projectPath, 'TopLevel');
     if (await fse.pathExists(topLevelDir)) {
       const topLevelFiles = await fse.readdir(topLevelDir);
       const vFiles = topLevelFiles.filter(file => 
@@ -3443,9 +3501,11 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
       const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
       if (await fse.pathExists(topLevelFilePath)) {
         fileList.push(topLevelFilePath);
+        console.log(`✓ Added top level file: ${topLevelFilePath}`);
       }
       
       topLevelFileCount = vFiles.length + 1;
+      console.log(`Found ${topLevelFileCount} TopLevel files`);
     }
   }
   
@@ -3462,6 +3522,9 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
     }
     throw new Error(errorMsg);
   }
+  
+  // Continue with existing Yosys compilation logic using provided yosysExe path
+  console.log('Using Yosys executable:', yosysExe);
   
   // First, clean up any old stub files
   await cleanupOldStubFiles(tempDir);
@@ -3489,12 +3552,10 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
   
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
-  const yosysExe = getExecutablePath('yosys');
-  
   // Try compilation with hierarchy check first
   let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
   
-  console.log('Executing Yosys command:', yosysCommand);
+  console.log('Executing Yosys command with provided executable path');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
   }
@@ -3597,7 +3658,6 @@ async function runYosysCompilation(projectPath, topLevelModule, tempDir, isProje
     });
   });
 }
-
 
 
 // 2. Function to clean module names
@@ -3867,7 +3927,7 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
 }
 
 // Updated SVG generation function with optimized logging
-async function generateModuleSVG(moduleName, tempDir) {
+async function generateModuleSVGWithPaths(moduleName, tempDir) {
   console.log(`Generating SVG for module: ${moduleName}`);
   
   const cleanModuleName = sanitizeFileName(moduleName);

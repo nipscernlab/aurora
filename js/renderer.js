@@ -8544,19 +8544,61 @@ write_json ${jsonOutputPath}
   this.enableHierarchicalTreeToggle();
 }
 
-// Parse Yosys JSON hierarchy
+// Function to clean module names
+cleanModuleName(moduleName) {
+  // Remove $paramod prefixes and hash suffixes
+  let cleanName = moduleName;
+  
+  // Handle $paramod patterns
+  if (cleanName.startsWith('$paramod')) {
+    // Extract the actual module name from $paramod patterns
+    if (cleanName.includes('\\\\')) {
+      // Pattern: $paramod$hash\\moduleName or $paramod\\moduleName\\params
+      const parts = cleanName.split('\\\\');
+      if (parts.length >= 2) {
+        cleanName = parts[1];
+        // Remove parameter specifications if present
+        if (cleanName.includes('\\')) {
+          cleanName = cleanName.split('\\')[0];
+        }
+      }
+    } else if (cleanName.includes('\\')) {
+      // Pattern: $paramod\moduleName\params
+      const parts = cleanName.split('\\');
+      if (parts.length >= 2) {
+        cleanName = parts[1];
+      }
+    }
+  }
+  
+  // Remove hash patterns like $747e370037f20148f8b166e3c93decd0b83cff70
+  cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
+  
+  // Remove parameter specifications like NUBITS=s32'00000000000000000000000000100000
+  cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
+  
+  // Clean up any remaining backslashes or dollar signs at the beginning
+  cleanName = cleanName.replace(/^[\\\$]+/, '');
+  
+  return cleanName;
+}
+
+// Parse Yosys JSON hierarchy - Enhanced to capture all dependencies with cleaned names
 parseYosysHierarchy(jsonData, topLevelModule) {
   const modules = jsonData.modules || {};
   const hierarchy = {
     topLevel: topLevelModule,
     modules: {},
     dependencies: new Map(),
-    allModules: new Set()
+    allModules: new Set(),
+    cleanNameMap: new Map() // Map original names to clean names
   };
 
-  // First pass: collect all modules
+  // First pass: collect all modules and create clean name mapping
   for (const moduleName of Object.keys(modules)) {
+    const cleanName = this.cleanModuleName(moduleName);
     hierarchy.allModules.add(moduleName);
+    hierarchy.cleanNameMap.set(moduleName, cleanName);
   }
 
   // Second pass: parse each module and its dependencies
@@ -8568,9 +8610,11 @@ parseYosysHierarchy(jsonData, topLevelModule) {
     // Extract all cell instances (both user modules and primitives)
     for (const [cellName, cellData] of Object.entries(cells)) {
       if (cellData.type) {
+        const cleanCellType = this.cleanModuleName(cellData.type);
         submodules.push({
           instance: cellName,
           type: cellData.type,
+          cleanType: cleanCellType,
           parameters: cellData.parameters || {},
           isUserModule: hierarchy.allModules.has(cellData.type)
         });
@@ -8578,8 +8622,10 @@ parseYosysHierarchy(jsonData, topLevelModule) {
       }
     }
 
+    const cleanModuleName = this.cleanModuleName(moduleName);
     hierarchy.modules[moduleName] = {
       name: moduleName,
+      cleanName: cleanModuleName,
       submodules: submodules,
       ports: moduleData.ports || {},
       attributes: moduleData.attributes || {}
@@ -8603,6 +8649,7 @@ getModuleNumber(moduleName, parentNumber = '', moduleIndex = 0) {
   
   return `${parentNumber}.${moduleIndex + 1}`;
 }
+
 
 // Enable hierarchical tree toggle button
 enableHierarchicalTreeToggle() {
@@ -8734,6 +8781,7 @@ toggleHierarchicalView() {
 
 
 // Render hierarchical tree view
+// Enhanced render hierarchical tree view with numbering
 renderHierarchicalTree() {
   const fileTreeElement = document.getElementById('file-tree');
   if (!fileTreeElement || !this.hierarchyData) {
@@ -8956,7 +9004,6 @@ toggleHierarchyItem(itemElement) {
     });
   }
 }
-
 
 // Add this method to your class for launching fractal visualizer
 async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {

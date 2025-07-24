@@ -11478,6 +11478,7 @@ const vvpProgressManager = new VVPProgressManager();
     });
   });
 
+  /*
 // Add this function to your main JS file
 function addLayoutResetButton() {
   const resetBtn = document.createElement('button');
@@ -11502,3 +11503,5 @@ function addLayoutResetButton() {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(addLayoutResetButton, 1000);
 });
+
+*/

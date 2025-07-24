@@ -373,7 +373,7 @@ body {
   padding: 4rem 0rem;
   user-select: none;
   -webkit-user-drag: none;
-  filter: saturate(1.5);
+  filter: opacity(0.8);
 }
 /* Define o padding horizontal só para o caractere ⟩ */
 .monaco-editor .bra-ket-padding {

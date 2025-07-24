@@ -130,7 +130,8 @@
   transition: color var(--transition-normal), transform var(--transition-fast);
   cursor: pointer;
   border-radius: var(--radius-md);
-  top: 70px;
+  top: 8rem;
+  left: 1rem;
 }
 
 .change-icon-btn:hover {

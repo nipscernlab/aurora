@@ -3553,8 +3553,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
   // Try compilation with hierarchy check first
-  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
-  
+let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`;  
   console.log('Executing Yosys command with provided executable path');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');

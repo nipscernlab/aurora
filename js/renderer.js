@@ -9217,7 +9217,7 @@ function showVVPProgress(name) {
   return vvpProgressManager.show(name);
 }
 
-function hideVVPProgress(delay = 2000) {
+function hideVVPProgress(delay = 4000) {
   setTimeout(() => {
     vvpProgressManager.hide();
   }, delay);
@@ -9756,13 +9756,25 @@ document.getElementById('wavecomp').addEventListener('click', async () => {
   }
 });
 
+
 // KEEP ONLY ONE COMPILE ALL EVENT LISTENER (simplified version):
 document.getElementById('allcomp').addEventListener('click', async () => {
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
-    return;
+    const toggleButton = document.getElementById('toggle-ui');
+    // Check if toggleButton exists to avoid errors in case it's not in the DOM
+    if (toggleButton) {
+      const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+      if (isProjectMode) { // Project Mode
+        document.getElementById('settings-project').click();
+      } else { // Processor Mode
+        document.getElementById('settings').click();
+      }
+    }
+    return; // Stop execution if processor is not configured
   }
 
+  // If a processor is configured, proceed with compilation
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
@@ -9775,10 +9787,10 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     startCompilation();
     const compiler = new CompilationModule(currentProjectPath);
     await compiler.loadConfig();
-    
+
     const toggleButton = document.getElementById('toggle-ui');
     const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    
+
     if (isProjectMode) {
       // Project oriented: cmmcomp, asmcomp, iverilogprojectcompilation, runprojectgtkwave
       await runProjectPipeline(compiler);
@@ -9786,7 +9798,7 @@ document.getElementById('allcomp').addEventListener('click', async () => {
       // Processor oriented: cmmcomp, asmcomp, iverilogcompilation, rungtkwave
       await runProcessorPipeline(compiler);
     }
-    
+
     if (!compilationCanceled) {
       console.log('All compilations completed successfully');
       await refreshFileTree();
@@ -9800,6 +9812,7 @@ document.getElementById('allcomp').addEventListener('click', async () => {
     endCompilation();
   }
 });
+
 
 // KEEP ONLY ONE FRACTAL COMPILATION EVENT LISTENER:
 document.getElementById('fractalcomp').addEventListener('click', async () => {

@@ -1,7 +1,7 @@
 /* Recent Projects Section Styles */
 .recent-projects-section {
   flex: 1;
-  min-height: 400px;
+  min-height: 40vh;
   display: flex;
   flex-direction: column;
   margin-left: 3rem;

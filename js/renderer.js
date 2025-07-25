@@ -8106,26 +8106,12 @@ async runGtkWave(processor) {
     this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
     this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
     
-    // Launch GTKWave and capture its output
-    try {
-      const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-      
-      if (gtkwResult.stdout) {
-        this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-      }
-      if (gtkwResult.stderr) {
-        this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-      }
-      
-      if (gtkwResult.code !== 0) {
-        this.terminalManager.appendToTerminal('twave', `GTKWave exited with code ${gtkwResult.code}`, 'warning');
-      } else {
-        this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully!', 'success');
-      }
-    } catch (error) {
-      this.terminalManager.appendToTerminal('twave', `GTKWave error: ${error.message}`, 'error');
-    }
+    // Launch GTKWave in parallel (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+    });
 
+    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
     statusUpdater.compilationSuccess('wave');
     
   } catch (error) {
@@ -8398,6 +8384,24 @@ async runProjectGtkWave() {
       gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPathInTemp}" --script="${initScriptPath}"`;
     }
 
+    // Launch GTKWave
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave...');
+    this.terminalManager.appendToTerminal('twave', `GTKWave command: ${gtkwCmd}`);
+    
+    // Start GTKWave process
+    const gtkwavePromise = window.electronAPI.execCommand(gtkwCmd).then(gtkwResult => {
+      if (gtkwResult.stdout) this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
+      if (gtkwResult.stderr) this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
+      
+      if (gtkwResult.code !== 0) {
+        this.terminalManager.appendToTerminal('twave', `GTKWave warning: exited with code ${gtkwResult.code}`, 'warning');
+      } else {
+        this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
+      }
+    }).catch(error => {
+      this.terminalManager.appendToTerminal('twave', `GTKWave warning: ${error.message}`, 'warning');
+    });
+
     // Wait for VVP simulation to complete
     try {
       await vvpPromise;
@@ -8421,29 +8425,16 @@ async runProjectGtkWave() {
         throw error;
       }
 
-      // Launch GTKWave immediately after VCD is copied
-      this.terminalManager.appendToTerminal('twave', 'VCD file generated and copied. Launching GTKWave...');
-      this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
-      
-      // Launch GTKWave and capture its output
-      try {
-        const gtkwResult = await window.electronAPI.execCommand(gtkwCmd);
-        
-        if (gtkwResult.stdout) {
-          this.terminalManager.appendToTerminal('twave', gtkwResult.stdout, 'stdout');
-        }
-        if (gtkwResult.stderr) {
-          this.terminalManager.appendToTerminal('twave', gtkwResult.stderr, 'stderr');
-        }
-        
-        if (gtkwResult.code !== 0) {
-          this.terminalManager.appendToTerminal('twave', `GTKWave exited with code ${gtkwResult.code}`, 'warning');
-        } else {
-          this.terminalManager.appendToTerminal('twave', 'GTKWave completed successfully!', 'success');
-        }
-      } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `GTKWave error: ${error.message}`, 'error');
-      }
+    // Launch GTKWave immediately after VCD is copied
+    this.terminalManager.appendToTerminal('twave', 'VCD file generated and copied. Launching GTKWave...');
+    this.terminalManager.appendToTerminal('twave', `Launching GTKWave command:\n${gtkwCmd}`);
+    
+    // Launch GTKWave in parallel (don't wait for it to finish)
+    window.electronAPI.execCommand(gtkwCmd).catch(error => {
+      console.warn('GTKWave launch warning:', error);
+    });
+
+    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
 
       // GTKWave compilation successful - now run Yosys to generate hierarchy
       try {
@@ -8463,6 +8454,9 @@ async runProjectGtkWave() {
       hideVVPProgress();
       throw vvpError;
     }
+
+    // Wait for GTKWave to complete (optional, for cleanup)
+    await gtkwavePromise;
 
   } catch (error) {
     this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');

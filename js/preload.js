@@ -149,7 +149,9 @@ const fileOperations = {
     console.log('prismRecompile called with paths:', compilationPaths);
     return ipcRenderer.invoke('prism-recompile', compilationPaths);
   },
-    
+     zoomIn: () => ipcRenderer.send('zoom-in'),
+  zoomOut: () => ipcRenderer.send('zoom-out'),
+  zoomReset: () => ipcRenderer.send('zoom-reset'),
     exportLog: (logData) => ipcRenderer.invoke('export-log', logData),
     
     // Send messages to main process

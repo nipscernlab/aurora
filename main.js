@@ -689,6 +689,29 @@ ipcMain.on('open-settings', () => {
   createSettingsWindow(); // Open settings window
 });
 
+  function handleZoom(mainWindow, factorChange) {
+  if (mainWindow) {
+    const webContents = mainWindow.webContents;
+    const currentZoom = webContents.getZoomFactor();
+    const newZoom = Math.max(0.2, currentZoom + factorChange); // Impede zoom menor que 20%
+    webContents.setZoomFactor(newZoom);
+  }
+}
+
+
+ipcMain.on('zoom-in', () => {
+  handleZoom(mainWindow, 0.1); // Aumenta o zoom em 10%
+});
+
+ipcMain.on('zoom-out', () => {
+  handleZoom(mainWindow, -0.1); // Diminui o zoom em 10%
+});
+
+ipcMain.on('zoom-reset', () => {
+  if (mainWindow) {
+    mainWindow.webContents.setZoomFactor(1.0); // Reseta para 100%
+  }
+});
 // Function to create a splash screen
 function createSplashScreen() {
   splashWindow = new BrowserWindow({
@@ -2957,6 +2980,7 @@ ipcMain.on('toggle-ui-state-response', (event, isActive) => {
 });
 
 
+
 // Alternative simpler approach - get toggle state directly
 ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
   try {
@@ -3404,8 +3428,6 @@ ipcMain.handle('get-dirname', async (event, filePath) => {
 // Chamar debug na inicialização
 debugPaths();
 
-
-
 // Updated Yosys compilation function with optimized logging
 async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented) {
   console.log('=== RUNNING YOSYS COMPILATION WITH PROVIDED PATHS ===');
@@ -3553,7 +3575,8 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
   // Try compilation with hierarchy check first
-let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`;  
+  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`; 
+
   console.log('Executing Yosys command with provided executable path');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');

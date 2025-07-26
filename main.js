@@ -3336,6 +3336,43 @@ async function performPrismCompilationWithPaths(compilationPaths) {
   }
 }
 
+// Add handler to get compilation paths for recompile
+ipcMain.handle('get-prism-compilation-paths', async (event) => {
+    try {
+        console.log('Getting compilation paths for PRISM recompile...');
+        
+        // Get current project path
+        let projectPath = currentProjectPath || currentOpenProjectPath;
+        if (currentOpenProjectPath && !currentProjectPath) {
+            projectPath = path.dirname(currentOpenProjectPath);
+        }
+        
+        if (!projectPath) {
+            throw new Error('No project path available. Please open a project first.');
+        }
+        
+        // Build all required paths
+        const compilationPaths = {
+            projectPath,
+            saphoComponentsPath: path.join(__dirname, 'saphoComponents'),
+            hdlPath: path.join(__dirname, 'saphoComponents', 'HDL'),
+            tempPath: path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM'),
+            yosysPath: path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
+            netlistsvgPath: path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
+            processorConfigPath: path.join(projectPath, 'processorConfig.json'),
+            projectOrientedConfigPath: path.join(projectPath, 'projectOriented.json'),
+            topLevelPath: path.join(projectPath, 'TopLevel')
+        };
+        
+        console.log('Compilation paths acquired:', compilationPaths);
+        return compilationPaths;
+        
+    } catch (error) {
+        console.error('Failed to get compilation paths:', error);
+        throw error;
+    }
+});
+
 // Add recompile handler for existing PRISM window
 ipcMain.handle('prism-recompile', async (event, compilationPaths) => {
   try {
@@ -3575,7 +3612,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
   // Try compilation with hierarchy check first
-  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; proc; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`; 
+  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; prep; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`; 
 
   console.log('Executing Yosys command with provided executable path');
   if (mainWindow && !mainWindow.isDestroyed()) {

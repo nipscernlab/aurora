@@ -144,7 +144,6 @@ body {
 }
 
 .tab.active {
-  background-color: var(--bg-active);
   border-bottom: 4px solid var(--accent-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, border-bottom 0.3s ease, color 0.3s ease;

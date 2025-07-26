@@ -15,6 +15,11 @@ try {
     console.log('dirname called with:', filePath);
     return ipcRenderer.invoke('get-dirname', filePath);
   },
+  // Add this method to the electronAPI object
+  getPrismCompilationPaths: () => {
+      console.log('getPrismCompilationPaths called');
+      return ipcRenderer.invoke('get-prism-compilation-paths');
+  },
 
   // Add the missing method for PRISM compilation with paths
   prismCompileWithPaths: (compilationPaths) => {

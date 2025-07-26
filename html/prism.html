@@ -95,7 +95,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 16px;
+            font-size: 24px;
             font-weight: 700;
             color: var(--text-accent);
             letter-spacing: -0.025em;
@@ -140,6 +140,59 @@
             display: flex;
             gap: 8px;
         }
+
+        /* Context Menu Styles (New) */
+.context-menu {
+    position: absolute;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    padding: 8px 0;
+    z-index: 1000; /* Ensure it's on top */
+    min-width: 180px;
+    backdrop-filter: blur(15px);
+    opacity: 0;
+    transform: scale(0.95);
+    transform-origin: top left;
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    pointer-events: none; /* Hidden by default */
+}
+
+.context-menu.show {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto; /* Active when shown */
+}
+
+.context-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+}
+
+.context-item:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-accent);
+}
+
+.context-item .shortcut {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: 'Fira Code', monospace;
+    opacity: 0.7;
+}
+
+.context-separator {
+    height: 1px;
+    background-color: var(--border-primary);
+    margin: 8px 0;
+}
 
         /* Modern Buttons */
         .btn {
@@ -1014,25 +1067,31 @@ setupModuleClick(element, moduleName) {
                 }
             }
 
-           // 10. RENDERER PROCESS - Enhanced recompile function
-    async recompile() {
-        console.log('Recompiling...');
-        this.navigationHistory = [];
-        this.backBtn.disabled = true;
-        this.showStatus('Recompiling RTL Design...', false);
+      // 10. RENDERER PROCESS - Enhanced recompile function
+async recompile() {
+    console.log('Recompiling...');
+    this.navigationHistory = [];
+    this.backBtn.disabled = true;
+    this.showStatus('Recompiling RTL Design...', false);
+    
+    try {
+        // Request compilation paths from main process
+        const compilationPaths = await window.electronAPI.getPrismCompilationPaths();
         
-        try {
-            const result = await window.electronAPI.compileForPRISM();
-            if (!result.success) {
-                this.showStatus(`Compilation Error: ${result.message}`, true);
-            }
-            // The handleCompilationComplete will be called automatically
-        } catch (error) {
-            console.error('Recompile error:', error);
-            this.showStatus(`Compilation Failed: ${error.message}`, true);
+        if (!compilationPaths) {
+            throw new Error('Failed to acquire compilation paths');
         }
+        
+        const result = await window.electronAPI.prismRecompile(compilationPaths);
+        if (!result.success) {
+            this.showStatus(`Compilation Error: ${result.message}`, true);
+        }
+        // The handleCompilationComplete will be called automatically
+    } catch (error) {
+        console.error('Recompile error:', error);
+        this.showStatus(`Compilation Failed: ${error.message}`, true);
     }
-
+}
     showStatus(message, isError = false) {
         const statusText = this.statusOverlay.querySelector('.status-text');
         const spinner = this.statusOverlay.querySelector('.loading-spinner');

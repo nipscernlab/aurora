@@ -6840,7 +6840,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+  const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp' , 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
       const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 
@@ -6934,8 +6934,13 @@ const processorHubButton = document.createElement('button');
 processorHubButton.className = 'toolbar-button';
 processorHubButton.id = 'processorHub';
 processorHubButton.innerHTML = '<i class="fa-solid fa-star-of-life"></i> Processor Hub';
-processorHubButton.disabled = true; // Disabled by default
+processorHubButton.disabled = true;
 document.querySelector('.toolbar').appendChild(processorHubButton);
+
+const icon = processorHubButton.querySelector('i');
+icon.style.background = 'var(--gradient-primary)';
+icon.style.webkitBackgroundClip = 'text';
+icon.style.webkitTextFillColor = 'transparent';
 
 function updateProcessorHubButton(enabled) {
   processorHubButton.disabled = !enabled;
@@ -9328,857 +9333,400 @@ async compileAll() {
 
 }
 
-// Global functions to handle button clicks (put these outside your class)
 
-function setCompilerInstance(instance) {
-  compilerInstance = instance;
-}
-
-// Updated fractal compilation handler
-async function handleFractalCompilation() {
-  if (!compilerInstance) {
-    console.error('Compiler instance not defined');
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, setting up PRISM button...');
+  
+  const prismButton = document.getElementById('prismcomp');
+  let isCompiling = false;
+  
+  if (!prismButton) {
+    console.error('PRISM button not found!');
     return;
   }
   
-  if (!compilerInstance.isCompiling) {
-    try {
-      console.log('Starting fractal compilation...');
-      await compilerInstance.loadConfig();
-      
-      // Force project mode for fractal compilation
-      const originalMode = compilerInstance.isProjectOriented;
-      compilerInstance.isProjectOriented = true;
-      
-      try {
-        // After successful compilation, launch fractal visualizer
-        const palette = 'fire'; // or allow user selection
-        await compilerInstance.launchFractalVisualizersForProject(palette);
-        console.log('Fractal compilation completed successfully');
-        // Run complete compilation in project mode
-        const success = await compilerInstance.compileAll();
-      
-      } finally {
-        // Restore original mode
-        compilerInstance.isProjectOriented = originalMode;
-      }
-      
-    } catch (error) {
-      console.error('Error in fractal compilation:', error);
-      if (compilerInstance.terminalManager) {
-        compilerInstance.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
-      }
-    }
-  }
-}
-
-// Functions to use in your renderer.js
-function showVVPProgress(name) {
-  vvpProgressManager.deleteProgressFile(name);
-  return vvpProgressManager.show(name);
-}
-
-function hideVVPProgress(delay = 4000) {
-  setTimeout(() => {
-    vvpProgressManager.hide();
-  }, delay);
-}
-
-
-// Global flag to track compilation status
-let isCompilationRunning = false;
-let compilationCanceled = false;
-
-// Adicione este event listener no seu código frontend (renderer)
-document.getElementById('cancel-everything').addEventListener('click', async () => {
-  try {
-    const result = await window.electronAPI.cancelVvpProcess();
+  console.log('PRISM button found:', prismButton);
+  
+  // Function to update button appearance based on PRISM window status
+  function updatePrismButton(isOpen) {
+    if (!prismButton) return;
     
-    if (result.success) {
-      // Processo foi cancelado com sucesso
-      globalTerminalManager.appendToTerminal('twave', 'Compilation process canceled by user.', 'warning');
+    console.log('Updating PRISM button, isOpen:', isOpen);
+    
+    if (isOpen) {
+      prismButton.classList.add('active');
+      if (!isCompiling) {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
+      }
     } else {
-      // Nenhum processo estava rodando
-      showCardNotification('No compilation process is currently running.', 'info', 3000);
-    }
-  } catch (error) {
-    console.error('Error canceling VVP process:', error);
-    //showCardNotification('Error occurred while trying to cancel the process.', 'error', 3000);
-  }
-});
-
-// Helper functions to manage VVP process state
-window.setCurrentVvpPid = function(pid) {
-  currentVvpPid = pid;
-  console.log(`Current VVP PID set to: ${pid}`);
-};
-
-window.setVvpRunning = function(running) {
-  isVvpRunning = running;
-  console.log(`VVP running state set to: ${running}`);
-};
-
-// Enhanced cancelCompilation function
-function cancelCompilation() {
-  if (isCompilationRunning || isVvpRunning) {
-    compilationCanceled = true;
-    isCompilationRunning = false;
-    
-    // Kill VVP process if running
-    if (isVvpRunning && currentVvpPid) {
-      killVvpProcess();
-    }
-    
-    // Force enable buttons immediately on cancellation
-    setCompilationButtonsState(false);
-    
-    // Display cancellation message in all terminals
-    const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
-    terminals.forEach(terminalId => {
-      if (globalTerminalManager) {
-        globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'warning');
-        hideVvpSpinner();
+      prismButton.classList.remove('active');
+      if (!isCompiling) {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM';
       }
-    });
-    
-    showCardNotification('Compilation process has been canceled by user.', 'warning', 4000);
-    console.log('Compilation canceled by user');
-    
-    endCompilation();
-  } else {
-    showCardNotification('No compilation process is currently running.', 'info', 3000);
+    }
   }
-}
 
-// Function to kill VVP process
-async function killVvpProcess() {
-  if (currentVvpPid && isVvpRunning) {
+  // Function to acquire all necessary paths for PRISM compilation
+  async function acquirePrismPaths() {
+    console.log('=== ACQUIRING PRISM PATHS ===');
+    
     try {
-      console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
-      await window.electronAPI.terminateProcess(currentVvpPid);
-      console.log('VVP process killed successfully');
-      
-      hideVvpSpinner();
-      
-      isVvpRunning = false;
-      currentVvpPid = null;
-      
-      // Also try killing by name as backup
-      try {
-        await window.electronAPI.terminateProcess('vvp.exe');
-        console.log('Additional VVP processes killed by name');
-      } catch (nameKillError) {
-        // Ignore if no processes found by name
-        console.log('No additional VVP processes found by name');
+      // Get project path - fix global reference issue
+      let projectPath = null;
+      if (window.currentProjectPath) {
+        projectPath = window.currentProjectPath;
+      } else if (window.currentOpenProjectPath) {
+        projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
+      } else if (window.currentProject && window.currentProject.path) {
+        projectPath = window.currentProject.path;
       }
       
-      return true;
+      if (!projectPath) {
+        throw new Error('No project path available. Please open a project first.');
+      }
+      
+      console.log('✓ Project path acquired:', projectPath);
+      
+      // Acquire component paths using electronAPI
+      console.log('Acquiring saphoComponents path...');
+      const saphoComponentsPath = await window.electronAPI.joinPath('saphoComponents');
+      console.log('✓ SaphoComponents path:', saphoComponentsPath);
+      
+      console.log('Acquiring HDL path...');
+      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+      console.log('✓ HDL path:', hdlPath);
+      
+      console.log('Acquiring temp path...');
+      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', 'PRISM');
+      console.log('✓ Temp path:', tempPath);
+      
+      console.log('Acquiring Yosys executable path...');
+      const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+      console.log('✓ Yosys executable path:', yosysPath);
+      
+      console.log('Acquiring NetlistSVG executable path...');
+      const netlistsvgPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+      console.log('✓ NetlistSVG executable path:', netlistsvgPath);
+      
+      // Configuration file paths
+      console.log('Acquiring processor config path...');
+      const processorConfigPath = await window.electronAPI.joinPath(projectPath, 'processorConfig.json');
+      console.log('✓ Processor config path:', processorConfigPath);
+      
+      console.log('Acquiring project oriented config path...');
+      const projectOrientedConfigPath = await window.electronAPI.joinPath(projectPath, 'projectOriented.json');
+      console.log('✓ Project oriented config path:', projectOrientedConfigPath);
+      
+      // TopLevel directory path
+      console.log('Acquiring TopLevel directory path...');
+      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
+      console.log('✓ TopLevel directory path:', topLevelPath);
+      
+      const compilationPaths = {
+        projectPath,
+        saphoComponentsPath,
+        hdlPath,
+        tempPath,
+        yosysPath,
+        netlistsvgPath,
+        processorConfigPath,
+        projectOrientedConfigPath,
+        topLevelPath
+      };
+      
+      console.log('=== ALL PRISM PATHS ACQUIRED SUCCESSFULLY ===');
+      console.log('Compilation paths object:', compilationPaths);
+      
+      return compilationPaths;
+      
     } catch (error) {
-      console.error('Error killing VVP process by PID:', error);
-      
-      // Fallback: try killing by process name
-      try {
-        await window.electronAPI.terminateProcess('vvp.exe');
-        console.log('VVP process killed by name (fallback method)');
-        
-        hideVvpSpinner();
-        isVvpRunning = false;
-        currentVvpPid = null;
-        
-        return true;
-      } catch (nameError) {
-        console.error('Error killing VVP process by name:', nameError);
-        return false;
-      }
+      console.error('Failed to acquire PRISM paths:', error);
+      throw new Error(`Path acquisition failed: ${error.message}`);
     }
   }
-  return false;
-}
-
-// Add this to your existing keyboard event handler or create a new one
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
-    e.preventDefault();
+  
+  // Enable the button initially
+  prismButton.disabled = false;
+  prismButton.style.cursor = 'pointer';
+  console.log('PRISM button enabled');
+  
+  // Listen for PRISM window status updates
+  if (window.electronAPI && window.electronAPI.onPrismStatus) {
+    console.log('Setting up PRISM status listener...');
+    window.electronAPI.onPrismStatus((isOpen) => {
+      console.log('PRISM status update received:', isOpen);
+      updatePrismButton(isOpen);
+    });
+  } else {
+    console.warn('electronAPI.onPrismStatus not available');
+  }
+  
+  // PRISM button click handler - UNIFIED FOR BOTH COMPILE AND RECOMPILE
+  prismButton.addEventListener('click', async () => {
+    console.log('=== PRISM BUTTON CLICKED ===');
+    console.log('Button disabled:', prismButton.disabled);
+    console.log('Is compiling:', isCompiling);
     
-    // Simulate click on the compile all button
-    const compileButton = document.getElementById('allcomp');
-    if (compileButton && !compileButton.disabled) {
-      compileButton.click();
+    // Check if button is disabled or already compiling
+    if (prismButton.disabled || isCompiling) {
+      console.log('PRISM button is disabled or compilation in progress - ignoring click');
+      return;
     }
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-    e.preventDefault();
-    const settingsBtn = document.getElementById('settings');
-    if (settingsBtn && !settingsBtn.disabled) {
-      settingsBtn.click();
-    }
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-    e.preventDefault();
-
-    const toggleUi = document.getElementById('toggle-ui');
-    const settingsBtn = document.getElementById('settings');
-    const settingsModal = document.getElementById('settings-project');
-
-    // Se o botão "fan" estiver ativo (por exemplo, tem a classe "active")
-    if (toggleUi && toggleUi.classList.contains('active')) {
-      // Abre o modal de configurações do projeto
-      if (settingsModal) {
-        if (typeof settingsModal.showModal === 'function') {
-          settingsModal.showModal();       // para <dialog>
+    
+    try {
+      // Set compilation state
+      isCompiling = true;
+      console.log('Starting PRISM compilation process...');
+      
+      // Update button appearance
+      prismButton.disabled = true;
+      prismButton.style.cursor = 'not-allowed';
+      prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Preparing...';
+      
+      // Step 1: Acquire all necessary paths
+      console.log('Step 1: Acquiring compilation paths...');
+      const compilationPaths = await acquirePrismPaths();
+      
+      // Step 2: Check if PRISM window is already open
+      let isPrismOpen = false;
+      try {
+        if (window.electronAPI && window.electronAPI.checkPrismWindowOpen) {
+          isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
+          console.log('PRISM window open status:', isPrismOpen);
+        }
+      } catch (error) {
+        console.warn('Error checking PRISM window status:', error);
+        isPrismOpen = false;
+      }
+      
+      // Step 3: Update button text based on operation type
+      if (isPrismOpen) {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
+        console.log('Starting PRISM recompilation...');
+      } else {
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
+        console.log('Starting PRISM compilation...');
+      }
+      
+      // Step 4: Send paths and execute compilation - FIXED VERSION
+      console.log('Step 4: Executing PRISM compilation with acquired paths...');
+      let result;
+      
+      if (isPrismOpen) {
+        // Use recompile for existing window
+        if (window.electronAPI.prismRecompile) {
+          console.log('Using prismRecompile method...');
+          result = await window.electronAPI.prismRecompile(compilationPaths);
+        } else if (window.electronAPI.prismCompileWithPaths) {
+          console.log('prismRecompile not available, using prismCompileWithPaths...');
+          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
         } else {
-          settingsModal.classList.add('open');  // ou remova .hidden / exiba via CSS
+          console.log('Using legacy openPrismCompile with paths...');
+          result = await window.electronAPI.openPrismCompile(compilationPaths);
+        }
+      } else {
+        // Use the best available method for new compilation
+        if (window.electronAPI.prismCompileWithPaths) {
+          console.log('Using prismCompileWithPaths method...');
+          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
+        } else if (window.electronAPI.prismCompile) {
+          console.log('Using prismCompile method...');
+          result = await window.electronAPI.prismCompile(compilationPaths);
+        } else if (window.electronAPI.openPrismCompile) {
+          console.log('Using legacy openPrismCompile with paths...');
+          result = await window.electronAPI.openPrismCompile(compilationPaths);
+        } else {
+          throw new Error('No PRISM compilation method available in electronAPI');
         }
       }
-    } else {
-      // Caso contrário, clica no botão de settings, se não estiver desabilitado
-      if (settingsBtn && !settingsBtn.disabled) {
-        settingsBtn.click();
-      }
-    }
-  }
-});
-
-
-// Enhanced processor configuration check
-function isProcessorConfigured() {
-  const processorElement = document.getElementById('processorNameID');
-  if (!processorElement) {
-    return false;
-  }
-  
-  const processorText = processorElement.textContent || processorElement.innerText;
-  return !processorText.includes('No Processor Configured');
-}
-
-// Enhanced compilation state management
-function startCompilation() {
-  isCompilationRunning = true;
-  compilationCanceled = false;
-  setCompilationButtonsState(true);
-  
-  if (!globalTerminalManager) {
-    initializeGlobalTerminalManager();
-  }
-}
-
-function endCompilation() {
-  isCompilationRunning = false;
-  compilationCanceled = false;
-  setCompilationButtonsState(false);
-}
-
-function setCompilationButtonsState(disabled) {
-  const buttons = [
-    'cmmcomp',
-    'asmcomp', 
-    'vericomp',
-    'wavecomp',
-    'allcomp',
-    'fractalcomp',
-  ];
-  
-  buttons.forEach(buttonId => {
-    const button = document.getElementById(buttonId);
-    if (button) {
-      button.disabled = disabled;
       
-      if (disabled) {
-        button.style.cursor = 'not-allowed';
-        button.style.opacity = '0.6';
-        button.style.pointerEvents = 'none';
+      console.log('PRISM compilation result:', result);
+      
+      // Check if result is valid and has success property
+      if (result && result.success) {
+        console.log('PRISM compilation successful:', result.message);
+        
+        // Show success message if terminal is available
+        if (window.terminalManager) {
+          window.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully', 'success');
+        }
+        
+        // Update button status after a delay to allow window to open
+        setTimeout(async () => {
+          try {
+            const newStatus = await window.electronAPI.checkPrismWindowOpen();
+            console.log('Post-compilation window status:', newStatus);
+            updatePrismButton(newStatus);
+          } catch (error) {
+            console.warn('Error updating button status:', error);
+            // Default to showing recompile mode if compilation was successful
+            updatePrismButton(true);
+          }
+        }, 2000);
+        
       } else {
-        button.style.cursor = 'pointer';
-        button.style.opacity = '1';
-        button.style.pointerEvents = 'auto';
+        // Handle failed compilation
+        const errorMessage = result && result.message 
+          ? result.message 
+          : result && result.error 
+            ? result.error 
+            : 'Unknown error occurred during compilation';
+            
+        console.error('PRISM compilation failed:', errorMessage);
+        
+        // Show error in terminal if available
+        if (window.terminalManager) {
+          window.terminalManager.appendToTerminal('tprism', `Compilation failed: ${errorMessage}`, 'error');
+        }
+        
+        // Show error dialog
+        if (window.electronAPI && window.electronAPI.showErrorDialog) {
+          window.electronAPI.showErrorDialog('PRISM Compilation Failed', errorMessage);
+        } else {
+          alert(`PRISM Compilation Failed: ${errorMessage}`);
+        }
       }
+      
+    } catch (error) {
+      console.error('PRISM compilation error:', error);
+      
+      // Show error in terminal if available
+      if (window.terminalManager) {
+        window.terminalManager.appendToTerminal('tprism', `Compilation error: ${error.message}`, 'error');
+      }
+      
+      // Show error dialog
+      if (window.electronAPI && window.electronAPI.showErrorDialog) {
+        window.electronAPI.showErrorDialog('PRISM Error', error.message);
+      } else {
+        alert(`PRISM Error: ${error.message}`);
+      }
+      
+    } finally {
+      console.log('PRISM compilation process finished, resetting button...');
+      
+      // Reset compilation state and button
+      isCompiling = false;
+      prismButton.disabled = false;
+      prismButton.style.cursor = 'pointer';
+      
+      // Check current PRISM window status to set correct button text
+      try {
+        const isPrismOpenFinal = await window.electronAPI.checkPrismWindowOpen();
+        console.log('Final PRISM window status:', isPrismOpenFinal);
+        updatePrismButton(isPrismOpenFinal);
+      } catch (error) {
+        console.error('Error checking PRISM window status in finally:', error);
+        // Default button text
+        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
+      }
+      
+      console.log('=== PRISM BUTTON PROCESS COMPLETE ===');
     }
   });
-}
 
-// Enhanced checkCancellation function
-function checkCancellation() {
-  if (compilationCanceled) {
-    if (globalTerminalManager) {
-      const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
-      terminals.forEach(terminalId => {
-        globalTerminalManager.appendToTerminal(terminalId, 'Compilation interrupted by user cancellation.', 'warning');
-      });
-    }
-    throw new Error('Compilation canceled by user');
-  }
-}
-
-// Helper function to switch between terminal tabs
-function switchTerminal(targetId) {
-  const terminalContents = document.querySelectorAll('.terminal-content');
-  terminalContents.forEach(content => content.classList.add('hidden'));
-
-  const allTabs = document.querySelectorAll('.tab');
-  allTabs.forEach(tab => tab.classList.remove('active'));
-
-  const targetContent = document.getElementById(targetId);
-  if (targetContent) {
-    targetContent.classList.remove('hidden');
-  }
-
-  const activeTab = document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`);
-  if (activeTab) {
-    activeTab.classList.add('active');
-  }
-}
-
-
-// ADD individual button event listeners (these are missing):
-document.getElementById('cmmcomp').addEventListener('click', async () => {
-
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  if (!isProcessorConfigured()) {
-  showCardNotification('Please configure a processor first before C± compilation.', 'warning', 4000);
-  const toggleButton = document.getElementById('toggle-ui');
-  if (toggleButton) {
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    if (isProjectMode) {
-      document.getElementById('settings-project').click();
-    } else {
-      document.getElementById('settings').click();
-    }
-  }
-  return;
-}
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-    startCompilation();
-    const manager = initializeGlobalTerminalManager();
-    manager.clearTerminal('tcmm');
-    switchTerminal('terminal-tcmm');
-
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-    
-    const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-    if (!activeProcessor) {
-      throw new Error("No active processor found. Please set isActive: true for one processor.");
-    }
-    
-    await compiler.ensureDirectories(activeProcessor.name);
-    checkCancellation();
-    await compiler.cmmCompilation(activeProcessor);
-    
-    if (!compilationCanceled) {
-      await refreshFileTree();
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('C± compilation error:', error);
-      showCardNotification('C± compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
-  }
-});
-
-document.getElementById('asmcomp').addEventListener('click', async () => {
-
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  if (!isProcessorConfigured()) {
-  showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
-  const toggleButton = document.getElementById('toggle-ui');
-  if (toggleButton) {
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    if (isProjectMode) {
-      document.getElementById('settings-project').click();
-    } else {
-      document.getElementById('settings').click();
-    }
-  }
-  return;
-}
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-    startCompilation();
-    const manager = initializeGlobalTerminalManager();
-    manager.clearTerminal('tasm');
-    switchTerminal('terminal-tasm');
-
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-    
-    const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-    if (!activeProcessor) {
-      throw new Error("No active processor found. Please set isActive: true for one processor.");
-    }
-    
-    // Find the most recent .asm file
-    const softwarePath = await window.electronAPI.joinPath(currentProjectPath, activeProcessor.name, 'Software');
-    const files = await window.electronAPI.readDir(softwarePath);
-    const asmFile = files.find(file => file.endsWith('.asm'));
-    
-    if (!asmFile) {
-      throw new Error('No .asm file found. Please compile C± first.');
-    }
-
-    checkCancellation();
-    const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
-    const toggleButton = document.getElementById('toggle-ui');
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    const projectParam = isProjectMode ? 1 : 0;
-    
-    await compiler.asmCompilation(activeProcessor, projectParam);
-    
-    if (!compilationCanceled) {
-      await refreshFileTree();
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('ASM compilation error:', error);
-      showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
-  }
-});
-
-document.getElementById('vericomp').addEventListener('click', async () => {
-
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  if (!isProcessorConfigured()) {
-  showCardNotification('Please configure a processor first before Verilog compilation.', 'warning', 4000);
-  const toggleButton = document.getElementById('toggle-ui');
-  if (toggleButton) {
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    if (isProjectMode) {
-      document.getElementById('settings-project').click();
-    } else {
-      document.getElementById('settings').click();
-    }
-  }
-  return;
-}
-
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-    startCompilation();
-    const manager = initializeGlobalTerminalManager();
-    manager.clearTerminal('tveri');
-    switchTerminal('terminal-tveri');
-
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-    
-    checkCancellation();
-    
-    const toggleButton = document.getElementById('toggle-ui');
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    
-    if (isProjectMode) {
-      // Project oriented: call iverilogProjectCompilation
-      await compiler.iverilogProjectCompilation();
-    } else {
-      // Processor oriented: call iverilogCompilation
-      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
-      }
-      await compiler.iverilogCompilation(activeProcessor);
-    }
-    
-    if (!compilationCanceled) {
-      await refreshFileTree();
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('Verilog compilation error:', error);
-      showCardNotification('Verilog compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
-  }
-});
-
-document.getElementById('wavecomp').addEventListener('click', async () => {
-
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  if (!isProcessorConfigured()) {
-  showCardNotification('Please configure a processor first before running GTKWave.', 'warning', 4000);
-  const toggleButton = document.getElementById('toggle-ui');
-  if (toggleButton) {
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    if (isProjectMode) {
-      document.getElementById('settings-project').click();
-    } else {
-      document.getElementById('settings').click();
-    }
-  }
-  return;
-}
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-    startCompilation();
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-    
-    const toggleButton = document.getElementById('toggle-ui');
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    
-    if (isProjectMode) {
-      // Project oriented: run full pipeline (cmmcomp, asmcomp, iverilogprojectcomp, runprojectgtkwave)
+  // Listen for toggle UI state requests from PRISM window
+  if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
+    console.log('Setting up toggle UI state listener...');
+    window.electronAPI.onGetToggleUIState((sendResponse) => {
+      console.log('Received request for toggle UI state');
       
-      // Load processor configuration
-      const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
-      const processorConfigExists = await window.electronAPI.pathExists(configFilePath);
-      let processorConfig = null;
+      // Get the actual toggle state from your UI
+      const toggleElement = document.getElementById('toggle-ui') || 
+                           document.querySelector('.toggle-switch') ||
+                           document.querySelector('[data-toggle]');
       
-      if (processorConfigExists) {
-        const configContent = await window.electronAPI.readFile(configFilePath);
-        processorConfig = JSON.parse(configContent);
-      }
-
-      const manager = initializeGlobalTerminalManager();
+      let isActive = false;
       
-      // 1. CMM and ASM compilation for all processors
-      manager.clearTerminal('tcmm');
-      switchTerminal('terminal-tcmm');
-      
-      for (const projectProcessor of compiler.projectConfig.processors) {
-        checkCancellation();
-        
-        const configProcessor = processorConfig ? 
-          processorConfig.processors.find(p => p.name === projectProcessor.type) : null;
-        
-        if (!configProcessor) {
-          compiler.terminalManager.appendToTerminal('tcmm', `Warning: No configuration found for processor ${projectProcessor.type}`, 'warning');
-          continue;
-        }
-        
-        const processorObj = {
-          name: projectProcessor.type,
-          type: projectProcessor.type,
-          instance: projectProcessor.instance,
-          clk: configProcessor.clk || 1000,
-          numClocks: configProcessor.numClocks || 2000,
-          testbenchFile: configProcessor.testbenchFile || 'standard',
-          gtkwFile: configProcessor.gtkwFile || 'standard',
-          cmmFile: configProcessor.cmmFile || `${projectProcessor.type}.cmm`,
-          isActive: false
-        };
-        
-        try {
-          compiler.terminalManager.appendToTerminal('tcmm', `Processing ${projectProcessor.type}...`);
-          await compiler.ensureDirectories(projectProcessor.type);
-          
-          // CMM compilation
-          checkCancellation();
-          const asmPath = await compiler.cmmCompilation(processorObj);
-          
-          // ASM compilation
-          checkCancellation();
-          manager.clearTerminal('tasm');
-          switchTerminal('terminal-tasm');
-          await compiler.asmCompilation(processorObj, asmPath, 1); // project param = 1
-          switchTerminal('terminal-tcmm');
-          
-        } catch (error) {
-          compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${projectProcessor.type}: ${error.message}`, 'error');
-          throw error;
+      if (toggleElement) {
+        // Check different types of toggle
+        if (toggleElement.type === 'checkbox') {
+          isActive = toggleElement.checked;
+        } else if (toggleElement.classList.contains('active')) {
+          isActive = true;
+        } else if (toggleElement.getAttribute('data-active') === 'true') {
+          isActive = true;
         }
       }
-
-      // 2. Verilog Project Compilation
-      manager.clearTerminal('tveri');
-      switchTerminal('terminal-tveri');
-      checkCancellation();
-      await compiler.iverilogProjectCompilation();
-
-      // 3. Project GTKWave
-      manager.clearTerminal('twave');
-      switchTerminal('terminal-twave');
-      checkCancellation();
-      await compiler.runProjectGtkWave();
       
-    } else {
-      // Processor oriented: just call runGtkWave
-      const manager = initializeGlobalTerminalManager();
-      manager.clearTerminal('twave');
-      switchTerminal('terminal-twave');
-      
-      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) {
-        throw new Error("No active processor found. Please set isActive: true for one processor.");
-      }
-      
-      checkCancellation();
-      await compiler.runGtkWave(activeProcessor);
-    }
-    
-    if (!compilationCanceled) {
-      await refreshFileTree();
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('GTKWave execution error:', error);
-      showCardNotification('GTKWave execution failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
+      console.log('Toggle element found:', !!toggleElement);
+      console.log('Sending toggle UI state:', isActive);
+      sendResponse(isActive);
+    });
+  } else {
+    console.warn('electronAPI.onGetToggleUIState not available');
   }
+  
+  console.log('PRISM button setup complete');
 });
 
-
-// KEEP ONLY ONE COMPILE ALL EVENT LISTENER (simplified version):
-document.getElementById('allcomp').addEventListener('click', async () => {
-  // If a processor is configured, proceed with compilation
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
-    const toggleButton = document.getElementById('toggle-ui');
-    // Check if toggleButton exists to avoid errors in case it's not in the DOM
-    if (toggleButton) {
-      const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-      if (isProjectMode) { // Project Mode
-        document.getElementById('settings-project').click();
-      } else { // Processor Mode
-        document.getElementById('settings').click();
-      }
-    }
-    return; // Stop execution if processor is not configured
-  }
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-    startCompilation();
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-
-    const toggleButton = document.getElementById('toggle-ui');
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-
-    if (isProjectMode) {
-      // Project oriented: cmmcomp, asmcomp, iverilogprojectcompilation, runprojectgtkwave
-      await runProjectPipeline(compiler);
-    } else {
-      // Processor oriented: cmmcomp, asmcomp, iverilogcompilation, rungtkwave
-      await runProcessorPipeline(compiler);
-    }
-
-    if (!compilationCanceled) {
-      console.log('All compilations completed successfully');
-      await refreshFileTree();
-    }
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('Compilation error:', error);
-      showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
-  }
-});
-
-
-// KEEP ONLY ONE FRACTAL COMPILATION EVENT LISTENER:
-document.getElementById('fractalcomp').addEventListener('click', async () => {
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before fractal compilation.', 'warning', 4000);
-    return;
-  }
-
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
-  }
-
-  isCompilationRunning = true;
-  compilationCanceled = false;
-
-  try {
-
-    const compiler = new CompilationModule(currentProjectPath);
-    await compiler.loadConfig();
-    
-    const toggleButton = document.getElementById('toggle-ui');
-    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-    
-    if (!compilationCanceled) {
-      // Launch fractal visualizer after successful compilation
-      await compiler.launchFractalVisualizersForProject('fire');
-      console.log('Fractal compilation completed successfully');
-      await refreshFileTree();
-    }
-    
-    startCompilation();
-   
-    
-    if (isProjectMode) {
-      // Project oriented: full pipeline + fractal
-      await runProjectPipeline(compiler);
-    } else {
-      // Processor oriented: full pipeline + fractal
-      await runProcessorPipeline(compiler);
-    }
-    
-  } catch (error) {
-    if (!compilationCanceled) {
-      console.error('Fractal compilation error:', error);
-      showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
-    }
-  } finally {
-    endCompilation();
-  }
-});
-
-// ADD these helper functions:
-async function runProcessorPipeline(compiler) {
-  const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-  if (!activeProcessor) {
-    throw new Error("No active processor found. Please set isActive: true for one processor.");
+// Debug function to check if all required APIs are available
+function debugElectronAPI() {
+  console.log('=== ELECTRON API DEBUG ===');
+  console.log('window.electronAPI available:', !!window.electronAPI);
+  
+  if (window.electronAPI) {
+    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
+    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
+    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
+    console.log('prismCompileWithPaths available:', !!window.electronAPI.prismCompileWithPaths);
+    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
+    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
+    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
   }
   
-  await compiler.ensureDirectories(activeProcessor.name);
-  
-  // 1. CMM Compilation
-  const manager = initializeGlobalTerminalManager();
-  manager.clearTerminal('tcmm');
-  switchTerminal('terminal-tcmm');
-  checkCancellation();
-  const asmPath = await compiler.cmmCompilation(activeProcessor);
-  
-  // 2. ASM Compilation
-  manager.clearTerminal('tasm');
-  switchTerminal('terminal-tasm');
-  checkCancellation();
-  await compiler.asmCompilation(activeProcessor, 0);// project param = 0
-  
-  // 3. Verilog Compilation
-  manager.clearTerminal('tveri');
-  switchTerminal('terminal-tveri');
-  checkCancellation();
-  await compiler.iverilogCompilation(activeProcessor);
-  
-  // 4. GTKWave
-  manager.clearTerminal('twave');
-  switchTerminal('terminal-twave');
-  checkCancellation();
-  await compiler.runGtkWave(activeProcessor);
+  console.log('terminalManager available:', !!window.terminalManager);
+  console.log('=== END ELECTRON API DEBUG ===');
 }
 
-async function runProjectPipeline(compiler) {
-  if (!compiler.projectConfig || !compiler.projectConfig.processors) {
-    throw new Error('No processors defined in projectoriented.json');
-  }
-  
-  // Load processor configuration
-  const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
-  const processorConfigExists = await window.electronAPI.pathExists(configFilePath);
-  let processorConfig = null;
-  
-  if (processorConfigExists) {
-    const configContent = await window.electronAPI.readFile(configFilePath);
-    processorConfig = JSON.parse(configContent);
-  }
+// Run debug on load
+debugElectronAPI();
 
-  const manager = initializeGlobalTerminalManager();
-  
-  // 1. CMM and ASM compilation for all processors
-  manager.clearTerminal('tcmm');
-  switchTerminal('terminal-tcmm');
-  
-  for (const projectProcessor of compiler.projectConfig.processors) {
-    checkCancellation();
-    
-    const configProcessor = processorConfig ? 
-      processorConfig.processors.find(p => p.name === projectProcessor.type) : null;
-    
-    if (!configProcessor) {
-      compiler.terminalManager.appendToTerminal('tcmm', `Warning: No configuration found for processor ${projectProcessor.type}`, 'warning');
-      continue;
-    }
-    
-    const processorObj = {
-      name: projectProcessor.type,
-      type: projectProcessor.type,
-      instance: projectProcessor.instance,
-      clk: configProcessor.clk || 1000,
-      numClocks: configProcessor.numClocks || 2000,
-      testbenchFile: configProcessor.testbenchFile || 'standard',
-      gtkwFile: configProcessor.gtkwFile || 'standard',
-      cmmFile: configProcessor.cmmFile || `${projectProcessor.type}.cmm`,
-      isActive: false
-    };
-    
-    try {
-      compiler.terminalManager.appendToTerminal('tcmm', `Processing ${projectProcessor.type}...`);
-      await compiler.ensureDirectories(projectProcessor.type);
-      
-      // CMM compilation
-      checkCancellation();
-      const asmPath = await compiler.cmmCompilation(processorObj);
-      
-      // ASM compilation
-      checkCancellation();
-      manager.clearTerminal('tasm');
-      switchTerminal('terminal-tasm');
-      await compiler.asmCompilation(processorObj, 1); // project param = 1
-      switchTerminal('terminal-tcmm');
-      
-    } catch (error) {
-      compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${projectProcessor.type}: ${error.message}`, 'error');
-      throw error;
+// Add to existing window message listeners
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'terminal-log') {
+    if (window.terminalManager) {
+      window.terminalManager.appendToTerminal(
+        event.data.terminal, 
+        event.data.message, 
+        event.data.logType
+      );
     }
   }
+});
 
-  // 2. Verilog Project Compilation
-  manager.clearTerminal('tveri');
-  switchTerminal('terminal-tveri');
-  checkCancellation();
-  await compiler.iverilogProjectCompilation();
-
-  // 3. Project GTKWave
-  manager.clearTerminal('twave');
-  switchTerminal('terminal-twave');
-  checkCancellation();
-  await compiler.runProjectGtkWave();
+// Debug function to check if all required APIs are available
+function debugElectronAPI() {
+  console.log('=== ELECTRON API DEBUG ===');
+  console.log('window.electronAPI available:', !!window.electronAPI);
+  
+  if (window.electronAPI) {
+    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
+    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
+    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
+    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
+    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
+    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
+  }
+  
+  console.log('terminalManager available:', !!window.terminalManager);
+  console.log('=== END ELECTRON API DEBUG ===');
 }
+
+// Run debug on load
+debugElectronAPI();
+// Add to existing window message listeners
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'terminal-log') {
+    if (window.terminalManager) {
+      window.terminalManager.appendToTerminal(
+        event.data.terminal, 
+        event.data.message, 
+        event.data.logType
+      );
+    }
+  }
+});
 
 
 //TERMINAL      ======================================================================================================================================================== ƒ
@@ -10794,448 +10342,7 @@ createLogEntry(terminal, text, type, timestamp) {
       .join('<br>');
   }
 }
-// Global references and state management
-let globalTerminalManager = null;
-let currentCompiler = null;
 
-// Initialize terminal manager globally
-function initializeGlobalTerminalManager() {
-  if (!globalTerminalManager) {
-    globalTerminalManager = new TerminalManager();
-  }
-  return globalTerminalManager;
-}
-
-document.getElementById("backupFolderBtn").addEventListener("click", async () => {
-  if (!currentProjectPath) {
-    alert("Nenhum projeto aberto para backup.");
-    return;
-  }
-  const result = await window.electronAPI.createBackup(currentProjectPath);
-
-  alert(result.message); // Exibe o resultado do backup
-
-  refreshFileTree(); // Atualiza a árvore de arquivos
-});
-
-
-// Modal Interaction Functions
-function openModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-      modal.classList.add('active');
-  }
-}
-
-function closeModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-      modal.classList.remove('active');
-  }
-}
-
-// Event Listeners for Configuration Modal
-document.getElementById('closeModal')?.addEventListener('click', () => closeModal('modalConfig'));
-document.getElementById('cancelConfig')?.addEventListener('click', () => closeModal('modalConfig'));
-
-// Event Listeners for Bug Report Modal
-document.getElementById('open-bug-report')?.addEventListener('click', () => openModal('bug-report-modal'));
-document.getElementById('close-bug-report')?.addEventListener('click', () => closeModal('bug-report-modal'));
-
-//TESTE         ======================================================================================================================================================== ƒ
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, setting up PRISM button...');
-  
-  const prismButton = document.getElementById('prismcomp');
-  let isCompiling = false;
-  
-  if (!prismButton) {
-    console.error('PRISM button not found!');
-    return;
-  }
-  
-  console.log('PRISM button found:', prismButton);
-  
-  // Function to update button appearance based on PRISM window status
-  function updatePrismButton(isOpen) {
-    if (!prismButton) return;
-    
-    console.log('Updating PRISM button, isOpen:', isOpen);
-    
-    if (isOpen) {
-      prismButton.classList.add('active');
-      if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
-      }
-    } else {
-      prismButton.classList.remove('active');
-      if (!isCompiling) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM';
-      }
-    }
-  }
-
-  // Function to acquire all necessary paths for PRISM compilation
-  async function acquirePrismPaths() {
-    console.log('=== ACQUIRING PRISM PATHS ===');
-    
-    try {
-      // Get project path - fix global reference issue
-      let projectPath = null;
-      if (window.currentProjectPath) {
-        projectPath = window.currentProjectPath;
-      } else if (window.currentOpenProjectPath) {
-        projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
-      } else if (window.currentProject && window.currentProject.path) {
-        projectPath = window.currentProject.path;
-      }
-      
-      if (!projectPath) {
-        throw new Error('No project path available. Please open a project first.');
-      }
-      
-      console.log('✓ Project path acquired:', projectPath);
-      
-      // Acquire component paths using electronAPI
-      console.log('Acquiring saphoComponents path...');
-      const saphoComponentsPath = await window.electronAPI.joinPath('saphoComponents');
-      console.log('✓ SaphoComponents path:', saphoComponentsPath);
-      
-      console.log('Acquiring HDL path...');
-      const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-      console.log('✓ HDL path:', hdlPath);
-      
-      console.log('Acquiring temp path...');
-      const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', 'PRISM');
-      console.log('✓ Temp path:', tempPath);
-      
-      console.log('Acquiring Yosys executable path...');
-      const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-      console.log('✓ Yosys executable path:', yosysPath);
-      
-      console.log('Acquiring NetlistSVG executable path...');
-      const netlistsvgPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
-      console.log('✓ NetlistSVG executable path:', netlistsvgPath);
-      
-      // Configuration file paths
-      console.log('Acquiring processor config path...');
-      const processorConfigPath = await window.electronAPI.joinPath(projectPath, 'processorConfig.json');
-      console.log('✓ Processor config path:', processorConfigPath);
-      
-      console.log('Acquiring project oriented config path...');
-      const projectOrientedConfigPath = await window.electronAPI.joinPath(projectPath, 'projectOriented.json');
-      console.log('✓ Project oriented config path:', projectOrientedConfigPath);
-      
-      // TopLevel directory path
-      console.log('Acquiring TopLevel directory path...');
-      const topLevelPath = await window.electronAPI.joinPath(projectPath, 'TopLevel');
-      console.log('✓ TopLevel directory path:', topLevelPath);
-      
-      const compilationPaths = {
-        projectPath,
-        saphoComponentsPath,
-        hdlPath,
-        tempPath,
-        yosysPath,
-        netlistsvgPath,
-        processorConfigPath,
-        projectOrientedConfigPath,
-        topLevelPath
-      };
-      
-      console.log('=== ALL PRISM PATHS ACQUIRED SUCCESSFULLY ===');
-      console.log('Compilation paths object:', compilationPaths);
-      
-      return compilationPaths;
-      
-    } catch (error) {
-      console.error('Failed to acquire PRISM paths:', error);
-      throw new Error(`Path acquisition failed: ${error.message}`);
-    }
-  }
-  
-  // Enable the button initially
-  prismButton.disabled = false;
-  prismButton.style.cursor = 'pointer';
-  console.log('PRISM button enabled');
-  
-  // Listen for PRISM window status updates
-  if (window.electronAPI && window.electronAPI.onPrismStatus) {
-    console.log('Setting up PRISM status listener...');
-    window.electronAPI.onPrismStatus((isOpen) => {
-      console.log('PRISM status update received:', isOpen);
-      updatePrismButton(isOpen);
-    });
-  } else {
-    console.warn('electronAPI.onPrismStatus not available');
-  }
-  
-  // PRISM button click handler - UNIFIED FOR BOTH COMPILE AND RECOMPILE
-  prismButton.addEventListener('click', async () => {
-    console.log('=== PRISM BUTTON CLICKED ===');
-    console.log('Button disabled:', prismButton.disabled);
-    console.log('Is compiling:', isCompiling);
-    
-    // Check if button is disabled or already compiling
-    if (prismButton.disabled || isCompiling) {
-      console.log('PRISM button is disabled or compilation in progress - ignoring click');
-      return;
-    }
-    
-    try {
-      // Set compilation state
-      isCompiling = true;
-      console.log('Starting PRISM compilation process...');
-      
-      // Update button appearance
-      prismButton.disabled = true;
-      prismButton.style.cursor = 'not-allowed';
-      prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Preparing...';
-      
-      // Step 1: Acquire all necessary paths
-      console.log('Step 1: Acquiring compilation paths...');
-      const compilationPaths = await acquirePrismPaths();
-      
-      // Step 2: Check if PRISM window is already open
-      let isPrismOpen = false;
-      try {
-        if (window.electronAPI && window.electronAPI.checkPrismWindowOpen) {
-          isPrismOpen = await window.electronAPI.checkPrismWindowOpen();
-          console.log('PRISM window open status:', isPrismOpen);
-        }
-      } catch (error) {
-        console.warn('Error checking PRISM window status:', error);
-        isPrismOpen = false;
-      }
-      
-      // Step 3: Update button text based on operation type
-      if (isPrismOpen) {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
-        console.log('Starting PRISM recompilation...');
-      } else {
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
-        console.log('Starting PRISM compilation...');
-      }
-      
-      // Step 4: Send paths and execute compilation - FIXED VERSION
-      console.log('Step 4: Executing PRISM compilation with acquired paths...');
-      let result;
-      
-      if (isPrismOpen) {
-        // Use recompile for existing window
-        if (window.electronAPI.prismRecompile) {
-          console.log('Using prismRecompile method...');
-          result = await window.electronAPI.prismRecompile(compilationPaths);
-        } else if (window.electronAPI.prismCompileWithPaths) {
-          console.log('prismRecompile not available, using prismCompileWithPaths...');
-          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
-        } else {
-          console.log('Using legacy openPrismCompile with paths...');
-          result = await window.electronAPI.openPrismCompile(compilationPaths);
-        }
-      } else {
-        // Use the best available method for new compilation
-        if (window.electronAPI.prismCompileWithPaths) {
-          console.log('Using prismCompileWithPaths method...');
-          result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
-        } else if (window.electronAPI.prismCompile) {
-          console.log('Using prismCompile method...');
-          result = await window.electronAPI.prismCompile(compilationPaths);
-        } else if (window.electronAPI.openPrismCompile) {
-          console.log('Using legacy openPrismCompile with paths...');
-          result = await window.electronAPI.openPrismCompile(compilationPaths);
-        } else {
-          throw new Error('No PRISM compilation method available in electronAPI');
-        }
-      }
-      
-      console.log('PRISM compilation result:', result);
-      
-      // Check if result is valid and has success property
-      if (result && result.success) {
-        console.log('PRISM compilation successful:', result.message);
-        
-        // Show success message if terminal is available
-        if (window.terminalManager) {
-          window.terminalManager.appendToTerminal('tprism', 'PRISM compilation completed successfully', 'success');
-        }
-        
-        // Update button status after a delay to allow window to open
-        setTimeout(async () => {
-          try {
-            const newStatus = await window.electronAPI.checkPrismWindowOpen();
-            console.log('Post-compilation window status:', newStatus);
-            updatePrismButton(newStatus);
-          } catch (error) {
-            console.warn('Error updating button status:', error);
-            // Default to showing recompile mode if compilation was successful
-            updatePrismButton(true);
-          }
-        }, 2000);
-        
-      } else {
-        // Handle failed compilation
-        const errorMessage = result && result.message 
-          ? result.message 
-          : result && result.error 
-            ? result.error 
-            : 'Unknown error occurred during compilation';
-            
-        console.error('PRISM compilation failed:', errorMessage);
-        
-        // Show error in terminal if available
-        if (window.terminalManager) {
-          window.terminalManager.appendToTerminal('tprism', `Compilation failed: ${errorMessage}`, 'error');
-        }
-        
-        // Show error dialog
-        if (window.electronAPI && window.electronAPI.showErrorDialog) {
-          window.electronAPI.showErrorDialog('PRISM Compilation Failed', errorMessage);
-        } else {
-          alert(`PRISM Compilation Failed: ${errorMessage}`);
-        }
-      }
-      
-    } catch (error) {
-      console.error('PRISM compilation error:', error);
-      
-      // Show error in terminal if available
-      if (window.terminalManager) {
-        window.terminalManager.appendToTerminal('tprism', `Compilation error: ${error.message}`, 'error');
-      }
-      
-      // Show error dialog
-      if (window.electronAPI && window.electronAPI.showErrorDialog) {
-        window.electronAPI.showErrorDialog('PRISM Error', error.message);
-      } else {
-        alert(`PRISM Error: ${error.message}`);
-      }
-      
-    } finally {
-      console.log('PRISM compilation process finished, resetting button...');
-      
-      // Reset compilation state and button
-      isCompiling = false;
-      prismButton.disabled = false;
-      prismButton.style.cursor = 'pointer';
-      
-      // Check current PRISM window status to set correct button text
-      try {
-        const isPrismOpenFinal = await window.electronAPI.checkPrismWindowOpen();
-        console.log('Final PRISM window status:', isPrismOpenFinal);
-        updatePrismButton(isPrismOpenFinal);
-      } catch (error) {
-        console.error('Error checking PRISM window status in finally:', error);
-        // Default button text
-        prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
-      }
-      
-      console.log('=== PRISM BUTTON PROCESS COMPLETE ===');
-    }
-  });
-
-  // Listen for toggle UI state requests from PRISM window
-  if (window.electronAPI && window.electronAPI.onGetToggleUIState) {
-    console.log('Setting up toggle UI state listener...');
-    window.electronAPI.onGetToggleUIState((sendResponse) => {
-      console.log('Received request for toggle UI state');
-      
-      // Get the actual toggle state from your UI
-      const toggleElement = document.getElementById('toggle-ui') || 
-                           document.querySelector('.toggle-switch') ||
-                           document.querySelector('[data-toggle]');
-      
-      let isActive = false;
-      
-      if (toggleElement) {
-        // Check different types of toggle
-        if (toggleElement.type === 'checkbox') {
-          isActive = toggleElement.checked;
-        } else if (toggleElement.classList.contains('active')) {
-          isActive = true;
-        } else if (toggleElement.getAttribute('data-active') === 'true') {
-          isActive = true;
-        }
-      }
-      
-      console.log('Toggle element found:', !!toggleElement);
-      console.log('Sending toggle UI state:', isActive);
-      sendResponse(isActive);
-    });
-  } else {
-    console.warn('electronAPI.onGetToggleUIState not available');
-  }
-  
-  console.log('PRISM button setup complete');
-});
-
-// Debug function to check if all required APIs are available
-function debugElectronAPI() {
-  console.log('=== ELECTRON API DEBUG ===');
-  console.log('window.electronAPI available:', !!window.electronAPI);
-  
-  if (window.electronAPI) {
-    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
-    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
-    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
-    console.log('prismCompileWithPaths available:', !!window.electronAPI.prismCompileWithPaths);
-    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
-    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
-    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
-  }
-  
-  console.log('terminalManager available:', !!window.terminalManager);
-  console.log('=== END ELECTRON API DEBUG ===');
-}
-
-// Run debug on load
-debugElectronAPI();
-
-// Add to existing window message listeners
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'terminal-log') {
-    if (window.terminalManager) {
-      window.terminalManager.appendToTerminal(
-        event.data.terminal, 
-        event.data.message, 
-        event.data.logType
-      );
-    }
-  }
-});
-
-// Debug function to check if all required APIs are available
-function debugElectronAPI() {
-  console.log('=== ELECTRON API DEBUG ===');
-  console.log('window.electronAPI available:', !!window.electronAPI);
-  
-  if (window.electronAPI) {
-    console.log('prismCompile available:', !!window.electronAPI.prismCompile);
-    console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
-    console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
-    console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
-    console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
-    console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
-  }
-  
-  console.log('terminalManager available:', !!window.terminalManager);
-  console.log('=== END ELECTRON API DEBUG ===');
-}
-
-// Run debug on load
-debugElectronAPI();
-// Add to existing window message listeners
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'terminal-log') {
-    if (window.terminalManager) {
-      window.terminalManager.appendToTerminal(
-        event.data.terminal, 
-        event.data.message, 
-        event.data.logType
-      );
-    }
-  }
-});
 
 // VVPProgressManager class - Improved version with visible controls
 class VVPProgressManager {
@@ -11570,6 +10677,912 @@ class VVPProgressManager {
 }
 
 const vvpProgressManager = new VVPProgressManager();
+
+
+
+// Global references and state management
+let globalTerminalManager = null;
+let currentCompiler = null;
+
+// Initialize terminal manager globally
+function initializeGlobalTerminalManager() {
+  if (!globalTerminalManager) {
+    globalTerminalManager = new TerminalManager();
+  }
+  return globalTerminalManager;
+}
+
+
+// Global functions to handle button clicks (put these outside your class)
+
+function setCompilerInstance(instance) {
+  compilerInstance = instance;
+}
+
+// Updated fractal compilation handler
+async function handleFractalCompilation() {
+  if (!compilerInstance) {
+    console.error('Compiler instance not defined');
+    return;
+  }
+  
+  if (!compilerInstance.isCompiling) {
+    try {
+      console.log('Starting fractal compilation...');
+      await compilerInstance.loadConfig();
+      
+      // Force project mode for fractal compilation
+      const originalMode = compilerInstance.isProjectOriented;
+      compilerInstance.isProjectOriented = true;
+      
+      try {
+        // After successful compilation, launch fractal visualizer
+        const palette = 'fire'; // or allow user selection
+        await compilerInstance.launchFractalVisualizersForProject(palette);
+        console.log('Fractal compilation completed successfully');
+        // Run complete compilation in project mode
+        const success = await compilerInstance.compileAll();
+      
+      } finally {
+        // Restore original mode
+        compilerInstance.isProjectOriented = originalMode;
+      }
+      
+    } catch (error) {
+      console.error('Error in fractal compilation:', error);
+      if (compilerInstance.terminalManager) {
+        compilerInstance.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
+      }
+    }
+  }
+}
+
+// Functions to use in your renderer.js
+function showVVPProgress(name) {
+  vvpProgressManager.deleteProgressFile(name);
+  return vvpProgressManager.show(name);
+}
+
+function hideVVPProgress(delay = 4000) {
+  setTimeout(() => {
+    vvpProgressManager.hide();
+  }, delay);
+}
+
+
+// Global flag to track compilation status
+let isCompilationRunning = false;
+let compilationCanceled = false;
+
+// Adicione este event listener no seu código frontend (renderer)
+document.getElementById('cancel-everything').addEventListener('click', async () => {
+  try {
+    const result = await window.electronAPI.cancelVvpProcess();
+    
+    if (result.success) {
+      // Processo foi cancelado com sucesso
+      globalTerminalManager.appendToTerminal('twave', 'Compilation process canceled by user.', 'warning');
+    } else {
+      // Nenhum processo estava rodando
+      showCardNotification('No compilation process is currently running.', 'info', 3000);
+    }
+  } catch (error) {
+    console.error('Error canceling VVP process:', error);
+    //showCardNotification('Error occurred while trying to cancel the process.', 'error', 3000);
+  }
+});
+
+// Helper functions to manage VVP process state
+window.setCurrentVvpPid = function(pid) {
+  currentVvpPid = pid;
+  console.log(`Current VVP PID set to: ${pid}`);
+};
+
+window.setVvpRunning = function(running) {
+  isVvpRunning = running;
+  console.log(`VVP running state set to: ${running}`);
+};
+
+// Enhanced cancelCompilation function
+function cancelCompilation() {
+  if (isCompilationRunning || isVvpRunning) {
+    compilationCanceled = true;
+    isCompilationRunning = false;
+    
+    // Kill VVP process if running
+    if (isVvpRunning && currentVvpPid) {
+      killVvpProcess();
+    }
+    
+    // Force enable buttons immediately on cancellation
+    setCompilationButtonsState(false);
+    
+    // Display cancellation message in all terminals
+    const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
+    terminals.forEach(terminalId => {
+      if (globalTerminalManager) {
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation process canceled by user.', 'warning');
+        hideVvpSpinner();
+      }
+    });
+    
+    showCardNotification('Compilation process has been canceled by user.', 'warning', 4000);
+    console.log('Compilation canceled by user');
+    
+    endCompilation();
+  } else {
+    showCardNotification('No compilation process is currently running.', 'info', 3000);
+  }
+}
+
+// Function to kill VVP process
+async function killVvpProcess() {
+  if (currentVvpPid && isVvpRunning) {
+    try {
+      console.log(`Attempting to kill VVP process with PID: ${currentVvpPid}`);
+      await window.electronAPI.terminateProcess(currentVvpPid);
+      console.log('VVP process killed successfully');
+      
+      hideVvpSpinner();
+      
+      isVvpRunning = false;
+      currentVvpPid = null;
+      
+      // Also try killing by name as backup
+      try {
+        await window.electronAPI.terminateProcess('vvp.exe');
+        console.log('Additional VVP processes killed by name');
+      } catch (nameKillError) {
+        // Ignore if no processes found by name
+        console.log('No additional VVP processes found by name');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error killing VVP process by PID:', error);
+      
+      // Fallback: try killing by process name
+      try {
+        await window.electronAPI.terminateProcess('vvp.exe');
+        console.log('VVP process killed by name (fallback method)');
+        
+        hideVvpSpinner();
+        isVvpRunning = false;
+        currentVvpPid = null;
+        
+        return true;
+      } catch (nameError) {
+        console.error('Error killing VVP process by name:', nameError);
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+// Add this to your existing keyboard event handler or create a new one
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    
+    // Simulate click on the compile all button
+    const compileButton = document.getElementById('allcomp');
+    if (compileButton && !compileButton.disabled) {
+      compileButton.click();
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+    const settingsBtn = document.getElementById('settings');
+    if (settingsBtn && !settingsBtn.disabled) {
+      settingsBtn.click();
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+
+    const toggleUi = document.getElementById('toggle-ui');
+    const settingsBtn = document.getElementById('settings');
+    const settingsModal = document.getElementById('settings-project');
+
+    // Se o botão "fan" estiver ativo (por exemplo, tem a classe "active")
+    if (toggleUi && toggleUi.classList.contains('active')) {
+      // Abre o modal de configurações do projeto
+      if (settingsModal) {
+        if (typeof settingsModal.showModal === 'function') {
+          settingsModal.showModal();       // para <dialog>
+        } else {
+          settingsModal.classList.add('open');  // ou remova .hidden / exiba via CSS
+        }
+      }
+    } else {
+      // Caso contrário, clica no botão de settings, se não estiver desabilitado
+      if (settingsBtn && !settingsBtn.disabled) {
+        settingsBtn.click();
+      }
+    }
+  }
+});
+
+
+// Enhanced processor configuration check
+function isProcessorConfigured() {
+  const processorElement = document.getElementById('processorNameID');
+  if (!processorElement) {
+    return false;
+  }
+  
+  const processorText = processorElement.textContent || processorElement.innerText;
+  return !processorText.includes('No Processor Configured');
+}
+
+// Enhanced compilation state management
+function startCompilation() {
+  isCompilationRunning = true;
+  compilationCanceled = false;
+  setCompilationButtonsState(true);
+  
+  if (!globalTerminalManager) {
+    initializeGlobalTerminalManager();
+  }
+}
+
+function endCompilation() {
+  isCompilationRunning = false;
+  compilationCanceled = false;
+  setCompilationButtonsState(false);
+}
+
+function setCompilationButtonsState(disabled) {
+  const buttons = [
+    'cmmcomp',
+    'asmcomp', 
+    'vericomp',
+    'wavecomp',
+    'prismcomp',
+    'allcomp',
+    'fractalcomp',
+  ];
+  
+  buttons.forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.disabled = disabled;
+      
+      if (disabled) {
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.6';
+        button.style.pointerEvents = 'none';
+      } else {
+        button.style.cursor = 'pointer';
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
+      }
+    }
+  });
+}
+
+// Enhanced checkCancellation function
+function checkCancellation() {
+  if (compilationCanceled) {
+    if (globalTerminalManager) {
+      const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
+      terminals.forEach(terminalId => {
+        globalTerminalManager.appendToTerminal(terminalId, 'Compilation interrupted by user cancellation.', 'warning');
+      });
+    }
+    throw new Error('Compilation canceled by user');
+  }
+}
+
+// Helper function to switch between terminal tabs
+function switchTerminal(targetId) {
+  const terminalContents = document.querySelectorAll('.terminal-content');
+  terminalContents.forEach(content => content.classList.add('hidden'));
+
+  const allTabs = document.querySelectorAll('.tab');
+  allTabs.forEach(tab => tab.classList.remove('active'));
+
+  const targetContent = document.getElementById(targetId);
+  if (targetContent) {
+    targetContent.classList.remove('hidden');
+  }
+
+  const activeTab = document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+  }
+}
+
+
+// ADD individual button event listeners (these are missing):
+document.getElementById('cmmcomp').addEventListener('click', async () => {
+
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before C± compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+    startCompilation();
+    const manager = initializeGlobalTerminalManager();
+    manager.clearTerminal('tcmm');
+    switchTerminal('terminal-tcmm');
+
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+    if (!activeProcessor) {
+      throw new Error("No active processor found. Please set isActive: true for one processor.");
+    }
+    
+    await compiler.ensureDirectories(activeProcessor.name);
+    checkCancellation();
+    await compiler.cmmCompilation(activeProcessor);
+    
+    if (!compilationCanceled) {
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('C± compilation error:', error);
+      showCardNotification('C± compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+document.getElementById('asmcomp').addEventListener('click', async () => {
+
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+    startCompilation();
+    const manager = initializeGlobalTerminalManager();
+    manager.clearTerminal('tasm');
+    switchTerminal('terminal-tasm');
+
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+    if (!activeProcessor) {
+      throw new Error("No active processor found. Please set isActive: true for one processor.");
+    }
+    
+    // Find the most recent .asm file
+    const softwarePath = await window.electronAPI.joinPath(currentProjectPath, activeProcessor.name, 'Software');
+    const files = await window.electronAPI.readDir(softwarePath);
+    const asmFile = files.find(file => file.endsWith('.asm'));
+    
+    if (!asmFile) {
+      throw new Error('No .asm file found. Please compile C± first.');
+    }
+
+    checkCancellation();
+    const asmPath = await window.electronAPI.joinPath(softwarePath, asmFile);
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    const projectParam = isProjectMode ? 1 : 0;
+    
+    await compiler.asmCompilation(activeProcessor, projectParam);
+    
+    if (!compilationCanceled) {
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('ASM compilation error:', error);
+      showCardNotification('ASM compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+document.getElementById('vericomp').addEventListener('click', async () => {
+
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before Verilog compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
+
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+    startCompilation();
+    const manager = initializeGlobalTerminalManager();
+    manager.clearTerminal('tveri');
+    switchTerminal('terminal-tveri');
+
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    checkCancellation();
+    
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    if (isProjectMode) {
+      // Project oriented: call iverilogProjectCompilation
+      await compiler.iverilogProjectCompilation();
+    } else {
+      // Processor oriented: call iverilogCompilation
+      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
+      }
+      await compiler.iverilogCompilation(activeProcessor);
+    }
+    
+    if (!compilationCanceled) {
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Verilog compilation error:', error);
+      showCardNotification('Verilog compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+document.getElementById('wavecomp').addEventListener('click', async () => {
+
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before running GTKWave.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+    startCompilation();
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    if (isProjectMode) {
+      // Project oriented: run full pipeline (cmmcomp, asmcomp, iverilogprojectcomp, runprojectgtkwave)
+      
+      // Load processor configuration
+      const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
+      const processorConfigExists = await window.electronAPI.pathExists(configFilePath);
+      let processorConfig = null;
+      
+      if (processorConfigExists) {
+        const configContent = await window.electronAPI.readFile(configFilePath);
+        processorConfig = JSON.parse(configContent);
+      }
+
+      const manager = initializeGlobalTerminalManager();
+      
+      // 1. CMM and ASM compilation for all processors
+      manager.clearTerminal('tcmm');
+      switchTerminal('terminal-tcmm');
+      
+      for (const projectProcessor of compiler.projectConfig.processors) {
+        checkCancellation();
+        
+        const configProcessor = processorConfig ? 
+          processorConfig.processors.find(p => p.name === projectProcessor.type) : null;
+        
+        if (!configProcessor) {
+          compiler.terminalManager.appendToTerminal('tcmm', `Warning: No configuration found for processor ${projectProcessor.type}`, 'warning');
+          continue;
+        }
+        
+        const processorObj = {
+          name: projectProcessor.type,
+          type: projectProcessor.type,
+          instance: projectProcessor.instance,
+          clk: configProcessor.clk || 1000,
+          numClocks: configProcessor.numClocks || 2000,
+          testbenchFile: configProcessor.testbenchFile || 'standard',
+          gtkwFile: configProcessor.gtkwFile || 'standard',
+          cmmFile: configProcessor.cmmFile || `${projectProcessor.type}.cmm`,
+          isActive: false
+        };
+        
+        try {
+          compiler.terminalManager.appendToTerminal('tcmm', `Processing ${projectProcessor.type}...`);
+          await compiler.ensureDirectories(projectProcessor.type);
+          
+          // CMM compilation
+          checkCancellation();
+          const asmPath = await compiler.cmmCompilation(processorObj);
+          
+          // ASM compilation
+          checkCancellation();
+          manager.clearTerminal('tasm');
+          switchTerminal('terminal-tasm');
+          await compiler.asmCompilation(processorObj, asmPath, 1); // project param = 1
+          switchTerminal('terminal-tcmm');
+          
+        } catch (error) {
+          compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${projectProcessor.type}: ${error.message}`, 'error');
+          throw error;
+        }
+      }
+
+      // 2. Verilog Project Compilation
+      manager.clearTerminal('tveri');
+      switchTerminal('terminal-tveri');
+      checkCancellation();
+      await compiler.iverilogProjectCompilation();
+
+      // 3. Project GTKWave
+      manager.clearTerminal('twave');
+      switchTerminal('terminal-twave');
+      checkCancellation();
+      await compiler.runProjectGtkWave();
+      
+    } else {
+      // Processor oriented: just call runGtkWave
+      const manager = initializeGlobalTerminalManager();
+      manager.clearTerminal('twave');
+      switchTerminal('terminal-twave');
+      
+      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) {
+        throw new Error("No active processor found. Please set isActive: true for one processor.");
+      }
+      
+      checkCancellation();
+      await compiler.runGtkWave(activeProcessor);
+    }
+    
+    if (!compilationCanceled) {
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('GTKWave execution error:', error);
+      showCardNotification('GTKWave execution failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+
+// KEEP ONLY ONE COMPILE ALL EVENT LISTENER (simplified version):
+document.getElementById('allcomp').addEventListener('click', async () => {
+  // If a processor is configured, proceed with compilation
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
+    const toggleButton = document.getElementById('toggle-ui');
+    // Check if toggleButton exists to avoid errors in case it's not in the DOM
+    if (toggleButton) {
+      const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+      if (isProjectMode) { // Project Mode
+        document.getElementById('settings-project').click();
+      } else { // Processor Mode
+        document.getElementById('settings').click();
+      }
+    }
+    return; // Stop execution if processor is not configured
+  }
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+    startCompilation();
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+
+    if (isProjectMode) {
+      // Project oriented: cmmcomp, asmcomp, iverilogprojectcompilation, runprojectgtkwave
+      await runProjectPipeline(compiler);
+    } else {
+      // Processor oriented: cmmcomp, asmcomp, iverilogcompilation, rungtkwave
+      await runProcessorPipeline(compiler);
+    }
+
+    if (!compilationCanceled) {
+      console.log('All compilations completed successfully');
+      await refreshFileTree();
+    }
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Compilation error:', error);
+      showCardNotification('Compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+
+// KEEP ONLY ONE FRACTAL COMPILATION EVENT LISTENER:
+document.getElementById('fractalcomp').addEventListener('click', async () => {
+  if (!isProcessorConfigured()) {
+    showCardNotification('Please configure a processor first before fractal compilation.', 'warning', 4000);
+    return;
+  }
+
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
+  isCompilationRunning = true;
+  compilationCanceled = false;
+
+  try {
+
+    const compiler = new CompilationModule(currentProjectPath);
+    await compiler.loadConfig();
+    
+    const toggleButton = document.getElementById('toggle-ui');
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    
+    if (!compilationCanceled) {
+      // Launch fractal visualizer after successful compilation
+      await compiler.launchFractalVisualizersForProject('fire');
+      console.log('Fractal compilation completed successfully');
+      await refreshFileTree();
+    }
+    
+    startCompilation();
+   
+    
+    if (isProjectMode) {
+      // Project oriented: full pipeline + fractal
+      await runProjectPipeline(compiler);
+    } else {
+      // Processor oriented: full pipeline + fractal
+      await runProcessorPipeline(compiler);
+    }
+    
+  } catch (error) {
+    if (!compilationCanceled) {
+      console.error('Fractal compilation error:', error);
+      showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
+    }
+  } finally {
+    endCompilation();
+  }
+});
+
+// ADD these helper functions:
+async function runProcessorPipeline(compiler) {
+  const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+  if (!activeProcessor) {
+    throw new Error("No active processor found. Please set isActive: true for one processor.");
+  }
+  
+  await compiler.ensureDirectories(activeProcessor.name);
+  
+  // 1. CMM Compilation
+  const manager = initializeGlobalTerminalManager();
+  manager.clearTerminal('tcmm');
+  switchTerminal('terminal-tcmm');
+  checkCancellation();
+  const asmPath = await compiler.cmmCompilation(activeProcessor);
+  
+  // 2. ASM Compilation
+  manager.clearTerminal('tasm');
+  switchTerminal('terminal-tasm');
+  checkCancellation();
+  await compiler.asmCompilation(activeProcessor, 0);// project param = 0
+  
+  // 3. Verilog Compilation
+  manager.clearTerminal('tveri');
+  switchTerminal('terminal-tveri');
+  checkCancellation();
+  await compiler.iverilogCompilation(activeProcessor);
+  
+  // 4. GTKWave
+  manager.clearTerminal('twave');
+  switchTerminal('terminal-twave');
+  checkCancellation();
+  await compiler.runGtkWave(activeProcessor);
+}
+
+async function runProjectPipeline(compiler) {
+  if (!compiler.projectConfig || !compiler.projectConfig.processors) {
+    throw new Error('No processors defined in projectoriented.json');
+  }
+  
+  // Load processor configuration
+  const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
+  const processorConfigExists = await window.electronAPI.pathExists(configFilePath);
+  let processorConfig = null;
+  
+  if (processorConfigExists) {
+    const configContent = await window.electronAPI.readFile(configFilePath);
+    processorConfig = JSON.parse(configContent);
+  }
+
+  const manager = initializeGlobalTerminalManager();
+  
+  // 1. CMM and ASM compilation for all processors
+  manager.clearTerminal('tcmm');
+  switchTerminal('terminal-tcmm');
+  
+  for (const projectProcessor of compiler.projectConfig.processors) {
+    checkCancellation();
+    
+    const configProcessor = processorConfig ? 
+      processorConfig.processors.find(p => p.name === projectProcessor.type) : null;
+    
+    if (!configProcessor) {
+      compiler.terminalManager.appendToTerminal('tcmm', `Warning: No configuration found for processor ${projectProcessor.type}`, 'warning');
+      continue;
+    }
+    
+    const processorObj = {
+      name: projectProcessor.type,
+      type: projectProcessor.type,
+      instance: projectProcessor.instance,
+      clk: configProcessor.clk || 1000,
+      numClocks: configProcessor.numClocks || 2000,
+      testbenchFile: configProcessor.testbenchFile || 'standard',
+      gtkwFile: configProcessor.gtkwFile || 'standard',
+      cmmFile: configProcessor.cmmFile || `${projectProcessor.type}.cmm`,
+      isActive: false
+    };
+    
+    try {
+      compiler.terminalManager.appendToTerminal('tcmm', `Processing ${projectProcessor.type}...`);
+      await compiler.ensureDirectories(projectProcessor.type);
+      
+      // CMM compilation
+      checkCancellation();
+      const asmPath = await compiler.cmmCompilation(processorObj);
+      
+      // ASM compilation
+      checkCancellation();
+      manager.clearTerminal('tasm');
+      switchTerminal('terminal-tasm');
+      await compiler.asmCompilation(processorObj, 1); // project param = 1
+      switchTerminal('terminal-tcmm');
+      
+    } catch (error) {
+      compiler.terminalManager.appendToTerminal('tcmm', `Error processing processor ${projectProcessor.type}: ${error.message}`, 'error');
+      throw error;
+    }
+  }
+
+  // 2. Verilog Project Compilation
+  manager.clearTerminal('tveri');
+  switchTerminal('terminal-tveri');
+  checkCancellation();
+  await compiler.iverilogProjectCompilation();
+
+  // 3. Project GTKWave
+  manager.clearTerminal('twave');
+  switchTerminal('terminal-twave');
+  checkCancellation();
+  await compiler.runProjectGtkWave();
+}
+
+document.getElementById("backupFolderBtn").addEventListener("click", async () => {
+  if (!currentProjectPath) {
+    alert("Nenhum projeto aberto para backup.");
+    return;
+  }
+  const result = await window.electronAPI.createBackup(currentProjectPath);
+
+  alert(result.message); // Exibe o resultado do backup
+
+  refreshFileTree(); // Atualiza a árvore de arquivos
+});
+
+
+// Modal Interaction Functions
+function openModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+      modal.classList.add('active');
+  }
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+      modal.classList.remove('active');
+  }
+}
+
+// Event Listeners for Configuration Modal
+document.getElementById('closeModal')?.addEventListener('click', () => closeModal('modalConfig'));
+document.getElementById('cancelConfig')?.addEventListener('click', () => closeModal('modalConfig'));
+
+// Event Listeners for Bug Report Modal
+document.getElementById('open-bug-report')?.addEventListener('click', () => openModal('bug-report-modal'));
+document.getElementById('close-bug-report')?.addEventListener('click', () => closeModal('bug-report-modal'));
+
+//TESTE         ======================================================================================================================================================== ƒ
 
 
   // Wait for the DOM to fully load before executing the script

@@ -265,7 +265,7 @@ class AuroraWelcomeSystem {
       }
 
       .greeting-text {
-        background: var(--gradient-primary);
+        background: var(--text-primary);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;

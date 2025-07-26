@@ -6178,6 +6178,167 @@ document.addEventListener('keydown', (e) => {
 // Export for use in other modules if needed
 window.FileTreeSearch = fileSearchSystem;
 
+// Directory watcher management
+class DirectoryWatcher {
+  constructor() {
+    this.currentWatchedDirectory = null;
+    this.isWatching = false;
+    this.setupEventListeners();
+  }
+
+  setupEventListeners() {
+    // Listen for directory changes
+    window.electronAPI.onDirectoryChanged((directoryPath, files) => {
+      if (directoryPath === this.currentWatchedDirectory) {
+        console.log('Directory changed, refreshing file tree');
+        this.updateFileTreeFromFiles(files);
+      }
+    });
+
+    // Listen for watcher errors
+    window.electronAPI.onDirectoryWatcherError((directoryPath, error) => {
+      console.error(`Directory watcher error for ${directoryPath}:`, error);
+      // Attempt to restart watching after a delay
+      setTimeout(() => {
+        this.startWatching(directoryPath);
+      }, 2000);
+    });
+  }
+
+  async startWatching(directoryPath) {
+    try {
+      // Stop watching previous directory if any
+      await this.stopWatching();
+
+      if (!directoryPath) {
+        console.warn('No directory path provided for watching');
+        return;
+      }
+
+      console.log(`Starting to watch directory: ${directoryPath}`);
+      
+      const watcherId = await window.electronAPI.watchDirectory(directoryPath);
+      this.currentWatchedDirectory = directoryPath;
+      this.isWatching = true;
+      
+      console.log(`Directory watcher started with ID: ${watcherId}`);
+    } catch (error) {
+      console.error('Failed to start directory watching:', error);
+      this.isWatching = false;
+    }
+  }
+
+  async stopWatching() {
+    if (this.currentWatchedDirectory && this.isWatching) {
+      try {
+        console.log(`Stopping directory watcher for: ${this.currentWatchedDirectory}`);
+        await window.electronAPI.stopWatchingDirectory(this.currentWatchedDirectory);
+        this.currentWatchedDirectory = null;
+        this.isWatching = false;
+      } catch (error) {
+        console.error('Failed to stop directory watching:', error);
+      }
+    }
+  }
+
+  updateFileTreeFromFiles(files) {
+    try {
+      // Update the file tree with new structure
+      updateFileTree(files);
+      
+      // Dispatch custom event to notify other components
+      document.dispatchEvent(new CustomEvent('refresh-file-tree'));
+      
+      // If search is active, reapply search
+      if (window.FileTreeSearch && window.FileTreeSearch.isSearching()) {
+        setTimeout(() => {
+          const searchInput = document.getElementById('file-search-input');
+          if (searchInput && searchInput.value) {
+            window.FileTreeSearch.performSearch(searchInput.value);
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error updating file tree from watcher:', error);
+    }
+  }
+
+  getCurrentWatchedDirectory() {
+    return this.currentWatchedDirectory;
+  }
+
+  isCurrentlyWatching() {
+    return this.isWatching;
+  }
+}
+
+// Initialize directory watcher
+const directoryWatcher = new DirectoryWatcher();
+
+// Update your existing loadProject function to start watching
+async function loadProject(spfPath) {
+  try {
+    const result = await window.electronAPI.openProject(spfPath);
+    currentProjectPath = result.projectData.structure.basePath;
+
+    console.log('Loading project from SPF:', spfPath);
+    
+    // Store both paths
+    currentProjectPath = result.projectData.structure.basePath;
+    currentSpfPath = spfPath;
+
+    updateProjectNameUI(result.projectData);
+    await TabManager.closeAllTabs();
+    
+    console.log('Current SPF path:', currentSpfPath);
+    console.log('Current project path:', currentProjectPath);
+
+    // Enable the processor hub button
+    updateProcessorHubButton(true);
+    enableCompileButtons();
+    refreshFileTree();
+    
+    // Start watching project directory
+    await directoryWatcher.startWatching(currentProjectPath);
+    
+    // Check if folders exist
+    const missingFolders = result.projectData.structure.folders.filter(folder => !folder.exists);
+    if (missingFolders.length > 0) {
+      const shouldRecreate = await showConfirmDialog(
+        'Missing Folders',
+        'Some project folders are missing. Would you like to recreate them?'
+      );
+      
+      if (shouldRecreate) {
+        const newResult = await window.electronAPI.createStructure(
+          result.projectData.structure.basePath,
+          spfPath
+        );
+        updateFileTree(newResult.files);
+        await TabManager.closeAllTabs();
+      } else {
+        updateFileTree(result.files);
+      }
+    } else {
+      updateFileTree(result.files);
+    }
+    addToRecentProjects(currentSpfPath);
+
+  } catch (error) {
+    console.error('Error loading project:', error);
+    showErrorDialog('Failed to load project', error.message);
+  }
+}
+
+// Clean up watcher when closing project or app
+window.addEventListener('beforeunload', async () => {
+  await directoryWatcher.stopWatching();
+  window.electronAPI.removeDirectoryListeners();
+});
+
+// Export for global access
+window.DirectoryWatcher = directoryWatcher;
+
 //PROJECTBUTTON ======================================================================================================================================================== ƒ
 
 let currentProjectPath = null; // Store the current project path
@@ -9420,7 +9581,7 @@ function setCompilationButtonsState(disabled) {
     'vericomp',
     'wavecomp',
     'allcomp',
-    'fractalcomp'
+    'fractalcomp',
   ];
   
   buttons.forEach(buttonId => {
@@ -9476,15 +9637,25 @@ function switchTerminal(targetId) {
 
 // ADD individual button event listeners (these are missing):
 document.getElementById('cmmcomp').addEventListener('click', async () => {
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before C± compilation.', 'warning', 4000);
-    return;
-  }
 
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
   }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before C± compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
 
   isCompilationRunning = true;
   compilationCanceled = false;
@@ -9521,15 +9692,25 @@ document.getElementById('cmmcomp').addEventListener('click', async () => {
 });
 
 document.getElementById('asmcomp').addEventListener('click', async () => {
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
-    return;
-  }
 
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
   }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before ASM compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
 
   isCompilationRunning = true;
   compilationCanceled = false;
@@ -9579,15 +9760,26 @@ document.getElementById('asmcomp').addEventListener('click', async () => {
 });
 
 document.getElementById('vericomp').addEventListener('click', async () => {
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before Verilog compilation.', 'warning', 4000);
-    return;
-  }
 
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
   }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before Verilog compilation.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
+
 
   isCompilationRunning = true;
   compilationCanceled = false;
@@ -9632,15 +9824,25 @@ document.getElementById('vericomp').addEventListener('click', async () => {
 });
 
 document.getElementById('wavecomp').addEventListener('click', async () => {
-  if (!isProcessorConfigured()) {
-    showCardNotification('Please configure a processor first before running GTKWave.', 'warning', 4000);
-    return;
-  }
 
   if (!currentProjectPath) {
     console.error('No project opened');
     return;
   }
+
+  if (!isProcessorConfigured()) {
+  showCardNotification('Please configure a processor first before running GTKWave.', 'warning', 4000);
+  const toggleButton = document.getElementById('toggle-ui');
+  if (toggleButton) {
+    const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
+    if (isProjectMode) {
+      document.getElementById('settings-project').click();
+    } else {
+      document.getElementById('settings').click();
+    }
+  }
+  return;
+}
 
   isCompilationRunning = true;
   compilationCanceled = false;
@@ -9759,6 +9961,12 @@ document.getElementById('wavecomp').addEventListener('click', async () => {
 
 // KEEP ONLY ONE COMPILE ALL EVENT LISTENER (simplified version):
 document.getElementById('allcomp').addEventListener('click', async () => {
+  // If a processor is configured, proceed with compilation
+  if (!currentProjectPath) {
+    console.error('No project opened');
+    return;
+  }
+
   if (!isProcessorConfigured()) {
     showCardNotification('Please configure a processor first before compilation.', 'warning', 4000);
     const toggleButton = document.getElementById('toggle-ui');
@@ -9772,12 +9980,6 @@ document.getElementById('allcomp').addEventListener('click', async () => {
       }
     }
     return; // Stop execution if processor is not configured
-  }
-
-  // If a processor is configured, proceed with compilation
-  if (!currentProjectPath) {
-    console.error('No project opened');
-    return;
   }
 
   isCompilationRunning = true;

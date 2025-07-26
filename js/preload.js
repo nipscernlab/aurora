@@ -94,6 +94,29 @@ const fileOperations = {
       return ipcRenderer.invoke('get-available-modules', tempDir);
     },
     
+     // Directory watching methods
+  watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),
+  stopWatchingDirectory: (directoryPath) => ipcRenderer.invoke('stop-watching-directory', directoryPath),
+  
+  // Directory change listeners
+  onDirectoryChanged: (callback) => {
+    ipcRenderer.on('directory-changed', (event, directoryPath, files) => {
+      callback(directoryPath, files);
+    });
+  },
+  
+  onDirectoryWatcherError: (callback) => {
+    ipcRenderer.on('directory-watcher-error', (event, directoryPath, error) => {
+      callback(directoryPath, error);
+    });
+  },
+  
+  // Remove listeners
+  removeDirectoryListeners: () => {
+    ipcRenderer.removeAllListeners('directory-changed');
+    ipcRenderer.removeAllListeners('directory-watcher-error');
+  },
+  
     // Listen for compilation complete events
     onCompilationComplete: (callback) => {
       console.log('onCompilationComplete listener registered');

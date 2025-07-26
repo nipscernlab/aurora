@@ -27,20 +27,22 @@
             data-i18n-title="toolbar.sidebarMenuTitle" title="">
       <i class="fa-solid fa-compass"></i>
     </button>
-    <button id="newProjectBtn" class="toolbar-button" 
+
+        <button id="newProjectBtn" class="toolbar-button" 
             data-i18n-title="toolbar.newProjectTitle" title="">
       <i class="fas fa-folder-plus"></i>
       <span data-i18n="toolbar.newProject">New Project</span>
+    </button>
+
+    <button id="openProjectBtn" class="toolbar-button"
+            data-i18n-title="toolbar.openProjectTitle" title="">
+      <i class="fa-solid fa-box-open"></i>
+      <span data-i18n="toolbar.openProject">Open Project</span>
     </button>
     <button id="backupFolderBtn" class="toolbar-button" disabled style="cursor: not-allowed;"
             data-i18n-title="toolbar.backupTitle" title="">
       <i class="fa-solid fa-box-archive"></i>
       <span data-i18n="toolbar.backup">Backup</span>
-    </button>
-    <button id="openProjectBtn" class="toolbar-button"
-            data-i18n-title="toolbar.openProjectTitle" title="">
-      <i class="fa-solid fa-box-open"></i>
-      <span data-i18n="toolbar.openProject">Open Project</span>
     </button>
     <button id="saveFileBtn" class="toolbar-button" disabled style="cursor: not-allowed;"
             data-i18n-title="toolbar.saveFileTitle" title="">
@@ -68,16 +70,14 @@
             data-i18n-title="toolbar.openWaveTitle" title="">
       <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
     </button>
-    <button id="prismcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
-           title="">
+    <button id="prismcomp" class="toolbar-button" disabled style="cursor: not-allowed;" title="">
       <img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;">
       <span data-i18n="toolbar.prism">PRISM</span>
     </button>
-      <button id="fractalcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
-            data-i18n-title="toolbar.openFRACTALtitle" title="">
-      <img src="./assets/icons/mandelbrot-fractal.svg" style="width: 30px; height: inherit; flex-shrink: 0;   filter: invert(100%);">
+    <!-- <button id="fractalcomp" class="toolbar-button" disabled style="cursor: not-allowed;" title="">
+      <img src="./assets/icons/mandelbrot-fractal.svg" style="width: 30px; height: inherit; flex-shrink: 0; filter: invert(100%);">
       <span data-i18n="toolbar.fractal">FFPGA</span>
-    </button>
+    </button> -->
   </div>
 
   <button id="toggle-ui" class="toolbar-toggle-ui" 
@@ -92,27 +92,30 @@
 
   <button id="allcomp" class="toolbar-button" disabled style="cursor: not-allowed;"
           data-i18n-title="toolbar.compileAllTitle" title="">
-    <i class="fa-solid fa-flag-checkered" style="color: #f200ff;"></i>
-    <span data-i18n="toolbar.compileAll">Compile All</span>
+    <i class="fa-solid fa-font-awesome" style="color: #f200ff;"></i>
+    <span data-i18n="toolbar.compileAll">Full Build</span>
   </button>
 </div>
 
 
   <!-- Buttons on the right -->
   <div class="toolbar-right">
+    
+    <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;"
+            data-i18n-title="toolbar.settingsTitle" title="">
+      <i class="fa-solid fa-gears"></i> Settings
+    </button>
+<!--
     <button id="themeToggle" class="toolbar-button"
             data-i18n-title="toolbar.toggleThemeTitle" title="">
       <i class="fas fa-sun"></i>
     </button>
-    <button id="settings" class="toolbar-button" disabled style="cursor: not-allowed;"
-            data-i18n-title="toolbar.settingsTitle" title="">
-      <i class="fa-solid fa-gears"></i>
-    </button>
+
     <button onclick="openAuroraAboutModal()" id="info-aurora" class="toolbar-button"
             data-i18n-title="toolbar.aboutAuroraTitle" title="">
       <i class="fa-solid fa-circle-info"></i>
     </button>
-    <!--
+    
     <button id="palette" class="toolbar-button" onclick="openThemeModal()"
             data-i18n-title="toolbar.paletteTitle" title="">
       <i class="fa-solid fa-palette"></i>
@@ -123,7 +126,7 @@
     </button> -->
     <button id="aurora-settings" class="toolbar-button"
             data-i18n-title="toolbar.changeLanguageTitle">
-      <i class="fa-solid fa-sliders"></i> Settings
+      <i class="fa-solid fa-sliders"></i>
     </button>
   </div>
 </div>
@@ -501,6 +504,8 @@
   <div class="main-container">
     <!-- File Tree Section -->
     <div class="file-tree-container">
+    <div class="resizer-vertical"></div>
+
     <div class="file-tree-header">
     <span data-i18n="ui.fileTree.title">FILE TREE</span>
      
@@ -536,7 +541,6 @@
 
     <div class="file-tree-actions">
       <div id="file-tree" class="file-tree"></div>
-      <div class="resizer-vertical"></div>
     </div>
   </div>
 
@@ -614,10 +618,9 @@
           <button class="tab" data-terminal="tasm"><i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i> TASM</button>
           <button class="tab" data-terminal="tveri"><i class="fa-solid fa-feather" style="color: #FF3131;"></i> TIVERI</button>
           <button class="tab" data-terminal="twave"><i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i> TWAVE</button>
-          <button class="tab" data-terminal="tprism"><img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> TPRISM</button>
-          <!-- <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
+          <!--<button class="tab" data-terminal="tprism"><img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> TPRISM</button>
+          <button class="tab" data-terminal="tcmd"><i class="fa-solid fa-terminal"  style="color: #dbdbdb;"></i> TCMD</button> -->
           <button id="goup-terminal" data-i18n-title="ui.terminal.goUp" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-chevron-up"></i></button>
-          <button id="goup-terminal" data-i18n-title="ui.terminal.goUp" titles="Go Up" class="toolbar-button"><i class="fa-solid fa-bolt"></i></i></button>
           <button id="godown-terminal" data-i18n-title="ui.terminal.goDown" titles="Go Down" class="toolbar-button"><i class="fa-solid fa-chevron-down"></i></button>
           <button id="export-log" data-i18n-title="ui.terminal.exportLog" titles="Export Log" class="toolbar-button"><i class="fa-solid fa-file-export"></i></button>
           <button id="reload-everything-terminal" data-i18n-title="ui.terminal.reloadEverything" titles="Reload Everything" class="toolbar-button"><i class="fa-solid fa-hourglass"></i></button>
@@ -1248,7 +1251,6 @@ function closeAuroraAboutModal() {
   <script src="./js/translation.js"></script>
   <script src="./js/closeProject.js"></script>
   <script src="./js/fileTreeToggler.js"></script>
-  <script src="./js/layout-manager.js"></script>
   <script src="./js/zoom.js"></script>
   <script src="./js/auroraWelcome.js"></script>
 

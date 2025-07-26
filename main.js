@@ -3995,6 +3995,167 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
   });
 }
 
+
+// Directory watcher for file tree updates
+const activeDirectoryWatchers = new Map();
+const directoryStatsCache = new Map();
+
+// IPC handlers for directory watching
+ipcMain.handle('watch-directory', async (event, directoryPath) => {
+  try {
+    if (activeDirectoryWatchers.has(directoryPath)) {
+      return activeDirectoryWatchers.get(directoryPath).id;
+    }
+
+    const debouncedChangeHandler = debounce(async () => {
+      try {
+        const files = await getDirectoryStructure(directoryPath);
+        event.sender.send('directory-changed', directoryPath, files);
+      } catch (error) {
+        console.error(`Error getting directory structure: ${error.message}`);
+      }
+    }, 500);
+
+    const watcher = chokidar.watch(directoryPath, {
+      ignored: /[\/\\]\./,
+      persistent: true,
+      ignoreInitial: true,
+      depth: 10,
+      usePolling: false,
+      atomic: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      }
+    });
+
+    const watcherId = `dir_watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    watcher.on('add', (filePath) => {
+      console.log(`File added: ${filePath}`);
+      debouncedChangeHandler();
+    });
+
+    watcher.on('unlink', (filePath) => {
+      console.log(`File removed: ${filePath}`);
+      debouncedChangeHandler();
+    });
+
+    watcher.on('addDir', (dirPath) => {
+      console.log(`Directory added: ${dirPath}`);
+      debouncedChangeHandler();
+    });
+
+    watcher.on('unlinkDir', (dirPath) => {
+      console.log(`Directory removed: ${dirPath}`);
+      debouncedChangeHandler();
+    });
+
+    watcher.on('error', (error) => {
+      console.error(`Directory watcher error for ${directoryPath}:`, error);
+      event.sender.send('directory-watcher-error', directoryPath, error.message);
+    });
+
+    activeDirectoryWatchers.set(directoryPath, {
+      id: watcherId,
+      watcher: watcher,
+      path: directoryPath
+    });
+
+    return watcherId;
+  } catch (error) {
+    throw new Error(`Failed to watch directory: ${error.message}`);
+  }
+});
+
+ipcMain.handle('stop-watching-directory', async (event, directoryPath) => {
+  try {
+    const watcherInfo = activeDirectoryWatchers.get(directoryPath);
+    if (watcherInfo) {
+      await watcherInfo.watcher.close();
+      activeDirectoryWatchers.delete(directoryPath);
+      directoryStatsCache.delete(directoryPath);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error stopping directory watcher:', error);
+    return false;
+  }
+});
+
+// Get directory structure function
+async function getDirectoryStructure(basePath) {
+  const files = [];
+  
+  async function scanDirectory(currentPath, relativePath = '') {
+    try {
+      const items = await fs.readdir(currentPath, { withFileTypes: true });
+      
+      for (const item of items) {
+        const fullPath = path.join(currentPath, item.name);
+        const itemRelativePath = path.join(relativePath, item.name);
+        
+        if (item.isDirectory()) {
+          files.push({
+            name: item.name,
+            path: fullPath,
+            relativePath: itemRelativePath,
+            isDirectory: true,
+            children: []
+          });
+          
+          await scanDirectory(fullPath, itemRelativePath);
+        } else {
+          files.push({
+            name: item.name,
+            path: fullPath,
+            relativePath: itemRelativePath,
+            isDirectory: false
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error scanning directory ${currentPath}:`, error);
+    }
+  }
+  
+  await scanDirectory(basePath);
+  return files;
+}
+
+// Periodic health check for directory watchers
+setInterval(async () => {
+  for (const [directoryPath, watcherInfo] of activeDirectoryWatchers.entries()) {
+    try {
+      await fs.access(directoryPath);
+    } catch (error) {
+      console.log(`Directory no longer accessible: ${directoryPath}, removing watcher`);
+      try {
+        await watcherInfo.watcher.close();
+      } catch (closeError) {
+        console.error(`Error closing directory watcher: ${closeError}`);
+      }
+      activeDirectoryWatchers.delete(directoryPath);
+      directoryStatsCache.delete(directoryPath);
+    }
+  }
+}, 30000);
+
+// Clean up directory watchers on app close
+app.on('before-quit', async () => {
+  console.log('Cleaning up directory watchers...');
+  for (const [directoryPath, info] of activeDirectoryWatchers.entries()) {
+    try {
+      await info.watcher.close();
+    } catch (error) {
+      console.error(`Error closing directory watcher for ${directoryPath}:`, error);
+    }
+  }
+  activeDirectoryWatchers.clear();
+  directoryStatsCache.clear();
+});
+
 // Store active file watchers
 const activeWatchers = new Map();
 const fileStatsCache = new Map();

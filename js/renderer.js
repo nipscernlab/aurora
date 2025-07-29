@@ -8050,116 +8050,71 @@ end`;
     throw error;
   }
 }
-
-// Client-side corrected VVP execution method
 async runOptimizedVVP(command, workingDir, terminalTag = 'twave') {
   this.terminalManager.appendToTerminal(terminalTag, 'Starting optimized VVP execution...');
-  
-  // Get system performance info
   const systemInfo = await window.electronAPI.getSystemPerformance();
-  this.terminalManager.appendToTerminal(terminalTag, 
-    `System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
-
+  this.terminalManager.appendToTerminal(terminalTag, `System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
   let vvpProcessPid = null;
   let isVvpRunning = true;
-
   const outputListener = (event, payload) => {
     if (!isVvpRunning) return;
-    
     if (payload.type === 'performance') {
       vvpProcessPid = payload.data.pid;
-      this.terminalManager.appendToTerminal(terminalTag, 
-        `VVP Process started (PID: ${vvpProcessPid}) using ${payload.data.cpuCount} cores`);
-      
-      // Set global process tracking
-      if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
-        window.setCurrentVvpPid(vvpProcessPid);
-      }
+      this.terminalManager.appendToTerminal(terminalTag, `VVP Process started (PID: ${vvpProcessPid}) using ${payload.data.cpuCount} cores`);
+      if (typeof window !== 'undefined' && window.setCurrentVvpPid) window.setCurrentVvpPid(vvpProcessPid);
     } else if (payload.type === 'pid') {
       vvpProcessPid = payload.pid;
-      this.terminalManager.appendToTerminal(terminalTag, 
-        `High-performance VVP started (PID: ${vvpProcessPid})`);
-      
-      if (typeof window !== 'undefined' && window.setCurrentVvpPid) {
-        window.setCurrentVvpPid(vvpProcessPid);
-      }
+      this.terminalManager.appendToTerminal(terminalTag, `High-performance VVP started (PID: ${vvpProcessPid})`);
+      if (typeof window !== 'undefined' && window.setCurrentVvpPid) window.setCurrentVvpPid(vvpProcessPid);
     } else if (payload.type === 'stdout') {
       this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stdout');
     } else if (payload.type === 'stderr') {
       this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stderr');
     }
   };
-
   window.electronAPI.onCommandOutputStream(outputListener);
-
   try {
-    if (typeof window !== 'undefined' && window.setVvpRunning) {
-      window.setVvpRunning(true);
-    }
-
-    // Use the optimized VVP execution - pass the full command directly
+    if (typeof window !== 'undefined' && window.setVvpRunning) window.setVvpRunning(true);
     const vvpResult = await window.electronAPI.execVvpOptimized(command, workingDir);
     isVvpRunning = false;
-    
     if (typeof window !== 'undefined' && window.setVvpRunning) {
       window.setVvpRunning(false);
       window.setCurrentVvpPid(null);
     }
-
-    // Set high priority for the process
     if (vvpProcessPid) {
       try {
         await window.electronAPI.setProcessPriority(vvpProcessPid, 'high');
         this.terminalManager.appendToTerminal(terminalTag, 'Process priority set to HIGH');
-      } catch (priorityError) {
-        console.warn('Could not set process priority:', priorityError);
-      }
+      } catch {}
     }
-
-    if (vvpResult.stdout) {
-      this.terminalManager.appendToTerminal(terminalTag, vvpResult.stdout, 'stdout');
-    }
-    if (vvpResult.stderr) {
-      this.terminalManager.appendToTerminal(terminalTag, vvpResult.stderr, 'stderr');
-    }
-
+    if (vvpResult.stdout) this.terminalManager.appendToTerminal(terminalTag, vvpResult.stdout, 'stdout');
+    if (vvpResult.stderr) this.terminalManager.appendToTerminal(terminalTag, vvpResult.stderr, 'stderr');
     checkCancellation();
-
     if (vvpResult.code !== 0) {
       hideVVPProgress();
       throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
     }
-
-    this.terminalManager.appendToTerminal(terminalTag, 
-      `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
-    
+    this.terminalManager.appendToTerminal(terminalTag, `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
+    const audio = new Audio('./assets/634075__aj_heels__videocallaccept.wav');
+    audio.play();
     return vvpResult;
-
   } catch (error) {
     isVvpRunning = false;
-    
     if (typeof window !== 'undefined' && window.setVvpRunning) {
       window.setVvpRunning(false);
       window.setCurrentVvpPid(null);
     }
-    
     if (error.message === 'Compilation canceled by user' && vvpProcessPid) {
       try {
         await window.electronAPI.terminateProcess(vvpProcessPid);
-        this.terminalManager.appendToTerminal(terminalTag, 
-          `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
-      } catch (killError) {
-        console.error('Error killing VVP process:', killError);
+        this.terminalManager.appendToTerminal(terminalTag, `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
+      } catch {
         try {
           await window.electronAPI.terminateProcess('vvp.exe');
-          this.terminalManager.appendToTerminal(terminalTag, 
-            'VVP process terminated by name due to cancellation.', 'warning');
-        } catch (killByNameError) {
-          console.error('Error killing VVP process by name:', killByNameError);
-        }
+          this.terminalManager.appendToTerminal(terminalTag, 'VVP process terminated by name due to cancellation.', 'warning');
+        } catch {}
       }
     }
-    
     throw error;
   } finally {
     window.electronAPI.removeCommandOutputListener(outputListener);

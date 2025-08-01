@@ -1048,6 +1048,7 @@ function init() {
     // Adicionar ícone ao botão de projeto
     const projectIcon = document.createElement('i');
     projectIcon.className = 'fa-solid fa-gear';
+    projectIcon.style.color = '#da70d6';
     projectSettingsButton.appendChild(projectIcon);
     
     // Inserir o novo botão após o botão original

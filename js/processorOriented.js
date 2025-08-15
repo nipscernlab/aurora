@@ -15,7 +15,7 @@ const asmCompFlagsInput = document.getElementById("asmCompFlags");
 const testbenchSelect = document.getElementById("processortestbenchSelect");
 const gtkwSelect = document.getElementById("processorgtkwaveSelect");
 const cmmFileSelect = document.getElementById("cmmFileSelect");
-
+const showArraysCheckbox = document.getElementById("showArraysInGtkwave");
 
 // Store available processors and current configuration
 let availableProcessors = [];
@@ -577,7 +577,8 @@ processorSelect.addEventListener("change", function() {
     const tempConfig = tempProcessorConfigs[selectedProcessor];
     processorClkInput.value = tempConfig.clk || '';
     processorNumClocksInput.value = tempConfig.numClocks || '';
-    
+    showArraysCheckbox.checked = tempConfig.showArraysInGtkwave === 1;
+
     // Set simulation file selections if available in temp config
     if (tempConfig.testbenchFile && testbenchSelect) {
       testbenchSelect.value = tempConfig.testbenchFile;
@@ -610,6 +611,7 @@ processorSelect.addEventListener("change", function() {
   if (processorConfig) {
     processorClkInput.value = processorConfig.clk || '';
     processorNumClocksInput.value = processorConfig.numClocks || '';
+    showArraysCheckbox.checked = processorConfig.showArraysInGtkwave === 1; 
 
     // Set simulation file selections if available in processor config
     if (processorConfig.testbenchFile && testbenchSelect) {
@@ -635,6 +637,7 @@ processorSelect.addEventListener("change", function() {
   } else {
     processorClkInput.value = '';
     processorNumClocksInput.value = '';
+    showArraysCheckbox.checked = false;
     if (testbenchSelect) testbenchSelect.value = "standard";
     if (gtkwSelect) gtkwSelect.value = "standard";
     if (cmmFileSelect) { // CORRIGIDO
@@ -841,7 +844,8 @@ async function loadConfiguration() {
       
       processorClkInput.value = lastActiveProcessor.clk || '';
       processorNumClocksInput.value = lastActiveProcessor.numClocks || '';
-      
+      showArraysCheckbox.checked = lastActiveProcessor.showArraysInGtkwave === 1;
+
       // Check if simulation file references exist and load files
       await loadSimulationFiles(selectedProcessor);
       
@@ -857,7 +861,8 @@ async function loadConfiguration() {
       selectedProcessor = null;
       processorClkInput.value = '';
       processorNumClocksInput.value = '';
-      
+      showArraysCheckbox.checked = false;
+
       // Disable simulation file selects
       if (testbenchSelect) testbenchSelect.disabled = true;
       if (gtkwSelect) gtkwSelect.disabled = true;
@@ -927,7 +932,8 @@ function saveCurrentProcessorToTemp() {
     const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
     const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
     const cmmFile = cmmFileSelect ? cmmFileSelect.value : ""; // ADICIONADO
-    
+    const showArrays = showArraysCheckbox.checked ? 1 : 0;
+
     tempProcessorConfigs[selectedProcessor] = {
       name: selectedProcessor,
       clk: clk ? Number(clk) : null,
@@ -935,7 +941,8 @@ function saveCurrentProcessorToTemp() {
       testbenchFile: testbenchFile,
       gtkwFile: gtkwFile,
       cmmFile: cmmFile, // ADICIONADO
-      isActive: selectedProcessor === selectedProcessor
+      isActive: selectedProcessor === selectedProcessor,
+      showArraysInGtkwave: showArrays
     };
     
     console.log(`Saved temporary config for ${selectedProcessor}:`, tempProcessorConfigs[selectedProcessor]);
@@ -1429,3 +1436,75 @@ styleElement.textContent = `
   }
 `;
 document.head.appendChild(styleElement);
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Get references to the DOM elements once the document is ready
+  const clkInput = document.getElementById("processorClk");
+  const numClocksInput = document.getElementById("processorNumClocks");
+  const simulTimeInput = document.getElementById("processorSimulTime");
+
+  /**
+   * Calculates the clock period in microseconds (µs) from a frequency in MHz.
+   * @param {number} freqMHz - The clock frequency in MHz.
+   * @returns {number|null} The clock period in µs, or null if frequency is invalid.
+   */
+  function getClockPeriodInMicroseconds(freqMHz) {
+    // A frequency must be a positive number.
+    if (!freqMHz || freqMHz <= 0) {
+      return null;
+    }
+    // Formula: Period (µs) = 1 / Frequency (MHz)
+    return 1 / freqMHz;
+  }
+
+  /**
+   * Calculates and updates the Simulation Time (µs) field.
+   * Triggered when clock frequency or number of clocks change.
+   */
+  function updateSimulationTime() {
+    const freqMHz = parseFloat(clkInput.value);
+    const numClocks = parseInt(numClocksInput.value, 10);
+    const period_us = getClockPeriodInMicroseconds(freqMHz);
+
+    // Check if all inputs are valid numbers
+    if (period_us !== null && !isNaN(numClocks) && numClocks >= 0) {
+      const totalTime = numClocks * period_us;
+      // Update the simulation time input, rounding to 4 decimal places for clarity
+      simulTimeInput.value = totalTime.toFixed(4);
+    } else {
+      // If inputs are invalid (e.g., empty or zero), clear the output
+      simulTimeInput.value = '';
+    }
+  }
+
+  /**
+   * Calculates and updates the Number of Clocks field.
+   * Triggered when simulation time changes.
+   */
+  function updateNumberOfClocks() {
+    const freqMHz = parseFloat(clkInput.value);
+    const simTime_us = parseFloat(simulTimeInput.value);
+    const period_us = getClockPeriodInMicroseconds(freqMHz);
+
+    // Check if all inputs are valid numbers
+    if (period_us !== null && !isNaN(simTime_us) && simTime_us >= 0) {
+      // As requested, round down to the nearest whole number of clocks
+      const totalClocks = Math.floor(simTime_us / period_us);
+      numClocksInput.value = totalClocks;
+    } else {
+      // If inputs are invalid, clear the output
+      numClocksInput.value = '';
+    }
+  }
+
+  // 2. Add event listeners to trigger the recalculations on user input
+
+  // If clock frequency changes, recalculate simulation time based on the current number of clocks.
+  clkInput.addEventListener("input", updateSimulationTime);
+
+  // If the user types a number of clocks, calculate the resulting simulation time.
+  numClocksInput.addEventListener("input", updateSimulationTime);
+
+  // If the user types a simulation time, calculate the required number of clocks.
+  simulTimeInput.addEventListener("input", updateNumberOfClocks);
+});

@@ -8092,9 +8092,8 @@ end`;
     }
 
     async cmmCompilation(processor) {
-        const {
-            name
-        } = processor;
+        const {name, showArraysInGtkwave} = processor;
+        const showArraysFlag = showArraysInGtkwave === 1 ? '1' : '0';
         this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
         try {
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
@@ -8109,7 +8108,7 @@ end`;
             await TabManager.saveAllFiles();
             statusUpdater.startCompilation('cmm');
 
-            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}"`;
+            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);

@@ -193,13 +193,19 @@
 
           <div class="modalConfig-form-group">
             <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.processors.title">Simulation</h3>
-                      
+            <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.testbenchLabel">Testbench File:</label>
+            <div class="modalConfig-select-container">
+              <select id="processortestbenchSelect" class="modalConfig-select">
+                <!-- Testbench files will be dynamically added here -->
+                <option value="" data-i18n="modal.processorConfig.processors.selectTestbench">Select Testbench File</option>
+              </select>
+            </div>    <br>     
           <div class="modalConfig-processor-config">
             <div class="modalConfig-form-group">
-              <label for="processorClk" class="modalConfig-label" data-i18n="modal.processorConfig.processors.clkLabel">CLK (MHz) max of 1GHz</label>
+              <label for="processorClk" class="modalConfig-label" data-i18n="modal.processorConfig.processors.clkLabel">CLK Frequency (MHz)</label>
               <input type="number" id="processorClk" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.clkPlaceholder" placeholder="Clock frequency">
               <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
-              Number of Clocks value used in simulation
+              Max of 1000MHz
             </small>
             </div>
             <div class="modalConfig-form-group">
@@ -213,19 +219,25 @@
               value="200000"
               aria-describedby="processorSimuDelayHelp"
             >
-            <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
-              Number of Clocks value used in testbench timing
-            </small>
+            <!-- <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
+              Number of Clocks
+            </small> --> 
           </div>
-  
+          <div class="modalConfig-form-group">
+            <label for="processorSimulTime" class="modalConfig-label">Simulation Time (μs)</label>
+            <input 
+              type="text" 
+              id="processorSimulTime" 
+              class="modalConfig-input"
+              placeholder="e.g., 200000" 
+              value="200000"
+              aria-describedby="processorSimuDelayHelp"
+            >
+            <!-- <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
+              Number of Clocks
+            </small> --> 
           </div>
-            <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.testbenchLabel">Testbench File:</label>
-            <div class="modalConfig-select-container">
-              <select id="processortestbenchSelect" class="modalConfig-select">
-                <!-- Testbench files will be dynamically added here -->
-                <option value="" data-i18n="modal.processorConfig.processors.selectTestbench">Select Testbench File</option>
-              </select>
-            </div>
+          </div>
           </div>
           
           <div class="modalConfig-form-group">
@@ -236,6 +248,17 @@
                 <option value="" data-i18n="modal.processorConfig.processors.selectGtkwave">Select GTKWave File</option>
               </select>
             </div>
+          </div>
+           <div class="modalConfig-form-group">
+              <div class="modalConfig-checkbox-container">
+                  <input type="checkbox" id="showArraysInGtkwave" class="modalConfig-checkbox">
+                  <label for="showArraysInGtkwave" class="modalConfig-label">
+                      Show C± arrays content in GTKWave
+                  </label>
+              </div>
+              <small class="modalConfig-form-help">
+                  If checked, arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+              </small>
           </div>
         </section>
     

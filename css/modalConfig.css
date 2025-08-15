@@ -811,7 +811,7 @@ button:disabled::after {
 }
 
 .modalConfig-body {
-  padding: 1.5rem;
+  padding: 2.5rem;
   color: var(--text-primary);
   max-height: 70vh;
   overflow-y: auto;
@@ -1132,4 +1132,92 @@ button:disabled::after {
 .modalConfig-footer {
   flex-shrink: 0;
   margin-top: auto;
+}
+
+/* Container for the checkbox and label */
+.modalConfig-checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3); /* 12px gap between switch and text */
+  cursor: pointer;
+  -webkit-user-select: none; /* Prevents text selection on click */
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Hide the default browser checkbox */
+.modalConfig-checkbox {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+/* Style for the label, which acts as the visible element */
+.modalConfig-checkbox-container .modalConfig-label {
+  color: var(--text-secondary);
+  position: relative;
+  padding-left: 52px; /* Space for the toggle switch */
+  line-height: 24px; /* Vertically align text with the switch */
+  transition: color var(--transition-fast);
+}
+
+/* The track of the toggle switch */
+.modalConfig-checkbox-container .modalConfig-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;  /* Width of the switch */
+  height: 24px; /* Height of the switch */
+  border-radius: var(--radius-full);
+  background-color: var(--bg-quaternary);
+  border: 1px solid var(--border-primary);
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
+}
+
+/* The handle/thumb of the toggle switch */
+.modalConfig-checkbox-container .modalConfig-label::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 16px;  /* Size of the handle */
+  height: 16px; /* Size of the handle */
+  border-radius: var(--radius-full);
+  background-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-bounce), background-color var(--transition-normal);
+}
+
+/* --- STATES --- */
+
+/* Hover state on the whole component */
+.modalConfig-checkbox-container:hover .modalConfig-label::before {
+  border-color: var(--accent-hover);
+}
+
+.modalConfig-checkbox-container:hover .modalConfig-label {
+  color: var(--text-primary);
+}
+
+/* Focus state for accessibility */
+.modalConfig-checkbox:focus-visible + .modalConfig-label::before {
+  box-shadow: var(--shadow-focus);
+}
+
+/* --- CHECKED STATE --- */
+
+/* Change track background when checked */
+.modalConfig-checkbox:checked + .modalConfig-label::before {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-tertiary);
+}
+
+/* Change handle color when checked */
+.modalConfig-checkbox:checked + .modalConfig-label::after {
+  background-color: var(--bg-elevated);
+  /* Move the handle to the right: 44px (width) - 16px (handle) - 4px (right padding) = 24px */
+  transform: translateX(20px); 
 }

@@ -690,7 +690,7 @@ button:disabled::after {
 
 /* Processor section styling */
 #processors {
-  padding: 20px;
+  padding: 4px;
 }
 
 #processors h3,

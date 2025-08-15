@@ -5,7 +5,6 @@ const modal = document.getElementById("modalProcessorConfig");
 const closeModal = document.getElementById("closeModal");
 const processorSelect = document.getElementById("processorSelect");
 const deleteProcessorButton = document.getElementById("deleteProcessor");
-const clearAllButton = document.getElementById("clearAll");
 const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
 const processorClkInput = document.getElementById("processorClk");
@@ -918,16 +917,6 @@ closeModal.addEventListener("click", () => {
   modal.classList.remove("active");
   setTimeout(() => modal.hidden = true, 300);
 });
-
-// Clears all fields
-clearAllButton.addEventListener("click", () => {
-  processorClkInput.value = "";
-  processorNumClocksInput.value = "";
-  iverilogFlagsInput.value = "";
-  cmmCompFlagsInput.value = "";
-  asmCompFlagsInput.value = "";
-});
-
 
 // Modify the existing saveConfigButton event listener - ADD CMM file to config
 // Correção do saveCurrentProcessorToTemp para incluir o arquivo CMM

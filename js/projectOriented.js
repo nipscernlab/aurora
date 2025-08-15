@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const iverilogFlags = document.getElementById('iverilogFlags');
   const saveProjectConfigBtn = document.getElementById('saveProjectConfig');
   const cancelProjectConfigBtn = document.getElementById('cancelProjectConfig');
-  const clearAllBtn = document.getElementById('clearAll');
   const closeProjectModalBtn = document.getElementById('closeProjectModal');
   
   // Elementos para o toggle UI
@@ -457,8 +456,7 @@ function createFileItem(file, index, type) {
               data-index="${index}" 
               data-type="${type}"
               title="${isStarred ? 'Remove from favorites' : 'Add to favorites'}">
-        <i class="fa-solid fa-star"></i>
-      </button>
+<i class="fa-solid fa-thumbtack"></i>      </button>
       <button class="project-icon-btn delete-btn" 
               data-index="${index}" 
               data-type="${type}"
@@ -984,14 +982,7 @@ function init() {
         closeProjectModal();
       });
     }
-    
-    // Botão Clear All
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener('click', () => {
-        clearAllSettings();
-      });
-    }
-    
+
     // Fechar modal ao clicar fora
     window.addEventListener('click', (event) => {
       if (event.target === projectModal) {
@@ -2028,34 +2019,7 @@ async function saveProjectConfiguration() {
   }
 }
 
-// Updated clearAllSettings function
-function clearAllSettings() {
-  // Clear file lists
-  synthesizableFiles = [];
-  testbenchFiles = [];
-  gtkwFiles = [];
-  
-  // Update file lists UI
-  updateFileList('synthesizable');
-  updateFileList('testbench');
-  
-  // Clear processor list
-  if (processorsList) {
-    processorsList.innerHTML = '';
-    addProcessorRow();
-  }
-  
-  // Clear iverilog flags
-  if (iverilogFlags) {
-    iverilogFlags.value = '';
-  }
-  
-  // Reset simulation delay to default
-  const projectSimuDelayInput = document.getElementById('projectSimuDelay');
-  if (projectSimuDelayInput) {
-    projectSimuDelayInput.value = '200000';
-  }
-}
+
 
   // Função para fechar o modal do projeto
   function closeProjectModal() {

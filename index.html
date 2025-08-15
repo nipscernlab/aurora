@@ -87,7 +87,7 @@
 
   <div class="compile-all-group">
     <button id="cancel-everything" class="toolbar-button" disabled style="cursor: not-allowed; padding: 9.0px;" data-i18n-title="toolbar.cancelEverythingTitle" title="">
-      <i class="fa-solid fa-ban" style="color: #da70d6;"></i>
+      <i class="fa-solid fa-power-off" style="color: #da70d6;"></i>
     </button>
 
     <button id="allcomp" class="toolbar-button" disabled style="cursor: not-allowed;" data-i18n-title="toolbar.compileAllTitle" title="">
@@ -167,7 +167,7 @@
       </div>
       <div class="modalConfig-body">
         <section class="modalConfig-section" id="processors">
-          <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.processors.title">Processors</h3>
+          <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.processors.title">Synthesis</h3>
           <div class="modalConfig-processor-selector">
             <label for="processorSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.selectLabel">Select Processor:</label>
             <div class="modalConfig-select-container">
@@ -179,22 +179,34 @@
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>
-          
+
+          <div class="modalConfig-form-group">
+            <div class="modalConfig-cmm-selector">
+            <div class="modalConfig-form-group">
+              <label for="cmmFileSelect">C± File:</label><br>
+              <select id="cmmFileSelect" class="modalConfig-select" disabled>
+                <option value="">Select C± File</option>
+              </select>
+            </div>
+          </div>
+          </div>
+
+          <div class="modalConfig-form-group">
+            <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.processors.title">Simulation</h3>
+                      
           <div class="modalConfig-processor-config">
             <div class="modalConfig-form-group">
               <label for="processorClk" class="modalConfig-label" data-i18n="modal.processorConfig.processors.clkLabel">CLK (MHz) max of 1GHz</label>
               <input type="number" id="processorClk" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.clkPlaceholder" placeholder="Clock frequency">
+              <small id="processorSimuDelayHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.processors.simuDelayHelp">
+              Number of Clocks value used in simulation
+            </small>
             </div>
             <div class="modalConfig-form-group">
-              <label for="processorNumClocks" class="modalConfig-label" data-i18n="modal.processorConfig.processors.numClocksLabel">Number of Clocks</label>
-              <input type="number" id="processorNumClocks" class="modalConfig-input" data-i18n-placeholder="modal.processorConfig.processors.numClocksPlaceholder" placeholder="Number of clocks" max="1000">
-            </div>
-          </div>
-          <div class="modalConfig-form-group">
-            <label for="processorSimuDelay" class="modalConfig-label" data-i18n="modal.processorConfig.processors.simuDelayLabel">Number of Clocks</label>
+            <label for="processorNumClocks" class="modalConfig-label" data-i18n="modal.processorConfig.processors.simuDelayLabel">Number of Clocks</label>
             <input 
               type="text" 
-              id="processorSimuDelay" 
+              id="processorNumClocks" 
               class="modalConfig-input"
               data-i18n-placeholder="modal.processorConfig.processors.simuDelayPlaceholder"
               placeholder="e.g., 200000" 
@@ -205,15 +217,7 @@
               Number of Clocks value used in testbench timing
             </small>
           </div>
-
-          <div class="modalConfig-form-group">
-            <div class="modalConfig-cmm-selector">
-            <div class="modalConfig-form-group">
-              <label for="cmmFileSelect">C± File:</label>
-              <select id="cmmFileSelect" class="modalConfig-select" disabled>
-                <option value="">Select C± File</option>
-              </select>
-            </div>
+  
           </div>
             <label for="testbenchSelect" class="modalConfig-label" data-i18n="modal.processorConfig.processors.testbenchLabel">Testbench File:</label>
             <div class="modalConfig-select-container">
@@ -234,65 +238,12 @@
             </div>
           </div>
         </section>
-        
-       <!-- <section class="modalConfig-section" id="compilerSettings">
-          <h3 class="modalConfig-section-title" data-i18n="modal.processorConfig.compiler.title">Compiler Settings</h3>
-          
-          <div class="modalConfig-form-group">
-            <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.iverilogLabel">Iverilog Flags</label>
-            <input 
-              type="text" 
-              id="iverilogFlags" 
-              class="modalConfig-input"
-              name="iverilogFlags"
-              data-i18n-placeholder="modal.processorConfig.compiler.iverilogPlaceholder"
-              placeholder="e.g., -Wall; -v; -s" 
-              aria-describedby="iverilogFlagsHelp"
-            >
-            <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.iverilogHelp">
-              Specify additional flags for Iverilog compilation (separate with semicolons)
-            </small>
-          </div>
-          
-          <div class="modalConfig-form-group">
-            <label for="cmmCompFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.cmmLabel">CMMComp Flags</label>
-            <input 
-              type="text" 
-              id="cmmCompFlags" 
-              class="modalConfig-input"
-              name="cmmCompFlags"
-              data-i18n-placeholder="modal.processorConfig.compiler.cmmPlaceholder"
-              placeholder="Enter CMMComp flags (separate with semicolons)" 
-              aria-describedby="cmmCompFlagsHelp"
-            >
-            <small id="cmmCompFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.cmmHelp">
-              Specify additional flags for CMMComp compilation
-            </small>
-          </div>
-          
-          <div class="modalConfig-form-group">
-            <label for="asmCompFlags" class="modalConfig-label" data-i18n="modal.processorConfig.compiler.asmLabel">ASMComp Flags</label>
-            <input 
-              type="text" 
-              id="asmCompFlags" 
-              class="modalConfig-input" 
-              name="asmCompFlags"
-              data-i18n-placeholder="modal.processorConfig.compiler.asmPlaceholder"
-              placeholder="Enter ASMComp flags (separate with semicolons)" 
-              aria-describedby="asmCompFlagsHelp"
-            >
-            <small id="asmCompFlagsHelp" class="modalConfig-form-help" data-i18n="modal.processorConfig.compiler.asmHelp">
-              Specify additional flags for ASMComp compilation
-            </small>
-          </div>
-        </section> -->
+    
         
       </div>
       <div class="modalConfig-footer">
         <div class="modalConfig-footer-actions">
-          <button id="clearAll" data-i18n-aria-label="modal.processorConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
-            <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.processorConfig.footer.clearBtn">Clear</span>
-          </button>
+        
           <div class="modalConfig-footer-primary-actions">
             <button id="cancelConfig" data-i18n-aria-label="modal.processorConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
               <span data-i18n="modal.processorConfig.footer.cancelBtn">Cancel</span>
@@ -365,26 +316,8 @@
           </div>
         </div>
       </section>
-      
-      <!-- Processors Section -->
-      <section class="modalConfig-section" id="processors">
-        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.processors.title">Processors</h3>
-        
-        <div id="processorsList">
-          <!-- Processor rows will be added here -->
-          <div class="modalConfig-processor-row">
-            <div class="modalConfig-select-container">
-            </div>
-            <div class="modalConfig-form-group instance-name-group">
-            </div>
-          </div>
-        </div>
-        
-        <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
-          <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
-        </button>
-      </section>
-      <section class="modalConfig-section" id="simulationSettings">
+
+       <section class="modalConfig-section" id="simulationSettings">
         <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.simulation.title">Simulation Settings</h3>
         
         <div class="modalConfig-form-group">
@@ -404,6 +337,26 @@
           </small>
         </div>
       </section>
+      
+      <!-- Processors Section -->
+      <section class="modalConfig-section" id="processors">
+        <label class="modalConfig-label" data-i18n="modal.projectConfig.processors.title">Processors</label>
+        
+        <div id="processorsList">
+          <!-- Processor rows will be added here -->
+          <div class="modalConfig-processor-row">
+            <div class="modalConfig-select-container">
+            </div>
+            <div class="modalConfig-form-group instance-name-group">
+            </div>
+          </div>
+        </div>
+        
+        <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
+          <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
+        </button>
+      </section>
+     
       <!-- Compiler Settings Section
       <section class="modalConfig-section" id="compilerSettings">
         <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
@@ -428,9 +381,6 @@
     
     <div class="modalConfig-footer">
       <div class="modalConfig-footer-actions">
-        <button id="clearAll" data-i18n-aria-label="modal.projectConfig.footer.clearBtn" aria-label="Clear All Settings" class="modalConfig-btn modalConfig-btn-secondary">
-          <i class="fa-solid fa-trash-can"></i> <span data-i18n="modal.projectConfig.footer.clearBtn">Clear</span>
-        </button>
         <div class="modalConfig-footer-primary-actions">
           <button id="cancelProjectConfig" data-i18n-aria-label="modal.projectConfig.footer.cancelBtn" aria-label="Cancel Changes" class="modalConfig-btn modalConfig-btn-secondary">
             <span data-i18n="modal.projectConfig.footer.cancelBtn">Cancel</span>
@@ -1131,7 +1081,7 @@ document.getElementById('reload-everything-terminal').addEventListener('click', 
       'settings', 'allcomp', '#cancel-everything', 'clear-terminal', 'backupFolderBtn', 
       'aiAssistant', 'themeToggle', 'projectInfo', 'info-aurora', 
       'sidebarMenu', 'change-icon-btn', 'saveConfig', 'cancelConfig',
-      'saveProjectConfig', 'cancelProjectConfig', 'clearAll',
+      'saveProjectConfig', 'cancelProjectConfig',
     ];
     
     // Add to buttons

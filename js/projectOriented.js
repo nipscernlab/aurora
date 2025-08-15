@@ -158,10 +158,8 @@ function handleDrop(e, type) {
 function handleFileImport(files, type) {
   const validFiles = [];
   
-  // Filter and validate files
   for (let file of files) {
     if (validateFile(file, type)) {
-      // Check for duplicates
       const existingFiles = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
       if (!existingFiles.some(f => f.name === file.name)) {
         validFiles.push({
@@ -170,7 +168,7 @@ function handleFileImport(files, type) {
           type: file.type,
           starred: false,
           lastModified: file.lastModified,
-          path: file.path // Use just the name as path for now
+          path: file.path
         });
       } else {
         showNotification(`File "${file.name}" already exists in the project`, 'warning', 3000);
@@ -178,10 +176,16 @@ function handleFileImport(files, type) {
     }
   }
   
-  // Add valid files to appropriate array
   if (type === 'synthesizable') {
     synthesizableFiles.push(...validFiles);
     updateFileList('synthesizable');
+    
+    // Trigger re-parsing and UI update after adding a synthesizable file
+    if (validFiles.length > 0) {
+      parseAllSynthesizableFiles().then(() => {
+        refreshAllInstanceSelects();
+      });
+    }
   } else if (type === 'testbench') {
     validFiles.forEach(file => {
       if (file.name.endsWith('.gtkw')) {
@@ -192,14 +196,12 @@ function handleFileImport(files, type) {
     });
     updateFileList('testbench');
   }
-  
-  // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
-  
-  // Show feedback only if files were added
+
   if (validFiles.length > 0) {
     showNotification(`Successfully added ${validFiles.length} file(s) to ${type} list.`, 'success', 3000);
   }
 }
+
 
 
 // Add files to the appropriate list
@@ -637,46 +639,47 @@ function toggleFileStar(index, type) {
 
 // Remove file from list - UPDATED without confirmation
 function removeFile(index, type) {
-  let files, targetFile;
-  
-  // Get the correct file array and target file
+  let files, isSynthesizable = false;
+
   if (type === 'synthesizable') {
     files = synthesizableFiles;
-    targetFile = files[index];
+    isSynthesizable = true;
   } else if (type === 'testbench') {
     files = testbenchFiles;
-    targetFile = files[index];
   } else if (type === 'gtkw') {
     files = gtkwFiles;
-    targetFile = files[index];
   }
   
-  if (!targetFile) {
+  if (!files || !files[index]) {
     console.error('File not found for removal:', index, type);
     return;
   }
-  
-  // Find and animate the file item
+
   const fileItem = document.querySelector(`[data-file-index="${index}"][data-file-type="${type}"]`);
   
   if (fileItem) {
-    // Add removal animation
     fileItem.classList.add('file-animate-out');
     
     setTimeout(() => {
-      // Remove from array
       files.splice(index, 1);
-      
-      // Update UI
       updateFileList(type === 'gtkw' ? 'testbench' : type);
-      
-      // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
+
+      // Trigger re-parsing and UI update if a synthesizable file was removed
+      if (isSynthesizable) {
+        parseAllSynthesizableFiles().then(() => {
+          refreshAllInstanceSelects();
+        });
+      }
     }, 300);
   } else {
-    // Direct removal if animation element not found
+    // Direct removal if UI element not found
     files.splice(index, 1);
     updateFileList(type === 'gtkw' ? 'testbench' : type);
-    // REMOVER: saveProjectConfiguration(); - Não salvar automaticamente
+    if (isSynthesizable) {
+        parseAllSynthesizableFiles().then(() => {
+          refreshAllInstanceSelects();
+        });
+      }
   }
 }
 
@@ -1175,6 +1178,105 @@ function init() {
 // Cache for processor instances mapping
 let processorInstancesMap = {};
 
+// projectOriented.js
+
+// New central function to parse all synthesizable files for processor instances
+async function parseAllSynthesizableFiles() {
+  // Reset the map to ensure a clean state
+  processorInstancesMap = {};
+  
+  // Initialize map for all available processor types
+  availableProcessors.forEach(proc => {
+    processorInstancesMap[proc] = [];
+  });
+  
+  // Filter for Verilog files only
+  const verilogFiles = synthesizableFiles.filter(file => 
+    file.path && file.path.toLowerCase().endsWith('.v')
+  );
+
+  if (verilogFiles.length === 0) {
+    console.log('No synthesizable Verilog files to parse for instances.');
+    return; // No files to parse
+  }
+  
+  console.log(`Parsing ${verilogFiles.length} synthesizable file(s) for instances...`);
+
+  // Use Promise.all to read all files in parallel for better performance
+  const fileReadPromises = verilogFiles.map(async (fileInfo) => {
+    try {
+      const fileContent = await window.electronAPI.readFile(fileInfo.path);
+      return { content: fileContent, name: fileInfo.name };
+    } catch (error) {
+      console.error(`Error reading file ${fileInfo.path}:`, error);
+      return null; // Return null on error
+    }
+  });
+
+  const fileContents = await Promise.all(fileReadPromises);
+
+  // Process the content of each successfully read file
+  for (const file of fileContents) {
+    if (file && file.content) {
+      extractInstancesFromContent(file.content, file.name);
+    }
+  }
+
+  console.log('Finished parsing. Processor instances map:', processorInstancesMap);
+}
+
+// Helper function to extract instances from a single file's content
+// (This is a slightly modified version of your existing logic)
+function extractInstancesFromContent(content, fileName) {
+  if (!content) return;
+
+  const lines = content.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip comments and empty lines
+    if (line.startsWith('//') || line.startsWith('/*') || line.length === 0) continue;
+
+    for (const processorName of availableProcessors) {
+      // Use a regex to ensure it's a whole word match
+      const processorRegex = new RegExp(`\\b${processorName}\\b`);
+      if (processorRegex.test(line)) {
+        
+        // Combine lines if declaration spans multiple lines
+        let instanceLine = line;
+        let lineIndex = i;
+        while (lineIndex < lines.length - 1 && !instanceLine.includes('(') && !instanceLine.includes(';')) {
+          lineIndex++;
+          const nextLine = lines[lineIndex].trim();
+          if (nextLine && !nextLine.startsWith('//')) {
+            instanceLine += ' ' + nextLine;
+          }
+        }
+        
+        // Regex to find instance name after processor type, accounting for parameters
+        const instanceRegex = new RegExp(
+          `\\b${processorName}\\s*(?:#\\s*\\([^)]*\\))?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(`
+        );
+        
+        const match = instanceLine.match(instanceRegex);
+        
+        if (match && match[1]) {
+          const instanceName = match[1];
+          const verilogKeywords = ['module', 'endmodule', 'input', 'output', 'wire', 'reg'];
+          
+          if (!verilogKeywords.includes(instanceName.toLowerCase())) {
+            // Add instance to the map if it's not already there
+            if (!processorInstancesMap[processorName].includes(instanceName)) {
+              processorInstancesMap[processorName].push(instanceName);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 // Parse Verilog files to extract processor instances from synthesizable files
 async function parseProcessorInstances() {
   try {
@@ -1557,10 +1659,14 @@ function refreshAllInstanceSelects() {
 // Modified prepareModalBeforeOpen function
 async function prepareModalBeforeOpen() {
   await loadAvailableProcessors();
-  await loadProjectConfiguration();
-  await parseProcessorInstances();
-  updateFormWithConfig();
+  await loadProjectConfiguration(); // This populates synthesizableFiles
+  
+  // Initial full scan of all synthesizable files
+  await parseAllSynthesizableFiles(); 
+  
+  updateFormWithConfig(); // This will now use the populated instance map
 }
+
 
 // Modern Toggle Styles Function
 function addToggleStyles() {

@@ -1873,9 +1873,13 @@ function updateFormWithConfig() {
   
   // Set iverilog flags
   if (iverilogFlags && currentConfig.iverilogFlags) {
-    iverilog
+    iverilogFlags.value = currentConfig.iverilogFlags;
+  }
 
-s.value = currentConfig.iverilogFlags;
+  // Set "Show Arrays" checkbox state
+  const showArraysCheckbox = document.getElementById('showArraysInGtkwave-project');
+  if (showArraysCheckbox && currentConfig.showArraysInGtkwave !== undefined) {
+    showArraysCheckbox.checked = currentConfig.showArraysInGtkwave === 1;
   }
   
   // Load processor configuration from JSON
@@ -1907,7 +1911,6 @@ s.value = currentConfig.iverilogFlags;
     addProcessorRow();
   }
 }
-
   
   // Atualizar um select de processador com os processadores disponíveis
   function updateProcessorSelect(selectElement, selectedValue = '') {
@@ -2083,6 +2086,10 @@ async function saveProjectConfiguration() {
     // Get simulation delay
     const projectSimuDelayInput = document.getElementById('projectSimuDelay');
     const simuDelayValue = projectSimuDelayInput ? projectSimuDelayInput.value : '200000';
+
+    // Handle the "Show Arrays" checkbox
+    const showArraysCheckbox = document.getElementById('showArraysInGtkwave-project');
+    const showArraysValue = showArraysCheckbox && showArraysCheckbox.checked ? 1 : 0;
     
     // Create configuration object
     const config = {
@@ -2103,7 +2110,8 @@ async function saveProjectConfiguration() {
       })),
       processors: processors,
       iverilogFlags: iverilogFlagsValue,
-      simuDelay: simuDelayValue
+      simuDelay: simuDelayValue,
+      showArraysInGtkwave: showArraysValue // Add the new tag here
     };
     
     // Save configuration to file

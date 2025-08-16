@@ -379,27 +379,18 @@
           <i class="fa-solid fa-plus"></i> <span data-i18n="modal.projectConfig.processors.addBtn">Add Processor</span>
         </button>
       </section>
-     
-      <!-- Compiler Settings Section
-      <section class="modalConfig-section" id="compilerSettings">
-        <h3 class="modalConfig-section-title" data-i18n="modal.projectConfig.compiler.title">Compiler Settings</h3>
-        
-        <div class="modalConfig-form-group">
-          <label for="iverilogFlags" class="modalConfig-label" data-i18n="modal.projectConfig.compiler.iverilogLabel">Iverilog Flags</label>
-          <input 
-            type="text" 
-            id="iverilogFlags" 
-            class="modalConfig-input"
-            name="iverilogFlags"
-            data-i18n-placeholder="modal.projectConfig.compiler.iverilogPlaceholder"
-            placeholder="e.g., -Wall; -v; -s" 
-            aria-describedby="iverilogFlagsHelp"
-          >
-          <small id="iverilogFlagsHelp" class="modalConfig-form-help" data-i18n="modal.projectConfig.compiler.iverilogHelp">
-            Specify additional flags for Iverilog compilation (separate with semicolons)
-          </small>
-        </div>
-      </section>  -->
+<div class="modalConfig-form-group">
+    <div class="modalConfig-checkbox-container">
+        <!-- The 'id' of the input must match the 'for' attribute of the label -->
+        <input type="checkbox" id="showArraysInGtkwave-project" class="modalConfig-checkbox">
+        <label for="showArraysInGtkwave-project" class="modalConfig-label">
+            Show C± arrays content in GTKWave
+        </label>
+    </div>
+    <small class="modalConfig-form-help">
+        If checked, arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+    </small>
+</div>
     </div>
     
     <div class="modalConfig-footer">

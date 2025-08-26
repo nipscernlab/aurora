@@ -1,7 +1,9 @@
-# funcoes de controle ---------------------------------------------------------
+#------------------------------------------------------------------------------
+# Funcoes auxiliares ----------------------------------------------------------
+#------------------------------------------------------------------------------
 
-# pega o primeiro Fac com o padrao de texto dado
-proc getFac {padrao} {
+# pega a primeira variavel com o padrao de texto dado
+proc getVar {padrao} {
     for {set i 0} {$i < [gtkwave::getNumFacs]} {incr i} {
         set facname [gtkwave::getFacName $i]
         if {[string first $padrao $facname] != -1} {return $facname}
@@ -9,8 +11,8 @@ proc getFac {padrao} {
     return ""
 }
 
-# lista todas as Facs com o mesmo padrao de texto dado
-proc listFac {padrao} {
+# lista todas as variaveis com o mesmo padrao de texto dado
+proc listVar {padrao} {
     set lista [list]
     for {set i 0} {$i < [gtkwave::getNumFacs]} {incr i} {
         set facname [gtkwave::getFacName $i]
@@ -19,8 +21,8 @@ proc listFac {padrao} {
     return $lista
 }
 
-# adiciona uma Fac
-proc addFac {facname dataFormat color alias tradutor filter} {
+# adiciona uma variavel ao gtkwave
+proc addVar {facname dataFormat color alias tradutor filter} {
     gtkwave::addSignalsFromList $facname
     gtkwave::/Edit/Data_Format/$dataFormat
     if {![string equal $tradutor ""]} {gtkwave::installFileFilter [gtkwave::setCurrentTranslateFile $tradutor]}
@@ -29,9 +31,9 @@ proc addFac {facname dataFormat color alias tradutor filter} {
     gtkwave::/Edit/Alias_Highlighted_Trace $alias
 }
 
-# adiciona uma variavel de acordo com o tipo de dado
-proc addVar {padrao tipo dataFormat filter} {
-    set var_typ [listFac $padrao]
+# adiciona variaveis de acordo com o tipo de dado
+proc addVars {tipo padrao dataFormat tradutor} {
+    set var_typ [listVar $padrao]
 
     puts "Info: found [llength $var_typ] $tipo type variables."
     
@@ -40,13 +42,62 @@ proc addVar {padrao tipo dataFormat filter} {
         regexp {_f_(.*?)_v_} $facname -> funcao
         regexp {_v_(.*?)_e_} $facname -> var
         if {[string compare $funcao global]!=0} {append funcao "()"}
-        addFac $facname $dataFormat "Orange" "$tipo $var in $funcao" "" $filter
+        addVar $facname $dataFormat "Orange" "$tipo $var in $funcao" "" $tradutor
     }
 }
 
-# Pega infos do processador ---------------------------------------------------
+# adiciona arrays de acordo com o tipo de dado
+proc addArrs {tipo padrao dataFormat tradutor} {
+    array set grupos {}
 
-puts "Info: running standard GTKWave file..."
+    # pega todos os arryas do tipo dado e separa em grupos
+    for {set i 0} {$i < [gtkwave::getNumFacs]} {incr i} {
+        set facname [gtkwave::getFacName $i]
+
+        if {[string match "*$padrao*" $facname] &&
+            [regexp {^(.*?)(\d{4})\[\d+:\d+\]$} $facname -> base _]} {
+        
+            lappend grupos($base) $facname
+        }
+    }
+
+    # adiciona cada array encontrado
+    foreach base [lsort [array names grupos]] {
+    
+        # adiciona array no gtkwave e da highlight
+        gtkwave::addSignalsFromList $grupos($base)
+
+        # tradutor
+        gtkwave::/Edit/Data_Format/$dataFormat
+        gtkwave::installProcFilter [gtkwave::setCurrentTranslateProc $tradutor]
+
+        # pega funcao e nome do array
+        regexp {_f_(.*?)_v_} $base -> funcao
+        regexp {_v_(.*?)_e_} $base -> var
+        if {[string compare $funcao global]!=0} {append funcao "()"}
+
+        # cria grupo no gtkwave e tira o highlight
+        gtkwave::/Edit/Create_Group "$tipo $var in $funcao"
+        gtkwave::/Edit/Toggle_Group_Open|Close
+        gtkwave::/Edit/UnHighlight_All
+
+        # muda o nome de cada indice do array
+        set i 0
+        foreach sinal $grupos($base) {
+            gtkwave::highlightSignalsFromList $sinal
+            gtkwave::/Edit/Alias_Highlighted_Trace "$var $i"
+            incr i
+        }
+    }
+}
+
+#------------------------------------------------------------------------------
+# Comeca aqui -----------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+# Pega parametros no arquivo de configuracao ----------------------------------
+
+puts "Info: running standard GTKWave configuration..."
 
 set    fileID [open "tcl_infos.txt" r]
 gets  $fileID tmp_dir
@@ -55,8 +106,8 @@ close $fileID
 
 # Insere sinais basicos -------------------------------------------------------
 
-set clk      [getFac "core.clk" ]
-set rst      [getFac "core.rst" ]
+set clk      [getVar "core.clk" ]
+set rst      [getVar "core.rst" ]
 
 gtkwave::addSignalsFromList [list $clk $rst]
 
@@ -66,8 +117,8 @@ gtkwave::/Edit/Insert_Comment {I/O ****************}
 
 # Sinais de entrada -----------------------------------------------------------
 
-set req_in  [listFac "req_in_sim"]
-set entrada [listFac "in_sim"    ]
+set req_in  [listVar "req_in_sim"]
+set entrada [listVar "in_sim"    ]
 
 puts "Info: found [llength $req_in] input ports in use."
 
@@ -75,14 +126,14 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 
     puts "Info: adding signals for input port $i."
 
-    addFac [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
-    addFac [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
+    addVar [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
+    addVar [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
 }
 
 # Sinais de saida -------------------------------------------------------------
 
-set out_en [listFac "out_en_sim"]
-set saida  [listFac "out_sig"   ]
+set out_en [listVar "out_en_sim"]
+set saida  [listVar "out_sig"   ]
 
 puts "Info: found [llength $out_en] output ports in use."
 
@@ -90,8 +141,8 @@ for {set i 0} {$i < [llength $out_en] } {incr i} {
 
     puts "Info: adding signals for output port $i."
 
-    addFac [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""
-    addFac [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
+    addVar [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""
+    addVar [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
 }
 
 # Separador de Instrucoes -----------------------------------------------------
@@ -102,11 +153,11 @@ puts "Info: adding Assembly and C± instructions."
 
 # Assembly --------------------------------------------------------------------
 
-addFac [getFac "proc.valr2"] "Decimal" "Indigo" "Assembly" "$tmp_dir/trad_opcode.txt" ""
+addVar [getVar "proc.valr2"   ] "Decimal" "Indigo" "Assembly" "$tmp_dir/trad_opcode.txt" ""
 
 # C+- -------------------------------------------------------------------------
 
-addFac [getFac "proc.linetabs"] "Signed_Decimal" "Violet" "C+-" "$tmp_dir/trad_cmm.txt" ""
+addVar [getVar "proc.linetabs"] "Signed_Decimal" "Violet" "C+-" "$tmp_dir/trad_cmm.txt" ""
 
 # Separador de Variaveis ------------------------------------------------------
 
@@ -114,21 +165,27 @@ gtkwave::/Edit/Insert_Comment {Variables **********}
 
 puts "Info: adding variables..."
 
-# Tipo int --------------------------------------------------------------------
+addVars "int"   "proc.me1"      "Signed_Decimal" ""
+addVars "float" "proc.me2"      "Binary"         "$bin_dir/float2gtkw.exe"
+addVars "comp"  "proc.comp_me3" "Binary"         "$bin_dir/comp2gtkw.exe"
+addArrs "int"   "arr_me1"       "Signed_Decimal" ""
+addArrs "float" "arr_me2"       "Binary"         "$bin_dir/float2gtkw.exe"
+addArrs "comp"  "comp_arr_me3"  "Binary"         "$bin_dir/comp2gtkw.exe"
 
-addVar "proc.me1" "int" "Signed_Decimal" ""
+# Separador de Flags ----------------------------------------------------------
 
-# Tipo float ------------------------------------------------------------------
+gtkwave::/Edit/Insert_Comment {Flags **************}
 
-addVar "proc.me2" "float" "Binary" "$bin_dir/float2gtkw.exe"
+puts "Info: adding flags..."
 
-# Tipo comp -------------------------------------------------------------------
-
-addVar "proc.comp_me3" "comp" "Binary" "$bin_dir/comp2gtkw.exe"
+addVar [getVar "core.sp.pointer"] "Analog/Step" "Normal" "Data Stack Pointer" "" ""
+addVar [getVar "core.sp.fl_full"] "Binary"      "Normal" "Data Stack Full" "" ""
 
 # Visualizacao ----------------------------------------------------------------
 
 gtkwave::/Time/Zoom/Zoom_Best_Fit
 gtkwave::/View/Left_Justified_Signals
 
-puts "Sucesso: sinais e variáveis adicionados corretamente."
+# engana bug -> cria uma aba vazia no gtkwave. refresh soh funciona assim com o GTK3
+gtkwave::loadFile "fix.vcd"
+gtkwave::setTabActive 0

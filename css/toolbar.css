@@ -1,296 +1,240 @@
-/* toolbox */
+/*
+ * =====================================================================================
+ *
+ *       Filename:  toolbar.css
+ *
+ *    Description:  Modern toolbar styles, fully integrated with the elegant purple
+ *                  dark theme design system. Features grouped button containers
+ *                  for a clean and organized UI.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Toolbar Container
+ * =================================================================================== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3); /* Gap between button groups */
+  position: sticky;
+  top: 0;
+  z-index: var(--z-30);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-md);
+  box-sizing: border-box;
+}
+
+/* ===================================================================================
+ *  Toolbar Button Groups
+ * =================================================================================== */
+.toolbar-left,
+.toolbar-center,
+.toolbar-right,
+.compile-all-group {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  overflow: hidden; /* Ensures child elements conform to the rounded corners */
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===================================================================================
+ *  Individual Toolbar Buttons
+ * =================================================================================== */
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0.18rem;
+  padding: var(--space-2) var(--space-3);
+  background-color: transparent;
+  border-right: 1px solid var(--border-primary); /* Separator line */
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap; /* Prevents text wrapping */
+}
+
+/* Remove the border from the last button in each group 
+.toolbar-left > .toolbar-button:last-child,
+.toolbar-center > .toolbar-button:last-child,
+.toolbar-right > .toolbar-button:last-child,
+.compile-all-group > .toolbar-button:last-child {
+  border-right: none;
+}
+*/
+
+.toolbar-button:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.toolbar-button:active {
+  background-color: var(--overlay-active);
+}
+
+.toolbar-button:disabled {
+  color: var(--text-disabled);
+  background-color: transparent;
+  cursor: not-allowed;
+}
+
+.toolbar-button i,
+.toolbar-button img {
+  font-size: var(--text-sm);
+}
+
+.toolbar-button img {
+  height: 20px;
+  width: 20px;
+}
+
+/* Special active state for PRISM button */
+#prismcomp.active {
+  background-color: var(--accent-subtle-bg);
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
+  color: var(--text-primary);
+}
+
+/* ===================================================================================
+ *  Standalone UI Toggle Button (not in a group)
+ * =================================================================================== */
+.toolbar-toggle-ui {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px; /* Match height of other buttons */
+  width: 38px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.toolbar-toggle-ui:hover {
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+
+/* ===================================================================================
+ *  Legacy & Other Component Styling
+ * =================================================================================== */
 
 .info-box {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border: 1px solid var(--border-color, #404040);
-  border-radius: 8px;
-  padding: 20px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
   max-width: 500px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: var(--z-40);
+  box-shadow: var(--shadow-xl);
 }
 
 .info-box h3 {
   margin-top: 0;
-  margin-bottom: 16px;
-  color: var(--text-color, #ffffff);
+  margin-bottom: var(--space-4);
+  color: var(--text-primary);
+  font-size: var(--text-xl);
 }
 
 .info-box ul {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
 }
 
 .info-box li {
-  margin-bottom: 8px;
-  color: var(--text-color, #ffffff);
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
 }
 
 .info-box-close {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--text-tertiary);
   cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  transition: color var(--transition-fast);
 }
 
 .info-box-close:hover {
-  opacity: 1;
+  color: var(--text-primary);
 }
 
-.explorer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-}
-
-.explorer-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/*TESTE*/
-
-.section-title {
-  font-size: 1.1rem;
-  margin-bottom: 10px;
-  color: var(--text-secondary);
-}
-
-.checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background-color: var(--bg-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.checkbox-item:hover {
-  background-color: var(--bg-hover);
-}
-
-.checkbox-item input {
-  margin: 0;
-}
-
-.checkbox-item span {
-  flex: 1;
-}
-
+.checkbox-item,
 .standard-simulation {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: var(--space-3);
+  padding: var(--space-3);
   background-color: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color var(--transition-fast);
 }
 
+.checkbox-item:hover,
 .standard-simulation:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-tertiary);
 }
 
 .standard-simulation i {
-  color: var(--icon-primary);
-  font-size: 1.2rem;
+  color: var(--accent-primary);
+  font-size: var(--text-xl);
 }
 
-.standard-simulation span {
-  flex: 1;
-}
+/* ===================================================================================
+ *  Responsive Adjustments
+ * =================================================================================== */
 
-
-/* Estilos responsivos para a toolbar */
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  width: 100%;
-  padding: 0.5rem;
-  box-sizing: border-box;
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-button {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0.5rem;
-  margin: 0 2px;
-}
-
-#prismcomp {
-  border-bottom: 2px solid transparent;
-  transition: border-bottom 0.3s ease;
-}
-
-#prismcomp.active {
-  border-bottom: 2px solid #FFD700; /* amarelo vivo */
-}
-
-/* Ajuste responsivo para telas médias */
+/* Medium Screens (Tablets) */
 @media screen and (max-width: 1024px) {
+  .toolbar {
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
   .toolbar-button {
-    padding: 0.4rem;
-    font-size: 0.9rem;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    font-size: var(--text-xs);
   }
-  
-  .toolbar-button i, 
-  .toolbar-button img {
-    font-size: 0.9rem;
-  }
-  
-  .toolbar-button span {
-    font-size: 0.9rem;
+  /* Hide less critical text */
+  #openProjectBtn span,
+  #processorHub span {
+    display: none;
   }
 }
 
-/* Ajuste responsivo para telas pequenas */
+/* Small Screens (Mobile) */
 @media screen and (max-width: 768px) {
   .toolbar {
     flex-wrap: nowrap;
     overflow-x: auto;
-    padding: 0.3rem;
+    padding: var(--space-2);
   }
-  
-  .toolbar-button {
-    padding: 0.3rem;
-    margin: 0 1px;
-  }
-  
-  .toolbar-button i,
-  .toolbar-button img {
-    font-size: 0.85rem;
-  }
-  
-  .toolbar-button span {
-    font-size: 0.8rem;
-  }
-  
-  /* Esconde texto em botões menos importantes em telas pequenas */
-  #saveFileBtn span,
-  #backupFolderBtn span,
-  #openProjectBtn span {
-    display: none;
-  }
-}
-
-/* Ajuste responsivo para telas muito pequenas */
-@media screen and (max-width: 480px) {
-  .toolbar {
-    padding: 0.2rem;
-  }
-  
-  .toolbar-button {
-    padding: 0.25rem;
-    margin: 0;
-  }
-  
-  .toolbar-button i,
-  .toolbar-button img {
-    font-size: 0.8rem;
-  }
-  
-  /* Esconde texto em todos os botões exceto "Compile All" */
+  /* Hide most button text to save space */
   .toolbar-button span {
     display: none;
   }
-  
-  /* Mantém texto visível apenas para "Compile All" */
+  /* Explicitly keep 'Full Build' visible as it's a primary action */
   #allcomp span {
     display: inline;
-    font-size: 0.75rem;
   }
-  
-  /* Reduz o tamanho do ícone para "Compile All" */
-  #allcomp i {
-    font-size: 0.75rem;
+  .toolbar-button {
+    padding: var(--space-2);
   }
-  
-  /* Ajusta tamanho do ícone PRISM */
-  #prismcomp img {
-    height: 14px;
-    width: 14px;
-  }
-}
-
-/* Garante que a toolbar sempre fique visível em qualquer tamanho de tela */
-@media screen and (max-height: 600px) {
-  .toolbar {
-    min-height: 2.5rem;
-  }
-}
-
-/* Adiciona um pequeno efeito de sombra para destacar a toolbar */
-.toolbar {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-#cancel-everything,
-#allcomp {
-  margin: 0;
-  border-left: none;
-}
-
-#cancel-everything {
-  border-left: 1px solid var(--border-color);
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
-
-#allcomp {
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-/* Unite the two buttons as one */
-.compile-all-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.compile-all-group #cancel-everything,
-.compile-all-group #allcomp {
-  border: none;
-  border-radius: 0;
-  margin: 0;
-}
-
-.compile-all-group #cancel-everything {
-  border-right: 1px solid var(--border-color);
-}
-
-/* Remove individual button borders when inside the group */
-.compile-all-group .toolbar-button {
-  border: none;
 }

@@ -1,220 +1,183 @@
-/* toggle-ui.css - Estilos com animações aprimoradas */
+/*
+ * =====================================================================================
+ *
+ *       Filename:  ui_animations.css
+ *
+ *    Description:  Styles and animations for the main UI toggle button and for showing
+ *                  or hiding interface elements. Fully integrated with the elegant
+ *                  purple dark theme.
+ *
+ * =====================================================================================
+ */
 
-/* Botão de alternância */
+/* ===================================================================================
+ *  UI Toggle Button Styling
+ * =================================================================================== */
 .toolbar-toggle-ui {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 36px;  /* Slightly larger for a better click target */
+  height: 36px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-  color: var(--icon-primary);
+  background-color: var(--bg-secondary);
+  color: var(--accent-primary); /* Use accent color for this special button */
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  font-family: var(--font-sans);
-  z-index: 999; /* Garantir que esteja sempre acessível */
+  transition: all var(--transition-normal);
   overflow: hidden;
 }
 
 .toolbar-toggle-ui:hover {
-  background: var(--bg-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  background-color: var(--bg-tertiary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-focus);
 }
 
 .toolbar-toggle-ui:active {
-  transform: translateY(1px);
-  transition: all 0.1s ease;
+  transform: translateY(0);
+  transition-duration: 100ms;
 }
 
-/* Ícone do botão */
+/* Icon inside the button */
 .toolbar-toggle-ui i {
-  font-size: 16px;
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-size: var(--text-lg);
+  transition: transform var(--transition-bounce);
   will-change: transform;
 }
 
-/* Efeito hover no ícone */
-.toolbar-toggle-ui i.hover-rotate {
-  transform: rotate(90deg);
-}
-
-/* Rotação contínua */
-.toolbar-toggle-ui i.continuous-spin {
-  animation: continuous-spin 3s linear infinite;
-}
-
-/* Estado ativo do botão */
+/* Active state for the button */
 .toolbar-toggle-ui.active {
-  background: rgba(0, 123, 255, 0.15);
-  border-color: rgba(0, 123, 255, 0.4);
-  box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+  background-color: var(--accent-subtle-bg);
+  border-color: var(--accent-primary);
+  animation: subtle-pulse 2s ease-in-out infinite;
 }
 
 .toolbar-toggle-ui.active i {
-  color: #0077ff;
+  color: var(--accent-hover);
 }
 
-/* Efeito de brilho no hover/ativo */
-.toolbar-toggle-ui::before {
-  content: '';
-  position: absolute;
-  top: -100%;
-  left: -100%;
-  width: 300%;
-  height: 300%;
-  background: radial-gradient(circle, rgba(0, 119, 255, 0.15) 0%, rgba(0, 119, 255, 0) 70%);
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.4s ease, transform 0.4s ease;
-  border-radius: 50%;
-  z-index: -1;
-}
+/* ===================================================================================
+ *  UI Element Show/Hide Animations
+ * =================================================================================== */
 
-.toolbar-toggle-ui:hover::before {
-  opacity: 0.6;
-  transform: scale(1);
-}
-
-.toolbar-toggle-ui.active::before {
-  opacity: 0.8;
-  transform: scale(1);
-}
-
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;               /* permite quebrar linhas */
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;                  /* espaço entre grupos */
-  transition: all 0.3s ease;    /* transição suave */
-  padding: 0.5rem;
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-  display: flex;
-  flex-wrap: wrap;              /* cada grupo também pode quebrar */
-  align-items: center;
-  gap: 0.5rem;                  /* espaçamento interno */
-  transition: all 0.3s ease;
-}
-
-/* Faz cada grupo ocupar linha inteira quando a largura for muito pequena */
-@media (max-width: 800px) {
-  .toolbar-left,
-  .toolbar-center,
-  .toolbar-right {
-    flex: 1 1 100%;             /* flex-grow, flex-shrink, flex-basis */
-  }
-}
-
-/* Ajuste intermediário: centralização do centro em telas médias */
-@media (min-width: 801px) and (max-width: 1100px) {
-  .toolbar-center {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-}
-
-
-/* Animações para os elementos da interface */
-/* Elemento oculto (estado final) */
+/* Utility class to hide an element completely and instantly */
 .ui-element-hidden {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  max-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  overflow: hidden !important;
 }
 
-/* Animação de saída */
+/* Add this class to an element to trigger its fade-out animation */
 .ui-element-hide {
-  animation: fadeOutUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
-  pointer-events: none !important;
+  animation: fadeOutUp var(--transition-normal) forwards;
+  pointer-events: none;
   will-change: transform, opacity;
 }
 
-/* Animação de entrada */
+/* Add this class to an element to trigger its fade-in animation */
 .ui-element-show {
-  animation: fadeInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  animation: fadeInDown var(--transition-normal) forwards;
   will-change: transform, opacity;
 }
 
-/* Keyframes para animações */
+/* ===================================================================================
+ *  Keyframe Animations
+ * =================================================================================== */
+
 @keyframes fadeOutUp {
-  0% {
+  from {
     opacity: 1;
     transform: translateY(0);
   }
-  100% {
+  to {
     opacity: 0;
     transform: translateY(-15px);
+    visibility: hidden;
   }
 }
 
 @keyframes fadeInDown {
-  0% {
+  from {
     opacity: 0;
     transform: translateY(-15px);
   }
-  100% {
+  to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* Animação de rotação contínua */
+/* For continuous spinning, e.g., on the toggle button icon */
+.continuous-spin {
+  animation: continuous-spin 3s linear infinite;
+}
+
 @keyframes continuous-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
+  to {
     transform: rotate(360deg);
   }
 }
 
-/* Animação de pulso sutil para o botão ativo */
-.toolbar-toggle-ui.active {
-  animation: subtle-pulse 2s ease infinite;
-}
-
+/* Subtle pulsing glow for the active button state */
 @keyframes subtle-pulse {
   0%, 100% {
-    box-shadow: 0 0 4px rgba(0, 123, 255, 0.2);
+    box-shadow: 0 0 8px rgba(155, 89, 182, 0.2); /* Adapted from --shadow-glow */
   }
   50% {
-    box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+    box-shadow: 0 0 16px rgba(155, 89, 182, 0.4);
   }
 }
 
-/* transição suave para trocar o ícone */
+/* ===================================================================================
+ *  Icon Swapping Utility
+ * =================================================================================== */
 .icon-swap {
   position: relative;
   display: inline-block;
-  width: 1em;
+  width: 1em; /* Adapts to font-size */
   height: 1em;
 }
-.icon-swap > .fa {
+.icon-swap > i {
   position: absolute;
   top: 0;
   left: 0;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
-.icon-swap > .fa.hide {
+/* Class for the icon that is being hidden */
+.icon-swap > i.hide {
   opacity: 0;
   transform: rotate(-20deg) scale(0.8);
 }
-.icon-swap > .fa.show {
+/* Class for the icon that is being shown */
+.icon-swap > i.show {
   opacity: 1;
   transform: rotate(0) scale(1);
+}
+
+#toggle-ui i {
+  transition: transform 0.3s ease-in-out; /* Transição suave para todas as transformações */
+}
+
+/* Rotação no hover */
+#toggle-ui:hover i:not(.fa-spin) { /* Evita conflito se já estiver girando */
+  transform: rotate(-45deg);
+}
+
+/* Rotação quando o botão está ativo (clicado) */
+#toggle-ui.active i {
+  transform: rotate(-360deg); /* Mantém a rotação */
+  animation: continuous-spin 2s linear infinite; /* Animação de giro contínuo */
+}
+
+@keyframes continuous-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
 }

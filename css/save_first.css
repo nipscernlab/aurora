@@ -1,0 +1,151 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  save_first.css
+ *
+ *    Description:  Styles for the "Save First" confirmation modal, fully integrated
+ *                  with the elegant purple dark theme. Animation logic is preserved
+ *                  for JS compatibility.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Modal Backdrop & Container (Animation logic preserved)
+ * =================================================================================== */
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 16, 21, 0.7); /* --bg-primary with alpha */
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-max); /* Use z-index from design system */
+  padding: var(--space-4);
+  /* Original transition logic */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+/* Original JS hook to show the modal */
+.confirm-modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ===================================================================================
+ *  Modal Content (Animation logic preserved)
+ * =================================================================================== */
+.confirm-modal-content {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  min-width: 420px;
+  max-width: 500px;
+  box-shadow: var(--shadow-xl);
+  /* Original transition and transform logic */
+  transform: scale(0.95);
+  transition: transform var(--transition-normal);
+}
+
+.confirm-modal.show .confirm-modal-content {
+  transform: scale(1);
+}
+
+/* ===================================================================================
+ *  Modal Header & Message
+ * =================================================================================== */
+.confirm-modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.confirm-modal-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: var(--text-lg);
+}
+
+.confirm-modal-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.confirm-modal-message {
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+/* ===================================================================================
+ *  Modal Actions & Buttons
+ * =================================================================================== */
+.confirm-modal-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 90px;
+  border: 1px solid transparent;
+}
+
+.confirm-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-outline);
+}
+
+.confirm-btn.save {
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
+}
+
+.confirm-btn.save:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.confirm-btn.dont-save {
+  background-color: var(--status-error);
+  color: var(--text-on-accent);
+}
+
+.confirm-btn.dont-save:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.confirm-btn.cancel {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--border-primary);
+}
+
+.confirm-btn.cancel:hover {
+  background-color: var(--bg-quaternary);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}

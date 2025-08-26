@@ -1,0 +1,295 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  file_tree.css
+ *
+ *    Description:  Modern and responsive styles for the file tree explorer,
+ *                  fully aligned with the elegant purple dark theme.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Main Container & Header
+ * =================================================================================== */
+.file-tree-container {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  min-width: 150px; /* Sensible minimum width */
+  position: relative;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  transition: width var(--transition-normal), transform var(--transition-normal);
+  user-select: none;
+  overflow: hidden;
+}
+
+.file-tree-header {
+  flex-shrink: 0;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-primary); /* Slightly darker for contrast */
+}
+
+.file-tree-header > span:first-child {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Header Action Buttons */
+.file-tree-header .header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-3);
+}
+
+.file-tree-header .header-actions > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.file-tree-header .header-actions > *:hover {
+  color: var(--accent-primary);
+  background-color: var(--overlay-hover);
+}
+
+/* Current Project Name */
+#current-spf-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: var(--space-3);
+}
+
+/* ===================================================================================
+ *  File Tree Content & Scrollbar
+ * =================================================================================== */
+.file-tree-actions {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Custom Scrollbar */
+.file-tree-actions::-webkit-scrollbar {
+  width: 10px;
+}
+.file-tree-actions::-webkit-scrollbar-track {
+  background: transparent;
+}
+.file-tree-actions::-webkit-scrollbar-thumb {
+  background-color: var(--bg-quaternary);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--bg-secondary);
+}
+.file-tree-actions::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-primary);
+}
+
+#file-tree {
+  flex-grow: 1;
+  padding: var(--space-2);
+  overflow-x: hidden;
+}
+
+/* ===================================================================================
+ *  File & Folder Items
+ * =================================================================================== */
+.file-tree-item {
+  position: relative;
+  width: 100%;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+}
+
+.file-item:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+/* Active and Selected States */
+.file-tree-item.active > .file-item {
+  background-color: var(--accent-subtle-bg);
+  color: var(--accent-hover);
+  font-weight: var(--font-medium);
+}
+
+.file-tree-item.multi-selected > .file-item {
+  background-color: var(--accent-subtle-bg);
+  border: 1px solid var(--accent-subtle-border);
+}
+
+.file-tree-item.disabled > .file-item {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Folder Toggle Arrow */
+.folder-toggle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-1);
+  color: var(--text-tertiary);
+  transition: transform var(--transition-normal);
+}
+
+.folder-toggle.rotated {
+  transform: rotate(90deg);
+}
+
+/* Item Icons */
+.file-item-icon {
+  margin-right: var(--space-2);
+  font-size: var(--text-base);
+  width: 16px;
+  text-align: center;
+}
+
+/* ===================================================================================
+ *  Hierarchy View Styles
+ * =================================================================================== */
+#hierarchy-tree {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-tertiary);
+  transition: all var(--transition-fast);
+}
+
+#hierarchy-tree:hover:not(.disabled) {
+  background-color: var(--bg-quaternary);
+  border-color: var(--accent-primary);
+}
+
+#hierarchy-tree.active {
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+  border-color: var(--accent-primary);
+}
+
+/* Hierarchy Item Specific Icons */
+.hierarchy-item[data-type="top-level"] .file-item-icon i { color: var(--status-error); font-size: 1.1em; }
+.hierarchy-item[data-type="module"] .file-item-icon i { color: var(--status-info); }
+.hierarchy-item[data-type="instance"] .file-item-icon i { color: var(--status-success); }
+.hierarchy-item[data-type="primitive"] .file-item-icon i { color: var(--text-tertiary); }
+
+/* Hierarchy Item Labels */
+.hierarchy-item[data-type="top-level"] .hierarchy-label { font-weight: var(--font-bold); color: var(--accent-hover); }
+.hierarchy-item[data-type="module"] .hierarchy-label { font-weight: var(--font-semibold); color: var(--text-primary); }
+.hierarchy-item[data-type="instance"] .hierarchy-label { font-weight: var(--font-medium); color: var(--text-primary); }
+.hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-tertiary); }
+
+/* Nesting Lines */
+.hierarchy-item .hierarchy-item {
+  margin-left: var(--space-4);
+  position: relative;
+}
+
+.hierarchy-item .hierarchy-item::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-3)); /* Position line correctly */
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--border-primary);
+}
+
+.hierarchy-item .hierarchy-item::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-3));
+  top: 16px; /* Center of a standard item */
+  width: var(--space-2);
+  height: 1px;
+  background-color: var(--border-primary);
+}
+
+/* ===================================================================================
+ *  Animations & Transitions (Folder Unfold Restored)
+ * =================================================================================== */
+
+/* Item Enter Animation (Restored from original) */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Folder Content Container (Restored from original) */
+.folder-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height var(--transition-normal),
+    opacity var(--transition-normal);
+}
+
+.folder-content:not(.hidden) {
+  max-height: 10000px; /* Large value to allow for many files */
+  opacity: 1;
+}
+
+/* Staggered animation for each item as it appears (Restored from original) */
+.folder-content:not(.hidden) > .file-tree-item {
+  opacity: 0;
+  animation: fadeInDown var(--transition-normal) forwards;
+  /* Assumes a --index CSS variable is set on each item via JS */
+  animation-delay: calc(var(--index) * 50ms);
+}
+
+
+/* Refresh Spinning Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+#refresh-button.spinning i {
+  animation: spin 1s linear infinite;
+}

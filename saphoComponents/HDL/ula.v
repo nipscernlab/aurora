@@ -333,12 +333,12 @@ module ula_fadd
 )(
 	input                     clk,
 	input  signed [EXP-1  :0] e_in,
-	input  signed [MAN    :0] sm1_in, sm2_in,
+	input  signed [MAN    :0] sm1_in, sm2_in,                 // ja entra com um bit a mais de sinal
 	output reg    [MAN+EXP:0] out
 );
 
-wire signed [MAN+1:0] soma = sm1_in + sm2_in;
-wire signed [MAN+1:0] m    = (soma[MAN+1]) ? -soma : soma;
+wire signed [MAN+1:0] soma = sm1_in + sm2_in;                 // coloca ainda mais um bit para teste de overflow
+wire signed [MAN+1:0] m    = (soma[MAN+1]) ? -soma : soma;    // faz o abs() na mantissa
 
 wire                  s_out = soma    [MAN+1];
 wire signed [EXP-1:0] e_out = e_in + {{EXP-1{1'b0}}, {1'b1}}; // colocar limite para +inf?
@@ -395,6 +395,7 @@ wire signed [EXP-1:0] e2 = in2r[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1 = in1r[MAN    -1:0  ];
 wire        [MAN-1:0] m2 = in2r[MAN    -1:0  ];
 
+// tem um bit a mais aqui pra testar overflow
 wire signed [EXP:0] e = e1 + e2 + MAN[EXP-1:0]; // colocar limite para +inf
 
 reg        [2*MAN-1:0] mult ;
@@ -403,7 +404,7 @@ reg                    s_out;
 reg signed [  EXP-1:0] e_out;
 
 always @ (*) mult  = m1 * m2;
-always @ (*) unf   = (e[EXP:EXP-1] == 2'b10); // underflow
+always @ (*) unf   = (e[EXP:EXP-1] == 2'b10); // detecta erro na soma de 2 expoentes muito negativos
 always @ (*) s_out = (s1 != s2);
 always @ (*) e_out = e[EXP-1:0];
 

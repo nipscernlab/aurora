@@ -136,7 +136,9 @@ module processor
 
 	// implementa portas de I/O
 	parameter    INN   = 0,
+	parameter  F_INN   = 0,
 	parameter  P_INN   = 0,
+	parameter PF_INN   = 0,
 	parameter    OUT   = 0,
 	
 	// implementa saltos
@@ -311,7 +313,9 @@ core #(.PIPELN ( PIPELN ),
 		 .PSH  (   PSH  ),
 		 .POP  (   POP  ),
 		 .INN  (   INN  ),
-       .P_INN  ( P_INN  ),
+       .F_INN  ( F_INN  ),
+	   .P_INN  ( P_INN  ),
+	  .PF_INN  ( PF_INN ),
 	     .OUT  (   OUT  ),
 		 .JIZ  (   JIZ  ),
          .CAL  (   CAL  ),

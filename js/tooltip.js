@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'openProjectBtn': 'Opens an existing .spf project and loads it into the workspace.',
         'projectInfo': 'Displays detailed information and properties about the currently loaded .spf project.',
         
-        'saveFileBtn': 'Saves any changes made to the currently open file in the Monaco Editor.',
         
         'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
         'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',

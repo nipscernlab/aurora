@@ -1,296 +1,121 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  styles.css
+ *
+ *    Description:  Core layout styles for the Aurora IDE, defining the main structure,
+ *                  body, containers, and resizers. Fully integrated with the
+ *                  elegant purple dark theme.
+ *
+ * =====================================================================================
+ */
 
-  body {
-    margin: 0;
-    padding: 0;
-    background-color: transparent;
-    color: var(--text-primary);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  }
-  
-  .toolbar {
-    padding: 6px 12px;
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .toolbar-button {
-    padding: 6px 12px;
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-  }
-  
-  .toolbar-button:hover {
-    background-color: var(--hover-color);
-  }
-  
-  .toolbar-left, .toolbar-right {
-    display: flex;
-    gap: 8px;
-  }
-  
-  .main-container {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    height: calc(100vh - 50px); /* Desconta a toolbar e a status bar */
-
-  }
-  
-  .file-tree-container {
-    width: 250px;
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  
-
-  .file-tree-header {
-    padding: 8px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-  }
-  
-  .file-tree {
-    flex: 1;
-    overflow: auto;
-    padding: 8px 4px;
-  }
-  
-  .file-item {
-    padding: 4px 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-primary);
-    font-size: 14px;
-    margin-left: 5px;
-  }
-  
-  .file-item:hover {
-    background-color: var(--hover-color);
-  }
-  
-  .file-item i {
-    width: 16px;
-    height: 16px;
-  }
-  
-  .editor-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  
-  .monaco-editor {
-    flex: 1;
-  }
-
-  #monaco-editor {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-  }
-
-  #editor-background-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.7;
-  }
-  
-  .status-bar {
-    height: 22px;
-    background-color: var(--bg-tertiary);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    justify-content: space-between;
-
-  }
-  
-  .status-item {
-    padding: 0 8px;
-    border-right: 1px solid var(--border-color);
-  }
-  
-  .file-item-icon {
-    display: inline-block;
-    margin-right: 8px; 
+/* ===================================================================================
+ *  Global Body & Base Styles
+ * =================================================================================== */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-sans);
 }
 
-.file-icon {
-    width: 20px;
-    height: 20px;
-    vertical-align: middle;
+/* ===================================================================================
+ *  Main Layout Structure
+ * =================================================================================== */
+.main-container {
+  display: flex;
+  flex-grow: 1; /* Occupy remaining vertical space */
+  overflow: hidden;
+  height: calc(100% - var(--space-8)); /* Adjust based on status bar height */
 }
 
-/* Default Resizer Base */
-.resizer-vertical,
-.resizer-horizontal {
-  transition: background-color 0.2s ease;
+/* Fallback for editor container if needed separately */
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* Vertical Resizer */
+.monaco-editor {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ===================================================================================
+ *  Resizable Dividers
+ * =================================================================================== */
 .resizer-vertical {
   width: 5px;
-  cursor: ew-resize;
+  cursor: ew-resize; /* East-West resize */
+  background-color: transparent;
+  transition: background-color var(--transition-fast);
 }
 
-/* Horizontal Resizer */
+.resizer-vertical:hover {
+  background-color: var(--accent-primary);
+}
+
 .resizer-horizontal {
   height: 5px;
-  cursor: ns-resize;
+  cursor: ns-resize; /* North-South resize */
   background-color: transparent;
+  transition: background-color var(--transition-fast);
 }
 
-/* Light Mode */
-body.light-mode .resizer-vertical {
-  background-color: #c9c9c9;
+.resizer-horizontal:hover {
+  background-color: var(--accent-primary);
 }
 
-/* Dark Mode */
-body.dark-mode .resizer-vertical {
-  background-color: #444;
-}
-
-/*CONTEXT MENU*/
-
+/* ===================================================================================
+ *  Context Menu
+ * =================================================================================== */
 .context-menu {
-  background: #252526;
-  border: 1px solid #454545;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  z-index: 1000;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  z-index: var(--z-max); /* Use z-index from design system */
 }
 
 .context-menu-item {
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #cccccc;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .context-menu-item:hover {
-  background: #094771;
-  color: #ffffff;
+  background-color: var(--accent-subtle-bg);
+  color: var(--text-primary);
 }
 
-.sortable-ghost {
-  opacity: 0.6;
-}
-
-#tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-#tabs::-webkit-scrollbar-track {
-  background: #1e1e1e;
-}
-
-#tabs::-webkit-scrollbar-thumb {
-  background: #424242;
-}
-
-#tabs::-webkit-scrollbar-thumb:hover {
-  background: #4f4f4f;
-}
-
-.toolbar-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-#cmmcomp, #asmcomp, #vericomp, #wavecomp, #prismcomp, #allcomp, #cancel-everything, #settings, #settings-project {
-  background-color: var(--bg-hover);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-#processorName {
-  transition: opacity 0.3s ease;
-}
-
-#processorProjectOriented {
-  transition: opacity 0.3s ease;
-  opacity: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-#processorNameID {
-  transition: opacity 0.3s ease; /* tempo e suavização do fade */
-  display: inline-block;         /* para que opacity funcione direitinho */
-}
-
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 6px;
-  box-shadow: var(--vscode-scrollbar-shadow) 0 6px 6px -6px inset;
-}
-
-
-::-webkit-scrollbar-thumb {
-  background-color: #1e1e1e;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 6px; 
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #4f4f4f; 
-}
-
-/* Menu Lateral para News */
+/* ===================================================================================
+ *  Side Panels (e.g., News Sidebar)
+ * =================================================================================== */
 .news-sidebar {
   position: fixed;
   top: 0;
-  right: -350px;
-  width: 350px;
+  right: -400px; /* Start off-screen */
+  width: 400px;
+  max-width: 90vw;
   height: 100%;
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-lg);
-  transition: right 0.3s ease;
-  z-index: 999;
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-xl);
+  transition: right var(--transition-normal);
+  z-index: var(--z-40);
   border-left: 1px solid var(--border-primary);
   overflow-y: auto;
 }
@@ -305,3 +130,34 @@ body.dark-mode .resizer-vertical {
   border: none;
 }
 
+/* ===================================================================================
+ *  General Utility & Overrides
+ * =================================================================================== */
+/* General scrollbar styling can be placed in a global file like theme_variables.css */
+/* For specific overrides: */
+#tabs::-webkit-scrollbar {
+  height: 4px;
+}
+#tabs::-webkit-scrollbar-track {
+  background-color: var(--bg-primary);
+}
+#tabs::-webkit-scrollbar-thumb {
+  background-color: var(--bg-quaternary);
+}
+#tabs::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-secondary);
+}
+
+/* Disabled state for buttons if not covered elsewhere */
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: transparent !important;
+}
+
+/* Styles for status bar text elements */
+#processorName,
+#processorProjectOriented,
+#processorNameID {
+  transition: opacity var(--transition-normal);
+}

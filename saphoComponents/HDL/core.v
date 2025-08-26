@@ -60,11 +60,11 @@ wire wJMP;
 
 generate if (JIZ)
 //             JMP                                        JIZ
-assign wJMP = (opcode == {{NBOPCO-4{1'b0}}, {4'd13}}) | ((opcode == {{NBOPCO-4{1'b0}}, {4'd14}}) & ~is_um);
+assign wJMP = (opcode == {{NBOPCO-5{1'b0}}, {5'd15}}) | ((opcode == {{NBOPCO-5{1'b0}}, {5'd16}}) & ~is_um);
 
 else
 //             JMP
-assign wJMP = (opcode == {{NBOPCO-4{1'b0}}, {4'd13}});
+assign wJMP = (opcode == {{NBOPCO-5{1'b0}}, {5'd15}});
 
 endgenerate
 
@@ -72,8 +72,8 @@ wire pc_load;
 
 generate if (CAL) begin
 
-wire wCAL = (opcode == {{NBOPCO-4{1'b0}}, {4'd15}});
-wire wRET = (opcode == {{NBOPCO-5{1'b0}}, {5'd16}});
+wire wCAL = (opcode == {{NBOPCO-5{1'b0}}, {5'd17}});
+wire wRET = (opcode == {{NBOPCO-5{1'b0}}, {5'd18}});
 
 assign pc_load    =  wJMP | wCAL | wRET;
 assign isp_push   =  wCAL;
@@ -110,7 +110,8 @@ module stack
 #(
 	parameter NADDR = 7,
 	parameter DEPTH = 3,
-	parameter NBITS = 8
+	parameter NBITS = 8,
+	parameter FLAGS = 1
 )(
 	 input             clk , rst,
 	 input             push, pop,
@@ -129,7 +130,7 @@ reg [NBITS-1:0] mem [DEPTH-1:0];
 
 // Stack Pointer
 
-reg  [NADDR-1:0] pointer = 0;
+reg  [NADDR-1:0] pointer = 0; // ideal para monitoramento
 wire [NADDR-1:0] pmaisum = pointer + um;
 wire [NADDR-1:0] pmenoum = pointer - um;
 
@@ -143,6 +144,12 @@ end
 
 always @ (posedge clk) if (push) mem[pointer] <= in;
 assign                     out = mem[pmenoum];
+
+// Flags
+`ifdef __ICARUS__ // ----------------------------------------------------------
+reg fl_full = 0;
+always @ (posedge clk) if ((pointer >= DEPTH)) fl_full <= 1'b1;
+`endif // ---------------------------------------------------------------------
 
 endmodule
 
@@ -273,7 +280,7 @@ assign out = (req_inr) ? ior : acc;
 
 endmodule
 
-// enderecamento indireto -----------------------------------------------------
+// Enderecamento indireto -----------------------------------------------------
 
 module rel_addr
 #(
@@ -344,8 +351,10 @@ module io_ctrl
 	parameter MDATAW = 8,
 	parameter NBIOIN = 8,
 	parameter NBIOOU = 8,
-	parameter   INN  = 0,
-	parameter P_INN  = 0
+	parameter    INN = 0,
+	parameter  F_INN = 0,
+	parameter  P_INN = 0,
+	parameter PF_INN = 0
 )(
 	input                   clk,
 	input                   req_in, out_en,
@@ -358,8 +367,8 @@ module io_ctrl
 	output reg [NBIOOU-1:0] addr_out
 );
 
-generate if (INN | P_INN) assign en_in   = req_in;           else assign en_in   =         1'b0  ; endgenerate
-generate if (INN | P_INN) assign addr_in = addr[NBIOIN-1:0]; else assign addr_in = {NBIOIN{1'b0}}; endgenerate
+generate if (INN | F_INN | P_INN | PF_INN) assign en_in   = req_in;           else assign en_in   =         1'b0  ; endgenerate
+generate if (INN | F_INN | P_INN | PF_INN) assign addr_in = addr[NBIOIN-1:0]; else assign addr_in = {NBIOIN{1'b0}}; endgenerate
 
 always @ (posedge clk) en_out   <= out_en;
 always @ (posedge clk) addr_out <= addr[NBIOOU-1:0];
@@ -431,7 +440,9 @@ module core
 
 	// implementa portas de I/O
 	parameter    INN   = 0,
+	parameter  F_INN   = 0,
 	parameter  P_INN   = 0,
+	parameter PF_INN   = 0,
 	parameter    OUT   = 0,
 	
 	// implementa saltos
@@ -618,7 +629,9 @@ instr_dec #(.PIPELN  ( PIPELN ),
 			   .PSH  (   PSH  ),
 			   .POP  (   POP  ),
 			   .INN  (   INN  ),
+			 .F_INN  ( F_INN  ),
 			 .P_INN  ( P_INN  ),
+			.PF_INN  (PF_INN  ),
 			   .OUT  (   OUT  ),
 			   .ADD  (   ADD  ),
 			 .S_ADD  ( S_ADD  ),
@@ -708,11 +721,11 @@ instr_dec #(.PIPELN  ( PIPELN ),
 
 wire              sp_push = id_dsp_push;
 wire              sp_pop  = id_dsp_pop;
-wire [NUBITS-1:0] sp_in, stack_data;
+wire [NUBITS-1:0] sp_in, sp_data;
 
 stack #(.NADDR($clog2(DDEPTH)),
         .DEPTH(DDEPTH),
-        .NBITS(NUBITS)) sp(clk, rst, sp_push, sp_pop, sp_in, stack_data);
+        .NBITS(NUBITS)) sp(clk, rst, sp_push, sp_pop, sp_in, sp_data);
 
 // Controles de entrada da ULA ------------------------------------------------
 
@@ -720,9 +733,12 @@ wire [NUBITS-1:0] ula_data_in1;
 wire [NUBITS-1:0] ula_data_in2;
 wire [NUBITS-1:0] uic_acc;
 
-ula_in1_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic1 (clk, id_dsp_pop, mem_data_rd, stack_data, ula_data_in1);
-generate if (INN | P_INN)
-ula_in2_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic2 (clk, id_req_in ,     uic_acc, io_in     , ula_data_in2);
+// entrada in1
+ula_in1_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic1 (clk, id_dsp_pop, mem_data_rd, sp_data, ula_data_in1);
+
+// entrada in2
+generate if (INN | P_INN | F_INN | PF_INN)
+ula_in2_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic2 (clk, id_req_in , uic_acc, io_in, ula_data_in2);
 else assign ula_data_in2 = racc;
 endgenerate
 
@@ -758,7 +774,7 @@ ula #(.PIPELN (PIPELN ),
       .F_PST_M(F_PST_M | PF_PST_M),
         .NRM  (  NRM             ),
         .NRM_M(  NRM_M |  P_NRM_M),
-        .I2F  (  I2F             ),
+        .I2F  (  I2F   |  F_INN  | PF_INN),
         .I2F_M(  I2F_M |  P_I2F_M),
         .F2I  (  F2I             ),
         .F2I_M(  F2I_M |  P_F2I_M),
@@ -803,7 +819,7 @@ generate
 		           .FFTSIZ(FFTSIZ),
 		           .ILI(ILI),.ISI(ISI)) ac(clk, id_sti, id_ldi, id_fft, id_wr,
 		                                   ula_out,
-		                                   if_operand[MDATAW-1:0], stack_data[MDATAW-1:0],
+		                                   if_operand[MDATAW-1:0], sp_data[MDATAW-1:0],
 		                                   mem_wr, mem_addr_rd, mem_addr_wr, mem_data_wr);
 	end else begin
 		assign mem_wr      = id_wr;
@@ -815,12 +831,14 @@ endgenerate
 
 // Controle de I/O ------------------------------------------------------------
 
-generate if (INN | P_INN | OUT)
+generate if (INN | F_INN | P_INN | PF_INN | OUT)
 io_ctrl #(.MDATAW(MDATAW),
           .NBIOIN(NBIOIN),
           .NBIOOU(NBIOOU),
-		     .INN(  INN ),
-		   .P_INN(P_INN )) io(clk, id_req_in, id_out_en,
+		     .INN(   INN),
+		   .F_INN( F_INN),
+		   .P_INN( P_INN),
+		  .PF_INN(PF_INN)) io(clk, id_req_in, id_out_en,
                               if_operand[MDATAW-1:0],
                               req_in, addr_in, out_en, addr_out);
 else begin

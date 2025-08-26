@@ -1,0 +1,151 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  status_updater.css
+ *
+ *    Description:  Modern styling for compilation status indicators, fully integrated
+ *                  with the elegant purple dark theme.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Status Bar Container
+ * =================================================================================== */
+.status-bar {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  height: var(--space-8);
+  overflow: hidden;
+}
+
+/* ===================================================================================
+ *  Individual Status Items
+ * =================================================================================== */
+.status-item {
+  display: flex;
+  align-items: center;
+  margin-right: var(--space-6);
+  padding: var(--space-1) var(--space-3);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all var(--transition-normal);
+}
+
+.status-item i {
+  margin-right: var(--space-2);
+  font-size: var(--text-base);
+}
+
+/* ===================================================================================
+ *  Status States & Colors
+ * =================================================================================== */
+
+/* Compiling State */
+.status-compiling {
+  color: var(--status-info);
+  background-color: var(--status-info-bg);
+  font-weight: var(--font-medium);
+  position: relative;
+  animation: fadeIn 0.5s ease-out;
+}
+.status-compiling i.fa-spinner {
+  animation: modern-spin 1.5s infinite cubic-bezier(0.45, 0, 0.55, 1);
+}
+.status-compiling::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--status-info), transparent);
+  animation: progress-line 2s infinite ease-in-out;
+  width: 100%;
+}
+
+/* Success State */
+.status-success {
+  color: var(--status-success);
+  background-color: var(--status-success-bg);
+  font-weight: var(--font-medium);
+  animation: fadeIn 0.5s ease-out;
+}
+.status-success i {
+  animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Error State */
+.status-error {
+  color: var(--status-error);
+  background-color: var(--status-error-bg);
+  font-weight: var(--font-medium);
+  animation: fadeIn 0.5s ease-out;
+}
+.status-error i {
+  animation: shake 0.6s cubic-bezier(.36,.07,.19,.97);
+}
+
+/* ===================================================================================
+ *  Animations (Preserved from original)
+ * =================================================================================== */
+
+@keyframes modern-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-2px); }
+  40%, 60% { transform: translateX(1px); }
+}
+
+@keyframes progress-line {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/* ===================================================================================
+ *  Responsive Adjustments
+ * =================================================================================== */
+@media (max-width: 768px) {
+  .status-item {
+    font-size: var(--text-xs);
+    margin-right: var(--space-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .status-bar {
+    padding: var(--space-1) var(--space-2);
+  }
+  .status-item {
+    max-width: 150px;
+    margin-right: var(--space-2);
+  }
+}

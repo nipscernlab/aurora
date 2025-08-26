@@ -1274,7 +1274,6 @@ async function initMonaco() {
                 }
             };
 
-            editorInstance = monaco.editor.create(document.getElementById('monaco-editor'), editorConfig);
 
             // Add event listeners
             if (editorInstance) {
@@ -4519,13 +4518,6 @@ window.addEventListener('load', () => {
 
 });
 
-
-// Add save button click handler
-document.getElementById('saveFileBtn')
-    .addEventListener('click', () => {
-        TabManager.saveCurrentFile();
-    });
-
 document.addEventListener('keydown', (e) => {
     // Prevent default browser shortcuts that might interfere
     if (e.ctrlKey || e.metaKey) {
@@ -7116,7 +7108,7 @@ function showErrorDialog(title, message) {
 }
 
 function enableCompileButtons() {
-    const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'saveFileBtn', 'settings-project'];
+    const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'settings-project'];
     const projectSettingsButton = document.createElement('button');
     projectSettingsButton.disabled = false; // <-- ESSENCIAL
 
@@ -7207,19 +7199,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 //PROCESSADOR HUB ==========================================================================================================================================================
 
-const processorHubButton = document.createElement('button');
-processorHubButton.className = 'toolbar-button';
-processorHubButton.id = 'processorHub';
-processorHubButton.innerHTML = '<i class="fa-solid fa-star-of-life"></i> Processor Hub';
+const processorHubButton = document.getElementById('processorHub');
 processorHubButton.disabled = true;
-document.querySelector('.toolbar')
-    .appendChild(processorHubButton);
-
-const icon = processorHubButton.querySelector('i');
-icon.style.background = 'var(--gradient-primary)';
-icon.style.webkitBackgroundClip = 'text';
-icon.style.webkitTextFillColor = 'transparent';
-
 function updateProcessorHubButton(enabled) {
     processorHubButton.disabled = !enabled;
 }
@@ -7533,14 +7514,14 @@ function initAIAssistant() {
     header.className = 'ai-assistant-header';
     header.innerHTML = `
     <div class="ai-header-left">
-      <img src="./assets/icons/icon_flare.svg" 
+      <img style="width:30px" src="./assets/icons/ai_gemini.webp" 
            alt="AI Toggle"
            class="ai-toggle-icon"
            onclick="toggleAIAssistant()">
       <h3 class="ai-assistant-title">AI Assistant</h3>
       <div class="ai-provider-section">
         <img id="ai-provider-icon" 
-             src="./assets/icons/chatgpt.svg"
+             src="./assets/icons/ai_chatgpt.svg"
              alt="Provider Icon" 
              class="ai-provider-icon">
         <select id="ai-provider-select" class="ai-provider-select">
@@ -7612,10 +7593,10 @@ function initAIAssistant() {
         };
 
         const iconMap = {
-            chatgpt: './assets/icons/chatgpt.svg',
-            gemini: './assets/icons/Google_Bard_animated.webp',
-            claude: './assets/icons/claude.svg',
-            deepseek: './assets/icons/deepseek.svg'
+            chatgpt: './assets/icons/ai_chatgpt.svg',
+            gemini: './assets/icons/ai_gemini.webp',
+            claude: './assets/icons/ai_claude.svg',
+            deepseek: './assets/icons/ai_deepseek.svg'
         };
 
         // Update webview source
@@ -7848,15 +7829,9 @@ window.onload = () => {
     initMonaco();
     initAIAssistant();
 
-    // Add AI Assistant button to toolbar
-    const toolbar = document.querySelector('.toolbar');
-    const aiButton = document.createElement('aiButton');
-
-    aiButton.className = 'toolbar-button button-highlight rainbow btn';
-    aiButton.innerHTML = '<img src="./assets/icons/icon_flare.svg" alt="AI Toggle" style="width: 22px; height: 22px; filter: brightness(2.0); transition: filter 0.3s;">';
+    const aiButton = document.getElementById('aiButton');
     aiButton.id = 'aiAssistant';
     aiButton.addEventListener('click', toggleAIAssistant);
-    toolbar.appendChild(aiButton);
     /*
       // Existing event listeners
       document.getElementById('openFolderBtn').addEventListener('click', async () => {
@@ -7868,8 +7843,6 @@ window.onload = () => {
           }
       }); */
 
-    document.getElementById('saveFileBtn')
-        .addEventListener('click', () => TabManager.saveCurrentFile());
 
 };
 
@@ -7978,6 +7951,9 @@ class CompilationModule {
             await window.electronAPI.mkdir(tempBaseDir);
             const tempProcessorDir = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             await window.electronAPI.mkdir(tempProcessorDir);
+            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts', 'fix.vcd');
+            const destPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'fix.vcd');
+            await window.electronAPI.copyFile(scriptsPath, destPath);
             return tempProcessorDir;
         } catch (error) {
             console.error("Failed to ensure directories:", error);
@@ -8416,7 +8392,7 @@ end`;
                 throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
             }
             this.terminalManager.appendToTerminal(terminalTag, `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
-            const audio = new Audio('./assets/634075__aj_heels__videocallaccept.wav');
+            const audio = new Audio('./assets/audio/audio_compilation.wav');
             audio.play();
             return vvpResult;
         } catch (error) {
@@ -10825,47 +10801,7 @@ function initializeGlobalTerminalManager() {
 
 // Global functions to handle button clicks (put these outside your class)
 
-function setCompilerInstance(instance) {
-    compilerInstance = instance;
-}
 
-// Updated fractal compilation handler
-async function handleFractalCompilation() {
-    if (!compilerInstance) {
-        console.error('Compiler instance not defined');
-        return;
-    }
-
-    if (!compilerInstance.isCompiling) {
-        try {
-            console.log('Starting fractal compilation...');
-            await compilerInstance.loadConfig();
-
-            // Force project mode for fractal compilation
-            const originalMode = compilerInstance.isProjectOriented;
-            compilerInstance.isProjectOriented = true;
-
-            try {
-                // After successful compilation, launch fractal visualizer
-                const palette = 'fire'; // or allow user selection
-                await compilerInstance.launchFractalVisualizersForProject(palette);
-                console.log('Fractal compilation completed successfully');
-                // Run complete compilation in project mode
-                const success = await compilerInstance.compileAll();
-
-            } finally {
-                // Restore original mode
-                compilerInstance.isProjectOriented = originalMode;
-            }
-
-        } catch (error) {
-            console.error('Error in fractal compilation:', error);
-            if (compilerInstance.terminalManager) {
-                compilerInstance.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
-            }
-        }
-    }
-}
 
 // Functions to use in your renderer.js
 function showVVPProgress(name) {
@@ -11522,58 +11458,6 @@ document.getElementById('allcomp')
     });
 
 
-// KEEP ONLY ONE FRACTAL COMPILATION EVENT LISTENER:
-document.getElementById('fractalcomp')
-    .addEventListener('click', async () => {
-        if (!isProcessorConfigured()) {
-            showCardNotification('Please configure a processor first before fractal compilation.', 'warning', 4000);
-            return;
-        }
-
-        if (!currentProjectPath) {
-            console.error('No project opened');
-            return;
-        }
-
-        isCompilationRunning = true;
-        compilationCanceled = false;
-
-        try {
-
-            const compiler = new CompilationModule(currentProjectPath);
-            await compiler.loadConfig();
-
-            const toggleButton = document.getElementById('toggle-ui');
-            const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
-
-            if (!compilationCanceled) {
-                // Launch fractal visualizer after successful compilation
-                await compiler.launchFractalVisualizersForProject('fire');
-                console.log('Fractal compilation completed successfully');
-                await refreshFileTree();
-            }
-
-            startCompilation();
-
-
-            if (isProjectMode) {
-                // Project oriented: full pipeline + fractal
-                await runProjectPipeline(compiler);
-            } else {
-                // Processor oriented: full pipeline + fractal
-                await runProcessorPipeline(compiler);
-            }
-
-        } catch (error) {
-            if (!compilationCanceled) {
-                console.error('Fractal compilation error:', error);
-                showCardNotification('Fractal compilation failed. Check terminal for details.', 'error', 4000);
-            }
-        } finally {
-            endCompilation();
-        }
-    });
-
 // ADD these helper functions:
 async function runProcessorPipeline(compiler) {
     const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
@@ -11686,20 +11570,6 @@ async function runProjectPipeline(compiler) {
     checkCancellation();
     await compiler.runProjectGtkWave();
 }
-
-document.getElementById("backupFolderBtn")
-    .addEventListener("click", async () => {
-        if (!currentProjectPath) {
-            alert("Nenhum projeto aberto para backup.");
-            return;
-        }
-        const result = await window.electronAPI.createBackup(currentProjectPath);
-
-        alert(result.message); // Exibe o resultado do backup
-
-        refreshFileTree(); // Atualiza a árvore de arquivos
-    });
-
 
 // Modal Interaction Functions
 function openModal(modalId) {
@@ -11876,11 +11746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Prevent modal content click from closing modal
-    modal.querySelector('.aurora-about-content')
-        .addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
+    
 });
 
 /*

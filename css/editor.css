@@ -1,6 +1,17 @@
-/* editor.css Aurora IDE - Modern Responsive Styles */
+/*
+ * =====================================================================================
+ *
+ *       Filename:  editor.css
+ *
+ *    Description:  Styles for the main editor layout, tabs, resizers, and overlays,
+ *                  fully integrated with the elegant purple dark theme.
+ *
+ * =====================================================================================
+ */
 
-/* Global Reset and Base Styles */
+/* ===================================================================================
+ *  Global and Base Styles
+ * =================================================================================== */
 * {
   margin: 0;
   padding: 0;
@@ -11,11 +22,13 @@ body {
   font-family: var(--font-sans);
   background-color: transparent;
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   overflow: hidden;
 }
 
-/* Main Container Layout */
+/* ===================================================================================
+ *  Main Layout Containers
+ * =================================================================================== */
 .main-container {
   display: flex;
   height: 100vh;
@@ -23,29 +36,30 @@ body {
   overflow: hidden;
 }
 
-
-.file-tree-header i {
-  color: var(--icon-secondary);
-  transition: color 0.2s ease;
-  cursor: pointer;
-}
-
-.file-tree-header i:hover {
-  color: var(--accent-primary);
-}
-
-#current-spf-name {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin-top: 8px;
-  text-align: center;
-  width: 100%;
-  white-space: nowrap;
+.editor-terminal-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* Resizer Styles */
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.monaco-editor {
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ===================================================================================
+ *  Resizable Dividers
+ * =================================================================================== */
 .resizer-vertical {
   position: absolute;
   right: 0;
@@ -54,7 +68,8 @@ body {
   width: 5px;
   background-color: transparent;
   cursor: col-resize;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--transition-fast);
+  z-index: var(--z-10);
 }
 
 .resizer-vertical:hover {
@@ -65,98 +80,72 @@ body {
   height: 6px;
   background-color: var(--bg-secondary);
   cursor: row-resize;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--transition-fast);
+  z-index: var(--z-10);
 }
 
 .resizer-horizontal:hover {
   background-color: var(--accent-primary);
 }
 
-/* Editor Terminal Container */
-.editor-terminal-container {
+/* ===================================================================================
+ *  File and Terminal Tabs
+ * =================================================================================== */
+.tabs-container,
+.terminal-tabs {
   display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* Tabs Container */
-.tabs-container {
-  display: flex;
+  flex-shrink: 0;
   overflow-x: auto;
-  height: 40px;
-  background-color: var(--bg-secondary);
+  height: 44px;
+  background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-primary);
-  scrollbar-width: thin;
-  padding: 0 8px;
-  align-items: center;
+  padding: 0 var(--space-2);
+  align-items: flex-end; /* Align tabs to the bottom */
 }
 
-.tabs-container::-webkit-scrollbar {
-  height: 4px;
-  background-color: var(--bg-secondary);
+/* Custom scrollbar for tab containers */
+.tabs-container::-webkit-scrollbar,
+.terminal-tabs::-webkit-scrollbar {
+  height: 3px;
 }
-
-.tabs-container::-webkit-scrollbar-thumb {
-  background-color: var(--accent-primary);
-  border-radius: 4px;
+.tabs-container::-webkit-scrollbar-thumb,
+.terminal-tabs::-webkit-scrollbar-thumb {
+  background-color: var(--accent-secondary);
+  border-radius: var(--radius-full);
 }
 
 .tab {
-  padding: 0 10px;
-  height: 35px;
-  border: none;
-  background-color: var(--bg-tertiary);
-  border-bottom: 4px solid var(--border-primary);
-  border-right: 1px solid var(--border-primary);
-  color: var(--text-secondary);
-  font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: 38px;
+  margin-left: 4px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
   cursor: pointer;
   min-width: 120px;
-  max-width: 190px;
-  transition: all 0.2s ease;
-  margin-right: 5px;
-  border-radius: 4px 4px 0 0;
+  max-width: 200px;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
   position: relative;
+  bottom: -1px; /* Align with the main border */
 }
 
-.tabs-container .tab {
-  border-bottom: none !important; /* Use !important to ensure it overrides any other styles */
-}
-
-/* Apply the accent border only to terminal tabs */
-.terminal-tabs .tab {
-  border-bottom: 4px solid transparent; /* Start with transparent border */
-}
-
-/* Active terminal tab */
-.terminal-tabs .tab.active {
-  border-bottom: 4px solid var(--accent-primary);
-  background-color: var(--bg-secondary); /* Optional: different background for active tab */
-}
-
-/* Make sure toolbar buttons in terminal tabs don't get the border */
-.terminal-tabs .toolbar-button {
-  border-bottom: none !important;
+.tab:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
 }
 
 .tab.active {
-  border-bottom: 4px solid var(--accent-primary);
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
-  transition: background-color 0.3s ease, border-bottom 0.3s ease, color 0.3s ease;
-}
-
-/* Aplica o estilo SOMENTE para .tab.active DENTRO de #tabs-container */
-#tabs-container .tab.active {
-  box-shadow: 0 -2px 0 var(--accent-primary);
-}
-
-
-.tab:hover {
-  background-color: var(--bg-hover);
+  border-color: var(--border-primary);
+  box-shadow: inset 0 2px 0 var(--accent-primary); /* Modern active indicator */
 }
 
 .tab-title {
@@ -164,408 +153,190 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
 }
 
 .tab-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
 }
 
 .tab-close:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--overlay-hover);
   color: var(--text-primary);
 }
 
-/* Editor Container */
-.editor-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
+/* Terminal specific tab styling */
+.terminal-tabs .tab.active {
+  box-shadow: inset 0 2px 0 var(--status-info); /* Use a different color for terminal focus */
 }
 
-/* Responsivel */
-/* Container for the whole editor + terminal section */
-.editor-terminal-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;             /* full viewport height */
-  width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Container that holds tabs and editor */
-.editor-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;                   /* fill available vertical space */
-  width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Tabs area stays its natural height */
-.tabs-container {
-  flex: 0 0 auto;
-  width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;          /* horizontal scroll if too many tabs */
-}
-
-/* Monaco editor area takes remaining space */
-.monaco-editor {
-  position: relative;
-  flex: 1;                   /* expand to fill */
-  width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Overlay covers the editor fully */
-#editor-overlay.visible {
-  position: absolute;
-  flex-direction: column;
-  overflow-y: auto;          /* scroll vertically if content overflows */
-  overflow-x: hidden;          /* scroll vertically if content overflows */
-  box-sizing: border-box;
-}
-
-/* Centering and padding for overlay content */
-.overlay-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 1rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Icon container stays centered */
-#icon-container {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
-}
-
-/* Make text blocks wrap responsibly */
-.overlay-text-content {
-  flex: 0 0 auto;
-  width: 100%;
-  max-width: 800px;           /* optional cap for readability */
-  padding: 0 1rem;
-  box-sizing: border-box;
-}
-
-/* Recent projects section flows under the text */
-.recent-projects-section {
-  flex: 1 1 auto;
-  width: 100%;
-  max-width: 800px;           /* match text width */
-  margin-top: 2rem;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-
-/* Header of recent projects stays visible */
-.recent-projects-header {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 1rem;
-}
-
-/* List area scrolls if many projects */
-.recent-projects-list {
-  flex: 1 1 auto;
-  width: 100%;
-  box-sizing: border-box;
-  overflow-y: auto;
-  padding-bottom: 1rem;
-}
-
-/* Ensure empty-state icon/text wraps */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  box-sizing: border-box;
-}
-
-/* Responsive breakpoints */
-@media (max-width: 600px) {
-  .overlay-content,
-  .overlay-text-content,
-  .recent-projects-section {
-    padding: 0.5rem;
-    max-width: 100%;
-  }
-}
-
-
-/* Editor Overlay */
+/* ===================================================================================
+ *  Editor Welcome Overlay
+ * =================================================================================== */
 #editor-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   background-color: var(--bg-primary);
   opacity: 0;
   pointer-events: none;
-  transition: all 0.3s ease;
-  z-index: 10;
+  transition: opacity var(--transition-normal);
+  z-index: var(--z-20);
+  overflow-y: auto;
 }
 
 #editor-overlay.visible {
   opacity: 1;
   pointer-events: all;
-  background-color: var(--bg-secondary);
-
 }
 
 #editor-overlay .overlay-content {
   text-align: center;
-  padding: 2rem;
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
-  transition: transform 0.3s ease, filter 0.3s ease;
+  padding: var(--space-8);
   user-select: none;
   -webkit-user-drag: none;
-}
-
-#editor-overlay.visible .overlay-content {
-  transform: scale(1.02);
+  animation: fadeIn var(--transition-slow) ease-out;
 }
 
 #editor-overlay .overlay-icon {
-  max-width: 150px;
-  margin-bottom: 1.5rem;
-  margin-top: 1.5rem;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-  transition: transform 0.3s ease;
-  opacity: 70%;
-  border-radius: 5%;
+  max-width: 120px;
+  margin-bottom: var(--space-6);
+  filter: drop-shadow(var(--shadow-glow));
 }
-
-#editor-overlay.visible .overlay-icon {
-  transform: scale(2.0);
-  padding: 4rem 0rem;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter: opacity(0.8);
-}
-/* Define o padding horizontal só para o caractere ⟩ */
-.monaco-editor .bra-ket-padding {
-  margin-left: 0.0em;
-  margin-right: 0.2em;
-  /* opcional: garante que o line-height não seja alterado */
-  line-height: inherit;
-}
-/* Rebaixa a barra vertical um pouco */
-.monaco-editor .vertical-bar-lower {
-  position: relative;
-  top: 0.2em;    /* ajuste conforme precisar */
-  /* opcional: preserve line-height, fundo, etc */
-  line-height: inherit;
-  background: transparent;
-}
-
-
 
 #editor-overlay .overlay-title {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  font-weight: 300;
-  color: var(--accent-primary);
-  font-family: var(--font-sans);
-  filter: grayscale(100%);
-  opacity: 80%;
-  user-select: none;
-  -webkit-user-drag: none;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-light);
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
 }
 
 #editor-overlay .overlay-subtitle {
-  font-size: 1rem;
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
-  filter: grayscale(100%);
-  opacity: 80%;
-  user-select: none;
-  -webkit-user-drag: none;
+  line-height: var(--leading-relaxed);
 }
 
-/* Responsive Adjustments */
+#editor-overlay .overlay-subtitle a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+#editor-overlay .overlay-subtitle a:hover {
+  color: var(--text-link-hover);
+}
+
+/* Recent Projects Section */
+.recent-projects-section {
+  width: 100%;
+  max-width: 800px;
+  margin-top: var(--space-12);
+  text-align: left;
+}
+
+.recent-projects-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-lg);
+  color: var(--text-tertiary);
+}
+
+.empty-state-icon {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-4);
+}
+
+/* ===================================================================================
+ *  Monaco Editor Integration Styles
+ * =================================================================================== */
+
+/* Find Widget */
+.monaco-editor .find-widget {
+  z-index: var(--z-50) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-primary) !important;
+  background-color: var(--bg-elevated) !important;
+}
+
+/* Modern Monaco Scrollbars */
+.monaco-editor .monaco-scrollable-element .scrollbar .slider {
+  background: var(--accent-subtle-border) !important;
+  border-radius: var(--radius-full) !important;
+  transition: background-color var(--transition-fast) !important;
+}
+
+.monaco-editor .monaco-scrollable-element .scrollbar .slider:hover {
+  background: rgba(155, 89, 182, 0.6) !important; /* Slightly more opaque version */
+}
+
+.monaco-editor .monaco-scrollable-element .scrollbar .slider.active {
+  background: var(--accent-primary) !important;
+}
+
+.monaco-editor .minimap-slider {
+  background: rgba(155, 89, 182, 0.4) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Hide legacy scrollbar elements */
+.monaco-editor .monaco-scrollable-element .slider::before,
+.monaco-editor .monaco-scrollable-element .slider::after,
+.monaco-editor .monaco-scrollable-element .shadow {
+  display: none !important;
+}
+
+/* Custom Breakpoint Glyph */
+.myBreakpointGlyph {
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--status-error);
+  box-shadow: var(--shadow-glow);
+}
+
+/* ===================================================================================
+ *  Responsive Adjustments
+ * =================================================================================== */
 @media (max-width: 768px) {
   .main-container {
     flex-direction: column;
   }
   
-  .file-tree-container {
-    width: 100%;
-    max-height: 300px;
-  }
-  
   .tabs-container {
-    height: 35px;
+    height: 40px;
   }
   
   .tab {
     min-width: 100px;
-    padding: 0 10px;
+    height: 36px;
+    padding: 0 var(--space-2);
   }
-}
 
-.monaco-editor .find-widget {
-  z-index: 1000 !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-  border-radius: 8px !important;
-  backdrop-filter: blur(10px) !important;
-}
-
-.monaco-editor .find-widget .monaco-inputbox {
-  border-radius: 6px !important;
-}
-
-.monaco-editor .find-widget .button {
-  border-radius: 4px !important;
-}
-
-/* Theme-specific Enhancements */
-body.theme-light {
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
-}
-
-/* Custom Syntax Highlighting */
-.vs-dark .mtk3, 
-.vs-dark .mkt8 {
-  color: #ffff00 !important; /* Vibrant yellow for dark theme */
-}
-
-.vs-light .mtk3, 
-.vs-light .mkt8 {
-  color: #858500 !important; /* Burnt yellow for light theme */
-}
-
-/* Modern Monaco Editor Scrollbar Styling */
-.monaco-editor .monaco-scrollable-element .scrollbar {
-  background: transparent !important;
-}
-
-.monaco-editor .monaco-scrollable-element .slider {
-  border-radius: 6px !important;
-  transition: all 0.2s ease !important;
-}
-
-/* Dark theme scrollbar */
-body.theme-dark .monaco-editor .monaco-scrollable-element .slider {
-  background: rgba(119, 111, 151, 0.3) !important;
-}
-
-body.theme-dark .monaco-editor .monaco-scrollable-element .slider:hover {
-  background: rgba(119, 111, 151, 0.5) !important;
-}
-
-body.theme-dark .monaco-editor .monaco-scrollable-element .slider.active {
-  background: rgba(157, 127, 255, 0.7) !important;
-}
-
-/* Light theme scrollbar */
-body.theme-light .monaco-editor .monaco-scrollable-element .slider {
-  background: rgba(124, 109, 169, 0.3) !important;
-}
-
-body.theme-light .monaco-editor .monaco-scrollable-element .slider:hover {
-  background: rgba(124, 109, 169, 0.5) !important;
-}
-
-body.theme-light .monaco-editor .monaco-scrollable-element .slider.active {
-  background: rgba(124, 77, 255, 0.7) !important;
-}
-
-/* Remove scrollbar arrows and shadows */
-.monaco-editor .monaco-scrollable-element .up-arrow,
-.monaco-editor .monaco-scrollable-element .down-arrow,
-.monaco-editor .monaco-scrollable-element .left-arrow,
-.monaco-editor .monaco-scrollable-element .right-arrow {
-  display: none !important;
-}
-
-.monaco-editor .monaco-scrollable-element .shadow {
-  display: none !important;
-}
-
-/* Minimap scrollbar styling */
-.monaco-editor .minimap-slider {
-  border-radius: 4px !important;
-  transition: all 0.2s ease !important;
-}
-
-body.theme-dark .monaco-editor .minimap-slider {
-  background: rgba(157, 127, 255, 0.4) !important;
-}
-
-body.theme-light .monaco-editor .minimap-slider {
-  background: rgba(124, 77, 255, 0.4) !important;
-}
-
-/* Remove the ball/circle from Monaco slider */
-.monaco-editor .monaco-scrollable-element .slider::before,
-.monaco-editor .monaco-scrollable-element .slider::after {
-  display: none !important;
-}
-
-/* Alternative approach - target the slider circle directly */
-.monaco-editor .monaco-scrollable-element .slider > * {
-  display: none !important;
-}
-
-/* More specific targeting for the slider decorations */
-.monaco-editor .scrollbar .slider .slider-decoration {
-  display: none !important;
-}
-
-/* Override any background images or pseudo-elements */
-.monaco-editor .monaco-scrollable-element .slider {
-  background-image: none !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* Clean slider styling without decorations */
-body.theme-dark .monaco-editor .monaco-scrollable-element .slider {
-  background: rgba(119, 111, 151, 0.3) !important;
-  border-radius: 6px !important;
-}
-
-body.theme-light .monaco-editor .monaco-scrollable-element .slider {
-  background: rgba(124, 109, 169, 0.3) !important;
-  border-radius: 6px !important;
-}
-
-.myBreakpointGlyph {
-  width: 12px;
-  height: 12px;
-  margin-left: 2px;      /* adjust to center it */
-  border-radius: 6px;
-  background-color: red;
+  .overlay-content {
+    padding: var(--space-4);
+  }
 }

@@ -1,0 +1,271 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  processor_hub.css
+ *
+ *    Description:  Styles for the Processor Hub modal, fully integrated with the
+ *                  elegant purple dark theme design system.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Main Container & Overlay
+ * =================================================================================== */
+.processor-hub-container {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.processor-hub-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(17, 16, 21, 0.7); /* Corresponds to --bg-primary with alpha */
+  backdrop-filter: blur(8px);
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* ===================================================================================
+ *  Modal Styling
+ * =================================================================================== */
+.processor-hub-modal {
+  position: relative;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 550px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border-primary);
+  animation: fadeIn var(--transition-normal) ease-out forwards;
+  z-index: var(--z-50);
+}
+
+/* Custom Scrollbar */
+.processor-hub-modal::-webkit-scrollbar {
+  width: 10px;
+}
+.processor-hub-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+.processor-hub-modal::-webkit-scrollbar-thumb {
+  background-color: var(--bg-quaternary);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--bg-elevated);
+}
+.processor-hub-modal::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-primary);
+}
+
+/* ===================================================================================
+ *  Modal Header
+ * =================================================================================== */
+.processor-hub-modal h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-6) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+  position: relative;
+}
+
+.processor-hub-modal h2::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 80px;
+  height: 2px;
+  background: var(--gradient-primary);
+}
+
+.processor-hub-modal h2 i {
+  color: var(--accent-primary);
+  text-shadow: var(--shadow-glow);
+}
+
+/* ===================================================================================
+ *  Form Styling
+ * =================================================================================== */
+.processor-hub-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.processor-hub-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.processor-hub-form label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Inputs & Selects */
+.processor-hub-form input,
+.processor-hub-form select {
+  width: 100%;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.processor-hub-form input:hover,
+.processor-hub-form select:hover {
+  border-color: var(--border-focus);
+}
+
+.processor-hub-form input:focus-visible,
+.processor-hub-form select:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus-outline);
+}
+
+/* Invalid Input State */
+.processor-hub-form input:invalid {
+  border-color: var(--status-error);
+  box-shadow: 0 0 0 2px var(--status-error-bg);
+}
+
+/* Help Tooltip */
+.processor-hub-form .tooltip {
+  cursor: help;
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.processor-hub-form .tooltip:hover {
+  color: var(--accent-primary);
+}
+
+/* ===================================================================================
+ *  Form Sections & Buttons
+ * =================================================================================== */
+.floating-point-options {
+  display: none;
+  animation: fadeIn var(--transition-normal);
+}
+
+.floating-point-options.show {
+  display: grid; /* Changed from flex for consistency */
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-primary);
+}
+
+/* Base Button Style */
+.processor-hub-form button {
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+}
+
+/* Cancel Button */
+.cancel-button {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.cancel-button:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+  background-color: var(--bg-quaternary);
+}
+
+/* Generate Button */
+.generate-button {
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.generate-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  filter: brightness(1.1);
+}
+
+.generate-button:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Loading Spinner */
+.generate-button .fa-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===================================================================================
+ *  Responsive Design
+ * =================================================================================== */
+@media (max-width: 600px) {
+  .processor-hub-modal {
+    padding: var(--space-5);
+    max-height: 95vh;
+  }
+  
+  .processor-hub-modal h2 {
+    font-size: var(--text-xl);
+  }
+  
+  .button-group {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

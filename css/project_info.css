@@ -1,0 +1,261 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  project_info.css
+ *
+ *    Description:  Styles for the "Project Info" modal, with modern aesthetics and
+ *                  the original fade-in/fade-out animation logic to ensure JS
+ *                  compatibility.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Modal Backdrop & Container (Animation logic reverted to original)
+ * =================================================================================== */
+.aurora-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 16, 21, 0.7); /* --bg-primary with alpha */
+  backdrop-filter: blur(8px);
+  z-index: var(--z-40);
+  opacity: 0; /* Initial state from original CSS */
+  transition: opacity var(--transition-normal);
+  pointer-events: none;
+}
+
+/* Class to trigger the fade-in animation */
+.aurora-modal-backdrop.aurora-modal-fade-in {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Class to trigger the fade-out animation */
+.aurora-modal-backdrop.aurora-modal-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.aurora-modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  opacity: 0; /* Initial state from original CSS */
+  transform: translateY(10px); /* Initial state from original CSS */
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+  pointer-events: none;
+}
+
+/* Class to trigger the fade-in and slide-up animation */
+.aurora-modal-container.aurora-modal-fade-in {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Class to trigger the fade-out and slide-down animation */
+.aurora-modal-container.aurora-modal-fade-out {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+/* ===================================================================================
+ *  Modal Content (Modern aesthetics retained)
+ * =================================================================================== */
+.aurora-modal {
+  width: 100%;
+  max-width: 650px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+/* ===================================================================================
+ *  Modal Structure (Header, Body, Footer)
+ * =================================================================================== */
+.aurora-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.aurora-modal-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.aurora-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.aurora-modal-close:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.aurora-modal-body {
+  flex-grow: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+.aurora-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+/* ===================================================================================
+ *  Modal Sections & Components
+ * =================================================================================== */
+.aurora-modal-section {
+  margin-bottom: var(--space-8);
+}
+.aurora-modal-section:last-child {
+  margin-bottom: 0;
+}
+
+.aurora-modal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.aurora-modal-section-header h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Info Grid */
+.aurora-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-5);
+}
+
+.aurora-modal-info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.aurora-modal-info-label {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.aurora-modal-info-value {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+/* Folder List */
+.aurora-modal-folder-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 250px;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  padding: var(--space-2);
+  background-color: var(--bg-secondary);
+}
+
+.aurora-modal-file-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.aurora-modal-file-item:hover {
+  background-color: var(--overlay-hover);
+}
+
+.aurora-modal-file-icon {
+  margin-right: var(--space-2);
+  color: var(--accent-primary);
+}
+.aurora-modal-file-icon.file {
+  color: var(--text-tertiary);
+}
+
+.aurora-modal-file-name {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loading & Empty States */
+.aurora-modal-loading,
+.aurora-modal-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  color: var(--text-tertiary);
+  min-height: 150px;
+}
+
+.aurora-modal-loading .spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--accent-primary);
+  border-radius: var(--radius-full);
+  animation: aurora-spin 1s linear infinite;
+  margin-bottom: var(--space-3);
+}
+
+@keyframes aurora-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .aurora-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}

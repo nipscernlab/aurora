@@ -23,8 +23,8 @@ const log = require('electron-log');
 log.transports.file.level = 'debug';
 const { promisify } = require('util');
 const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
-require('./js/preload-prism.js');
-require('./js/preload-prism.js');
+require('./js/preload_prism.js');
+require('./js/preload_prism.js');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -78,7 +78,7 @@ async function createMainWindow() {
     width: 1200,
     height: 800,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
+    icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: true,
@@ -304,7 +304,7 @@ function setupAutoUpdaterEvents() {
         buttons: ['Download Now', 'Download Later'],
         defaultId: 0,
         cancelId: 1,
-        icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
+        icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico')
       });
 
       if (response === 0) {
@@ -329,7 +329,7 @@ function setupAutoUpdaterEvents() {
         message: 'Aurora IDE is up to date!',
         detail: `You are running the latest version (${app.getVersion()}).`,
         buttons: ['OK'],
-        icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
+        icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico')
       }).catch((error) => {
         log.error('Error showing no update dialog:', error);
       });
@@ -377,7 +377,7 @@ function setupAutoUpdaterEvents() {
       buttons: ['Install Now', 'Install Later'],
       defaultId: 0,
       cancelId: 1,
-      icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
+      icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico')
     });
 
     if (response === 0) {
@@ -419,7 +419,7 @@ function setupAutoUpdaterEvents() {
       message: 'Update Failed',
       detail: `${errorMessage}\n\nError details: ${error.message}`,
       buttons: ['OK'],
-      icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico')
+      icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico')
     });
   });
 
@@ -717,7 +717,7 @@ function createSplashScreen() {
   splashWindow = new BrowserWindow({
     width: 400,
     height: 500,
-    icon: path.join(__dirname, 'assets/icons/sapho&aurora_icon.ico'),
+    icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2783,7 +2783,7 @@ async function createPrismWindow(compilationData = null) {
   }
 
   // Ensure preload script exists
-  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
+  const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
   console.log('Preload script path:', preloadPath);
   
   if (!require('fs').existsSync(preloadPath)) {
@@ -2799,7 +2799,7 @@ async function createPrismWindow(compilationData = null) {
     minWidth: 1000,
     minHeight: 700,
     autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets', 'icons', 'sapho&aurora_icon.ico'),
+    icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -3422,7 +3422,7 @@ function debugPaths() {
   console.log('__dirname:', __dirname);
   
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-  const preloadPath = path.join(__dirname, 'js', 'preload-prism.js');
+  const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
   
   console.log('PRISM HTML path:', prismHtmlPath);
   console.log('PRISM HTML exists:', require('fs').existsSync(prismHtmlPath));

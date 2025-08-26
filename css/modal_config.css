@@ -1,0 +1,281 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  modal_config.css
+ *
+ *    Description:  A comprehensive modal system with modern visual styles.
+ *                  Animation and visibility logic is PRESERVED for compatibility
+ *                  with existing JavaScript.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Modal Basic Structure (VISIBILITY/ANIMATION LOGIC PRESERVED)
+ * =================================================================================== */
+.modalConfig, .npmodal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(17, 16, 21, 0.7); /* --bg-primary with alpha */
+  backdrop-filter: blur(8px);
+  padding: var(--space-4);
+  /* Original transition logic */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Original JS hook to show the modal */
+.modalConfig.active, .npmodal-overlay:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ===================================================================================
+ *  Modal Content Container (VISIBILITY/ANIMATION LOGIC PRESERVED)
+ * =================================================================================== */
+.modalConfig-content, .npmodal-content {
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  border: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Original animation logic */
+  animation: modalConfigSlideIn 0.3s ease;
+}
+
+/* Original animation keyframe */
+@keyframes modalConfigSlideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ===================================================================================
+ *  Modal Structure (Header, Body, Footer)
+ * =================================================================================== */
+.modalConfig-header, .npmodal-header {
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.modalConfig-title, .npmodal-content h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-primary);
+}
+
+.modalConfig-title i, .npmodal-content h2 i {
+  color: var(--accent-primary);
+}
+
+.modalConfig-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: var(--text-xl);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modalConfig-close-btn:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.modalConfig-body {
+  padding: var(--space-6);
+  color: var(--text-primary);
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.modalConfig-section {
+  margin-bottom: var(--space-6);
+}
+.modalConfig-section:last-child {
+  margin-bottom: 0;
+}
+
+.modalConfig-section-title {
+  font-size: var(--text-base);
+  margin: 0 0 var(--space-4) 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-weight: var(--font-semibold);
+}
+
+.modalConfig-footer {
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.modalConfig-footer-primary-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ===================================================================================
+ *  Form Elements
+ * =================================================================================== */
+.modalConfig-form-group, .npmodal-input-group {
+  margin-bottom: var(--space-5);
+}
+
+.modalConfig-label, .npmodal-input-group label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.modalConfig-input, .modalConfig-select, .npmodal-input-group input {
+  display: block;
+  width: 100%;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.modalConfig-input:hover, .modalConfig-select:hover, .npmodal-input-group input:hover {
+  border-color: var(--border-focus);
+}
+
+.modalConfig-input:focus, .modalConfig-select:focus, .npmodal-input-group input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus-outline);
+}
+
+.npmodal-location-input {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Custom Toggle Switch */
+.modalConfig-checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+.modalConfig-checkbox { opacity: 0; width: 0; height: 0; position: absolute; }
+.modalConfig-checkbox-container .modalConfig-label {
+  color: var(--text-secondary);
+  position: relative;
+  padding-left: 52px;
+  line-height: 24px;
+}
+.modalConfig-checkbox-container .modalConfig-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-quaternary);
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-normal);
+}
+.modalConfig-checkbox-container .modalConfig-label::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background-color: var(--text-tertiary);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+.modalConfig-checkbox:checked + .modalConfig-label::before {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.modalConfig-checkbox:checked + .modalConfig-label::after {
+  background-color: var(--text-on-accent);
+  transform: translateX(20px);
+}
+
+/* ===================================================================================
+ *  Buttons
+ * =================================================================================== */
+.modalConfig-btn, .npmodal-btn, .npmodal-btn-browse {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+}
+
+.modalConfig-btn-primary, .npmodal-btn-generate {
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
+  border: none;
+}
+.modalConfig-btn-primary:hover, .npmodal-btn-generate:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.modalConfig-btn-secondary, .npmodal-btn-cancel, .npmodal-btn-browse {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+.modalConfig-btn-secondary:hover, .npmodal-btn-cancel:hover, .npmodal-btn-browse:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+  background-color: var(--bg-quaternary);
+}

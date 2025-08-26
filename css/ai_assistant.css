@@ -1,0 +1,243 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  ai_assistant.css
+ *
+ *    Description:  Styles for the AI Assistant slide-out panel, fully integrated
+ *                  with the elegant purple dark theme.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Backdrop & Main Container
+ * =================================================================================== */
+.ai-assistant-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 16, 21, 0.5); /* --bg-primary with alpha */
+  backdrop-filter: blur(4px);
+  z-index: var(--z-40);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.ai-assistant-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ai-assistant-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  transform: translateX(100%);
+  width: 480px;
+  height: 100vh;
+  background-color: var(--bg-secondary); /* Use secondary for the base panel */
+  border-left: 1px solid var(--border-primary);
+  overflow: hidden;
+  z-index: var(--z-50);
+  transition: transform var(--transition-normal);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  max-width: 80vw;
+  will-change: transform;
+}
+
+.ai-assistant-container.open {
+  transform: translateX(0);
+}
+
+/* ===================================================================================
+ *  Header
+ * =================================================================================== */
+.ai-assistant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ai-assistant-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-primary);
+}
+
+.ai-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ai-assistant-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+/* AI Provider Selection Dropdown */
+.ai-provider-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--bg-tertiary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+}
+
+.ai-provider-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+}
+
+.ai-provider-select {
+  appearance: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  outline: none;
+  padding-right: var(--space-2); /* For custom arrow spacing if needed */
+}
+
+/* Close Button */
+.ai-assistant-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-tertiary);
+  font-size: var(--text-lg);
+}
+
+.ai-assistant-close:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+/* ===================================================================================
+ *  Content & Loading State
+ * =================================================================================== */
+.ai-assistant-content {
+  flex: 1;
+  position: relative;
+  background-color: var(--bg-primary); /* Use primary for the content area */
+  overflow: hidden;
+}
+
+.ai-assistant-webview {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: var(--bg-primary);
+}
+
+.ai-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-4);
+  transition: opacity var(--transition-normal);
+  z-index: var(--z-10);
+}
+
+.ai-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-primary);
+  border-top-color: var(--accent-primary);
+  border-radius: var(--radius-full);
+  animation: ai-spin 1s linear infinite;
+}
+
+.ai-loading-text {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===================================================================================
+ *  Resize Handle
+ * =================================================================================== */
+.ai-resize-handle {
+  position: absolute;
+  top: 0;
+  left: -3px; /* Overlap slightly for easier grabbing */
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  background-color: transparent;
+  transition: background-color var(--transition-fast);
+  z-index: var(--z-20);
+}
+
+.ai-resize-handle:hover {
+  background-color: var(--accent-primary);
+}
+
+/* ===================================================================================
+ *  Responsive Design
+ * =================================================================================== */
+@media (max-width: 640px) {
+  .ai-assistant-container {
+    width: 95vw;
+    top: auto;
+    bottom: 0;
+    height: 85vh; /* Adjust height for mobile */
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none;
+    border-top: 1px solid var(--border-primary);
+  }
+
+  .ai-assistant-container.open {
+    transform: translateY(0);
+  }
+  
+  .ai-assistant-container:not(.open) {
+    transform: translateY(100%);
+  }
+
+  .ai-assistant-header {
+    padding: var(--space-3);
+  }
+
+  .ai-assistant-title {
+    font-size: var(--text-base);
+  }
+  
+  .ai-resize-handle {
+    display: none; /* Resizing is not practical on touch devices */
+  }
+}

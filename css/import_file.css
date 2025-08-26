@@ -1,0 +1,207 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  import_file.css
+ *
+ *    Description:  Styles for the project file import area, file list, and related
+ *                  components.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Drag & Drop Import Area
+ * =================================================================================== */
+.modalConfig-import-area {
+  border: 2px dashed var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  margin-bottom: var(--space-6);
+  background-color: var(--bg-secondary);
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 200px;
+}
+
+.modalConfig-import-area:hover,
+.modalConfig-import-area.dragover {
+  border-color: var(--accent-primary);
+  background-color: var(--bg-tertiary);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+}
+
+.modalConfig-import-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-on-accent);
+  font-size: var(--text-2xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-4);
+}
+
+.modalConfig-import-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modalConfig-import-instructions {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+}
+
+/* ===================================================================================
+ *  File List
+ * =================================================================================== */
+.modalConfig-file-list {
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: var(--space-2); /* Space for scrollbar */
+}
+
+.project-file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.project-file-item:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  background-color: var(--bg-tertiary);
+}
+
+/* Starred State */
+.project-file-item.starred {
+  border-left: 4px solid var(--status-warning);
+  background-color: var(--status-warning-bg);
+}
+
+.project-file-info {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.project-file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-on-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  background: var(--gradient-secondary); /* Default */
+}
+
+/* Specific file type colors can be applied via JS */
+.project-file-icon.verilog-icon { background: var(--gradient-primary); }
+
+.project-file-details {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.project-file-name {
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-file-meta {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.project-file-actions {
+  display: flex;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.project-file-item:hover .project-file-actions {
+  opacity: 1;
+}
+
+.project-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+.project-icon-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.project-icon-btn.star-btn:hover { color: var(--status-warning); }
+.project-icon-btn.star-btn.starred { color: var(--status-warning); }
+.project-icon-btn.delete-btn:hover { color: var(--status-error); }
+.project-icon-btn.view-btn:hover { color: var(--status-info); }
+
+/* ===================================================================================
+ *  Alerts & Empty States
+ * =================================================================================== */
+.project-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-medium);
+  border: 1px solid;
+  font-size: var(--text-sm);
+}
+.project-alert-error { background-color: var(--status-error-bg); color: var(--status-error); border-color: var(--status-error); }
+.project-alert-warning { background-color: var(--status-warning-bg); color: var(--status-warning); border-color: var(--status-warning); }
+
+.modalConfig-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  color: var(--text-tertiary);
+  text-align: center;
+  min-height: 150px;
+}

@@ -64,14 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set up events
     toggleButton.addEventListener('click', toggleElementsVisibility);
-    toggleButton.addEventListener('mouseenter', () => {
-      const icon = toggleButton.querySelector('i');
-      if (icon && !elementsVisible) return;
-      icon?.classList.add('hover-rotate');
-    });
-    toggleButton.addEventListener('mouseleave', () => {
-      toggleButton.querySelector('i')?.classList.remove('hover-rotate');
-    });
+     toggleButton.addEventListener('click', toggleElementsVisibility);
+
     document.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();

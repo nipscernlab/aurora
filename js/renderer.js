@@ -8088,10 +8088,8 @@ end`;
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
+            this.terminalManager.processExecutableOutput('tcmm', result);
             await refreshFileTree();
-
-            if (result.stdout) this.terminalManager.appendToTerminal('tcmm', result.stdout, 'stdout');
-            if (result.stderr) this.terminalManager.appendToTerminal('tcmm', result.stderr, 'stderr');
 
             if (result.code !== 0) {
                 statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
@@ -8134,15 +8132,12 @@ end`;
             let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
             this.terminalManager.appendToTerminal('tasm', `Executing ASM Preprocessor: ${cmd}`);
             const appResult = await window.electronAPI.execCommand(cmd);
-
-            if (appResult.stdout) this.terminalManager.appendToTerminal('tasm', appResult.stdout, 'stdout');
-            if (appResult.stderr) this.terminalManager.appendToTerminal('tasm', appResult.stderr, 'stderr');
+            this.terminalManager.processExecutableOutput('tasm', appResult);
 
             if (appResult.code !== 0) {
                 statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
                 throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
             }
-            this.terminalManager.appendToTerminal('tasm', 'ASM Preprocessor completed successfully.', 'success');
 
             if (projectParam === null) {
                 projectParam = this.isProjectOriented ? 1 : 0;
@@ -8152,10 +8147,9 @@ end`;
             this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
 
             const asmResult = await window.electronAPI.execCommand(cmd);
-            await refreshFileTree();
 
-            if (asmResult.stdout) this.terminalManager.appendToTerminal('tasm', asmResult.stdout, 'stdout');
-            if (asmResult.stderr) this.terminalManager.appendToTerminal('tasm', asmResult.stderr, 'stderr');
+            this.terminalManager.processExecutableOutput('tasm', asmResult);
+            await refreshFileTree();
 
             if (asmResult.code !== 0) {
                 statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
@@ -8249,6 +8243,7 @@ end`;
             this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
+            this.terminalManager.processExecutableOutput('tveri', result);
 
             if (result.stdout) {
                 this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
@@ -8318,6 +8313,7 @@ end`;
             this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
+            this.terminalManager.processExecutableOutput('tveri', result);
 
             if (result.stdout) this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
             if (result.stderr) this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
@@ -8351,53 +8347,42 @@ end`;
         this.terminalManager.appendToTerminal(terminalTag, 'Starting optimized VVP execution...');
         const systemInfo = await window.electronAPI.getSystemPerformance();
         this.terminalManager.appendToTerminal(terminalTag, `System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
+        
         let vvpProcessPid = null;
-        let isVvpRunning = true;
         const outputListener = (event, payload) => {
-            if (!isVvpRunning) return;
-            if (payload.type === 'performance') {
-                vvpProcessPid = payload.data.pid;
-                this.terminalManager.appendToTerminal(terminalTag, `VVP Process started (PID: ${vvpProcessPid}) using ${payload.data.cpuCount} cores`);
-                if (typeof window !== 'undefined' && window.setCurrentVvpPid) window.setCurrentVvpPid(vvpProcessPid);
-            } else if (payload.type === 'pid') {
+            if (payload.type === 'pid') {
                 vvpProcessPid = payload.pid;
                 this.terminalManager.appendToTerminal(terminalTag, `High-performance VVP started (PID: ${vvpProcessPid})`);
-                if (typeof window !== 'undefined' && window.setCurrentVvpPid) window.setCurrentVvpPid(vvpProcessPid);
-            } else if (payload.type === 'stdout') {
-                this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stdout');
-            } else if (payload.type === 'stderr') {
-                this.terminalManager.appendToTerminal(terminalTag, payload.data, 'stderr');
+                if (typeof window !== 'undefined') window.setCurrentVvpPid(vvpProcessPid);
             }
         };
+
         window.electronAPI.onCommandOutputStream(outputListener);
+
         try {
-            if (typeof window !== 'undefined' && window.setVvpRunning) window.setVvpRunning(true);
+            if (typeof window !== 'undefined') window.setVvpRunning(true);
             const vvpResult = await window.electronAPI.execVvpOptimized(command, workingDir);
-            isVvpRunning = false;
-            if (typeof window !== 'undefined' && window.setVvpRunning) {
+            if (typeof window !== 'undefined') {
                 window.setVvpRunning(false);
                 window.setCurrentVvpPid(null);
             }
-            if (vvpProcessPid) {
-                try {
-                    await window.electronAPI.setProcessPriority(vvpProcessPid, 'high');
-                    this.terminalManager.appendToTerminal(terminalTag, 'Process priority set to HIGH');
-                } catch {}
-            }
-            if (vvpResult.stdout) this.terminalManager.appendToTerminal(terminalTag, vvpResult.stdout, 'stdout');
-            if (vvpResult.stderr) this.terminalManager.appendToTerminal(terminalTag, vvpResult.stderr, 'stderr');
+
+            // CORREÇÃO: Processa a saída do VVP usando o método unificado para agrupar e evitar duplicação.
+            this.terminalManager.processExecutableOutput(terminalTag, vvpResult);
+
             checkCancellation();
             if (vvpResult.code !== 0) {
                 hideVVPProgress();
                 throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
             }
+
             this.terminalManager.appendToTerminal(terminalTag, `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
             const audio = new Audio('./assets/audio/audio_compilation.wav');
             audio.play();
             return vvpResult;
+
         } catch (error) {
-            isVvpRunning = false;
-            if (typeof window !== 'undefined' && window.setVvpRunning) {
+            if (typeof window !== 'undefined') {
                 window.setVvpRunning(false);
                 window.setCurrentVvpPid(null);
             }
@@ -8405,12 +8390,7 @@ end`;
                 try {
                     await window.electronAPI.terminateProcess(vvpProcessPid);
                     this.terminalManager.appendToTerminal(terminalTag, `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
-                } catch {
-                    try {
-                        await window.electronAPI.terminateProcess('vvp.exe');
-                        this.terminalManager.appendToTerminal(terminalTag, 'VVP process terminated by name due to cancellation.', 'warning');
-                    } catch {}
-                }
+                } catch {}
             }
             throw error;
         } finally {
@@ -8425,7 +8405,7 @@ end`;
         const {
             name
         } = processor;
-        this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for ${name}...');
+        this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
         statusUpdater.startCompilation('wave');
         let testbenchBackupInfo = null;
         try {
@@ -8468,6 +8448,8 @@ end`;
 
             this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog:\n${iverilogCmd}`);
             const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+
+            this.terminalManager.processExecutableOutput('twave', iverilogResult);
 
             if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
             if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
@@ -8523,47 +8505,33 @@ end`;
             this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
             this.terminalManager.appendToTerminal('twave', `GTKWave command:\n${gtkwCmd}`);
 
-            const gtkwaveOutputListener = (event, payload) => {
-                if ((payload.type === 'stdout' || payload.type === 'stderr') && payload.data) {
-                    // Feed all output directly to the terminal manager.
-                    // It will handle splitting, type detection, and grouping correctly now.
-                    this.terminalManager.appendToTerminal('twave', payload.data);
-                }
-            };
-
-            // Register the listener right before launching the command.
-            window.electronAPI.onCommandOutputStream(gtkwaveOutputListener);
-
-            // Execute GTKWave. We don't await it, but we handle the promise
-            // to know when to clean up the listener.
-            window.electronAPI.execCommand(gtkwCmd)
-                .then(result => {
-                    // This block runs after the GTKWave window is closed.
-                    if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
-                    if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
-                    this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
-                })
-                .catch(error => {
-                    console.warn('GTKWave launch warning:', error);
-                    this.terminalManager.appendToTerminal('twave', `GTKWave process exited with a warning: ${error.message}`, 'warning');
-                })
-                .finally(() => {
-                    // CRITICAL: Always remove the listener when the process is done.
-                    window.electronAPI.removeCommandOutputListener(gtkwaveOutputListener);
-                });
-
-            this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
-            statusUpdater.compilationSuccess('wave');
+            try {
+            const result = await window.electronAPI.execCommand(gtkwCmd);
+            
+            // Filtra o "ruído" do resultado antes de processar
+            const filteredResult = this.terminalManager.filterGtkWaveOutput(result);
+            
+            // Processa a saída filtrada para criar os cards
+            this.terminalManager.processExecutableOutput('twave', filteredResult);
+            
+            this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
         } catch (error) {
-            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-            statusUpdater.compilationError('wave', error.message);
-            throw error;
-        } finally {
-            if (testbenchBackupInfo) {
-                await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
-            }
+            console.warn('GTKWave launch warning:', error);
+            this.terminalManager.appendToTerminal('twave', `GTKWave process exited with a warning: ${error.message}`, 'warning');
+        }
+
+        this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
+        statusUpdater.compilationSuccess('wave');
+    } catch (error) {
+        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('wave', error.message);
+        throw error;
+    } finally {
+        if (testbenchBackupInfo) {
+            await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
         }
     }
+}
     async runProjectGtkWave() {
         this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
         statusUpdater.startCompilation('wave');
@@ -8639,6 +8607,7 @@ end`;
 
             this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
             const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+            this.terminalManager.processExecutableOutput('twave', iverilogResult);
 
             if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
             if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
@@ -9858,6 +9827,70 @@ class TerminalManager {
         this.setupFilterButtons();
     }
 
+    resetSessionCards(terminalId) {
+        if (this.currentSessionCards[terminalId]) {
+            this.currentSessionCards[terminalId] = {};
+        }
+    }
+
+    processExecutableOutput(terminalId, result) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal || (!result.stdout && !result.stderr)) {
+            return;
+        }
+
+        // 1. Reseta os cards para este novo bloco de saída
+        this.resetSessionCards(terminalId);
+
+        const output = (result.stdout || '') + (result.stderr || '');
+        const lines = output.split('\n').filter(line => line.trim());
+
+        if (lines.length === 0) return;
+
+        // 2. Processa cada linha para agrupá-la no card apropriado
+        lines.forEach(line => {
+            const messageType = this.detectMessageType(line);
+
+            if (messageType && messageType !== 'plain') {
+                this.addToSessionCard(terminalId, line.trim(), messageType);
+            } else {
+                const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+                this.createLogEntry(terminal, line.trim(), 'plain', timestamp);
+            }
+        });
+
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
+    }
+
+    filterGtkWaveOutput(result) {
+        const noisePrefixes = [
+            'GTKWave Analyzer',
+            'RCVAR |',
+            'FSTLOAD |',
+            'GTKWAVE |',
+            'WM Destroy',
+            '[0] start time',
+            '[0] end time'
+        ];
+
+        const filterLines = (text) => {
+            if (!text) return '';
+            return text.split('\n')
+                .filter(line => {
+                    // Mantém a linha se ela NÃO começar com nenhum dos prefixos de ruído
+                    return !noisePrefixes.some(prefix => line.trim().startsWith(prefix));
+                })
+                .join('\n');
+        };
+
+        return {
+            ...result,
+            stdout: filterLines(result.stdout),
+            stderr: filterLines(result.stderr),
+        };
+    }
+
     setupTerminalLogListener() {
         window.electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
             this.appendToTerminal(terminal, message, type);
@@ -10004,43 +10037,20 @@ class TerminalManager {
     appendToTerminal(terminalId, content, type = 'info') {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
-
-        // Extract text content from different sources
-        let text = '';
-        if (typeof content === 'string') {
-            text = content;
-        } else if (content.stdout || content.stderr) {
-            text = (content.stdout || '') + (content.stderr || '');
-        }
-
+        
+        // Esta função agora é usada para mensagens de status individuais.
+        // A lógica de processamento de blocos de saída foi movida para processExecutableOutput.
+        let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
-
-        // Split by lines and process each line
-        const lines = text.split('\n')
-            .filter(line => line.trim());
-
+        
+        const lines = text.split('\n').filter(line => line.trim());
+        
         lines.forEach(line => {
-            const messageType = this.detectMessageType(line);
-
-            if (messageType && messageType !== 'plain') {
-                this.addToSessionCard(terminalId, line.trim(), messageType);
-            } else {
-                // For plain messages, create individual entries
-                const timestamp = new Date()
-                    .toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false,
-                    });
-                this.createLogEntry(terminal, line.trim(), 'plain', timestamp);
-            }
+             const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+             // Mensagens gerais não serão agrupadas em cards de sessão, elas aparecem como entradas individuais
+             this.createLogEntry(terminal, line.trim(), type, timestamp);
         });
 
-        // Apply current filter and scroll
         this.applyFilter(terminalId);
         this.scrollToBottom(terminalId);
     }
@@ -10049,26 +10059,14 @@ class TerminalManager {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
-        // Get or create the session card for this type
         let card = this.currentSessionCards[terminalId][type];
 
         if (!card) {
-            const timestamp = new Date()
-                .toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false,
-                });
-
+            const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
             card = this.createGroupedCard(terminal, type, timestamp);
             this.currentSessionCards[terminalId][type] = card;
         }
 
-        // Add the message to the card
         this.addMessageToCard(card, text, type);
     }
 

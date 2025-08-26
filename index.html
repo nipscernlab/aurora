@@ -11,14 +11,14 @@
    <div class="toolbar">
     <!-- Left Group - Project Management -->
     <div class="toolbar-left">
-        <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
             <i class="fa-solid fa-compass"></i>
         </button>
-        <button id="newProjectBtn" class="toolbar-button" title="Create New Project">
+        <button id="newProjectBtn" class="toolbar-button">
             <i class="fas fa-folder-plus"></i>
             <span>New Project</span>
         </button>
-        <button id="openProjectBtn" class="toolbar-button" title="Open Existing Project">
+        <button id="openProjectBtn" class="toolbar-button">
             <i class="fa-solid fa-box-open"></i>
             <span>Open Project</span>
         </button>
@@ -26,36 +26,36 @@
 
     <!-- Center Group - Compilation Tools -->
     <div class="toolbar-center">
-        <button id="cmmcomp" class="toolbar-button" disabled title="Compile C±">
+        <button id="cmmcomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
             <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
         </button>
-        <button id="asmcomp" class="toolbar-button" disabled title="Compile Assembly">
+        <button id="asmcomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
         </button>
-        <button id="vericomp" class="toolbar-button" disabled title="Compile Verilog">
+        <button id="vericomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
         </button>
-        <button id="wavecomp" class="toolbar-button" disabled title="Open Waveform">
+        <button id="wavecomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
         </button>
-        <button id="prismcomp" class="toolbar-button" disabled title="PRISM">
+        <button id="prismcomp" class="toolbar-button" disabled>
             <img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit;">
             <span>PRISM</span>
         </button>
     </div>
 
     <!-- UI Toggle Button -->
-    <button id="toggle-ui" class="toolbar-toggle-ui" title="Toggle UI">
+    <button id="toggle-ui" class="toolbar-toggle-ui">
         <i class="fa-solid fa-fan"></i>
     </button>
 
     <!-- Compile All Group -->
     <div class="compile-all-group">
-        <button id="cancel-everything" class="toolbar-button" disabled title="Cancel All Operations">
+        <button id="cancel-everything" class="toolbar-button" disabled>
             <i class="fa-solid fa-power-off" style="color: #da70d6;"></i>
         </button>
-        <button id="allcomp" class="toolbar-button" disabled title="Compile All">
+        <button id="allcomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-font-awesome" style="color: #da70d6;"></i>
             <span>Full Build</span>
         </button>
@@ -63,18 +63,18 @@
 
     <!-- Right Group - Settings & Tools -->
     <div class="toolbar-right">
-        <button id="settings" class="toolbar-button" disabled title="Settings">
+        <button id="settings" class="toolbar-button" disabled>
             <i class="fa-solid fa-gears" style="color: #da70d6;"></i>
             <span>Settings</span>
         </button>
-        <button id="processorHub" class="toolbar-button" title="Processor Hub">
+        <button id="processorHub" class="toolbar-button">
             <i class="fa-solid fa-star-of-life"></i>
             <span>Processor Hub</span>
         </button>
-        <button id="aurora-settings" class="toolbar-button" title="Aurora Settings">
+        <button id="aurora-settings" class="toolbar-button">
             <i class="fa-solid fa-sliders"></i>
         </button>
-        <button id="aiButton" class="toolbar-button" title="AI Assistant">
+        <button id="aiButton" class="toolbar-button">
             <img src="./assets/icons/ai_gemini.webp" alt="AI" style="width: 22px; height: 22px;">
         </button>
     </div>
@@ -324,14 +324,14 @@
             <div class="resizer-vertical"></div>
             <div class="file-tree-header">
                 <span>FILE TREE</span>
-                <span id="current-spf-name" title="Current Project">No project open</span>
+                <span id="current-spf-name">No project open</span>
                 
                 <!-- Search Section -->
                 <div class="file-search-container">
                     <div class="search-input-wrapper">
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
                         <input type="text" id="file-search-input" class="search-input" placeholder="Search files..." autocomplete="off">
-                        <button id="clear-search" class="clear-search-btn" title="Clear search">
+                        <button id="clear-search" class="clear-search-btn">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
@@ -343,19 +343,19 @@
             
             <div class="overlay-title" id="hierarchy-tree">
                 Standard Tree
-                <span id="refresh-button" title="Refresh" style="cursor: pointer;">
+                <span id="refresh-button" style="cursor: pointer;">
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </span>
-                <span id="open-hdl-button" title="Open HDL" style="cursor: pointer;">
+                <span id="open-hdl-button" style="cursor: pointer;">
                     <i class="fa-solid fa-hashtag"></i>
                 </span>
-                <span id="open-folder-button" title="Open Project" style="cursor: pointer;">
+                <span id="open-folder-button" style="cursor: pointer;">
                     <i class="fa-solid fa-folder-open"></i>
                 </span>
-                <span id="close-button" title="Close" style="cursor: pointer;">
+                <span id="close-button" style="cursor: pointer;">
                     <i class="fa-solid fa-circle-xmark"></i>
                 </span>
-                <span id="toggle-file-tree" title="Collapse All" style="cursor: pointer;">
+                <span id="toggle-file-tree" style="cursor: pointer;">
                     <i class="fa-solid fa-compress-arrows-alt"></i>
                 </span>
                 <i class="fa-solid fa-list-ul"></i>
@@ -378,7 +378,7 @@
                             <div id="icon-container">
                                 <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
                                 <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-                                <button class="change-icon-btn" id="change-icon-btn" title="Change Icon">
+                                <button class="change-icon-btn" id="change-icon-btn">
                                     <i class="fa-solid fa-image"></i>
                                 </button>
                                 <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
@@ -415,21 +415,21 @@
             
             <div id="terminal-container" class="terminal-container">
                 <div class="terminal-tabs">
-                    <button id="clear-terminal" title="Clear Terminal" class="toolbar-button">
+                    <button id="clear-terminal" class="toolbar-button">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                     
                     <!-- Filter buttons -->
-                    <button id="filter-error" title="Filter Errors" class="toolbar-button filter-btn filter-error">
+                    <button id="filter-error" class="toolbar-button filter-btn filter-error">
                         <i class="fa-solid fa-circle-xmark"></i>
                     </button>
-                    <button id="filter-warning" title="Filter Warnings" class="toolbar-button filter-btn filter-warning">
+                    <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
                         <i class="fa-solid fa-circle-exclamation"></i>
                     </button>
-                    <button id="filter-success" title="Filter Successes" class="toolbar-button filter-btn filter-success">
+                    <button id="filter-success" class="toolbar-button filter-btn filter-success">
                         <i class="fa-solid fa-circle-check"></i>
                     </button>
-                    <button id="filter-tip" title="Filter Tips" class="toolbar-button filter-btn filter-tip">
+                    <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
                         <i class="fa-solid fa-circle-info"></i>
                     </button>
                     
@@ -452,16 +452,16 @@
                         TWAVE
                     </button>
                     
-                    <button id="goup-terminal" title="Go Up" class="toolbar-button">
+                    <button id="goup-terminal" class="toolbar-button">
                         <i class="fa-solid fa-chevron-up"></i>
                     </button>
-                    <button id="godown-terminal" title="Go Down" class="toolbar-button">
+                    <button id="godown-terminal" class="toolbar-button">
                         <i class="fa-solid fa-chevron-down"></i>
                     </button>
-                    <button id="export-log" title="Export Log" class="toolbar-button">
+                    <button id="export-log" class="toolbar-button">
                         <i class="fa-solid fa-file-export"></i>
                     </button>
-                    <button id="reload-everything-terminal" title="Reload Everything" class="toolbar-button">
+                    <button id="reload-everything-terminal" class="toolbar-button">
                         <i class="fa-solid fa-hourglass"></i>
                     </button>
                 </div>

@@ -9456,12 +9456,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isOpen) {
             prismButton.classList.add('active');
             if (!isCompiling) {
-                prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
+                prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM (Recompile)';
             }
         } else {
             prismButton.classList.remove('active');
             if (!isCompiling) {
-                prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM';
+                prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> PRISM';
             }
         }
     }
@@ -9581,7 +9581,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update button appearance
             prismButton.disabled = true;
             prismButton.style.cursor = 'not-allowed';
-            prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Preparing...';
+            prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Preparing...';
 
             // Step 1: Acquire all necessary paths
             console.log('Step 1: Acquiring compilation paths...');
@@ -9601,10 +9601,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Step 3: Update button text based on operation type
             if (isPrismOpen) {
-                prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
+                prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Recompiling...';
                 console.log('Starting PRISM recompilation...');
             } else {
-                prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
+                prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="height: inherit; width: 35px; flex-shrink: 0;"> Compiling...';
                 console.log('Starting PRISM compilation...');
             }
 
@@ -9718,7 +9718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error checking PRISM window status in finally:', error);
                 // Default button text
-                prismButton.innerHTML = '<img src="./assets/icons/prismv2.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
+                prismButton.innerHTML = '<img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit; flex-shrink: 0;"> PRISM';
             }
 
             console.log('=== PRISM BUTTON PROCESS COMPLETE ===');

@@ -41,8 +41,11 @@
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  overflow: hidden; /* Ensures child elements conform to the rounded corners */
+  overflow: hidden; 
   box-shadow: var(--shadow-sm);
+  
+  /* A MUDANÇA PRINCIPAL: Impede que os grupos de botões sejam "espremidos" */
+  flex-shrink: 0;
 }
 
 /* ===================================================================================
@@ -198,43 +201,54 @@
 }
 
 /* ===================================================================================
- *  Responsive Adjustments
+ *  Responsive Adjustments (VERSÃO CORRIGIDA)
  * =================================================================================== */
 
-/* Medium Screens (Tablets) */
-@media screen and (max-width: 1024px) {
-  .toolbar {
-    gap: var(--space-2);
-    padding: var(--space-2);
-  }
-  .toolbar-button {
-    gap: var(--space-1);
-    padding: var(--space-2);
-    font-size: var(--text-xs);
-  }
-  /* Hide less critical text */
+/* -----------------------------------------------------------------------------------
+ * Breakpoint 1: Telas de Desktop Padrão (até 1400px)
+ * - Começa a ocultar texto para evitar que a barra fique apertada muito cedo.
+ * ----------------------------------------------------------------------------------- */
+@media screen and (max-width: 1400px) {
+  #newProjectBtn span,
   #openProjectBtn span,
+  #settings span,
   #processorHub span {
     display: none;
   }
 }
 
-/* Small Screens (Mobile) */
-@media screen and (max-width: 768px) {
+/* -----------------------------------------------------------------------------------
+ * Breakpoint 2: Laptops e Tablets Grandes (até 1280px)
+ * - O espaço é insuficiente. Ativa a quebra de linha (wrap) para os grupos.
+ * ----------------------------------------------------------------------------------- */
+@media screen and (max-width: 1280px) {
   .toolbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: var(--space-2);
+    /* Permite que os grupos de botões quebrem para a próxima linha */
+    flex-wrap: wrap;
+    /* Alinha os grupos no centro para um visual mais organizado quando quebram a linha */
+    justify-content: center;
+    /* Adiciona um espaçamento vertical entre as linhas de botões */
+    row-gap: var(--space-2);
   }
-  /* Hide most button text to save space */
+}
+
+/* -----------------------------------------------------------------------------------
+ * Breakpoint 3: Tablets e Celulares (até 768px)
+ * - Otimiza para telas verticais, ocultando a maioria dos textos.
+ * ----------------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  /* Oculta todos os textos para maximizar o espaço para os ícones... */
   .toolbar-button span {
     display: none;
   }
-  /* Explicitly keep 'Full Build' visible as it's a primary action */
+
+  /* ...mas mantém visíveis os textos de ações mais importantes (exceções) */
+  #prismcomp span,
   #allcomp span {
     display: inline;
   }
+  
   .toolbar-button {
-    padding: var(--space-2);
+    padding: var(--space-2); /* Reduz o padding para botões mais compactos */
   }
 }

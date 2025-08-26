@@ -213,3 +213,79 @@
   from { opacity: 0.6; transform: scaleY(0.8); }
   to   { opacity: 1; transform: scaleY(1); }
 }
+
+/* --- Container Principal --- */
+.context-path-container {
+  /* Layout e Posicionamento */
+  display: flex;
+  align-items: center;
+  gap: var(--space-2); /* 8px de espaçamento entre os elementos */
+  height: 38px; /* Altura consistente com outros elementos de UI */
+  padding: var(--space-2) var(--space-3); /* 8px vertical, 12px horizontal */
+  
+  /* Aparência */
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-secondary); /* Cor de texto padrão para os segmentos */
+
+  /* Tipografia */
+  font-family: var(--font-sans);
+  font-size: var(--text-sm); /* 14px */
+  
+  /* Comportamento */
+  overflow: hidden; /* Evita que o conteúdo vaze */
+  white-space: nowrap; /* Impede a quebra de linha dos segmentos */
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+/* --- Estado Vazio: Oculta a barra quando não há arquivo ativo --- */
+.context-path-container.empty {
+  display: none;
+}
+
+/* --- Ícone (Pasta) --- */
+.context-path-container i {
+  font-size: var(--text-base); /* 16px, para um ícone ligeiramente maior que o texto */
+  color: var(--text-tertiary); /* Cor mais sutil para o ícone */
+}
+
+/* --- Segmentos do Caminho (Pastas) --- */
+.context-path-segment {
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  cursor: default; /* Geralmente não são clicáveis, mas pode mudar */
+}
+
+.context-path-segment:hover {
+  color: var(--text-primary); /* Destaque no hover */
+}
+
+/* --- Separador (>) --- */
+.context-path-separator {
+  color: var(--text-tertiary); /* Cor sutil para não chamar atenção */
+  margin: 0 var(--space-1); /* 4px de margem lateral */
+  user-select: none; /* Impede que o separador seja selecionado */
+}
+
+/* --- Nome do Arquivo (Segmento Ativo) --- */
+.context-path-filename {
+  color: var(--text-primary); /* Cor de destaque para o arquivo atual */
+  font-weight: var(--font-medium); /* Levemente em negrito para ênfase */
+}
+
+/* --- Animação de Entrada --- */
+.context-path-container:not(.empty) {
+  /* Ativa a animação quando a barra aparece */
+  animation: contextPathFadeIn var(--transition-normal) ease-out;
+}
+
+@keyframes contextPathFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

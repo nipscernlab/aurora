@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   width: 250px;
-  min-width: 150px; /* Sensible minimum width */
+  min-width: 10px; /* Sensible minimum width */
   position: relative;
   height: 100%;
   background-color: var(--bg-secondary);
@@ -25,6 +25,14 @@
   user-select: none;
   overflow: hidden;
 }
+
+  .file-tree-item.active {
+    border-left: 3px solid var(--accent-primary);
+  }
+  
+  .file-tree-item.active span {
+    font-weight: 600;
+  }
 
 .file-tree-header {
   flex-shrink: 0;
@@ -292,4 +300,169 @@
 
 #refresh-button.spinning i {
   animation: spin 1s linear infinite;
+}
+
+
+/* =====================================================================================
+ *
+ *    Component:  File Tree Search
+ *  Description:  Styles for the file and folder search input, fully integrated
+ *                with the elegant purple dark theme.
+ *
+ * ===================================================================================== */
+
+/* --- Container Principal --- */
+.file-search-container {
+  padding: 0 var(--space-3) var(--space-3) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* --- Wrapper do Input de Pesquisa --- */
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+/* Estado de Foco */
+.search-input-wrapper:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-focus-outline);
+}
+
+/* --- Ícone de Pesquisa --- */
+.search-icon {
+  position: absolute;
+  left: var(--space-3); /* 12px */
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  pointer-events: none; /* Permite clicar através do ícone */
+  z-index: var(--z-10);
+  transition: color var(--transition-fast), transform var(--transition-normal);
+}
+
+.search-input-wrapper:focus-within .search-icon {
+  color: var(--accent-primary);
+}
+
+/* Estado de Carregamento (girando) */
+.search-input-wrapper.searching .search-icon {
+  animation: searchSpin 1s linear infinite;
+}
+
+@keyframes searchSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- Input de Texto --- */
+.search-input {
+  flex-grow: 1;
+  width: 100%;
+  padding: var(--space-2) var(--space-8) var(--space-2) 38px; /* Espaço para ícone e botão */
+  background-color: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.search-input:focus::placeholder {
+  color: var(--text-disabled);
+}
+
+/* --- Botão de Limpar --- */
+.clear-search-btn {
+  position: absolute;
+  right: var(--space-2); /* 8px */
+  width: var(--space-6); /* 24px */
+  height: var(--space-6); /* 24px */
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  
+  /* Oculto por padrão, aparece com JS */
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.clear-search-btn:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+/* Classe adicionada via JS quando o input tem conteúdo */
+.search-input-wrapper.has-content .clear-search-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Feedback de Resultados --- */
+.search-results-info {
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+  min-height: 1.5em; /* Evita "pulos" no layout */
+  transition: color var(--transition-fast);
+}
+
+.search-results-info.active {
+  color: var(--text-secondary);
+}
+
+/* --- Estilos Aplicados na Árvore de Arquivos --- */
+
+/* Item que corresponde à busca */
+.file-tree-item.search-match > .file-item {
+  background-color: var(--accent-subtle-bg);
+  border-radius: var(--radius-sm);
+}
+
+/* Destaque no texto correspondente */
+.search-highlight {
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-semibold);
+  padding: 0 2px;
+}
+
+/* Item que não corresponde e está oculto */
+.file-tree-item.search-hidden {
+  display: none !important;
+}
+
+/* --- Estado de "Nenhum Resultado" --- */
+.search-empty-state {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.search-empty-state i {
+  display: block;
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-3);
+  opacity: 0.6;
 }

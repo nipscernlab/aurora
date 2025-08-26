@@ -916,7 +916,6 @@ async function ensureMonacoInitialized() {
     });
 }
 
-
 // Enhanced Monaco initialization with custom themes
 async function initMonaco() {
     return new Promise((resolve) => {
@@ -1872,7 +1871,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
 
 // BreakpointManager - Handles all breakpoint functionality for Monaco Editor
 class BreakpointManager {
@@ -4390,87 +4388,6 @@ class TabManager {
 // Call initialization when the script loads
 TabManager.initialize();
 
-// Add CSS for drag and drop
-const tabDragStyles = document.createElement('style');
-tabDragStyles.textContent = `
-  .tab.dragging {
-    opacity: 0.5;
-  }
-
-  .tab {
-    user-select: none;
-    transition: opacity 0.2s ease;
-  }
-`;
-document.head.appendChild(tabDragStyles);
-
-
-// Atualizar o CSS para usar as variáveis de tema
-const contextPathStyles = document.createElement('style');
-contextPathStyles.textContent = `
-  .context-path-container {
-    padding: 6px 12px;
-    font-size: 0.85em;
-    color: var(--text-secondary);
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 34px;
-    overflow: hidden;
-    white-space: nowrap;
-    font-family: var(--font-sans);
-  }
-
-  .context-path-container i {
-    font-size: 0.9em;
-    color: var(--icon-secondary);
-  }
-
-  .context-path-segment {
-    color: var(--text-secondary);
-    transition: color 0.2s ease;
-  }
-
-  .context-path-segment:hover {
-    color: var(--text-primary);
-  }
-
-  .context-path-separator {
-    color: var(--text-muted);
-    margin: 0 2px;
-    user-select: none;
-  }
-
-  .context-path-filename {
-    color: var(--text-primary);
-    font-weight: 500;
-  }
-
-  /* Esconder o container quando não há arquivos abertos */
-  .context-path-container.empty {
-    display: none;
-  }
-
-  /* Adicionar uma sutil animação de fade quando muda o arquivo */
-  .context-path-container:not(.empty) {
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-2px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-`;
-document.head.appendChild(contextPathStyles);
-
 // Atualizar a função de inicialização do contexto
 function initContextPath() {
     const editorContainer = document.getElementById('monaco-editor')
@@ -5144,19 +5061,6 @@ const FileTreeState = {
         }
     }
 };
-
-// Add this CSS to style the highlighted file
-const highlightStyles = document.createElement('style');
-highlightStyles.textContent = `
-  .file-tree-item.active {
-    border-left: 3px solid var(--accent-primary);
-  }
-  
-  .file-tree-item.active span {
-    font-weight: 600;
-  }
-`;
-document.head.appendChild(highlightStyles);
 
 // Atualizar a função refreshFileTree
 async function refreshFileTree() {
@@ -5878,258 +5782,11 @@ class FileTreeSearch {
     }
 
     init() {
-        this.createStyles();
+        // A injeção de estilo foi removida daqui
         this.setupEventListeners();
     }
 
-    createStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-      /* File Search Container */
-      .file-search-container {
-        margin-top: var(--space-3);
-        padding-top: var(--space-3);
-        border-top: 1px solid var(--border-secondary);
-      }
-
-      /* Search Input Wrapper */
-      .search-input-wrapper {
-        position: relative;
-        display: flex;
-        align-items: center;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-primary);
-        border-radius: var(--radius-lg);
-        transition: var(--transition-normal);
-        overflow: hidden;
-      }
-
-      .search-input-wrapper:focus-within {
-        border-color: var(--border-focus);
-        box-shadow: var(--shadow-focus);
-        background: var(--bg-secondary);
-      }
-
-      .search-input-wrapper:hover:not(:focus-within) {
-        border-color: var(--accent-muted);
-        background: var(--bg-hover);
-      }
-
-      /* Search Icon */
-      .search-icon {
-        position: absolute;
-        left: var(--space-3);
-        color: var(--text-muted);
-        font-size: var(--text-sm);
-        pointer-events: none;
-        z-index: var(--z-10);
-        transition: var(--transition-fast);
-      }
-
-      .search-input-wrapper:focus-within .search-icon {
-        color: var(--accent-primary);
-      }
-
-      /* Search Input */
-      .search-input {
-        flex: 1;
-        padding: 4px 10px 4px 40px;
-        background: transparent;
-        border: none;
-        outline: none;
-        color: var(--text-primary);
-        font-size: var(--text-sm);
-        font-family: var(--font-sans);
-        line-height: var(--leading-normal);
-      }
-
-      .search-input::placeholder {
-        color: var(--text-muted);
-        font-weight: var(--font-normal);
-      }
-
-      .search-input:focus::placeholder {
-        color: var(--text-disabled);
-      }
-
-      /* Clear Search Button */
-      .clear-search-btn {
-        position: absolute;
-        right: var(--space-2);
-        width: 24px;
-        height: 24px;
-        background: var(--bg-hover);
-        border: none;
-        border-radius: var(--radius-full);
-        color: var(--text-muted);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transform: scale(0.8);
-        transition: var(--transition-fast);
-        font-size: var(--text-xs);
-      }
-
-      .clear-search-btn:hover {
-        background: var(--bg-active);
-        color: var(--text-primary);
-        transform: scale(1);
-      }
-
-      .clear-search-btn:active {
-        transform: scale(0.9);
-      }
-
-      .search-input-wrapper.has-content .clear-search-btn {
-        opacity: 1;
-        transform: scale(1);
-      }
-
-      /* Search Results Info */
-      .search-results-info {
-        margin-top: var(--space-4);
-        font-size: var(--text-xs);
-        color: var(--text-muted);
-        text-align: center;
-        min-height: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .search-results-info.active {
-        color: var(--text-secondary);
-      }
-
-      /* File Tree Search States */
-      .file-tree.searching {
-        opacity: 0.9;
-      }
-
-      .file-tree-item.search-hidden {
-        display: none !important;
-      }
-
-      .file-tree-item.search-match {
-        background: var(--hover-overlay);
-        border-radius: var(--radius-sm);
-        animation: searchHighlight 0.3s ease-out;
-      }
-
-      .file-tree-item.search-match .file-item span {
-        font-weight: var(--font-medium);
-        color: var(--text-primary);
-      }
-
-      .search-highlight {
-        background: var(--accent-primary);
-        color: var(--bg-primary);
-        padding: 1px 2px;
-        border-radius: var(--radius-sm);
-        font-weight: var(--font-semibold);
-      }
-
-      /* Search Animation */
-      @keyframes searchHighlight {
-        0% {
-          background: var(--accent-focus);
-          transform: scale(1.02);
-        }
-        100% {
-          background: var(--hover-overlay);
-          transform: scale(1);
-        }
-      }
-
-      /* Loading State */
-      .search-input-wrapper.searching .search-icon {
-        animation: searchSpin 1s linear infinite;
-      }
-
-      @keyframes searchSpin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-
-      /* Empty State */
-      .search-empty-state {
-        text-align: center;
-        padding: var(--space-8) var(--space-4);
-        color: var(--text-muted);
-        font-size: var(--text-sm);
-      }
-
-      .search-empty-state i {
-        font-size: var(--text-2xl);
-        margin-bottom: var(--space-3);
-        opacity: 0.5;
-      }
-
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .search-input {
-          padding: var(--space-2) var(--space-8) var(--space-2) var(--space-8);
-          font-size: var(--text-xs);
-        }
-        
-        .search-icon {
-          left: var(--space-2);
-        }
-        
-        .clear-search-btn {
-          right: var(--space-1);
-          width: 20px;
-          height: 20px;
-        }
-      }
-
-      /* Focus Management */
-      .file-tree-container:focus-within .search-input-wrapper {
-        border-color: var(--border-focus);
-      }
-
-      /* Accessibility */
-      .search-input:focus {
-        outline: 2px solid transparent;
-      }
-
-      .clear-search-btn:focus {
-        outline: 2px solid var(--accent-primary);
-        outline-offset: 2px;
-      }
-
-      /* High Contrast Support */
-      @media (prefers-contrast: high) {
-        .search-input-wrapper {
-          border-width: 2px;
-        }
-        
-        .search-highlight {
-          outline: 1px solid var(--text-primary);
-        }
-      }
-
-      /* Animation Preferences */
-      @media (prefers-reduced-motion: reduce) {
-        .search-input-wrapper,
-        .clear-search-btn,
-        .search-icon {
-          transition: none;
-        }
-        
-        .file-tree-item.search-match {
-          animation: none;
-        }
-        
-        .search-input-wrapper.searching .search-icon {
-          animation: none;
-        }
-      }
-    `;
-        document.head.appendChild(style);
-    }
+    // O MÉTODO createStyles() FOI COMPLETAMENTE REMOVIDO
 
     setupEventListeners() {
         document.addEventListener('DOMContentLoaded', () => {
@@ -6138,7 +5795,7 @@ class FileTreeSearch {
             this.resultsCounter = document.getElementById('search-results-count');
 
             if (!this.searchInput || !this.clearButton || !this.resultsCounter) {
-                console.warn('Search elements not found');
+                console.warn('Search elements not found in the DOM.');
                 return;
             }
 
@@ -6345,9 +6002,6 @@ class FileTreeSearch {
         emptyState.innerHTML = `
       <i class="fa-solid fa-magnifying-glass"></i>
       <div>No files found matching "${query}"</div>
-      <div style="margin-top: var(--space-2); font-size: var(--text-xs); opacity: 0.7;">
-        Try a different search term
-      </div>
     `;
 
         fileTree.appendChild(emptyState);
@@ -6417,7 +6071,6 @@ class FileTreeSearch {
 
 // Initialize the search system
 const fileSearchSystem = new FileTreeSearch();
-
 // Add keyboard shortcut (Ctrl+F or Cmd+F)
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {

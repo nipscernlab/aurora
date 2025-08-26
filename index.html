@@ -328,17 +328,31 @@
                 
                 <!-- Search Section -->
                 <div class="file-search-container">
-                    <div class="search-input-wrapper">
-                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" id="file-search-input" class="search-input" placeholder="Search files..." autocomplete="off">
-                        <button id="clear-search" class="clear-search-btn">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-                    <div class="search-results-info">
-                        <span id="search-results-count"></span>
-                    </div>
-                </div>
+    <!-- O contêiner principal para a barra de pesquisa interativa -->
+    <div class="search-input-wrapper">
+        <!-- Ícone de pesquisa, puramente visual -->
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+
+        <!-- O campo de texto real onde o usuário digita -->
+        <input 
+            type="text" 
+            id="file-search-input" 
+            class="search-input" 
+            placeholder="Search files and folders..."
+            aria-label="Search file tree"
+        >
+
+        <!-- Botão para limpar a pesquisa, aparece quando há texto -->
+        <button id="clear-search" class="clear-search-btn" aria-label="Clear search">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- Container para exibir o feedback da pesquisa (ex: "5 files found") -->
+    <div class="search-results-info">
+        <span id="search-results-count"></span>
+    </div>
+</div>
             </div>
             
             <div class="overlay-title" id="hierarchy-tree">

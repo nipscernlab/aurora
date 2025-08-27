@@ -3,269 +3,210 @@
  *
  *       Filename:  processor_hub.css
  *
- *    Description:  Styles for the Processor Hub modal, fully integrated with the
- *                  elegant purple dark theme design system.
+ *    Description:  Styles for the Processor Hub Modal, using the design system
+ *                  defined in theme_variables.css.
  *
  * =====================================================================================
  */
 
 /* ===================================================================================
- *  Main Container & Overlay
+ *  MODAL CONTAINER & OVERLAY
  * =================================================================================== */
+
 .processor-hub-container {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-50);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
+    position: fixed;
+    inset: 0; /* (top, right, bottom, left: 0) */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--z-40);
+    /* Fade-in transition for the whole container */
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--transition-fast), visibility var(--transition-fast);
+}
+
+.processor-hub-container.hidden {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .processor-hub-overlay {
-  position: absolute;
-  inset: 0;
-  background-color: rgba(17, 16, 21, 0.7); /* Corresponds to --bg-primary with alpha */
-  backdrop-filter: blur(8px);
-  animation: fadeIn var(--transition-normal) ease-out;
+    position: absolute;
+    inset: 0;
+    background-color: rgba(17, 16, 21, 0.7); /* Using --bg-primary with alpha */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 /* ===================================================================================
- *  Modal Styling
+ *  MODAL DIALOG
  * =================================================================================== */
+
 .processor-hub-modal {
-  position: relative;
-  background-color: var(--bg-elevated);
-  color: var(--text-primary);
-  padding: var(--space-8);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  max-width: 550px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-xl);
-  border: 1px solid var(--border-primary);
-  animation: fadeIn var(--transition-normal) ease-out forwards;
-  z-index: var(--z-50);
-}
-
-/* Custom Scrollbar */
-.processor-hub-modal::-webkit-scrollbar {
-  width: 10px;
-}
-.processor-hub-modal::-webkit-scrollbar-track {
-  background: transparent;
-}
-.processor-hub-modal::-webkit-scrollbar-thumb {
-  background-color: var(--bg-quaternary);
-  border-radius: var(--radius-full);
-  border: 2px solid var(--bg-elevated);
-}
-.processor-hub-modal::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-primary);
+    position: relative; /* To be on top of the overlay */
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-8);
+    box-shadow: var(--shadow-xl), var(--shadow-glow);
+    width: 90%;
+    max-width: 550px;
+    max-height: 90vh;
+    overflow-y: auto;
+    color: var(--text-primary);
+    
+    /* Entry animation from theme_variables.css */
+    animation: fadeIn var(--transition-normal) ease-out forwards;
 }
 
 /* ===================================================================================
- *  Modal Header
+ *  MODAL CONTENT & FORM ELEMENTS
  * =================================================================================== */
+
 .processor-hub-modal h2 {
-  font-size: var(--text-2xl);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-  margin: 0 0 var(--space-6) 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-primary);
-  position: relative;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-6) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
 }
 
-.processor-hub-modal h2::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 80px;
-  height: 2px;
-  background: var(--gradient-primary);
-}
-
-.processor-hub-modal h2 i {
-  color: var(--accent-primary);
-  text-shadow: var(--shadow-glow);
-}
-
-/* ===================================================================================
- *  Form Styling
- * =================================================================================== */
-.processor-hub-form {
-  display: grid;
-  gap: var(--space-5);
+.processor-hub-modal h2 .fa-star-of-life {
+    color: var(--accent-primary);
 }
 
 .processor-hub-form .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+    margin-bottom: var(--space-5);
 }
 
 .processor-hub-form label {
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2);
 }
 
-/* Inputs & Selects */
+/* Style for all inputs and the select element */
 .processor-hub-form input,
 .processor-hub-form select {
-  width: 100%;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-primary);
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-size: var(--text-base);
-  font-family: var(--font-sans);
-  transition: all var(--transition-fast);
-  box-sizing: border-box;
+    width: 100%;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    padding: var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.processor-hub-form input:hover,
-.processor-hub-form select:hover {
-  border-color: var(--border-focus);
+/* Removing default browser styles */
+.processor-hub-form input:focus,
+.processor-hub-form select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: var(--shadow-focus-outline);
 }
 
-.processor-hub-form input:focus-visible,
-.processor-hub-form select:focus-visible {
-  outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: var(--shadow-focus-outline);
+.processor-hub-form input::placeholder {
+    color: var(--text-tertiary);
 }
 
-/* Invalid Input State */
-.processor-hub-form input:invalid {
-  border-color: var(--status-error);
-  box-shadow: 0 0 0 2px var(--status-error-bg);
+/* Styling for the select dropdown arrow */
+.processor-hub-form select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238F8F8F' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 1em;
 }
 
-/* Help Tooltip */
-.processor-hub-form .tooltip {
-  cursor: help;
-  color: var(--text-tertiary);
-  transition: color var(--transition-fast);
+/* Tooltip icon styling */
+.tooltip {
+    color: var(--status-info) !important; /* Override inline style for theme consistency */
+    cursor: help;
+    transition: color var(--transition-fast);
 }
 
-.processor-hub-form .tooltip:hover {
-  color: var(--accent-primary);
+.tooltip:hover {
+    color: var(--accent-hover) !important;
 }
+
 
 /* ===================================================================================
- *  Form Sections & Buttons
+ *  BUTTONS
  * =================================================================================== */
-.floating-point-options {
-  display: none;
-  animation: fadeIn var(--transition-normal);
-}
-
-.floating-point-options.show {
-  display: grid; /* Changed from flex for consistency */
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-}
 
 .button-group {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin-top: var(--space-6);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-primary);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-4);
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-divider);
 }
 
-/* Base Button Style */
-.processor-hub-form button {
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  border: 1px solid transparent;
+/* Base styles for both buttons */
+.button-group button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
-/* Cancel Button */
+/* Cancel Button Styles */
 .cancel-button {
-  background-color: var(--bg-tertiary);
-  border-color: var(--border-primary);
-  color: var(--text-secondary);
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-primary);
 }
 
 .cancel-button:hover {
-  color: var(--text-primary);
-  border-color: var(--border-focus);
-  background-color: var(--bg-quaternary);
+    background-color: var(--bg-quaternary);
+    border-color: var(--accent-subtle-border);
+    color: var(--text-primary);
 }
 
-/* Generate Button */
+.cancel-button:active {
+    background-color: var(--overlay-active);
+}
+
+/* Generate Button Styles */
 .generate-button {
-  background: var(--gradient-primary);
-  color: var(--text-on-accent);
-  box-shadow: var(--shadow-sm);
+    background: var(--gradient-primary);
+    color: var(--text-on-accent);
+    box-shadow: var(--shadow-sm);
 }
 
-.generate-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  filter: brightness(1.1);
+.generate-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
+.generate-button:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Disabled state for the generate button */
 .generate-button:disabled {
-  background: var(--bg-tertiary);
-  color: var(--text-disabled);
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-/* Loading Spinner */
-.generate-button .fa-spinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ===================================================================================
- *  Responsive Design
- * =================================================================================== */
-@media (max-width: 600px) {
-  .processor-hub-modal {
-    padding: var(--space-5);
-    max-height: 95vh;
-  }
-  
-  .processor-hub-modal h2 {
-    font-size: var(--text-xl);
-  }
-  
-  .button-group {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
+    background: var(--bg-quaternary);
+    color: var(--text-disabled);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }

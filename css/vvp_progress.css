@@ -278,3 +278,90 @@
 
 .vvp-progress-overlay.minimized #vvp-maximize-btn { display: flex; }
 .vvp-progress-overlay.minimized #vvp-minimize-btn { display: none; }
+
+.log-entry.vvp-process {
+    /* Força o layout flexível para alinhar timestamp e conteúdo */
+    display: flex;
+    align-items: flex-start; /* Alinha itens no topo */
+    
+    /* Estilos visuais */
+    background-color: rgba(155, 89, 182, 0.08);
+    border-left: 3px solid #9b59b6;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+/* O container do conteúdo principal também usa flexbox */
+.vvp-process .message-content {
+    display: flex;
+    align-items: flex-start; /* Alinha o ícone e o texto no topo */
+    text-align: left; /* GARANTE o alinhamento à esquerda, sobrepondo qualquer regra de 'center' */
+    flex: 1; /* Faz o conteúdo ocupar o espaço restante */
+}
+
+/* 
+  O pseudo-elemento ::before para o ícone, agora como um item flex
+*/
+.vvp-process .message-content::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    
+    /* Estilos e posicionamento */
+    flex-shrink: 0; /* Impede que o ícone seja comprimido */
+    width: 28px;
+    margin-right: 8px;
+    font-size: 1.1em;
+    text-align: center;
+    color: #9b59b6;
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+/* Container para as linhas de texto */
+.vvp-process .message-lines {
+    /* Não precisa mais de estilos complexos, o Flexbox cuida de tudo */
+}
+
+/* Animação de rotação */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Estilos dinâmicos baseados no status [data-status] --- */
+
+/* Rodando */
+.vvp-process[data-status="running"] .message-content::before {
+    content: '\f013'; /* cog */
+    animation: spin 2s linear infinite;
+}
+
+/* Sucesso */
+.log-entry.vvp-process[data-status="success"] {
+    background-color: rgba(39, 174, 96, 0.08);
+    border-left-color: #27ae60;
+}
+.vvp-process[data-status="success"] .message-content::before {
+    content: '\f058'; /* check-circle */
+    color: #27ae60;
+    animation: none;
+}
+
+/* Erro */
+.log-entry.vvp-process[data-status="error"] {
+    background-color: rgba(231, 76, 60, 0.08);
+    border-left-color: #e74c3c;
+}
+.vvp-process[data-status="error"] .message-content::before {
+    content: '\f057'; /* times-circle */
+    color: #e74c3c;
+    animation: none;
+}
+
+/* Cancelado */
+.log-entry.vvp-process[data-status="canceled"] {
+    background-color: rgba(243, 156, 18, 0.08);
+    border-left-color: #f39c12;
+}
+.vvp-process[data-status="canceled"] .message-content::before {
+    content: '\f05e'; /* ban */
+    color: #f39c12;
+    animation: none;
+}

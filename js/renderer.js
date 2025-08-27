@@ -6,6 +6,9 @@ let editorInstance;
 let isVvpRunning = false;
 let currentVvpPid = null;
 let compilerInstance = null; // Store reference to your compiler class instance
+let watcherTimeout = null;
+let pollingInterval = null;
+const REFRESH_DELAY = 100; // Delay em ms entre atualizações
 
 //MONACO EDITOR ======================================================================================================================================================== ƒ
 class EditorManager {
@@ -1799,40 +1802,6 @@ function setupCMMLanguage() {
     });
 }
 
-// Enhanced theme toggle system
-let isDarkTheme = true;
-
-function initializeTheme() {
-    const savedTheme = localStorage.getItem('editorTheme');
-    isDarkTheme = savedTheme ? savedTheme === 'dark' : true;
-
-    // Apply theme to body immediately
-    document.body.className = isDarkTheme ? 'theme-dark' : 'theme-light';
-
-    const themeToggleBtn = document.getElementById('themeToggle');
-    const themeIcon = themeToggleBtn?.querySelector('i');
-
-    if (themeIcon) {
-        themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
-        themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
-    }
-}
-
-function toggleTheme() {
-    isDarkTheme = !isDarkTheme;
-
-    const themeToggleBtn = document.getElementById('themeToggle');
-    const themeIcon = themeToggleBtn?.querySelector('i');
-
-    if (themeIcon) {
-        themeIcon.classList.remove(isDarkTheme ? 'fa-sun' : 'fa-moon');
-        themeIcon.classList.add(isDarkTheme ? 'fa-moon' : 'fa-sun');
-    }
-
-    // Apply theme changes
-    EditorManager.setTheme(isDarkTheme);
-}
-
 // Enhanced version with smooth animation
 function updateCursorPosition(event) {
     const position = event.position;
@@ -1854,23 +1823,6 @@ function updateCursorPosition(event) {
         }, 150);
     }
 }
-
-// Initialize everything
-document.addEventListener('DOMContentLoaded', () => {
-    initializeTheme();
-
-    const themeToggleBtn = document.getElementById('themeToggle');
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-
-    // Handle window resize for responsive behavior
-    window.addEventListener('resize', () => {
-        if (EditorManager.editors.size > 0) {
-            EditorManager.updateResponsiveSettings();
-        }
-    });
-});
 
 // BreakpointManager - Handles all breakpoint functionality for Monaco Editor
 class BreakpointManager {
@@ -4464,512 +4416,6 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
-// Enhanced Code Formatter Implementation with Smart Detection
-// Add this to your TabManager class or create a separate CodeFormatter class
-
-class CodeFormatter {
-    static async formatCode(code, filePath) {
-        if (!code || !filePath) {
-            throw new Error('Code and file path are required');
-        }
-
-        const fileExtension = this.getFileExtension(filePath);
-        const formatter = this.getFormatterForExtension(fileExtension);
-
-        if (!formatter) {
-            throw new Error(`No formatter available for file type: ${fileExtension}`);
-        }
-
-        // First, check if the code is already well-formatted
-        if (this.isCodeAlreadyWellFormatted(code, fileExtension)) {
-            console.log('Code is already well-formatted, skipping formatting');
-            return code; // Return original code unchanged
-        }
-
-        try {
-            console.log('Applying aggressive formatting to improve code structure');
-            const formattedCode = await this.executeFormatter(formatter, code, fileExtension);
-
-            // Apply post-processing for final touches
-            const finalCode = this.postProcessFormatting(formattedCode, fileExtension);
-
-            return finalCode;
-        } catch (error) {
-            console.error('Formatting error:', error);
-            throw new Error(`Failed to format code: ${error.message}`);
-        }
-    }
-
-    static isCodeAlreadyWellFormatted(code, extension) {
-        // Comprehensive check to determine if code is already well-formatted
-        const lines = code.split('\n');
-
-        // Check for consistent indentation (4 spaces, no tabs)
-        if (!this.hasConsistentIndentation(lines)) {
-            console.log('Inconsistent indentation detected');
-            return false;
-        }
-
-        // Check for proper operator spacing
-        if (!this.hasProperOperatorSpacing(code)) {
-            console.log('Improper operator spacing detected');
-            return false;
-        }
-
-        // Check for proper brace placement (Allman style)
-        if (!this.hasProperBracePlacement(lines, extension)) {
-            console.log('Improper brace placement detected');
-            return false;
-        }
-
-        // Check for excessive empty lines
-        if (!this.hasProperLineSpacing(lines)) {
-            console.log('Excessive empty lines detected');
-            return false;
-        }
-
-        // Check for trailing whitespace
-        if (this.hasTrailingWhitespace(lines)) {
-            console.log('Trailing whitespace detected');
-            return false;
-        }
-
-        // Check for proper comma spacing
-        if (!this.hasProperCommaSpacing(code)) {
-            console.log('Improper comma spacing detected');
-            return false;
-        }
-
-        // Language-specific checks
-        if (extension === 'v' || extension === 'sv' || extension === 'vh' || extension === 'svh') {
-            if (!this.isVerilogWellFormatted(code)) {
-                console.log('Verilog-specific formatting issues detected');
-                return false;
-            }
-        } else if (extension === 'cmm' || extension === 'c' || extension === 'cpp' || extension === 'h' || extension === 'hpp') {
-            if (!this.isCmmWellFormatted(code)) {
-                console.log('C/CMM-specific formatting issues detected');
-                return false;
-            }
-        }
-
-        console.log('Code appears to be well-formatted');
-        return true;
-    }
-
-    static hasConsistentIndentation(lines) {
-        let expectedIndent = 0;
-        const indentSize = 4;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Skip empty lines and comments that might be at column 0
-            if (!line.trim() || line.trim()
-                .startsWith('//') || line.trim()
-                .startsWith('/*') || line.trim()
-                .startsWith('*')) {
-                continue;
-            }
-
-            // Skip preprocessor directives and module-level declarations
-            if (line.trim()
-                .match(/^(#|`|module|endmodule|function|endfunction|task|endtask)/) && expectedIndent === 0) {
-                continue;
-            }
-
-            // Count leading spaces
-            const leadingSpaces = line.match(/^ */)[0].length;
-
-            // Check for tabs (not allowed)
-            if (line.includes('\t')) {
-                return false;
-            }
-
-            // Adjust expected indent based on closing braces
-            if (line.trim()
-                .includes('}') && !line.trim()
-                .includes('{')) {
-                expectedIndent = Math.max(0, expectedIndent - 1);
-            }
-
-            // Check if indentation matches expected (allow some flexibility for complex statements)
-            const expectedSpaces = expectedIndent * indentSize;
-            if (leadingSpaces !== expectedSpaces && line.trim() !== '') {
-                // Allow for continuation lines and special cases
-                if (Math.abs(leadingSpaces - expectedSpaces) > indentSize) {
-                    return false;
-                }
-            }
-
-            // Adjust expected indent based on opening braces
-            if (line.includes('{') && !line.includes('}')) {
-                expectedIndent++;
-            }
-        }
-
-        return true;
-    }
-
-    static hasProperOperatorSpacing(code) {
-        // Check for proper spacing around common operators
-        const operatorPatterns = [
-            /[a-zA-Z0-9]\=[^=]/, // assignment without space before
-            /[^=<>!]\=[a-zA-Z0-9]/, // assignment without space after
-            /[a-zA-Z0-9]\=\=[^=]/, // equality without space before  
-            /[^=]\=\=[a-zA-Z0-9]/, // equality without space after
-            /[a-zA-Z0-9]\!\=[^=]/, // inequality without space before
-            /[^!]\!\=[a-zA-Z0-9]/, // inequality without space after
-            /[a-zA-Z0-9]\+[^+=]/, // addition without space before
-            /[^+]\+[a-zA-Z0-9]/, // addition without space after
-            /[a-zA-Z0-9]\-[^-=]/, // subtraction without space before
-            /[^-]\-[a-zA-Z0-9]/ // subtraction without space after
-        ];
-
-        return !operatorPatterns.some(pattern => pattern.test(code));
-    }
-
-    static hasProperBracePlacement(lines, extension) {
-        // Check for Allman-style brace placement
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            // Check for opening braces that should be on their own line
-            if (line.match(/\)\s*\{/) || line.match(/else\s*\{/)) {
-                return false;
-            }
-
-            // Check for closing braces that should be aligned properly
-            if (line === '}' || line.startsWith('}')) {
-                const leadingSpaces = lines[i].match(/^ */)[0].length;
-                // Closing brace should have proper indentation
-                if (leadingSpaces % 4 !== 0) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    static hasProperLineSpacing(lines) {
-        let consecutiveEmpty = 0;
-
-        for (const line of lines) {
-            if (!line.trim()) {
-                consecutiveEmpty++;
-                if (consecutiveEmpty > 2) { // More than 2 consecutive empty lines
-                    return false;
-                }
-            } else {
-                consecutiveEmpty = 0;
-            }
-        }
-
-        return true;
-    }
-
-    static hasTrailingWhitespace(lines) {
-        return lines.some(line => line.match(/\s+$/));
-    }
-
-    static hasProperCommaSpacing(code) {
-        // Check for proper spacing after commas
-        return !code.match(/,[a-zA-Z0-9_]/);
-    }
-
-    static isVerilogWellFormatted(code) {
-        // Verilog-specific formatting checks
-
-        // Check for proper always block formatting
-        if (code.match(/always\s*@\s*\([^)]*\)\s*[^{]/)) {
-            return false;
-        }
-
-        // Check for proper case statement formatting
-        if (code.match(/case\s*\([^)]*\)[^:]/) && !code.match(/case\s*\([^)]*\)\s*:/)) {
-            return false;
-        }
-
-        // Check for proper port list formatting in modules
-        if (code.match(/module\s+\w+\s*\([^)]*[^,\s][^)]*\)/)) {
-            // Port list should have proper spacing
-            return !code.match(/module\s+\w+\s*\([^)]*,[^\s]/);
-        }
-
-        return true;
-    }
-
-    static isCmmWellFormatted(code) {
-        // C/CMM-specific formatting checks
-
-        // Check for proper function definition formatting
-        if (code.match(/^\w+[\w\s\*]+\w+\s*\(/m) && !code.match(/^\w+[\w\s\*]+\n\w+\s*\(/m)) {
-            // Function definitions should potentially have return type on separate line for complex types
-            const functionDefs = code.match(/^\w+[\w\s\*]+\w+\s*\([^)]*\)/gm);
-            if (functionDefs && functionDefs.some(def => def.length > 50)) {
-                return false; // Long function signatures should be broken up
-            }
-        }
-
-        // Check for proper control structure formatting
-        if (code.match(/(if|while|for)\s*\([^)]*\)\s*[^{\n]/)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    static getFileExtension(filePath) {
-        return filePath.split('.')
-            .pop()
-            .toLowerCase();
-    }
-
-    static getFormatterForExtension(extension) {
-        const formatters = {
-            'v': 'verible', // Verilog
-            'sv': 'verible', // SystemVerilog  
-            'vh': 'verible', // Verilog Header
-            'svh': 'verible', // SystemVerilog Header
-            'c': 'astyle', // C
-            'cpp': 'astyle', // C++
-            'cc': 'astyle', // C++
-            'cxx': 'astyle', // C++
-            'h': 'astyle', // C Header
-            'hpp': 'astyle', // C++ Header
-            'hxx': 'astyle', // C++ Header
-            'java': 'astyle', // Java
-            'cs': 'astyle', // C#
-            'js': 'astyle', // JavaScript (basic formatting)
-            'cmm': 'astyle', // CMM (subset-C) - enhanced formatting
-        };
-
-        return formatters[extension];
-    }
-
-    static async executeFormatter(formatter, code, extension) {
-        switch (formatter) {
-        case 'verible':
-            return await this.formatWithVerible(code);
-        case 'astyle':
-            return await this.formatWithAstyle(code, extension);
-        default:
-            throw new Error(`Unknown formatter: ${formatter}`);
-        }
-    }
-
-    static async formatWithVerible(code) {
-        try {
-            // Get the packages path
-            const packagesPath = await window.electronAPI.joinPath('saphoComponents', 'Packages');
-            const veriblePath = await window.electronAPI.joinPath(packagesPath, 'verible', 'verible-verilog-format.exe');
-
-            // Create temporary file path
-            const tempDir = await window.electronAPI.joinPath(packagesPath, 'temp');
-            const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.v`);
-
-            // Ensure temp directory exists
-            await window.electronAPI.createDirectory(tempDir);
-
-            // Pre-process the code for aggressive formatting
-            const preprocessedCode = this.preprocessVerilogCode(code);
-
-            // Write code to temporary file
-            await window.electronAPI.writeFile(tempFilePath, preprocessedCode);
-
-            // Aggressive verible formatting options for first-time formatting
-            const veribleOptions = [
-                '--indentation_spaces=4', '--wrap_spaces=4', '--column_limit=100', '--assignment_statement_alignment=infer', '--case_items_alignment=infer', '--formal_parameters_alignment=infer', '--named_parameter_alignment=infer', '--named_port_alignment=infer', '--port_declarations_alignment=infer', '--try_wrap_long_lines=true'
-            ];
-
-            // Execute verible with aggressive formatting
-            const command = `"${veriblePath}" --inplace ${veribleOptions.join(' ')} "${tempFilePath}"`;
-            const result = await window.electronAPI.execCommand(command);
-
-            let formattedCode;
-
-            if (!result.error || result.code === 0) {
-                formattedCode = await window.electronAPI.readFile(tempFilePath);
-            } else {
-                // Fallback to standard output
-                const stdCommand = `"${veriblePath}" ${veribleOptions.join(' ')} "${tempFilePath}"`;
-                const stdResult = await window.electronAPI.execCommand(stdCommand);
-                formattedCode = stdResult.stdout || preprocessedCode;
-            }
-
-            // Clean up
-            try {
-                await window.electronAPI.deleteFileOrDirectory(tempFilePath);
-            } catch (cleanupError) {
-                console.warn('Failed to cleanup temp file:', cleanupError);
-            }
-
-            return formattedCode;
-
-        } catch (error) {
-            console.error('Verible formatting error:', error);
-            return this.preprocessVerilogCode(code);
-        }
-    }
-
-    static async formatWithAstyle(code, extension) {
-        try {
-            // Get the packages path
-            const packagesPath = await window.electronAPI.joinPath('saphoComponents', 'Packages');
-            const astylePath = await window.electronAPI.joinPath(packagesPath, 'astyle', 'astyle.exe');
-
-            // Create temporary file path
-            const tempDir = await window.electronAPI.joinPath(packagesPath, 'temp');
-            const fileExt = extension === 'cmm' ? 'c' : extension;
-            const tempFilePath = await window.electronAPI.joinPath(tempDir, `temp_${Date.now()}.${fileExt}`);
-
-            // Ensure temp directory exists
-            await window.electronAPI.createDirectory(tempDir);
-
-            // Pre-process code for aggressive formatting
-            const preprocessedCode = this.preprocessCmmCode(code, extension);
-
-            // Write code to temporary file
-            await window.electronAPI.writeFile(tempFilePath, preprocessedCode);
-
-            // Get aggressive formatting options for first-time formatting
-            const astyleOptions = this.getAggressiveAstyleOptions(extension);
-            const command = `"${astylePath}" ${astyleOptions} "${tempFilePath}"`;
-
-            // Execute astyle formatter
-            const result = await window.electronAPI.execCommand(command);
-
-            if (result.error && result.code !== 0) {
-                throw new Error(`Astyle formatting failed: ${result.stderr || result.error}`);
-            }
-
-            // Read the formatted file
-            const formattedCode = await window.electronAPI.readFile(tempFilePath);
-
-            // Clean up temporary files
-            try {
-                await window.electronAPI.deleteFileOrDirectory(tempFilePath);
-                await window.electronAPI.deleteFileOrDirectory(tempFilePath + '.orig');
-            } catch (cleanupError) {
-                console.warn('Failed to cleanup temp files:', cleanupError);
-            }
-
-            return formattedCode;
-
-        } catch (error) {
-            console.error('Astyle formatting error:', error);
-            return this.preprocessCmmCode(code, extension);
-        }
-    }
-
-    static getAggressiveAstyleOptions(extension) {
-        // Aggressive but stable formatting options for one-time formatting
-        let options = [
-            '--style=allman', // Allman style braces
-            '--indent=spaces=4', // 4-space indentation
-            '--indent-switches', // Indent switch cases
-            '--indent-cases', // Indent case statements
-            '--indent-namespaces', // Indent namespaces
-            '--indent-labels', // Indent labels
-            '--min-conditional-indent=2', // Minimum conditional indent
-            '--pad-oper', // Pad operators
-            '--pad-comma', // Pad commas
-            '--pad-header', // Pad headers
-            '--unpad-paren', // Remove excess paren padding
-            '--align-pointer=type', // Align pointers to type
-            '--align-reference=type', // Align references to type
-            '--break-closing-brackets', // Break closing brackets
-            '--add-brackets', // Add brackets to single line statements
-            '--convert-tabs', // Convert tabs to spaces
-            '--max-code-length=100', // Maximum line length
-            '--break-after-logical', // Break after logical operators
-            '--delete-empty-lines', // Remove excessive empty lines
-            '--squeeze-lines=2' // Maximum 2 consecutive empty lines
-        ];
-
-        // Language-specific options
-        switch (extension) {
-        case 'cmm':
-            options.push('--mode=c');
-            options.push('--break-blocks'); // Break blocks for better CMM structure
-            break;
-        case 'java':
-            options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
-            options.push('--mode=java');
-            break;
-        case 'cs':
-            options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
-            options.push('--mode=cs');
-            break;
-        case 'js':
-            options = options.filter(opt => !opt.includes('--align-pointer') && !opt.includes('--align-reference'));
-            options.push('--mode=java');
-            break;
-        default:
-            options.push('--mode=c');
-            break;
-        }
-
-        return options.join(' ');
-    }
-
-    static preprocessVerilogCode(code) {
-        let processed = code;
-
-        // Normalize line endings
-        processed = processed.replace(/\r\n/g, '\n')
-            .replace(/\r/g, '\n');
-
-        // Fix spacing around operators and punctuation
-        processed = processed.replace(/([^<>=!])=([^=])/g, '$1 = $2');
-        processed = processed.replace(/([^<>=!])==([^=])/g, '$1 == $2');
-        processed = processed.replace(/([^<>=!])!=([^=])/g, '$1 != $2');
-        processed = processed.replace(/,([^\s])/g, ', $1');
-
-        // Ensure proper spacing in always blocks
-        processed = processed.replace(/always\s*@\s*\(/g, 'always @(');
-        processed = processed.replace(/case\s*\(/g, 'case (');
-
-        return processed;
-    }
-
-    static preprocessCmmCode(code, extension) {
-        let processed = code;
-
-        // Normalize line endings
-        processed = processed.replace(/\r\n/g, '\n')
-            .replace(/\r/g, '\n');
-
-        // Fix operator spacing
-        processed = processed.replace(/([^<>=!+\-*/%&|^])=([^=])/g, '$1 = $2');
-        processed = processed.replace(/([^<>=!])==([^=])/g, '$1 == $2');
-        processed = processed.replace(/([^<>=!])!=([^=])/g, '$1 != $2');
-        processed = processed.replace(/,([^\s])/g, ', $1');
-
-        // Prepare braces for proper formatting
-        processed = processed.replace(/\)\s*\{/g, ')\n{');
-        processed = processed.replace(/\}\s*else\s*\{/g, '}\nelse\n{');
-
-        return processed;
-    }
-
-    static postProcessFormatting(code, extension) {
-        let processed = code;
-
-        // Remove trailing whitespace
-        processed = processed.replace(/[ \t]+$/gm, '');
-
-        // Ensure single newline at end
-        processed = processed.replace(/\n*$/, '\n');
-
-        // Limit consecutive empty lines to maximum of 2
-        processed = processed.replace(/\n\s*\n\s*\n/g, '\n\n');
-
-        return processed;
-    }
-}
-
 
 // SHOW DIALOG  ======================================================================================================================================================== ƒ
 // Simple, reliable confirmation dialog
@@ -5041,7 +4487,6 @@ function showUnsavedChangesDialog(fileName) {
         }, 10);
     });
 }
-
 
 //FILETREE      ======================================================================================================================================================== ƒ
 // Gerenciador de estado para a file tree
@@ -5126,221 +4571,7 @@ async function refreshFileTree() {
     }
 }
 
-function showCardNotification(message, type = 'info', duration = 3000) {
-    // Crie um container para as notificações, se não existir
-    let cardContainer = document.getElementById('card-notification-container');
-    if (!cardContainer) {
-        cardContainer = document.createElement('div');
-        cardContainer.id = 'card-notification-container';
-        cardContainer.style.position = 'fixed';
-        cardContainer.style.bottom = '20px';
-        cardContainer.style.left = '20px';
-        cardContainer.style.maxWidth = '100%';
-        cardContainer.style.width = '350px';
-        cardContainer.style.zIndex = 'var(--z-max)';
-        cardContainer.style.display = 'flex';
-        cardContainer.style.flexDirection = 'column-reverse'; // Novas notificações aparecem embaixo
-        cardContainer.style.gap = 'var(--space-3)';
 
-        // Torna responsivo em telas pequenas
-        const mediaQuery = `
-      @media (max-width: 480px) {
-        #card-notification-container {
-          width: calc(100% - 40px) !important;
-          left: 20px !important;
-          bottom: 10px !important;
-        }
-      }
-    `;
-        const style = document.createElement('style');
-        style.textContent = mediaQuery;
-        document.head.appendChild(style);
-
-        document.body.appendChild(cardContainer);
-    }
-
-    // Verificar se o FontAwesome está carregado, caso contrário, carregar
-    if (!document.querySelector('link[href*="fontawesome"]')) {
-        const fontAwesomeLink = document.createElement('link');
-        fontAwesomeLink.rel = 'stylesheet';
-        fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
-        document.head.appendChild(fontAwesomeLink);
-    }
-
-    // Definir aparência e ícone com base no tipo
-    let iconClass, accentColor, title;
-
-    switch (type) {
-    case 'error':
-        iconClass = 'fa-bolt';
-        accentColor = 'var(--error)';
-        title = 'Error';
-        break;
-    case 'success':
-        iconClass = 'fa-check-double';
-        accentColor = 'var(--success)';
-        title = 'Success';
-        break;
-    case 'warning':
-        iconClass = 'fa-bell';
-        accentColor = 'var(--warning)';
-        title = 'Warning';
-        break;
-    default: // info
-        iconClass = 'fa-info';
-        accentColor = 'var(--info)';
-        title = 'Information';
-        break;
-    }
-
-    // Criar o cartão de notificação
-    const card = document.createElement('div');
-    card.style.backgroundColor = 'var(--bg-secondary)';
-    card.style.color = 'var(--text-primary)';
-    card.style.borderRadius = 'var(--radius-lg)';
-    card.style.boxShadow = 'var(--shadow-lg)';
-    card.style.overflow = 'hidden';
-    card.style.display = 'flex';
-    card.style.flexDirection = 'column';
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(20px) scale(0.95)';
-    card.style.transition = 'var(--transition-normal)';
-
-    // Conteúdo do cartão
-    card.innerHTML = `
-    <div style="display: flex; padding: var(--space-4); gap: var(--space-4); position: relative;">
-      <div style="
-        width: 40px;
-        height: 40px;
-        flex-shrink: 0;
-        border-radius: var(--radius-full);
-        background-color: ${accentColor};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: var(--text-lg);
-      ">
-        <i class="fa-solid ${iconClass}"></i>
-      </div>
-      
-      <div style="flex-grow: 1;">
-        <div style="font-weight: var(--font-semibold); margin-bottom: var(--space-1); font-size: var(--text-base);">
-          ${title}
-        </div>
-        <div style="font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-relaxed);">
-          ${message}
-        </div>
-      </div>
-      
-      <div class="close-btn" style="
-        position: absolute;
-        top: var(--space-4);
-        right: var(--space-4);
-        cursor: pointer;
-        width: 24px;
-        height: 24px;
-        border-radius: var(--radius-full);
-        background-color: var(--bg-hover);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition-fast);
-      ">
-        <i class="fa-solid fa-xmark" style="font-size: var(--text-sm);"></i>
-      </div>
-    </div>
-    
-    <div class="progress-container" style="
-      width: 100%;
-      height: 4px;
-      background-color: var(--bg-hover);
-      overflow: hidden;
-    ">
-      <div class="progress-bar" style="
-        height: 100%;
-        width: 100%;
-        background-color: ${accentColor};
-        transform-origin: left;
-        transform: scaleX(1);
-      "></div>
-    </div>
-  `;
-
-    // Adicionar efeito hover ao botão fechar
-    const closeBtn = card.querySelector('.close-btn');
-    closeBtn.addEventListener('mouseenter', () => {
-        closeBtn.style.backgroundColor = 'var(--bg-active)';
-    });
-    closeBtn.addEventListener('mouseleave', () => {
-        closeBtn.style.backgroundColor = 'var(--bg-hover)';
-    });
-
-    // Anexar ao container
-    cardContainer.appendChild(card);
-
-    // Animação de entrada
-    requestAnimationFrame(() => {
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0) scale(1)';
-    });
-
-    // Configurar barra de progresso
-    const progressBar = card.querySelector('.progress-bar');
-    progressBar.style.transition = `transform ${duration}ms linear`;
-
-    // Iniciar a contagem regressiva
-    setTimeout(() => {
-        progressBar.style.transform = 'scaleX(0)';
-    }, 10);
-
-    // Configurar botão de fechar
-    closeBtn.addEventListener('click', () => closeCard(card));
-
-    // Fechar automaticamente após a duração
-    const timeoutId = setTimeout(() => closeCard(card), duration);
-
-    // Pausar o tempo quando passar o mouse por cima
-    card.addEventListener('mouseenter', () => {
-        progressBar.style.transitionProperty = 'none';
-        clearTimeout(timeoutId);
-    });
-
-    // Continuar quando tirar o mouse
-    card.addEventListener('mouseleave', () => {
-        const remainingTime = duration * (parseFloat(getComputedStyle(progressBar)
-            .transform.split(', ')[0].split('(')[1]) || 0);
-        if (remainingTime > 0) {
-            progressBar.style.transition = `transform ${remainingTime}ms linear`;
-            progressBar.style.transform = 'scaleX(0)';
-            setTimeout(() => closeCard(card), remainingTime);
-        } else {
-            closeCard(card);
-        }
-    });
-
-    // Função para fechar o cartão com animação
-    function closeCard(element) {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(20px) scale(0.95)';
-
-        setTimeout(() => {
-            if (element.parentNode) {
-                element.parentNode.removeChild(element);
-
-                // Remover o container se não houver mais cartões
-                if (cardContainer.children.length === 0) {
-                    cardContainer.remove();
-                }
-            }
-        }, 300);
-    }
-
-    // Retornar um identificador que permite fechar o cartão programaticamente
-    return {
-        close: () => closeCard(card)
-    };
-}
 
 const style = document.createElement('style');
 style.textContent = `
@@ -5568,28 +4799,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
     });
 }
 
-const toggleFolder = () => {
-    const isExpanded = !childContainer.classList.contains('hidden');
-    childContainer.classList.toggle('hidden');
-    folderToggle.classList.toggle('rotated');
-    icon.classList.toggle('fa-folder');
-    icon.classList.toggle('fa-folder-open');
-
-    // Se quiser um efeito mais suave de altura (slide)
-    if (!isExpanded) {
-        childContainer.style.maxHeight = childContainer.scrollHeight + 'px';
-    } else {
-        childContainer.style.maxHeight = '0px';
-    }
-
-    FileTreeState.toggleFolder(filePath, !isExpanded);
-};
-
-
 // Função para monitorar mudanças na pasta com debounce
-let watcherTimeout = null;
-const REFRESH_DELAY = 100; // Delay em ms entre atualizações
-
 async function setupFileWatcher() {
     if (!currentProjectPath) {
         console.warn('No project is currently open');
@@ -5618,7 +4828,6 @@ async function setupFileWatcher() {
 }
 
 // Polling de backup para garantir atualizações
-let pollingInterval = null;
 
 function startPollingRefresh() {
     if (pollingInterval) {
@@ -5637,31 +4846,6 @@ function stopPollingRefresh() {
     if (pollingInterval) {
         clearInterval(pollingInterval);
         pollingInterval = null;
-    }
-}
-
-// Função para monitorar mudanças na pasta
-async function setupFileWatcher() {
-    if (!currentProjectPath) {
-        console.warn('No project is currently open');
-        return;
-    }
-
-    try {
-        // Configurar watcher usando Electron
-        await window.electronAPI.watchFolder(currentProjectPath, async (eventType, filename) => {
-            // Atualizar a file tree mantendo o estado
-            const result = await window.electronAPI.refreshFolder(currentProjectPath);
-            if (result) {
-                const fileTreeContent = document.querySelector('.file-tree-content');
-                if (fileTreeContent) {
-                    fileTreeContent.innerHTML = '';
-                    renderFileTree(result.files, fileTreeContent);
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error setting up file watcher:', error);
     }
 }
 
@@ -6198,7 +5382,6 @@ async function loadProject(spfPath) {
         console.log('Current project path:', currentProjectPath);
 
         // Enable the processor hub button
-        updateProcessorHubButton(true);
         enableCompileButtons();
         refreshFileTree();
 
@@ -6276,27 +5459,6 @@ window.electronAPI.onProjectStateChange((event, {
     });
 });
 
-// Função para criar processador
-async function createProcessor(formData) {
-    try {
-        // Garantir que temos o caminho do projeto
-        if (!currentProjectPath) {
-            throw new Error('No project path available');
-        }
-
-        // Adicionar o caminho do projeto aos dados do formulário
-        const processorData = {
-            ...formData,
-            projectLocation: currentProjectPath
-        };
-
-        const result = await window.electronAPI.createProcessor(processorData);
-        return result;
-    } catch (error) {
-        console.error('Error creating processor:', error);
-        throw error;
-    }
-}
 
 document.getElementById('open-folder-button')
     .addEventListener('click', async () => {
@@ -6702,59 +5864,6 @@ function showProjectInfoDialog(projectData) {
     }, 10);
 }
 
-// Update loadProject function to store the current project path
-async function loadProject(spfPath) {
-    try {
-        const result = await window.electronAPI.openProject(spfPath);
-        currentProjectPath = result.projectData.structure.basePath;
-
-        console.log('Loading project from SPF:', spfPath);
-
-        // Store both paths
-        currentProjectPath = result.projectData.structure.basePath;
-        currentSpfPath = spfPath; // This is the actual .spf file path
-
-        updateProjectNameUI(result.projectData);
-        await TabManager.closeAllTabs();
-
-        console.log('Current SPF path:', currentSpfPath);
-        console.log('Current project path:', currentProjectPath);
-
-        // Enable the processor hub button
-        updateProcessorHubButton(true);
-        enableCompileButtons();
-        refreshFileTree();
-
-        // Check if folders exist
-        const missingFolders = result.projectData.structure.folders.filter(folder => !folder.exists);
-        if (missingFolders.length > 0) {
-            const shouldRecreate = await showConfirmDialog(
-                'Missing Folders', 'Some project folders are missing. Would you like to recreate them?'
-            );
-
-            if (shouldRecreate) {
-                const newResult = await window.electronAPI.createStructure(
-                    result.projectData.structure.basePath, spfPath
-                );
-                // Update file tree with recreated structure
-                updateFileTree(newResult.files);
-                await TabManager.closeAllTabs();
-            } else {
-                // Update file tree with current structure
-                updateFileTree(result.files);
-            }
-        } else {
-            // Update file tree with current structure
-            updateFileTree(result.files);
-        }
-        addToRecentProjects(currentSpfPath);
-
-    } catch (error) {
-        //console.error('Error loading project:', error);
-        showErrorDialog('Failed to load project', error.message);
-    }
-}
-
 function showErrorDialog(title, message) {
     // Você pode usar um alert simples ou implementar um modal customizado
     alert(`${title}: ${message}`);
@@ -6773,8 +5882,6 @@ function enableCompileButtons() {
         }
     });
 }
-
-
 
 // Function to update file tree
 function updateFileTree(files) {
@@ -6848,231 +5955,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-
-
 //PROCESSADOR HUB ==========================================================================================================================================================
-
-const processorHubButton = document.getElementById('processorHub');
-processorHubButton.disabled = true;
-function updateProcessorHubButton(enabled) {
-    processorHubButton.disabled = !enabled;
-}
-
-function createProcessorHubModal() {
-    const modal = document.createElement('div');
-    modal.className = 'processor-hub-container'; // Adicionando classe para facilitar a seleção
-    modal.innerHTML = `
-  <div class="processor-hub-overlay"></div>
-  <div class="processor-hub-modal">
-    <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
-    <form class="processor-hub-form" id="processorHubForm">
-      <div class="form-group">
-        <label for="processorName">Processor Name</label>
-        <input type="text" id="processorName" name="processorName" required value="procTest_00">
-      </div>
-
-      <div class="form-group">
-      <label for="nBits">Total Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
-
-        <input type="number" id="nBits" required min="1" value="23">
-      </div>
-      <div class="form-group floating-point-options">
-        <label for="nbMantissa">Mantissa Bit Number</label>
-        <input type="number" id="nbMantissa" min="1" value="16">
-      </div>
-      <div class="form-group floating-point-options">
-        <label for="nbExponent">Exponent Bit Number</label>
-        <input type="number" id="nbExponent" min="1" value="6">
-      </div>
-      <div class="form-group">
-        <label for="dataStackSize">Data Stack Size</label>
-        <input type="number" id="dataStackSize" required min="1" value="5">
-      </div>
-      <div class="form-group">
-        <label for="instructionStackSize">Instruction Stack Size</label>
-        <input type="number" id="instructionStackSize" required min="1" value="5">
-      </div>
-      <div class="form-group">
-        <label for="inputPorts">Number of Input Ports</label>
-        <input type="number" id="inputPorts" required min="0" value="1">
-      </div>
-      <div class="form-group">
-        <label for="outputPorts">Number of Output Ports</label>
-        <input type="number" id="outputPorts" required min="0" value="1">
-      </div>
-      <div class="form-group">
-        <label for="pipeln">Pipeline Level <span class="tooltip" style="color: red;" title="Pipeline level must be one of the predefined options">ℹ</span></label>
-        <select id="pipeln" required>
-          <option value="3" selected>3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="7">7</option>
-          <option value="8">8</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
-        <input type="number" id="gain" required step="any" value="128">
-      </div>
-      <div class="button-group">
-        <button type="button" class="cancel-button" id="cancelProcessorHub">Cancel</button>
-        <button type="submit" class="generate-button" id="generateProcessor" disabled>
-          <i class="fas fa-cog"></i> Generate
-        </button>
-      </div>
-    </form>
-  </div>
-`;
-    return modal;
-}
-
-processorHubButton.addEventListener('click', () => {
-    const modal = createProcessorHubModal();
-    document.body.appendChild(modal);
-
-    const form = document.getElementById('processorHubForm');
-    const generateButton = document.getElementById('generateProcessor');
-    const floatingPointOptions = document.querySelectorAll('.floating-point-options');
-    const nBitsInput = document.getElementById('nBits');
-    const nbMantissaInput = document.getElementById('nbMantissa');
-    const nbExponentInput = document.getElementById('nbExponent');
-    const gainInput = document.getElementById('gain');
-    const processorNameInput = document.getElementById('processorName');
-
-    // Verificar se o campo de nome foi encontrado
-    if (!processorNameInput) {
-        console.error('Processor name input field not found!');
-    } else {
-        console.log('Processor name input field found:', processorNameInput.value);
-    }
-
-    // Helper function to check if a number is a power of 2
-    function isPowerOfTwo(value) {
-        return value > 0 && (value & (value - 1)) === 0;
-    }
-
-    // Real-time validation for custom rules
-    function validateCustomRules() {
-        const nBits = parseInt(nBitsInput.value) || 0;
-        const nbMantissa = parseInt(nbMantissaInput.value) || 0;
-        const nbExponent = parseInt(nbExponentInput.value) || 0;
-        const gain = parseInt(gainInput.value) || 0;
-
-        const isNBitsValid = nBits === nbMantissa + nbExponent + 1;
-        const isGainValid = isPowerOfTwo(gain);
-
-        // Apply custom validation
-        nBitsInput.setCustomValidity(isNBitsValid ? '' : 'Number of Bits must equal Nb Mantissa + Nb Exponent + 1');
-        gainInput.setCustomValidity(isGainValid ? '' : 'Gain must be a power of 2');
-
-        // Update the generate button's state
-        generateButton.disabled = !form.checkValidity();
-    }
-
-    // Attach real-time validation to relevant inputs
-    [nBitsInput, nbMantissaInput, nbExponentInput, gainInput].forEach(input => {
-        input.addEventListener('input', validateCustomRules);
-    });
-
-    // Handle form submission
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // Primeiro, verificar se temos um caminho de projeto válido
-        if (!currentProjectPath) {
-            console.error('No project path available');
-            return;
-        }
-
-        // Capturar o valor do nome do processador DIRETAMENTE do elemento no DOM
-        const processorNameElement = document.querySelector('#processorName');
-
-        // Verificar se o elemento existe
-        if (!processorNameElement) {
-            console.error('Processor name element not found in DOM');
-            return;
-        }
-
-        const processorName = processorNameElement.value;
-
-        // Log para debug
-        console.log('DOM element found:', processorNameElement);
-        console.log('Processor name value:', processorName);
-
-        // Validar que o nome do processador não está vazio
-        if (!processorName || processorName.trim() === '') {
-            console.error('Processor name is required');
-            return;
-        }
-
-        // Mostrar estado de carregamento
-        const originalButtonText = generateButton.innerHTML;
-        generateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-        generateButton.disabled = true;
-
-        const formData = {
-            projectLocation: currentProjectPath,
-            processorName: processorName,
-            nBits: parseInt(nBitsInput.value),
-            nbMantissa: parseInt(nbMantissaInput.value),
-            nbExponent: parseInt(nbExponentInput.value),
-            dataStackSize: parseInt(document.getElementById('dataStackSize')
-                .value),
-            instructionStackSize: parseInt(document.getElementById('instructionStackSize')
-                .value),
-            inputPorts: parseInt(document.getElementById('inputPorts')
-                .value),
-            outputPorts: parseInt(document.getElementById('outputPorts')
-                .value),
-            pipeln: parseInt(document.getElementById('pipeln')
-                .value),
-            gain: parseInt(gainInput.value),
-        };
-
-        // Log para debug dos dados completos
-        console.log('Form data being sent:', formData);
-
-        try {
-            // Chamar o processo principal para criar o projeto do processador
-            const result = await window.electronAPI.createProcessorProject(formData);
-
-            if (result && result.success) {
-                // Fechar modal
-                modal.remove();
-
-                // Atualizar árvore de arquivos
-                await refreshFileTree();
-            } else {
-                throw new Error('Failed to create processor project - no success response received');
-            }
-        } catch (error) {
-            console.error('Error creating processor project:', error);
-
-            // Resetar estado do botão
-            generateButton.innerHTML = originalButtonText;
-            generateButton.disabled = false;
-
-            // Manter modal aberto para que o usuário possa tentar novamente
-            return;
-        }
-    });
-
-    // Manipular botão de cancelar
-    document.getElementById('cancelProcessorHub')
-        .addEventListener('click', () => {
-            modal.remove();
-        });
-
-    // Manipular clique fora do modal
-    modal.querySelector('.processor-hub-overlay')
-        .addEventListener('click', () => {
-            modal.remove();
-        });
-
-    // Realizar validação inicial
-    validateCustomRules();
-});
 
 // BUTTONS      ======================================================================================================================================================== ƒ
 
@@ -7817,7 +6700,7 @@ end`;
 
                 this.terminalManager.appendToTerminal('tasm', `Copying testbench from "${sourceTestbench}" to "${destinationTestbench}"`);
                 await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
-                this.terminalManager.appendToTerminal('tasm', 'Testbench updated in project folder.', 'success');
+                this.terminalManager.appendToTerminal('tasm', 'Testbench updated in project folder.', 'tips');
             }
 
             statusUpdater.compilationSuccess('asm');
@@ -7997,188 +6880,219 @@ end`;
     }
 
     async runOptimizedVVP(command, workingDir, terminalTag = 'twave') {
-        this.terminalManager.appendToTerminal(terminalTag, 'Starting optimized VVP execution...');
+    // 1. Crie um ID único e um array de conteúdo para o card desta execução.
+    const cardId = `vvp-run-${Date.now()}`;
+    let cardContent = [];
+
+    // O listener para o PID precisa ser definido antes para capturar o evento.
+    let vvpProcessPid = null;
+    const outputListener = (event, payload) => {
+        if (payload.type === 'pid') {
+            vvpProcessPid = payload.pid;
+            // 3. Atualize o card quando o PID for recebido.
+            cardContent.push(`High-performance VVP started (PID: ${vvpProcessPid})`);
+            this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'running');
+            if (typeof window !== 'undefined') window.setCurrentVvpPid(vvpProcessPid);
+        }
+    };
+    window.electronAPI.onCommandOutputStream(outputListener);
+
+    try {
+        // 2. Crie o card inicial com as primeiras mensagens.
+        cardContent.push('Starting optimized VVP execution...');
+        this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'running');
+
         const systemInfo = await window.electronAPI.getSystemPerformance();
-        this.terminalManager.appendToTerminal(terminalTag, `System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
+        cardContent.push(`System: ${systemInfo.cpuCount} cores, ${systemInfo.totalMemory}GB RAM, ${systemInfo.freeMemory}GB free`);
+        this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'running');
+
+        // Execute o processo principal
+        if (typeof window !== 'undefined') window.setVvpRunning(true);
+        const vvpResult = await window.electronAPI.execVvpOptimized(command, workingDir);
         
-        let vvpProcessPid = null;
-        const outputListener = (event, payload) => {
-            if (payload.type === 'pid') {
-                vvpProcessPid = payload.pid;
-                this.terminalManager.appendToTerminal(terminalTag, `High-performance VVP started (PID: ${vvpProcessPid})`);
-                if (typeof window !== 'undefined') window.setCurrentVvpPid(vvpProcessPid);
-            }
-        };
-
-        window.electronAPI.onCommandOutputStream(outputListener);
-
-        try {
-            if (typeof window !== 'undefined') window.setVvpRunning(true);
-            const vvpResult = await window.electronAPI.execVvpOptimized(command, workingDir);
-            if (typeof window !== 'undefined') {
-                window.setVvpRunning(false);
-                window.setCurrentVvpPid(null);
-            }
-
-            // CORREÇÃO: Processa a saída do VVP usando o método unificado para agrupar e evitar duplicação.
-            this.terminalManager.processExecutableOutput(terminalTag, vvpResult);
-
-            checkCancellation();
-            if (vvpResult.code !== 0) {
-                hideVVPProgress();
-                throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
-            }
-
-            this.terminalManager.appendToTerminal(terminalTag, `VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores`, 'success');
-            const audio = new Audio('./assets/audio/audio_compilation.wav');
-            audio.play();
-            return vvpResult;
-
-        } catch (error) {
-            if (typeof window !== 'undefined') {
-                window.setVvpRunning(false);
-                window.setCurrentVvpPid(null);
-            }
-            if (error.message === 'Compilation canceled by user' && vvpProcessPid) {
-                try {
-                    await window.electronAPI.terminateProcess(vvpProcessPid);
-                    this.terminalManager.appendToTerminal(terminalTag, `VVP process (PID: ${vvpProcessPid}) terminated due to cancellation.`, 'warning');
-                } catch {}
-            }
-            throw error;
-        } finally {
-            window.electronAPI.removeCommandOutputListener(outputListener);
+        // Limpe o estado global
+        if (typeof window !== 'undefined') {
+            window.setVvpRunning(false);
+            window.setCurrentVvpPid(null);
         }
-    }
-    async runGtkWave(processor) {
-        if (this.isProjectOriented) {
-            checkCancellation();
-            return this.runProjectGtkWave();
-        }
-        const {
-            name
-        } = processor;
-        this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
-        statusUpdater.startCompilation('wave');
-        let testbenchBackupInfo = null;
-        try {
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-            const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-            const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-            const {
-                tbModule,
-                tbFile
-            } = await this.getTestbenchInfo(processor, cmmBaseName);
 
-            if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
-                const simuDelay = this.getSimulationDelay(processor);
-                testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
-            }
+        // Importante: A saída detalhada do VVP (stdout/stderr) ainda é processada
+        // separadamente, o que é bom para não poluir o card de status principal.
+        this.terminalManager.processExecutableOutput(terminalTag, vvpResult);
 
-            const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-            this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt in ${tempPath}...`);
-            const tclContent = `${tempPath}\n${binPath}\n`;
-            await window.electronAPI.writeFile(tclFilePath, tclContent);
-
-            await TabManager.saveAllFiles();
-
-            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles.join(' ');
-
-            const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
-            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
-
-            // 1) Compile with iverilog
-            const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
-
-            this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog:\n${iverilogCmd}`);
-            const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
-
-            this.terminalManager.processExecutableOutput('twave', iverilogResult);
-
-            if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
-            if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
-
-            if (iverilogResult.code !== 0) {
-                statusUpdater.compilationError('wave', `Icarus Verilog compilation failed with code ${iverilogResult.code}`);
-                throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
-            }
-
-            // 2) Copy .mif files to tempPath
-            const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`);
-            const dataMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`);
-            await window.electronAPI.copyFile(dataMemSource, dataMemDest);
-
-            const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`);
-            const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
-            await window.electronAPI.copyFile(instMemSource, instMemDest);
-
-            // 3) Prepare VCD file path and GTKWave command
-            const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
-
-            await window.electronAPI.deleteFileOrDirectory(vcdPath);
-
-            const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
-            let gtkwCmd;
-
-            if (useStandardGtkw) {
-                const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-                gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
-            } else {
-                const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-                const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-                gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
-            }
-
-            // 4) Start VVP simulation first
-            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation...');
-
-            const progressPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
-            await window.electronAPI.deleteFileOrDirectory(progressPath);
-
-            await showVVPProgress(String(name));
-
-            const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
-            await this.runOptimizedVVP(vvpCmd, tempPath, 'twave');
-
-            checkCancellation();
+        // Verifique se o processo foi cancelado durante a execução
+        checkCancellation(); 
+        if (vvpResult.code !== 0) {
             hideVVPProgress();
+            throw new Error(`VVP simulation failed with code ${vvpResult.code}`);
+        }
 
-            this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
+        // 4. Finalize o card com uma mensagem de sucesso.
+        cardContent.push(`<b>VVP completed successfully using ${vvpResult.performance?.cpuCount || 'N/A'} cores</b>`);
+        this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'success');
+        
+        const audio = new Audio('./assets/audio/audio_compilation.wav');
+        audio.play();
+        return vvpResult;
 
-            // 5) ROBUST GTKWAVE LAUNCH AND REAL-TIME OUTPUT HANDLING
-            this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
-            this.terminalManager.appendToTerminal('twave', `GTKWave command:\n${gtkwCmd}`);
+    } catch (error) {
+        if (typeof window !== 'undefined') {
+            window.setVvpRunning(false);
+            window.setCurrentVvpPid(null);
+        }
+        
+        // 5. Finalize o card com uma mensagem de erro ou cancelamento.
+        if (error.message === 'Compilation canceled by user') {
+            cardContent.push('<b>VVP process terminated due to cancellation.</b>');
+            this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'canceled');
+        } else {
+            cardContent.push(`<b>VVP simulation failed:</b> ${error.message}`);
+            this.terminalManager.createOrUpdateCard(terminalTag, cardId, cardContent, 'vvp-process', 'error');
+        }
+        
+        // Propague o erro para que a lógica de chamada saiba que a operação falhou.
+        throw error;
+
+    } finally {
+        // Sempre remova o listener para evitar vazamentos de memória.
+        window.electronAPI.removeCommandOutputListener(outputListener);
+    }
+}
+    // Substitua sua função runGtkWave existente por esta versão final
+
+async runGtkWave(processor) {
+    if (this.isProjectOriented) {
+        checkCancellation();
+        return this.runProjectGtkWave();
+    }
+    const { name } = processor;
+    this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+    statusUpdater.startCompilation('wave');
+    let testbenchBackupInfo = null;
+
+    try {
+        // --- Toda a sua lógica de setup de arquivos e compilação Icarus/VVP ---
+        // (Esta parte permanece exatamente a mesma até a chamada do VVP)
+        const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+        const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+        const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+        const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+        const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+        const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+        const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
+        const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+        const selectedCmmFile = await this.getSelectedCmmFile(processor);
+        const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+        const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+
+        if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
+            const simuDelay = this.getSimulationDelay(processor);
+            testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
+        }
+
+        const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+        const tclContent = `${tempPath}\n${binPath}\n`;
+        await window.electronAPI.writeFile(tclFilePath, tclContent);
+
+        await TabManager.saveAllFiles();
+
+        const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+        const verilogFilesString = verilogFiles.join(' ');
+        const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
+        const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+
+        const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+        const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+        this.terminalManager.processExecutableOutput('twave', iverilogResult);
+        if (iverilogResult.code !== 0) {
+            statusUpdater.compilationError('wave', `Icarus Verilog compilation failed`);
+            throw new Error(`Icarus Verilog compilation failed`);
+        }
+
+        const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`);
+        const dataMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`);
+        await window.electronAPI.copyFile(dataMemSource, dataMemDest);
+        const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`);
+        const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
+        await window.electronAPI.copyFile(instMemSource, instMemDest);
+
+        const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
+        await window.electronAPI.deleteFileOrDirectory(vcdPath);
+
+        const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
+        let gtkwCmd;
+        if (useStandardGtkw) {
+            const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+            gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+        } else {
+            const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+            const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+            gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
+        }
+
+        await showVVPProgress(String(name));
+        const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
+        await this.runOptimizedVVP(vvpCmd, tempPath, 'twave');
+
+        checkCancellation();
+        hideVVPProgress();
+        // --- Fim da parte inalterada ---
+
+
+        // 5) ROBUST GTKWAVE LAUNCH AND REAL-TIME OUTPUT HANDLING
+        this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
+            
+            const outputListener = (event, payload) => {
+                // Ignora mensagens de sistema que não são de saída de texto
+                if (payload.type !== 'stdout' && payload.type !== 'stderr') return;
+
+                const rawText = payload.data || '';
+                
+                // Filtra o ruído ANTES de processar
+                const filteredText = this.terminalManager.filterGtkWaveOutput({ [payload.type]: rawText })[payload.type];
+                if (!filteredText) return;
+
+                // Divide a saída em linhas e processa cada uma individualmente,
+                // garantindo a formatação correta dos cards.
+                const lines = filteredText.split('\n').filter(line => line.trim() !== '');
+                lines.forEach(line => {
+                    this.terminalManager.processStreamedLine('twave', line);
+                });
+            };
 
             try {
-            const result = await window.electronAPI.execCommand(gtkwCmd);
-            
-            // Filtra o "ruído" do resultado antes de processar
-            const filteredResult = this.terminalManager.filterGtkWaveOutput(result);
-            
-            // Processa a saída filtrada para criar os cards
-            this.terminalManager.processExecutableOutput('twave', filteredResult);
-            
-            this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
-        } catch (error) {
-            console.warn('GTKWave launch warning:', error);
-            this.terminalManager.appendToTerminal('twave', `GTKWave process exited with a warning: ${error.message}`, 'warning');
-        }
+                // A CORREÇÃO PRINCIPAL: Garante um estado limpo removendo QUALQUER ouvinte anterior.
+                window.electronAPI.removeAllListeners('command-output-stream');
 
-        this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
+                // Agora, registra o novo ouvinte para esta execução específica.
+                window.electronAPI.onCommandOutputStream(outputListener);
+
+                // Inicia o GTKWave. O 'await' garante que esperamos o processo terminar
+                // (quando o usuário fechar a janela do GTKWave).
+                const result = await window.electronAPI.execCommandStream(gtkwCmd, tempPath);
+                
+                // Este código só é executado após o fechamento do GTKWave.
+                if (result.code === 0) {
+                    this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
+                } else {
+                    this.terminalManager.appendToTerminal('twave', `GTKWave process exited with code ${result.code}.`, 'warning');
+                }
+                
+            } catch (error) {
+                console.warn('GTKWave execution error:', error);
+                this.terminalManager.appendToTerminal('twave', `GTKWave process exited with an error: ${error.message}`, 'error');
+            } finally {
+                // CRÍTICO: Limpa o ouvinte no final, não importa o que aconteça,
+                // para evitar duplicações na próxima execução.
+                window.electronAPI.removeAllListeners('command-output-stream');
+            }
+
         statusUpdater.compilationSuccess('wave');
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
         statusUpdater.compilationError('wave', error.message);
-        throw error;
+        throw error; // Re-throw para que o chamador saiba que houve uma falha
     } finally {
         if (testbenchBackupInfo) {
             await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
@@ -9463,7 +8377,7 @@ class TerminalManager {
         this.setupAutoScroll();
         this.setupGoDownButton();
         this.setupTerminalLogListener();
-
+this.updatableCards = {};
         // Initialize current session grouped cards for each terminal
         this.currentSessionCards = {};
         Object.keys(this.terminals)
@@ -9485,7 +8399,56 @@ class TerminalManager {
             this.currentSessionCards[terminalId] = {};
         }
     }
+createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
+    const terminal = this.terminals[terminalId];
+    if (!terminal) return;
 
+    if (!this.updatableCards[terminalId]) {
+        this.updatableCards[terminalId] = {};
+    }
+
+    let card = this.updatableCards[terminalId][cardId];
+    const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+    
+    // Constrói o HTML para as linhas de mensagem.
+    const contentHTML = lines.map(line => `<div>${line}</div>`).join('');
+
+    if (!card) {
+        // Card não existe, vamos criá-lo com a ESTRUTURA CORRETA.
+        card = document.createElement('div');
+        card.classList.add('log-entry', type);
+        
+        // A estrutura agora é idêntica à de createGroupedCard/createLogEntry
+        card.innerHTML = `
+            <span class="timestamp">[${timestamp}]</span>
+            <div class="message-content">
+                <div class="message-lines">${contentHTML}</div>
+            </div>
+        `;
+        
+        terminal.appendChild(card);
+        this.updatableCards[terminalId][cardId] = card;
+
+        // Animação de entrada
+        card.style.opacity = '0';
+        requestAnimationFrame(() => {
+            card.style.transition = 'opacity 0.3s ease';
+            card.style.opacity = '1';
+        });
+
+    } else {
+        // Card já existe, vamos apenas atualizar seu conteúdo.
+        const messageContainer = card.querySelector('.message-lines');
+        if (messageContainer) {
+            messageContainer.innerHTML = contentHTML;
+        }
+    }
+    
+    // O atributo [data-status] é a chave para o CSS dinâmico funcionar.
+    card.setAttribute('data-status', status);
+    this.scrollToBottom(terminalId);
+    return card;
+}
     processExecutableOutput(terminalId, result) {
         const terminal = this.terminals[terminalId];
         if (!terminal || (!result.stdout && !result.stderr)) {
@@ -9519,7 +8482,7 @@ class TerminalManager {
     filterGtkWaveOutput(result) {
         const noisePrefixes = [
             'GTKWave Analyzer',
-            'RCVAR |',
+            //'RCVAR |',
             'FSTLOAD |',
             'GTKWAVE |',
             'WM Destroy',
@@ -9683,8 +8646,24 @@ class TerminalManager {
                 `${match}</span>`;
         });
     }
+// Adicione este método à sua classe TerminalManager
 
+processStreamedLine(terminalId, line) {
+    const terminal = this.terminals[terminalId];
+    if (!terminal || !line) return;
 
+    const messageType = this.detectMessageType(line);
+
+    if (messageType && messageType !== 'plain') {
+        this.addToSessionCard(terminalId, line, messageType);
+    } else {
+        const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+        this.createLogEntry(terminal, line, 'plain', timestamp);
+    }
+
+    this.applyFilter(terminalId);
+    this.scrollToBottom(terminalId);
+}
     // In the TerminalManager class...
 
     appendToTerminal(terminalId, content, type = 'info') {

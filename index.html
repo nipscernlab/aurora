@@ -316,6 +316,79 @@
             </div>
         </div>
     </div>
+    <!-- Modal Container (initially hidden) -->
+    <div id="modalContainer" class="processor-hub-container hidden">
+        <div class="processor-hub-overlay"></div>
+        <div class="processor-hub-modal">
+            <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
+            <form class="processor-hub-form" id="processorHubForm">
+                <div class="form-group">
+                    <label for="processorName">Processor Name</label>
+                    <input type="text" id="processorName" name="processorName" required value="procTest_00">
+                </div>
+
+                <div class="form-group">
+                    <label for="nBits">Total Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
+                    <input type="number" id="nBits" required min="1" value="23">
+                </div>
+
+                <div class="form-group floating-point-options">
+                    <label for="nbMantissa">Mantissa Bit Number</label>
+                    <input type="number" id="nbMantissa" min="1" value="16">
+                </div>
+
+                <div class="form-group floating-point-options">
+                    <label for="nbExponent">Exponent Bit Number</label>
+                    <input type="number" id="nbExponent" min="1" value="6">
+                </div>
+
+                <div class="form-group">
+                    <label for="dataStackSize">Data Stack Size</label>
+                    <input type="number" id="dataStackSize" required min="1" value="5">
+                </div>
+
+                <div class="form-group">
+                    <label for="instructionStackSize">Instruction Stack Size</label>
+                    <input type="number" id="instructionStackSize" required min="1" value="5">
+                </div>
+
+                <div class="form-group">
+                    <label for="inputPorts">Number of Input Ports</label>
+                    <input type="number" id="inputPorts" required min="0" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="outputPorts">Number of Output Ports</label>
+                    <input type="number" id="outputPorts" required min="0" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="pipeln">Pipeline Level <span class="tooltip" style="color: red;" title="Pipeline level must be one of the predefined options">ℹ</span></label>
+                    <select id="pipeln" required>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
+                    <input type="number" id="gain" required step="any" value="128">
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="cancel-button" id="cancelProcessorHub">Cancel</button>
+                    <button type="submit" class="generate-button" id="generateProcessor" disabled>
+                        <i class="fas fa-cog"></i> Generate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 
     <!-- Main Container -->
     <div class="main-container">
@@ -328,31 +401,31 @@
                 
                 <!-- Search Section -->
                 <div class="file-search-container">
-    <!-- O contêiner principal para a barra de pesquisa interativa -->
-    <div class="search-input-wrapper">
-        <!-- Ícone de pesquisa, puramente visual -->
-        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <!-- O contêiner principal para a barra de pesquisa interativa -->
+                <div class="search-input-wrapper">
+                    <!-- Ícone de pesquisa, puramente visual -->
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
 
-        <!-- O campo de texto real onde o usuário digita -->
-        <input 
-            type="text" 
-            id="file-search-input" 
-            class="search-input" 
-            placeholder="Search files and folders..."
-            aria-label="Search file tree"
-        >
+                    <!-- O campo de texto real onde o usuário digita -->
+                    <input 
+                        type="text" 
+                        id="file-search-input" 
+                        class="search-input" 
+                        placeholder="Search files and folders..."
+                        aria-label="Search file tree"
+                    >
 
-        <!-- Botão para limpar a pesquisa, aparece quando há texto -->
-        <button id="clear-search" class="clear-search-btn" aria-label="Clear search">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-    </div>
+                    <!-- Botão para limpar a pesquisa, aparece quando há texto -->
+                    <button id="clear-search" class="clear-search-btn" aria-label="Clear search">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
 
-    <!-- Container para exibir o feedback da pesquisa (ex: "5 files found") -->
-    <div class="search-results-info">
-        <span id="search-results-count"></span>
-    </div>
-</div>
+                <!-- Container para exibir o feedback da pesquisa (ex: "5 files found") -->
+                <div class="search-results-info">
+                    <span id="search-results-count"></span>
+                </div>
+            </div>
             </div>
             
             <div class="overlay-title" id="hierarchy-tree">
@@ -686,6 +759,7 @@
       });
     </script>
     <script src="./js/renderer.js"></script>
+    <script src="./js/processor_hub.js"></script>
     <script src="./js/processor_oriented.js" type="module"></script>
     <script src="./js/project_oriented.js" type="module"></script>
     <script src="./js/close_project.js"></script>
@@ -693,6 +767,7 @@
     <script src="./js/hourglass.js"></script>
     <script src="./js/icon_aurora.js" type="module"></script>
     <script src="./js/import_file.js"></script>
+    <script src="./js/notification.js"></script>
     <script src="./js/modal.js"></script>
     <script src="./js/recent_projects.js"></script>
     <script src="./js/resize.js" type="module"></script>

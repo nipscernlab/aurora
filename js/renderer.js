@@ -4571,8 +4571,6 @@ async function refreshFileTree() {
     }
 }
 
-
-
 const style = document.createElement('style');
 style.textContent = `
   @keyframes refresh-fade {
@@ -5411,7 +5409,7 @@ async function loadProject(spfPath) {
 
     } catch (error) {
         console.error('Error loading project:', error);
-        showErrorDialog('Failed to load project', error.message);
+        showCardNotification(`No compilation process is currently running. ${error.message}'`, 'error', 3000);
     }
 }
 
@@ -5428,19 +5426,6 @@ window.DirectoryWatcher = directoryWatcher;
 
 let currentProjectPath = null; // Store the current project path
 let currentSpfPath = null;
-
-// Adicione um listener para mudanças no estado do projeto
-window.electronAPI.onProjectStateChange((event, {
-    projectPath,
-    spfPath
-}) => {
-    currentProjectPath = projectPath;
-    currentSpfPath = spfPath;
-    console.log('Project state updated:', {
-        currentProjectPath,
-        currentSpfPath
-    });
-});
 
 // Adicionar listener para mudanças no estado do projeto
 window.electronAPI.onProjectStateChange((event, {
@@ -5570,7 +5555,8 @@ window.electronAPI.onSimulateOpenProject(async (result) => {
         }
     } catch (error) {
         console.error('Erro ao abrir o projeto:', error);
-        showErrorDialog('Erro ao abrir o projeto', error.message);
+        showCardNotification(`Error running project: ${error.message}'`, 'error', 3000);
+
     }
 });
 
@@ -5578,7 +5564,7 @@ window.electronAPI.onSimulateOpenProject(async (result) => {
 projectInfoButton.addEventListener('click', async () => {
     try {
         if (!currentSpfPath) {
-            showErrorDialog('Error', 'No project is currently open');
+            showCardNotification('No project is currently open', 'error', 3000);
             return;
         }
 
@@ -5592,7 +5578,8 @@ projectInfoButton.addEventListener('click', async () => {
         showProjectInfoDialog(projectData);
     } catch (error) {
         console.error('Error getting project info:', error);
-        showErrorDialog('Error', 'Failed to load project information: ' + error.message);
+        showCardNotification(`Failed to load project information: ${error.message}`, 'error', 3000);
+
     }
 });
 
@@ -5864,11 +5851,6 @@ function showProjectInfoDialog(projectData) {
     }, 10);
 }
 
-function showErrorDialog(title, message) {
-    // Você pode usar um alert simples ou implementar um modal customizado
-    alert(`${title}: ${message}`);
-}
-
 function enableCompileButtons() {
     const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'settings-project'];
     const projectSettingsButton = document.createElement('button');
@@ -5954,8 +5936,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-//PROCESSADOR HUB ==========================================================================================================================================================
 
 // BUTTONS      ======================================================================================================================================================== ƒ
 
@@ -6360,28 +6340,6 @@ function setupAIAssistantResize(resizer) {
 }
 
 
-//WINDOW.ONLOAD ======================================================================================================================================================== ƒ
-window.onload = () => {
-    initMonaco();
-    initAIAssistant();
-
-    const aiButton = document.getElementById('aiButton');
-    aiButton.id = 'aiAssistant';
-    aiButton.addEventListener('click', toggleAIAssistant);
-    /*
-      // Existing event listeners
-      document.getElementById('openFolderBtn').addEventListener('click', async () => {
-          const result = await window.electronAPI.openFolder();
-          if (result) {
-              const fileTree = document.getElementById('file-tree');
-              fileTree.innerHTML = '';
-              renderFileTree(result.files, fileTree);
-          }
-      }); */
-
-
-};
-
 document.addEventListener('DOMContentLoaded', () => {
     const refreshButton = document.getElementById('refresh-button');
 
@@ -6403,41 +6361,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-// VERILOG ========================================================================================================================================================
-// Get the compile button
-const compileButton = document.getElementById('vericomp');
-const compileButtoncmm = document.getElementById('cmmcomp');
-const compileButtonasm = document.getElementById('asmcomp');
-
-// Function to check if current tab is a .cmm file
-function isActiveCmmFile() {
-    return TabManager.activeTab && TabManager.activeTab.toLowerCase()
-        .endsWith('.cmm');
-}
-
-// Function to get processor name from the form
-function getProcessorName() {
-    const processorNameInput = document.getElementById('processorName');
-    return processorNameInput ? processorNameInput.value : 'procTest_00';
-}
-
-
-// Observe tab changes
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {}
-    });
-});
-
-// Start observing tab changes
-document.querySelectorAll('.tab')
-    .forEach(tab => {
-        observer.observe(tab, {
-            attributes: true
-        });
-    });
-
 
 //COMP          ======================================================================================================================================================== ƒ
 
@@ -7969,7 +7892,6 @@ write_json ${jsonOutputPath}
 
 }
 
-
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, setting up PRISM button...');
 
@@ -8216,8 +8138,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Show error dialog
-                if (window.electronAPI && window.electronAPI.showErrorDialog) {
-                    window.electronAPI.showErrorDialog('PRISM Compilation Failed', errorMessage);
+                if (window.electronAPI) {
+                    showCardNotification(`PRISM Error: ${errorMessage}'`, 'error', 3000);
+
                 } else {
                     alert(`PRISM Compilation Failed: ${errorMessage}`);
                 }
@@ -8232,8 +8155,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Show error dialog
-            if (window.electronAPI && window.electronAPI.showErrorDialog) {
-                window.electronAPI.showErrorDialog('PRISM Error', error.message);
+            if (window.electronAPI) {
+                showCardNotification(`PRISM Error: ${error.message}'`, 'error', 3000);
+                
+
             } else {
                 alert(`PRISM Error: ${error.message}`);
             }
@@ -8295,28 +8220,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('PRISM button setup complete');
 });
-
-// Debug function to check if all required APIs are available
-function debugElectronAPI() {
-    console.log('=== ELECTRON API DEBUG ===');
-    console.log('window.electronAPI available:', !!window.electronAPI);
-
-    if (window.electronAPI) {
-        console.log('prismCompile available:', !!window.electronAPI.prismCompile);
-        console.log('openPrismCompile available:', !!window.electronAPI.openPrismCompile);
-        console.log('prismRecompile available:', !!window.electronAPI.prismRecompile);
-        console.log('prismCompileWithPaths available:', !!window.electronAPI.prismCompileWithPaths);
-        console.log('checkPrismWindowOpen available:', !!window.electronAPI.checkPrismWindowOpen);
-        console.log('onPrismStatus available:', !!window.electronAPI.onPrismStatus);
-        console.log('onGetToggleUIState available:', !!window.electronAPI.onGetToggleUIState);
-    }
-
-    console.log('terminalManager available:', !!window.terminalManager);
-    console.log('=== END ELECTRON API DEBUG ===');
-}
-
-// Run debug on load
-debugElectronAPI();
 
 // Add to existing window message listeners
 window.addEventListener('message', (event) => {
@@ -9083,7 +8986,6 @@ processStreamedLine(terminalId, line) {
     }
 }
 
-
 // VVPProgressManager class - Improved version with visible controls
 class VVPProgressManager {
     constructor() {
@@ -9414,8 +9316,6 @@ class VVPProgressManager {
 
 const vvpProgressManager = new VVPProgressManager();
 
-
-
 // Global references and state management
 let globalTerminalManager = null;
 let currentCompiler = null;
@@ -9428,11 +9328,6 @@ function initializeGlobalTerminalManager() {
     return globalTerminalManager;
 }
 
-
-// Global functions to handle button clicks (put these outside your class)
-
-
-
 // Functions to use in your renderer.js
 function showVVPProgress(name) {
     vvpProgressManager.deleteProgressFile(name);
@@ -9444,7 +9339,6 @@ function hideVVPProgress(delay = 4000) {
         vvpProgressManager.hide();
     }, delay);
 }
-
 
 // Global flag to track compilation status
 let isCompilationRunning = false;
@@ -9690,7 +9584,6 @@ function switchTerminal(targetId) {
         activeTab.classList.add('active');
     }
 }
-
 
 // ADD individual button event listeners (these are missing):
 document.getElementById('cmmcomp')
@@ -10027,8 +9920,6 @@ document.getElementById('wavecomp')
         }
     });
 
-
-// KEEP ONLY ONE COMPILE ALL EVENT LISTENER (simplified version):
 document.getElementById('allcomp')
     .addEventListener('click', async () => {
         // If a processor is configured, proceed with compilation
@@ -10086,7 +9977,6 @@ document.getElementById('allcomp')
             endCompilation();
         }
     });
-
 
 // ADD these helper functions:
 async function runProcessorPipeline(compiler) {
@@ -10201,208 +10091,26 @@ async function runProjectPipeline(compiler) {
     await compiler.runProjectGtkWave();
 }
 
-// Modal Interaction Functions
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('active');
-    }
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('active');
-    }
-}
-
-// Event Listeners for Configuration Modal
-document.getElementById('closeModal')
-    ?.addEventListener('click', () => closeModal('modalConfig'));
-document.getElementById('cancelConfig')
-    ?.addEventListener('click', () => closeModal('modalConfig'));
-
-// Event Listeners for Bug Report Modal
-document.getElementById('open-bug-report')
-    ?.addEventListener('click', () => openModal('bug-report-modal'));
-document.getElementById('close-bug-report')
-    ?.addEventListener('click', () => closeModal('bug-report-modal'));
-
-//TESTE         ======================================================================================================================================================== ƒ
 
 
-// Wait for the DOM to fully load before executing the script
-document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('auroraAboutModal');
-    let performanceInterval;
+//WINDOW.ONLOAD ======================================================================================================================================================== ƒ
+window.onload = () => {
+    initMonaco();
+    initAIAssistant();
 
-    // Function to open the modal
-    function openAuroraAboutModal() {
-        modal.classList.remove('aurora-about-hidden');
-        startPerformanceMonitoring();
-    }
+    const aiButton = document.getElementById('aiButton');
+    aiButton.id = 'aiAssistant';
+    aiButton.addEventListener('click', toggleAIAssistant);
+    /*
+      // Existing event listeners
+      document.getElementById('openFolderBtn').addEventListener('click', async () => {
+          const result = await window.electronAPI.openFolder();
+          if (result) {
+              const fileTree = document.getElementById('file-tree');
+              fileTree.innerHTML = '';
+              renderFileTree(result.files, fileTree);
+          }
+      }); */
 
-    // Function to close the modal
-    function closeAuroraAboutModal() {
-        modal.classList.add('aurora-about-hidden');
-        stopPerformanceMonitoring();
-    }
 
-    // Make functions globally available
-    window.openAuroraAboutModal = openAuroraAboutModal;
-    window.closeAuroraAboutModal = closeAuroraAboutModal;
-
-    // Format bytes to human readable format
-    function formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i))
-            .toFixed(1)) + ' ' + sizes[i];
-    }
-
-    // Format uptime to human readable format
-    function formatUptime(seconds) {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-
-        if (days > 0) return `${days}d ${hours}h`;
-        if (hours > 0) return `${hours}h ${minutes}m`;
-        if (minutes > 0) return `${minutes}m ${secs}s`;
-        return `${secs}s`;
-    }
-
-    // Start performance monitoring
-    function startPerformanceMonitoring() {
-        updatePerformanceStats();
-        performanceInterval = setInterval(updatePerformanceStats, 2000);
-    }
-
-    // Stop performance monitoring
-    function stopPerformanceMonitoring() {
-        if (performanceInterval) {
-            clearInterval(performanceInterval);
-            performanceInterval = null;
-        }
-    }
-
-    // Update performance statistics
-    function updatePerformanceStats() {
-        if (window.electronAPI && window.electronAPI.getPerformanceStats) {
-            window.electronAPI.getPerformanceStats()
-                .then(stats => {
-                    document.getElementById('aurora-uptime')
-                        .textContent = formatUptime(stats.uptime);
-                    document.getElementById('aurora-memory-usage')
-                        .textContent = formatBytes(stats.memoryUsage);
-                    document.getElementById('aurora-cpu-usage')
-                        .textContent = stats.cpuUsage + '%';
-                })
-                .catch(err => {
-                    console.warn('Performance stats not available:', err);
-                });
-        } else {
-            // Fallback for basic stats
-            const uptime = performance.now() / 1000;
-            document.getElementById('aurora-uptime')
-                .textContent = formatUptime(uptime);
-
-            if (performance.memory) {
-                document.getElementById('aurora-memory-usage')
-                    .textContent =
-                    formatBytes(performance.memory.usedJSHeapSize);
-            }
-        }
-    }
-
-    // Fetch and display application information
-    if (window.electronAPI && window.electronAPI.getAppInfo) {
-        window.electronAPI.getAppInfo()
-            .then((info) => {
-                document.getElementById('aurora-app-version')
-                    .textContent = info.appVersion || '1.0.0';
-                document.getElementById('aurora-electron-version')
-                    .textContent = info.electronVersion || 'N/A';
-                document.getElementById('aurora-chrome-version')
-                    .textContent = info.chromeVersion || 'N/A';
-                document.getElementById('aurora-node-version')
-                    .textContent = info.nodeVersion || 'N/A';
-                document.getElementById('aurora-os-info')
-                    .textContent = info.osInfo || 'Unknown OS';
-                document.getElementById('aurora-arch')
-                    .textContent = info.arch || 'Unknown';
-                document.getElementById('aurora-memory')
-                    .textContent = info.totalMemory ?
-                    formatBytes(info.totalMemory) : 'N/A';
-                document.getElementById('aurora-build-date')
-                    .textContent = info.buildDate ||
-                    new Date()
-                    .toLocaleDateString();
-                document.getElementById('aurora-environment')
-                    .textContent = info.environment || 'Production';
-            })
-            .catch(err => {
-                console.error('Failed to load app info:', err);
-                // Set fallback values
-                document.getElementById('aurora-app-version')
-                    .textContent = '1.0.0';
-                document.getElementById('aurora-electron-version')
-                    .textContent = 'N/A';
-                document.getElementById('aurora-chrome-version')
-                    .textContent = 'N/A';
-                document.getElementById('aurora-node-version')
-                    .textContent = 'N/A';
-                document.getElementById('aurora-os-info')
-                    .textContent = navigator.platform || 'Unknown OS';
-                document.getElementById('aurora-arch')
-                    .textContent = 'Unknown';
-                document.getElementById('aurora-memory')
-                    .textContent = 'N/A';
-                document.getElementById('aurora-build-date')
-                    .textContent = new Date()
-                    .toLocaleDateString();
-                document.getElementById('aurora-environment')
-                    .textContent = 'Development';
-            });
-    }
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !modal.classList.contains('aurora-about-hidden')) {
-            closeAuroraAboutModal();
-        }
-    });
-
-    
-});
-
-/*
-// Add this function to your main JS file
-function addLayoutResetButton() {
-  const resetBtn = document.createElement('button');
-  resetBtn.innerHTML = '<i class="fa-solid fa-undo"></i> <span>Reset Layout</span>';
-  resetBtn.className = 'toolbar-button';
-  resetBtn.title = 'Reset layout to default';
-  resetBtn.onclick = () => {
-    if (confirm('Reset layout to default configuration?')) {
-      if (window.dragHandlesManager) {
-        window.dragHandlesManager.resetLayout();
-      }
-    }
-  };
-  
-  const toolbarRight = document.querySelector('.toolbar-right');
-  if (toolbarRight) {
-    toolbarRight.appendChild(resetBtn);
-  }
-}
-
-// Call this after DOM loads
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(addLayoutResetButton, 1000);
-});
-
-*/
+};

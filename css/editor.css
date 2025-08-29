@@ -3,35 +3,21 @@
  *
  *       Filename:  editor.css
  *
- *    Description:  Styles for the main editor layout, tabs, resizers, and overlays,
- *                  fully integrated with the elegant purple dark theme.
+ *    Description:  Styles for the main editor layout, tabs, resizers, and overlays.
+ *                  Totalmente refatorado para se integrar ao sistema de design do 
+ *                  theme_variables.css, criando uma experiência moderna, responsiva e
+ *                  visualmente coesa.
  *
  * =====================================================================================
  */
 
 /* ===================================================================================
- *  Global and Base Styles
- * =================================================================================== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: var(--font-sans);
-  background-color: transparent;
-  color: var(--text-primary);
-  line-height: var(--leading-normal);
-  overflow: hidden;
-}
-
-/* ===================================================================================
  *  Main Layout Containers
+ *  (Estrutura principal do layout, sem alterações de cor)
  * =================================================================================== */
 .main-container {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - var(--space-8)); /* Ajustado para a barra de status fixa */
   width: 100vw;
   overflow: hidden;
 }
@@ -49,6 +35,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  background-color: var(--bg-secondary); /* Fundo do editor */
 }
 
 .monaco-editor {
@@ -58,7 +45,7 @@ body {
 }
 
 /* ===================================================================================
- *  Resizable Dividers
+ *  Divisores Redimensionáveis (Resizers)
  * =================================================================================== */
 .resizer-vertical {
   position: absolute;
@@ -78,7 +65,7 @@ body {
 
 .resizer-horizontal {
   height: 6px;
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-tertiary); /* Cor mais sutil para o divisor */
   cursor: row-resize;
   transition: background-color var(--transition-fast);
   z-index: var(--z-10);
@@ -89,7 +76,7 @@ body {
 }
 
 /* ===================================================================================
- *  File and Terminal Tabs
+ *  Abas de Arquivos e Terminal
  * =================================================================================== */
 .tabs-container,
 .terminal-tabs {
@@ -100,10 +87,10 @@ body {
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-primary);
   padding: 0 var(--space-2);
-  align-items: flex-end; /* Align tabs to the bottom */
+  align-items: flex-end;
 }
 
-/* Custom scrollbar for tab containers */
+/* Scrollbar customizado para as abas */
 .tabs-container::-webkit-scrollbar,
 .terminal-tabs::-webkit-scrollbar {
   height: 3px;
@@ -133,7 +120,7 @@ body {
   max-width: 200px;
   transition: background-color var(--transition-fast), color var(--transition-fast);
   position: relative;
-  bottom: -1px; /* Align with the main border */
+  bottom: -1px;
 }
 
 .tab:hover {
@@ -142,10 +129,10 @@ body {
 }
 
 .tab.active {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-secondary); /* Conecta a aba ao painel do editor */
   color: var(--text-primary);
   border-color: var(--border-primary);
-  box-shadow: inset 0 2px 0 var(--accent-primary); /* Modern active indicator */
+  box-shadow: inset 0 2px 0 var(--accent-primary); /* Indicador moderno de aba ativa */
 }
 
 .tab-title {
@@ -166,32 +153,33 @@ body {
   transition: all var(--transition-fast);
 }
 
-.tab-close:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text-primary);
+.tab:hover .tab-close {
+  color: var(--text-secondary);
 }
 
-/* Terminal specific tab styling */
+.tab-close:hover {
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+/* Estilo específico para a aba do terminal ativa */
 .terminal-tabs .tab.active {
-  box-shadow: inset 0 2px 0 var(--status-info); /* Use a different color for terminal focus */
+  box-shadow: inset 0 2px 0 var(--status-info); /* Cor diferente para foco no terminal */
 }
 
 /* ===================================================================================
- *  Editor Welcome Overlay
+ *  Tela de Boas-Vindas (Welcome Overlay) - COMPLETAMENTE REFEITA
  * =================================================================================== */
 #editor-overlay {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   background-color: var(--bg-primary);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition-normal);
   z-index: var(--z-20);
-  overflow-y: auto;
+  overflow: hidden; /* Controla o scroll dentro dos painéis */
 }
 
 #editor-overlay.visible {
@@ -199,57 +187,53 @@ body {
   pointer-events: all;
 }
 
-#editor-overlay .overlay-content {
-  text-align: center;
-  padding: var(--space-8);
-  user-select: none;
-  -webkit-user-drag: none;
+.welcome-screen {
+  display: flex;
+  width: 100%;
+  height: 100%;
   animation: fadeIn var(--transition-slow) ease-out;
 }
 
-#editor-overlay .overlay-icon {
-  max-width: 120px;
-  margin-bottom: var(--space-6);
-  filter: drop-shadow(var(--shadow-glow));
-}
-
-#editor-overlay .overlay-title {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-light);
-  margin-bottom: var(--space-3);
-  color: var(--text-primary);
-}
-
-#editor-overlay .overlay-subtitle {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  line-height: var(--leading-relaxed);
-}
-
-#editor-overlay .overlay-subtitle a {
-  color: var(--text-link);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-#editor-overlay .overlay-subtitle a:hover {
-  color: var(--text-link-hover);
-}
-
-/* Recent Projects Section */
-.recent-projects-section {
-  width: 100%;
-  max-width: 800px;
-  margin-top: var(--space-12);
-  text-align: left;
+/* Sidebar de Projetos Recentes */
+.welcome-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
 }
 
 .recent-projects-header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
   color: var(--text-secondary);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-divider);
+  flex-shrink: 0;
+}
+
+.recent-projects-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.recent-projects-count {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+}
+
+.recent-projects-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-top: var(--space-4);
 }
 
 .empty-state {
@@ -257,22 +241,93 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-8);
-  border: 1px dashed var(--border-primary);
-  border-radius: var(--radius-lg);
+  text-align: center;
+  height: 100%;
   color: var(--text-tertiary);
 }
 
-.empty-state-icon {
+.empty-state .fa-folder-open {
   font-size: var(--text-3xl);
   margin-bottom: var(--space-4);
 }
 
+/* Conteúdo Principal da Tela de Boas-Vindas */
+.welcome-main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-12);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#icon-container {
+  position: relative;
+  margin-bottom: var(--space-6);
+}
+
+.overlay-icon {
+  width: 120px;
+  height: 120px;
+  filter: drop-shadow(var(--shadow-glow));
+}
+
+.change-icon-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.change-icon-btn:hover {
+  background-color: var(--accent-subtle-bg);
+  color: var(--accent-hover);
+  border-color: var(--accent-subtle-border);
+}
+
+.overlay-text-content .overlay-title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-light);
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+}
+
+.overlay-text-content .overlay-subtitle {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  max-width: 450px;
+}
+
+.overlay-text-content .overlay-subtitle a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.overlay-text-content .overlay-subtitle a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+
 /* ===================================================================================
- *  Monaco Editor Integration Styles
+ *  Integração com Monaco Editor - Estilo Moderno
  * =================================================================================== */
 
-/* Find Widget */
+/* Widget de Busca (Find) */
 .monaco-editor .find-widget {
   z-index: var(--z-50) !important;
   box-shadow: var(--shadow-lg) !important;
@@ -281,7 +336,7 @@ body {
   background-color: var(--bg-elevated) !important;
 }
 
-/* Modern Monaco Scrollbars */
+/* Scrollbars Modernos do Monaco */
 .monaco-editor .monaco-scrollable-element .scrollbar .slider {
   background: var(--accent-subtle-border) !important;
   border-radius: var(--radius-full) !important;
@@ -289,26 +344,20 @@ body {
 }
 
 .monaco-editor .monaco-scrollable-element .scrollbar .slider:hover {
-  background: rgba(155, 89, 182, 0.6) !important; /* Slightly more opaque version */
+  background: rgba(155, 89, 182, 0.6) !important; /* Versão um pouco mais opaca do accent */
 }
 
 .monaco-editor .monaco-scrollable-element .scrollbar .slider.active {
   background: var(--accent-primary) !important;
 }
 
+/* Slider do Minimapa */
 .monaco-editor .minimap-slider {
-  background: rgba(155, 89, 182, 0.4) !important;
+  background: rgba(155, 89, 182, 0.4) !important; /* Cor accent com opacidade balanceada */
   border-radius: var(--radius-sm) !important;
 }
 
-/* Hide legacy scrollbar elements */
-.monaco-editor .monaco-scrollable-element .slider::before,
-.monaco-editor .monaco-scrollable-element .slider::after,
-.monaco-editor .monaco-scrollable-element .shadow {
-  display: none !important;
-}
-
-/* Custom Breakpoint Glyph */
+/* Glifo de Breakpoint customizado */
 .myBreakpointGlyph {
   width: 12px;
   height: 12px;
@@ -316,27 +365,32 @@ body {
   border-radius: var(--radius-full);
   background-color: var(--status-error);
   box-shadow: var(--shadow-glow);
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+.margin-view-overlays .myBreakpointGlyph:hover {
+  opacity: 1;
 }
 
 /* ===================================================================================
- *  Responsive Adjustments
+ *  Ajustes Responsivos
  * =================================================================================== */
 @media (max-width: 768px) {
-  .main-container {
+  .welcome-screen {
     flex-direction: column;
   }
-  
+  .welcome-sidebar {
+    width: 100%;
+    height: 40%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+  }
   .tabs-container {
     height: 40px;
   }
-  
   .tab {
     min-width: 100px;
     height: 36px;
     padding: 0 var(--space-2);
-  }
-
-  .overlay-content {
-    padding: var(--space-4);
   }
 }

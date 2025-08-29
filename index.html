@@ -79,315 +79,404 @@
         </button>
     </div>
 </div>
-    <!-- Processor Configuration Modal -->
-    <div id="modalProcessorConfig" class="modalConfig">
-        <div class="modalConfig-content">
-            <div class="modalConfig-header">
-                <h2 class="modalConfig-title">
-                    <i class="fa-solid fa-gears"></i>
+   <!-- Processor Configuration Modal -->
+    <div id="modalProcessorConfig" class="modal-overlay" aria-hidden="true">
+        <div class="modal-container" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="processor-modal-title" class="modal-title">
+                    <i class="fa-solid fa-gears" aria-hidden="true"></i>
                     <span>Processor Configuration</span>
                 </h2>
-                <button id="closeModal" class="modalConfig-close-btn" aria-label="Close Modal">&times;</button>
-            </div>
-            <div class="modalConfig-body">
-                <section class="modalConfig-section" id="processors">
-                    <h3 class="modalConfig-section-title">Synthesis</h3>
-                    <div class="modalConfig-processor-selector">
-                        <label for="processorSelect" class="modalConfig-label">Select Processor:</label>
-                        <div class="modalConfig-select-container">
-                            <select id="processorSelect" class="modalConfig-select">
-                                <!-- Processor options will be dynamically added here -->
-                            </select>
-                        </div>
-                        <button id="deleteProcessor" class="modalConfig-icon-btn" aria-label="Delete Selected Processor">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="modalConfig-form-group">
-                        <div class="modalConfig-cmm-selector">
-                            <div class="modalConfig-form-group">
-                                <label for="cmmFileSelect">C± File:</label>
-                                <select id="cmmFileSelect" class="modalConfig-select" disabled>
-                                    <option value="">Select C± File</option>
+                <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+            
+            <main class="modal-body">
+                <section class="config-section">
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-microchip" aria-hidden="true"></i>
+                        Synthesis Configuration
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="processorSelect" class="form-label">Select Processor</label>
+                        <div class="select-with-actions">
+                            <div class="select-container">
+                                <select id="processorSelect" class="form-select">
+                                    <option value="">Choose a processor...</option>
                                 </select>
                             </div>
+                            <button id="deleteProcessor" class="icon-btn danger" aria-label="Delete Selected Processor">
+                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="modalConfig-form-group">
-                        <h3 class="modalConfig-section-title">Simulation</h3>
-                        <label for="testbenchSelect" class="modalConfig-label">Testbench File:</label>
-                        <div class="modalConfig-select-container">
-                            <select id="processortestbenchSelect" class="modalConfig-select">
+
+                    <div class="form-group">
+                        <label for="cmmFileSelect" class="form-label">C± File</label>
+                        <div class="select-container">
+                            <select id="cmmFileSelect" class="form-select" disabled>
+                                <option value="">Select C± File</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-play" aria-hidden="true"></i>
+                        Simulation Configuration
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="processortestbenchSelect" class="form-label">Testbench File</label>
+                        <div class="select-container">
+                            <select id="processortestbenchSelect" class="form-select">
                                 <option value="">Select Testbench File</option>
                             </select>
                         </div>
-                        <br>
-                        <div class="modalConfig-processor-config">
-                            <div class="modalConfig-form-group">
-                                <label for="processorClk" class="modalConfig-label">CLK Frequency (MHz)</label>
-                                <input type="number" id="processorClk" class="modalConfig-input" placeholder="Clock frequency">
-                                <small class="modalConfig-form-help">Max of 1000MHz</small>
-                            </div>
-                            <div class="modalConfig-form-group">
-                                <label for="processorNumClocks" class="modalConfig-label">Number of Clocks</label>
-                                <input type="text" id="processorNumClocks" class="modalConfig-input" placeholder="e.g., 200000" value="200000">
-                            </div>
-                            <div class="modalConfig-form-group">
-                                <label for="processorSimulTime" class="modalConfig-label">Simulation Time (μs)</label>
-                                <input type="text" id="processorSimulTime" class="modalConfig-input" placeholder="e.g., 200000" value="200000">
-                            </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="processorClk" class="form-label">CLK Frequency (MHz)</label>
+                            <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000">
+                            <small class="form-hint">Maximum of 1000MHz</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="processorNumClocks" class="form-label">Number of Clocks</label>
+                            <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="200000">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="processorSimulTime" class="form-label">Simulation Time (μs)</label>
+                            <input type="text" id="processorSimulTime" class="form-input" placeholder="e.g., 200000" value="200000">
                         </div>
                     </div>
-                    <div class="modalConfig-form-group">
-                        <label for="gtkwaveSelect" class="modalConfig-label">GTKWave File:</label>
-                        <div class="modalConfig-select-container">
-                            <select id="processorgtkwaveSelect" class="modalConfig-select">
+
+                    <div class="form-group">
+                        <label for="processorgtkwaveSelect" class="form-label">GTKWave File</label>
+                        <div class="select-container">
+                            <select id="processorgtkwaveSelect" class="form-select">
                                 <option value="">Select GTKWave File</option>
                             </select>
                         </div>
                     </div>
-                    <div class="modalConfig-form-group">
-                        <div class="modalConfig-checkbox-container">
-                            <input type="checkbox" id="showArraysInGtkwave" class="modalConfig-checkbox">
-                            <label for="showArraysInGtkwave" class="modalConfig-label">Show C± arrays content in GTKWave</label>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showArraysInGtkwave" class="form-checkbox">
+                            <label for="showArraysInGtkwave" class="checkbox-label">
+                                Show C± arrays content in GTKWave
+                            </label>
                         </div>
-                        <small class="modalConfig-form-help">If checked, arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.</small>
+                        <small class="form-hint">
+                            Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+                        </small>
                     </div>
                 </section>
-            </div>
-            <div class="modalConfig-footer">
-                <div class="modalConfig-footer-actions">
-                    <div class="modalConfig-footer-primary-actions">
-                        <button id="cancelConfig" class="modalConfig-btn modalConfig-btn-secondary">
-                            <span>Cancel</span>
-                        </button>
-                        <button id="saveConfig" class="modalConfig-btn modalConfig-btn-primary">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            <span>Save</span>
-                        </button>
-                    </div>
+            </main>
+
+            <footer class="modal-footer">
+                <div class="footer-actions">
+                    <button id="cancelConfig" class="btn btn-secondary">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button id="saveConfig" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                        <span>Save Configuration</span>
+                    </button>
                 </div>
-            </div>
+            </footer>
         </div>
     </div>
 
     <!-- Project Configuration Modal -->
-    <div id="modalProjectConfig" class="modalConfig">
-        <div class="modalConfig-content">
-            <div class="modalConfig-header">
-                <h2 class="modalConfig-title">
-                    <i class="fa-solid fa-gear"></i>
+    <div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
+        <div class="modal-container large" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="project-modal-title" class="modal-title">
+                    <i class="fa-solid fa-folder-gear" aria-hidden="true"></i>
                     <span>Project Configuration</span>
                 </h2>
-                <button id="closeProjectModal" class="modalConfig-close-btn" aria-label="Close Modal">&times;</button>
-            </div>
-            <div class="modalConfig-body">
-                <!-- Synthesizable Files Section -->
-                <section class="modalConfig-section" id="synthesizableFiles">
-                    <h3 class="modalConfig-section-title">Synthesizable Files (.v)</h3>
-                    <div class="modalConfig-import-area" id="synthesizableDropArea">
-                        <div class="modalConfig-import-header">
-                            <button id="importSynthesizableBtn" class="modalConfig-btn modalConfig-btn-secondary">
-                                <i class="fa-solid fa-file-import"></i>
-                                <span>Import Files</span>
-                            </button>
-                            <div class="modalConfig-import-instructions">
-                                <i class="fa-solid fa-hand-pointer"></i>
-                                <span>Drag & drop .v files here or use import button</span>
+                <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+            
+            <main class="modal-body">
+                <div class="config-grid">
+                    <section class="config-section">
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-file-code" aria-hidden="true"></i>
+                            Synthesizable Files (.v)
+                        </h3>
+                        
+                        <div class="file-drop-area" id="synthesizableDropArea">
+                            <div class="drop-zone">
+                                <div class="drop-zone-content">
+                                    <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                    <h4>Import Verilog Files</h4>
+                                    <p>Drag & drop .v files here or click to browse</p>
+                                    <button id="importSynthesizableBtn" class="btn btn-outline">
+                                        <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                        <span>Browse Files</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="file-list" id="synthesizableFileList">
+                                <div class="empty-state" id="synthesizableEmptyState">
+                                    <i class="fa-solid fa-file-code empty-icon" aria-hidden="true"></i>
+                                    <span>No synthesizable files imported yet</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="modalConfig-file-list" id="synthesizableFileList">
-                            <div class="modalConfig-empty-state" id="synthesizableEmptyState">
-                                <i class="fa-solid fa-file-code"></i>
-                                <span>No synthesizable files imported yet</span>
+                    </section>
+                    
+                    <section class="config-section">
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-vial" aria-hidden="true"></i>
+                            Testbench & GTKW Files
+                        </h3>
+                        
+                        <div class="file-drop-area" id="testbenchDropArea">
+                            <div class="drop-zone">
+                                <div class="drop-zone-content">
+                                    <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                    <h4>Import Test Files</h4>
+                                    <p>Drag & drop .v and .gtkw files here or click to browse</p>
+                                    <button id="importTestbenchBtn" class="btn btn-outline">
+                                        <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                        <span>Browse Files</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="file-list" id="testbenchFileList">
+                                <div class="empty-state" id="testbenchEmptyState">
+                                    <i class="fa-solid fa-vial empty-icon" aria-hidden="true"></i>
+                                    <span>No testbench or GTKW files imported yet</span>
+                                </div>
                             </div>
                         </div>
+                    </section>
+                </div>
+                
+                <section class="config-section">
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                        Simulation Settings
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="projectSimuDelay" class="form-label">Simulation Time</label>
+                        <input type="text" id="projectSimuDelay" class="form-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
+                        <small class="form-hint">Simulation time value used in testbench timing</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showArraysInGtkwave-project" class="form-checkbox">
+                            <label for="showArraysInGtkwave-project" class="checkbox-label">
+                                Show C± arrays content in GTKWave
+                            </label>
+                        </div>
+                        <small class="form-hint">
+                            <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                            Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+                        </small>
                     </div>
                 </section>
                 
-                <!-- Testbench & GTKW Files Section -->
-                <section class="modalConfig-section" id="testbenchGtkwFiles">
-                    <h3 class="modalConfig-section-title">Testbench & GTKW Files</h3>
-                    <div class="modalConfig-import-area" id="testbenchDropArea">
-                        <div class="modalConfig-import-header">
-                            <button id="importTestbenchBtn" class="modalConfig-btn modalConfig-btn-secondary">
-                                <i class="fa-solid fa-file-import"></i>
-                                <span>Import Files</span>
-                            </button>
-                            <div class="modalConfig-import-instructions">
-                                <i class="fa-solid fa-hand-pointer"></i>
-                                <span>Drag & drop .v and .gtkw files here or use import button</span>
-                            </div>
-                        </div>
-                        <div class="modalConfig-file-list" id="testbenchFileList">
-                            <div class="modalConfig-empty-state" id="testbenchEmptyState">
-                                <i class="fa-solid fa-vial"></i>
-                                <span>No testbench or GTKW files imported yet</span>
-                            </div>
-                        </div>
+                <section class="config-section">
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-microchip" aria-hidden="true"></i>
+                        Processors Management
+                    </h3>
+                    
+                    <div id="processorsList" class="processors-list">
+                        <!-- Processor rows will be dynamically added here -->
                     </div>
-                </section>
-                
-                <section class="modalConfig-section" id="simulationSettings">
-                    <h3 class="modalConfig-section-title">Simulation Settings</h3>
-                    <div class="modalConfig-form-group">
-                        <label for="projectSimuDelay" class="modalConfig-label">Simulation Time</label>
-                        <input type="text" id="projectSimuDelay" class="modalConfig-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
-                        <small class="modalConfig-form-help">Simulation time value used in testbench timing</small>
-                    </div>
-                </section>
-                
-                <!-- Processors Section -->
-                <section class="modalConfig-section" id="processors">
-                    <label class="modalConfig-label">Processors</label>
-                    <div id="processorsList">
-                        <!-- Processor rows will be added here -->
-                        <div class="modalConfig-processor-row">
-                            <div class="modalConfig-select-container"></div>
-                            <div class="modalConfig-form-group instance-name-group"></div>
-                        </div>
-                    </div>
-                    <button id="addProcessor" class="modalConfig-btn modalConfig-btn-primary">
-                        <i class="fa-solid fa-plus"></i>
+                    
+                    <button id="addProcessor" class="btn btn-primary">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         <span>Add Processor</span>
                     </button>
                 </section>
-                
-                <div class="modalConfig-form-group">
-                    <div class="modalConfig-checkbox-container">
-                        <input type="checkbox" id="showArraysInGtkwave-project" class="modalConfig-checkbox">
-                        <label for="showArraysInGtkwave-project" class="modalConfig-label">Show C± arrays content in GTKWave</label>
-                    </div>
-                    <small class="modalConfig-form-help">If checked, arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.</small>
+            </main>
+
+            <footer class="modal-footer">
+                <div class="footer-actions">
+                    <button id="cancelProjectConfig" class="btn btn-secondary">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button id="saveProjectConfig" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                        <span>Save Project</span>
+                    </button>
                 </div>
-            </div>
-            <div class="modalConfig-footer">
-                <div class="modalConfig-footer-actions">
-                    <div class="modalConfig-footer-primary-actions">
-                        <button id="cancelProjectConfig" class="modalConfig-btn modalConfig-btn-secondary">
-                            <span>Cancel</span>
-                        </button>
-                        <button id="saveProjectConfig" class="modalConfig-btn modalConfig-btn-primary">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            <span>Save</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </footer>
         </div>
     </div>
-
-    <!-- Hidden file input for import functionality -->
-    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
-    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
 
     <!-- New Project Modal -->
-    <div id="newProjectModal" class="npmodal-overlay hidden">
-        <div class="npmodal-content fade-transition visible">
-            <div class="npmodal-header">
-                <h2>
-                    <i class="fas fa-folder-plus"></i>
+    <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-container" role="dialog" aria-labelledby="new-project-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="new-project-title" class="modal-title">
+                    <i class="fa-solid fa-folder-plus" aria-hidden="true"></i>
                     <span>Create New Project</span>
                 </h2>
-            </div>
-            <div class="npmodal-input-group">
-                <label for="projectNameInput">Project Name:</label>
-                <input type="text" id="projectNameInput" placeholder="Enter project name" />
-            </div>
-            <div class="npmodal-input-group">
-                <label for="projectLocationInput">Project Location:</label>
-                <div class="npmodal-location-input">
-                    <input type="text" id="projectLocationInput" placeholder="Select project location" readonly />
-                    <button id="browseBtn" class="npmodal-btn-browse">
-                        <i class="fas fa-folder-open"></i>
-                        <span>Browse</span>
+            </header>
+            
+            <main class="modal-body">
+                <form class="project-form" id="newProjectForm">
+                    <div class="form-group">
+                        <label for="projectNameInput" class="form-label">Project Name</label>
+                        <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="projectLocationInput" class="form-label">Project Location</label>
+                        <div class="input-with-action">
+                            <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" readonly required>
+                            <button type="button" id="browseBtn" class="btn btn-outline">
+                                <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
+                                <span>Browse</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </main>
+            
+            <footer class="modal-footer">
+                <div class="footer-actions">
+                    <button id="cancelProjectBtn" class="btn btn-secondary">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button id="generateProjectBtn" class="btn btn-primary">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        <span>Generate Project</span>
                     </button>
                 </div>
-            </div>
-            <div class="npmodal-actions">
-                <button id="generateProjectBtn" class="npmodal-btn npmodal-btn-generate">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>Generate</span>
-                </button>
-                <button id="cancelProjectBtn" class="npmodal-btn npmodal-btn-cancel">
-                    <i class="fa-solid fa-xmark"></i>
-                    <span>Cancel</span>
-                </button>
-            </div>
+            </footer>
         </div>
     </div>
-    <!-- Modal Container (initially hidden) -->
-    <div id="modalContainer" class="processor-hub-container hidden">
-        <div class="processor-hub-overlay"></div>
-        <div class="processor-hub-modal">
-            <h2><i class="fa-solid fa-star-of-life"></i> Create Processor Project</h2>
-            <form class="processor-hub-form" id="processorHubForm">
-                <div class="form-group">
-                    <label for="processorName">Processor Name</label>
-                    <input type="text" id="processorName" name="processorName" required value="procTest_00">
-                </div>
 
-                <div class="form-group">
-                    <label for="nBits">Total Number of Bits <span class="tooltip" style="color: red;" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">ℹ</span></label>
-                    <input type="number" id="nBits" required min="1" value="23">
-                </div>
+    <!-- Processor Hub Modal -->
+    <div id="modalContainer" class="modal-overlay" aria-hidden="true">
+        <div class="modal-container large" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="processor-hub-title" class="modal-title">
+                    <i class="fa-solid fa-star-of-life" aria-hidden="true"></i>
+                    <span>Create Processor Project</span>
+                </h2>
+            </header>
+            
+            <main class="modal-body">
+                <form class="processor-form" id="processorHubForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="processorName" class="form-label">Processor Name</label>
+                            <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00">
+                        </div>
 
-                <div class="form-group floating-point-options">
-                    <label for="nbMantissa">Mantissa Bit Number</label>
-                    <input type="number" id="nbMantissa" min="1" value="16">
-                </div>
+                        <div class="form-group">
+                            <label for="nBits" class="form-label">
+                                Total Number of Bits
+                                <span class="tooltip" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
+                                    <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                                </span>
+                            </label>
+                            <input type="number" id="nBits" class="form-input" required min="1" value="23">
+                        </div>
 
-                <div class="form-group floating-point-options">
-                    <label for="nbExponent">Exponent Bit Number</label>
-                    <input type="number" id="nbExponent" min="1" value="6">
-                </div>
+                        <div class="form-group">
+                            <label for="nbMantissa" class="form-label">Mantissa Bit Number</label>
+                            <input type="number" id="nbMantissa" class="form-input" min="1" value="16">
+                        </div>
 
-                <div class="form-group">
-                    <label for="dataStackSize">Data Stack Size</label>
-                    <input type="number" id="dataStackSize" required min="1" value="5">
-                </div>
+                        <div class="form-group">
+                            <label for="nbExponent" class="form-label">Exponent Bit Number</label>
+                            <input type="number" id="nbExponent" class="form-input" min="1" value="6">
+                        </div>
 
-                <div class="form-group">
-                    <label for="instructionStackSize">Instruction Stack Size</label>
-                    <input type="number" id="instructionStackSize" required min="1" value="5">
-                </div>
+                        <div class="form-group">
+                            <label for="dataStackSize" class="form-label">Data Stack Size</label>
+                            <input type="number" id="dataStackSize" class="form-input" required min="1" value="5">
+                        </div>
 
-                <div class="form-group">
-                    <label for="inputPorts">Number of Input Ports</label>
-                    <input type="number" id="inputPorts" required min="0" value="1">
-                </div>
+                        <div class="form-group">
+                            <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
+                            <input type="number" id="instructionStackSize" class="form-input" required min="1" value="5">
+                        </div>
 
-                <div class="form-group">
-                    <label for="outputPorts">Number of Output Ports</label>
-                    <input type="number" id="outputPorts" required min="0" value="1">
-                </div>
+                        <div class="form-group">
+                            <label for="inputPorts" class="form-label">Number of Input Ports</label>
+                            <input type="number" id="inputPorts" class="form-input" required min="0" value="1">
+                        </div>
 
-                <div class="form-group">
-                    <label for="pipeln">Pipeline Level <span class="tooltip" style="color: red;" title="Pipeline level must be one of the predefined options">ℹ</span></label>
-                    <select id="pipeln" required>
-                        <option value="3" selected>3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="6">6</option>
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label for="outputPorts" class="form-label">Number of Output Ports</label>
+                            <input type="number" id="outputPorts" class="form-input" required min="0" value="1">
+                        </div>
 
-                <div class="form-group">
-                    <label for="gain">Gain <span class="tooltip" style="color: red;" title="Gain must be a power of 2">ℹ</span></label>
-                    <input type="number" id="gain" required step="any" value="128">
-                </div>
+                        <div class="form-group">
+                            <label for="pipeln" class="form-label">
+                                Pipeline Level
+                                <span class="tooltip" title="Pipeline level must be one of the predefined options">
+                                    <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                                </span>
+                            </label>
+                            <div class="select-container">
+                                <select id="pipeln" class="form-select" required>
+                                    <option value="3" selected>3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                </select>
+                            </div>
+                        </div>
 
-                <div class="button-group">
-                    <button type="button" class="cancel-button" id="cancelProcessorHub">Cancel</button>
-                    <button type="submit" class="generate-button" id="generateProcessor" disabled>
-                        <i class="fas fa-cog"></i> Generate
+                        <div class="form-group">
+                            <label for="gain" class="form-label">
+                                Gain
+                                <span class="tooltip" title="Gain must be a power of 2">
+                                    <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                                </span>
+                            </label>
+                            <input type="number" id="gain" class="form-input" required step="any" value="128">
+                        </div>
+                    </div>
+                </form>
+            </main>
+            
+            <footer class="modal-footer">
+                <div class="footer-actions">
+                    <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button type="submit" form="processorHubForm" id="generateProcessor" class="btn btn-primary" disabled>
+                        <i class="fa-solid fa-cogs" aria-hidden="true"></i>
+                        <span>Generate Processor</span>
                     </button>
                 </div>
-            </form>
+            </footer>
         </div>
     </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
+    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
 
 
     <!-- Main Container -->
@@ -453,166 +542,153 @@
             </div>
         </div>
 
-        <!-- Editor and Terminal Section -->
-        <div class="editor-terminal-container">
-            <div class="editor-container">
-                <div id="tabs-container" class="tabs-container">
-                    <!-- Tabs will be dynamically inserted here -->
-                </div>
-                <div id="monaco-editor" class="monaco-editor">
-                    <div id="editor-overlay" class="visible">
-                        <div class="overlay-content">
-                            <div id="icon-container">
-                                <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
-                                <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-                                <button class="change-icon-btn" id="change-icon-btn">
-                                    <i class="fa-solid fa-image"></i>
-                                </button>
-                                <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
-                            </div>
-                            <div class="overlay-text-content">
-                                <h1 id="aurora-welcome" class="overlay-title">Welcome to AURORA IDE!</h1>
-                                <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
-                                <p class="overlay-subtitle">
-                                    <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
-                                </p>
-                            </div>
-                            
-                            <!-- Recent Projects Section -->
-                            <div class="recent-projects-section">
-                                <div class="recent-projects-header">
-                                    <i class="fa-solid fa-clock-rotate-left recent-projects-icon"></i>
-                                    <h2 class="recent-projects-title">Recent Projects</h2>
-                                    <span class="recent-projects-count" id="projects-count">0 projects</span>
-                                </div>
-                                <div class="recent-projects-list" id="recent-projects-list">
-                                    <div class="empty-state" id="empty-state">
-                                        <i class="fa-solid fa-folder-open empty-state-icon"></i>
-                                        <p class="empty-state-text">No recent projects</p>
-                                        <p class="empty-state-subtext">Open a project to see it appear here</p>
-                                    </div>
-                                </div>
-                            </div>
+<div class="editor-terminal-container">
+    <div class="editor-container">
+        <div id="tabs-container" class="tabs-container">
+            <!-- Tabs serão inseridos dinamicamente aqui -->
+        </div>
+        <div id="monaco-editor" class="monaco-editor">
+            <!-- A tela de boas-vindas foi completamente reestruturada -->
+            <div id="editor-overlay" class="visible">
+                <div class="welcome-screen">
+                    <!-- Barra Lateral para Projetos Recentes -->
+                    <aside class="welcome-sidebar">
+                        <div class="recent-projects-header">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <h2 class="recent-projects-title">Recent Projects</h2>
+                            <span class="recent-projects-count" id="projects-count">0</span>
                         </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="resizer-horizontal"></div>
-            
-            <div id="terminal-container" class="terminal-container">
-                <div class="terminal-tabs">
-                    <button id="clear-terminal" class="toolbar-button">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                    
-                    <!-- Filter buttons -->
-                    <button id="filter-error" class="toolbar-button filter-btn filter-error">
-                        <i class="fa-solid fa-circle-xmark"></i>
-                    </button>
-                    <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                    </button>
-                    <button id="filter-success" class="toolbar-button filter-btn filter-success">
-                        <i class="fa-solid fa-circle-check"></i>
-                    </button>
-                    <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
-                        <i class="fa-solid fa-circle-info"></i>
-                    </button>
-                    
-                    <!-- Terminal tabs -->
-                    <button class="tab active" data-terminal="tcmm">
-                        <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
-                        <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
-                        TCMM
-                    </button>
-                    <button class="tab" data-terminal="tasm">
-                        <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
-                        TASM
-                    </button>
-                    <button class="tab" data-terminal="tveri">
-                        <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
-                        TIVERI
-                    </button>
-                    <button class="tab" data-terminal="twave">
-                        <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
-                        TWAVE
-                    </button>
-                    
-                    <button id="goup-terminal" class="toolbar-button">
-                        <i class="fa-solid fa-chevron-up"></i>
-                    </button>
-                    <button id="godown-terminal" class="toolbar-button">
-                        <i class="fa-solid fa-chevron-down"></i>
-                    </button>
-                    <button id="export-log" class="toolbar-button">
-                        <i class="fa-solid fa-file-export"></i>
-                    </button>
-                    <button id="reload-everything-terminal" class="toolbar-button">
-                        <i class="fa-solid fa-hourglass"></i>
-                    </button>
-                </div>
-                
-                <div class="terminal-content" id="terminal-tcmm">
-                    <div class="terminal-header">TCMM Terminal</div>
-                    <div class="terminal-body">
-                        <span style="color: #f8fafc;">Welcome to the TCMM Terminal!</span><br>
-                        <span style="color: #f8fafc;">To create a Processor project, click on</span>
-                        <span class="keyword" onclick="activateButton('newProjectBtn')">New Project</span>. 
-                        <span style="color: #f8fafc;">Give your project a name and select the installation location. Then, the .spf project will open automatically and the</span>
-                        <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span>
-                        <span style="color: #f8fafc;">button will be enabled. If you already have a created project, click on</span>
-                        <span class="keyword" onclick="activateButton('openProjectBtn')">Open Project</span><br>
-                        
-                        <span style="color: #f8fafc;">Click on</span>
-                        <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span>
-                        <span style="color: #f8fafc;">to create a processor with all parameters pre-defined by you. Program your processor using the C± language in the .cmm file within the Software folder of your project. When modifying a file, click on</span>
-                        <span style="color: #f8fafc;">to save it.</span><br>
-                        
-                        <span style="color: #f8fafc;">Next, configure the compilation in the</span>
-                        <span class="keyword" onclick="activateButton('settings')">Processor Config</span>
-                        <span style="color: #f8fafc;">button, setting up the processor to be compiled, the number of clocks and cycles (frequency) for simulation, as well as the compilation flags for cmmcomp, asmcomp, and iverilog.</span><br>
-                        
-                        <span style="color: #f8fafc;">After configuration, you can compile step by step or use the</span>
-                        <span class="keyword" onclick="activateButton('allcomp')">Compile All</span>
-                        <span style="color: #f8fafc;">button to compile the entire project and view the simulation in gtkwave. Monitor the process log in the terminals</span>
-                        <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, 
-                        <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, 
-                        <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, 
-                        <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span>. 
-                        <span style="color: #f8fafc;">Clear each terminal individually with the</span>
-                        <span class="keyword" onclick="activateButton('clear-terminal')">Clear Terminal</span>
-                        <span style="color: #f8fafc;">button.</span><br>
-                        
-                        <span style="color: #f8fafc;">AI assistance may be helpful. Click the</span>
-                        <span class="keyword" onclick="activateButton('aiButton')">AI Assistant</span>
-                        <span style="color: #f8fafc;">button to activate it. Select one of the models: ChatGPT, Claude or DeepSeek. Check your project hierarchy in</span>
-                        <span class="keyword" onclick="activateButton('open-folder-button')">Open Folder</span>.<br>
-                        
-                        <span style="color: #f8fafc;">Want to view information about the current project? Click on</span>
-                        <span class="keyword" onclick="activateButton('projectInfo')">Project Info</span>. 
-                        <span style="color: #f8fafc;">There's more in</span>
-                        <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>.
-                    </div>
-                </div>
-                
-                <div class="terminal-content hidden" id="terminal-tasm">
-                    <div class="terminal-header">TASM Terminal</div>
-                    <div class="terminal-body">Welcome to the TASM Terminal!</div>
-                </div>
-                
-                <div class="terminal-content hidden" id="terminal-tveri">
-                    <div class="terminal-header">TVERI Terminal</div>
-                    <div class="terminal-body">Welcome to the TVERI Terminal!</div>
-                </div>
-                
-                <div class="terminal-content hidden" id="terminal-twave">
-                    <div class="terminal-header">TWAVE Terminal</div>
-                    <div class="terminal-body">Welcome to the TWAVE Terminal!</div>
+                        <div class="recent-projects-list" id="recent-projects-list">
+                            <div class="empty-state" id="empty-state">
+                                <i class="fa-solid fa-folder-open"></i>
+                                <p>Nenhum projeto recente</p>
+                                <span>Abra um projeto para vê-lo aqui.</span>
+                            </div>
+                            <!-- Itens de projetos recentes serão inseridos aqui -->
+                        </div>
+                    </aside>
+
+                    <!-- Conteúdo Principal de Boas-Vindas -->
+                    <main class="welcome-main-content">
+                        <div id="icon-container">
+                            <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
+                            <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
+                            <button class="change-icon-btn" id="change-icon-btn">
+                                <i class="fa-solid fa-image"></i>
+                            </button>
+                            <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
+                        </div>
+                        <div class="overlay-text-content">
+                            <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
+                            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+                            <p class="overlay-subtitle">
+                                <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
+                            </p>
+                        </div>
+                    </main>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="resizer-horizontal"></div>
+
+    <!-- O contêiner do terminal e todo o seu conteúdo permanecem exatamente os mesmos -->
+    <div id="terminal-container" class="terminal-container">
+        <div class="terminal-tabs">
+            <button id="clear-terminal" class="toolbar-button">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+            <button id="filter-error" class="toolbar-button filter-btn filter-error">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </button>
+            <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </button>
+            <button id="filter-success" class="toolbar-button filter-btn filter-success">
+                <i class="fa-solid fa-circle-check"></i>
+            </button>
+            <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
+                <i class="fa-solid fa-circle-info"></i>
+            </button>
+            <button class="tab active" data-terminal="tcmm">
+                <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
+                <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
+                TCMM
+            </button>
+            <button class="tab" data-terminal="tasm">
+                <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+                TASM
+            </button>
+            <button class="tab" data-terminal="tveri">
+                <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+                TIVERI
+            </button>
+            <button class="tab" data-terminal="twave">
+                <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+                TWAVE
+            </button>
+            <button id="goup-terminal" class="toolbar-button">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button id="godown-terminal" class="toolbar-button">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <button id="export-log" class="toolbar-button">
+                <i class="fa-solid fa-file-export"></i>
+            </button>
+            <button id="reload-everything-terminal" class="toolbar-button">
+                <i class="fa-solid fa-hourglass"></i>
+            </button>
+        </div>
+        <div class="terminal-content" id="terminal-tcmm">
+            <div class="terminal-header">TCMM Terminal</div>
+            <div class="terminal-body">
+<span style="color: #f8fafc;">Bem-vindo ao Terminal TCMM!</span><br>
+<span style="color: #f8fafc;">Para criar um projeto de Processador, clique em</span> <span class="keyword" onclick="activateButton('newProjectBtn')">Novo Projeto</span>. <span style="color: #f8fafc;">Dê um nome ao seu projeto e selecione o local de instalação. Em seguida, o projeto .spf será aberto automaticamente e o botão</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> <span style="color: #f8fafc;">será habilitado. Se você já tem um projeto criado, clique em</span><span class="keyword" onclick="activateButton('openProjectBtn')">Abrir Projeto</span><br>
+                
+<span style="color: #f8fafc;">Clique em</span><span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span><span style="color: #f8fafc;">para criar um processador com todos os parâmetros pré-definidos por você. Programe seu processador usando a linguagem C± no arquivo .cmm dentro da pasta Software do seu projeto. Ao modificar um arquivo, clique em</span><span style="color: #f8fafc;">para salvá-lo.</span><br>
+                
+                <span style="color: #f8fafc;">Em seguida, configure a compilação no botão</span>
+                <span class="keyword" onclick="activateButton('settings')">Processor Config</span>
+                <span style="color: #f8fafc;">, configurando o processador a ser compilado, o número de clocks e ciclos (frequência) para simulação, bem como as flags de compilação para cmmcomp, asmcomp e iverilog.</span><br>
+                
+                <span style="color: #f8fafc;">Após a configuração, você pode compilar passo a passo ou usar o botão</span>
+                <span class="keyword" onclick="activateButton('allcomp')">Compilar Tudo</span>
+                <span style="color: #f8fafc;">para compilar todo o projeto e visualizar a simulação no gtkwave. Monitore o log do processo nos terminais</span>
+                <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, 
+                <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, 
+                <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, 
+                <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span>. 
+                <span style="color: #f8fafc;">Limpe cada terminal individualmente com o botão</span>
+                <span class="keyword" onclick="activateButton('clear-terminal')">Limpar Terminal</span>
+                <span style="color: #f8fafc;">.</span><br>
+                
+                <span style="color: #f8fafc;">A assistência de IA pode ser útil. Clique no botão</span>
+                <span class="keyword" onclick="activateButton('aiButton')">Assistente de IA</span>
+                <span style="color: #f8fafc;">para ativá-lo. Selecione um dos modelos: ChatGPT, Claude ou DeepSeek. Verifique a hierarquia do seu projeto em</span>
+                <span class="keyword" onclick="activateButton('open-folder-button')">Abrir Pasta</span>.<br>
+                
+                <span style="color: #f8fafc;">Deseja visualizar informações sobre o projeto atual? Clique em</span>
+                <span class="keyword" onclick="activateButton('projectInfo')">Informações do Projeto</span>. 
+                <span style="color: #f8fafc;">Há mais em</span>
+                <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>.
+            </div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-tasm">
+            <div class="terminal-header">TASM Terminal</div>
+            <div class="terminal-body">Bem-vindo ao Terminal TASM!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-tveri">
+            <div class="terminal-header">TVERI Terminal</div>
+            <div class="terminal-body">Bem-vindo ao Terminal TVERI!</div>
+        </div>
+        <div class="terminal-content hidden" id="terminal-twave">
+            <div class="terminal-header">TWAVE Terminal</div>
+            <div class="terminal-body">Bem-vindo ao Terminal TWAVE!</div>
+        </div>
+    </div>
+</div>
 
     <!-- Status Bar -->
     <div class="status-bar">
@@ -635,6 +711,119 @@
 
     <!-- Scripts -->
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        // Map your toolbar trigger IDs -> modal IDs
+        const triggerToModal = {
+            newProjectBtn: 'newProjectModal',    // New Project -> New Project modal
+            settings:      'modalProcessorConfig', // Settings -> Project Configuration modal
+            processorHub:  'modalContainer'      // Processor Hub -> Processor Hub modal
+        };
+
+        // Collect modal elements
+        const modalIds = Array.from(new Set(Object.values(triggerToModal)));
+        const modals = {};
+        modalIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+            // ensure aria-hidden exists (string)
+            if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true');
+            // allow focusing container for accessibility
+            if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+            modals[id] = el;
+            } else {
+            console.warn('Modal not found:', id);
+            }
+        });
+
+        // Utility: open modal
+        function openModal(modalId) {
+            const modal = modals[modalId];
+            if (!modal) return console.error('openModal: modal not registered:', modalId);
+            modal.setAttribute('aria-hidden', 'false');
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            // focus first focusable element inside modal (or modal itself)
+            const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            (focusable || modal).focus();
+        }
+
+        // Utility: close modal
+        function closeModal(modalId) {
+            const modal = modals[modalId];
+            if (!modal) return console.error('closeModal: modal not registered:', modalId);
+            modal.setAttribute('aria-hidden', 'true');
+            modal.classList.remove('show');
+            // restore scroll only if no other modal open
+            const anyOpen = Object.values(modals).some(m => m.getAttribute('aria-hidden') === 'false');
+            if (!anyOpen) document.body.style.overflow = '';
+        }
+
+        // Wire click handlers on your triggers. If a trigger is disabled, enable it (so clicks work).
+        Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
+            const btn = document.getElementById(triggerId);
+            if (!btn) {
+            console.warn('Trigger button not found:', triggerId);
+            return;
+            }
+
+            // If the button is intentionally disabled in markup, enable it so it opens the modal.
+            // (If you don't want this behavior, remove the next two lines.)
+            if (btn.disabled) {
+            console.info(`Trigger "${triggerId}" was disabled in markup — enabling it so the modal can open.`);
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+            }
+
+            btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal(modalId);
+            });
+        });
+
+        // Overlay click: close when clicking on the overlay background
+        Object.values(modals).forEach(modal => {
+            modal.addEventListener('click', (e) => {
+            // close only when clicking the overlay itself (not the modal container)
+            if (e.target === modal) closeModal(modal.id);
+            });
+        });
+
+        // Escape key closes any open modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+            Object.keys(modals).forEach(id => {
+                if (modals[id].getAttribute('aria-hidden') === 'false') closeModal(id);
+            });
+            }
+        });
+
+        // Wire all known close/cancel buttons to their respective modals (IDs from your HTML)
+        document.getElementById('closeModal')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
+        document.getElementById('cancelConfig')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
+
+        document.getElementById('closeProjectModal')?.addEventListener('click', () => closeModal('modalProjectConfig'));
+        document.getElementById('cancelProjectConfig')?.addEventListener('click', () => closeModal('modalProjectConfig'));
+
+        document.getElementById('cancelProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
+        document.getElementById('generateProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
+
+        document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
+        document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
+                document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
+        document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
+
+        // ---> ADICIONE AS LINHAS ABAIXO <---
+        document.getElementById('saveConfig')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
+        document.getElementById('saveProjectConfig')?.addEventListener('click', () => closeModal('modalProjectConfig'));
+        // ---> FIM DAS LINHAS A ADICIONAR <---
+
+        // Debug helper (expose to console)
+        window.__modalHelpers = { openModalById: openModal, closeModalById: closeModal };
+
+        // Debug helper (expose to console)
+        window.__modalHelpers = { openModalById: openModal, closeModalById: closeModal };
+        console.info('Modal system initialized. Use __modalHelpers.openModalById("modalId") from console to open a modal manually.');
+        });
         document.getElementById('reload-everything-terminal').addEventListener('click', () => {
             window.electronAPI.reloadApp();
         });

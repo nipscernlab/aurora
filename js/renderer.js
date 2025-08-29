@@ -5409,7 +5409,7 @@ async function loadProject(spfPath) {
 
     } catch (error) {
         console.error('Error loading project:', error);
-        showCardNotification(`No compilation process is currently running. ${error.message}'`, 'error', 3000);
+        showCardNotification(`Error loading project: ${error.message}'`, 'error', 3000);
     }
 }
 

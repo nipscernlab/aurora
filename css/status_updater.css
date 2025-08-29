@@ -10,6 +10,16 @@
  */
 
 /* ===================================================================================
+ *  Body Adjustment
+ *  ADICIONADO: Garante que o conteúdo principal não fique escondido atrás da 
+ *  barra de status fixa, adicionando um preenchimento na parte inferior.
+ * =================================================================================== */
+body {
+  /* A altura da barra de status é var(--space-8), então adicionamos esse espaço */
+  padding-bottom: var(--space-8); 
+}
+
+/* ===================================================================================
  *  Status Bar Container
  * =================================================================================== */
 .status-bar {
@@ -22,6 +32,14 @@
   font-size: var(--text-sm);
   height: var(--space-8);
   overflow: hidden;
+  flex-shrink: 0;
+  
+  /* --- ALTERAÇÕES PRINCIPAIS --- */
+  position: fixed; /* Fixa a barra de status em relação à janela de visualização */
+  bottom: 0;       /* Alinha na parte inferior */
+  left: 0;         /* Alinha à esquerda */
+  width: 100%;     /* Faz com que ocupe toda a largura */
+  z-index: 999;    /* Garante que fique acima de outros conteúdos, mas abaixo de modais */
 }
 
 /* ===================================================================================

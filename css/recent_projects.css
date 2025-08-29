@@ -3,254 +3,284 @@
  *
  *       Filename:  recent_projects.css
  *
- *    Description:  Styles for the "Recent Projects" component on the welcome overlay,
- *                  fully aligned with the elegant purple dark theme.
+ *    Description:  Versão corrigida e aprimorada para corresponder à estrutura HTML
+ *                  gerada dinamicamente pela classe RecentProjectsManager.
  *
  * =====================================================================================
  */
 
 /* ===================================================================================
- *  Main Section & Header
+ *  Estrutura Principal da Tela de Boas-Vindas
  * =================================================================================== */
-.recent-projects-section {
-  flex: 1;
+.welcome-screen {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  animation: fadeIn var(--transition-slow) ease-out forwards;
+}
+
+/* ===================================================================================
+ *  Barra Lateral e Cabeçalho (Inalterado)
+ * =================================================================================== */
+.welcome-sidebar {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 800px;
-  margin-top: var(--space-12);
+  flex-shrink: 0;
+  width: 350px;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
 }
 
 .recent-projects-header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.recent-projects-icon {
-  font-size: var(--text-xl);
-  color: var(--accent-primary);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-divider);
   flex-shrink: 0;
+  color: var(--text-secondary);
 }
 
 .recent-projects-title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
   margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  flex-grow: 1;
 }
 
 .recent-projects-count {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--text-sm);
   background-color: var(--bg-tertiary);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  margin-left: auto;
-}
-
-/* ===================================================================================
- *  Project List & Scrollbar
- * =================================================================================== */
-.recent-projects-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-height: 350px;
-  overflow-y: auto;
-  padding-right: var(--space-2); /* Space for scrollbar */
-}
-
-/* Custom Scrollbar */
-.recent-projects-list::-webkit-scrollbar {
-  width: 10px;
-}
-.recent-projects-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.recent-projects-list::-webkit-scrollbar-thumb {
-  background-color: var(--bg-quaternary);
   border-radius: var(--radius-full);
-  border: 2px solid var(--bg-primary); /* Use primary BG of the overlay */
 }
-.recent-projects-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-primary);
+
+.recent-projects-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
 }
 
 /* ===================================================================================
- *  Individual Project Items
+ *  Estilo para cada Item da Lista de Projetos (CORRIGIDO E APRIMORADO)
  * =================================================================================== */
+
+/* Seletor principal corrigido para corresponder ao JS: 'project-item' */
 .project-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), transform 150ms ease-out, box-shadow 150ms ease-out;
+  margin-bottom: var(--space-2);
   position: relative;
+  overflow: hidden;
 }
 
 .project-item:hover {
-  background-color: var(--overlay-hover);
-  border-color: var(--accent-primary);
+  background-color: var(--accent-subtle-bg);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.project-item:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm);
-}
-
+/* Ícone à esquerda */
 .project-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--gradient-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-on-accent);
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xl);
+  transition: color var(--transition-fast);
+}
+.project-item:hover .project-icon {
+  color: var(--accent-hover);
 }
 
+/* Contêiner para nome e caminho */
 .project-details {
-  flex: 1;
-  min-width: 0;
+  flex-grow: 1;
+  overflow: hidden; /* Garante que o text-overflow funcione */
 }
 
 .project-name {
-  font-size: var(--text-base);
   font-weight: var(--font-medium);
   color: var(--text-primary);
-  margin: 0 0 var(--space-1) 0;
+  font-size: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .project-path {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Data à direita */
 .project-date {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
-  white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Impede que a data encolha */
+  margin-left: var(--space-2);
 }
 
+/* Botão de Remover (X) */
 .project-remove {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  color: var(--text-tertiary);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-xs);
-  transition: all var(--transition-fast);
-  opacity: 0;
+  width: 24px;
+  height: 24px;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0; /* Oculto por padrão */
   transform: scale(0.8);
-  flex-shrink: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .project-item:hover .project-remove {
-  opacity: 1;
+  opacity: 1; /* Aparece no hover do item */
   transform: scale(1);
 }
 
 .project-remove:hover {
-  background-color: var(--status-error-bg);
-  border-color: var(--status-error);
   color: var(--status-error);
-  transform: scale(1.1);
+  background-color: var(--status-error-bg);
 }
 
+/* Animações de entrada e saída */
+.project-item.new-item {
+  animation: itemFadeIn 300ms ease-out forwards;
+}
+@keyframes itemFadeIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.project-item.removing {
+  transition: opacity 200ms ease-in, transform 200ms ease-in, max-height 200ms ease-in;
+  opacity: 0;
+  transform: scale(0.95);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+
 /* ===================================================================================
- *  Empty State
+ *  Estado de Lista Vazia (Inalterado)
  * =================================================================================== */
-.empty-state {
+.welcome-sidebar .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  gap: var(--space-4);
-  padding: var(--space-8);
-  color: var(--text-tertiary);
+  height: 100%;
   text-align: center;
-  border: 1px dashed var(--border-primary);
-  border-radius: var(--radius-lg);
-  min-height: 200px;
-}
-
-.empty-state-icon {
-  font-size: var(--text-3xl);
   color: var(--text-tertiary);
+  padding: var(--space-4);
 }
 
-.empty-state-text {
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
+.welcome-sidebar .empty-state .fa-folder-open {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-4);
+}
+
+.welcome-sidebar .empty-state p {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--text-lg);
   color: var(--text-secondary);
-  margin: 0;
 }
 
-.empty-state-subtext {
+.welcome-sidebar .empty-state span {
   font-size: var(--text-sm);
-  margin: 0;
 }
+
 
 /* ===================================================================================
- *  Animations
+ *  Conteúdo Principal de Boas-Vindas (Coluna da Direita)
  * =================================================================================== */
-.project-item.new-item {
-  animation: slideIn var(--transition-normal) ease-out;
+.welcome-main-content {
+  flex-grow: 1; /* Ocupa todo o espaço horizontal restante */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8);
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.welcome-main-content #icon-container {
+  position: relative; /* Necessário para o botão de alterar ícone */
+  margin-bottom: var(--space-6);
 }
 
-.project-item.removing {
-  animation: slideOut var(--transition-fast) ease-in forwards;
+.welcome-main-content .overlay-icon {
+  filter: drop-shadow(var(--shadow-glow));
 }
 
-@keyframes slideOut {
-  to {
-    opacity: 0;
-    transform: scale(0.95);
-    height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    border: none;
-  }
+/* Botão para alterar o ícone */
+.change-icon-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0.5;
+}
+
+#icon-container:hover .change-icon-btn {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.change-icon-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.welcome-main-content .overlay-text-content {
+  max-width: 550px;
+}
+
+.welcome-main-content .overlay-title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.welcome-main-content .overlay-subtitle {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+.welcome-main-content .overlay-subtitle a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.welcome-main-content .overlay-subtitle a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
 }

@@ -1009,7 +1009,7 @@ saveConfigButton.addEventListener("click", async () => {
           const processorTb = activeProcessor.testbenchFile;
           const processorGTKW = activeProcessor.gtkwFile;
 
-          processorStatus.innerHTML = `${processorName} <i class="fa-solid fa-gears"></i> ${processorCMM || "N/A"} | ${processorTb || "N/A"} | ${processorGTKW || "N/A"}`;
+          processorStatus.innerHTML = `${processorName} &nbsp;<i class="fa-solid fa-gears"></i> ${processorCMM || "N/A"} | ${processorTb || "N/A"} | ${processorGTKW || "N/A"}`;
         } else {
           processorStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131;"></i> No Processor Configured`;
         }

@@ -1,6 +1,6 @@
 /**
  * =====================================================================================
- * Modern Interactive Notification Stack System (v2 - Refined)
+ * Modern Interactive Notification Stack System (v3 - Smoother Animations)
  *
  * Description: A self-contained, globally accessible notification system that displays
  *              messages in an interactive, cascading stack with refined animations
@@ -9,8 +9,8 @@
  * Key Features:
  * - Interactive cascading stack at the bottom-left.
  * - Hovering expands the stack for easy reading.
- * - [NEW] Hovering over any card pauses its dismiss timer and progress bar.
- * - [NEW] Smoother, more refined entrance and exit animations.
+ * - Hovering over any card pauses its dismiss timer and progress bar.
+ * - [RENEWED] Smoother, more fluid entrance, exit, and stacking animations.
  * - Dismissing any notification causes the stack to animate and reorganize.
  *
  * How to Use:
@@ -42,12 +42,13 @@
                 width: 400px;
                 max-width: calc(100% - var(--space-8, 32px));
                 z-index: var(--z-50, 50);
-                transition: height var(--transition-normal, 300ms);
+                /* [RENEWED] Smoother transition for container height changes */
+                transition: height 400ms cubic-bezier(0.4, 0, 0.2, 1);
             }
 
             .notification-card {
                 position: absolute;
-                bottom: 0;
+                bottom: 50px;
                 left: 0;
                 width: 100%;
                 will-change: transform, opacity;
@@ -62,13 +63,17 @@
 
                 --index: 0; 
                 transform-origin: bottom center;
+                
+                /* Default stacked state */
                 transform: 
-                    translateY(calc(var(--index) * -12px)) 
+                    translateY(calc(var(--index) * -14px)) /* Slightly more separation */
                     scale(calc(1 - 0.05 * var(--index)));
                 opacity: calc(1 - 0.2 * var(--index));
                 z-index: calc(100 - var(--index));
-                transition: transform var(--transition-normal, 300ms) cubic-bezier(0.4, 0, 0.2, 1),
-                            opacity var(--transition-normal, 300ms);
+
+                /* [RENEWED] Main transition for all animations for a fluid feel */
+                transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1),
+                            opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
             }
             
             .notification-card:nth-child(n+${MAX_VISIBLE_NOTIFICATIONS + 1}) {
@@ -76,22 +81,26 @@
                 pointer-events: none;
             }
 
-            /* [NEW] Refined Entrance Animation */
+            /* [RENEWED] Smoother Entrance Animation: Fades and slides up from bottom */
             .notification-card.enter-start {
                 opacity: 0;
-                transform: translateX(-50px) scale(0.9);
+                transform: translateY(20px) scale(0.95);
             }
             
-            /* [NEW] Refined Exit Animation */
+            /* [RENEWED] Smoother Exit Animation: Fades and slides down */
             .notification-card.exit {
                 opacity: 0 !important;
-                transform: scale(0.85) !important;
-                transition-duration: var(--transition-fast, 150ms);
+                transform: translateY(10px) scale(0.9) !important;
+                transition-duration: var(--transition-fast, 200ms); /* Slightly slower for visibility */
             }
 
+            /* [RENEWED] Smoother stack unpacking on hover */
             #notification-stack-container:hover .notification-card {
-                transform: translateY(calc(var(--index) * -110% - (var(--index) * 12px) ));
+                 /* Unpack with a subtle vertical offset */
+                transform: translateY(calc(var(--index) * -110% - (var(--index) * 10px)));
                 opacity: 1;
+                /* Stagger the animation for a more dynamic feel */
+                transition-delay: calc(var(--index) * 30ms);
             }
 
             /* (Card content styles are identical) */
@@ -101,7 +110,7 @@
             .notification-message { font-size: var(--text-sm, 14px); color: var(--text-secondary, #C0C0C0); line-height: var(--leading-normal, 1.5); }
             .notification-close { position: absolute; top: var(--space-2, 8px); right: var(--space-2, 8px); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-full, 9999px); cursor: pointer; transition: background-color var(--transition-fast, 150ms); color: var(--text-tertiary, #8F8F8F); z-index: 10; }
             .notification-close:hover { background-color: var(--overlay-hover, rgba(255, 255, 255, 0.07)); color: var(--text-primary, #EAEAEA); }
-            .notification-progress { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; transition: none; /* [NEW] Transition is now managed by JS */ }
+            .notification-progress { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; transition: none; /* Transition is managed by JS */ }
             .notification-card.success .notification-sidebar, .notification-card.success .notification-progress { background-color: var(--status-success, #27ae60); }
             .notification-card.error .notification-sidebar, .notification-card.error .notification-progress { background-color: var(--status-error, #e74c3c); }
             .notification-card.warning .notification-sidebar, .notification-card.warning .notification-progress { background-color: var(--status-warning, #f39c12); }

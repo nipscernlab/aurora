@@ -10111,6 +10111,4 @@ window.onload = () => {
               renderFileTree(result.files, fileTree);
           }
       }); */
-
-
 };

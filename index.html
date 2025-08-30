@@ -645,34 +645,19 @@
             <div class="terminal-header">TCMM Terminal</div>
             <div class="terminal-body">
 <span style="color: #f8fafc;">Bem-vindo ao Terminal TCMM!</span><br>
-<span style="color: #f8fafc;">Para criar um projeto de Processador, clique em</span> <span class="keyword" onclick="activateButton('newProjectBtn')">Novo Projeto</span>. <span style="color: #f8fafc;">Dê um nome ao seu projeto e selecione o local de instalação. Em seguida, o projeto .spf será aberto automaticamente e o botão</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> <span style="color: #f8fafc;">será habilitado. Se você já tem um projeto criado, clique em</span><span class="keyword" onclick="activateButton('openProjectBtn')">Abrir Projeto</span><br>
+<span style="color: #f8fafc;">Para criar um projeto de Processador, clique em</span> <span class="keyword" onclick="activateButton('newProjectBtn')">Novo Projeto</span>. <span style="color: #f8fafc;">Dê um nome ao seu projeto e selecione o local de instalação. Em seguida, o projeto .spf será aberto automaticamente e o botão</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> <span style="color: #f8fafc;">será habilitado. Se você já tem um projeto criado, clique em</span> <span class="keyword" onclick="activateButton('openProjectBtn')">Abrir Projeto</span><br>
                 
-<span style="color: #f8fafc;">Clique em</span><span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span><span style="color: #f8fafc;">para criar um processador com todos os parâmetros pré-definidos por você. Programe seu processador usando a linguagem C± no arquivo .cmm dentro da pasta Software do seu projeto. Ao modificar um arquivo, clique em</span><span style="color: #f8fafc;">para salvá-lo.</span><br>
+<span style="color: #f8fafc;">Clique em</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span><span style="color: #f8fafc;">para criar um processador com todos os parâmetros pré-definidos por você. Programe seu processador usando a linguagem C± no arquivo .cmm dentro da pasta Software do seu projeto. Ao modificar um arquivo, clique em</span><span style="color: #f8fafc;">para salvá-lo</span><br>
                 
-                <span style="color: #f8fafc;">Em seguida, configure a compilação no botão</span>
-                <span class="keyword" onclick="activateButton('settings')">Processor Config</span>
-                <span style="color: #f8fafc;">, configurando o processador a ser compilado, o número de clocks e ciclos (frequência) para simulação, bem como as flags de compilação para cmmcomp, asmcomp e iverilog.</span><br>
+<span style="color: #f8fafc;">Em seguida, configure a compilação no botão</span> <span class="keyword" onclick="activateButton('settings')">Processor Config</span><span style="color: #f8fafc;">, configurando o processador a ser compilado, o número de clocks e ciclos (frequência) para simulação, bem como as flags de compilação para cmmcomp, asmcomp e iverilog</span><br>
                 
-                <span style="color: #f8fafc;">Após a configuração, você pode compilar passo a passo ou usar o botão</span>
-                <span class="keyword" onclick="activateButton('allcomp')">Compilar Tudo</span>
-                <span style="color: #f8fafc;">para compilar todo o projeto e visualizar a simulação no gtkwave. Monitore o log do processo nos terminais</span>
-                <span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, 
-                <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, 
-                <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, 
-                <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span>. 
-                <span style="color: #f8fafc;">Limpe cada terminal individualmente com o botão</span>
-                <span class="keyword" onclick="activateButton('clear-terminal')">Limpar Terminal</span>
-                <span style="color: #f8fafc;">.</span><br>
+<span style="color: #f8fafc;">Após a configuração, você pode compilar passo a passo ou usar o botão</span> <span class="keyword" onclick="activateButton('allcomp')">Full Build</span> <span style="color: #f8fafc;">para compilar todo o projeto e visualizar a simulação no gtkwave. Monitore o log do processo nos terminais</span><span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> 
+<span style="color: #f8fafc;">Limpe cada terminal individualmente com o botão</span> <span class="keyword" onclick="activateButton('clear-terminal')">Limpar Terminal</span>
+    
+<span style="color: #f8fafc;">A assistência de IA pode ser útil. Clique no botão</span> <span class="keyword" onclick="activateButton('aiButton')">Assistente de IA</span> <span style="color: #f8fafc;">para ativá-lo. Selecione um dos modelos: ChatGPT, Claude ou DeepSeek. Verifique a hierarquia do seu projeto em</span> <span class="keyword" onclick="activateButton('open-folder-button')">Abrir Pasta</span><br>
                 
-                <span style="color: #f8fafc;">A assistência de IA pode ser útil. Clique no botão</span>
-                <span class="keyword" onclick="activateButton('aiButton')">Assistente de IA</span>
-                <span style="color: #f8fafc;">para ativá-lo. Selecione um dos modelos: ChatGPT, Claude ou DeepSeek. Verifique a hierarquia do seu projeto em</span>
-                <span class="keyword" onclick="activateButton('open-folder-button')">Abrir Pasta</span>.<br>
-                
-                <span style="color: #f8fafc;">Deseja visualizar informações sobre o projeto atual? Clique em</span>
-                <span class="keyword" onclick="activateButton('projectInfo')">Informações do Projeto</span>. 
-                <span style="color: #f8fafc;">Há mais em</span>
-                <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>.
+<span style="color: #f8fafc;">Deseja visualizar informações sobre o projeto atual? Clique em</span> <span class="keyword" onclick="activateButton('projectInfo')">Informações do Projeto</span>
+<span style="color: #f8fafc;">Há mais em</span> <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>
             </div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">

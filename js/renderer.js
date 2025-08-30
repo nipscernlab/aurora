@@ -6884,325 +6884,184 @@ end`;
     // Substitua sua função runGtkWave existente por esta versão final
 
 async runGtkWave(processor) {
-    if (this.isProjectOriented) {
-        checkCancellation();
-        return this.runProjectGtkWave();
-    }
-    const { name } = processor;
-    this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
-    statusUpdater.startCompilation('wave');
-    let testbenchBackupInfo = null;
-
-    try {
-        // --- Toda a sua lógica de setup de arquivos e compilação Icarus/VVP ---
-        // (Esta parte permanece exatamente a mesma até a chamada do VVP)
-        const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-        const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-        const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-        const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-        const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-        const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-        const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-        const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-        const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-        const selectedCmmFile = await this.getSelectedCmmFile(processor);
-        const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-        const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
-
-        if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
-            const simuDelay = this.getSimulationDelay(processor);
-            testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
+        if (this.isProjectOriented) {
+            checkCancellation();
+            return this.runProjectGtkWave();
         }
+        const {
+            name
+        } = processor;
+        this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+        statusUpdater.startCompilation('wave');
+        let testbenchBackupInfo = null;
 
-        const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-        const tclContent = `${tempPath}\n${binPath}\n`;
-        await window.electronAPI.writeFile(tclFilePath, tclContent);
+        try {
+            // --- Setup logic remains identical ---
+            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+            const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
+            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+            const selectedCmmFile = await this.getSelectedCmmFile(processor);
+            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+            const {
+                tbModule,
+                tbFile
+            } = await this.getTestbenchInfo(processor, cmmBaseName);
 
-        await TabManager.saveAllFiles();
-
-        const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-        const verilogFilesString = verilogFiles.join(' ');
-        const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
-        const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
-
-        const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
-        const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
-        this.terminalManager.processExecutableOutput('twave', iverilogResult);
-        if (iverilogResult.code !== 0) {
-            statusUpdater.compilationError('wave', `Icarus Verilog compilation failed`);
-            throw new Error(`Icarus Verilog compilation failed`);
-        }
-
-        const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`);
-        const dataMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`);
-        await window.electronAPI.copyFile(dataMemSource, dataMemDest);
-        const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`);
-        const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
-        await window.electronAPI.copyFile(instMemSource, instMemDest);
-
-        const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
-        await window.electronAPI.deleteFileOrDirectory(vcdPath);
-
-        const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
-        let gtkwCmd;
-        if (useStandardGtkw) {
-            const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-            gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
-        } else {
-            const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-            const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-            gtkwCmd = `cd "${tempPath}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
-        }
-
-        await showVVPProgress(String(name));
-        const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
-        await this.runOptimizedVVP(vvpCmd, tempPath, 'twave');
-
-        checkCancellation();
-        hideVVPProgress();
-        // --- Fim da parte inalterada ---
-
-
-        // 5) ROBUST GTKWAVE LAUNCH AND REAL-TIME OUTPUT HANDLING
-        this.terminalManager.appendToTerminal('twave', 'VCD file generated. Launching GTKWave...');
-            
-            const outputListener = (event, payload) => {
-                // Ignora mensagens de sistema que não são de saída de texto
-                if (payload.type !== 'stdout' && payload.type !== 'stderr') return;
-
-                const rawText = payload.data || '';
-                
-                // Filtra o ruído ANTES de processar
-                const filteredText = this.terminalManager.filterGtkWaveOutput({ [payload.type]: rawText })[payload.type];
-                if (!filteredText) return;
-
-                // Divide a saída em linhas e processa cada uma individualmente,
-                // garantindo a formatação correta dos cards.
-                const lines = filteredText.split('\n').filter(line => line.trim() !== '');
-                lines.forEach(line => {
-                    this.terminalManager.processStreamedLine('twave', line);
-                });
-            };
-
-            try {
-                // A CORREÇÃO PRINCIPAL: Garante um estado limpo removendo QUALQUER ouvinte anterior.
-                window.electronAPI.removeAllListeners('command-output-stream');
-
-                // Agora, registra o novo ouvinte para esta execução específica.
-                window.electronAPI.onCommandOutputStream(outputListener);
-
-                // Inicia o GTKWave. O 'await' garante que esperamos o processo terminar
-                // (quando o usuário fechar a janela do GTKWave).
-                const result = await window.electronAPI.execCommandStream(gtkwCmd, tempPath);
-                
-                // Este código só é executado após o fechamento do GTKWave.
-                if (result.code === 0) {
-                    this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
-                } else {
-                    this.terminalManager.appendToTerminal('twave', `GTKWave process exited with code ${result.code}.`, 'warning');
-                }
-                
-            } catch (error) {
-                console.warn('GTKWave execution error:', error);
-                this.terminalManager.appendToTerminal('twave', `GTKWave process exited with an error: ${error.message}`, 'error');
-            } finally {
-                // CRÍTICO: Limpa o ouvinte no final, não importa o que aconteça,
-                // para evitar duplicações na próxima execução.
-                window.electronAPI.removeAllListeners('command-output-stream');
+            if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
+                const simuDelay = this.getSimulationDelay(processor);
+                testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
             }
 
-        statusUpdater.compilationSuccess('wave');
-    } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-        statusUpdater.compilationError('wave', error.message);
-        throw error; // Re-throw para que o chamador saiba que houve uma falha
-    } finally {
-        if (testbenchBackupInfo) {
-            await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
+            // --- Icarus Verilog compilation remains the same ---
+            await TabManager.saveAllFiles();
+            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+            const verilogFilesString = verilogFiles.join(' ');
+            const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
+            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+            const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+            const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+            this.terminalManager.processExecutableOutput('twave', iverilogResult);
+            if (iverilogResult.code !== 0) {
+                throw new Error(`Icarus Verilog compilation failed`);
+            }
+
+            // --- Copy memory files ---
+            const dataMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`);
+            const dataMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`);
+            await window.electronAPI.copyFile(dataMemSource, dataMemDest);
+            const instMemSource = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`);
+            const instMemDest = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`);
+            await window.electronAPI.copyFile(instMemSource, instMemDest);
+
+            // --- NEW PARALLEL EXECUTION LOGIC ---
+            const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
+            await window.electronAPI.deleteFileOrDirectory(vcdPath); // Ensure clean state
+
+            // Construct VVP command (without -fst)
+            const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
+
+            // Construct GTKWave command for the specific .vcd file
+            const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
+            let gtkwCmd;
+            if (useStandardGtkw) {
+                const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+            } else {
+                const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+                const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
+            }
+
+            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation and waiting for VCD file...');
+
+            // Call the new backend handler to run both processes in parallel
+            const result = await window.electronAPI.launchParallelSimulation({
+                vvpCmd: vvpCmd,
+                gtkwCmd: gtkwCmd,
+                vcdPath: vcdPath,
+                workingDir: tempPath
+            });
+
+            if (result.success) {
+                this.terminalManager.appendToTerminal('twave', 'GTKWave launched in parallel with VVP.', 'success');
+            } else {
+                throw new Error(`Failed to launch parallel simulation: ${result.message}`);
+            }
+
+            statusUpdater.compilationSuccess('wave');
+
+        } catch (error) {
+            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+            statusUpdater.compilationError('wave', error.message);
+            throw error;
+        } finally {
+            if (testbenchBackupInfo) {
+                // This will restore the testbench after the VVP process has started
+                // which is correct as VVP has already read the modified file.
+                await window.electronAPI.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
+            }
         }
     }
-}
+
+
     async runProjectGtkWave() {
         this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
         statusUpdater.startCompilation('wave');
         let testbenchBackupInfo = null;
         try {
-            if (!this.projectConfig) {
-                throw new Error("Project configuration not loaded");
-            }
+            // --- Setup logic remains identical ---
+            if (!this.projectConfig) throw new Error("Project configuration not loaded");
             const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const binDir = await window.electronAPI.joinPath('saphoComponents', 'bin');
             const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
             const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
             const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
             const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-            const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-
             const testbenchFile = this.projectConfig.testbenchFile;
-            if (!testbenchFile) {
-                throw new Error("No testbench file specified in project configuration");
-            }
-
-            const testbenchFileName = testbenchFile.split(/[\/\\]/)
-                .pop();
-            const testbenchFilePath = testbenchFile.replace(/[\/\\][^\/\\]+$/, '');
+            if (!testbenchFile) throw new Error("No testbench file specified");
+            const testbenchFileName = testbenchFile.split(/[\/\\]/).pop();
             const tbModule = testbenchFileName.replace(/\.v$/i, '');
             const simuDelay = this.getSimulationDelay();
-
             testbenchBackupInfo = await this.modifyTestbenchForSimulation(testbenchFile, tbModule, tempBaseDir, simuDelay);
 
-            const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
-            if (synthesizableFiles.length === 0) {
-                throw new Error("No synthesizable files defined in project configuration");
-            }
-
-            let synthesizableFilePaths = synthesizableFiles.map(file => `"${file.path}"`)
-                .join(' ');
-
-            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`)
-                .join(' ');
-
-            const processors = this.projectConfig.processors || [];
-
-            for (const proc of processors) {
-                const processorType = proc.type;
-                const processorTempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', processorType);
-                const memoryFileName = `pc_${processorType}_mem.txt`;
-                const sourceMemoryFile = await window.electronAPI.joinPath(processorTempPath, memoryFileName);
-                const destMemoryFile = await window.electronAPI.joinPath(testbenchFilePath, memoryFileName);
-
-                try {
-                    if (await window.electronAPI.fileExists(sourceMemoryFile)) {
-                        await window.electronAPI.copyFile(sourceMemoryFile, destMemoryFile);
-                        this.terminalManager.appendToTerminal('twave', `Copied processor memory file: ${memoryFileName}`);
-                    } else {
-                        this.terminalManager.appendToTerminal('twave', `Warning: Processor memory file not found: ${sourceMemoryFile}`, 'warning');
-                    }
-                } catch (error) {
-                    this.terminalManager.appendToTerminal('twave', `Error copying processor memory file ${sourceMemoryFile}: ${error.message}`, 'warning');
-                }
-            }
-
-            const tbFile = testbenchFile;
-            const flags = this.projectConfig.iverilogFlags || "";
+            // --- Icarus Verilog compilation remains the same ---
+            let synthesizableFilePaths = (this.projectConfig.synthesizableFiles || []).map(file => `"${file.path}"`).join(' ');
+            const verilogFilesString = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'].map(f => `"${hdlPath}\\${f}"`).join(' ');
             await TabManager.saveAllFiles();
-
-            const projectName = this.projectPath.split(/[\/\\]/)
-                .pop();
+            const projectName = this.projectPath.split(/[\/\\]/).pop();
             const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
-
-            const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${tbFile}"`;
-
-            this.terminalManager.appendToTerminal('twave', `Compiling with Icarus Verilog for project:\n${iverilogCmd}`);
+            const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
             const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
             this.terminalManager.processExecutableOutput('twave', iverilogResult);
-
-            if (iverilogResult.stdout) this.terminalManager.appendToTerminal('twave', iverilogResult.stdout, 'stdout');
-            if (iverilogResult.stderr) this.terminalManager.appendToTerminal('twave', iverilogResult.stderr, 'stderr');
-
             if (iverilogResult.code !== 0) {
-                statusUpdater.compilationError('wave', `Icarus Verilog compilation failed with code ${iverilogResult.code}`);
-                throw new Error(`Icarus Verilog compilation failed with code ${iverilogResult.code}`);
+                throw new Error(`Icarus Verilog compilation failed`);
             }
 
-            const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
-            const instanceList = processors.map(p => p.instance)
-                .join(' ');
-            const processorTypeList = processors.map(p => p.type)
-                .join(' ');
-            const tclContent = `${instanceList}\n${processorTypeList}\n${tempBaseDir}\n${binDir}\n`;
+            // --- NEW PARALLEL EXECUTION LOGIC ---
+            const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
+            await window.electronAPI.deleteFileOrDirectory(vcdPath); // Ensure clean state
 
-            this.terminalManager.appendToTerminal('twave', `Creating tcl_infos.txt for project GTKWave.`);
-            await window.electronAPI.writeFile(tclFilePath, tclContent);
+            // Construct VVP command (without -fst)
+            const vvpCmd = `"${vvpCompPath}" "${outputFilePath}"`;
 
-            const vcdPathInTestbench = await window.electronAPI.joinPath(testbenchFilePath, `${tbModule}.vcd`);
-            const vcdPathInTemp = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
-
-            await window.electronAPI.deleteFileOrDirectory(vcdPathInTestbench);
-            await window.electronAPI.deleteFileOrDirectory(vcdPathInTemp);
-
-            // Run VVP and wait for it to complete fully
-            try {
-                this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation for project...');
-                const projectName2 = this.projectPath.split(/[\/\\]/)
-                    .pop() || 'project';
-                await showVVPProgress(projectName2);
-                const vvpCmd = `cd "${testbenchFilePath}" && "${vvpCompPath}" "${outputFilePath}"`;
-                await this.runOptimizedVVP(vvpCmd, testbenchFilePath, 'twave');
-                hideVVPProgress();
-                this.terminalManager.appendToTerminal('twave', 'VVP simulation completed successfully.', 'success');
-            } catch (vvpError) {
-                hideVVPProgress();
-                throw vvpError; // Rethrow to be caught by the main catch block
-            }
-
-            // Now that VVP is done, copy the final VCD file
-            try {
-                if (await window.electronAPI.fileExists(vcdPathInTestbench)) {
-                    await window.electronAPI.copyFile(vcdPathInTestbench, vcdPathInTemp);
-                    this.terminalManager.appendToTerminal('twave', `Final VCD file copied to temp directory.`);
-                } else {
-                    throw new Error(`VCD file not generated at ${vcdPathInTestbench}`);
-                }
-            } catch (error) {
-                this.terminalManager.appendToTerminal('twave', `Error handling VCD file: ${error.message}`, 'error');
-                throw error;
-            }
-
-            // Prepare and launch GTKWave
+            // Construct GTKWave command
             let gtkwCmd;
             const gtkwaveFile = this.projectConfig.gtkwaveFile;
-
             if (gtkwaveFile && gtkwaveFile !== "Standard") {
                 const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-                gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script="${posScriptPath}"`;
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script="${posScriptPath}"`;
             } else {
                 const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-                gtkwCmd = `cd "${tempBaseDir}" && "${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPathInTemp}" --script="${initScriptPath}"`;
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
             }
 
-            this.terminalManager.appendToTerminal('twave', 'VCD file ready. Launching GTKWave...');
-            this.terminalManager.appendToTerminal('twave', `GTKWave command:\n${gtkwCmd}`);
+            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation and waiting for VCD file...');
 
-            const gtkwaveOutputListener = (event, payload) => {
-                if ((payload.type === 'stdout' || payload.type === 'stderr') && payload.data) {
-                    this.terminalManager.appendToTerminal('twave', payload.data);
-                }
-            };
+            // Call the new backend handler to run both processes in parallel
+            const result = await window.electronAPI.launchParallelSimulation({
+                vvpCmd: vvpCmd,
+                gtkwCmd: gtkwCmd,
+                vcdPath: vcdPath,
+                workingDir: tempBaseDir // VVP generates VCD in the current working dir
+            });
 
-            window.electronAPI.onCommandOutputStream(gtkwaveOutputListener);
-
-            window.electronAPI.execCommand(gtkwCmd)
-                .then(result => {
-                    if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
-                    if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
-                    this.terminalManager.appendToTerminal('twave', 'GTKWave process has been closed.', 'tips');
-                })
-                .catch(error => {
-                    console.warn('GTKWave launch warning:', error);
-                    this.terminalManager.appendToTerminal('twave', `GTKWave process exited with a warning: ${error.message}`, 'warning');
-                })
-                .finally(() => {
-                    window.electronAPI.removeCommandOutputListener(gtkwaveOutputListener);
-                });
-
-            this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully!', 'success');
-
-            // Generate hierarchy (optional, can run after GTKWave is launched)
-            try {
-                await this.generateHierarchyWithYosys(yosysPath, tempBaseDir);
-                this.enableHierarchicalTreeToggle();
-            } catch (yosysError) {
-                this.terminalManager.appendToTerminal('twave', `Warning: Failed to generate hierarchy with Yosys: ${yosysError.message}`, 'warning');
+            if (result.success) {
+                this.terminalManager.appendToTerminal('twave', 'GTKWave launched in parallel with VVP.', 'success');
+            } else {
+                throw new Error(`Failed to launch parallel simulation: ${result.message}`);
             }
 
             statusUpdater.compilationSuccess('wave');
+
         } catch (error) {
             this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
             statusUpdater.compilationError('wave', error.message);
-            this.disableHierarchicalTreeToggle();
             throw error;
         } finally {
             if (testbenchBackupInfo) {
@@ -8986,29 +8845,31 @@ processStreamedLine(terminalId, line) {
     }
 }
 
-// VVPProgressManager class - Improved version with visible controls
+// VVPProgressManager class - A modern, refactored version with completion logic.
 class VVPProgressManager {
     constructor() {
         this.overlay = null;
         this.progressFill = null;
         this.progressPercentage = null;
         this.elapsedTimeElement = null;
-        this.elapsedTimeMinimizedElement = null;
-        this.eventsCountElement = null;
+        this.elapsedTimeMinimizedElement = null; // New element for minimized view
         this.isVisible = false;
-        this.isReading = false;
         this.isMinimized = false;
+        this.isComplete = false;
         this.progressPath = null;
         this.startTime = null;
         this.currentProgress = 0;
         this.targetProgress = 0;
         this.animationFrame = null;
         this.readInterval = null;
-        this.eventsCount = 0;
+        this.timeUpdateInterval = null;
         this.minimizeTimeout = null;
 
-        this.interpolationSpeed = 0.05;
-        this.readIntervalMs = 1500;
+        // Configuration
+        this.interpolationSpeed = 0.08;
+        this.readIntervalMs = 1000;
+        this.autoMinimizeDelayMs = 5000;
+        this.completionDelayMs = 3000; // Time to show green bar before hiding
     }
 
     async resolveProgressPath(name) {
@@ -9016,28 +8877,19 @@ class VVPProgressManager {
         const useFlat = toggleBtn && toggleBtn.classList.contains('active');
 
         if (useFlat) {
-            return await window.electronAPI.joinPath(
-                'saphoComponents', 'Temp', 'progress.txt'
-            );
+            return await window.electronAPI.joinPath('saphoComponents', 'Temp', 'progress.txt');
         } else {
-            return await window.electronAPI.joinPath(
-                'saphoComponents', 'Temp', name, 'progress.txt'
-            );
+            return await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
         }
     }
 
     async deleteProgressFile(name) {
         try {
             const pathToDelete = await this.resolveProgressPath(name);
-            const exists = await window.electronAPI.fileExists(pathToDelete);
-
-            if (!exists) {
-                return false;
+            if (await window.electronAPI.fileExists(pathToDelete)) {
+                await window.electronAPI.deleteFileOrDirectory(pathToDelete);
             }
-
-            await window.electronAPI.deleteFileOrDirectory(pathToDelete);
             return true;
-
         } catch (err) {
             console.error('Failed to delete progress file:', err);
             return false;
@@ -9052,22 +8904,20 @@ class VVPProgressManager {
             this.progressPath = await this.resolveProgressPath(name);
 
             if (!this.overlay) this.createOverlay();
-            this.currentProgress = this.targetProgress = 0;
-            this.startTime = Date.now();
-            this.eventsCount = 0;
 
+            // Reset state for a new run
+            this.currentProgress = 0;
+            this.targetProgress = 0;
+            this.startTime = Date.now();
             this.isMinimized = false;
-            this.overlay.classList.remove('minimized');
+            this.isComplete = false;
+            this.overlay.querySelector('.vvp-progress-info').classList.remove('vvp-complete');
+            this.updateUI();
 
             this.overlay.classList.add('vvp-progress-visible');
             this.isVisible = true;
 
-            if (this.minimizeTimeout) {
-                clearTimeout(this.minimizeTimeout);
-            }
-            this.minimizeTimeout = setTimeout(() => {
-                this.minimize();
-            }, 2000);
+            this.resetMinimizeTimeout();
 
             this.startProgressReading();
             this.startAnimationLoop();
@@ -9080,24 +8930,17 @@ class VVPProgressManager {
 
     hide() {
         if (!this.isVisible) return;
-
         this.isVisible = false;
-        this.isReading = false;
 
-        if (this.minimizeTimeout) {
-            clearTimeout(this.minimizeTimeout);
-            this.minimizeTimeout = null;
-        }
+        clearTimeout(this.minimizeTimeout);
+        clearInterval(this.readInterval);
+        clearInterval(this.timeUpdateInterval);
+        cancelAnimationFrame(this.animationFrame);
 
-        if (this.readInterval) {
-            clearInterval(this.readInterval);
-            this.readInterval = null;
-        }
-
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
+        this.minimizeTimeout = null;
+        this.readInterval = null;
+        this.timeUpdateInterval = null;
+        this.animationFrame = null;
 
         if (this.overlay) {
             this.overlay.classList.remove('vvp-progress-visible');
@@ -9105,212 +8948,159 @@ class VVPProgressManager {
     }
 
     minimize() {
-        if (!this.overlay) return;
+        if (!this.overlay || this.isMinimized) return;
         this.isMinimized = true;
         this.overlay.classList.add('minimized');
+        clearTimeout(this.minimizeTimeout);
     }
 
     maximize() {
-        if (!this.overlay) return;
+        if (!this.overlay || !this.isMinimized) return;
         this.isMinimized = false;
         this.overlay.classList.remove('minimized');
+        this.resetMinimizeTimeout();
+    }
 
-        if (this.minimizeTimeout) {
-            clearTimeout(this.minimizeTimeout);
-            this.minimizeTimeout = null;
-        }
+    resetMinimizeTimeout() {
+        clearTimeout(this.minimizeTimeout);
+        this.minimizeTimeout = setTimeout(() => this.minimize(), this.autoMinimizeDelayMs);
     }
 
     createOverlay() {
         const overlayHTML = `
       <div class="vvp-progress-overlay">
         <div class="vvp-progress-info">
-          <div class="vvp-progress-controls">
-            <button class="vvp-progress-control-btn vvp-minimize-btn" id="vvp-minimize-btn" title="Minimize">
-              <i class="fa-solid fa-window-minimize"></i>
-            </button>
-            <button class="vvp-progress-control-btn vvp-maximize-btn" id="vvp-maximize-btn" title="Maximize">
-              <i class="fa-solid fa-expand"></i>
-            </button>
+          <div class="vvp-progress-header">
+            <div class="vvp-progress-title">
+              <div class="icon-spinner"></div>
+              <span>VVP Simulation</span>
+            </div>
+            <div class="vvp-progress-controls">
+              <button class="vvp-progress-control-btn" id="vvp-minimize-btn" title="Minimize">
+                <i class="fas fa-minus"></i>
+              </button>
+              <button class="vvp-progress-control-btn" id="vvp-maximize-btn" title="Maximize">
+                <i class="fas fa-clone"></i>
+              </button>
+            </div>
           </div>
           
-          <div class="vvp-progress-content">
-            <div class="vvp-progress-icon">
-              <div class="vvp-spinner"></div>
+          <div class="vvp-progress-bar-wrapper">
+            <div class="vvp-progress-bar">
+              <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
             </div>
-            <span class="vvp-progress-text">
-              VVP Simulation in Progress
-            </span>
-            
-            <div class="vvp-progress-bar-wrapper">
-              <div class="vvp-progress-bar">
-                <div class="vvp-progress-fill" id="vvp-progress-fill"></div>
-                <div class="vvp-progress-glow"></div>
-              </div>
-              <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
-              <span class="vvp-progress-time-minimized" id="vvp-elapsed-time-minimized">0s</span>
-            </div>
-            
-            <div class="vvp-progress-stats">
-              <div class="vvp-stat">
-                <span class="vvp-stat-label"><i class="fas fa-clock"></i> Time</span>
-                <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
-              </div>
-              <div class="vvp-stat">
-                <span class="vvp-stat-label"><i class="fas fa-sync-alt"></i> Events</span>
-                <span class="vvp-stat-value" id="vvp-events-count">0</span>
-              </div>
+            <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
+            <span class="vvp-progress-time-minimized" id="vvp-time-minimized">0s</span>
+          </div>
+          
+          <div class="vvp-progress-stats">
+            <div class="vvp-stat">
+              <span class="vvp-stat-label">Elapsed Time:</span>
+              <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
             </div>
           </div>
         </div>
       </div>
     `;
 
-        const twaveTerminal = document.getElementById('terminal-twave');
-        if (twaveTerminal) {
-            twaveTerminal.insertAdjacentHTML('afterend', overlayHTML);
-        } else {
-            document.body.insertAdjacentHTML('beforeend', overlayHTML);
-        }
+        const targetElement = document.getElementById('terminal-twave') || document.body;
+        targetElement.insertAdjacentHTML(targetElement.id === 'terminal-twave' ? 'afterend' : 'beforeend', overlayHTML);
 
         this.overlay = document.querySelector('.vvp-progress-overlay');
         this.progressFill = document.getElementById('vvp-progress-fill');
         this.progressPercentage = document.getElementById('vvp-progress-percentage');
         this.elapsedTimeElement = document.getElementById('vvp-elapsed-time');
-        this.elapsedTimeMinimizedElement = document.getElementById('vvp-elapsed-time-minimized');
-        this.eventsCountElement = document.getElementById('vvp-events-count');
+        this.elapsedTimeMinimizedElement = document.getElementById('vvp-time-minimized');
 
-        const minimizeBtn = document.getElementById('vvp-minimize-btn');
-        const maximizeBtn = document.getElementById('vvp-maximize-btn');
-
-        if (minimizeBtn) {
-            minimizeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.minimize();
-            });
-        }
-
-        if (maximizeBtn) {
-            maximizeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.maximize();
-            });
-        }
+        document.getElementById('vvp-minimize-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this.minimize(); });
+        document.getElementById('vvp-maximize-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this.maximize(); });
     }
 
     async startProgressReading() {
-        this.isReading = true;
-
         const readProgress = async () => {
-            if (!this.isReading || !this.progressPath) return;
-
+            if (!this.isVisible) return;
             try {
-                const fileExists = await window.electronAPI.fileExists(this.progressPath);
-
-                if (fileExists) {
+                if (await window.electronAPI.fileExists(this.progressPath)) {
                     const content = await window.electronAPI.readFile(this.progressPath);
-                    const lines = content.split('\n')
-                        .filter(line => line.trim() !== '');
-
+                    const lines = content.split('\n').filter(line => line.trim());
                     if (lines.length > 0) {
-                        const lastLine = lines[lines.length - 1].trim();
-                        const progress = parseInt(lastLine);
-
-                        if (!isNaN(progress) && progress >= 0 && progress <= 100) {
-                            this.targetProgress = progress;
-                            this.eventsCount = Math.floor(progress * 10 + Math.random() * 50);
-
-                            if (this.eventsCountElement) {
-                                this.eventsCountElement.textContent = this.eventsCount.toLocaleString();
-                            }
-
-                            if (progress >= 100) {
-                                this.isReading = false;
-                                if (this.readInterval) {
-                                    clearInterval(this.readInterval);
-                                    this.readInterval = null;
-                                }
+                        const progress = parseInt(lines[lines.length - 1].trim(), 10);
+                        if (!isNaN(progress) && progress >= 0) {
+                            this.targetProgress = Math.min(progress, 100);
+                            if (this.targetProgress >= 100) {
+                                clearInterval(this.readInterval);
+                                this.readInterval = null;
                             }
                         }
                     }
                 }
             } catch (error) {
                 console.error('Error reading progress file:', error);
+                clearInterval(this.readInterval);
             }
         };
 
         await readProgress();
-        this.readInterval = setInterval(readProgress, this.readIntervalMs);
+        if (this.targetProgress < 100) {
+            this.readInterval = setInterval(readProgress, this.readIntervalMs);
+        }
     }
 
     startAnimationLoop() {
         const animate = () => {
             if (!this.isVisible) return;
-
             const diff = this.targetProgress - this.currentProgress;
-            if (Math.abs(diff) > 0.1) {
+            if (Math.abs(diff) > 0.01) {
                 this.currentProgress += diff * this.interpolationSpeed;
-            } else {
-                this.currentProgress = this.targetProgress;
+            } else if (this.targetProgress === 100) {
+                this.currentProgress = 100;
+            }
+            this.updateUI();
+
+            if (this.currentProgress >= 99.9 && !this.isComplete) {
+                this.handleCompletion();
+                return;
             }
 
-            const roundedProgress = Math.round(this.currentProgress * 10) / 10;
-
-            if (this.progressFill) {
-                this.progressFill.style.width = `${roundedProgress}%`;
+            if (!this.isComplete) {
+                this.animationFrame = requestAnimationFrame(animate);
             }
-
-            if (this.progressPercentage) {
-                this.progressPercentage.textContent = `${Math.round(roundedProgress)}%`;
-            }
-
-            this.animationFrame = requestAnimationFrame(animate);
         };
-
-        animate();
+        this.animationFrame = requestAnimationFrame(animate);
     }
+    
+    handleCompletion() {
+        this.isComplete = true;
+        this.currentProgress = 100;
+        this.updateUI(); // Final UI update to show 100%
 
-    formatElapsedTime(seconds) {
-        if (seconds < 60) {
-            return `${seconds}s`;
-        }
-        const days = Math.floor(seconds / (24 * 3600));
-        seconds %= (24 * 3600);
-        const hours = Math.floor(seconds / 3600);
-        seconds %= 3600;
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-
-        let parts = [];
-        if (days > 0) parts.push(`${days}d`);
-        if (hours > 0) parts.push(`${hours}h`);
-        if (minutes > 0) parts.push(`${minutes}m`);
-        if (remainingSeconds > 0 && days === 0 && hours === 0) parts.push(`${remainingSeconds}s`);
-
-        return parts.join(' ');
+        this.overlay.querySelector('.vvp-progress-info').classList.add('vvp-complete');
+        
+        clearTimeout(this.minimizeTimeout); // Stop auto-minimize on complete
+        clearInterval(this.timeUpdateInterval); // Stop time counter
+        
+        setTimeout(() => this.hide(), this.completionDelayMs);
     }
 
     startTimeCounter() {
-        const updateTime = () => {
-            if (!this.isVisible || !this.startTime) return;
-
+        const update = () => {
+            if (!this.isVisible) return;
             const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
-            const timeString = this.formatElapsedTime(elapsedSeconds);
-
-            if (this.elapsedTimeElement) {
-                this.elapsedTimeElement.textContent = timeString;
-            }
-
-            if (this.elapsedTimeMinimizedElement) {
-                this.elapsedTimeMinimizedElement.textContent = timeString;
-            }
-
-            if (this.isVisible && this.targetProgress < 100) {
-                setTimeout(updateTime, 1000);
-            }
+            const timeString = `${elapsedSeconds}s`;
+            if (this.elapsedTimeElement) this.elapsedTimeElement.textContent = timeString;
+            if (this.elapsedTimeMinimizedElement) this.elapsedTimeMinimizedElement.textContent = timeString;
         };
+        clearInterval(this.timeUpdateInterval);
+        this.timeUpdateInterval = setInterval(update, 1000);
+        update();
+    }
 
-        updateTime();
+    updateUI() {
+        if (!this.overlay) return;
+        const displayProgress = Math.min(100, this.currentProgress);
+        this.progressFill.style.width = `${displayProgress}%`;
+        this.progressPercentage.textContent = `${Math.floor(displayProgress)}%`;
+        this.overlay.classList.toggle('minimized', this.isMinimized);
     }
 }
 

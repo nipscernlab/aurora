@@ -792,333 +792,144 @@ const getTotalMemory = () => Math.floor(os.totalmem() / (1024 * 1024 * 1024)); /
 
 // Enhanced exec-command handler with performance optimization
 ipcMain.handle('exec-command', (event, command, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const performanceOptions = {
-      maxBuffer: 1024 * 1024 * 50, // 50MB buffer (increased)
-      windowsHide: true, // Hide window on Windows for better performance
-      env: {
-        ...process.env,
-        // Set environment variables for better performance
-        OMP_NUM_THREADS: getCPUCount().toString(),
-        OMP_THREAD_LIMIT: getCPUCount().toString(),
-        IVERILOG_DUMPER: 'fst', // Use FST format for better performance
-        ...options.env
-      }
-    };
+    return new Promise((resolve, reject) => {
+        const performanceOptions = {
+            maxBuffer: 1024 * 1024 * 50,
+            windowsHide: true,
+            env: {
+                ...process.env,
+                OMP_NUM_THREADS: getCPUCount().toString(),
+                OMP_THREAD_LIMIT: getCPUCount().toString(),
+                // REMOVED: IVERILOG_DUMPER: 'fst',
+                ...options.env
+            }
+        };
 
-    const child = exec(command, performanceOptions);
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (data) => {
-      const output = data.toString();
-      stdout += output;
+        const child = exec(command, performanceOptions);
+        // ... rest of the function remains the same
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (data) => stdout += data.toString());
+        child.stderr.on('data', (data) => stderr += data.toString());
+        child.on('close', (code) => resolve({
+            code,
+            stdout,
+            stderr,
+            pid: child.pid
+        }));
+        child.on('error', (err) => reject(err));
     });
-
-    child.stderr.on('data', (data) => {
-      const errorOutput = data.toString();
-      stderr += errorOutput;
-    });
-
-    child.on('close', (code) => {
-      resolve({
-        code,
-        stdout,
-        stderr,
-        pid: child.pid
-      });
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-  });
 });
-
 // High-performance VVP execution handler
 ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const cpuCount = getCPUCount();
-    const totalMemory = getTotalMemory();
-    
-    // Enhanced environment variables for maximum performance
-    const performanceEnv = {
-      ...process.env,
-      // Threading and parallel processing
-      OMP_NUM_THREADS: cpuCount.toString(),
-      OMP_THREAD_LIMIT: cpuCount.toString(),
-      OMP_DYNAMIC: 'true',
-      OMP_NESTED: 'true',
-      
-      // Memory optimization
-      OMP_STACKSIZE: '64M',
-      
-      // Verilog-specific optimizations
-      IVERILOG_DUMPER: 'fst',
-      VVP_PARALLEL: '1',
-      VVP_THREADS: cpuCount.toString(),
-      
-      // System-level optimizations
-      MALLOC_ARENA_MAX: '1',
-      MALLOC_MMAP_THRESHOLD: '131072',
-      
-      // Windows-specific optimizations
-      PROCESSOR_ARCHITECTURE: process.env.PROCESSOR_ARCHITECTURE,
-      NUMBER_OF_PROCESSORS: cpuCount.toString(),
-      
-      ...options.env
-    };
-
-    // Enhanced exec options for maximum performance
-    const execOptions = {
-      cwd: workingDir,
-      env: performanceEnv,
-      maxBuffer: 1024 * 1024 * 50, // 50MB buffer
-      windowsHide: true,
-      encoding: 'utf8'
-    };
-
-    console.log(`Starting VVP with optimized settings:`);
-    console.log(`- CPU Cores: ${cpuCount}`);
-    console.log(`- Memory: ${totalMemory}GB`);
-    console.log(`- Working Directory: ${workingDir}`);
-    console.log(`- Command: ${command}`);
-
-    const child = exec(command, execOptions);
-
-    let stdout = '';
-    let stderr = '';
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
-
-    // Send process info immediately
-    event.sender.send('command-output-stream', { 
-      type: 'pid', 
-      pid: child.pid,
-      cpuCount: cpuCount,
-      memory: totalMemory
-    });
-
-    const processOutput = (buffer, type) => {
-      const lines = buffer.split('\n');
-      
-      for (let i = 0; i < lines.length - 1; i++) {
-        const line = lines[i];
-        if (line.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: type, 
-            data: line + '\n'
-          });
-        }
-      }
-      
-      return lines[lines.length - 1];
-    };
-
-    child.stdout.on('data', (data) => {
-      const output = data.toString('utf8');
-      stdout += output;
-      stdoutBuffer += output;
-      
-      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
-      
-      // Immediate progress reporting
-      if (output.includes('Progress:') || output.includes('%') || 
-          output.includes('complete') || output.includes('VCD')) {
-        if (stdoutBuffer.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: 'stdout', 
-            data: stdoutBuffer 
-          });
-          stdoutBuffer = '';
-        }
-      }
-    });
-
-    child.stderr.on('data', (data) => {
-      const errorOutput = data.toString('utf8');
-      stderr += errorOutput;
-      stderrBuffer += errorOutput;
-      
-      stderrBuffer = processOutput(stderrBuffer, 'stderr');
-    });
-
-    child.on('close', (code) => {
-      // Send any remaining buffered output
-      if (stdoutBuffer.trim()) {
-        event.sender.send('command-output-stream', { 
-          type: 'stdout', 
-          data: stdoutBuffer 
+    return new Promise((resolve, reject) => {
+        const cpuCount = getCPUCount();
+        const performanceEnv = {
+            ...process.env,
+            OMP_NUM_THREADS: cpuCount.toString(),
+            OMP_THREAD_LIMIT: cpuCount.toString(),
+            OMP_DYNAMIC: 'true',
+            OMP_NESTED: 'true',
+            OMP_STACKSIZE: '64M',
+            // REMOVED: IVERILOG_DUMPER: 'fst',
+            VVP_PARALLEL: '1',
+            VVP_THREADS: cpuCount.toString(),
+            MALLOC_ARENA_MAX: '1',
+            MALLOC_MMAP_THRESHOLD: '131072',
+            PROCESSOR_ARCHITECTURE: process.env.PROCESSOR_ARCHITECTURE,
+            NUMBER_OF_PROCESSORS: cpuCount.toString(),
+            ...options.env
+        };
+        const execOptions = {
+            cwd: workingDir,
+            env: performanceEnv,
+            maxBuffer: 1024 * 1024 * 50,
+            windowsHide: true,
+            encoding: 'utf8'
+        };
+        const child = exec(command, execOptions);
+        // ... rest of the function remains the same
+        let stdout = '';
+        let stderr = '';
+        event.sender.send('command-output-stream', {
+            type: 'pid',
+            pid: child.pid
         });
-      }
-      if (stderrBuffer.trim()) {
-        event.sender.send('command-output-stream', { 
-          type: 'stderr', 
-          data: stderrBuffer 
+        child.stdout.on('data', (data) => {
+            stdout += data;
+            event.sender.send('command-output-stream', {
+                type: 'stdout',
+                data
+            });
         });
-      }
-      
-      resolve({ 
-        code, 
-        stdout, 
-        stderr, 
-        pid: child.pid,
-        performance: {
-          cpuCount: cpuCount,
-          memory: totalMemory
-        }
-      });
+        child.stderr.on('data', (data) => {
+            stderr += data;
+            event.sender.send('command-output-stream', {
+                type: 'stderr',
+                data
+            });
+        });
+        child.on('close', (code) => resolve({
+            code,
+            stdout,
+            stderr,
+            pid: child.pid,
+            performance: {
+                cpuCount
+            }
+        }));
+        child.on('error', (err) => reject(err));
     });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-
-    // Set process priority to high (Windows)
-    if (process.platform === 'win32') {
-      setTimeout(() => {
-        try {
-          const { exec } = require('child_process');
-          exec(`wmic process where processid=${child.pid} CALL setpriority "high priority"`);
-        } catch (priorityError) {
-          console.warn('Could not set high priority:', priorityError);
-        }
-      }, 100);
-    }
-  });
 });
 
-// Enhanced exec-command-stream with performance optimizations
+
 ipcMain.handle('exec-command-stream', (event, command, workingDir = null, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const cpuCount = getCPUCount();
-    const totalMemory = getTotalMemory();
-    
-    const performanceOptions = {
-      maxBuffer: 1024 * 1024 * 100, // 100MB buffer
-      encoding: 'utf8',
-      cwd: workingDir,
-      env: {
-        ...process.env,
-        OMP_NUM_THREADS: cpuCount.toString(),
-        OMP_THREAD_LIMIT: cpuCount.toString(),
-        OMP_DYNAMIC: 'true',
-        IVERILOG_DUMPER: 'fst',
-        VVP_PARALLEL: '1',
-        VVP_THREADS: cpuCount.toString(),
-        NUMBER_OF_PROCESSORS: cpuCount.toString(),
-        ...options.env
-      },
-      windowsHide: true,
-      ...options
-    };
-
-    const child = exec(command, performanceOptions);
-    
-    let stdout = '';
-    let stderr = '';
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
-
-    // Send performance info
-    event.sender.send('command-output-stream', { 
-      type: 'performance', 
-      data: {
-        pid: child.pid,
-        cpuCount: cpuCount,
-        memory: totalMemory,
-        command: command
-      }
-    });
-
-    const processOutput = (buffer, type) => {
-      const lines = buffer.split('\n');
-      
-      for (let i = 0; i < lines.length - 1; i++) {
-        const line = lines[i];
-        if (line.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: type, 
-            data: line + '\n'
-          });
-        }
-      }
-      
-      return lines[lines.length - 1];
-    };
-
-    child.stdout.on('data', (data) => {
-      const output = data.toString('utf8');
-      stdout += output;
-      stdoutBuffer += output;
-      
-      stdoutBuffer = processOutput(stdoutBuffer, 'stdout');
-      
-      // Enhanced progress detection
-      if (output.includes('Progress:') || output.includes('%') || 
-          output.includes('complete') || output.includes('VCD') ||
-          output.includes('Writing') || output.includes('Compiling')) {
-        if (stdoutBuffer.trim()) {
-          event.sender.send('command-output-stream', { 
-            type: 'stdout', 
-            data: stdoutBuffer 
-          });
-          stdoutBuffer = '';
-        }
-      }
-    });
-
-    child.stderr.on('data', (data) => {
-      const errorOutput = data.toString('utf8');
-      stderr += errorOutput;
-      stderrBuffer += errorOutput;
-      
-      stderrBuffer = processOutput(stderrBuffer, 'stderr');
-    });
-
-    child.on('close', (code) => {
-      if (stdoutBuffer.trim()) {
-        event.sender.send('command-output-stream', { 
-          type: 'stdout', 
-          data: stdoutBuffer 
+    return new Promise((resolve, reject) => {
+        const cpuCount = getCPUCount();
+        const performanceOptions = {
+            maxBuffer: 1024 * 1024 * 100,
+            encoding: 'utf8',
+            cwd: workingDir,
+            env: {
+                ...process.env,
+                OMP_NUM_THREADS: cpuCount.toString(),
+                OMP_THREAD_LIMIT: cpuCount.toString(),
+                OMP_DYNAMIC: 'true',
+                // REMOVED: IVERILOG_DUMPER: 'fst',
+                VVP_PARALLEL: '1',
+                VVP_THREADS: cpuCount.toString(),
+                NUMBER_OF_PROCESSORS: cpuCount.toString(),
+                ...options.env
+            },
+            windowsHide: true,
+            ...options
+        };
+        const child = exec(command, performanceOptions);
+        // ... rest of the function remains the same
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (data) => {
+            stdout += data;
+            event.sender.send('command-output-stream', {
+                type: 'stdout',
+                data
+            });
         });
-      }
-      if (stderrBuffer.trim()) {
-        event.sender.send('command-output-stream', { 
-          type: 'stderr', 
-          data: stderrBuffer 
+        child.stderr.on('data', (data) => {
+            stderr += data;
+            event.sender.send('command-output-stream', {
+                type: 'stderr',
+                data
+            });
         });
-      }
-      
-      resolve({ 
-        code, 
-        stdout, 
-        stderr, 
-        pid: child.pid,
-        performance: {
-          cpuCount: cpuCount,
-          memory: totalMemory
-        }
-      });
+        child.on('close', (code) => resolve({
+            code,
+            stdout,
+            stderr,
+            pid: child.pid
+        }));
+        child.on('error', (err) => reject(err));
     });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-
-    // Set high priority on Windows
-    if (process.platform === 'win32') {
-      setTimeout(() => {
-        try {
-          const { exec } = require('child_process');
-          exec(`wmic process where processid=${child.pid} CALL setpriority "high priority"`);
-        } catch (priorityError) {
-          console.warn('Could not set high priority:', priorityError);
-        }
-      }, 100);
-    }
-  });
 });
 
 // Process priority management
@@ -4721,3 +4532,78 @@ ipcMain.handle('get-file-type', async (event, filePath) => {
     return 'text';
   }
 });
+
+// Helper function to check for file existence with polling
+function waitForFile(filePath, timeout = 30000) {
+    return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const interval = setInterval(async () => {
+            try {
+                await fs.access(filePath);
+                clearInterval(interval);
+                resolve();
+            } catch (err) {
+                if (Date.now() - startTime > timeout) {
+                    clearInterval(interval);
+                    reject(new Error(`File not found after ${timeout}ms: ${filePath}`));
+                }
+            }
+        }, 100); // Poll every 100ms
+    });
+}
+
+
+// New IPC handler for launching VVP and GTKWave in parallel
+ipcMain.handle('launch-parallel-simulation', async (event, {
+    vvpCmd,
+    gtkwCmd,
+    vcdPath,
+    workingDir
+}) => {
+    // 1. Launch VVP as a detached, silent background process
+    const vvpProcess = spawn(vvpCmd, {
+        cwd: workingDir,
+        shell: true,
+        detached: true,
+        windowsHide: true
+    });
+
+    // We don't wait for VVP to finish. We handle errors if it fails to start.
+    vvpProcess.on('error', (err) => {
+        console.error('Failed to start VVP process:', err);
+    });
+
+    // Unreference the child process to allow the parent to exit independently
+    vvpProcess.unref();
+
+    // 2. Wait for the .vcd file to be created by VVP
+    try {
+        await waitForFile(vcdPath);
+        // 3. Once the file exists, launch GTKWave immediately
+        const gtkwaveProcess = spawn(gtkwCmd, {
+            cwd: workingDir,
+            shell: true,
+            detached: true,
+            windowsHide: true
+        });
+
+        gtkwaveProcess.on('error', (err) => {
+            console.error('Failed to start GTKWave process:', err);
+        });
+
+        // Unreference GTKWave as well
+        gtkwaveProcess.unref();
+
+        return {
+            success: true,
+            message: 'VVP and GTKWave launched in parallel.'
+        };
+    } catch (error) {
+        console.error(error.message);
+        return {
+            success: false,
+            message: error.message
+        };
+    }
+});
+

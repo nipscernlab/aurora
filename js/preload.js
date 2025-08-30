@@ -262,7 +262,7 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
-
+launchParallelSimulation: (args) => ipcRenderer.invoke('launch-parallel-simulation', args),
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
   killProcessByName: (processName) => ipcRenderer.invoke('kill-process-by-name', processName),

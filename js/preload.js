@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const validListenerChannels = ['vvp-finished', 'command-output-stream', 'gtkwave-output'];
 
 // Grouping functions by category
 const fileOperations = {
@@ -262,14 +263,17 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
-launchParallelSimulation: (args) => ipcRenderer.invoke('launch-parallel-simulation', args),
+  launchParallelSimulation: (options) => ipcRenderer.invoke('launch-parallel-simulation', options),
   execCommand: (command) => ipcRenderer.invoke('exec-command', command),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
   killProcessByName: (processName) => ipcRenderer.invoke('kill-process-by-name', processName),
   checkProcessRunning: (pid) => ipcRenderer.invoke('check-process-running', pid),    
   // Check if file/directory exists
   pathExists: (path) => ipcRenderer.invoke('path-exists', path),
+    
+  pathExists: (filePath) => ipcRenderer.invoke('path-exists', filePath),
 
+  launchPipedSimulation: (args) => ipcRenderer.invoke('launch-piped-simulation', args),
   getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
   deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
@@ -363,6 +367,7 @@ launchParallelSimulation: (args) => ipcRenderer.invoke('launch-parallel-simulati
     ipcRenderer.invoke('get-system-performance'),
   
   // Enhanced command output streaming
+ // Enhanced command output streaming
   onCommandOutputStream: (callback) => {
     ipcRenderer.on('command-output-stream', callback);
   },
@@ -370,8 +375,33 @@ launchParallelSimulation: (args) => ipcRenderer.invoke('launch-parallel-simulati
   removeCommandOutputListener: (callback) => {
     ipcRenderer.removeListener('command-output-stream', callback);
   },
+  // GTKWave's dedicated TCL output stream
+  onGtkwaveOutput: (callback) => {
+    ipcRenderer.on('gtkwave-output', callback);
+  },
+  removeGtkwaveOutputListener: (callback) => {
+    ipcRenderer.removeListener('gtkwave-output', callback);
+  },
+  
 
-  // Listen for update downloaded events
+  // ADD THESE NEW FUNCTIONS
+  // A generic "once" listener for whitelisted channels
+  once: (channel, callback) => {
+    const validChannels = ['vvp-finished']; // Whitelist of allowed channels
+    if (validChannels.includes(channel)) {
+      // Deliberately pass only the ...args to the callback, not the event object
+      ipcRenderer.once(channel, (event, ...args) => callback(...args));
+    }
+  },
+
+  // A generic "removeListener" for whitelisted channels
+  removeListener: (channel, callback) => {
+    const validChannels = ['vvp-finished']; // Whitelist must match
+    if (validChannels.includes(channel)) {
+      ipcRenderer.removeListener(channel, callback);
+    }
+  },
+  
   onUpdateDownloaded: (callback) => {
     const wrappedCallback = (event, data) => callback(data);
     ipcRenderer.on('update-downloaded', wrappedCallback);
@@ -499,6 +529,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: false, message: error.message };
     }
   },
+  
   
   // Check if a file or directory exists
   async checkIfExists(itemPath) {
@@ -663,7 +694,7 @@ if (ipcRenderer) {
     },
     destroyTerminal: (terminalId) => ipcRenderer.send('destroy-terminal', terminalId),
     onData: (callback) => ipcRenderer.on('terminal-data', callback),
-    onError: (callback) => ipcRenderer.on('terminal-error', callback)
+    onError: (callback) => ipcRenderer.on('terminal-error', callback),
   });
 } else {
   console.error('ipcRenderer is not available');

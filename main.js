@@ -820,66 +820,91 @@ ipcMain.handle('exec-command', (event, command, options = {}) => {
         child.on('error', (err) => reject(err));
     });
 });
-// High-performance VVP execution handler
+// Enhanced VVP execution with silent background processing
 ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) => {
-    return new Promise((resolve, reject) => {
-        const cpuCount = getCPUCount();
-        const performanceEnv = {
-            ...process.env,
-            OMP_NUM_THREADS: cpuCount.toString(),
-            OMP_THREAD_LIMIT: cpuCount.toString(),
-            OMP_DYNAMIC: 'true',
-            OMP_NESTED: 'true',
-            OMP_STACKSIZE: '64M',
-            // REMOVED: IVERILOG_DUMPER: 'fst',
-            VVP_PARALLEL: '1',
-            VVP_THREADS: cpuCount.toString(),
-            MALLOC_ARENA_MAX: '1',
-            MALLOC_MMAP_THRESHOLD: '131072',
-            PROCESSOR_ARCHITECTURE: process.env.PROCESSOR_ARCHITECTURE,
-            NUMBER_OF_PROCESSORS: cpuCount.toString(),
-            ...options.env
-        };
-        const execOptions = {
-            cwd: workingDir,
-            env: performanceEnv,
-            maxBuffer: 1024 * 1024 * 50,
-            windowsHide: true,
-            encoding: 'utf8'
-        };
-        const child = exec(command, execOptions);
-        // ... rest of the function remains the same
-        let stdout = '';
-        let stderr = '';
-        event.sender.send('command-output-stream', {
-            type: 'pid',
-            pid: child.pid
-        });
-        child.stdout.on('data', (data) => {
-            stdout += data;
-            event.sender.send('command-output-stream', {
-                type: 'stdout',
-                data
-            });
-        });
-        child.stderr.on('data', (data) => {
-            stderr += data;
-            event.sender.send('command-output-stream', {
-                type: 'stderr',
-                data
-            });
-        });
-        child.on('close', (code) => resolve({
-            code,
-            stdout,
-            stderr,
-            pid: child.pid,
-            performance: {
-                cpuCount
-            }
-        }));
-        child.on('error', (err) => reject(err));
+  return new Promise((resolve, reject) => {
+    const cpuCount = getCPUCount();
+    
+    // Enhanced environment variables for stability
+    const performanceEnv = {
+      ...process.env,
+      OMP_NUM_THREADS: cpuCount.toString(),
+      OMP_THREAD_LIMIT: cpuCount.toString(),
+      OMP_DYNAMIC: 'true',
+      OMP_NESTED: 'false', // Disable for stability
+      OMP_STACKSIZE: '32M', // Reduced for stability
+      VVP_PARALLEL: '1',
+      VVP_THREADS: cpuCount.toString(),
+      MALLOC_ARENA_MAX: '2', // Reduced for stability
+      MALLOC_MMAP_THRESHOLD: '65536',
+      NUMBER_OF_PROCESSORS: cpuCount.toString(),
+      ...options.env
+    };
+
+    // Use start /b cmd /c for silent background execution
+    const silentCommand = `start /b cmd /c "${command}"`;
+    
+    const execOptions = {
+      cwd: workingDir,
+      env: performanceEnv,
+      maxBuffer: 1024 * 1024 * 50,
+      windowsHide: true,
+      encoding: 'utf8',
+      shell: true
+    };
+
+    currentVvpProcess = exec(silentCommand, execOptions);
+    
+    let stdout = '';
+    let stderr = '';
+    
+    // Send PID for tracking
+    if (currentVvpProcess) {
+      vvpProcessPid = currentVvpProcess.pid;
+      event.sender.send('command-output-stream', {
+        type: 'pid',
+        pid: vvpProcessPid
+      });
+    }
+
+    currentVvpProcess.stdout?.on('data', (data) => {
+      stdout += data;
+      event.sender.send('command-output-stream', {
+        type: 'stdout',
+        data
+      });
     });
+
+    currentVvpProcess.stderr?.on('data', (data) => {
+      stderr += data;
+      event.sender.send('command-output-stream', {
+        type: 'stderr',
+        data
+      });
+    });
+
+    currentVvpProcess.on('close', (code) => {
+      currentVvpProcess = null;
+      vvpProcessPid = null;
+      resolve({
+        code,
+        stdout,
+        stderr,
+        performance: { cpuCount }
+      });
+    });
+
+    currentVvpProcess.on('error', (err) => {
+      currentVvpProcess = null;
+      vvpProcessPid = null;
+      reject({
+        code: -1,
+        stdout: '',
+        stderr: err.message || 'VVP process error',
+        error: err.message
+      });
+    });
+  });
 });
 
 
@@ -959,18 +984,7 @@ ipcMain.handle('set-process-priority', (event, pid, priority = 'high') => {
   });
 });
 
-// System performance monitoring
-ipcMain.handle('get-system-performance', (event) => {
-  return {
-    cpuCount: getCPUCount(),
-    totalMemory: getTotalMemory(),
-    freeMemory: Math.floor(os.freemem() / (1024 * 1024 * 1024)),
-    loadAverage: os.loadavg(),
-    platform: os.platform(),
-    arch: os.arch(),
-    uptime: os.uptime()
-  };
-});
+
 
 // Handler for killing process by PID - Enhanced version
 ipcMain.handle('kill-process', async (event, pid) => {
@@ -4216,6 +4230,7 @@ app.on('before-quit', async () => {
 // Adicione estas variáveis no topo do seu main.js (após as outras declarações)
 let currentVvpProcess = null;
 let vvpProcessPid = null;
+let currentGtkwaveProcesses = new Set(); 
 
 // Função auxiliar para matar processo por PID no Windows
 function killProcessByPid(pid) {
@@ -4273,26 +4288,77 @@ function checkVvpProcessRunning() {
   });
 }
 
-// Handler para cancelar processos VVP
-// Handler para cancelar processos VVP (em inglês, sem criar ou renomear funções)
+// Helper function to kill process by PID on Windows silently
+function killProcessSilently(pid) {
+  return new Promise((resolve) => {
+    const killCmd = `taskkill /F /PID ${pid}`;
+    exec(killCmd, { windowsHide: true }, (error) => {
+      resolve(!error); // Return true if killed successfully
+    });
+  });
+}
+
+// Helper function to kill all processes by name silently
+function killProcessesByName(processName) {
+  return new Promise((resolve) => {
+    const killCmd = `taskkill /F /IM ${processName}`;
+    exec(killCmd, { windowsHide: true }, (error, stdout) => {
+      if (error && error.message.includes('not found')) {
+        resolve(false); // No processes found
+      } else {
+        resolve(!error);
+      }
+    });
+  });
+}
+
+// Helper function to check if processes are running
+function checkProcessRunning(processName) {
+  return new Promise((resolve) => {
+    const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /FO CSV`;
+    exec(checkCmd, { windowsHide: true }, (error, stdout) => {
+      if (error) {
+        resolve(false);
+        return;
+      }
+      const lines = stdout.trim().split('\n');
+      resolve(lines.length > 1 && !stdout.includes('No tasks are running'));
+    });
+  });
+}
+
+// Helper function to spawn silent background process
+function spawnSilentProcess(command, args, options = {}) {
+  const defaultOptions = {
+    windowsHide: true,
+    stdio: ['ignore', 'ignore', 'ignore'],
+    detached: true,
+    shell: false,
+    ...options
+  };
+  
+  const child = spawn(command, args, defaultOptions);
+  child.unref(); // Allow parent to exit independently
+  return child;
+}
+
+// Enhanced cancel VVP process handler
 ipcMain.handle('cancel-vvp-process', async () => {
   try {
-    // Primeiro verifica se há processos vvp.exe rodando
-    const isRunning = await checkVvpProcessRunning();
+    const vvpRunning = await checkProcessRunning('vvp.exe');
+    const gtkwaveRunning = await checkProcessRunning('gtkwave.exe');
     
-    if (!isRunning) {
+    if (!vvpRunning && !gtkwaveRunning) {
       return { success: false, message: 'No compilation process is currently running.' };
     }
 
-    // Se temos referência do processo atual, tenta matar especificamente
+    let results = [];
+
+    // Kill specific VVP process if we have reference
     if (currentVvpProcess && !currentVvpProcess.killed) {
       try {
-        // Kill the VVP process and its children
-        if (process.platform === 'win32') {
-          await killProcessByPid(currentVvpProcess.pid);
-        } else {
-          currentVvpProcess.kill('SIGKILL');
-        }
+        const killed = await killProcessSilently(currentVvpProcess.pid);
+        if (killed) results.push('VVP process terminated');
         currentVvpProcess = null;
         vvpProcessPid = null;
       } catch (error) {
@@ -4300,71 +4366,34 @@ ipcMain.handle('cancel-vvp-process', async () => {
       }
     }
 
-    // Como fallback, mata todos os processos vvp.exe
-    const killed = await killAllVvpProcesses();
+    // Kill all VVP processes as fallback
+    if (vvpRunning) {
+      const killed = await killProcessesByName('vvp.exe');
+      if (killed) results.push('All VVP processes terminated');
+    }
 
-    // NOW: also kill any running GTKWave processes in the same function
-    try {
-      if (process.platform === 'win32') {
-        // On Windows, kill all gtkwave.exe processes
-        await new Promise((resolve, reject) => {
-          const killGtkCmd = 'taskkill /F /IM gtkwave.exe';
-          exec(killGtkCmd, (error, stdout, stderr) => {
-            if (error) {
-              // If no GTKWave processes found, consider as success
-              if (error.message.includes('not found') || error.message.includes('not running')) {
-                resolve(true);
-              } else {
-                console.error('Error killing GTKWave processes:', error);
-                resolve(false);
-              }
-            } else {
-              resolve(true);
-            }
-          });
-        });
-      } else {
-        // On Unix-like systems, attempt to kill by name
-        await new Promise((resolve) => {
-          // Use pkill; ignore errors if no process found
-          exec('pkill -f gtkwave', (error, stdout, stderr) => {
-            // pkill returns non-zero if no process matched; ignore that
-            resolve(true);
-          });
-        });
-      }
-    } catch (error) {
-      console.error('Unexpected error killing GTKWave:', error);
+    // Kill all GTKWave processes
+    if (gtkwaveRunning) {
+      const killed = await killProcessesByName('gtkwave.exe');
+      if (killed) results.push('GTKWave processes terminated');
     }
+
+    // Clear tracked GTKWave processes
+    currentGtkwaveProcesses.clear();
     
-    if (killed) {
-      return {
-        success: true,
-        message: 'Compilation process canceled by user. GTKWave processes (if any) also terminated.'
-      };
-    } else {
-      // Even if no VVP was running, we still attempted to kill GTKWave above
-      return {
-        success: false,
-        message: 'No compilation process was running. GTKWave kill attempted if any instances were open.'
-      };
-    }
+    return {
+      success: results.length > 0,
+      message: results.length > 0 
+        ? `Compilation canceled: ${results.join(', ')}`
+        : 'No processes were running to cancel'
+    };
     
   } catch (error) {
-    console.error('Error canceling VVP process:', error);
-    // Still attempt to kill GTKWave if an unexpected error occurred earlier
-    try {
-      if (process.platform === 'win32') {
-        exec('taskkill /F /IM gtkwave.exe', () => {});
-      } else {
-        exec('pkill -f gtkwave', () => {});
-      }
-    } catch (_) {
-      // ignore
-    }
-    return { success: false, message: 'Error occurred while trying to cancel the process.' };
+    console.error('Error canceling processes:', error);
+    return { success: false, message: 'Error occurred while canceling processes' };
   }
 });
+
 
 
 // Handler para executar comando VVP com streaming e gerenciamento de processo
@@ -4497,9 +4526,23 @@ ipcMain.handle('run-vvp-command', async (event, vvpCmd, tempPath) => {
 });
 
 // Handler para verificar se VVP está rodando (opcional, para UI)
+// Enhanced process checking
 ipcMain.handle('check-vvp-running', async () => {
-  return await checkVvpProcessRunning();
+  return await checkProcessRunning('vvp.exe');
 });
+
+ipcMain.handle('check-gtkwave-running', async () => {
+  return await checkProcessRunning('gtkwave.exe');
+});
+
+function onGtkwaveOutput(callback) {
+  ipcRenderer.on('gtkwave-output', callback);
+}
+
+function removeGtkwaveOutputListener(callback) {
+  ipcRenderer.removeListener('gtkwave-output', callback);
+}
+
 
 /* handle file */
 // Handle binary file reading
@@ -4533,77 +4576,231 @@ ipcMain.handle('get-file-type', async (event, filePath) => {
   }
 });
 
-// Helper function to check for file existence with polling
+// Enhanced file wait function with better error handling
 function waitForFile(filePath, timeout = 30000) {
-    return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        const interval = setInterval(async () => {
-            try {
-                await fs.access(filePath);
-                clearInterval(interval);
-                resolve();
-            } catch (err) {
-                if (Date.now() - startTime > timeout) {
-                    clearInterval(interval);
-                    reject(new Error(`File not found after ${timeout}ms: ${filePath}`));
-                }
-            }
-        }, 100); // Poll every 100ms
-    });
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    let attempts = 0;
+    const maxAttempts = Math.floor(timeout / 100);
+    
+    const checkFile = async () => {
+      attempts++;
+      try {
+        await fs.access(filePath);
+        // Additional check: ensure file has content (not just created)
+        const stats = await fs.stat(filePath);
+        if (stats.size > 0) {
+          resolve();
+          return;
+        }
+      } catch (err) {
+        // File doesn't exist or is empty, continue checking
+      }
+      
+      if (attempts >= maxAttempts) {
+        reject(new Error(`VCD file not generated after ${timeout}ms: ${filePath}`));
+        return;
+      }
+      
+      setTimeout(checkFile, 100);
+    };
+    
+    checkFile();
+  });
 }
 
-
-// New IPC handler for launching VVP and GTKWave in parallel
-ipcMain.handle('launch-parallel-simulation', async (event, {
-    vvpCmd,
-    gtkwCmd,
-    vcdPath,
-    workingDir
-}) => {
-    // 1. Launch VVP as a detached, silent background process
-    const vvpProcess = spawn(vvpCmd, {
-        cwd: workingDir,
-        shell: true,
-        detached: true,
-        windowsHide: true
-    });
-
-    // We don't wait for VVP to finish. We handle errors if it fails to start.
-    vvpProcess.on('error', (err) => {
-        console.error('Failed to start VVP process:', err);
-    });
-
-    // Unreference the child process to allow the parent to exit independently
-    vvpProcess.unref();
-
-    // 2. Wait for the .vcd file to be created by VVP
-    try {
-        await waitForFile(vcdPath);
-        // 3. Once the file exists, launch GTKWave immediately
-        const gtkwaveProcess = spawn(gtkwCmd, {
-            cwd: workingDir,
-            shell: true,
-            detached: true,
-            windowsHide: true
-        });
-
-        gtkwaveProcess.on('error', (err) => {
-            console.error('Failed to start GTKWave process:', err);
-        });
-
-        // Unreference GTKWave as well
-        gtkwaveProcess.unref();
-
-        return {
-            success: true,
-            message: 'VVP and GTKWave launched in parallel.'
-        };
-    } catch (error) {
-        console.error(error.message);
-        return {
-            success: false,
-            message: error.message
-        };
-    }
+// System performance monitoring (existing function - keeping as is)
+ipcMain.handle('get-system-performance', () => {
+  return {
+    cpuCount: getCPUCount(),
+    totalMemory: getTotalMemory(),
+    freeMemory: Math.floor(os.freemem() / (1024 * 1024 * 1024)),
+    loadAverage: os.loadavg(),
+    platform: os.platform(),
+    arch: os.arch(),
+    uptime: os.uptime()
+  };
 });
 
+
+// Enhanced parallel simulation launcher with silent GTKWave
+ipcMain.handle('launch-parallel-simulation', async (event, {
+  vvpCmd,
+  gtkwCmd,
+  vcdPath,
+  workingDir
+}) => {
+  try {
+    // Parse VVP command
+    const vvpParts = vvpCmd.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(arg => arg.replace(/"/g, '')) || [];
+    if (vvpParts.length === 0) {
+      throw new Error('Invalid VVP command');
+    }
+
+    // Use start /b cmd /c for silent VVP execution
+    const silentVvpCmd = `start /b cmd /c "${vvpCmd}"`;
+    
+    // Launch VVP silently
+    const vvpProcess = exec(silentVvpCmd, {
+      cwd: workingDir,
+      windowsHide: true,
+      shell: true
+    });
+
+    // Monitor VVP process completion
+    vvpProcess.on('close', (code) => {
+      console.log(`VVP process completed with code ${code}`);
+      event.sender.send('vvp-finished', { code });
+    });
+
+    vvpProcess.on('error', (err) => {
+      console.error('VVP process error:', err);
+      event.sender.send('vvp-finished', { code: -1, error: err.message });
+    });
+
+    // Wait for VCD file with enhanced timeout
+    await waitForFile(vcdPath, 45000); // Increased timeout to 45 seconds
+
+    // Parse GTKWave command
+    const gtkwParts = gtkwCmd.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(arg => arg.replace(/"/g, '')) || [];
+    if (gtkwParts.length === 0) {
+      throw new Error('Invalid GTKWave command');
+    }
+
+    // Launch GTKWave with output capture for TCL script execution
+   const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
+
+const gtkwProcess = exec(silentGtkwCmd, {
+  cwd: workingDir,
+  windowsHide: true,
+  shell: true,
+  detached: true
+});
+
+// Track GTKWave process
+if (gtkwProcess.pid) {
+  currentGtkwaveProcesses.add(gtkwProcess.pid);
+}
+
+// Clean up tracking when process ends
+gtkwProcess.on('close', () => {
+  if (gtkwProcess.pid) {
+    currentGtkwaveProcesses.delete(gtkwProcess.pid);
+  }
+});
+
+gtkwProcess.on('error', (err) => {
+  console.error('GTKWave launch error:', err);
+  if (gtkwProcess.pid) {
+    currentGtkwaveProcesses.delete(gtkwProcess.pid);
+  }
+});
+
+// Unref to allow parent process independence
+gtkwProcess.unref();
+
+    // Track GTKWave process
+    if (gtkwProcess.pid) {
+      currentGtkwaveProcesses.add(gtkwProcess.pid);
+    }
+
+    // Capture and filter GTKWave output for TCL execution
+    let gtkwOutput = '';
+    let gtkwError = '';
+
+    gtkwProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      gtkwOutput += output;
+      
+      // Send filtered output immediately to terminal
+      const filteredOutput = filterGtkWaveOutput(output);
+      if (filteredOutput.trim()) {
+        event.sender.send('gtkwave-output', {
+          type: 'stdout',
+          data: filteredOutput
+        });
+      }
+    });
+
+    gtkwProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      gtkwError += error;
+      
+      // Send filtered error output immediately to terminal
+      const filteredError = filterGtkWaveOutput(error);
+      if (filteredError.trim()) {
+        event.sender.send('gtkwave-output', {
+          type: 'stderr',
+          data: filteredError
+        });
+      }
+    });
+
+    // Clean up tracking when process ends
+    gtkwProcess.on('close', (code) => {
+      if (gtkwProcess.pid) {
+        currentGtkwaveProcesses.delete(gtkwProcess.pid);
+      }
+      
+      // Send final completion message
+      event.sender.send('gtkwave-output', {
+        type: 'completion',
+        code: code,
+        message: code === 0 ? 'GTKWave TCL script executed successfully' : `GTKWave exited with code ${code}`
+      });
+    });
+
+    gtkwProcess.on('error', (err) => {
+      console.error('GTKWave launch error:', err);
+      if (gtkwProcess.pid) {
+        currentGtkwaveProcesses.delete(gtkwProcess.pid);
+      }
+      
+      // Send error to terminal
+      event.sender.send('gtkwave-output', {
+        type: 'error',
+        data: `GTKWave launch error: ${err.message}`
+      });
+    });
+
+    // Unref to allow parent process independence
+    gtkwProcess.unref();
+
+    return {
+      success: true,
+      message: 'VVP and GTKWave launched silently with output monitoring'
+    };
+
+  } catch (error) {
+    console.error('Parallel simulation launch failed:', error);
+    return {
+      success: false,
+      message: error.message
+    };
+  }
+});
+
+// Helper function to filter GTKWave output noise
+function filterGtkWaveOutput(output) {
+  const noisePrefixes = [
+    'GTKWave Analyzer',
+    'FSTLOAD |',
+    'GTKWAVE |',
+    'WM Destroy',
+    '[0] start time',
+    '[0] end time',
+    'RCVAR |'
+  ];
+
+  if (!output) return '';
+  
+  return output.split('\n')
+    .filter(line => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return false;
+      
+      // Filter out noise lines
+      return !noisePrefixes.some(prefix => trimmedLine.startsWith(prefix));
+    })
+    .join('\n');
+}

@@ -653,7 +653,7 @@
                 
 <span style="color: #f8fafc;">Após a configuração, você pode compilar passo a passo ou usar o botão</span> <span class="keyword" onclick="activateButton('allcomp')">Full Build</span> <span style="color: #f8fafc;">para compilar todo o projeto e visualizar a simulação no gtkwave. Monitore o log do processo nos terminais</span><span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> 
 <span style="color: #f8fafc;">Limpe cada terminal individualmente com o botão</span> <span class="keyword" onclick="activateButton('clear-terminal')">Limpar Terminal</span>
-    
+            
 <span style="color: #f8fafc;">A assistência de IA pode ser útil. Clique no botão</span> <span class="keyword" onclick="activateButton('aiButton')">Assistente de IA</span> <span style="color: #f8fafc;">para ativá-lo. Selecione um dos modelos: ChatGPT, Claude ou DeepSeek. Verifique a hierarquia do seu projeto em</span> <span class="keyword" onclick="activateButton('open-folder-button')">Abrir Pasta</span><br>
                 
 <span style="color: #f8fafc;">Deseja visualizar informações sobre o projeto atual? Clique em</span> <span class="keyword" onclick="activateButton('projectInfo')">Informações do Projeto</span>
@@ -700,7 +700,6 @@
         // Map your toolbar trigger IDs -> modal IDs
         const triggerToModal = {
             newProjectBtn: 'newProjectModal',    // New Project -> New Project modal
-            settings:      'modalProcessorConfig', // Settings -> Project Configuration modal
             processorHub:  'modalContainer'      // Processor Hub -> Processor Hub modal
         };
 

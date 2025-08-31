@@ -70,6 +70,44 @@ function initFileManagement() {
   setupFileInputs();
 }
 
+
+function openModal(modalElement) {
+  if (!modalElement) {
+    console.error("Tentativa de abrir um modal nulo ou indefinido.");
+    return;
+  }
+  modalElement.setAttribute('aria-hidden', 'false');
+  modalElement.classList.add('show');
+  document.body.style.overflow = 'hidden'; // Impede o scroll do fundo
+
+  // Foca no primeiro elemento interativo dentro do modal para acessibilidade.
+  const focusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (focusable) {
+    focusable.focus();
+  } else {
+    modalElement.focus(); // Fallback
+  }
+}
+function closeModal(modalElement) {
+  if (!modalElement) {
+    console.error("Tentativa de fechar um modal nulo ou indefinido.");
+    return;
+  }
+  modalElement.setAttribute('aria-hidden', 'true');
+  modalElement.classList.remove('show');
+  document.body.style.overflow = ''; // Restaura o scroll do fundo
+}
+
+// --- Funções Específicas (para usar no resto do seu código) ---
+function openProjectModal() {
+  const projectModalElem = document.getElementById('modalProjectConfig');
+  openModal(projectModalElem);
+}
+
+function closeProjectModal() {
+  const projectModalElem = document.getElementById('modalProjectConfig');
+  closeModal(projectModalElem);
+}
 // Setup import buttons
 function setupImportButtons() {
   if (importSynthesizableBtn) {
@@ -1019,134 +1057,73 @@ function init() {
     });
   }
   
-  // Configurar o sistema de toggle UI
-  function setupToggleUI() {
-    // Verificar se os elementos necessários existem
-    if (!toggleUiButton || !settingsButton) {
-        console.error('Elementos necessários para toggle UI não encontrados');
-        return;
-    }
-    
-    // Adicionar estilos para a animação
-    
-    // Criar um novo botão para configuração de projeto (oculto por padrão)
-    const projectSettingsButton = document.createElement('button');
-    projectSettingsButton.id = 'settings-project';
-    projectSettingsButton.className = 'toolbar-button';
-    projectSettingsButton.setAttribute('titles', 'Project Configuration');
-    projectSettingsButton.style.display = 'none'; // Início oculto
+function setupToggleUI() {
+  const toggleButton = document.getElementById('toggle-ui');
+  const settingsButton = document.getElementById('settings');
+  const processorModal = document.getElementById('modalProcessorConfig');
+  const projectModal = document.getElementById('modalProjectConfig');
 
-    // Adicionar ícone ao botão de projeto
-    const projectIcon = document.createElement('i');
-    projectIcon.className = 'fa-solid fa-gear';
-    projectIcon.style.color = '#da70d6';
-    projectSettingsButton.appendChild(projectIcon);
-
-    // Adicionar texto "Settings" ao botão
-    const settingsText = document.createElement('span');
-    settingsText.textContent = 'Settings';
-    projectSettingsButton.appendChild(settingsText);
-
-    // Inserir o novo botão após o botão original
-    settingsButton.parentNode.insertBefore(projectSettingsButton, settingsButton.nextSibling);
-
-    // Adicionar listener apenas para o botão de projeto
-    projectSettingsButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        openProjectModal();
-    });
-
-    toggleUiButton.addEventListener('click', function () {
-      const isToggleActive = toggleUiButton.classList.contains('active');
-    
-      // Atualizar botões com transição
-      if (isToggleActive) {
-        fadeOutIn(settingsButton, projectSettingsButton);
-      } else {
-        fadeOutIn(projectSettingsButton, settingsButton);
-      }
-    
-      // Atualizar texto com ícone e transição suave
-      const statusText = document.getElementById("processorProjectOriented");
-      const statusTexttwo = document.getElementById("processorNameID");
-
-      if (statusText) {
-        statusText.style.opacity = "0"; // Fade out
-    
-        setTimeout(() => {
-          if (isToggleActive) {
-            // Processor Oriented
-            statusText.innerHTML = `<i class="fa-solid fa-lock"></i> Project Oriented`;
-            statusTexttwo.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
-          } else {
-            // Project Oriented
-            statusText.innerHTML = `<i class="fa-solid fa-lock-open"></i> Processor Oriented`;
-          }
-    
-          statusText.style.opacity = "1"; // Fade in
-        }, 300);
-      }
-    });
-    
-    // Verificar estado inicial do toggle-ui após um pequeno atraso
-    setTimeout(() => {
-        if (toggleUiButton.classList.contains('active')) {
-            // Se o toggle estiver ativo, mostrar o botão de projeto
-            fadeOutIn(settingsButton, projectSettingsButton);
-        }
-    }, 600);
+  if (!toggleButton || !settingsButton || !processorModal || !projectModal) {
+    console.error('Falha ao configurar o Toggle UI: Elementos essenciais não encontrados (toggle-ui, settings, ou modais).');
+    return;
   }
+
+  // 1. Listener principal no botão Settings
+  settingsButton.addEventListener('click', (event) => {
+    event.preventDefault(); // Impede qualquer ação padrão.
+    event.stopPropagation(); // Impede que outros scripts capturem este clique.
+
+    const isProjectMode = toggleButton.classList.contains('active');
+
+    if (isProjectMode) {
+      // MODO PROJETO ATIVADO: Abrir modal de projeto.
+      openModal(projectModal);
+    } else {
+      // MODO PROCESSADOR ATIVADO: Abrir modal de processador.
+      openModal(processorModal);
+    }
+  });
+
+  // 2. Listener no botão Toggle para atualizar feedback visual
+  toggleButton.addEventListener('click', () => {
+    // A classe 'active' pode levar alguns milissegundos para ser aplicada pelo script principal do toggle.
+    // Usamos um pequeno timeout para ler o estado *após* a mudança.
+    setTimeout(updateVisualFeedback, 50);
+  });
+
+  // 3. Atualizar feedback visual no carregamento inicial da página
+  updateVisualFeedback();
+}
+
+/**
+ * Atualiza os textos de status da interface com base no estado do toggle-ui.
+ */
+function updateVisualFeedback() {
+  const toggleButton = document.getElementById('toggle-ui');
+  const statusText = document.getElementById("processorProjectOriented");
+  const statusTexttwo = document.getElementById("processorNameID");
   
-  // Função para realizar a transição suave entre botões
-  function fadeOutIn(buttonToHide, buttonToShow) {
-    // Verificar se os botões existem
-    if (!buttonToHide || !buttonToShow) {
-        console.error('Botões não encontrados para transição');
-        return;
-    }
-    
-    // Fade out do botão atual
-    buttonToHide.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
-    buttonToHide.style.opacity = '0';
-    
-    // Após o fade out, trocar os botões
+  if (!toggleButton) return; // Segurança
+
+  const isToggleActive = toggleButton.classList.contains('active');
+
+  if (statusText) {
+    statusText.style.transition = 'opacity 0.3s ease';
+    statusText.style.opacity = "0"; // Fade out
+
     setTimeout(() => {
-        buttonToHide.style.display = 'none';
-        
-        // Mostrar o novo botão com opacity 0
-        buttonToShow.style.opacity = '0';
-        buttonToShow.style.display = '';
-        buttonToShow.style.transition = `opacity ${ICON_TRANSITION_DURATION}ms ease`;
-        
-        // Forçar reflow para garantir que a transição ocorra
-        buttonToShow.offsetHeight;
-        
-        // Iniciar fade in
-        buttonToShow.style.opacity = '1';
-    }, ICON_TRANSITION_DURATION);
+      if (isToggleActive) {
+        // Modo Projeto
+        statusText.innerHTML = `<i class="fa-solid fa-lock"></i> Project Oriented`;
+        if (statusTexttwo) statusTexttwo.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
+      } else {
+        // Modo Processador
+        statusText.innerHTML = `<i class="fa-solid fa-lock-open"></i> Processor Oriented`;
+      }
+      statusText.style.opacity = "1"; // Fade in
+    }, 300);
   }
-
-  // Lidar com o clique no botão settings
-  function handleSettingsClick(e) {
-    // Se o toggleUI estiver ativo, abrir o modal de projeto em vez do modal de processor
-    if (toggleUiButton && toggleUiButton.classList.contains('active')) {
-      e.preventDefault();
-      e.stopPropagation(); // Impede a propagação do evento
-      openProjectModal();
-      return false; // Impede qualquer comportamento adicional
-    }
-    // Caso contrário, o comportamento original é mantido (abrir modalConfig)
-    // Isso é gerenciado pelo código original, não precisamos fazer nada aqui
-  }
-
-  // Lidar com o clique no botão toggle UI
-  function handleToggleUI() {
-    // Verificar se o toggleUiButton está ativo
-    const isToggleActive = toggleUiButton.classList.contains('active');
-    
-    // Atualizar o ícone do botão settings com base no estado do toggle
-    updateSettingsButtonIcon(isToggleActive);
-  }
+}
   
   // Atualizar o ícone do botão settings
   function updateSettingsButtonIcon(isToggleActive) {
@@ -1767,6 +1744,46 @@ function updateFormWithConfig() {
   }
 }
   
+// Update processor row to use select for instances
+function addProcessorRow() {
+  const newRow = document.createElement('div');
+  newRow.className = 'modalConfig-processor-row';
+  
+  newRow.innerHTML = `
+    <div class="modalConfig-select-container">
+      <select class="processor-select modalConfig-select">
+        <option value="">Select Processor</option>
+        ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modalConfig-select-container">
+      <select class="processor-instance modalConfig-select" disabled>
+        <option value="">Select Instance</option>
+      </select>
+    </div>
+    <button class="delete-processor modalConfig-icon-btn" aria-label="Delete Processor">
+      <i class="fa-solid fa-trash"></i>
+    </button>
+  `;
+  
+  // Add event listeners
+  const processorSelect = newRow.querySelector('.processor-select');
+  const instanceSelect = newRow.querySelector('.processor-instance');
+  
+  processorSelect.addEventListener('change', function() {
+    updateInstanceSelect(this.value, instanceSelect);
+    // Refresh other selects when processor changes
+    setTimeout(refreshAllInstanceSelects, 100);
+  });
+  
+  instanceSelect.addEventListener('change', function() {
+    // Refresh other selects when instance changes
+    setTimeout(refreshAllInstanceSelects, 100);
+  });
+  
+  processorsList.appendChild(newRow);
+}
+
   // Atualizar um select de processador com os processadores disponíveis
   function updateProcessorSelect(selectElement, selectedValue = '') {
     if (!selectElement) return;
@@ -2328,4 +2345,19 @@ function showToastNotification(message, type = 'info', duration = 3000) {
   
   // Inicializar após um pequeno atraso
   setTimeout(init, 800);
+});
+
+// Adicione isso se o fechamento do modal do processador também quebrou.
+
+document.addEventListener('DOMContentLoaded', () => {
+    const processorModal = document.getElementById('modalProcessorConfig');
+    
+    // Botões de fechar/cancelar do modal de processador
+    const closeBtn = document.getElementById('closeModal');
+    const cancelBtn = document.getElementById('cancelConfig');
+
+    if (processorModal) {
+        closeBtn?.addEventListener('click', () => closeModal(processorModal));
+        cancelBtn?.addEventListener('click', () => closeModal(processorModal));
+    }
 });

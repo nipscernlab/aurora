@@ -1,0 +1,279 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  aurora_settings.css
+ *
+ *    Description:  Styling for the Aurora settings modal.
+ *                  Relies entirely on variables from theme_variables.css.
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  MODAL CONTAINER & OVERLAY
+ * =================================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: var(--z-40);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl);
+  transform: scale(0.95);
+  transition: transform var(--transition-normal);
+}
+
+.modal-overlay.visible .modal-content {
+    transform: scale(1);
+}
+
+/* ===================================================================================
+ *  MODAL SECTIONS (HEADER, BODY, FOOTER)
+ * =================================================================================== */
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: var(--text-2xl);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.close-button:hover {
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: var(--space-2) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-divider);
+  background-color: var(--bg-secondary);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+/* ===================================================================================
+ *  MODAL CONTENT & CONTROLS
+ * =================================================================================== */
+
+.settings-section {
+  margin-top: var(--space-6);
+}
+
+.settings-section h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-secondary);
+  padding-bottom: var(--space-2);
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) 0;
+}
+
+.setting-item label {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--bg-tertiary);
+  transition: var(--transition-normal);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-primary);
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 3px;
+  background-color: var(--text-secondary);
+  transition: var(--transition-normal);
+  border-radius: var(--radius-full);
+}
+input:checked + .slider { background-color: var(--accent-primary); border-color: var(--accent-primary); }
+input:checked + .slider:before { transform: translateX(20px); background-color: var(--text-on-accent); }
+input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
+
+
+/* Icon Changer */
+#icon-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: var(--space-4) auto;
+}
+#aurora-icon, #fallback-icon {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border-secondary);
+    transition: filter var(--transition-normal);
+    object-fit: cover;
+}
+#fallback-icon { display: none; font-size: 80px; color: var(--text-tertiary); }
+#icon-upload { display: none; }
+.change-icon-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    background-color: rgba(16, 21, 35, 0.7); /* From --bg-primary with alpha */
+    border: 1px solid var(--accent-subtle-border);
+    border-radius: var(--radius-full);
+    color: var(--text-on-accent);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: var(--text-lg);
+    opacity: 0;
+    backdrop-filter: blur(4px);
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+#icon-container:hover #aurora-icon { filter: brightness(0.6); }
+#icon-container:hover .change-icon-btn { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+
+
+/* Shortcut Remapping */
+#shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shortcut-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.shortcut-item .action {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+.shortcut-input {
+  font-family: var(--font-mono);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+  user-select: none;
+}
+
+.shortcut-input:hover {
+  border-color: var(--border-focus);
+}
+
+.shortcut-input.recording {
+  border-color: var(--accent-hover);
+  background-color: var(--accent-subtle-bg);
+  color: var(--accent-hover);
+}
+
+.shortcut-warning {
+    color: var(--status-warning);
+    background-color: var(--status-warning-bg);
+    border: 1px solid var(--status-warning);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-4);
+    font-size: var(--text-sm);
+    text-align: center;
+    display: none;
+}
+
+
+/* Buttons */
+.modal-button {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.modal-button:active { transform: translateY(1px); }
+.modal-button.primary { background-color: var(--accent-primary); color: var(--text-on-accent); }
+.modal-button.primary:hover { background-color: var(--accent-hover); }
+.modal-button.primary:active { background-color: var(--accent-active); }
+.modal-button.secondary { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border-primary); }
+.modal-button.secondary:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }

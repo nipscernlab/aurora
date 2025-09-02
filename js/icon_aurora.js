@@ -1,270 +1,176 @@
 /**
  * Aurora Icon Manager
- * Gerencia o carregamento, armazenamento e exibição do ícone do aplicativo
- * com suporte para fallback e persistência usando localStorage
+ * Manages loading, storing, and displaying the application icon across multiple
+ * elements with support for fallback and persistence using localStorage.
  */
+(() => {
+    // Constants
+    const DEFAULT_ICON_PATH = './assets/icons/sapho_aurora_icon.svg';
+    const IMAGE_KEY = 'auroraIconPath';
+    const IMAGE_DATA_KEY = 'auroraIconData';
 
-// Constantes
-const DEFAULT_ICON_PATH = './assets/icons/sapho_aurora_icon.svg';
-const IMAGE_KEY = 'auroraIconPath';
-const IMAGE_DATA_KEY = 'auroraIconData'; // Nova chave para salvar os dados da imagem
-
-// Cache de elementos DOM
-const auroraIcon = document.getElementById('aurora-icon');
-const fallbackIcon = document.getElementById('fallback-icon');
-const iconUpload = document.getElementById('icon-upload');
-const changeIconBtn = document.getElementById('change-icon-btn');
-const iconContainer = document.getElementById('icon-container');
-
-// Estado da aplicação
-let currentIconPath = DEFAULT_ICON_PATH;
-let isIconLoaded = false;
-
-
-/**
- * Exibe o ícone de fallback quando não é possível carregar a imagem
- */
-function showFallbackIcon() {
-  console.log('Exibindo ícone de fallback');
-  auroraIcon.style.display = 'none';
-  fallbackIcon.style.display = 'inline-block';
-  isIconLoaded = false;
-}
-
-/**
- * Salva os dados da imagem no localStorage
- * @param {string} dataURL - DataURL da imagem
- * @param {string} filePath - Caminho do arquivo
- */
-function saveIconData(dataURL, filePath) {
-  try {
-    console.log(`Salvando informações do ícone: ${filePath}`);
-    localStorage.setItem(IMAGE_DATA_KEY, dataURL);
-    localStorage.setItem(IMAGE_KEY, filePath);
-    currentIconPath = filePath;
-  } catch (err) {
-    console.error('Erro ao salvar dados no localStorage:', err);
-  }
-}
-
-/**
- * Converte uma imagem em DataURL
- * @param {string} filePath - Caminho do arquivo de imagem
- * @returns {Promise<string>} - Promise com o DataURL da imagem
- */
-function convertImageToDataURL(filePath) {
-  return new Promise((resolve, reject) => {
-    const tempImg = new Image();
+    // DOM Elements - These will be collections of all matching elements
+    let iconUploadInput;
+    let auroraIcons;
+    let fallbackIcons;
     
-    tempImg.onload = function() {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = this.naturalWidth;
-        canvas.height = this.naturalHeight;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(this, 0, 0);
-        
-        const dataURL = canvas.toDataURL('image/png');
-        resolve(dataURL);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    
-    tempImg.onerror = function(err) {
-      reject(new Error(`Falha ao carregar imagem: ${err}`));
-    };
-    
-    tempImg.src = filePath;
-  });
-}
+    let isIconLoaded = false;
 
-/**
- * Exibe a imagem principal e esconde o ícone de fallback
- * @param {string} iconSrc - Fonte da imagem (caminho ou dataURL)
- */
-function showIcon(iconSrc) {
-  console.log(`Exibindo ícone: ${iconSrc.substring(0, 30)}${iconSrc.length > 30 ? '...' : ''}`);
-  
-  auroraIcon.onload = () => {
-    auroraIcon.style.display = 'inline-block';
-    fallbackIcon.style.display = 'none';
-    isIconLoaded = true;
-    console.log('Ícone carregado com sucesso');
-  };
-  
-  auroraIcon.onerror = () => {
-    console.error(`Falha ao carregar o ícone: ${iconSrc.substring(0, 30)}...`);
-    
-    // Se o ícone que falhou não é o padrão, tentamos carregar o padrão
-    if (iconSrc !== DEFAULT_ICON_PATH) {
-      console.log('Tentando carregar ícone padrão após falha');
-      loadDefaultIcon();
-    } else {
-      showFallbackIcon();
+    /**
+     * Updates all aurora icon images with the new source.
+     * @param {string} iconSrc - The image source (DataURL or path).
+     */
+    function showIcons(iconSrc) {
+        console.log(`Updating ${auroraIcons.length} icon(s)`);
+
+        auroraIcons.forEach(icon => {
+            // Set up handlers for each icon instance
+            icon.onload = () => {
+                icon.style.display = 'inline-block';
+                isIconLoaded = true;
+            };
+            icon.onerror = () => {
+                console.error(`Failed to load icon: ${iconSrc.substring(0, 30)}...`);
+                if (iconSrc !== DEFAULT_ICON_PATH) {
+                    loadDefaultIcon();
+                } else {
+                    showFallbackIcons();
+                }
+            };
+            // Set the source to trigger load/error
+            icon.src = iconSrc;
+        });
+
+        // Hide all fallback icons
+        fallbackIcons.forEach(icon => icon.style.display = 'none');
     }
-  };
-  
-  // Define a fonte da imagem após configurar os handlers
-  auroraIcon.src = iconSrc;
-}
 
-/**
- * Carrega o ícone padrão
- */
-function loadDefaultIcon() {
-  console.log('Carregando ícone padrão');
-  currentIconPath = DEFAULT_ICON_PATH;
-  
-  // Limpa o localStorage
-  localStorage.removeItem(IMAGE_KEY);
-  localStorage.removeItem(IMAGE_DATA_KEY);
-  
-  showIcon(DEFAULT_ICON_PATH);
-}
+    /**
+     * Displays the fallback icon for all instances.
+     */
+    function showFallbackIcons() {
+        auroraIcons.forEach(icon => icon.style.display = 'none');
+        fallbackIcons.forEach(icon => icon.style.display = 'inline-block');
+        isIconLoaded = false;
+    }
 
-/**
- * Carrega o ícone que foi persistido no localStorage
- */
-function loadPersistedIcon() {
-  console.log('Tentando carregar ícone persistido');
-  
-  // Primeiro tentamos carregar a partir do DataURL salvo
-  const iconDataURL = localStorage.getItem(IMAGE_DATA_KEY);
-  const storedPath = localStorage.getItem(IMAGE_KEY);
-  
-  if (iconDataURL) {
-    console.log('Encontrado DataURL no localStorage');
-    showIcon(iconDataURL);
-    currentIconPath = storedPath || DEFAULT_ICON_PATH;
-    return;
-  }
-  
-  if (!storedPath) {
-    console.log('Nenhum caminho de ícone encontrado no localStorage');
-    loadDefaultIcon();
-    return;
-  }
-  
-  console.log(`Encontrado caminho de arquivo no localStorage: ${storedPath}`);
-  
-  // Verifica se o arquivo existe
-  window.electronAPI.checkFileExists(storedPath)
-    .then(exists => {
-      if (exists) {
-        console.log('Arquivo existe, convertendo para DataURL');
-        // Converter o arquivo para DataURL e salvar
-        convertImageToDataURL(storedPath)
-          .then(dataURL => {
-            saveIconData(dataURL, storedPath);
-            showIcon(dataURL);
-          })
-          .catch(err => {
-            console.error('Erro ao converter imagem:', err);
-            showIcon(storedPath); // Tenta usar o caminho diretamente
-          });
-      } else {
-        console.warn(`Arquivo de ícone não encontrado: ${storedPath}`);
-        loadDefaultIcon();
-      }
-    })
-    .catch(error => {
-      console.error('Erro ao verificar existência do arquivo:', error);
-      // Tenta usar o caminho diretamente se não conseguir verificar
-      showIcon(storedPath);
-    });
-}
+    /**
+     * Saves the icon's DataURL and optional file path to localStorage.
+     * @param {string} dataURL 
+     * @param {string} [filePath] 
+     */
+    function saveIconData(dataURL, filePath) {
+        try {
+            localStorage.setItem(IMAGE_DATA_KEY, dataURL);
+            if (filePath) {
+                localStorage.setItem(IMAGE_KEY, filePath);
+            }
+        } catch (err) {
+            console.error('Error saving data to localStorage:', err);
+        }
+    }
 
-/**
- * Processa um novo arquivo de ícone selecionado
- * @param {File} file - Arquivo de imagem
- */
-function processNewIcon(file) {
-  if (!file) return;
-  
-  const filePath = file.path;
-  console.log(`Novo ícone selecionado: ${filePath}`);
+    /**
+     * Resets all icons to the default image and clears storage.
+     */
+    function loadDefaultIcon() {
+        console.log('Loading default icon for all instances');
+        localStorage.removeItem(IMAGE_KEY);
+        localStorage.removeItem(IMAGE_DATA_KEY);
+        showIcons(DEFAULT_ICON_PATH);
+    }
 
-  // Criar um FileReader para ler o arquivo como DataURL
-  const reader = new FileReader();
-  
-  reader.onload = function(e) {
-    const dataURL = e.target.result;
-    saveIconData(dataURL, filePath);
-    showIcon(dataURL);
-  };
-  
-  reader.onerror = function() {
-    console.error('Erro ao ler arquivo de imagem');
-    // Tenta usar o caminho diretamente como fallback
-    convertImageToDataURL(filePath)
-      .then(dataURL => {
-        saveIconData(dataURL, filePath);
-        showIcon(dataURL);
-      })
-      .catch(err => {
-        console.error('Erro ao converter imagem:', err);
-        showIcon(filePath);
-      });
-  };
-  
-  reader.readAsDataURL(file);
-}
+    /**
+     * Loads the icon from localStorage and applies it to all instances.
+     */
+    function loadPersistedIcon() {
+        const iconDataURL = localStorage.getItem(IMAGE_DATA_KEY);
+        if (iconDataURL) {
+            console.log('Found DataURL in localStorage, applying to all instances');
+            showIcons(iconDataURL);
+        } else {
+            console.log('No icon found in localStorage, loading default.');
+            loadDefaultIcon();
+        }
+    }
 
-// Evento: clique no botão de alterar ícone
-changeIconBtn.addEventListener('click', () => {
-  iconUpload.click();
-});
+    /**
+     * Processes a new user-selected image file.
+     * @param {File} file 
+     */
+    function processNewIcon(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataURL = e.target.result;
+            const filePath = file.path; // Available in Electron
+            saveIconData(dataURL, filePath);
+            showIcons(dataURL);
+        };
+        reader.onerror = function() {
+            console.error('Error reading image file');
+        };
+        reader.readAsDataURL(file);
+    }
 
-// Evento: seleção de nova imagem
-iconUpload.addEventListener('change', (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    processNewIcon(file);
-  }
-});
+    /**
+     * Initializes the module, finds all elements, and sets up event listeners.
+     */
+    function init() {
+        // Cache collections of DOM elements using classes
+        iconUploadInput = document.getElementById('icon-upload');
+        auroraIcons = document.querySelectorAll('.aurora-icon');
+        fallbackIcons = document.querySelectorAll('.fallback-icon');
 
-// Evento: duplo clique com botão direito para resetar
-iconContainer.addEventListener('contextmenu', (e) => {
-  e.preventDefault(); // impedir menu padrão
-  
-  const now = Date.now();
-  if (!iconContainer.lastRightClick) {
-    iconContainer.lastRightClick = now;
-    setTimeout(() => iconContainer.lastRightClick = null, 400); // tempo limite
-    return;
-  }
-  
-  if (now - iconContainer.lastRightClick < 400) {
-    // Duplo clique detectado
-    console.log('Duplo clique detectado, resetando ícone');
-    loadDefaultIcon();
-  }
-  
-  iconContainer.lastRightClick = now;
-});
+        if (!iconUploadInput || auroraIcons.length === 0) {
+            console.error('Aurora Icon Manager: Required elements (.aurora-icon or #icon-upload) not found.');
+            return;
+        }
 
-// Inicialização - garante que aconteça no momento certo
-function init() {
-  console.log('Inicializando Aurora Icon Manager');
-  loadPersistedIcon();
-}
+        // --- Event Listeners using Delegation ---
 
-// Carregar na inicialização com verificação robusta
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  // DOM já está carregado
-  init();
-}
+        // Listen for clicks on any "change icon" button
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('.change-icon-btn')) {
+                iconUploadInput.click();
+            }
+        });
 
-// Garantir que o ícone seja recarregado se o app for reaberto ou a página recarregada
-window.addEventListener('load', () => {
-  console.log('Evento window.load disparado');
-  // Verifica se já carregamos com sucesso
-  if (!isIconLoaded) {
-    console.log('Ícone ainda não carregado, tentando novamente');
-    loadPersistedIcon();
-  }
-});
+        // Listen for a new file selection from the single input
+        iconUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                processNewIcon(file);
+            }
+        });
+        
+        // Listen for double right-clicks on any icon container to reset
+        document.addEventListener('contextmenu', (event) => {
+            const container = event.target.closest('.icon-container');
+            if (!container) return;
+
+            event.preventDefault();
+            const now = Date.now();
+            const DOUBLE_CLICK_DELAY = 400;
+
+            if (now - (container.lastRightClick || 0) < DOUBLE_CLICK_DELAY) {
+                console.log('Double right-click detected, resetting icon.');
+                loadDefaultIcon();
+                container.lastRightClick = null; // Reset timer
+            } else {
+                container.lastRightClick = now;
+            }
+        });
+
+        console.log('Initializing Aurora Icon Manager for all instances');
+        loadPersistedIcon();
+    }
+
+    // Run initialization after the DOM is fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

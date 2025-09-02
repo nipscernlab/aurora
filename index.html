@@ -570,22 +570,19 @@
 
                     <!-- Conteúdo Principal de Boas-Vindas -->
                     <main class="welcome-main-content">
-                        <div id="icon-container">
-                            <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
-                            <i id="fallback-icon" class="fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-                            <button class="change-icon-btn" id="change-icon-btn">
-                                <i class="fa-solid fa-image"></i>
-                            </button>
-                            <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
-                        </div>
-                        <div class="overlay-text-content">
-                            <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
-                            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
-                            <p class="overlay-subtitle">
-                                <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
-                            </p>
-                        </div>
-                    </main>
+                    <div class="icon-container">
+                        <!-- Use class aqui -->
+                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="120px" alt="Aurora" />
+                        <i class="fallback-icon fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
+                    </div>
+                    <div class="overlay-text-content">
+                        <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
+                        <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+                        <p class="overlay-subtitle">
+                            <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
+                        </p>
+                    </div>
+                </main>
                 </div>
             </div>
         </div>
@@ -673,6 +670,72 @@
             <div class="terminal-body">Bem-vindo ao Terminal TWAVE!</div>
         </div>
     </div>
+
+    <div id="settings-modal" class="modal-overlay">
+    <div class="modal-content animate-fade-in">
+
+        <!-- Cabeçalho do Modal -->
+        <div class="modal-header">
+            <h2>Settings</h2>
+            <button id="close-modal-btn" class="close-button" aria-label="Close settings">&times;</button>
+        </div>
+
+        <!-- Corpo do Modal -->
+        <div class="modal-body">
+
+            <!-- Seção: Geral -->
+            <div class="settings-section">
+                <h3>General</h3>
+                <div class="setting-item">
+                    <label for="tooltips-toggle">Enable Tooltips</label>
+                    <label class="switch">
+                        <input type="checkbox" id="tooltips-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label for="alert-sound-toggle">Compilation Alert Sound</label>
+                    <label class="switch">
+                        <input type="checkbox" id="alert-sound-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Seção: Aparência -->
+            <div class="settings-section">
+                <h3>Appearance</h3>
+                <div id="icon-container">
+                    <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
+                    <i id="fallback-icon" class="fa-solid fa-notdef"></i>
+                    <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+                    <input type="file" id="icon-upload" accept="image/*" />
+                </div>
+            </div>
+
+            <!-- Seção: Atalhos -->
+            <div class="settings-section">
+                <h3>Keyboard Shortcuts</h3>
+                <div id="shortcut-list">
+                    <!-- Atalhos serão injetados aqui via JS -->
+                </div>
+                <div class="shortcut-warning" id="shortcut-warning">
+                    This shortcut is already in use.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="modal-footer">
+            <button id="reset-settings-btn" class="modal-button secondary">Reset to Defaults</button>
+            <button id="save-settings-btn" class="modal-button primary">Save Changes</button>
+        </div>
+    </div>
+</div>
+    <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
 </div>
 
     <!-- Status Bar -->
@@ -931,6 +994,7 @@
         }
       });
     </script>
+    <script src="./js/aurora_settings.js"></script>
     <script src="./js/renderer.js"></script>
     <script src="./js/processor_hub.js"></script>
     <script src="./js/processor_oriented.js" type="module"></script>
@@ -944,6 +1008,7 @@
     <script src="./js/modal.js"></script>
     <script src="./js/recent_projects.js"></script>
     <script src="./js/resize.js" type="module"></script>
+    <script src="./js/shortcut_manager.js"></script>
     <script src="./js/status_updater.js"></script>
     <script src="./js/terminal.js"></script>
     <script src="./js/tooltip.js"></script>

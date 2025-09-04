@@ -1508,3 +1508,45 @@ document.addEventListener('DOMContentLoaded', () => {
   // If the user types a simulation time, calculate the required number of clocks.
   simulTimeInput.addEventListener("input", updateNumberOfClocks);
 });
+
+function openProcessorModal() {
+    const modal = document.getElementById('modalProcessorConfig');
+    if (modal) {
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeProcessorModal() {
+    const modal = document.getElementById('modalProcessorConfig');
+    if (modal) {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('show');
+        // Apenas restaura o scroll se nenhum outro modal estiver aberto
+        if (!document.querySelector('.modal-overlay[aria-hidden="false"]')) {
+            document.body.style.overflow = '';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('modalProcessorConfig');
+    const closeModalButton = document.getElementById('closeModal');
+    const cancelConfigButton = document.getElementById('cancelConfig');
+    const saveConfigButton = document.getElementById('saveConfig');
+    
+    // ATENÇÃO: O event listener para o botão 'settings' foi REMOVIDO daqui.
+
+    // Event listeners para fechar o modal
+    closeModalButton?.addEventListener('click', closeProcessorModal);
+    cancelConfigButton?.addEventListener('click', closeProcessorModal);
+    saveConfigButton?.addEventListener('click', closeProcessorModal);
+
+    // Fecha o modal se clicar fora da área do container
+    modal?.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeProcessorModal();
+        }
+    });
+});

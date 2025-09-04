@@ -759,232 +759,221 @@
 
     <!-- Scripts -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-        // Map your toolbar trigger IDs -> modal IDs
-        const triggerToModal = {
-            newProjectBtn: 'newProjectModal',    // New Project -> New Project modal
-            processorHub:  'modalContainer'      // Processor Hub -> Processor Hub modal
-        };
+    
+document.addEventListener('DOMContentLoaded', () => {
+    // Map your toolbar trigger IDs -> modal IDs
+    const triggerToModal = {
+        newProjectBtn: 'newProjectModal', // New Project -> New Project modal
+        processorHub: 'modalContainer' // Processor Hub -> Processor Hub modal
+    };
 
-        // Collect modal elements
-        const modalIds = Array.from(new Set(Object.values(triggerToModal)));
-        const modals = {};
-        modalIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
+    // Collect modal elements
+    const modalIds = Array.from(new Set(Object.values(triggerToModal)));
+    const modals = {};
+    modalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
             // ensure aria-hidden exists (string)
             if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true');
             // allow focusing container for accessibility
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
             modals[id] = el;
-            } else {
+        } else {
             console.warn('Modal not found:', id);
-            }
-        });
-
-        // Utility: open modal
-        function openModal(modalId) {
-            const modal = modals[modalId];
-            if (!modal) return console.error('openModal: modal not registered:', modalId);
-            modal.setAttribute('aria-hidden', 'false');
-            modal.classList.add('show');
-            document.body.style.overflow = 'hidden';
-            // focus first focusable element inside modal (or modal itself)
-            const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            (focusable || modal).focus();
         }
+    });
 
-        // Utility: close modal
-        function closeModal(modalId) {
-            const modal = modals[modalId];
-            if (!modal) return console.error('closeModal: modal not registered:', modalId);
-            modal.setAttribute('aria-hidden', 'true');
-            modal.classList.remove('show');
-            // restore scroll only if no other modal open
-            const anyOpen = Object.values(modals).some(m => m.getAttribute('aria-hidden') === 'false');
-            if (!anyOpen) document.body.style.overflow = '';
-        }
+    // Utility: open modal
+    function openModal(modalId) {
+        const modal = modals[modalId];
+        if (!modal) return console.error('openModal: modal not registered:', modalId);
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        // focus first focusable element inside modal (or modal itself)
+        const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        (focusable || modal).focus();
+    }
 
-        // Wire click handlers on your triggers. If a trigger is disabled, enable it (so clicks work).
-        Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
-            const btn = document.getElementById(triggerId);
-            if (!btn) {
+    // Utility: close modal
+    function closeModal(modalId) {
+        const modal = modals[modalId];
+        if (!modal) return console.error('closeModal: modal not registered:', modalId);
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('show');
+        // restore scroll only if no other modal open
+        const anyOpen = Object.values(modals).some(m => m.getAttribute('aria-hidden') === 'false');
+        if (!anyOpen) document.body.style.overflow = '';
+    }
+
+    // Wire click handlers on your triggers. If a trigger is disabled, enable it (so clicks work).
+    Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
+        const btn = document.getElementById(triggerId);
+        if (!btn) {
             console.warn('Trigger button not found:', triggerId);
             return;
-            }
+        }
 
-            // If the button is intentionally disabled in markup, enable it so it opens the modal.
-            // (If you don't want this behavior, remove the next two lines.)
-            if (btn.disabled) {
+        // If the button is intentionally disabled in markup, enable it so it opens the modal.
+        // (If you don't want this behavior, remove the next two lines.)
+        if (btn.disabled) {
             console.info(`Trigger "${triggerId}" was disabled in markup — enabling it so the modal can open.`);
             btn.disabled = false;
             btn.classList.remove('disabled');
-            }
+        }
 
-            btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
             openModal(modalId);
-            });
         });
+    });
 
-        // Overlay click: close when clicking on the overlay background
-        Object.values(modals).forEach(modal => {
-            modal.addEventListener('click', (e) => {
+    // Overlay click: close when clicking on the overlay background
+    Object.values(modals).forEach(modal => {
+        modal.addEventListener('click', (e) => {
             // close only when clicking the overlay itself (not the modal container)
             if (e.target === modal) closeModal(modal.id);
-            });
         });
+    });
 
-        // Escape key closes any open modal
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' || e.key === 'Esc') {
+    // Escape key closes any open modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
             Object.keys(modals).forEach(id => {
                 if (modals[id].getAttribute('aria-hidden') === 'false') closeModal(id);
             });
-            }
-        });
+        }
+    });
 
-        // Wire all known close/cancel buttons to their respective modals (IDs from your HTML)
-        document.getElementById('closeModal')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
-        document.getElementById('cancelConfig')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
+    // Wire all known close/cancel buttons to their respective modals (IDs from your HTML)
+    document.getElementById('cancelProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
+    document.getElementById('generateProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
 
-        document.getElementById('closeProjectModal')?.addEventListener('click', () => closeModal('modalProjectConfig'));
-        document.getElementById('cancelProjectConfig')?.addEventListener('click', () => closeModal('modalProjectConfig'));
+    document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
+    document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
 
-        document.getElementById('cancelProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
-        document.getElementById('generateProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
+    // Debug helper (expose to console)
+    window.__modalHelpers = {
+        openModalById: openModal,
+        closeModalById: closeModal
+    };
+    console.info('Modal system initialized. Use __modalHelpers.openModalById("modalId") from console to open a modal manually.');
+});
 
-        document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
-        document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
-                document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
-        document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
+document.getElementById('reload-everything-terminal').addEventListener('click', () => {
+    window.electronAPI.reloadApp();
+});
 
-        // ---> ADICIONE AS LINHAS ABAIXO <---
-        document.getElementById('saveConfig')?.addEventListener('click', () => closeModal('modalProcessorConfig'));
-        document.getElementById('saveProjectConfig')?.addEventListener('click', () => closeModal('modalProjectConfig'));
-        // ---> FIM DAS LINHAS A ADICIONAR <---
+// Function to activate buttons based on their IDs
+function activateButton(buttonId) {
+    console.log(`Activating button: ${buttonId}`);
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.click();
+    } else if (buttonId === 'open-folder-button') {
+        const folderButton = document.querySelector('#open-folder-button');
+        if (folderButton) {
+            folderButton.click();
+        } else {
+            console.error(`Button with ID ${buttonId} not found`);
+        }
+    } else {
+        console.error(`Button with ID ${buttonId} not found`);
+    }
+}
 
-        // Debug helper (expose to console)
-        window.__modalHelpers = { openModalById: openModal, closeModalById: closeModal };
+// Function to activate terminals based on their data-terminal attribute
+function activateTerminal(terminalId) {
+    console.log(`Activating terminal: ${terminalId}`);
+    const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+    if (terminal) {
+        terminal.click();
+    } else {
+        console.error(`Terminal with data-terminal="${terminalId}" not found`);
+    }
+}
 
-        // Debug helper (expose to console)
-        window.__modalHelpers = { openModalById: openModal, closeModalById: closeModal };
-        console.info('Modal system initialized. Use __modalHelpers.openModalById("modalId") from console to open a modal manually.');
-        });
-        document.getElementById('reload-everything-terminal').addEventListener('click', () => {
-            window.electronAPI.reloadApp();
-        });
+// Add highlight effects
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = ['newProjectBtn', 'processorHub', 'openProjectBtn', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
 
-        // Function to activate buttons based on their IDs
-        function activateButton(buttonId) {
-            console.log(`Activating button: ${buttonId}`);
+    buttons.forEach(id => {
+        const button = document.getElementById(id);
+        if (button) {
+            button.classList.add('button-highlight');
+        }
+    });
+
+    const folderBtn = document.getElementById('open-folder-button');
+    if (folderBtn) {
+        folderBtn.classList.add('button-highlight');
+    }
+
+    const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
+    terminals.forEach(id => {
+        const terminal = document.querySelector(`[data-terminal="${id}"]`);
+        if (terminal) {
+            terminal.classList.add('button-highlight');
+        }
+    });
+
+    // Set up mouseover events for keywords
+    const keywords = document.querySelectorAll('.keyword');
+    keywords.forEach(keyword => {
+        keyword.addEventListener('mouseover', function() {
+            const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
             const button = document.getElementById(buttonId);
             if (button) {
-                button.click();
+                button.classList.add('button-highlight-active');
             } else if (buttonId === 'open-folder-button') {
                 const folderButton = document.querySelector('#open-folder-button');
                 if (folderButton) {
-                    folderButton.click();
-                } else {
-                    console.error(`Button with ID ${buttonId} not found`);
+                    folderButton.classList.add('button-highlight-active');
                 }
-            } else {
-                console.error(`Button with ID ${buttonId} not found`);
             }
-        }
-
-        // Function to activate terminals based on their data-terminal attribute
-        function activateTerminal(terminalId) {
-            console.log(`Activating terminal: ${terminalId}`);
-            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-            if (terminal) {
-                terminal.click();
-            } else {
-                console.error(`Terminal with data-terminal="${terminalId}" not found`);
-            }
-        }
-
-        // Add highlight effects
-        document.addEventListener('DOMContentLoaded', function() {
-            const buttons = ['newProjectBtn', 'processorHub', 'openProjectBtn', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
-            
-            buttons.forEach(id => {
-                const button = document.getElementById(id);
-                if (button) {
-                    button.classList.add('button-highlight');
-                }
-            });
-
-            const folderBtn = document.getElementById('open-folder-button');
-            if (folderBtn) {
-                folderBtn.classList.add('button-highlight');
-            }
-
-            const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
-            terminals.forEach(id => {
-                const terminal = document.querySelector(`[data-terminal="${id}"]`);
-                if (terminal) {
-                    terminal.classList.add('button-highlight');
-                }
-            });
-
-            // Set up mouseover events for keywords
-            const keywords = document.querySelectorAll('.keyword');
-            keywords.forEach(keyword => {
-                keyword.addEventListener('mouseover', function() {
-                    const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-                    const button = document.getElementById(buttonId);
-                    if (button) {
-                        button.classList.add('button-highlight-active');
-                    } else if (buttonId === 'open-folder-button') {
-                        const folderButton = document.querySelector('#open-folder-button');
-                        if (folderButton) {
-                            folderButton.classList.add('button-highlight-active');
-                        }
-                    }
-                });
-                
-                keyword.addEventListener('mouseout', function() {
-                    const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-                    const button = document.getElementById(buttonId);
-                    if (button) {
-                        button.classList.remove('button-highlight-active');
-                    } else if (buttonId === 'open-folder-button') {
-                        const folderButton = document.querySelector('#open-folder-button');
-                        if (folderButton) {
-                            folderButton.classList.remove('button-highlight-active');
-                        }
-                    }
-                });
-            });
-
-            // Set up mouseover events for terminal keywords
-            const termKeywords = document.querySelectorAll('.terminal-keyword');
-            termKeywords.forEach(keyword => {
-          keyword.addEventListener('mouseover', function() {
-            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-            if (terminal) {
-              terminal.classList.add('button-highlight-active');
-            }
-          });
-          keyword.addEventListener('mouseout', function() {
-            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-            if (terminal) {
-              terminal.classList.remove('button-highlight-active');
-            }
-          });
         });
-      });
 
-      function openAuroraAboutModal() {
-        document.getElementById("auroraAboutModal").classList.remove("aurora-about-hidden");
-      }
+        keyword.addEventListener('mouseout', function() {
+            const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.classList.remove('button-highlight-active');
+            } else if (buttonId === 'open-folder-button') {
+                const folderButton = document.querySelector('#open-folder-button');
+                if (folderButton) {
+                    folderButton.classList.remove('button-highlight-active');
+                }
+            }
+        });
+    });
 
-      function closeAuroraAboutModal() {
-        document.getElementById("auroraAboutModal").classList.add("aurora-about-hidden");
-      }
+    // Set up mouseover events for terminal keywords
+    const termKeywords = document.querySelectorAll('.terminal-keyword');
+    termKeywords.forEach(keyword => {
+        keyword.addEventListener('mouseover', function() {
+            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+            if (terminal) {
+                terminal.classList.add('button-highlight-active');
+            }
+        });
+        keyword.addEventListener('mouseout', function() {
+            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
+            if (terminal) {
+                terminal.classList.remove('button-highlight-active');
+            }
+        });
+    });
+});
+
+function openAuroraAboutModal() {
+    document.getElementById("auroraAboutModal").classList.remove("aurora-about-hidden");
+}
+
+function closeAuroraAboutModal() {
+    document.getElementById("auroraAboutModal").classList.add("aurora-about-hidden");
+}
     </script>
     <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
     <script>

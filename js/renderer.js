@@ -1316,16 +1316,8 @@ async function initMonaco() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    initializeTheme();
-
     // Inicializa o Monaco antes de qualquer outra coisa
     await initMonaco();
-
-    const themeToggleBtn = document.getElementById('themeToggle');
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-
     // Handle window resize for responsive behavior
     window.addEventListener('resize', () => {
         if (EditorManager.editors.size > 0) {

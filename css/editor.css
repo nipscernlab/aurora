@@ -162,10 +162,12 @@
   color: var(--status-error);
 }
 
-/* Estilo específico para a aba do terminal ativa */
+/* Estilo específico para a aba do terminal ativa 
 .terminal-tabs .tab.active {
-  box-shadow: inset 0 2px 0 var(--status-info); /* Cor diferente para foco no terminal */
-}
+  box-shadow: inset 0 2px 0 var(--status-info); /* Cor diferente para foco no terminal 
+} 
+
+*/
 
 /* ===================================================================================
  *  Tela de Boas-Vindas (Welcome Overlay) - COMPLETAMENTE REFEITA

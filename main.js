@@ -4476,7 +4476,7 @@ ipcMain.handle('get-file-type', async (event, filePath) => {
   }
 });
 
-// Enhanced file wait function with better error handling
+// Enhanced file wait function with better error handling and initial delay
 function waitForFile(filePath, timeout = 30000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
@@ -4502,12 +4502,14 @@ function waitForFile(filePath, timeout = 30000) {
         return;
       }
       
-      setTimeout(checkFile, 100);
+      setTimeout(checkFile, 4000);
     };
     
-    checkFile();
+    // ⏳ Delay inicial de 4 segundos antes de iniciar a checagem
+    setTimeout(checkFile, 4000);
   });
 }
+
 
 // System performance monitoring (existing function - keeping as is)
 ipcMain.handle('get-system-performance', () => {

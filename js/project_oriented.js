@@ -88,6 +88,7 @@ function openModal(modalElement) {
     modalElement.focus(); // Fallback
   }
 }
+
 function closeModal(modalElement) {
   if (!modalElement) {
     console.error("Tentativa de fechar um modal nulo ou indefinido.");
@@ -100,14 +101,25 @@ function closeModal(modalElement) {
 
 // --- Funções Específicas (para usar no resto do seu código) ---
 function openProjectModal() {
-  const projectModalElem = document.getElementById('modalProjectConfig');
-  openModal(projectModalElem);
+    const projectModal = document.getElementById('modalProjectConfig');
+    if (projectModal) {
+        projectModal.setAttribute('aria-hidden', 'false');
+        projectModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function closeProjectModal() {
-  const projectModalElem = document.getElementById('modalProjectConfig');
-  closeModal(projectModalElem);
+    const projectModal = document.getElementById('modalProjectConfig');
+    if (projectModal) {
+        projectModal.setAttribute('aria-hidden', 'true');
+        projectModal.classList.remove('show');
+        if (!document.querySelector('.modal-overlay[aria-hidden="false"]')) {
+            document.body.style.overflow = '';
+        }
+    }
 }
+
 // Setup import buttons
 function setupImportButtons() {
   if (importSynthesizableBtn) {
@@ -998,44 +1010,41 @@ function init() {
     }
   }
   
-  // Configurar os botões do modal
   function setupModalButtons() {
-    // Botão para fechar o modal (X no canto superior direito)
-    if (closeProjectModalBtn) {
-      closeProjectModalBtn.addEventListener('click', () => {
+    const closeProjectModalBtn = document.getElementById('closeProjectModal');
+    const cancelProjectConfigBtn = document.getElementById('cancelProjectConfig');
+    const saveProjectConfigBtn = document.getElementById('saveProjectConfig');
+    const projectModal = document.getElementById('modalProjectConfig');
+
+    closeProjectModalBtn?.addEventListener('click', () => {
         closeProjectModal();
-      });
-    }
-    
-    // Botão Cancel
-    if (cancelProjectConfigBtn) {
-      cancelProjectConfigBtn.addEventListener('click', () => {
+    });
+
+    cancelProjectConfigBtn?.addEventListener('click', () => {
         closeProjectModal();
-      });
-    }
-    
-    // Botão Save
-    if (saveProjectConfigBtn) {
-      saveProjectConfigBtn.addEventListener('click', () => {
+    });
+
+    saveProjectConfigBtn?.addEventListener('click', () => {
         saveProjectConfiguration();
         closeProjectModal();
-      });
-    }
+    });
 
-    // Fechar modal ao clicar fora
-    window.addEventListener('click', (event) => {
-      if (event.target === projectModal) {
-        closeProjectModal();
-      }
+    projectModal?.addEventListener('click', (event) => {
+        if (event.target === projectModal) {
+            closeProjectModal();
+        }
     });
-    
-    // Tecla ESC para fechar o modal
+
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !projectModal.hidden && projectModal.classList.contains('active')) {
-        closeProjectModal();
-      }
+        if (event.key === 'Escape' && projectModal?.getAttribute('aria-hidden') === 'false') {
+            closeProjectModal();
+        }
     });
-  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupModalButtons();
+});
   
   // Configurar a seção de processadores
   function setupProcessorsSection() {
@@ -2349,15 +2358,49 @@ function showToastNotification(message, type = 'info', duration = 3000) {
 
 // Adicione isso se o fechamento do modal do processador também quebrou.
 
-document.addEventListener('DOMContentLoaded', () => {
-    const processorModal = document.getElementById('modalProcessorConfig');
-    
-    // Botões de fechar/cancelar do modal de processador
-    const closeBtn = document.getElementById('closeModal');
-    const cancelBtn = document.getElementById('cancelConfig');
 
-    if (processorModal) {
-        closeBtn?.addEventListener('click', () => closeModal(processorModal));
-        cancelBtn?.addEventListener('click', () => closeModal(processorModal));
+function openProjectModal() {
+    const projectModal = document.getElementById('modalProjectConfig');
+    if (projectModal) {
+        projectModal.setAttribute('aria-hidden', 'false');
+        projectModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
     }
+}
+
+function closeProjectModal() {
+    const projectModal = document.getElementById('modalProjectConfig');
+    if (projectModal) {
+        projectModal.setAttribute('aria-hidden', 'true');
+        projectModal.classList.remove('show');
+        // Apenas restaura o scroll se nenhum outro modal estiver aberto
+        if (!document.querySelector('.modal-overlay[aria-hidden="false"]')) {
+            document.body.style.overflow = '';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const closeProjectModalBtn = document.getElementById('closeProjectModal');
+    const cancelProjectConfigBtn = document.getElementById('cancelProjectConfig');
+    const saveProjectConfigBtn = document.getElementById('saveProjectConfig');
+    const projectModal = document.getElementById('modalProjectConfig');
+
+    // Event listeners para fechar o modal
+    closeProjectModalBtn?.addEventListener('click', closeProjectModal);
+    cancelProjectConfigBtn?.addEventListener('click', closeProjectModal);
+    
+    // O botão de salvar também deve fechar o modal após a ação
+    saveProjectConfigBtn?.addEventListener('click', () => {
+        // A função saveProjectConfiguration() que você já tem será executada
+        // e depois o modal será fechado.
+        closeProjectModal();
+    });
+
+    // Fecha o modal se clicar fora da área do container
+    projectModal?.addEventListener('click', (event) => {
+        if (event.target === projectModal) {
+            closeProjectModal();
+        }
+    });
 });

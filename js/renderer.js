@@ -8322,7 +8322,6 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
     filterGtkWaveOutput(result) {
         const noisePrefixes = [
             'GTKWave Analyzer',
-            //'RCVAR |',
             'FSTLOAD |',
             'GTKWAVE |',
             'WM Destroy',

@@ -9,7 +9,7 @@
  * -
 */ 
 
-const { app, BrowserWindow, ipcMain, shell, Tray, nativeImage, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeImage, dialog, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec, spawn } = require('child_process');
 const path = require('path');
@@ -50,8 +50,7 @@ autoUpdater.autoInstallOnAppQuit = false; // We want to control installation
 let currentOpenProjectPath = null;
 
 // Global variables for app state
-let tray = null;
-let settingsWindow = null;
+
 let isQuitting = false;
 
 let mainWindow, splashWindow;
@@ -110,34 +109,15 @@ if (process.platform === 'win32') {
   // Apply auto-start setting
   applyAutoStartSettings(settings.startWithWindows);
 
-  // Create tray icon
-  createTray();
-
   // Handle window close
   mainWindow.on('close', async (event) => {
     if (isQuitting) return;
   
-    try {
-      const settings = await loadSettings();
-      
-      if (settings.minimizeToTray) {
-        event.preventDefault();
-        mainWindow.hide();
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking settings:', error);
-    }
   });
   
   // Handle app quit
   app.on('before-quit', async () => {
   isQuitting = true;
-
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
 
   try {
     const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
@@ -580,7 +560,6 @@ async function loadSettings() {
       // If the file doesn't exist, return default settings
       return {
         startWithWindows: false,
-        minimizeToTray: true,
         theme: 'dark'
       };
     }
@@ -589,7 +568,6 @@ async function loadSettings() {
     // Return default settings in case of an error
     return {
       startWithWindows: false,
-      minimizeToTray: true,
       theme: 'dark'
     };
   }
@@ -617,84 +595,6 @@ function applyAutoStartSettings(enabled) {
   } catch (error) {
     console.error('Error setting login item:', error);
     return false;
-  }
-}
-
-// Function to create a system tray icon and menu
-function createTray() {
-  if (tray !== null) return; // Avoid duplicate tray creation
-
-  const iconPath = path.join(__dirname, 'assets', 'icons', 'aurora_borealis-2.png');
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 24, height: 24 });
-  tray = new Tray(trayIcon);
-
-  const openIconPath = path.join(__dirname, 'assets', 'icons', 'open.png');
-  const settingsIconPath = path.join(__dirname, 'assets', 'icons', 'settings.png');
-  const quitIconPath = path.join(__dirname, 'assets', 'icons', 'close.png');
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Open App',
-      icon: nativeImage.createFromPath(openIconPath).resize({ width: 16, height: 16 }),
-      click: () => {
-        mainWindow.show();
-      }
-    },
-    {
-      label: 'Settings',
-      icon: nativeImage.createFromPath(settingsIconPath).resize({ width: 16, height: 16 }),
-      click: () => {
-        createSettingsWindow();
-      }
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      icon: nativeImage.createFromPath(quitIconPath).resize({ width: 16, height: 18 }),
-      click: () => {
-        isQuitting = true;
-        if (tray) {
-          tray.destroy();
-          tray = null;
-        }
-        app.quit();
-      }
-    }
-  ]);
-
-  tray.setToolTip('AURORA IDE');
-  tray.setContextMenu(contextMenu);
-
-  tray.on('double-click', () => {
-    mainWindow.show();
-  });
-}
-
-// IPC handlers for settings management
-ipcMain.handle('get-settings', async () => {
-  return await loadSettings();
-});
-
-ipcMain.handle('save-settings', async (event, settings) => {
-  const success = await saveSettings(settings); // Save settings to file
-  applyAutoStartSettings(settings.startWithWindows); // Apply auto-start configuration
-  return success;
-});
-
-ipcMain.on('close-settings-modal', () => {
-  if (settingsWindow) settingsWindow.close(); // Close settings window if open
-});
-
-ipcMain.on('open-settings', () => {
-  createSettingsWindow(); // Open settings window
-});
-
-  function handleZoom(mainWindow, factorChange) {
-  if (mainWindow) {
-    const webContents = mainWindow.webContents;
-    const currentZoom = webContents.getZoomFactor();
-    const newZoom = Math.max(0.2, currentZoom + factorChange); // Impede zoom menor que 20%
-    webContents.setZoomFactor(newZoom);
   }
 }
 
@@ -4789,7 +4689,6 @@ function filterGtkWaveOutput(output) {
     'WM Destroy',
     '[0] start time',
     '[0] end time',
-    'RCVAR |'
   ];
 
   if (!output) return '';

@@ -6895,6 +6895,7 @@ async runGtkWave(processor) {
     const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
     const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
     const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+    const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
     
     const selectedCmmFile = await this.getSelectedCmmFile(processor);
     const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -6905,8 +6906,13 @@ async runGtkWave(processor) {
       testbenchBackupInfo = await this.modifyTestbenchForSimulation(tbFile, tbModule, tempPath, simuDelay);
     }
 
+    const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+    const tclContent = `${tempPath}\n${binPath}\n`;
+    await window.electronAPI.writeFile(tclFilePath, tclContent);
+
     // Icarus Verilog compilation
     await TabManager.saveAllFiles();
+    
     const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
     const verilogFilesString = verilogFiles.join(' ');
     const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);

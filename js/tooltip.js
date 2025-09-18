@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'processortestbenchSelect': 'Choose the testbench file (.v) for simulating the processor behavior.',
         'processorClk': 'Set the clock frequency in MHz for processor simulation (maximum 1000MHz).',
         'processorNumClocks': 'Define the total number of clock cycles to run during simulation.',
-        'processorSimulTime': 'Specify the total simulation time in microseconds.',
+        'processorSimulTime': 'Specify the total simulation time in picoseconds.',
         'processorgtkwaveSelect': 'Select a GTKWave configuration file (.gtkw) to customize waveform display.',
         'showArraysInGtkwave': 'Enable viewing of C± array contents in the waveform viewer (may slow simulation).',
         

@@ -336,6 +336,71 @@
             border: 1px solid var(--border-primary);
             box-shadow: var(--shadow-lg);
         }
+       /* --- SVG CONTAINER (original props preserved + melhorias) --- */
+.svg-container {
+    flex: 1;
+    position: relative;        /* necessário para pseudo-elementos */
+    isolation: isolate;        /* evita que blend modes vazem para fora */
+    background: var(--bg-primary);
+    overflow: hidden;
+    cursor: grab;
+    margin: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    box-shadow: var(--shadow-lg);
+
+    /* não duplicamos o padrão aqui — usamos apenas ::before para o grid de bolinhas */
+    background-image: none;
+}
+
+/* --- camada das bolinhas (única fonte) --- */
+.svg-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;                   /* top:0; right:0; bottom:0; left:0; */
+    pointer-events: none;
+    z-index: 1;
+
+    /* padrão de pontos mantendo sua cor --purple-400 e espaçamento original */
+    background-image: radial-gradient(circle, var(--purple-400) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 0 0;
+
+    /* redução da "vivacidade" mantendo visibilidade:
+       0.10 é um bom meio-termo em fundo escuro; ajuste entre 0.06 e 0.18 se precisar */
+    opacity: 0.20;
+    mix-blend-mode: normal;     /* evita sumir sobre fundo escuro */
+    filter: blur(0.18px);       /* suaviza as bordas das bolinhas */
+}
+
+/* --- vinheta radial nas bordas (escurece perímetro sem tocar no centro) --- */
+.svg-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+
+    /* transparente no centro, escurece até borda */
+    background: radial-gradient(ellipse at center,
+                rgba(0,0,0,0) 40%,
+                rgba(0,0,0,0.55) 100%);
+    mix-blend-mode: multiply;   /* escurece mantendo cor original */
+}
+
+/* --- utilitários para controle fino --- */
+/* versão ainda mais sutil (use data-muted="true" no elemento) */
+.svg-container[data-muted="true"]::before {
+    opacity: 0.06;
+    filter: blur(0.28px);
+}
+
+/* versão um pouco mais visível para quando o fundo for claro */
+.svg-container[data-bright="true"]::before {
+    opacity: 0.16;
+    filter: blur(0.12px);
+}
+
 
         .svg-container.dragging {
             cursor: grabbing;

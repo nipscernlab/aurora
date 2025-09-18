@@ -612,6 +612,31 @@ ipcMain.on('zoom-reset', () => {
     mainWindow.webContents.setZoomFactor(1.0); // Reseta para 100%
   }
 });
+
+ function handleZoom(mainWindow, factorChange) {
+  if (mainWindow) {
+    const webContents = mainWindow.webContents;
+    const currentZoom = webContents.getZoomFactor();
+    const newZoom = Math.max(0.2, currentZoom + factorChange); // Impede zoom menor que 20%
+    webContents.setZoomFactor(newZoom);
+  }
+}
+
+
+ipcMain.on('zoom-in', () => {
+  handleZoom(mainWindow, 0.1); // Aumenta o zoom em 10%
+});
+
+ipcMain.on('zoom-out', () => {
+  handleZoom(mainWindow, -0.1); // Diminui o zoom em 10%
+});
+
+ipcMain.on('zoom-reset', () => {
+  if (mainWindow) {
+    mainWindow.webContents.setZoomFactor(1.0); // Reseta para 100%
+  }
+});
+
 // Function to create a splash screen
 function createSplashScreen() {
   splashWindow = new BrowserWindow({

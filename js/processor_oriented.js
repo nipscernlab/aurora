@@ -1444,33 +1444,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const simulTimeInput = document.getElementById("processorSimulTime");
 
   /**
-   * Calculates the clock period in microseconds (µs) from a frequency in MHz.
+   * Calculates the clock period in picosseconds (ps) from a frequency in MHz.
    * @param {number} freqMHz - The clock frequency in MHz.
-   * @returns {number|null} The clock period in µs, or null if frequency is invalid.
+   * @returns {number|null} The clock period in ps, or null if frequency is invalid.
    */
-  function getClockPeriodInMicroseconds(freqMHz) {
+  function getClockPeriodInPicoseconds(freqMHz) {
     // A frequency must be a positive number.
     if (!freqMHz || freqMHz <= 0) {
       return null;
     }
-    // Formula: Period (µs) = 1 / Frequency (MHz)
-    return 1 / freqMHz;
+    // Formula: Period (ps) = 1,000,000 / Frequency (MHz)
+    // 1 MHz = 1,000,000 Hz
+    // Period (s) = 1 / Frequency (Hz)
+    // Period (ps) = Period (s) * 10^12 = 10^12 / (Frequency (MHz) * 10^6) = 10^6 / Frequency (MHz)
+    return 1000000 / freqMHz;
   }
 
   /**
-   * Calculates and updates the Simulation Time (µs) field.
+   * Calculates and updates the Simulation Time (ps) field.
    * Triggered when clock frequency or number of clocks change.
    */
   function updateSimulationTime() {
     const freqMHz = parseFloat(clkInput.value);
     const numClocks = parseInt(numClocksInput.value, 10);
-    const period_us = getClockPeriodInMicroseconds(freqMHz);
+    const period_ps = getClockPeriodInPicoseconds(freqMHz);
 
     // Check if all inputs are valid numbers
-    if (period_us !== null && !isNaN(numClocks) && numClocks >= 0) {
-      const totalTime = numClocks * period_us;
-      // Update the simulation time input, rounding to 4 decimal places for clarity
-      simulTimeInput.value = totalTime.toFixed(4);
+    if (period_ps !== null && !isNaN(numClocks) && numClocks >= 0) {
+      const totalTime = numClocks * period_ps;
+      // Update the simulation time input, rounding to 2 decimal places for clarity
+      simulTimeInput.value = totalTime.toFixed(2);
     } else {
       // If inputs are invalid (e.g., empty or zero), clear the output
       simulTimeInput.value = '';
@@ -1483,13 +1486,13 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function updateNumberOfClocks() {
     const freqMHz = parseFloat(clkInput.value);
-    const simTime_us = parseFloat(simulTimeInput.value);
-    const period_us = getClockPeriodInMicroseconds(freqMHz);
+    const simTime_ps = parseFloat(simulTimeInput.value);
+    const period_ps = getClockPeriodInPicoseconds(freqMHz);
 
     // Check if all inputs are valid numbers
-    if (period_us !== null && !isNaN(simTime_us) && simTime_us >= 0) {
+    if (period_ps !== null && !isNaN(simTime_ps) && simTime_ps >= 0) {
       // As requested, round down to the nearest whole number of clocks
-      const totalClocks = Math.floor(simTime_us / period_us);
+      const totalClocks = Math.floor(simTime_ps / period_ps);
       numClocksInput.value = totalClocks;
     } else {
       // If inputs are invalid, clear the output

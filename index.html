@@ -674,16 +674,16 @@
     <div id="settings-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
 
-        <!-- Cabeçalho do Modal -->
+        <!-- Modal Header -->
         <div class="modal-header">
             <h2>Settings</h2>
             <button id="close-modal-btn" class="close-button" aria-label="Close settings">&times;</button>
         </div>
 
-        <!-- Corpo do Modal -->
+        <!-- Modal Body -->
         <div class="modal-body">
 
-            <!-- Seção: Geral -->
+            <!-- Section: General -->
             <div class="settings-section">
                 <h3>General</h3>
                 <div class="setting-item">
@@ -702,7 +702,22 @@
                 </div>
             </div>
 
-            <!-- Seção: Aparência -->
+            <!-- Section: Terminal -->
+            <div class="settings-section">
+                <h3>Terminal</h3>
+                <div class="setting-item">
+                    <label for="verbose-toggle">Verbose Mode</label>
+                    <label class="switch">
+                        <input type="checkbox" id="verbose-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <div class="setting-description">
+                        Show all compilation messages. When disabled, only filtered messages (errors, warnings, success, info) are displayed.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Appearance -->
             <div class="settings-section">
                 <h3>Appearance</h3>
                 <div id="icon-container">
@@ -715,11 +730,11 @@
                 </div>
             </div>
 
-            <!-- Seção: Atalhos -->
+            <!-- Section: Shortcuts -->
             <div class="settings-section">
                 <h3>Keyboard Shortcuts</h3>
                 <div id="shortcut-list">
-                    <!-- Atalhos serão injetados aqui via JS -->
+                    <!-- Shortcuts will be injected here via JS -->
                 </div>
                 <div class="shortcut-warning" id="shortcut-warning">
                     This shortcut is already in use.
@@ -728,15 +743,14 @@
 
         </div>
 
-        <!-- Rodapé do Modal -->
+        <!-- Modal Footer -->
         <div class="modal-footer">
             <button id="reset-settings-btn" class="modal-button secondary">Reset to Defaults</button>
             <button id="save-settings-btn" class="modal-button primary">Save Changes</button>
         </div>
     </div>
 </div>
-    <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
-</div>
+<input type="file" id="icon-upload" accept="image/*" style="display: none;" />
 
     <!-- Status Bar -->
     <div class="status-bar">

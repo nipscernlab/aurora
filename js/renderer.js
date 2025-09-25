@@ -8215,7 +8215,8 @@ class TerminalManager {
         this.setupAutoScroll();
         this.setupGoDownButton();
         this.setupTerminalLogListener();
-this.updatableCards = {};
+        this.updatableCards = {};
+        
         // Initialize current session grouped cards for each terminal
         this.currentSessionCards = {};
         Object.keys(this.terminals)
@@ -8230,6 +8231,34 @@ this.updatableCards = {};
 
         this.activeFilters = new Set();
         this.setupFilterButtons();
+        
+        // Verbose mode - defaults to true (show all messages)
+        this.verboseMode = this.loadVerboseMode();
+        this.setupVerboseToggle();
+    }
+
+    // Load verbose mode from localStorage
+    loadVerboseMode() {
+        const saved = localStorage.getItem('terminal-verbose-mode');
+        return saved !== null ? JSON.parse(saved) : true;
+    }
+
+    // Save verbose mode to localStorage
+    saveVerboseMode() {
+        localStorage.setItem('terminal-verbose-mode', JSON.stringify(this.verboseMode));
+    }
+
+    // Setup verbose toggle event listener
+    setupVerboseToggle() {
+        const verboseToggle = document.getElementById('verbose-toggle');
+        if (verboseToggle) {
+            verboseToggle.checked = this.verboseMode;
+            verboseToggle.addEventListener('change', (e) => {
+                this.verboseMode = e.target.checked;
+                this.saveVerboseMode();
+                this.applyFilterToAllTerminals();
+            });
+        }
     }
 
     resetSessionCards(terminalId) {
@@ -8237,63 +8266,59 @@ this.updatableCards = {};
             this.currentSessionCards[terminalId] = {};
         }
     }
-createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
-    const terminal = this.terminals[terminalId];
-    if (!terminal) return;
 
-    if (!this.updatableCards[terminalId]) {
-        this.updatableCards[terminalId] = {};
-    }
+    createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
 
-    let card = this.updatableCards[terminalId][cardId];
-    const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
-    
-    // Constrói o HTML para as linhas de mensagem.
-    const contentHTML = lines.map(line => `<div>${line}</div>`).join('');
-
-    if (!card) {
-        // Card não existe, vamos criá-lo com a ESTRUTURA CORRETA.
-        card = document.createElement('div');
-        card.classList.add('log-entry', type);
-        
-        // A estrutura agora é idêntica à de createGroupedCard/createLogEntry
-        card.innerHTML = `
-            <span class="timestamp">[${timestamp}]</span>
-            <div class="message-content">
-                <div class="message-lines">${contentHTML}</div>
-            </div>
-        `;
-        
-        terminal.appendChild(card);
-        this.updatableCards[terminalId][cardId] = card;
-
-        // Animação de entrada
-        card.style.opacity = '0';
-        requestAnimationFrame(() => {
-            card.style.transition = 'opacity 0.3s ease';
-            card.style.opacity = '1';
-        });
-
-    } else {
-        // Card já existe, vamos apenas atualizar seu conteúdo.
-        const messageContainer = card.querySelector('.message-lines');
-        if (messageContainer) {
-            messageContainer.innerHTML = contentHTML;
+        if (!this.updatableCards[terminalId]) {
+            this.updatableCards[terminalId] = {};
         }
+
+        let card = this.updatableCards[terminalId][cardId];
+        const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+        
+        const contentHTML = lines.map(line => `<div>${line}</div>`).join('');
+
+        if (!card) {
+            card = document.createElement('div');
+            card.classList.add('log-entry', type);
+            
+            card.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <div class="message-content">
+                    <div class="message-lines">${contentHTML}</div>
+                </div>
+            `;
+            
+            terminal.appendChild(card);
+            this.updatableCards[terminalId][cardId] = card;
+
+            card.style.opacity = '0';
+            requestAnimationFrame(() => {
+                card.style.transition = 'opacity 0.3s ease';
+                card.style.opacity = '1';
+            });
+
+        } else {
+            const messageContainer = card.querySelector('.message-lines');
+            if (messageContainer) {
+                messageContainer.innerHTML = contentHTML;
+            }
+        }
+        
+        card.setAttribute('data-status', status);
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
+        return card;
     }
-    
-    // O atributo [data-status] é a chave para o CSS dinâmico funcionar.
-    card.setAttribute('data-status', status);
-    this.scrollToBottom(terminalId);
-    return card;
-}
+
     processExecutableOutput(terminalId, result) {
         const terminal = this.terminals[terminalId];
         if (!terminal || (!result.stdout && !result.stderr)) {
             return;
         }
 
-        // 1. Reseta os cards para este novo bloco de saída
         this.resetSessionCards(terminalId);
 
         const output = (result.stdout || '') + (result.stderr || '');
@@ -8301,13 +8326,13 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
 
         if (lines.length === 0) return;
 
-        // 2. Processa cada linha para agrupá-la no card apropriado
         lines.forEach(line => {
             const messageType = this.detectMessageType(line);
 
             if (messageType && messageType !== 'plain') {
                 this.addToSessionCard(terminalId, line.trim(), messageType);
-            } else {
+            } else if (this.verboseMode) {
+                // Only show plain messages in verbose mode
                 const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
                 this.createLogEntry(terminal, line.trim(), 'plain', timestamp);
             }
@@ -8317,6 +8342,87 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
         this.scrollToBottom(terminalId);
     }
 
+    processStreamedLine(terminalId, line) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal || !line) return;
+
+        const messageType = this.detectMessageType(line);
+
+        if (messageType && messageType !== 'plain') {
+            this.addToSessionCard(terminalId, line, messageType);
+        } else if (this.verboseMode) {
+            // Only show plain messages in verbose mode
+            const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+            this.createLogEntry(terminal, line, 'plain', timestamp);
+        }
+
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
+    }
+
+    appendToTerminal(terminalId, content, type = 'info') {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+        
+        let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
+        if (!text.trim()) return;
+        
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        lines.forEach(line => {
+            const detectedType = this.detectMessageType(line);
+            
+            // Show message if it's not plain or if verbose mode is enabled
+            if (detectedType !== 'plain' || this.verboseMode) {
+                const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+                this.createLogEntry(terminal, line.trim(), type, timestamp);
+            }
+        });
+
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
+    }
+
+    applyFilter(terminalId) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+
+        const cards = terminal.querySelectorAll('.log-entry');
+        const hasActiveFilters = this.activeFilters.size > 0;
+
+        cards.forEach(card => {
+            // Check if this plain message contains clickable line numbers
+            const hasLineLinks = card.querySelector('.line-link') !== null;
+            
+            // First check verbose mode for plain messages
+            if (!this.verboseMode && card.classList.contains('plain')) {
+                // Always show plain messages that contain line links, even in non-verbose mode
+                if (hasLineLinks) {
+                    card.style.display = '';
+                    return;
+                }
+                card.style.display = 'none';
+                return;
+            }
+
+            if (!hasActiveFilters) {
+                // If no filters are active and verbose allows it, show the card
+                card.style.display = '';
+                return;
+            }
+
+            // Check if the card has at least one of the active filter classes
+            const shouldShow = [...this.activeFilters].some(filter => card.classList.contains(filter));
+
+            if (shouldShow) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // ... rest of the methods remain the same ...
     filterGtkWaveOutput(result) {
         const noisePrefixes = [
             'GTKWave Analyzer',
@@ -8331,7 +8437,6 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
             if (!text) return '';
             return text.split('\n')
                 .filter(line => {
-                    // Mantém a linha se ela NÃO começar com nenhum dos prefixos de ruído
                     return !noisePrefixes.some(prefix => line.trim().startsWith(prefix));
                 })
                 .join('\n');
@@ -8377,7 +8482,6 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
 
         if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
 
-        // It's good practice to re-clone nodes to avoid stale event listeners
         const buttons = {
             error: errorBtn.cloneNode(true),
             warning: warningBtn.cloneNode(true),
@@ -8396,13 +8500,12 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
         buttons.success.addEventListener('click', () => this.toggleFilter('success', buttons.success));
     }
 
-    toggleFilter(filterType, clickedBtn, allButtons) {
-        if (this.activeFilter === filterType) {
-            this.activeFilter = null;
+    toggleFilter(filterType, clickedBtn) {
+        if (this.activeFilters.has(filterType)) {
+            this.activeFilters.delete(filterType);
             clickedBtn.classList.remove('active');
         } else {
-            this.activeFilter = filterType;
-            allButtons.forEach(btn => btn.classList.remove('active'));
+            this.activeFilters.add(filterType);
             clickedBtn.classList.add('active');
         }
 
@@ -8416,59 +8519,15 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
             });
     }
 
-    toggleFilter(filterType, clickedBtn) {
-        // Check if the filter is already active
-        if (this.activeFilters.has(filterType)) {
-            // If so, remove it from the set and deactivate the button
-            this.activeFilters.delete(filterType);
-            clickedBtn.classList.remove('active');
-        } else {
-            // If not, add it to the set and activate the button
-            this.activeFilters.add(filterType);
-            clickedBtn.classList.add('active');
-        }
-
-        // Apply the updated filters to all terminals
-        this.applyFilterToAllTerminals();
-    }
-
-    applyFilter(terminalId) {
-        const terminal = this.terminals[terminalId];
-        if (!terminal) return;
-
-        const cards = terminal.querySelectorAll('.log-entry');
-        const hasActiveFilters = this.activeFilters.size > 0;
-
-        cards.forEach(card => {
-            if (!hasActiveFilters) {
-                // If no filters are active, show all cards
-                card.style.display = '';
-                return;
-            }
-
-            // Check if the card has at least one of the active filter classes
-            const shouldShow = [...this.activeFilters].some(filter => card.classList.contains(filter));
-
-            if (shouldShow) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
-
     detectMessageType(content) {
         const text = typeof content === 'string' ?
             content :
             (content.stdout || '') + ' ' + (content.stderr || '');
 
-        // Portuguese keywords detection
         if (text.includes('Atenção') || text.includes('Warning')) return 'warning';
         if (text.includes('Erro') || text.includes('ERROR')) return 'error';
         if (text.includes('Sucesso') || text.includes('Success')) return 'success';
         if (text.includes('Info') || text.includes('Tip')) return 'tips';
-
-        // Additional detection patterns
         if (text.includes('não está sendo usada') || text.includes('Economize memória')) return 'tips';
         if (text.includes('de sintaxe') || text.includes('cadê a função')) return 'error';
 
@@ -8476,52 +8535,11 @@ createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
     }
 
     makeLineNumbersClickable(text) {
-        // Replace "linha" or "line" followed by space and number with clickable link
         return text.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
             return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" ` +
                 `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
                 `${match}</span>`;
         });
-    }
-// Adicione este método à sua classe TerminalManager
-
-processStreamedLine(terminalId, line) {
-    const terminal = this.terminals[terminalId];
-    if (!terminal || !line) return;
-
-    const messageType = this.detectMessageType(line);
-
-    if (messageType && messageType !== 'plain') {
-        this.addToSessionCard(terminalId, line, messageType);
-    } else {
-        const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
-        this.createLogEntry(terminal, line, 'plain', timestamp);
-    }
-
-    this.applyFilter(terminalId);
-    this.scrollToBottom(terminalId);
-}
-    // In the TerminalManager class...
-
-    appendToTerminal(terminalId, content, type = 'info') {
-        const terminal = this.terminals[terminalId];
-        if (!terminal) return;
-        
-        // Esta função agora é usada para mensagens de status individuais.
-        // A lógica de processamento de blocos de saída foi movida para processExecutableOutput.
-        let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
-        if (!text.trim()) return;
-        
-        const lines = text.split('\n').filter(line => line.trim());
-        
-        lines.forEach(line => {
-             const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
-             // Mensagens gerais não serão agrupadas em cards de sessão, elas aparecem como entradas individuais
-             this.createLogEntry(terminal, line.trim(), type, timestamp);
-        });
-
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
     }
 
     addToSessionCard(terminalId, text, type) {
@@ -8543,16 +8561,13 @@ processStreamedLine(terminalId, line) {
         const logEntry = document.createElement('div');
         logEntry.classList.add('log-entry', type);
 
-        // Add timestamp
         const timestampElement = document.createElement('span');
         timestampElement.classList.add('timestamp');
         timestampElement.textContent = `[${timestamp}]`;
 
-        // Container for all messages in this group
         const messageContent = document.createElement('div');
         messageContent.classList.add('message-content');
 
-        // Only messages container—no separate header
         const messagesContainer = document.createElement('div');
         messagesContainer.classList.add('messages-container');
 
@@ -8561,7 +8576,6 @@ processStreamedLine(terminalId, line) {
         logEntry.appendChild(messageContent);
         terminal.appendChild(logEntry);
 
-        // Fade‑in
         logEntry.style.opacity = '0';
         logEntry.style.transform = 'translateY(10px)';
         requestAnimationFrame(() => {
@@ -8581,8 +8595,6 @@ processStreamedLine(terminalId, line) {
         messageDiv.classList.add('grouped-message');
         messageDiv.style.marginBottom = '0.25rem';
 
-        // 1) make line‑numbers clickable
-        // 2) bold the keyword at the start of the message
         let processedText = this.makeLineNumbersClickable(text);
         processedText = processedText.replace(
             /^(Atenção|Erro|Sucesso|Info)(:)?/i, (_, word, colon) => `<strong style="font-weight:900">${word}</strong>${colon || ''}`
@@ -8598,17 +8610,14 @@ processStreamedLine(terminalId, line) {
                 console.log(`Clicked on line ${lineNumber}`);
 
                 try {
-                    // Extract CMM file path from recent compilation data
                     let cmmFilePath = null;
 
-                    // First, try to get from compilation manager if available
                     if (window.compilationManager?.getCurrentProcessor) {
                         const currentProcessor = window.compilationManager.getCurrentProcessor();
                         if (currentProcessor) {
                             try {
                                 const selectedCmmFile = await window.compilationManager.getSelectedCmmFile(currentProcessor);
                                 if (selectedCmmFile) {
-                                    // Construct full path: project path + processor name + Software + selectedCmmFile
                                     const projectPath = window.compilationManager.projectPath;
                                     const softwarePath = await window.electronAPI.joinPath(projectPath, currentProcessor.name, 'Software');
                                     cmmFilePath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
@@ -8619,25 +8628,20 @@ processStreamedLine(terminalId, line) {
                         }
                     }
 
-                    // If that fails, try to extract from terminal content
                     if (!cmmFilePath) {
                         const terminalContent = card.closest('.terminal-content');
                         if (terminalContent) {
                             const logEntries = terminalContent.querySelectorAll('.log-entry');
 
-                            // Look for compilation command in recent log entries
-                            for (const entry of Array.from(logEntries)
-                                    .reverse()) {
+                            for (const entry of Array.from(logEntries).reverse()) {
                                 const entryText = entry.textContent || '';
 
-                                // Look for cmmcomp.exe command
                                 const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
                                 if (cmmCompMatch) {
                                     const cmmFileName = cmmCompMatch[1];
                                     const processorName = cmmCompMatch[2];
                                     const projectPath = cmmCompMatch[3];
 
-                                    // Construct full CMM file path
                                     cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);
                                     break;
                                 }
@@ -8650,28 +8654,23 @@ processStreamedLine(terminalId, line) {
                         return;
                     }
 
-                    // Check if file exists
                     const fileExists = await window.electronAPI.fileExists(cmmFilePath);
                     if (!fileExists) {
                         console.log(`CMM file does not exist: ${cmmFilePath}`);
                         return;
                     }
 
-                    // Check if the CMM file is already open in tabs
                     const isFileOpen = TabManager.tabs.has(cmmFilePath);
 
                     if (!isFileOpen) {
-                        // Read file content and open it in a new tab
                         const content = await window.electronAPI.readFile(cmmFilePath, {
                             encoding: 'utf8'
                         });
                         TabManager.addTab(cmmFilePath, content);
                     } else {
-                        // File is already open, just activate it
                         TabManager.activateTab(cmmFilePath);
                     }
 
-                    // Navigate to line in Monaco editor after a small delay to ensure tab is active
                     setTimeout(() => {
                         this.goToLine(lineNumber);
                     }, 100);
@@ -8685,16 +8684,13 @@ processStreamedLine(terminalId, line) {
         messagesContainer.appendChild(messageDiv);
     }
 
-    // Helper method to navigate to a specific line in Monaco Editor
     goToLine(lineNumber) {
-        // Get the active editor from EditorManager
         const activeEditor = EditorManager.activeEditor;
         if (!activeEditor) {
             console.warn('No active editor found');
             return;
         }
 
-        // Ensure line number is valid
         const model = activeEditor.getModel();
         if (!model) {
             console.warn('No model found in active editor');
@@ -8704,19 +8700,14 @@ processStreamedLine(terminalId, line) {
         const totalLines = model.getLineCount();
         const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
 
-        // Set cursor position to the beginning of the target line
         activeEditor.setPosition({
             lineNumber: targetLine,
             column: 1
         });
 
-        // Center the line in the viewport
         activeEditor.revealLineInCenter(targetLine);
-
-        // Focus the editor
         activeEditor.focus();
 
-        // Optional: Select the entire line
         activeEditor.setSelection({
             startLineNumber: targetLine,
             startColumn: 1,
@@ -8742,9 +8733,90 @@ processStreamedLine(terminalId, line) {
         );
         messageContent.innerHTML = processedText;
 
+        // Add click event listeners for line links in individual log entries
         logEntry.appendChild(timestampElement);
         logEntry.appendChild(messageContent);
         terminal.appendChild(logEntry);
+
+        // Setup line link click handlers
+        const lineLinks = messageContent.querySelectorAll('.line-link');
+        lineLinks.forEach(link => {
+            link.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const lineNumber = parseInt(link.getAttribute('data-line'));
+                console.log(`Clicked on line ${lineNumber}`);
+
+                try {
+                    let cmmFilePath = null;
+
+                    if (window.compilationManager?.getCurrentProcessor) {
+                        const currentProcessor = window.compilationManager.getCurrentProcessor();
+                        if (currentProcessor) {
+                            try {
+                                const selectedCmmFile = await window.compilationManager.getSelectedCmmFile(currentProcessor);
+                                if (selectedCmmFile) {
+                                    const projectPath = window.compilationManager.projectPath;
+                                    const softwarePath = await window.electronAPI.joinPath(projectPath, currentProcessor.name, 'Software');
+                                    cmmFilePath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
+                                }
+                            } catch (error) {
+                                console.log('Error getting CMM file from compilation manager:', error);
+                            }
+                        }
+                    }
+
+                    if (!cmmFilePath) {
+                        const terminalContent = logEntry.closest('.terminal-content');
+                        if (terminalContent) {
+                            const logEntries = terminalContent.querySelectorAll('.log-entry');
+
+                            for (const entry of Array.from(logEntries).reverse()) {
+                                const entryText = entry.textContent || '';
+
+                                const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
+                                if (cmmCompMatch) {
+                                    const cmmFileName = cmmCompMatch[1];
+                                    const processorName = cmmCompMatch[2];
+                                    const projectPath = cmmCompMatch[3];
+
+                                    cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!cmmFilePath) {
+                        console.log('Could not determine CMM file path');
+                        return;
+                    }
+
+                    const fileExists = await window.electronAPI.fileExists(cmmFilePath);
+                    if (!fileExists) {
+                        console.log(`CMM file does not exist: ${cmmFilePath}`);
+                        return;
+                    }
+
+                    const isFileOpen = TabManager.tabs.has(cmmFilePath);
+
+                    if (!isFileOpen) {
+                        const content = await window.electronAPI.readFile(cmmFilePath, {
+                            encoding: 'utf8'
+                        });
+                        TabManager.addTab(cmmFilePath, content);
+                    } else {
+                        TabManager.activateTab(cmmFilePath);
+                    }
+
+                    setTimeout(() => {
+                        this.goToLine(lineNumber);
+                    }, 100);
+
+                } catch (error) {
+                    console.error('Error opening CMM file and navigating to line:', error);
+                }
+            });
+        });
 
         logEntry.style.opacity = '0';
         logEntry.style.transform = 'translateY(10px)';
@@ -8755,6 +8827,7 @@ processStreamedLine(terminalId, line) {
         });
     }
 
+    // ... rest of the existing methods remain unchanged ...
     setupGoDownButton() {
         const goDownButton = document.getElementById('godown-terminal');
         const goUpButton = document.getElementById('goup-terminal');

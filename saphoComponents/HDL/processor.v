@@ -95,7 +95,6 @@ module processor
 	// -------------------------------------------------------------------------
 
 	// fluxo de dados
-	parameter PIPELN =  3,              // Implementa pipeline (0 = sem pipeline, 1 = com pipeline)
 	parameter NUBITS = 16,              // Tamanho da palavra do processador
 	parameter NBMANT = 23,              // Numero de bits da mantissa
 	parameter NBEXPO =  8,              // Numero de bits do expoente
@@ -287,8 +286,7 @@ assign io_out = mem_data_out;
 
 wire [NBOPCO+NBOPER-1:0] instr;
 
-core #(.PIPELN ( PIPELN ),
-	   .NBOPCO ( NBOPCO ),
+core #(.NBOPCO ( NBOPCO ),
        .NBOPER ( NBOPER ),
        .ITRADD ( ITRADD ),
        .MDATAW ( MDATAW ),

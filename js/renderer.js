@@ -1596,7 +1596,7 @@ function setupCMMLanguage() {
                 [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
                 // StdLib functions
-                [/\b(in|out|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|mod2|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+                [/\b(in|fin|out|fout|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|mod2|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
                 // Dirac notation - Complex assignment statements
                 // Pattern: variable # expression|vector⟩ or variable # |matrix|vector⟩

@@ -35,7 +35,7 @@ proc addVar {facname dataFormat color alias tradutor filter} {
 proc addVars {tipo padrao dataFormat tradutor} {
     set var_typ [listVar $padrao]
 
-    puts "Info: found [llength $var_typ] $tipo type variables."
+    puts "Info: found [llength $var_typ] '$tipo' type variables"
     
     for {set i 0} {$i < [llength $var_typ] } {incr i} {
         set facname [lindex $var_typ $i]
@@ -120,11 +120,11 @@ gtkwave::/Edit/Insert_Comment {I/O ****************}
 set req_in  [listVar "req_in_sim"]
 set entrada [listVar "in_sim"    ]
 
-puts "Info: found [llength $req_in] input ports in use."
+puts "Info: found [llength $req_in] input ports in use"
 
 for {set i 0} {$i < [llength $req_in] } {incr i} {
 
-    puts "Info: adding signals for input port $i."
+    puts "Info: adding signals for input port $i"
 
     addVar [list [lindex $req_in  $i]] "Binary"         "Yellow" "req_in $i" "" ""
     addVar [list [lindex $entrada $i]] "Signed_Decimal" "Yellow" "input  $i" "" ""
@@ -135,11 +135,11 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 set out_en [listVar "out_en_sim"]
 set saida  [listVar "out_sig"   ]
 
-puts "Info: found [llength $out_en] output ports in use."
+puts "Info: found [llength $out_en] output ports in use"
 
 for {set i 0} {$i < [llength $out_en] } {incr i} {
 
-    puts "Info: adding signals for output port $i."
+    puts "Info: adding signals for output port $i"
 
     addVar [list [lindex $out_en $i]] "Binary"         "Yellow" "out_en $i" "" ""
     addVar [list [lindex $saida  $i]] "Signed_Decimal" "Yellow" "output $i" "" ""
@@ -149,7 +149,7 @@ for {set i 0} {$i < [llength $out_en] } {incr i} {
 
 gtkwave::/Edit/Insert_Comment {Instructions *******}
 
-puts "Info: adding Assembly and C± instructions."
+puts "Info: adding Assembly and C± instructions"
 
 # Assembly --------------------------------------------------------------------
 
@@ -178,8 +178,51 @@ gtkwave::/Edit/Insert_Comment {Flags **************}
 
 puts "Info: adding flags..."
 
-addVar [getVar "core.sp.pointer"] "Analog/Step" "Normal" "Data Stack Pointer" "" ""
-addVar [getVar "core.sp.fl_full"] "Binary"      "Normal" "Data Stack Full" "" ""
+# Stack -----------------------------------------------------------------------
+
+set lista_flags [list [getVar "core.sp.pointeri"] [getVar "core.sp.fl_max"] [getVar "core.sp.fl_full"] [getVar "isp.pointeri"] [getVar "isp.fl_max"] [getVar "isp.fl_full"]]
+gtkwave::addSignalsFromList $lista_flags
+gtkwave::/Edit/Create_Group "Stack"
+gtkwave::/Edit/Toggle_Group_Open|Close
+gtkwave::/Edit/UnHighlight_All
+
+gtkwave::highlightSignalsFromList [getVar "core.sp.pointeri"]
+gtkwave::/Edit/Data_Format/Analog/Step
+gtkwave::/Edit/Alias_Highlighted_Trace "Data Stack Pointer"
+
+gtkwave::highlightSignalsFromList [getVar "core.sp.fl_max"]
+gtkwave::/Edit/Data_Format/Decimal
+gtkwave::/Edit/Alias_Highlighted_Trace "Data Stack Max"
+
+gtkwave::highlightSignalsFromList [getVar "core.sp.fl_full"]
+gtkwave::/Edit/Alias_Highlighted_Trace "Data Stack Overflow"
+
+gtkwave::highlightSignalsFromList [getVar "isp.pointeri"]
+gtkwave::/Edit/Data_Format/Analog/Step
+gtkwave::/Edit/Alias_Highlighted_Trace "Inst Stack Pointer"
+
+gtkwave::highlightSignalsFromList [getVar "isp.fl_max"]
+gtkwave::/Edit/Data_Format/Decimal
+gtkwave::/Edit/Alias_Highlighted_Trace "Inst Stack Max"
+
+gtkwave::highlightSignalsFromList [getVar "isp.fl_full"]
+gtkwave::/Edit/Alias_Highlighted_Trace "Inst Stack Overflow"
+
+# Adder -----------------------------------------------------------------------
+
+set lista_flags [list [getVar "ula.delta_float"] [getVar "ula.delta_int"]]
+gtkwave::addSignalsFromList $lista_flags
+gtkwave::/Edit/Create_Group "ULA"
+gtkwave::/Edit/Toggle_Group_Open|Close
+gtkwave::/Edit/UnHighlight_All
+
+gtkwave::highlightSignalsFromList [getVar "ula.delta_float"]
+gtkwave::/Edit/Data_Format/Analog/Step
+gtkwave::/Edit/Alias_Highlighted_Trace "Rounding Error (float)"
+
+gtkwave::highlightSignalsFromList [getVar "ula.delta_int"]
+gtkwave::/Edit/Data_Format/Analog/Step
+gtkwave::/Edit/Alias_Highlighted_Trace "Rounding Error (int)"
 
 # Visualizacao ----------------------------------------------------------------
 

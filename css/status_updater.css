@@ -39,7 +39,7 @@ body {
   bottom: 0;       /* Alinha na parte inferior */
   left: 0;         /* Alinha à esquerda */
   width: 100%;     /* Faz com que ocupe toda a largura */
-  z-index: 999;    /* Garante que fique acima de outros conteúdos, mas abaixo de modais */
+ /* z-index: 999;     Garante que fique acima de outros conteúdos, mas abaixo de modais */
 }
 
 /* ===================================================================================

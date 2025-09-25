@@ -4,7 +4,6 @@ module instr_dec
 	// Parametros de configuracao internos -------------------------------------
 	// -------------------------------------------------------------------------
 
-    parameter  PIPELN  = 3,   // Numero de ciclos de pipeline
 	parameter  NBOPCO  = 7,   // Numero de bits de opcode
 	parameter  MDATAW  = 8,   // Numero de bits de endereco da memoria de dados
 
@@ -475,11 +474,7 @@ else assign b0 = 1'b0 ;
 endgenerate
 
 // junta as logicas para ula_op
-generate if (PIPELN>3) begin // NOP
-always @ (posedge clk) if (opcode != 7'd94) ula_op <= {b5,b4,b3,b2,b1,b0};
-end else begin
-always @ (posedge clk)                      ula_op <= {b5,b4,b3,b2,b1,b0};
-end endgenerate
+always @ (posedge clk) ula_op <= {b5,b4,b3,b2,b1,b0};
 
 endmodule
 

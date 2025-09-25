@@ -204,6 +204,17 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 #icon-container:hover #aurora-icon { filter: brightness(0.6); }
 #icon-container:hover .change-icon-btn { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 
+.setting-description {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+    max-width: 400px;
+}
+
+.setting-item {
+    margin-bottom: 1rem;
+}
 
 /* Shortcut Remapping */
 #shortcut-list {

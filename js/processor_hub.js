@@ -124,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 instructionStackSize: parseInt(document.getElementById('instructionStackSize').value),
                 inputPorts: parseInt(document.getElementById('inputPorts').value),
                 outputPorts: parseInt(document.getElementById('outputPorts').value),
-                pipeln: parseInt(document.getElementById('pipeln').value),
                 gain: parseInt(gainInput.value),
             };
 

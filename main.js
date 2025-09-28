@@ -1082,7 +1082,6 @@ ipcMain.handle('create-processor-project', async (event, formData) => {
 #NUIOOU ${formData.outputPorts}
 #NBMANT ${formData.nbMantissa}
 #NBEXPO ${formData.nbExponent}
-#PIPELN ${formData.pipeln}
 #NUGAIN ${formData.gain}
 
 void main() 

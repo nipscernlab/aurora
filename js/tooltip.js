@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'instructionStackSize': 'Size of the instruction stack for program execution flow.',
         'inputPorts': 'Number of input ports for external data communication.',
         'outputPorts': 'Number of output ports for external data communication.',
-        'pipeln': 'Pipeline depth level - higher values increase performance but complexity.',
         'gain': 'Amplification factor for signal processing (must be a power of 2).',
         'cancelProcessorHub': 'Cancel processor creation and return to the main interface.',
         'generateProcessor': 'Create the processor with the specified configuration.',

@@ -1337,7 +1337,7 @@ function setupASMLanguage() {
 
         // Diretivas específicas do ASM
         directives: [
-            'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC', 'SDEPTH', 'NUIOIN', 'NUIOOU', 'NUGAIN', 'FFTSIZ', 'PIPELN', 'array', 'arrays', 'ITRAD'
+            'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC', 'SDEPTH', 'NUIOIN', 'NUIOOU', 'NUGAIN', 'FFTSIZ', 'array', 'arrays', 'ITRAD'
         ],
 
         // Instruções do ASM
@@ -1355,7 +1355,7 @@ function setupASMLanguage() {
         tokenizer: {
             root: [
                 // Diretivas com #
-                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ|array|arrays|ITRAD)\b/, 'keyword.directive'],
+                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|array|arrays|ITRAD)\b/, 'keyword.directive'],
 
                 // Comentários
                 [/\/\/.*$/, 'comment'],
@@ -1593,7 +1593,7 @@ function setupCMMLanguage() {
         tokenizer: {
             root: [
                 // CMM directives (including new ones)
-                [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|PIPELN|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
+                [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
                 // StdLib functions
                 [/\b(in|fin|out|fout|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|mod2|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],

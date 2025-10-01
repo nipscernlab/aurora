@@ -1046,25 +1046,39 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModalButtons();
 });
   
-  // Configurar a seção de processadores
-  function setupProcessorsSection() {
-    if (addProcessorBtn) {
-      addProcessorBtn.addEventListener('click', () => {
-        addProcessorRow();
-      });
-    }
-    
-    // Configurar event listener para botões de exclusão de processador
-    processorsList.addEventListener('click', (event) => {
-      if (event.target.classList.contains('delete-processor') || 
-          event.target.closest('.delete-processor')) {
-        const row = event.target.closest('.modalConfig-processor-row');
-        if (row) {
-          row.remove();
-        }
-      }
+function setupProcessorsSection() {
+  if (addProcessorBtn) {
+    addProcessorBtn.addEventListener('click', () => {
+      addProcessorRow();
     });
   }
+  
+  // Event delegation for delete buttons
+  processorsList.addEventListener('click', (event) => {
+    const deleteBtn = event.target.closest('.delete-processor');
+    if (deleteBtn) {
+      const row = deleteBtn.closest('.modalConfig-processor-row');
+      if (row) {
+        const processorSelect = row.querySelector('.processor-select');
+        
+        // Remove processor from selected set
+        if (processorSelect && processorSelect.value) {
+          selectedProcessors.delete(processorSelect.value);
+        }
+        
+        // Animate removal
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-20px)';
+        
+        setTimeout(() => {
+          row.remove();
+          // Refresh all remaining selects
+          refreshAllProcessorSelects();
+        }, 300);
+      }
+    }
+  });
+}
   
 function setupToggleUI() {
   const toggleButton = document.getElementById('toggle-ui');
@@ -1078,20 +1092,20 @@ function setupToggleUI() {
   }
 
   // 1. Listener principal no botão Settings
-  settingsButton.addEventListener('click', (event) => {
-    event.preventDefault(); // Impede qualquer ação padrão.
-    event.stopPropagation(); // Impede que outros scripts capturem este clique.
+settingsButton.addEventListener('click', async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
 
-    const isProjectMode = toggleButton.classList.contains('active');
+  const isProjectMode = toggleButton.classList.contains('active');
 
-    if (isProjectMode) {
-      // MODO PROJETO ATIVADO: Abrir modal de projeto.
-      openModal(projectModal);
-    } else {
-      // MODO PROCESSADOR ATIVADO: Abrir modal de processador.
-      openModal(processorModal);
-    }
-  });
+  if (isProjectMode) {
+    // Prepare modal data before opening
+    await prepareModalBeforeOpen();
+    openModal(projectModal);
+  } else {
+    openModal(processorModal);
+  }
+});
 
   // 2. Listener no botão Toggle para atualizar feedback visual
   toggleButton.addEventListener('click', () => {
@@ -1535,17 +1549,23 @@ function extractAllInstancesFromContent(content, fileName) {
   }
 }
 
-// Modified prepareModalBeforeOpen function
 async function prepareModalBeforeOpen() {
-  await loadAvailableProcessors();
-  await loadProjectConfiguration(); // This populates synthesizableFiles
-  
-  // Initial full scan of all synthesizable files
-  await parseAllSynthesizableFiles(); 
-  
-  updateFormWithConfig(); // This will now use the populated instance map
+  try {
+    await loadAvailableProcessors();
+    await loadProjectConfiguration();
+    
+    // Parse all synthesizable files for instances
+    await parseAllSynthesizableFiles();
+    
+    // Update the form with loaded configuration
+    updateFormWithConfig();
+    
+    console.log('Modal prepared with processor instances:', processorInstancesMap);
+  } catch (error) {
+    console.error('Error preparing modal:', error);
+    showNotification('Error loading project configuration', 'error', 3000);
+  }
 }
-
 
 
 // Modern Drag and Drop Styles Function
@@ -1707,10 +1727,11 @@ document.addEventListener('DOMContentLoaded', () => {
 }
   
 function updateFormWithConfig() {
-  // Clear existing processor rows
+  // Clear existing processor rows and tracking
   if (processorsList) {
     processorsList.innerHTML = '';
   }
+  selectedProcessors.clear();
   
   // Set iverilog flags
   if (iverilogFlags && currentConfig.iverilogFlags) {
@@ -1733,17 +1754,23 @@ function updateFormWithConfig() {
         const instanceSelect = lastRow.querySelector('.processor-instance');
         
         if (processorSelect && processor.type) {
+          // Mark as selected and store previous value
+          selectedProcessors.add(processor.type);
+          processorSelect.dataset.previousValue = processor.type;
+          
+          // Populate with available processors including the selected one
+          populateAvailableProcessors(processorSelect, processor.type);
           processorSelect.value = processor.type;
-          // Update instance select based on processor type
-          if (processor.type) {
-            updateInstanceSelect(processor.type, instanceSelect);
-            // Set instance value after options are populated
-            setTimeout(() => {
-              if (instanceSelect && processor.instance) {
-                instanceSelect.value = processor.instance;
-              }
-            }, 100);
-          }
+          
+          // Update instance select
+          updateInstanceSelect(processor.type, instanceSelect);
+          
+          // Set instance value after options are populated
+          setTimeout(() => {
+            if (instanceSelect && processor.instance) {
+              instanceSelect.value = processor.instance;
+            }
+          }, 100);
         }
       }
     });
@@ -1752,20 +1779,67 @@ function updateFormWithConfig() {
     addProcessorRow();
   }
 }
+
+// Add visual indicator for remaining processors
+function updateProcessorAvailabilityIndicator() {
+  const remainingCount = availableProcessors.length - selectedProcessors.size;
   
+  // Create or update indicator
+  let indicator = document.getElementById('processor-availability-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'processor-availability-indicator';
+    indicator.style.cssText = `
+      padding: var(--space-2) var(--space-4);
+      background-color: var(--accent-subtle-bg);
+      border: 1px solid var(--accent-primary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      color: var(--accent-secondary);
+      margin-bottom: var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    `;
+    
+    const processorsSection = document.querySelector('.processors-list').parentElement;
+    processorsSection.insertBefore(indicator, processorsList);
+  }
+  
+  if (remainingCount === 0) {
+    indicator.innerHTML = `
+      <i class="fa-solid fa-circle-check" style="color: var(--success);"></i>
+      <span>All processors assigned</span>
+    `;
+    indicator.style.borderColor = 'var(--success)';
+    indicator.style.backgroundColor = '#ecfdf5';
+  } else {
+    indicator.innerHTML = `
+      <i class="fa-solid fa-info-circle" style="color: var(--accent-primary);"></i>
+      <span>${remainingCount} processor${remainingCount !== 1 ? 's' : ''} available to assign</span>
+    `;
+    indicator.style.borderColor = 'var(--accent-primary)';
+    indicator.style.backgroundColor = 'var(--accent-subtle-bg)';
+  }
+}
+
 // Update processor row to use select for instances
+let selectedProcessors = new Set();
+
+// Modified addProcessorRow function with dynamic filtering
 function addProcessorRow() {
   const newRow = document.createElement('div');
   newRow.className = 'modalConfig-processor-row';
   
   newRow.innerHTML = `
     <div class="modalConfig-select-container">
+      <label>Processor Type</label>
       <select class="processor-select modalConfig-select">
         <option value="">Select Processor</option>
-        ${availableProcessors.map(proc => `<option value="${proc}">${proc}</option>`).join('')}
       </select>
     </div>
     <div class="modalConfig-select-container">
+      <label>Instance Name</label>
       <select class="processor-instance modalConfig-select" disabled>
         <option value="">Select Instance</option>
       </select>
@@ -1775,57 +1849,162 @@ function addProcessorRow() {
     </button>
   `;
   
-  // Add event listeners
   const processorSelect = newRow.querySelector('.processor-select');
   const instanceSelect = newRow.querySelector('.processor-instance');
   
+  // Populate only available processors
+  populateAvailableProcessors(processorSelect);
+  
+  // Event listener for processor selection
   processorSelect.addEventListener('change', function() {
-    updateInstanceSelect(this.value, instanceSelect);
-    // Refresh other selects when processor changes
-    setTimeout(refreshAllInstanceSelects, 100);
+    const previousValue = this.dataset.previousValue || '';
+    const newValue = this.value;
+    
+    // Return previous processor to available pool
+    if (previousValue && previousValue !== '') {
+      selectedProcessors.delete(previousValue);
+    }
+    
+    // Mark new processor as selected
+    if (newValue && newValue !== '') {
+      selectedProcessors.add(newValue);
+      this.dataset.previousValue = newValue;
+    }
+    
+    // Update instance select
+    updateInstanceSelect(newValue, instanceSelect);
+    
+    // Refresh all processor selects to update availability
+    refreshAllProcessorSelects();
   });
   
+  // Event listener for instance changes
   instanceSelect.addEventListener('change', function() {
-    // Refresh other selects when instance changes
-    setTimeout(refreshAllInstanceSelects, 100);
+    // Optional: Add any instance-specific logic here
   });
   
   processorsList.appendChild(newRow);
+  
+  // Store reference to row for cleanup
+  newRow.dataset.rowId = Date.now();
 }
 
-  // Atualizar um select de processador com os processadores disponíveis
-  function updateProcessorSelect(selectElement, selectedValue = '') {
-    if (!selectElement) return;
-    
-    // Salvar o valor atual se não for fornecido um valor
-    if (!selectedValue) {
-      selectedValue = selectElement.value;
+// Refresh all processor selects to show/hide based on current selections
+function refreshAllProcessorSelects() {
+  const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
+  
+  processorRows.forEach(row => {
+    const processorSelect = row.querySelector('.processor-select');
+    if (processorSelect) {
+      const currentValue = processorSelect.value;
+      populateAvailableProcessors(processorSelect, currentValue);
     }
-    
-    // Limpar opções existentes
-    selectElement.innerHTML = '';
-    
-    // Adicionar opção padrão
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Select Processor';
-    selectElement.appendChild(defaultOption);
-    
-    // Adicionar processadores disponíveis
-    availableProcessors.forEach(processor => {
+  });
+  
+  // Update availability indicator
+  updateProcessorAvailabilityIndicator();
+}
+
+// Populate processor select with only available (unselected) processors
+function populateAvailableProcessors(selectElement, selectedValue = '') {
+  if (!selectElement) return;
+  
+  // Clear existing options
+  selectElement.innerHTML = '<option value="">Select Processor</option>';
+  
+  // Add available processors (not selected in other rows)
+  availableProcessors.forEach(processor => {
+    // Show processor if: it's not selected OR it's the current selection for this row
+    const previousValue = selectElement.dataset.previousValue || '';
+    if (!selectedProcessors.has(processor) || processor === previousValue || processor === selectedValue) {
       const option = document.createElement('option');
       option.value = processor;
       option.textContent = processor;
       
-      // Verificar se este é o processador selecionado anteriormente
       if (processor === selectedValue) {
         option.selected = true;
       }
       
       selectElement.appendChild(option);
-    });
+    }
+  });
+}
+
+  // Atualizar um select de processador com os processadores disponíveis
+  function updateInstanceSelect(processorType, instanceSelectElement) {
+  if (!instanceSelectElement) return;
+  
+  // Clear existing options
+  instanceSelectElement.innerHTML = '<option value="">Select Instance</option>';
+  
+  if (!processorType || processorType === '') {
+    instanceSelectElement.disabled = true;
+    return;
   }
   
+  // Enable the select
+  instanceSelectElement.disabled = false;
+  
+  // Get instances for this processor type from the map
+  const instances = processorInstancesMap[processorType] || [];
+  
+  if (instances.length === 0) {
+    const noInstanceOption = document.createElement('option');
+    noInstanceOption.value = '';
+    noInstanceOption.textContent = 'No instances found';
+    noInstanceOption.disabled = true;
+    instanceSelectElement.appendChild(noInstanceOption);
+    return;
+  }
+  
+  // Populate with available instances
+  instances.forEach(instance => {
+    const option = document.createElement('option');
+    option.value = instance;
+    option.textContent = instance;
+    instanceSelectElement.appendChild(option);
+  });
+}
+
+function refreshAllInstanceSelects() {
+  const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
+  
+  // Collect all currently selected instances
+  const selectedInstances = new Set();
+  processorRows.forEach(row => {
+    const instanceSelect = row.querySelector('.processor-instance');
+    if (instanceSelect && instanceSelect.value) {
+      selectedInstances.add(instanceSelect.value);
+    }
+  });
+  
+  // Update each row
+  processorRows.forEach(row => {
+    const processorSelect = row.querySelector('.processor-select');
+    const instanceSelect = row.querySelector('.processor-instance');
+    
+    if (processorSelect && instanceSelect) {
+      const currentProcessor = processorSelect.value;
+      const currentInstance = instanceSelect.value;
+      
+      if (currentProcessor) {
+        // Update the options for this instance select
+        updateInstanceSelect(currentProcessor, instanceSelect);
+        
+        // Restore the previously selected value if it still exists
+        if (currentInstance) {
+          const optionExists = Array.from(instanceSelect.options).some(
+            opt => opt.value === currentInstance
+          );
+          if (optionExists) {
+            instanceSelect.value = currentInstance;
+          }
+        }
+      }
+    }
+  });
+}
+
 // Modified collectFormData function to work with file lists
 function collectFormData() {
   const starredSynthesizable = synthesizableFiles.find(file => file.isStarred);

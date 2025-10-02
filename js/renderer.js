@@ -6370,51 +6370,35 @@ class CompilationModule {
 
     async generateProcessorHierarchy(processor) {
         try {
-            const yosysPath = await window.electronAPI.joinPath(
-                'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'
-            );
-            
+            const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', processor.name);
             const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
-            
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+            const designTopModule = selectedCmmFile.replace(/\.cmm$/i, '');
 
-            // ALTERADO: O módulo de topo para a hierarquia é o próprio processador (design), não o testbench.
-            const designTopModule = cmmBaseName; 
-            
             this.terminalManager.appendToTerminal('tveri', 'Generating module hierarchy with Yosys...');
 
             const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
             const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${designTopModule}.v`);
-            
+
             const yosysScript = `
-# Read HDL library files
-${verilogFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
-
-# Read main hardware file
-read_verilog -sv "${hardwareFile}"
-
-# ALTERADO: Define a hierarquia com o módulo de design de topo.
-hierarchy -top ${designTopModule}
-
-# Process designs
-proc
-
-# Write JSON hierarchy
-write_json "${tempPath}\\hierarchy.json"
-`;
+                ${verilogFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
+                read_verilog -sv "${hardwareFile}"
+                hierarchy -top ${designTopModule}
+                proc
+                write_json "${tempPath}\\hierarchy.json"
+            `;
 
             const scriptPath = await window.electronAPI.joinPath(tempPath, 'hierarchy_gen.ys');
             await window.electronAPI.writeFile(scriptPath, yosysScript);
 
             const yosysCmd = `cd "${tempPath}" && "${yosysPath}" -s "${scriptPath}"`;
             const result = await window.electronAPI.execCommand(yosysCmd);
-            this.terminalManager.processExecutableOutput('tveri', result); // Para melhor depuração
+            this.terminalManager.processExecutableOutput('tveri', result);
 
             if (result.code !== 0) {
-                throw new Error(`Yosys hierarchy generation failed. Please review the output in the 'Verilog' terminal.`);
+                throw new Error(`Yosys hierarchy generation failed.`);
             }
 
             const jsonPath = await window.electronAPI.joinPath(tempPath, 'hierarchy.json');
@@ -6423,7 +6407,6 @@ write_json "${tempPath}\\hierarchy.json"
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
             this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
-
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
@@ -6431,71 +6414,41 @@ write_json "${tempPath}\\hierarchy.json"
         }
     }
 
-    // NEW: Enhanced Yosys hierarchy generation for project mode
     async generateProjectHierarchy() {
         try {
-            if (!this.projectConfig) {
-                throw new Error("Project configuration not loaded");
-            }
+            if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
-            // NOVO: Obter o módulo de design de topo a partir de 'topLevelFile' no JSON.
             const topLevelFilePath = this.projectConfig.topLevelFile;
-            if (!topLevelFilePath) {
-                throw new Error("'topLevelFile' not found in projectOriented.json");
-            }
-
-            const topLevelFileName = topLevelFilePath.split(/[\\\/]/).pop();
-            const designTopModule = topLevelFileName.replace(/\.v$/i, '');
-
-            const yosysPath = await window.electronAPI.joinPath(
-                'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'
-            );
+            if (!topLevelFilePath) throw new Error("'topLevelFile' not found in projectOriented.json");
             
+            const designTopModule = topLevelFilePath.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+            const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-
+            
             this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
 
-            // ALTERADO: O script agora usa apenas ficheiros sintetizáveis.
             const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
-            const hdlLibraryFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            
             const yosysScript = `
-# Read HDL library files
-${hdlLibraryFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
-
-# Read synthesizable project files (o testbench é ignorado)
-${synthesizableFiles.map(file => `read_verilog -sv "${file.path}"`).join('\n')}
-
-# ALTERADO: Define a hierarquia com o módulo de design de topo, não o testbench.
-hierarchy -top ${designTopModule}
-
-# Process designs
-proc
-
-# Write JSON hierarchy
-write_json "${tempBaseDir}\\project_hierarchy.json"
-`;
+                ${synthesizableFiles.map(file => `read_verilog -sv "${file.path}"`).join('\n')}
+                hierarchy -top ${designTopModule}
+                proc
+                write_json "${tempBaseDir}\\project_hierarchy.json"
+            `;
 
             const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
             await window.electronAPI.writeFile(scriptPath, yosysScript);
 
             const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
             const result = await window.electronAPI.execCommand(yosysCmd);
-            this.terminalManager.processExecutableOutput('tveri', result); // Para melhor depuração
+            this.terminalManager.processExecutableOutput('tveri', result);
 
-            if (result.code !== 0) {
-                throw new Error(`Yosys project hierarchy generation failed. Please review the output in the 'Verilog' terminal.`);
-            }
-
-            const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
-            const jsonContent = await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' });
-            const hierarchyJson = JSON.parse(jsonContent);
+            if (result.code !== 0) throw new Error(`Yosys project hierarchy generation failed.`);
             
-            // ALTERADO: Usa o módulo de design de topo para analisar a hierarquia.
+            const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
+            const hierarchyJson = JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' }));
+            
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
             this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
-
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Project hierarchy generation error: ${error.message}`, 'warning');
@@ -6503,61 +6456,205 @@ write_json "${tempBaseDir}\\project_hierarchy.json"
         }
     }
 
-    // UPDATED: Parse Yosys JSON hierarchy with improved module detection
+    // --- INÍCIO DO BLOCO CORRIGIDO ---
+
+    parseYosysIdentifier(yosysName) {
+        let cleanName = yosysName;
+        let filePath = null;
+        const pathRegex = /([a-zA-Z]:\\[^:]+\.v)|(\/[^:]+\.v)/;
+        const match = yosysName.match(pathRegex);
+        if (match) filePath = match[1] || match[2] || null;
+        if (filePath) cleanName = cleanName.split(filePath)[0];
+        if (cleanName.startsWith('$paramod')) {
+            const parts = cleanName.split('\\');
+            if (parts.length >= 2) cleanName = parts[1];
+        }
+        cleanName = cleanName.replace(/\$[a-f0-9]{32,}/g, '').replace(/^\$[0-9]+\$/g, '').replace(/[\\\$]+$/, '').replace(/^[\\\$]+/, '');
+        if (!cleanName.trim()) cleanName = yosysName.split('\\').pop() || 'unknown';
+        return { cleanName, filePath };
+    }
+
+    /**
+     * VERSÃO CORRETA: Analisa o JSON em uma árvore aninhada profunda, distinguindo
+     * entre a definição de um módulo e suas instâncias.
+     */
     parseYosysHierarchy(jsonData, topLevelModule) {
         const modules = jsonData.modules || {};
-        const hierarchy = {
-            topLevel: topLevelModule,
-            modules: {},
-            dependencies: new Map(),
-            allModules: new Set(),
-            cleanNameMap: new Map()
-        };
+        const memo = new Map();
 
-        // First pass: collect all modules
-        for (const moduleName of Object.keys(modules)) {
-            const cleanName = this.cleanModuleName(moduleName);
-            hierarchy.allModules.add(moduleName);
-            hierarchy.cleanNameMap.set(moduleName, cleanName);
-        }
+        const buildDefinitionTree = (moduleName) => {
+            if (memo.has(moduleName)) return memo.get(moduleName);
 
-        // Second pass: parse each module
-        for (const [moduleName, moduleData] of Object.entries(modules)) {
+            const moduleData = modules[moduleName];
+            const { cleanName, filePath } = this.parseYosysIdentifier(moduleName);
+
+            if (!moduleData) return null; // É uma primitiva, será filtrada.
+
+            const definitionNode = {
+                name: cleanName,
+                filePath: filePath,
+                children: [] // Armazenará as INSTÂNCIAS
+            };
+            
+            memo.set(moduleName, definitionNode); // Previne recursão infinita
+
             const cells = moduleData.cells || {};
-            const submodules = [];
-            const allDependencies = new Set();
-
             for (const [cellName, cellData] of Object.entries(cells)) {
-                if (cellData.type) {
-                    const cleanCellType = this.cleanModuleName(cellData.type);
-                    const isUserModule = hierarchy.allModules.has(cellData.type);
-                    
-                    submodules.push({
-                        instance: cellName,
-                        type: cellData.type,
-                        cleanType: cleanCellType,
-                        parameters: cellData.parameters || {},
-                        isUserModule: isUserModule
-                    });
-                    
-                    allDependencies.add(cellData.type);
+                const subModuleDefinition = buildDefinitionTree(cellData.type);
+
+                // Adiciona apenas instâncias de módulos reais do usuário, não primitivas
+                if (subModuleDefinition) {
+                    const instanceNode = {
+                        instanceName: this.parseYosysIdentifier(cellName).cleanName,
+                        type: 'instance',
+                        // A instância aponta para a definição completa do submódulo
+                        moduleDefinition: subModuleDefinition
+                    };
+                    definitionNode.children.push(instanceNode);
                 }
             }
+            return definitionNode;
+        };
+        
+        const originalTopLevelName = Object.keys(modules).find(key => 
+            this.parseYosysIdentifier(key).cleanName === topLevelModule
+        );
 
-            const cleanModuleName = this.cleanModuleName(moduleName);
-            hierarchy.modules[moduleName] = {
-                name: moduleName,
-                cleanName: cleanModuleName,
-                submodules: submodules,
-                ports: moduleData.ports || {},
-                attributes: moduleData.attributes || {}
-            };
-
-            hierarchy.dependencies.set(moduleName, Array.from(allDependencies));
+        if (!originalTopLevelName) {
+            console.error(`Módulo de topo "${topLevelModule}" não encontrado.`);
+            return { name: topLevelModule, filePath: null, children: [] };
         }
 
-        return hierarchy;
+        return buildDefinitionTree(originalTopLevelName);
     }
+
+    /**
+     * VERSÃO CORRETA: Renderiza a árvore com base na nova estrutura de dados.
+     */
+    renderHierarchicalTree() {
+        const fileTreeElement = document.getElementById('file-tree');
+        if (!fileTreeElement || !this.hierarchyData) return;
+
+        fileTreeElement.innerHTML = '';
+        fileTreeElement.classList.add('hierarchy-view');
+        
+        const container = document.createElement('div');
+        container.className = 'hierarchy-container';
+
+        // O módulo de topo é tratado como uma instância especial de si mesmo
+        const topLevelInstance = {
+            instanceName: this.hierarchyData.name,
+            type: 'instance',
+            moduleDefinition: this.hierarchyData
+        };
+
+        const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'fa-solid fa-microchip', true);
+        container.appendChild(topItem);
+        
+        // Inicia a construção recursiva a partir da DEFINIÇÃO do topo
+        this.buildHierarchyTree(topItem, this.hierarchyData);
+        
+        fileTreeElement.appendChild(container);
+    }
+    
+    /**
+     * VERSÃO CORRETA E SEGURA: Constrói a árvore visual e usa ordenação robusta.
+     */
+    buildHierarchyTree(parentItem, moduleDefinition) {
+        if (!moduleDefinition.children || moduleDefinition.children.length === 0) {
+            return;
+        }
+
+        const childrenContainer = parentItem.querySelector('.hierarchy-children');
+        if (!childrenContainer) return;
+
+        // ORDENAÇÃO SEGURA para prevenir o erro 'localeCompare'
+        const sortedInstances = [...moduleDefinition.children].sort((a, b) => {
+            const nameA = a?.instanceName || ''; // Usa '' se a ou a.instanceName for undefined
+            const nameB = b?.instanceName || ''; // Usa '' se b ou b.instanceName for undefined
+            return nameA.localeCompare(nameB);
+        });
+
+        for (const instanceNode of sortedInstances) {
+            // Cria um item visual para cada INSTÂNCIA
+            const childItem = this.createHierarchyItem(instanceNode, 'module', 'fa-solid fa-cube');
+            childrenContainer.appendChild(childItem);
+            
+            // A recursão continua usando a DEFINIÇÃO dentro da instância
+            this.buildHierarchyTree(childItem, instanceNode.moduleDefinition);
+        }
+    }
+
+    /**
+     * VERSÃO CORRETA: Cria o item visual, mostrando "instanceName (moduleType)".
+     */
+    createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
+        const itemContainer = document.createElement('div');
+        itemContainer.className = 'hierarchy-item';
+
+        const moduleDef = instanceNode.moduleDefinition;
+        if (moduleDef.filePath) {
+            itemContainer.setAttribute('data-filepath', moduleDef.filePath);
+        }
+
+        const itemElement = document.createElement('div');
+        itemElement.className = 'hierarchy-item-content';
+        
+        const hasChildren = moduleDef.children && moduleDef.children.length > 0;
+
+        if (hasChildren) {
+            const toggle = document.createElement('span');
+            toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
+            toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
+            toggle.addEventListener('click', e => { e.stopPropagation(); this.toggleHierarchyItem(itemContainer); });
+            itemElement.appendChild(toggle);
+        } else {
+            itemElement.appendChild(document.createElement('span')).className = 'hierarchy-spacer';
+        }
+
+        itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
+        itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${icon}"></i>`;
+
+        const label = document.createElement('span');
+        label.className = 'hierarchy-label';
+        // Mostra "nomeDaInstancia (TipoDoModulo)" para clareza
+        label.textContent = instanceNode.instanceName === moduleDef.name 
+            ? moduleDef.name 
+            : `${instanceNode.instanceName} (${moduleDef.name})`;
+        itemElement.appendChild(label);
+
+        itemContainer.appendChild(itemElement);
+        itemContainer.appendChild(document.createElement('div')).className = `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
+
+        if (moduleDef.filePath) {
+            itemElement.style.cursor = 'pointer';
+            itemElement.addEventListener('click', () => {
+                const filePath = itemContainer.getAttribute('data-filepath');
+                if (filePath) openFile(filePath);
+            });
+        }
+        return itemContainer;
+    }
+
+    toggleHierarchyItem(itemElement) {
+        const toggle = itemElement.querySelector('.hierarchy-toggle');
+        const children = itemElement.querySelector('.hierarchy-children');
+        if (!toggle || !children) return;
+
+        const isExpanded = children.classList.contains('expanded');
+        children.classList.toggle('expanded', !isExpanded);
+        children.classList.toggle('collapsed', isExpanded);
+        toggle.classList.toggle('expanded', !isExpanded);
+    }
+
+    // --- FIM DO BLOCO CORRIGIDO ---
+
+
+    // ... (resto das suas funções como loadConfig, iverilogCompilation, etc.)
+    // Elas não precisam ser alteradas.
+    // Omiti o resto das suas funções para manter a resposta focada no problema,
+    // mas elas devem permanecer no seu arquivo.
+
 
     async loadConfig() {
         try {
@@ -7498,62 +7595,6 @@ write_json ${jsonOutputPath}
         }
     }
 
-
-    // Parse Yosys JSON hierarchy - Enhanced to capture all dependencies with cleaned names
-    parseYosysHierarchy(jsonData, topLevelModule) {
-        const modules = jsonData.modules || {};
-        const hierarchy = {
-            topLevel: topLevelModule,
-            modules: {},
-            dependencies: new Map(),
-            allModules: new Set(),
-            cleanNameMap: new Map() // Map original names to clean names
-        };
-
-        // First pass: collect all modules and create clean name mapping
-        for (const moduleName of Object.keys(modules)) {
-            const cleanName = this.cleanModuleName(moduleName);
-            hierarchy.allModules.add(moduleName);
-            hierarchy.cleanNameMap.set(moduleName, cleanName);
-        }
-
-        // Second pass: parse each module and its dependencies
-        for (const [moduleName, moduleData] of Object.entries(modules)) {
-            const cells = moduleData.cells || {};
-            const submodules = [];
-            const allDependencies = new Set();
-
-            // Extract all cell instances (both user modules and primitives)
-            for (const [cellName, cellData] of Object.entries(cells)) {
-                if (cellData.type) {
-                    const cleanCellType = this.cleanModuleName(cellData.type);
-                    submodules.push({
-                        instance: cellName,
-                        type: cellData.type,
-                        cleanType: cleanCellType,
-                        parameters: cellData.parameters || {},
-                        isUserModule: hierarchy.allModules.has(cellData.type)
-                    });
-                    allDependencies.add(cellData.type);
-                }
-            }
-
-            const cleanModuleName = this.cleanModuleName(moduleName);
-            hierarchy.modules[moduleName] = {
-                name: moduleName,
-                cleanName: cleanModuleName,
-                submodules: submodules,
-                ports: moduleData.ports || {},
-                attributes: moduleData.attributes || {}
-            };
-
-            // Store all dependencies (both user modules and primitives)
-            hierarchy.dependencies.set(moduleName, Array.from(allDependencies));
-        }
-
-        return hierarchy;
-    }
-
     getModuleNumber(moduleName, parentNumber = '', moduleIndex = 0) {
         if (moduleName === this.hierarchyData.topLevel) {
             return ''; // Top level has no number prefix
@@ -7694,178 +7735,6 @@ write_json ${jsonOutputPath}
     }
 
 
-    // Render hierarchical tree view
-        renderHierarchicalTree() {
-        const fileTreeElement = document.getElementById('file-tree');
-        if (!fileTreeElement || !this.hierarchyData) return;
-
-        fileTreeElement.innerHTML = '';
-        fileTreeElement.classList.add('hierarchy-view');
-
-        const container = document.createElement('div');
-        container.className = 'hierarchy-container';
-
-        // Create top-level module
-        const topItem = this.createHierarchyItem(
-            this.hierarchyData.topLevel,
-            'top-level',
-            'fa-solid fa-microchip',
-            true
-        );
-
-        container.appendChild(topItem);
-
-        // Build tree recursively
-        this.buildHierarchyTree(topItem, this.hierarchyData.topLevel, new Set(), 0);
-
-        fileTreeElement.appendChild(container);
-    }
-
-
-    // Create hierarchy item element with click-to-expand functionality
-      createHierarchyItem(name, type, icon, isExpanded = false) {
-        const itemContainer = document.createElement('div');
-        itemContainer.className = 'hierarchy-item';
-        itemContainer.setAttribute('data-type', type);
-
-        const itemElement = document.createElement('div');
-        itemElement.className = 'hierarchy-item-content';
-
-        // Add toggle for expandable items
-        if (type === 'top-level' || type === 'module') {
-            const toggle = document.createElement('span');
-            toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
-            toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
-            toggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleHierarchyItem(itemContainer);
-            });
-            itemElement.appendChild(toggle);
-        } else {
-            const spacer = document.createElement('span');
-            spacer.className = 'hierarchy-spacer';
-            itemElement.appendChild(spacer);
-        }
-
-        // Add icon
-        const iconElement = document.createElement('span');
-        iconElement.className = 'hierarchy-icon';
-        iconElement.innerHTML = `<i class="${icon}"></i>`;
-        itemElement.appendChild(iconElement);
-
-        // Add label
-        const label = document.createElement('span');
-        label.className = 'hierarchy-label';
-        label.textContent = name;
-        itemElement.appendChild(label);
-
-        itemContainer.appendChild(itemElement);
-
-        // Add children container
-        const childrenContainer = document.createElement('div');
-        childrenContainer.className = `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
-        itemContainer.appendChild(childrenContainer);
-
-        // Make expandable items clickable
-        if (type === 'top-level' || type === 'module') {
-            itemElement.addEventListener('click', () => this.toggleHierarchyItem(itemContainer));
-            itemElement.style.cursor = 'pointer';
-        }
-
-        return itemContainer;
-    }
-    // Build hierarchy tree recursively with standardized icons
-     buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0) {
-        if (visited.has(moduleName) || depth > 20) return;
-
-        visited.add(moduleName);
-
-        const moduleData = this.hierarchyData.modules[moduleName];
-        if (!moduleData || !moduleData.submodules?.length) return;
-
-        const childrenContainer = parentItem.querySelector('.hierarchy-children');
-
-        // Group submodules by type
-        const moduleGroups = new Map();
-        moduleData.submodules.forEach(sub => {
-            if (!moduleGroups.has(sub.type)) {
-                moduleGroups.set(sub.type, []);
-            }
-            moduleGroups.get(sub.type).push(sub);
-        });
-
-        // Sort: user modules first, then primitives
-        const sortedTypes = Array.from(moduleGroups.keys()).sort((a, b) => {
-            const aIsUser = this.hierarchyData.modules[a];
-            const bIsUser = this.hierarchyData.modules[b];
-            if (aIsUser && !bIsUser) return -1;
-            if (!aIsUser && bIsUser) return 1;
-            return a.localeCompare(b);
-        });
-
-        // Create items for each module type
-        for (const moduleType of sortedTypes) {
-            const instances = moduleGroups.get(moduleType);
-            const cleanType = this.cleanModuleName(moduleType);
-
-            if (this.hierarchyData.modules[moduleType]) {
-                // User module - create expandable group
-                const moduleItem = this.createHierarchyItem(
-                    `${cleanType} (${instances.length})`,
-                    'module',
-                    'fa-solid fa-cube',
-                    false
-                );
-
-                childrenContainer.appendChild(moduleItem);
-
-                // Add instances
-                const moduleChildren = moduleItem.querySelector('.hierarchy-children');
-                instances.forEach(inst => {
-                    const instItem = this.createHierarchyItem(
-                        inst.instance,
-                        'instance',
-                        'fa-solid fa-microchip',
-                        false
-                    );
-                    moduleChildren.appendChild(instItem);
-
-                    // Recurse
-                    this.buildHierarchyTree(instItem, moduleType, new Set(visited), depth + 1);
-                });
-            } else {
-                // Primitive - create leaf items
-                instances.forEach(inst => {
-                    const primItem = this.createHierarchyItem(
-                        `${inst.instance} (${cleanType})`,
-                        'primitive',
-                        'fa-solid fa-square',
-                        false
-                    );
-                    childrenContainer.appendChild(primItem);
-                });
-            }
-        }
-    }
-    // Toggle hierarchy item expansion with improved animation
-    toggleHierarchyItem(itemElement) {
-        const toggle = itemElement.querySelector('.hierarchy-toggle');
-        const children = itemElement.querySelector('.hierarchy-children');
-        
-        if (!toggle || !children) return;
-
-        const isExpanded = children.classList.contains('expanded');
-
-        if (isExpanded) {
-            children.classList.remove('expanded');
-            children.classList.add('collapsed');
-            toggle.classList.remove('expanded');
-        } else {
-            children.classList.remove('collapsed');
-            children.classList.add('expanded');
-            toggle.classList.add('expanded');
-        }
-    }
 
     // Add this method to your class for launching fractal visualizer
     async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {

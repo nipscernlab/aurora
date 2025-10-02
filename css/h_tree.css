@@ -313,3 +313,66 @@
     border-radius: 6px;
     cursor: pointer;
 }
+
+/* ===================================================================================
+ *  Compilation Pause Notification Bar
+ * =================================================================================== */
+.compilation-notification-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-50);
+    opacity: 1;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    color: var(--text-primary);
+    width: 90%;
+    max-width: 600px;
+}
+
+.compilation-notification-bar.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(150%);
+    pointer-events: none;
+}
+
+.compilation-notification-bar span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+}
+
+.compilation-notification-bar i {
+    color: var(--accent-primary);
+}
+
+.compilation-notification-bar button {
+    background-color: var(--accent-primary);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 8px 16px;
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    transition: background-color var(--transition-fast);
+}
+
+.compilation-notification-bar button:hover {
+    background-color: var(--accent-hover);
+}
+
+.compilation-notification-bar button i {
+    color: var(--text-on-accent);
+}

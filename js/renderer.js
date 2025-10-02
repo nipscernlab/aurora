@@ -4921,7 +4921,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refreshButton) {
         refreshButton.addEventListener('click', async () => {
             if (!FileTreeState.isRefreshing) {
-                await refreshFileTree();
+                
             }
         });
     }
@@ -6343,7 +6343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable the button temporarily
             refreshButton.style.pointerEvents = 'none';
 
-            await refreshFileTree();
+            
 
             // Remove spinning animation and re-enable button
             setTimeout(() => {
@@ -6363,6 +6363,200 @@ class CompilationModule {
         this.projectConfig = null;
         this.terminalManager = new TerminalManager();
         this.isProjectOriented = false;
+        this.hierarchyData = null;
+        this.isHierarchicalView = false;
+        this.standardTreeState = null; // Store standard tree before switching
+    }
+
+    async generateProcessorHierarchy(processor) {
+        try {
+            const yosysPath = await window.electronAPI.joinPath(
+                'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'
+            );
+            
+            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', processor.name);
+            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
+            
+            const selectedCmmFile = await this.getSelectedCmmFile(processor);
+            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+
+            // ALTERADO: O módulo de topo para a hierarquia é o próprio processador (design), não o testbench.
+            const designTopModule = cmmBaseName; 
+            
+            this.terminalManager.appendToTerminal('tveri', 'Generating module hierarchy with Yosys...');
+
+            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${designTopModule}.v`);
+            
+            const yosysScript = `
+# Read HDL library files
+${verilogFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
+
+# Read main hardware file
+read_verilog -sv "${hardwareFile}"
+
+# ALTERADO: Define a hierarquia com o módulo de design de topo.
+hierarchy -top ${designTopModule}
+
+# Process designs
+proc
+
+# Write JSON hierarchy
+write_json "${tempPath}\\hierarchy.json"
+`;
+
+            const scriptPath = await window.electronAPI.joinPath(tempPath, 'hierarchy_gen.ys');
+            await window.electronAPI.writeFile(scriptPath, yosysScript);
+
+            const yosysCmd = `cd "${tempPath}" && "${yosysPath}" -s "${scriptPath}"`;
+            const result = await window.electronAPI.execCommand(yosysCmd);
+            this.terminalManager.processExecutableOutput('tveri', result); // Para melhor depuração
+
+            if (result.code !== 0) {
+                throw new Error(`Yosys hierarchy generation failed. Please review the output in the 'Verilog' terminal.`);
+            }
+
+            const jsonPath = await window.electronAPI.joinPath(tempPath, 'hierarchy.json');
+            const jsonContent = await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' });
+            const hierarchyJson = JSON.parse(jsonContent);
+
+            this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
+            this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
+
+            return true;
+        } catch (error) {
+            this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
+            return false;
+        }
+    }
+
+    // NEW: Enhanced Yosys hierarchy generation for project mode
+    async generateProjectHierarchy() {
+        try {
+            if (!this.projectConfig) {
+                throw new Error("Project configuration not loaded");
+            }
+
+            // NOVO: Obter o módulo de design de topo a partir de 'topLevelFile' no JSON.
+            const topLevelFilePath = this.projectConfig.topLevelFile;
+            if (!topLevelFilePath) {
+                throw new Error("'topLevelFile' not found in projectOriented.json");
+            }
+
+            const topLevelFileName = topLevelFilePath.split(/[\\\/]/).pop();
+            const designTopModule = topLevelFileName.replace(/\.v$/i, '');
+
+            const yosysPath = await window.electronAPI.joinPath(
+                'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'
+            );
+            
+            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+
+            this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
+
+            // ALTERADO: O script agora usa apenas ficheiros sintetizáveis.
+            const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
+            const hdlLibraryFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+            
+            const yosysScript = `
+# Read HDL library files
+${hdlLibraryFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
+
+# Read synthesizable project files (o testbench é ignorado)
+${synthesizableFiles.map(file => `read_verilog -sv "${file.path}"`).join('\n')}
+
+# ALTERADO: Define a hierarquia com o módulo de design de topo, não o testbench.
+hierarchy -top ${designTopModule}
+
+# Process designs
+proc
+
+# Write JSON hierarchy
+write_json "${tempBaseDir}\\project_hierarchy.json"
+`;
+
+            const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
+            await window.electronAPI.writeFile(scriptPath, yosysScript);
+
+            const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
+            const result = await window.electronAPI.execCommand(yosysCmd);
+            this.terminalManager.processExecutableOutput('tveri', result); // Para melhor depuração
+
+            if (result.code !== 0) {
+                throw new Error(`Yosys project hierarchy generation failed. Please review the output in the 'Verilog' terminal.`);
+            }
+
+            const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
+            const jsonContent = await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' });
+            const hierarchyJson = JSON.parse(jsonContent);
+            
+            // ALTERADO: Usa o módulo de design de topo para analisar a hierarquia.
+            this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
+            this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
+
+            return true;
+        } catch (error) {
+            this.terminalManager.appendToTerminal('tveri', `Project hierarchy generation error: ${error.message}`, 'warning');
+            return false;
+        }
+    }
+
+    // UPDATED: Parse Yosys JSON hierarchy with improved module detection
+    parseYosysHierarchy(jsonData, topLevelModule) {
+        const modules = jsonData.modules || {};
+        const hierarchy = {
+            topLevel: topLevelModule,
+            modules: {},
+            dependencies: new Map(),
+            allModules: new Set(),
+            cleanNameMap: new Map()
+        };
+
+        // First pass: collect all modules
+        for (const moduleName of Object.keys(modules)) {
+            const cleanName = this.cleanModuleName(moduleName);
+            hierarchy.allModules.add(moduleName);
+            hierarchy.cleanNameMap.set(moduleName, cleanName);
+        }
+
+        // Second pass: parse each module
+        for (const [moduleName, moduleData] of Object.entries(modules)) {
+            const cells = moduleData.cells || {};
+            const submodules = [];
+            const allDependencies = new Set();
+
+            for (const [cellName, cellData] of Object.entries(cells)) {
+                if (cellData.type) {
+                    const cleanCellType = this.cleanModuleName(cellData.type);
+                    const isUserModule = hierarchy.allModules.has(cellData.type);
+                    
+                    submodules.push({
+                        instance: cellName,
+                        type: cellData.type,
+                        cleanType: cleanCellType,
+                        parameters: cellData.parameters || {},
+                        isUserModule: isUserModule
+                    });
+                    
+                    allDependencies.add(cellData.type);
+                }
+            }
+
+            const cleanModuleName = this.cleanModuleName(moduleName);
+            hierarchy.modules[moduleName] = {
+                name: moduleName,
+                cleanName: cleanModuleName,
+                submodules: submodules,
+                ports: moduleData.ports || {},
+                attributes: moduleData.attributes || {}
+            };
+
+            hierarchy.dependencies.set(moduleName, Array.from(allDependencies));
+        }
+
+        return hierarchy;
     }
 
     async loadConfig() {
@@ -6540,7 +6734,7 @@ end`;
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tcmm', result);
-            await refreshFileTree();
+            
 
             if (result.code !== 0) {
                 statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
@@ -6600,7 +6794,7 @@ end`;
             const asmResult = await window.electronAPI.execCommand(cmd);
 
             this.terminalManager.processExecutableOutput('tasm', asmResult);
-            await refreshFileTree();
+            
 
             if (asmResult.code !== 0) {
                 statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
@@ -6626,92 +6820,62 @@ end`;
         }
     }
 
-    async iverilogProjectCompilation() {
-        this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog verification for project...`);
+   async iverilogProjectCompilation() {
+        this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification for project...');
         statusUpdater.startCompilation('verilog');
+
         try {
             if (!this.projectConfig) {
                 throw new Error("Project configuration not loaded");
             }
 
+            // ... (keep existing project iverilog code)
             const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
             const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
             const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
 
-            // Get testbench file (topLevel file in project mode)
-            const topLevelFile = this.projectConfig.topLevelFile;
-            if (!topLevelFile) {
-                throw new Error("No top level file specified in project configuration");
-            }
-
-            // Get testbench file (topLevel file in project mode)
             const testbenchFile = this.projectConfig.testbenchFile;
             if (!testbenchFile) {
-                throw new Error("No top level file specified in project configuration");
+                throw new Error("No testbench file specified");
             }
 
-            // Extract top module name from testbench file
-            const topLevelFileName = topLevelFile.split(/[\/\\]/)
-                .pop();
-            const topModuleName = topLevelFileName.replace('.v', '');
+            const tbFileName = testbenchFile.split(/[\/\\]/).pop();
+            const tbModule = tbFileName.replace(/\.v$/i, '');
 
-            // Extract top module name from testbench file
-            const tbFile = testbenchFile;
-
-            // Get synthesizable files
             const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
-            if (synthesizableFiles.length === 0) {
-                throw new Error("No synthesizable files defined in project configuration");
+            if (!synthesizableFiles.length) {
+                throw new Error("No synthesizable files defined");
             }
 
-            // Build list of all synthesizable file paths
-            let synthesizableFilePaths = "";
-            for (const file of synthesizableFiles) {
-                synthesizableFilePaths += `"${file.path}" `;
-            }
-
-            // Build list of verilog files to compile from HDL directory
+            const synthesizableFilePaths = synthesizableFiles.map(f => `"${f.path}"`).join(' ');
             const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles
-                .map(f => `"${hdlPath}\\${f}"`)
-                .join(' ');
-
-            // Get flags
+            const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
             const flags = this.projectConfig.iverilogFlags || "";
 
             await TabManager.saveAllFiles();
 
-            // Build the iverilog command for project verification
-            const projectName = this.projectPath.split(/[\/\\]/)
-                .pop();
-
-            // Fixed: Output path should be properly constructed
+            const projectName = this.projectPath.split(/[\/\\]/).pop();
             const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
 
-            // Fixed: Command should change directory to tempBaseDir and use proper output path
-            const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topModuleName} -tnull ${synthesizableFilePaths} ${verilogFilesString} ${tbFile}`;
-
-            this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog verification:\n${cmd}`);
+            const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
+            this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tveri', result);
 
-            if (result.stdout) {
-                this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
-            }
-            if (result.stderr) {
-                this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
-            }
-
             if (result.code !== 0) {
-                statusUpdater.compilationError('verilog', `Icarus Verilog verification failed with code ${result.code}`);
-                throw new Error(`Icarus Verilog verification failed with code ${result.code}`);
+                statusUpdater.compilationError('verilog', `Icarus Verilog failed with code ${result.code}`);
+                throw new Error(`Icarus Verilog verification failed`);
             }
 
-            this.terminalManager.appendToTerminal('tveri', 'Project Verilog verification completed successfully.', 'success');
+            this.terminalManager.appendToTerminal('tveri', 'Project verification completed', 'success');
             statusUpdater.compilationSuccess('verilog');
 
-            await refreshFileTree();
+            // NEW: Generate hierarchy after successful compilation
+            await this.generateProjectHierarchy();
+            await this.switchToHierarchicalView();
+
+            
 
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
@@ -6720,19 +6884,45 @@ end`;
         }
     }
 
+    // NEW: Setup hierarchy toggle button event listener
+    setupHierarchyToggle() {
+        const toggleButton = document.getElementById('hierarchy-tree');
+        if (toggleButton) {
+            toggleButton.addEventListener('click', () => {
+                if (this.isHierarchicalView) {
+                    this.restoreStandardTreeState();
+                    refreshFileTree();
+                } else if (this.hierarchyData) {
+                    this.switchToHierarchicalView();
+                }
+            });
+        }
+    }
+
+    // NEW: Auto-restore standard tree when GTKWave closes
+    setupGtkwaveCloseListener() {
+        window.electronAPI.on('gtkwave-closed', () => {
+            if (this.isHierarchicalView) {
+                this.restoreStandardTreeState();
+                refreshFileTree();
+                this.terminalManager.appendToTerminal('twave', 'Restored standard file tree', 'success');
+            }
+        });
+    }
+
+
     // Updated iverilogCompilation method for processor mode
-    async iverilogCompilation(processor) {
+      async iverilogCompilation(processor) {
         if (this.isProjectOriented) {
             return this.iverilogProjectCompilation();
         }
 
-        const {
-            name
-        } = processor;
+        const { name } = processor;
         this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
         statusUpdater.startCompilation('verilog');
 
         try {
+            // ... (keep existing iverilog compilation code)
             const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
             const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
@@ -6740,52 +6930,46 @@ end`;
 
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+            const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
 
-            const {
-                tbModule,
-                tbFile
-            } = await this.getTestbenchInfo(processor, cmmBaseName);
-
-            const tbFilePath = tbFile;
             const flags = this.config.iverilogFlags ? this.config.iverilogFlags.join(' ') : '';
-
             const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles
-                .map(f => `"${hdlPath}\\${f}"`)
-                .join(' ');
+            const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
 
             await TabManager.saveAllFiles();
 
             const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
             const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
 
-            const cmd = `"${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${tbFilePath}" "${hardwareFile}" ${verilogFilesString}`;
-
-            this.terminalManager.appendToTerminal('tveri', `Executing Icarus Verilog compilation:\n${cmd}`);
+            const cmd = `"${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+            this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tveri', result);
 
-            if (result.stdout) this.terminalManager.appendToTerminal('tveri', result.stdout, 'stdout');
-            if (result.stderr) this.terminalManager.appendToTerminal('tveri', result.stderr, 'stderr');
-
             if (result.code !== 0) {
-                statusUpdater.compilationError('verilog', `Icarus Verilog compilation failed with code ${result.code}`);
-                throw new Error(`Icarus Verilog compilation failed with code ${result.code}`);
+                statusUpdater.compilationError('verilog', `Icarus Verilog failed with code ${result.code}`);
+                throw new Error(`Icarus Verilog compilation failed`);
             }
 
+            // Copy memory files
             await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`), await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
+                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+            );
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
+                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
             );
 
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`), await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
-            );
-
-            this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed successfully.', 'success');
+            this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed', 'success');
             statusUpdater.compilationSuccess('verilog');
 
-            await refreshFileTree();
+            // NEW: Generate hierarchy after successful compilation
+            await this.generateProcessorHierarchy(processor);
+            await this.switchToHierarchicalView();
+
+            
 
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
@@ -7236,25 +7420,20 @@ write_json ${jsonOutputPath}
     }
 
     // Function to clean module names
-    cleanModuleName(moduleName) {
-        // Remove $paramod prefixes and hash suffixes
+     cleanModuleName(moduleName) {
         let cleanName = moduleName;
 
         // Handle $paramod patterns
         if (cleanName.startsWith('$paramod')) {
-            // Extract the actual module name from $paramod patterns
             if (cleanName.includes('\\\\')) {
-                // Pattern: $paramod$hash\\moduleName or $paramod\\moduleName\\params
                 const parts = cleanName.split('\\\\');
                 if (parts.length >= 2) {
                     cleanName = parts[1];
-                    // Remove parameter specifications if present
                     if (cleanName.includes('\\')) {
                         cleanName = cleanName.split('\\')[0];
                     }
                 }
             } else if (cleanName.includes('\\')) {
-                // Pattern: $paramod\moduleName\params
                 const parts = cleanName.split('\\');
                 if (parts.length >= 2) {
                     cleanName = parts[1];
@@ -7262,17 +7441,63 @@ write_json ${jsonOutputPath}
             }
         }
 
-        // Remove hash patterns like $747e370037f20148f8b166e3c93decd0b83cff70
+        // Remove hash patterns
         cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
-
-        // Remove parameter specifications like NUBITS=s32'00000000000000000000000000100000
         cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
-
-        // Clean up any remaining backslashes or dollar signs at the beginning
         cleanName = cleanName.replace(/^[\\\$]+/, '');
 
         return cleanName;
     }
+
+    // NEW: Store standard tree state before switching
+    saveStandardTreeState() {
+        const fileTree = document.getElementById('file-tree');
+        if (fileTree) {
+            this.standardTreeState = fileTree.innerHTML;
+        }
+    }
+
+    // NEW: Restore standard tree state
+    restoreStandardTreeState() {
+        const fileTree = document.getElementById('file-tree');
+        if (fileTree && this.standardTreeState) {
+            fileTree.innerHTML = this.standardTreeState;
+            this.isHierarchicalView = false;
+            this.updateToggleButton(false);
+        }
+    }
+
+    // NEW: Switch to hierarchical tree view
+    async switchToHierarchicalView() {
+        if (!this.hierarchyData) {
+            this.terminalManager.appendToTerminal('tveri', 'No hierarchy data available', 'warning');
+            return;
+        }
+
+        this.saveStandardTreeState();
+        this.isHierarchicalView = true;
+        this.renderHierarchicalTree();
+        this.updateToggleButton(true);
+    }
+
+    // NEW: Update toggle button state
+    updateToggleButton(isHierarchical) {
+        const toggleButton = document.getElementById('hierarchy-tree');
+        if (!toggleButton) return;
+
+        const iconContainer = toggleButton.querySelector('i:last-child');
+        
+        if (isHierarchical) {
+            toggleButton.childNodes[0].textContent = 'Hierarchical Tree';
+            if (iconContainer) iconContainer.className = 'fa-solid fa-sitemap';
+            toggleButton.classList.add('active');
+        } else {
+            toggleButton.childNodes[0].textContent = 'Standard Tree';
+            if (iconContainer) iconContainer.className = 'fa-solid fa-list-ul';
+            toggleButton.classList.remove('active');
+        }
+    }
+
 
     // Parse Yosys JSON hierarchy - Enhanced to capture all dependencies with cleaned names
     parseYosysHierarchy(jsonData, topLevelModule) {
@@ -7470,216 +7695,175 @@ write_json ${jsonOutputPath}
 
 
     // Render hierarchical tree view
-    // Enhanced render hierarchical tree view with numbering
-    renderHierarchicalTree() {
+        renderHierarchicalTree() {
         const fileTreeElement = document.getElementById('file-tree');
-        if (!fileTreeElement || !this.hierarchyData) {
-            return;
-        }
+        if (!fileTreeElement || !this.hierarchyData) return;
 
-        // Clear current tree
         fileTreeElement.innerHTML = '';
+        fileTreeElement.classList.add('hierarchy-view');
 
-        // Create hierarchical structure
-        const hierarchyContainer = document.createElement('div');
-        hierarchyContainer.className = 'hierarchy-container';
+        const container = document.createElement('div');
+        container.className = 'hierarchy-container';
 
-        // Add top-level module (no numbering, chip icon)
-        const topLevelItem = this.createHierarchyItem(
-            this.hierarchyData.topLevel, 'top-level', 'fa-solid fa-microchip', true, '' // No number for top level
+        // Create top-level module
+        const topItem = this.createHierarchyItem(
+            this.hierarchyData.topLevel,
+            'top-level',
+            'fa-solid fa-microchip',
+            true
         );
 
-        hierarchyContainer.appendChild(topLevelItem);
+        container.appendChild(topItem);
 
-        // Build hierarchy tree recursively starting from top level
-        this.buildHierarchyTree(topLevelItem, this.hierarchyData.topLevel, new Set(), 0, '');
+        // Build tree recursively
+        this.buildHierarchyTree(topItem, this.hierarchyData.topLevel, new Set(), 0);
 
-        fileTreeElement.appendChild(hierarchyContainer);
-
-        // Trigger fade-in animation
-        setTimeout(() => {
-            hierarchyContainer.style.opacity = '1';
-        }, 50);
+        fileTreeElement.appendChild(container);
     }
 
+
     // Create hierarchy item element with click-to-expand functionality
-    createHierarchyItem(name, type, icon, isExpanded = false, moduleNumber = '') {
+      createHierarchyItem(name, type, icon, isExpanded = false) {
         const itemContainer = document.createElement('div');
-        itemContainer.className = 'file-tree-item hierarchy-item';
+        itemContainer.className = 'hierarchy-item';
         itemContainer.setAttribute('data-type', type);
 
         const itemElement = document.createElement('div');
-        itemElement.className = 'file-item hierarchy-file-item';
+        itemElement.className = 'hierarchy-item-content';
 
         // Add toggle for expandable items
         if (type === 'top-level' || type === 'module') {
-            const toggle = document.createElement('div');
-            toggle.className = `folder-toggle ${isExpanded ? 'rotated' : ''}`;
+            const toggle = document.createElement('span');
+            toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
             toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
-
             toggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleHierarchyItem(itemContainer);
             });
-
             itemElement.appendChild(toggle);
         } else {
-            // Add spacing for non-expandable items
-            const spacer = document.createElement('div');
-            spacer.style.width = '16px';
-            spacer.style.marginRight = '6px';
+            const spacer = document.createElement('span');
+            spacer.className = 'hierarchy-spacer';
             itemElement.appendChild(spacer);
         }
 
-        // Add icon (keep original icons)
-        const iconElement = document.createElement('div');
-        iconElement.className = 'file-item-icon';
+        // Add icon
+        const iconElement = document.createElement('span');
+        iconElement.className = 'hierarchy-icon';
         iconElement.innerHTML = `<i class="${icon}"></i>`;
         itemElement.appendChild(iconElement);
 
-        // Add label with numbering
+        // Add label
         const label = document.createElement('span');
-        if (moduleNumber && type !== 'top-level') {
-            label.textContent = `${moduleNumber}. ${name}`;
-        } else {
-            label.textContent = name;
-        }
         label.className = 'hierarchy-label';
+        label.textContent = name;
         itemElement.appendChild(label);
 
         itemContainer.appendChild(itemElement);
 
-        // Add container for children
+        // Add children container
         const childrenContainer = document.createElement('div');
-        childrenContainer.className = `folder-content ${isExpanded ? '' : 'hidden'}`;
+        childrenContainer.className = `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
         itemContainer.appendChild(childrenContainer);
 
         // Make expandable items clickable
         if (type === 'top-level' || type === 'module') {
-            itemElement.addEventListener('click', (e) => {
-                if (!e.target.closest('.folder-toggle')) {
-                    this.toggleHierarchyItem(itemContainer);
-                }
-            });
+            itemElement.addEventListener('click', () => this.toggleHierarchyItem(itemContainer));
             itemElement.style.cursor = 'pointer';
         }
 
         return itemContainer;
     }
-
     // Build hierarchy tree recursively with standardized icons
-    buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0, parentNumber = '') {
-        if (visited.has(moduleName) || depth > 15) { // Prevent infinite recursion
-            return;
-        }
+     buildHierarchyTree(parentItem, moduleName, visited = new Set(), depth = 0) {
+        if (visited.has(moduleName) || depth > 20) return;
 
         visited.add(moduleName);
 
         const moduleData = this.hierarchyData.modules[moduleName];
-        if (!moduleData || !moduleData.submodules || moduleData.submodules.length === 0) {
-            return;
-        }
+        if (!moduleData || !moduleData.submodules?.length) return;
 
-        const childrenContainer = parentItem.querySelector('.folder-content');
+        const childrenContainer = parentItem.querySelector('.hierarchy-children');
 
-        // Group all submodules by type (both user modules and primitives)
+        // Group submodules by type
         const moduleGroups = new Map();
-
-        moduleData.submodules.forEach(submodule => {
-            if (!moduleGroups.has(submodule.type)) {
-                moduleGroups.set(submodule.type, []);
+        moduleData.submodules.forEach(sub => {
+            if (!moduleGroups.has(sub.type)) {
+                moduleGroups.set(sub.type, []);
             }
-            moduleGroups.get(submodule.type)
-                .push(submodule);
+            moduleGroups.get(sub.type).push(sub);
         });
 
-        // Sort module types: user modules first, then primitives
-        const sortedTypes = Array.from(moduleGroups.keys())
-            .sort((a, b) => {
-                const aIsUser = this.hierarchyData.modules[a];
-                const bIsUser = this.hierarchyData.modules[b];
+        // Sort: user modules first, then primitives
+        const sortedTypes = Array.from(moduleGroups.keys()).sort((a, b) => {
+            const aIsUser = this.hierarchyData.modules[a];
+            const bIsUser = this.hierarchyData.modules[b];
+            if (aIsUser && !bIsUser) return -1;
+            if (!aIsUser && bIsUser) return 1;
+            return a.localeCompare(b);
+        });
 
-                if (aIsUser && !bIsUser) return -1;
-                if (!aIsUser && bIsUser) return 1;
-                return a.localeCompare(b);
-            });
-
-        // Create items for each module type with numbering
-        let moduleIndex = 0;
+        // Create items for each module type
         for (const moduleType of sortedTypes) {
             const instances = moduleGroups.get(moduleType);
-            const currentModuleNumber = this.getModuleNumber(moduleType, parentNumber, moduleIndex);
+            const cleanType = this.cleanModuleName(moduleType);
 
             if (this.hierarchyData.modules[moduleType]) {
-                // User-defined module - create expandable item
+                // User module - create expandable group
                 const moduleItem = this.createHierarchyItem(
-                    `${moduleType} (${instances.length} instance${instances.length > 1 ? 's' : ''})`, 'module', 'fa-solid fa-cube', // Use cube icon instead of 'A'
-                    false, currentModuleNumber
+                    `${cleanType} (${instances.length})`,
+                    'module',
+                    'fa-solid fa-cube',
+                    false
                 );
 
-                moduleItem.style.setProperty('--index', moduleIndex);
                 childrenContainer.appendChild(moduleItem);
 
-                // Add instances as children with sub-numbering
-                instances.forEach((instance, instanceIndex) => {
-                    const instanceNumber = `${currentModuleNumber}.${instanceIndex + 1}`;
-                    const instanceItem = this.createHierarchyItem(
-                        instance.instance, 'instance', 'fa-solid fa-microchip', // Use microchip icon instead of 'B'
-                        false, instanceNumber
+                // Add instances
+                const moduleChildren = moduleItem.querySelector('.hierarchy-children');
+                instances.forEach(inst => {
+                    const instItem = this.createHierarchyItem(
+                        inst.instance,
+                        'instance',
+                        'fa-solid fa-microchip',
+                        false
                     );
+                    moduleChildren.appendChild(instItem);
 
-                    instanceItem.style.setProperty('--index', instanceIndex);
-
-                    const moduleChildrenContainer = moduleItem.querySelector('.folder-content');
-                    moduleChildrenContainer.appendChild(instanceItem);
-
-                    // Recursively build for this module type
-                    this.buildHierarchyTree(instanceItem, moduleType, new Set(visited), depth + 1, currentModuleNumber);
+                    // Recurse
+                    this.buildHierarchyTree(instItem, moduleType, new Set(visited), depth + 1);
                 });
             } else {
-                // Primitive or external module - create leaf items
-                instances.forEach((instance, instanceIndex) => {
-                    const primitiveNumber = `${currentModuleNumber}.${instanceIndex + 1}`;
-                    const primitiveItem = this.createHierarchyItem(
-                        `${instance.instance} (${instance.type})`, 'primitive', 'fa-solid fa-square', // Use square icon for primitives
-                        false, primitiveNumber
+                // Primitive - create leaf items
+                instances.forEach(inst => {
+                    const primItem = this.createHierarchyItem(
+                        `${inst.instance} (${cleanType})`,
+                        'primitive',
+                        'fa-solid fa-square',
+                        false
                     );
-
-                    primitiveItem.style.setProperty('--index', moduleIndex);
-                    childrenContainer.appendChild(primitiveItem);
+                    childrenContainer.appendChild(primItem);
                 });
             }
-
-            moduleIndex++;
         }
     }
-
     // Toggle hierarchy item expansion with improved animation
     toggleHierarchyItem(itemElement) {
-        const content = itemElement.querySelector('.folder-content');
-        const toggle = itemElement.querySelector('.folder-toggle');
+        const toggle = itemElement.querySelector('.hierarchy-toggle');
+        const children = itemElement.querySelector('.hierarchy-children');
+        
+        if (!toggle || !children) return;
 
-        if (!content) return;
-
-        const isExpanded = !content.classList.contains('hidden');
+        const isExpanded = children.classList.contains('expanded');
 
         if (isExpanded) {
-            // Collapse
-            content.classList.add('hidden');
-            if (toggle) toggle.classList.remove('rotated');
+            children.classList.remove('expanded');
+            children.classList.add('collapsed');
+            toggle.classList.remove('expanded');
         } else {
-            // Expand
-            content.classList.remove('hidden');
-            if (toggle) toggle.classList.add('rotated');
-
-            // Add staggered animation to children
-            const visibleItems = content.querySelectorAll('.hierarchy-item');
-            visibleItems.forEach((item, index) => {
-                item.style.animation = 'none';
-                item.offsetHeight; // force reflow
-                item.style.animation = `fadeInDown 0.25s ease forwards`;
-                item.style.animationDelay = `${index * 30}ms`;
-            });
+            children.classList.remove('collapsed');
+            children.classList.add('expanded');
+            toggle.classList.add('expanded');
         }
     }
 
@@ -7843,6 +8027,10 @@ write_json ${jsonOutputPath}
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, setting up PRISM button...');
+    if (window.compilationModule) {
+        window.compilationModule.setupHierarchyToggle();
+        window.compilationModule.setupGtkwaveCloseListener();
+    }
 
     const prismButton = document.getElementById('prismcomp');
     let isCompiling = false;
@@ -8212,7 +8400,446 @@ window.addEventListener('message', (event) => {
     }
 });
 
+class CompilationModuleExtended extends CompilationModule {
+    
+    constructor(projectPath) {
+        super(projectPath);
+        this.gtkwaveProcess = null;
+        this.hierarchyGenerated = false;
+    }
 
+    // ENHANCED: Monitor GTKWave process and auto-restore tree on close
+    async monitorGtkwaveProcess() {
+        if (!this.gtkwaveProcess) return;
+
+        const checkInterval = setInterval(async () => {
+            try {
+                const isRunning = await window.electronAPI.isProcessRunning(this.gtkwaveProcess);
+                
+                if (!isRunning) {
+                    clearInterval(checkInterval);
+                    
+                    if (this.isHierarchicalView) {
+                        this.terminalManager.appendToTerminal('twave', 
+                            'GTKWave closed - restoring standard file tree...', 'info');
+                        
+                        setTimeout(() => {
+                            this.restoreStandardTreeState();
+                            refreshFileTree();
+                        }, 500);
+                    }
+                    
+                    this.gtkwaveProcess = null;
+                    this.hierarchyGenerated = false;
+                }
+            } catch (error) {
+                clearInterval(checkInterval);
+            }
+        }, 2000);
+    }
+
+    // ENHANCED: Run GTKWave with hierarchy monitoring
+    async runGtkWave(processor) {
+        if (this.isProjectOriented) {
+            return this.runProjectGtkWave();
+        }
+
+        const { name } = processor;
+        this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
+        statusUpdater.startCompilation('wave');
+
+        let testbenchBackupInfo = null;
+        let vvpFinishedHandler = null;
+        let gtkwaveOutputHandler = null;
+
+        try {
+            // Setup paths
+            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
+            const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
+            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
+            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+
+            const selectedCmmFile = await this.getSelectedCmmFile(processor);
+            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+            const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
+
+            // Modify testbench if needed
+            if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
+                const simuDelay = this.getSimulationDelay(processor);
+                testbenchBackupInfo = await this.modifyTestbenchForSimulation(
+                    tbFile, tbModule, tempPath, simuDelay
+                );
+            }
+
+            // Create TCL info file
+            const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+            const tclContent = `${tempPath}\n${binPath}\n`;
+            await window.electronAPI.writeFile(tclFilePath, tclContent);
+
+            // Icarus Verilog compilation
+            await TabManager.saveAllFiles();
+
+            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+            const verilogFilesString = verilogFiles.join(' ');
+            const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
+            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
+            
+            const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+
+            const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
+            this.terminalManager.processExecutableOutput('twave', iverilogResult);
+
+            if (iverilogResult.code !== 0) {
+                throw new Error('Icarus Verilog compilation failed');
+            }
+
+            // Copy memory files
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
+                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
+            );
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
+                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
+            );
+
+            // Setup VCD and GTKWave commands
+            const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
+            await window.electronAPI.deleteFileOrDirectory(vcdPath);
+
+            const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
+
+            const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
+            let gtkwCmd;
+
+            if (useStandardGtkw) {
+                const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
+            } else {
+                const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
+                const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
+            }
+
+            // Setup GTKWave output handler
+            gtkwaveOutputHandler = (event, payload) => {
+                switch (payload.type) {
+                    case 'stdout':
+                    case 'stderr':
+                        if (payload.data.trim()) {
+                            this.terminalManager.processStreamedLine('twave', payload.data.trim());
+                        }
+                        break;
+                    case 'completion':
+                        this.terminalManager.appendToTerminal('twave', payload.message,
+                            payload.code === 0 ? 'success' : 'warning');
+                        break;
+                    case 'error':
+                        this.terminalManager.appendToTerminal('twave', payload.data, 'error');
+                        break;
+                }
+            };
+
+            window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
+
+            // Show progress
+            await showVVPProgress(String(name));
+
+            vvpFinishedHandler = () => hideVVPProgress();
+            window.electronAPI.once('vvp-finished', vvpFinishedHandler);
+
+            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation...');
+
+            // Launch parallel simulation
+            const result = await window.electronAPI.launchParallelSimulation({
+                vvpCmd: vvpCmd,
+                gtkwCmd: gtkwCmd,
+                vcdPath: vcdPath,
+                workingDir: tempPath
+            });
+
+            if (result.success) {
+                this.gtkwaveProcess = result.gtkwavePid;
+                this.terminalManager.appendToTerminal('twave', 
+                    'GTKWave launched successfully', 'success');
+                
+                // Start monitoring for GTKWave close
+                this.monitorGtkwaveProcess();
+            } else {
+                hideVVPProgress();
+                throw new Error(`Failed to launch simulation: ${result.message}`);
+            }
+
+            statusUpdater.compilationSuccess('wave');
+
+        } catch (error) {
+            hideVVPProgress();
+            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+            statusUpdater.compilationError('wave', error.message);
+            throw error;
+
+        } finally {
+            if (vvpFinishedHandler) {
+                window.electronAPI.removeListener('vvp-finished', vvpFinishedHandler);
+            }
+            if (gtkwaveOutputHandler) {
+                window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
+            }
+            if (testbenchBackupInfo) {
+                await window.electronAPI.restoreOriginalTestbench(
+                    testbenchBackupInfo.originalPath,
+                    testbenchBackupInfo.backupPath
+                );
+            }
+        }
+    }
+
+    // ENHANCED: Project GTKWave with hierarchy monitoring
+    async runProjectGtkWave() {
+        this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
+        statusUpdater.startCompilation('wave');
+
+        let testbenchBackupInfo = null;
+        let vvpFinishedHandler = null;
+        let gtkwaveOutputHandler = null;
+
+        try {
+            if (!this.projectConfig) {
+                throw new Error("Project configuration not loaded");
+            }
+
+            // Setup paths
+            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
+            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
+            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+
+            const testbenchFile = this.projectConfig.testbenchFile;
+            if (!testbenchFile) {
+                throw new Error("No testbench file specified");
+            }
+
+            const testbenchFileName = testbenchFile.split(/[\/\\]/).pop();
+            const tbModule = testbenchFileName.replace(/\.v$/i, '');
+            const simuDelay = this.getSimulationDelay();
+
+            testbenchBackupInfo = await this.modifyTestbenchForSimulation(
+                testbenchFile, tbModule, tempBaseDir, simuDelay
+            );
+
+            // Create TCL info file
+            const instances = (this.projectConfig.processors || [])
+                .map(p => p.instance).join(' ');
+            const processors = (this.projectConfig.processors || [])
+                .map(p => p.type).join(' ');
+            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+
+            const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
+            const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
+            await window.electronAPI.writeFile(tclFilePath, tclContent);
+
+            // Setup VCD and commands
+            const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
+            await window.electronAPI.deleteFileOrDirectory(vcdPath);
+
+            const projectName = this.projectPath.split(/[\/\\]/).pop();
+            const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
+
+            const vvpCmd = `"${vvpCompPath}" "${outputFilePath}"`;
+
+            const gtkwaveFile = this.projectConfig.gtkwaveFile;
+            let gtkwCmd;
+
+            if (gtkwaveFile && gtkwaveFile !== "Standard") {
+                const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script="${posScriptPath}"`;
+            } else {
+                const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
+                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
+            }
+
+            // Setup output handler
+            gtkwaveOutputHandler = (event, payload) => {
+                switch (payload.type) {
+                    case 'stdout':
+                    case 'stderr':
+                        if (payload.data.trim()) {
+                            this.terminalManager.processStreamedLine('twave', payload.data.trim());
+                        }
+                        break;
+                    case 'completion':
+                        this.terminalManager.appendToTerminal('twave', payload.message,
+                            payload.code === 0 ? 'success' : 'warning');
+                        break;
+                    case 'error':
+                        this.terminalManager.appendToTerminal('twave', payload.data, 'error');
+                        break;
+                }
+            };
+
+            window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
+
+            // Show progress
+            await showVVPProgress(projectName);
+
+            vvpFinishedHandler = () => hideVVPProgress();
+            window.electronAPI.once('vvp-finished', vvpFinishedHandler);
+
+            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation...');
+
+            // Launch simulation
+            const result = await window.electronAPI.launchParallelSimulation({
+                vvpCmd: vvpCmd,
+                gtkwCmd: gtkwCmd,
+                vcdPath: vcdPath,
+                workingDir: tempBaseDir
+            });
+
+            if (result.success) {
+                this.gtkwaveProcess = result.gtkwavePid;
+                this.terminalManager.appendToTerminal('twave',
+                    'GTKWave launched successfully', 'success');
+
+                // Start monitoring
+                this.monitorGtkwaveProcess();
+            } else {
+                hideVVPProgress();
+                throw new Error(`Failed to launch simulation: ${result.message}`);
+            }
+
+            statusUpdater.compilationSuccess('wave');
+
+        } catch (error) {
+            hideVVPProgress();
+            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+            statusUpdater.compilationError('wave', error.message);
+            throw error;
+
+        } finally {
+            if (vvpFinishedHandler) {
+                window.electronAPI.removeListener('vvp-finished', vvpFinishedHandler);
+            }
+            if (gtkwaveOutputHandler) {
+                window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
+            }
+            if (testbenchBackupInfo) {
+                await this.restoreOriginalTestbench(
+                    testbenchBackupInfo.originalPath,
+                    testbenchBackupInfo.backupPath
+                );
+            }
+        }
+    }
+
+    // ENHANCED: Compile all with automatic hierarchy generation
+    async compileAll() {
+        try {
+            startCompilation();
+            await this.loadConfig();
+
+            if (this.isProjectOriented) {
+                // Project mode
+                if (this.projectConfig && this.projectConfig.processors) {
+                    const processedTypes = new Set();
+
+                    switchTerminal('terminal-tcmm');
+
+                    for (const processor of this.projectConfig.processors) {
+                        checkCancellation();
+
+                        if (processedTypes.has(processor.type)) {
+                            this.terminalManager.appendToTerminal('tcmm',
+                                `Skipping duplicate: ${processor.type}`);
+                            continue;
+                        }
+
+                        processedTypes.add(processor.type);
+
+                        try {
+                            const processorObj = {
+                                name: processor.type,
+                                type: processor.type,
+                                instance: processor.instance
+                            };
+
+                            checkCancellation();
+                            this.terminalManager.appendToTerminal('tcmm',
+                                `Processing ${processor.type}...`);
+                            
+                            await this.ensureDirectories(processor.type);
+                            await this.cmmCompilation(processorObj);
+                            checkCancellation();
+                            await this.asmCompilation(processor, 1);
+                            
+                        } catch (error) {
+                            this.terminalManager.appendToTerminal('tcmm',
+                                `Error processing ${processor.type}: ${error.message}`, 'error');
+                        }
+                    }
+                }
+
+                switchTerminal('terminal-tveri');
+                checkCancellation();
+                await this.iverilogProjectCompilation();
+
+                switchTerminal('terminal-twave');
+                checkCancellation();
+                await this.runProjectGtkWave();
+
+            } else {
+                // Processor mode
+                const activeProcessor = this.config.processors.find(p => p.isActive === true);
+                if (!activeProcessor) {
+                    throw new Error("No active processor found");
+                }
+
+                await this.ensureDirectories(activeProcessor.name);
+
+                switchTerminal('terminal-tcmm');
+                checkCancellation();
+                await this.cmmCompilation(activeProcessor);
+
+                checkCancellation();
+                await this.asmCompilation(activeProcessor, 0);
+
+                switchTerminal('terminal-tveri');
+                checkCancellation();
+                await this.iverilogCompilation(activeProcessor);
+
+                switchTerminal('terminal-twave');
+                checkCancellation();
+                await this.runGtkWave(activeProcessor);
+            }
+
+            endCompilation();
+            return true;
+            
+        } catch (error) {
+            this.terminalManager.appendToTerminal('tcmm',
+                `Compilation error: ${error.message}`, 'error');
+            console.error('Complete compilation failed:', error);
+            endCompilation();
+            return false;
+        }
+    }
+}
+
+// Initialize the system
+document.addEventListener('DOMContentLoaded', () => {
+    // Replace existing compilation module with extended version
+    if (window.compilationModule) {
+        const oldPath = window.compilationModule.projectPath;
+        window.compilationModule = new CompilationModuleExtended(oldPath);
+        window.compilationModule.setupHierarchyToggle();
+    }
+    
+    console.log('Hierarchical tree system initialized');
+});
 //TERMINAL      ======================================================================================================================================================== ƒ
 class TerminalManager {
     constructor() {
@@ -9584,7 +10211,7 @@ document.getElementById('cmmcomp')
             await compiler.cmmCompilation(activeProcessor);
 
             if (!compilationCanceled) {
-                await refreshFileTree();
+                
             }
         } catch (error) {
             if (!compilationCanceled) {
@@ -9655,7 +10282,7 @@ document.getElementById('asmcomp')
             await compiler.asmCompilation(activeProcessor, projectParam);
 
             if (!compilationCanceled) {
-                await refreshFileTree();
+                
             }
         } catch (error) {
             if (!compilationCanceled) {
@@ -9722,7 +10349,7 @@ document.getElementById('vericomp')
             }
 
             if (!compilationCanceled) {
-                await refreshFileTree();
+                
             }
         } catch (error) {
             if (!compilationCanceled) {
@@ -9860,7 +10487,7 @@ document.getElementById('wavecomp')
             }
 
             if (!compilationCanceled) {
-                await refreshFileTree();
+                
             }
         } catch (error) {
             if (!compilationCanceled) {
@@ -9918,7 +10545,7 @@ document.getElementById('allcomp')
 
             if (!compilationCanceled) {
                 console.log('All compilations completed successfully');
-                await refreshFileTree();
+                
             }
         } catch (error) {
             if (!compilationCanceled) {

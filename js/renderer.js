@@ -7035,7 +7035,7 @@ async runProjectGtkWave() {
     const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
     const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
     const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-    
+
     const testbenchFile = this.projectConfig.testbenchFile;
     if (!testbenchFile) throw new Error("No testbench file specified");
     
@@ -7059,6 +7059,20 @@ async runProjectGtkWave() {
     
     const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
     
+    // Extrai instâncias e tipos do JSON
+    const instances = (this.projectConfig.processors || []).map(p => p.instance).join(' ');
+    const processors = (this.projectConfig.processors || []).map(p => p.type).join(' ');
+
+    // garante que binPath exista
+    const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+
+    // Caminhos e conteúdo do tcl (ordem: instâncias, processadores, Temp, bin, Scripts)
+    const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
+    const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
+
+    // Escreve o arquivo
+    await window.electronAPI.writeFile(tclFilePath, tclContent);
+
     const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
     this.terminalManager.processExecutableOutput('twave', iverilogResult);
     

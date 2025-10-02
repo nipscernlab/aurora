@@ -2075,7 +2075,7 @@ async function updateProcessorStatus() {
     // CORREÇÃO: Verificar se testbenchSelect existe antes de acessar .value
     const processorTb = testbenchSelect ? testbenchSelect.value : '';
 
-    el.innerHTML = `${unique.join(' | ')} <i class="fa-solid fa-gear"></i> ${processorTb || 'None'}`;
+    el.innerHTML = `${unique.join(' | ')}&nbsp;<i class="fa-solid fa-gear"></i> ${processorTb || 'None'}`;
     el.classList.add('has-processors');
   } else {
     el.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;

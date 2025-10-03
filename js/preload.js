@@ -94,6 +94,11 @@ const fileOperations = {
       console.log('getAvailableModules called');
       return ipcRenderer.invoke('get-available-modules', tempDir);
     },
+
+    selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
+
+// Função para obter informações completas do arquivo incluindo path
+getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
     
      // Directory watching methods
   watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),

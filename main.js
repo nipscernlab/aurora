@@ -3781,6 +3781,83 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
   });
 }
 
+// Adicione após as outras definições de ipcMain.handle
+
+// Handler para selecionar arquivos e retornar com paths completos
+ipcMain.handle('select-files-with-path', async (event, options = {}) => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections'],
+    filters: options.filters || [
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    title: options.title || 'Select Files'
+  });
+
+  if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+    return { canceled: true, files: [] };
+  }
+
+  // Para cada arquivo, obter informações completas incluindo stats
+  const filesWithInfo = await Promise.all(
+    result.filePaths.map(async (filePath) => {
+      try {
+        const stats = await fs.stat(filePath);
+        return {
+          name: path.basename(filePath),
+          path: filePath,
+          size: stats.size,
+          type: getMimeType(filePath),
+          lastModified: stats.mtimeMs,
+          starred: false
+        };
+      } catch (error) {
+        console.error(`Error getting file info for ${filePath}:`, error);
+        return null;
+      }
+    })
+  );
+
+  return {
+    canceled: false,
+    files: filesWithInfo.filter(f => f !== null)
+  };
+});
+
+// Handler para obter informações de um arquivo específico
+ipcMain.handle('get-file-info', async (event, filePath) => {
+  try {
+    const stats = await fs.stat(filePath);
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+      size: stats.size,
+      type: getMimeType(filePath),
+      lastModified: stats.mtimeMs,
+      exists: true
+    };
+  } catch (error) {
+    console.error(`Error getting file info for ${filePath}:`, error);
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+      exists: false,
+      error: error.message
+    };
+  }
+});
+
+// Função auxiliar para determinar o MIME type baseado na extensão
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.v': 'text/x-verilog',
+    '.gtkw': 'application/x-gtkwave',
+    '.txt': 'text/plain',
+    '.sv': 'text/x-systemverilog',
+    '.vh': 'text/x-verilog-header'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
 
 // Directory watcher for file tree updates
 const activeDirectoryWatchers = new Map();

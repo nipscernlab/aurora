@@ -123,34 +123,142 @@ function closeProjectModal() {
 // Setup import buttons
 function setupImportButtons() {
   if (importSynthesizableBtn) {
-    importSynthesizableBtn.addEventListener('click', () => {
-      synthesizableFileInput.click();
+    importSynthesizableBtn.addEventListener('click', async () => {
+      try {
+        const result = await window.electronAPI.selectFilesWithPath({
+          title: 'Select Synthesizable Files',
+          filters: [
+            { name: 'Verilog Files', extensions: ['v', 'sv', 'vh'] },
+            { name: 'Text Files', extensions: ['txt'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        });
+
+        if (!result.canceled && result.files.length > 0) {
+          handleFileImportWithPath(result.files, 'synthesizable');
+        }
+      } catch (error) {
+        console.error('Error selecting files:', error);
+        showNotification('Error selecting files', 'error', 3000);
+      }
     });
   }
   
   if (importTestbenchBtn) {
-    importTestbenchBtn.addEventListener('click', () => {
-      testbenchFileInput.click();
+    importTestbenchBtn.addEventListener('click', async () => {
+      try {
+        const result = await window.electronAPI.selectFilesWithPath({
+          title: 'Select Testbench Files',
+          filters: [
+            { name: 'Verilog Files', extensions: ['v', 'sv'] },
+            { name: 'GTKWave Files', extensions: ['gtkw'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        });
+
+        if (!result.canceled && result.files.length > 0) {
+          handleFileImportWithPath(result.files, 'testbench');
+        }
+      } catch (error) {
+        console.error('Error selecting files:', error);
+        showNotification('Error selecting files', 'error', 3000);
+      }
     });
   }
 }
 
-// Setup file input handlers
-function setupFileInputs() {
-  if (synthesizableFileInput) {
-    synthesizableFileInput.addEventListener('change', (e) => {
-      handleFileImport(e.target.files, 'synthesizable');
-      e.target.value = ''; // Clear input
+// ATUALIZAR a função handleFileImportWithPath com validações extras
+function handleFileImportWithPath(files, type) {
+  const validFiles = [];
+  const errors = [];
+  
+  for (let file of files) {
+    // Validação 1: Path obrigatório
+    if (!file.path || file.path === '') {
+      console.error('File without path:', file);
+      errors.push(`"${file.name}" has no path information`);
+      continue;
+    }
+
+    // Validação 2: Verificar extensão permitida
+    const ext = file.name.toLowerCase().split('.').pop();
+    const allowedExtensions = type === 'synthesizable' 
+      ? ['v', 'sv', 'vh', 'txt'] 
+      : ['v', 'sv', 'gtkw'];
+    
+    if (!allowedExtensions.includes(ext)) {
+      errors.push(`"${file.name}" has unsupported extension .${ext}`);
+      continue;
+    }
+
+    // Validação 3: Verificar duplicatas por path (mais seguro que por nome)
+    const existingFiles = type === 'synthesizable' ? synthesizableFiles : testbenchFiles;
+    if (existingFiles.some(f => f.path === file.path)) {
+      errors.push(`"${file.name}" already exists in the project`);
+      continue;
+    }
+
+    // Validação 4: Verificar se é diretório (não deveria ser)
+    if (file.size === 0 && !file.type) {
+      console.warn('Possibly a directory, skipping:', file.name);
+      errors.push(`"${file.name}" appears to be a directory`);
+      continue;
+    }
+
+    // Arquivo válido - adicionar à lista
+    validFiles.push({
+      name: file.name,
+      path: file.path,  // ← PATH GARANTIDO
+      size: file.size || 0,
+      type: file.type || getMimeTypeFromExtension(file.name),
+      starred: false,
+      lastModified: file.lastModified || Date.now()
     });
   }
   
-  if (testbenchFileInput) {
-    testbenchFileInput.addEventListener('change', (e) => {
-      handleFileImport(e.target.files, 'testbench');
-      e.target.value = ''; // Clear input
+  // Mostrar erros se houver
+  if (errors.length > 0) {
+    console.warn('Import errors:', errors);
+    errors.forEach(error => {
+      showNotification(error, 'warning', 2500);
     });
   }
+  
+  if (validFiles.length === 0) {
+    if (errors.length === 0) {
+      showNotification('No valid files to import', 'warning', 3000);
+    }
+    return;
+  }
+
+  // Adicionar arquivos à lista apropriada
+  if (type === 'synthesizable') {
+    synthesizableFiles.push(...validFiles);
+    updateFileList('synthesizable');
+    
+    // Parse para processar instâncias
+    parseAllSynthesizableFiles().then(() => {
+      refreshAllInstanceSelects();
+    });
+  } else if (type === 'testbench') {
+    validFiles.forEach(file => {
+      if (file.name.toLowerCase().endsWith('.gtkw')) {
+        gtkwFiles.push(file);
+      } else {
+        testbenchFiles.push(file);
+      }
+    });
+    updateFileList('testbench');
+  }
+
+  console.log(`Successfully imported ${validFiles.length} file(s) with paths:`, validFiles);
+  showNotification(
+    `Successfully added ${validFiles.length} file(s) to ${type} list.`, 
+    'success', 
+    3000
+  );
 }
+
 
 // Setup drag and drop functionality
 function setupDragAndDrop() {
@@ -191,17 +299,81 @@ function preventDefaults(e) {
 // Highlight drop area
 function highlight(dropArea) {
   dropArea.classList.add('dragover');
+  
+  // Adicionar feedback visual extra
+  const dropZone = dropArea.querySelector('.drop-zone-content');
+  if (dropZone) {
+    const icon = dropZone.querySelector('.drop-icon');
+    if (icon) {
+      icon.style.transform = 'scale(1.2)';
+      icon.style.color = 'var(--accent-primary)';
+    }
+  }
 }
 
 // Remove highlight from drop area
 function unhighlight(dropArea) {
   dropArea.classList.remove('dragover');
+  
+  // Remover feedback visual extra
+  const dropZone = dropArea.querySelector('.drop-zone-content');
+  if (dropZone) {
+    const icon = dropZone.querySelector('.drop-icon');
+    if (icon) {
+      icon.style.transform = 'scale(1)';
+      icon.style.color = '';
+    }
+  }
 }
-
-// Handle file drop events
-function handleDrop(e, type) {
-  const files = e.dataTransfer.files;
-  handleFileImport(files, type);
+// SUBSTITUIR completamente a função handleDrop
+async function handleDrop(e, type) {
+  const droppedFiles = e.dataTransfer.files;
+  
+  console.log('Files dropped:', droppedFiles.length);
+  
+  // Verificar se está rodando no Electron
+  const isElectron = typeof window.electronAPI !== 'undefined';
+  
+  if (!isElectron) {
+    showNotification('Drag & drop only works in the desktop application', 'error', 3000);
+    return;
+  }
+  
+  const filesWithPath = [];
+  
+  for (let i = 0; i < droppedFiles.length; i++) {
+    const file = droppedFiles[i];
+    
+    if (file.path && file.path !== '') {
+      filesWithPath.push({
+        name: file.name,
+        path: file.path,
+        size: file.size,
+        type: file.type || getMimeTypeFromExtension(file.name),
+        lastModified: file.lastModified,
+        starred: false
+      });
+    } else {
+      console.warn('File dropped without path:', file.name);
+      showNotification(`Cannot import "${file.name}": no path information`, 'error', 3000);
+    }
+  }
+  
+  if (filesWithPath.length > 0) {
+    handleFileImportWithPath(filesWithPath, type);
+  }
+}
+// Função auxiliar para determinar MIME type pela extensão
+function getMimeTypeFromExtension(fileName) {
+  const ext = fileName.toLowerCase().split('.').pop();
+  const mimeTypes = {
+    'v': 'text/x-verilog',
+    'sv': 'text/x-systemverilog',
+    'vh': 'text/x-verilog-header',
+    'gtkw': 'application/x-gtkwave',
+    'txt': 'text/plain'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 // Handle file import - FIXED to avoid duplicates and show proper errors
@@ -218,7 +390,7 @@ function handleFileImport(files, type) {
           type: file.type,
           starred: false,
           lastModified: file.lastModified,
-          path: file.path
+          path: file.path || ''  // ← Garante que o path seja capturado
         });
       } else {
         showNotification(`File "${file.name}" already exists in the project`, 'warning', 3000);
@@ -1671,55 +1843,94 @@ document.addEventListener('DOMContentLoaded', () => {
     const configExists = await window.electronAPI.fileExists(configPath);
     
     if (configExists) {
-      // Load configuration from file
-      const configPath = await window.electronAPI.joinPath(projectPath, CONFIG_FILENAME);
-    
-    // Check if config file exists
       const configContent = await window.electronAPI.readFile(configPath);
-      currentConfig = JSON.parse(configContent);
-    const configData = JSON.parse(configContent);
+      const configData = JSON.parse(configContent);
+      currentConfig = configData;
+      
       console.log('Configuration loaded:', currentConfig);
       
-      // Load synthesizable files
+      // Load synthesizable files e VERIFICAR paths
       if (currentConfig.synthesizableFiles) {
-        synthesizableFiles = currentConfig.synthesizableFiles.map(fileData => ({
-          name: fileData.name,
-          path: fileData.path,
-          starred: fileData.path === currentConfig.topLevelFile,
-          size: 0,
-          type: 'text/plain'
-        }));
+        const validFiles = [];
+        
+        for (const fileData of currentConfig.synthesizableFiles) {
+          // Verificar se o arquivo ainda existe
+          if (fileData.path && fileData.path !== '') {
+            const exists = await window.electronAPI.fileExists(fileData.path);
+            
+            if (exists) {
+              validFiles.push({
+                name: fileData.name,
+                path: fileData.path,
+                starred: fileData.starred || false,
+                size: fileData.size || 0,
+                type: fileData.type || 'text/plain'
+              });
+            } else {
+              console.warn(`File no longer exists: ${fileData.path}`);
+              showNotification(`File not found: ${fileData.name}`, 'warning', 2000);
+            }
+          } else {
+            console.warn(`File loaded without path: ${fileData.name}`);
+          }
+        }
+        
+        synthesizableFiles = validFiles;
       }
       
-      // Load testbench files
+      // Mesmo processo para testbench files
       if (currentConfig.testbenchFiles) {
-        testbenchFiles = currentConfig.testbenchFiles.map(fileData => ({
-          name: fileData.name,
-          path: fileData.path,
-          starred: fileData.path === currentConfig.testbenchFile,
-          size: 0,
-          type: 'text/plain'
-        }));
+        const validFiles = [];
+        
+        for (const fileData of currentConfig.testbenchFiles) {
+          if (fileData.path && fileData.path !== '') {
+            const exists = await window.electronAPI.fileExists(fileData.path);
+            
+            if (exists) {
+              validFiles.push({
+                name: fileData.name,
+                path: fileData.path,
+                starred: fileData.starred || false,
+                size: fileData.size || 0,
+                type: fileData.type || 'text/plain'
+              });
+            } else {
+              console.warn(`File no longer exists: ${fileData.path}`);
+            }
+          }
+        }
+        
+        testbenchFiles = validFiles;
       }
       
-      // Load gtkw files
+      // Mesmo processo para gtkw files
       if (currentConfig.gtkwFiles) {
-        gtkwFiles = currentConfig.gtkwFiles.map(fileData => ({
-          name: fileData.name,
-          path: fileData.path,
-          starred: fileData.path === currentConfig.gtkwaveFile,
-          size: 0,
-          type: 'text/plain'
-        }));
+        const validFiles = [];
+        
+        for (const fileData of currentConfig.gtkwFiles) {
+          if (fileData.path && fileData.path !== '') {
+            const exists = await window.electronAPI.fileExists(fileData.path);
+            
+            if (exists) {
+              validFiles.push({
+                name: fileData.name,
+                path: fileData.path,
+                starred: fileData.starred || false,
+                size: fileData.size || 0,
+                type: fileData.type || 'text/plain'
+              });
+            }
+          }
+        }
+        
+        gtkwFiles = validFiles;
       }
       
       // Update file lists
       updateFileList('synthesizable');
       updateFileList('testbench');
-          return configData;
-
-    } else {
-      console.log('Configuration file not found. Using default configuration.');
+      
+      return configData;
     }
   } catch (error) {
     console.error('Error loading project configuration:', error);
@@ -2007,9 +2218,9 @@ function refreshAllInstanceSelects() {
 
 // Modified collectFormData function to work with file lists
 function collectFormData() {
-  const starredSynthesizable = synthesizableFiles.find(file => file.isStarred);
-  const starredTestbench = testbenchFiles.find(file => file.isStarred);
-  const starredGtkw = gtkwFiles.find(file => file.isStarred);
+  const starredSynthesizable = synthesizableFiles.find(file => file.starred);
+  const starredTestbench = testbenchFiles.find(file => file.starred);
+  const starredGtkw = gtkwFiles.find(file => file.starred);
   
   const config = {
     topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
@@ -2017,24 +2228,24 @@ function collectFormData() {
     gtkwaveFile: starredGtkw ? starredGtkw.path : '',
     synthesizableFiles: synthesizableFiles.map(file => ({
       name: file.name,
-      path: file.path,
-      isStarred: file.isStarred
+      path: file.path,  // ← Adiciona o path completo
+      starred: file.starred || false  // ← Adiciona o estado starred
     })),
     testbenchFiles: testbenchFiles.map(file => ({
       name: file.name,
-      path: file.path,
-      isStarred: file.isStarred
+      path: file.path,  // ← Adiciona o path completo
+      starred: file.starred || false  // ← Adiciona o estado starred
     })),
     gtkwFiles: gtkwFiles.map(file => ({
       name: file.name,
-      path: file.path,
-      isStarred: file.isStarred
+      path: file.path,  // ← Adiciona o path completo
+      starred: file.starred || false  // ← Adiciona o estado starred
     })),
     processors: [],
     iverilogFlags: iverilogFlags ? iverilogFlags.value : ''
   };
   
-  // Collect processor data (keeping existing logic)
+  // Collect processor data
   const processorRows = processorsList.querySelectorAll('.modalConfig-processor-row');
   processorRows.forEach(row => {
     const processorSelect = row.querySelector('.processor-select');
@@ -2128,7 +2339,6 @@ async function saveProjectConfiguration() {
         const processorType = processorSelect.value;
         const instanceName = instanceSelect.value;
         
-        // Only add if both values are selected and not empty
         if (processorType && processorType !== '' && instanceName && instanceName !== '') {
           processors.push({
             type: processorType,
@@ -2137,8 +2347,6 @@ async function saveProjectConfiguration() {
         }
       }
     });
-
-    console.log('Processors found:', processors.length, processors);
     
     // Get iverilog flags
     const iverilogFlagsValue = iverilogFlags ? iverilogFlags.value : '';
@@ -2158,20 +2366,23 @@ async function saveProjectConfiguration() {
       gtkwaveFile: starredGtkw ? starredGtkw.path : '',
       synthesizableFiles: synthesizableFiles.map(file => ({
         name: file.name,
-        path: file.path
+        path: file.path,  // ← Path completo
+        starred: file.starred || false  // ← Estado starred
       })),
       testbenchFiles: testbenchFiles.map(file => ({
         name: file.name,
-        path: file.path
+        path: file.path,  // ← Path completo
+        starred: file.starred || false  // ← Estado starred
       })),
       gtkwFiles: gtkwFiles.map(file => ({
         name: file.name,
-        path: file.path
+        path: file.path,  // ← Path completo
+        starred: file.starred || false  // ← Estado starred
       })),
       processors: processors,
       iverilogFlags: iverilogFlagsValue,
       simuDelay: simuDelayValue,
-      showArraysInGtkwave: showArraysValue // Add the new tag here
+      showArraysInGtkwave: showArraysValue
     };
     
     // Save configuration to file
@@ -2192,7 +2403,6 @@ async function saveProjectConfiguration() {
     showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
   }
 }
-
 
 
   // Função para fechar o modal do projeto

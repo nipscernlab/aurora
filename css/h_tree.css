@@ -1,296 +1,203 @@
-/* Hierarchical Tree View Styles */
+/* ===================================================================================
+ *  HIERARCHICAL TREE VIEW STYLES - Refined & Modern
+ * =================================================================================== */
 
-/* Main hierarchy container */
-.hierarchy-container {
-    padding: 8px 0;
-    opacity: 0;
-    animation: fadeIn 0.3s ease forwards;
+/* Toggle Button - Clean & Professional */
+.tree-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: var(--font-medium);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), 
+                border-color var(--transition-fast),
+                color var(--transition-fast);
+    white-space: nowrap;
+    user-select: none;
 }
 
-@keyframes fadeIn {
+.tree-toggle-btn:hover {
+    background: var(--bg-quaternary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.tree-toggle-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.tree-toggle-btn.active:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.tree-toggle-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.tree-toggle-btn i {
+    font-size: 12px;
+}
+
+.tree-toggle-btn .toggle-text {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    font-weight: var(--font-medium);
+}
+
+/* ===================================================================================
+ *  HIERARCHY CONTAINER
+ * =================================================================================== */
+
+.hierarchy-container {
+    padding: var(--space-2) 0 80px 0;
+    opacity: 0;
+    animation: hierarchyFadeIn 0.3s ease forwards;
+}
+
+@keyframes hierarchyFadeIn {
     to {
         opacity: 1;
     }
 }
 
-/* Hierarchy item structure */
+/* ===================================================================================
+ *  HIERARCHY ITEMS - Modern Typography
+ * =================================================================================== */
+
 .hierarchy-item {
-    margin: 2px 0;
+    margin: 1px 0;
     user-select: none;
 }
 
 .hierarchy-item-content {
     display: flex;
     align-items: center;
-    padding: 6px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    user-select: none;
-}
-
-#hierarchy-tree:hover {
-    background-color: rgba(31, 41, 55, 1);
-}
-
-#hierarchy-tree.active {
-    background-color: rgba(59, 130, 246, 0.2);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-#hierarchy-tree i:last-child {
-    font-size: 16px;
-    transition: transform 0.2s ease;
-}
-
-#hierarchy-tree.active i:last-child {
-    color: #3b82f6;
-}
-
-/* Click effect */
-.hierarchy-item-content.clicked {
-    transform: scale(0.98);
-}
-
-/* File tree view state */
-.file-tree.hierarchy-view {
-    transition: opacity 0.2s ease;
-}
-
-.file-tree.transitioning {
-    opacity: 0.5;
-}
-
-/* Scrollbar styling for hierarchy */
-.hierarchy-container::-webkit-scrollbar {
-    width: 6px;
-}
-
-.hierarchy-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
-}
-
-.hierarchy-container::-webkit-scrollbar-thumb {
-    background: rgba(156, 163, 175, 0.3);
-    border-radius: 3px;
-}
-
-.hierarchy-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(156, 163, 175, 0.5);
-}
-
-/* Animation for hierarchy items */
-@keyframes fadeInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .hierarchy-item-content {
-        padding: 4px 6px;
-        gap: 6px;
-    }
-    
-    .hierarchy-label {
-        font-size: 12px;
-    }
-    
-    .hierarchy-children {
-        padding-left: 16px;
-        margin-left: 4px;
-    }
-}
-
-/* Tooltip for long module names */
-.hierarchy-label[title]:hover::after {
-    content: attr(title);
-    position: absolute;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-    z-index: 1000;
-    margin-top: 24px;
-    margin-left: -50%;
-}
-
-/* Loading state */
-.hierarchy-container.loading {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.hierarchy-container.loading::before {
-    content: "Generating hierarchy...";
-    display: block;
-    text-align: center;
-    padding: 20px;
-    color: #9ca3af;
-    font-size: 13px;
-}
-
-/* Empty state */
-.hierarchy-container.empty::before {
-    content: "No hierarchy data available";
-    display: block;
-    text-align: center;
-    padding: 20px;
-    color: #6b7280;
-    font-size: 13px;
-}
-
-/* Badge for instance count */
-.hierarchy-item-content .instance-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
-    background-color: rgba(59, 130, 246, 0.2);
-    border-radius: 9px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #60a5fa;
-    margin-left: auto;
-}
-
-/* Depth indicators */
-.hierarchy-item[data-depth="0"] {
-    --depth-opacity: 1;
-}
-
-.hierarchy-item[data-depth="1"] {
-    --depth-opacity: 0.95;
-}
-
-.hierarchy-item[data-depth="2"] {
-    --depth-opacity: 0.9;
-}
-
-.hierarchy-item[data-depth="3"] {
-    --depth-opacity: 0.85;
-}
-
-.hierarchy-item {
-    opacity: var(--depth-opacity, 1);
-    background-color: 0.15s ease;
-    gap: 8px;
+    gap: var(--space-2);
+    padding: 7px var(--space-3);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast);
+    cursor: pointer;
+    position: relative;
 }
 
 .hierarchy-item-content:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--overlay-hover);
 }
 
-.hierarchy-item[data-type="top-level"] > .hierarchy-item-content {
-    background-color: rgba(59, 130, 246, 0.1);
-    border-left: 3px solid #3b82f6;
-    font-weight: 600;
-}
+/* ===================================================================================
+ *  HIERARCHY TOGGLES - Minimal
+ * =================================================================================== */
 
-.hierarchy-item[data-type="module"] > .hierarchy-item-content {
-    background-color: rgba(139, 92, 246, 0.05);
-}
-
-.hierarchy-item[data-type="instance"] > .hierarchy-item-content {
-    background-color: rgba(16, 185, 129, 0.05);
-}
-
-.hierarchy-item[data-type="primitive"] > .hierarchy-item-content {
-    background-color: rgba(107, 114, 128, 0.05);
-}
-
-/* Toggle arrow */
 .hierarchy-toggle {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.2s ease;
-    color: #9ca3af;
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    color: var(--text-tertiary);
+    flex-shrink: 0;
 }
 
 .hierarchy-toggle:hover {
-    color: #e5e7eb;
+    color: var(--accent-primary);
 }
 
 .hierarchy-toggle.expanded {
     transform: rotate(90deg);
+    color: var(--accent-primary);
 }
 
 .hierarchy-toggle i {
-    font-size: 12px;
+    font-size: 10px;
 }
 
-/* Spacer for non-expandable items */
 .hierarchy-spacer {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
-/* Icon styling */
+/* ===================================================================================
+ *  HIERARCHY ICONS - Subtle Colors
+ * =================================================================================== */
+
 .hierarchy-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    transition: color var(--transition-fast);
 }
 
 .hierarchy-item[data-type="top-level"] .hierarchy-icon {
-    color: #3b82f6;
+    color: var(--accent-primary);
 }
 
 .hierarchy-item[data-type="module"] .hierarchy-icon {
-    color: #8b5cf6;
+    color: #60a5fa;
 }
 
 .hierarchy-item[data-type="instance"] .hierarchy-icon {
-    color: #10b981;
-}
-
-.hierarchy-item[data-type="primitive"] .hierarchy-icon {
-    color: #6b7280;
+    color: #34d399;
 }
 
 .hierarchy-icon i {
-    font-size: 14px;
+    font-size: 13px;
 }
 
-/* Label styling */
+/* ===================================================================================
+ *  HIERARCHY LABELS - Modern Typography
+ * =================================================================================== */
+
 .hierarchy-label {
     flex: 1;
-    font-size: 13px;
-    color: #e5e7eb;
+    font-size: 12.5px;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: 'Inter', var(--font-sans);
+    font-weight: var(--font-normal);
+    letter-spacing: -0.01em;
+    line-height: 1.4;
 }
 
 .hierarchy-item[data-type="top-level"] .hierarchy-label {
-    font-weight: 600;
-    color: #f3f4f6;
+    font-size: 13.5px;
+    letter-spacing: 0;
 }
 
-/* Children container */
+.hierarchy-item-content:hover .hierarchy-label {
+    color: var(--accent-hover);
+}
+
+/* ===================================================================================
+ *  HIERARCHY CHILDREN CONTAINERS
+ * =================================================================================== */
+
 .hierarchy-children {
-    padding-left: 24px;
-    margin-left: 8px;
-    border-left: 1px solid rgba(156, 163, 175, 0.2);
+    padding-left: 22px;
+    margin-left: var(--space-3);
+    border-left: 1px solid var(--border-secondary);
     overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.2s ease;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.2s ease;
 }
 
 .hierarchy-children.collapsed {
@@ -303,114 +210,133 @@
     opacity: 1;
 }
 
-/* Toggle button styles */
-#hierarchy-tree {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background-color: rgba(31, 41, 55, 0.8);
-    border-radius: 6px;
-    cursor: pointer;
+.hierarchy-children:hover {
+    border-left-color: var(--border-primary);
 }
 
 /* ===================================================================================
- *  Compilation Pause Notification Bar
+ *  SCROLLBAR CUSTOMIZATION
  * =================================================================================== */
-.compilation-notification-bar {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--accent-primary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xl);
-    z-index: var(--z-50);
-    opacity: 1;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    color: var(--text-primary);
-    width: 90%;
-    max-width: 600px;
+
+.hierarchy-container::-webkit-scrollbar {
+    width: 8px;
 }
 
-.compilation-notification-bar.hidden {
-    opacity: 0;
-    transform: translateX(-50%) translateY(150%);
+.hierarchy-container::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+.hierarchy-container::-webkit-scrollbar-thumb {
+    background: var(--bg-quaternary);
+    border-radius: var(--radius-full);
+    border: 2px solid var(--bg-primary);
+}
+
+.hierarchy-container::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* ===================================================================================
+ *  STATE CLASSES
+ * =================================================================================== */
+
+.file-tree.hierarchy-view {
+    transition: opacity var(--transition-normal);
+}
+
+.file-tree.transitioning {
+    opacity: 0.3;
+}
+
+.hierarchy-container.loading {
+    opacity: 0.5;
     pointer-events: none;
 }
 
-.compilation-notification-bar span {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+.hierarchy-container.loading::before {
+    content: "Generating hierarchy...";
+    display: block;
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+}
+
+.hierarchy-container.empty::before {
+    content: "No hierarchy data available";
+    display: block;
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-tertiary);
     font-size: var(--text-sm);
 }
 
-.compilation-notification-bar i {
-    color: var(--accent-primary);
+/* ===================================================================================
+ *  RESPONSIVE ADJUSTMENTS
+ * =================================================================================== */
+
+@media (max-width: 768px) {
+    .hierarchy-item-content {
+        padding: 6px var(--space-2);
+        gap: var(--space-1);
+    }
+    
+    .hierarchy-label {
+        font-size: 11.5px;
+    }
+    
+    .hierarchy-children {
+        padding-left: 18px;
+        margin-left: var(--space-2);
+    }
+    
+    .tree-toggle-btn {
+        padding: var(--space-1) var(--space-2);
+        font-size: 10px;
+    }
 }
 
-.compilation-notification-bar button {
-    background-color: var(--accent-primary);
-    color: var(--text-on-accent);
-    border: none;
-    border-radius: var(--radius-md);
-    padding: 8px 16px;
-    font-weight: var(--font-semibold);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    transition: background-color var(--transition-fast);
+/* ===================================================================================
+ *  ACCESSIBILITY ENHANCEMENTS
+ * =================================================================================== */
+
+.hierarchy-item-content:focus-visible {
+    outline: 2px solid var(--accent-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
-.compilation-notification-bar button:hover {
-    background-color: var(--accent-hover);
+.tree-toggle-btn:focus-visible {
+    outline: 2px solid var(--accent-focus-ring);
+    outline-offset: 2px;
 }
 
-.compilation-notification-bar button i {
-    color: var(--text-on-accent);
+.hierarchy-item[data-type="top-level"] > .hierarchy-item-content {
+    background: linear-gradient(90deg, rgba(155, 89, 182, 0.08) 0%, transparent 100%);
+    border-left: 2px solid #9b59b6 !important;
+    border-radius: 8px;
+    margin: 6px 0;
+    padding: 10px var(--space-4);
 }
 
-
-/* Melhor feedback visual para drag & drop */
-.file-drop-area.dragover .drop-zone {
-  background: linear-gradient(135deg, var(--accent-subtle-bg) 0%, var(--bg-secondary) 100%);
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-  transform: scale(1.02);
+.hierarchy-item[data-type="top-level"] > .hierarchy-item-content:hover {
+    background: linear-gradient(90deg, rgba(155, 89, 182, 0.12) 0%, transparent 100%);
+    border-color: #af7ac5 !important;
+    
 }
 
-.drop-icon {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.hierarchy-item[data-type="top-level"] .hierarchy-label {
+    background: linear-gradient(90deg, #ffffff 0%, #af7ac5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
+    font-size: 14px;
 }
 
-.file-drop-area.dragover .drop-icon {
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.3);
-  }
-}
-
-/* Feedback quando arquivo está sendo arrastado sobre a área */
-.drop-zone-content h4,
-.drop-zone-content p {
-  transition: color 0.3s ease;
-}
-
-.file-drop-area.dragover .drop-zone-content h4 {
-  color: var(--accent-primary);
+.hierarchy-item[data-type="top-level"] .hierarchy-icon {
+    color: #9b59b6;
+    filter: drop-shadow(0 0 4px rgba(155, 89, 182, 0.6));
 }

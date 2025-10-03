@@ -6371,6 +6371,86 @@ class CompilationModule {
     this.hierarchyGenerated = false;
 }
 
+    // Extract file path and line number from Yosys source attribute
+static extractFileInfoFromSource(sourceAttr) {
+    if (!sourceAttr) return null;
+    
+    // Format: "C:\\path\\to\\file.v:startLine.startCol-endLine.endCol"
+    const match = sourceAttr.match(/^(.+\.v):(\d+)\.\d+(?:-\d+\.\d+)?$/);
+    if (!match) return null;
+    
+    return {
+        filePath: match[1],
+        lineNumber: parseInt(match[2], 10)
+    };
+}
+
+// Open file in Monaco Editor and navigate to specific line
+static async openModuleFile(filePath, lineNumber = null) {
+    try {
+        // Check if file exists
+        const fileExists = await window.electronAPI.fileExists(filePath);
+        if (!fileExists) {
+            this.terminalManager.appendToTerminal('tveri', 
+                `File not found: ${filePath}`, 'error');
+            return;
+        }
+
+        // Read file content
+        const content = await window.electronAPI.readFile(filePath, { encoding: 'utf8' });
+        
+        // Add tab or activate existing tab
+        TabManager.addTab(filePath, content);
+        
+        // Navigate to specific line if provided
+        if (lineNumber) {
+            setTimeout(() => {
+                const editor = EditorManager.getEditorForFile(filePath);
+                if (editor) {
+                    this.goToLineInEditor(editor, lineNumber);
+                }
+            }, 100); // Small delay to ensure editor is ready
+        }
+        
+    } catch (error) {
+        console.error('Error opening module file:', error);
+        this.terminalManager.appendToTerminal('tveri', 
+            `Failed to open file: ${error.message}`, 'error');
+    }
+}
+
+// Navigate to specific line in editor with selection
+static goToLineInEditor(editor, lineNumber) {
+    if (!editor) return;
+    
+    const model = editor.getModel();
+    if (!model) return;
+    
+    const totalLines = model.getLineCount();
+    const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
+    
+    // Set cursor position
+    editor.setPosition({
+        lineNumber: targetLine,
+        column: 1
+    });
+    
+    // Reveal line in center of viewport
+    editor.revealLineInCenter(targetLine);
+    
+    // Focus the editor
+    editor.focus();
+    
+    // Select the entire line for visibility
+    editor.setSelection({
+        startLineNumber: targetLine,
+        startColumn: 1,
+        endLineNumber: targetLine,
+        endColumn: model.getLineMaxColumn(targetLine)
+    });
+}
+
+
 async monitorGtkwaveProcess() {
     if (!this.gtkwaveProcess) return;
 
@@ -6515,162 +6595,258 @@ async monitorGtkwaveProcess() {
      * entre a definição de um módulo e suas instâncias.
      */
     parseYosysHierarchy(jsonData, topLevelModule) {
-        const modules = jsonData.modules || {};
-        const memo = new Map();
+    const modules = jsonData.modules || {};
+    const memo = new Map();
 
-        const buildDefinitionTree = (moduleName) => {
-            if (memo.has(moduleName)) return memo.get(moduleName);
+    // Enhanced primitive detection - Yosys/Verilog built-in primitives
+    const PRIMITIVE_PATTERNS = [
+        /^\$_/,              // $_DFF_, $_AND_, etc.
+        /^\$paramod\$_/,     // Parameterized primitives
+        /^\$lut/i,           // LUT primitives
+        /^\$(and|or|xor|not|buf|mux|add|sub|mul|div|mod|pow|eq|ne|lt|le|gt|ge)/i, // Arithmetic/logic ops
+        /^\$(dff|dffe|adff|adffe|sdff|sdffe|dlatch|dlatchsr)/i, // Flip-flops and latches
+        /^\$(mem|memrd|memwr)/i, // Memory primitives
+        /^\$(assert|assume|cover|check)/i, // Verification primitives
+        /^\$reduce_/i,       // Reduction operators
+        /^\$logic_/i,        // Logic operators
+        /^\$shift/i,         // Shift operators
+    ];
 
-            const moduleData = modules[moduleName];
-            const { cleanName, filePath } = this.parseYosysIdentifier(moduleName);
-
-            if (!moduleData) return null; // É uma primitiva, será filtrada.
-
-            const definitionNode = {
-                name: cleanName,
-                filePath: filePath,
-                children: [] // Armazenará as INSTÂNCIAS
-            };
-            
-            memo.set(moduleName, definitionNode); // Previne recursão infinita
-
-            const cells = moduleData.cells || {};
-            for (const [cellName, cellData] of Object.entries(cells)) {
-                const subModuleDefinition = buildDefinitionTree(cellData.type);
-
-                // Adiciona apenas instâncias de módulos reais do usuário, não primitivas
-                if (subModuleDefinition) {
-                    const instanceNode = {
-                        instanceName: this.parseYosysIdentifier(cellName).cleanName,
-                        type: 'instance',
-                        // A instância aponta para a definição completa do submódulo
-                        moduleDefinition: subModuleDefinition
-                    };
-                    definitionNode.children.push(instanceNode);
-                }
-            }
-            return definitionNode;
-        };
+    const isPrimitive = (moduleName) => {
+        // Check if it's a known primitive pattern
+        const cleanName = this.parseYosysIdentifier(moduleName).cleanName;
         
-        const originalTopLevelName = Object.keys(modules).find(key => 
-            this.parseYosysIdentifier(key).cleanName === topLevelModule
-        );
+        // If it matches any primitive pattern, it's a primitive
+        if (PRIMITIVE_PATTERNS.some(pattern => pattern.test(cleanName))) {
+            return true;
+        }
+        
+        // If module doesn't exist in modules list, it's likely a primitive
+        if (!modules[moduleName]) {
+            return true;
+        }
+        
+        const moduleData = modules[moduleName];
+        
+        // Check if module has attributes.src (user modules have source files)
+        // Primitives typically don't have source file references
+        if (!moduleData.attributes || !moduleData.attributes.src) {
+            // However, allow modules without src if they have cells (submodules)
+            const hasCells = moduleData.cells && Object.keys(moduleData.cells).length > 0;
+            return !hasCells; // If no cells and no src, it's likely a primitive
+        }
+        
+        return false;
+    };
 
-        if (!originalTopLevelName) {
-            console.error(`Módulo de topo "${topLevelModule}" não encontrado.`);
-            return { name: topLevelModule, filePath: null, children: [] };
+    const buildDefinitionTree = (moduleName) => {
+        if (memo.has(moduleName)) return memo.get(moduleName);
+
+        // Filter out primitives
+        if (isPrimitive(moduleName)) {
+            return null;
         }
 
-        return buildDefinitionTree(originalTopLevelName);
+        const moduleData = modules[moduleName];
+        const { cleanName, filePath } = this.parseYosysIdentifier(moduleName);
+
+        if (!moduleData) return null;
+
+        // Extract file info from attributes
+        let sourceFilePath = filePath;
+        let sourceLineNumber = null;
+        
+        if (moduleData.attributes && moduleData.attributes.src) {
+            const fileInfo = this.constructor.extractFileInfoFromSource(moduleData.attributes.src);
+            if (fileInfo) {
+                sourceFilePath = fileInfo.filePath;
+                sourceLineNumber = fileInfo.lineNumber;
+            }
+        }
+
+        const definitionNode = {
+            name: cleanName,
+            filePath: sourceFilePath,
+            lineNumber: sourceLineNumber,
+            children: []
+        };
+        
+        memo.set(moduleName, definitionNode);
+
+        const cells = moduleData.cells || {};
+        for (const [cellName, cellData] of Object.entries(cells)) {
+            // Recursively build tree, filtering primitives
+            const subModuleDefinition = buildDefinitionTree(cellData.type);
+
+            // Only add if it's not a primitive
+            if (subModuleDefinition) {
+                const instanceNode = {
+                    instanceName: this.parseYosysIdentifier(cellName).cleanName,
+                    type: 'instance',
+                    moduleDefinition: subModuleDefinition
+                };
+                definitionNode.children.push(instanceNode);
+            }
+        }
+        
+        return definitionNode;
+    };
+    
+    const originalTopLevelName = Object.keys(modules).find(key => 
+        this.parseYosysIdentifier(key).cleanName === topLevelModule
+    );
+
+    if (!originalTopLevelName) {
+        console.error(`Top module "${topLevelModule}" not found.`);
+        return { name: topLevelModule, filePath: null, lineNumber: null, children: [] };
     }
+
+    const hierarchyTree = buildDefinitionTree(originalTopLevelName);
+    
+    // Log statistics for debugging
+    console.log(`Hierarchy built: ${memo.size} user modules found`);
+    
+    return hierarchyTree;
+}
+
 
     /**
      * VERSÃO CORRETA: Renderiza a árvore com base na nova estrutura de dados.
      */
-    renderHierarchicalTree() {
-        const fileTreeElement = document.getElementById('file-tree');
-        if (!fileTreeElement || !this.hierarchyData) return;
+   renderHierarchicalTree() {
+    const fileTreeElement = document.getElementById('file-tree');
+    if (!fileTreeElement || !this.hierarchyData) return;
 
-        fileTreeElement.innerHTML = '';
-        fileTreeElement.classList.add('hierarchy-view');
-        
-        const container = document.createElement('div');
-        container.className = 'hierarchy-container';
+    fileTreeElement.innerHTML = '';
+    fileTreeElement.classList.add('hierarchy-view');
+    
+    const container = document.createElement('div');
+    container.className = 'hierarchy-container';
 
-        // O módulo de topo é tratado como uma instância especial de si mesmo
-        const topLevelInstance = {
-            instanceName: this.hierarchyData.name,
-            type: 'instance',
-            moduleDefinition: this.hierarchyData
-        };
+    // The top module is treated as a special instance of itself
+    const topLevelInstance = {
+        instanceName: this.hierarchyData.name,
+        type: 'instance',
+        moduleDefinition: this.hierarchyData
+    };
 
-        const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'fa-solid fa-microchip', true);
-        container.appendChild(topItem);
-        
-        // Inicia a construção recursiva a partir da DEFINIÇÃO do topo
-        this.buildHierarchyTree(topItem, this.hierarchyData);
-        
-        fileTreeElement.appendChild(container);
-    }
+    const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'fa-solid fa-microchip', true);
+    
+    // CRITICAL: Set data-type attribute for CSS targeting
+    topItem.setAttribute('data-type', 'top-level');
+    
+    container.appendChild(topItem);
+    
+    // Build recursive tree starting from top definition
+    this.buildHierarchyTree(topItem, this.hierarchyData);
+    
+    fileTreeElement.appendChild(container);
+}
     
     /**
      * VERSÃO CORRETA E SEGURA: Constrói a árvore visual e usa ordenação robusta.
      */
-    buildHierarchyTree(parentItem, moduleDefinition) {
-        if (!moduleDefinition.children || moduleDefinition.children.length === 0) {
-            return;
-        }
-
-        const childrenContainer = parentItem.querySelector('.hierarchy-children');
-        if (!childrenContainer) return;
-
-        // ORDENAÇÃO SEGURA para prevenir o erro 'localeCompare'
-        const sortedInstances = [...moduleDefinition.children].sort((a, b) => {
-            const nameA = a?.instanceName || ''; // Usa '' se a ou a.instanceName for undefined
-            const nameB = b?.instanceName || ''; // Usa '' se b ou b.instanceName for undefined
-            return nameA.localeCompare(nameB);
-        });
-
-        for (const instanceNode of sortedInstances) {
-            // Cria um item visual para cada INSTÂNCIA
-            const childItem = this.createHierarchyItem(instanceNode, 'module', 'fa-solid fa-cube');
-            childrenContainer.appendChild(childItem);
-            
-            // A recursão continua usando a DEFINIÇÃO dentro da instância
-            this.buildHierarchyTree(childItem, instanceNode.moduleDefinition);
-        }
+   buildHierarchyTree(parentItem, moduleDefinition) {
+    if (!moduleDefinition.children || moduleDefinition.children.length === 0) {
+        return;
     }
 
+    const childrenContainer = parentItem.querySelector('.hierarchy-children');
+    if (!childrenContainer) return;
+
+    const sortedInstances = [...moduleDefinition.children].sort((a, b) => {
+        const nameA = a?.instanceName || '';
+        const nameB = b?.instanceName || '';
+        return nameA.localeCompare(nameB);
+    });
+
+    for (const instanceNode of sortedInstances) {
+        const childItem = this.createHierarchyItem(instanceNode, 'module', 'fa-solid fa-cube');
+        
+        // Set data-type for styling
+        childItem.setAttribute('data-type', 'module');
+        
+        childrenContainer.appendChild(childItem);
+        
+        // Recurse using the definition inside the instance
+        this.buildHierarchyTree(childItem, instanceNode.moduleDefinition);
+    }
+}
     /**
      * VERSÃO CORRETA: Cria o item visual, mostrando "instanceName (moduleType)".
      */
-    createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
-        const itemContainer = document.createElement('div');
-        itemContainer.className = 'hierarchy-item';
+  createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
+    const itemContainer = document.createElement('div');
+    itemContainer.className = 'hierarchy-item';
 
-        const moduleDef = instanceNode.moduleDefinition;
-        if (moduleDef.filePath) {
-            itemContainer.setAttribute('data-filepath', moduleDef.filePath);
+    const moduleDef = instanceNode.moduleDefinition;
+    
+    // Store file information in data attributes
+    if (moduleDef.filePath) {
+        itemContainer.setAttribute('data-filepath', moduleDef.filePath);
+        if (moduleDef.lineNumber) {
+            itemContainer.setAttribute('data-linenumber', moduleDef.lineNumber);
         }
-
-        const itemElement = document.createElement('div');
-        itemElement.className = 'hierarchy-item-content';
-        
-        const hasChildren = moduleDef.children && moduleDef.children.length > 0;
-
-        if (hasChildren) {
-            const toggle = document.createElement('span');
-            toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
-            toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
-            toggle.addEventListener('click', e => { e.stopPropagation(); this.toggleHierarchyItem(itemContainer); });
-            itemElement.appendChild(toggle);
-        } else {
-            itemElement.appendChild(document.createElement('span')).className = 'hierarchy-spacer';
-        }
-
-        itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
-        itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${icon}"></i>`;
-
-        const label = document.createElement('span');
-        label.className = 'hierarchy-label';
-        // Mostra "nomeDaInstancia (TipoDoModulo)" para clareza
-        label.textContent = instanceNode.instanceName === moduleDef.name 
-            ? moduleDef.name 
-            : `${instanceNode.instanceName} (${moduleDef.name})`;
-        itemElement.appendChild(label);
-
-        itemContainer.appendChild(itemElement);
-        itemContainer.appendChild(document.createElement('div')).className = `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
-
-        if (moduleDef.filePath) {
-            itemElement.style.cursor = 'pointer';
-            itemElement.addEventListener('click', () => {
-                const filePath = itemContainer.getAttribute('data-filepath');
-                if (filePath) openFile(filePath);
-            });
-        }
-        return itemContainer;
     }
+
+    const itemElement = document.createElement('div');
+    itemElement.className = 'hierarchy-item-content';
+    
+    const hasChildren = moduleDef.children && moduleDef.children.length > 0;
+
+    if (hasChildren) {
+        const toggle = document.createElement('span');
+        toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
+        toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
+        toggle.addEventListener('click', e => { 
+            e.stopPropagation(); 
+            this.toggleHierarchyItem(itemContainer); 
+        });
+        itemElement.appendChild(toggle);
+    } else {
+        itemElement.appendChild(document.createElement('span')).className = 'hierarchy-spacer';
+    }
+
+    itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
+    itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${icon}"></i>`;
+
+    const label = document.createElement('span');
+    label.className = 'hierarchy-label';
+    label.textContent = instanceNode.instanceName === moduleDef.name 
+        ? moduleDef.name 
+        : `${instanceNode.instanceName} (${moduleDef.name})`;
+    itemElement.appendChild(label);
+
+    itemContainer.appendChild(itemElement);
+    itemContainer.appendChild(document.createElement('div')).className = 
+        `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
+
+    // Add click handler to open file with filename-only tooltip
+    if (moduleDef.filePath) {
+        itemElement.style.cursor = 'pointer';
+        
+        // Extract just the filename for the tooltip
+        const fileName = moduleDef.filePath.split(/[\\/]/).pop();
+        itemElement.title = `Click to open ${fileName}`;
+        
+        itemElement.addEventListener('click', async (e) => {
+            // Don't trigger if clicking on toggle
+            if (e.target.closest('.hierarchy-toggle')) return;
+            
+            const filePath = itemContainer.getAttribute('data-filepath');
+            const lineNumber = itemContainer.getAttribute('data-linenumber');
+            
+            if (filePath) {
+                await this.constructor.openModuleFile(
+                    filePath, 
+                    lineNumber ? parseInt(lineNumber, 10) : null
+                );
+            }
+        });
+    }
+    
+    return itemContainer;
+}
 
     toggleHierarchyItem(itemElement) {
         const toggle = itemElement.querySelector('.hierarchy-toggle');
@@ -7019,40 +7195,55 @@ end`;
 
     // NEW: Setup hierarchy toggle button event listener
     setupHierarchyToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
-        if (!toggleButton) {
-            console.warn('Hierarchy toggle button not found');
+    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    if (!toggleButton) {
+        console.warn('Hierarchy toggle button not found');
+        return;
+    }
+
+    // Initially disabled until hierarchy is generated
+    toggleButton.classList.add('disabled');
+    toggleButton.title = 'Generate hierarchy first by running Verilog compilation';
+    
+    toggleButton.addEventListener('click', async () => {
+        if (toggleButton.classList.contains('disabled')) {
+            this.terminalManager.appendToTerminal('tveri', 
+                'Generate hierarchy first by running Verilog compilation', 'warning');
             return;
         }
 
-        // Initially disabled until hierarchy is generated
-        toggleButton.classList.add('disabled');
-        
-        toggleButton.addEventListener('click', () => {
-            if (toggleButton.classList.contains('disabled')) {
-                this.terminalManager.appendToTerminal('tveri', 
-                    'Generate hierarchy first by running Verilog compilation', 'warning');
-                return;
-            }
+        // Prevent multiple rapid clicks
+        if (toggleButton.dataset.switching === 'true') return;
+        toggleButton.dataset.switching = 'true';
 
+        try {
             if (this.isHierarchicalView) {
                 // Switch to standard view
                 this.restoreStandardTreeState();
-                if (typeof refreshFileTree === 'function') {
-                    refreshFileTree();
-                }
                 toggleButton.classList.remove('active');
                 toggleButton.querySelector('.toggle-text').textContent = 'Hierarchical';
                 toggleButton.querySelector('i').className = 'fa-solid fa-sitemap';
+                
+                this.terminalManager.appendToTerminal('tveri', 
+                    'Switched to standard file tree view', 'info');
             } else if (this.hierarchyData) {
                 // Switch to hierarchical view
-                this.switchToHierarchicalView();
+                await this.switchToHierarchicalView();
                 toggleButton.classList.add('active');
                 toggleButton.querySelector('.toggle-text').textContent = 'Standard';
                 toggleButton.querySelector('i').className = 'fa-solid fa-list-ul';
+                
+                this.terminalManager.appendToTerminal('tveri', 
+                    'Switched to hierarchical module view', 'info');
             }
-        });
-    }
+        } finally {
+            // Small delay to prevent accidental double-clicks
+            setTimeout(() => {
+                toggleButton.dataset.switching = 'false';
+            }, 300);
+        }
+    });
+}
 
     // Updated iverilogCompilation method for processor mode
       async iverilogCompilation(processor) {
@@ -7613,32 +7804,47 @@ write_json ${jsonOutputPath}
     }
 
     // NEW: Restore standard tree state
-    restoreStandardTreeState() {
-        const fileTree = document.getElementById('file-tree');
-        if (fileTree && this.standardTreeState) {
-            fileTree.innerHTML = this.standardTreeState;
-            this.isHierarchicalView = false;
-            this.updateToggleButton(false);
-        }
+   restoreStandardTreeState() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+    
+    this.isHierarchicalView = false;
+    
+    // Clear hierarchical view
+    fileTree.innerHTML = '';
+    
+    // Trigger file tree refresh
+    if (typeof refreshFileTree === 'function') {
+        refreshFileTree();
     }
-
+    
+    this.updateToggleButton(false);
+}
     // NEW: Switch to hierarchical tree view
     async switchToHierarchicalView() {
-        if (!this.hierarchyData) {
-            this.terminalManager.appendToTerminal('tveri', 'No hierarchy data available', 'warning');
-            return;
-        }
-
-        this.saveStandardTreeState();
-        this.isHierarchicalView = true;
-        this.renderHierarchicalTree();
-        this.updateToggleButton(true);
+    if (!this.hierarchyData) {
+        this.terminalManager.appendToTerminal('tveri', 'No hierarchy data available', 'warning');
+        return;
     }
 
-    enableHierarchyToggle() {
+    this.saveStandardTreeState();
+    this.isHierarchicalView = true;
+    
+    // Clear and render hierarchy
+    const fileTree = document.getElementById('file-tree');
+    if (fileTree) {
+        fileTree.innerHTML = '';
+        this.renderHierarchicalTree();
+    }
+    
+    this.updateToggleButton(true);
+}
+
+enableHierarchyToggle() {
     const toggleButton = document.getElementById('hierarchy-tree-toggle');
     if (toggleButton) {
         toggleButton.classList.remove('disabled');
+        toggleButton.title = 'Toggle between hierarchical and standard file tree';
         this.terminalManager.appendToTerminal('tveri', 
             'Hierarchical view available - click the button to toggle', 'success');
     }

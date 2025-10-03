@@ -6358,15 +6358,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
 class CompilationModule {
     constructor(projectPath) {
-        this.projectPath = projectPath;
-        this.config = null;
-        this.projectConfig = null;
-        this.terminalManager = new TerminalManager();
-        this.isProjectOriented = false;
-        this.hierarchyData = null;
-        this.isHierarchicalView = false;
-        this.standardTreeState = null; // Store standard tree before switching
-    }
+    this.projectPath = projectPath;
+    this.config = null;
+    this.projectConfig = null;
+    this.terminalManager = new TerminalManager();
+    this.isProjectOriented = false;
+    this.hierarchyData = null;
+    this.isHierarchicalView = false;
+    this.standardTreeState = null;
+    // NEW: Add GTKWave process tracking
+    this.gtkwaveProcess = null;
+    this.hierarchyGenerated = false;
+}
+
+async monitorGtkwaveProcess() {
+    if (!this.gtkwaveProcess) return;
+
+    const checkInterval = setInterval(async () => {
+        try {
+            const isRunning = await window.electronAPI.isProcessRunning(this.gtkwaveProcess);
+            
+            if (!isRunning) {
+                clearInterval(checkInterval);
+                
+                if (this.isHierarchicalView) {
+                    this.terminalManager.appendToTerminal('twave', 
+                        'GTKWave closed - restoring standard file tree...', 'info');
+                    
+                    setTimeout(() => {
+                        this.restoreStandardTreeState();
+                        if (typeof refreshFileTree === 'function') {
+                            refreshFileTree();
+                        }
+                    }, 500);
+                }
+                
+                this.gtkwaveProcess = null;
+                this.hierarchyGenerated = false;
+            }
+        } catch (error) {
+            clearInterval(checkInterval);
+            console.error('Error monitoring GTKWave process:', error);
+        }
+    }, 2000); // Check every 2 seconds
+}
 
     async generateProcessorHierarchy(processor) {
         try {
@@ -6407,6 +6442,7 @@ class CompilationModule {
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
             this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
+            this.enableHierarchyToggle();
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
@@ -6983,30 +7019,40 @@ end`;
 
     // NEW: Setup hierarchy toggle button event listener
     setupHierarchyToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree');
-        if (toggleButton) {
-            toggleButton.addEventListener('click', () => {
-                if (this.isHierarchicalView) {
-                    this.restoreStandardTreeState();
-                    refreshFileTree();
-                } else if (this.hierarchyData) {
-                    this.switchToHierarchicalView();
-                }
-            });
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) {
+            console.warn('Hierarchy toggle button not found');
+            return;
         }
-    }
 
-    // NEW: Auto-restore standard tree when GTKWave closes
-    setupGtkwaveCloseListener() {
-        window.electronAPI.on('gtkwave-closed', () => {
+        // Initially disabled until hierarchy is generated
+        toggleButton.classList.add('disabled');
+        
+        toggleButton.addEventListener('click', () => {
+            if (toggleButton.classList.contains('disabled')) {
+                this.terminalManager.appendToTerminal('tveri', 
+                    'Generate hierarchy first by running Verilog compilation', 'warning');
+                return;
+            }
+
             if (this.isHierarchicalView) {
+                // Switch to standard view
                 this.restoreStandardTreeState();
-                refreshFileTree();
-                this.terminalManager.appendToTerminal('twave', 'Restored standard file tree', 'success');
+                if (typeof refreshFileTree === 'function') {
+                    refreshFileTree();
+                }
+                toggleButton.classList.remove('active');
+                toggleButton.querySelector('.toggle-text').textContent = 'Hierarchical';
+                toggleButton.querySelector('i').className = 'fa-solid fa-sitemap';
+            } else if (this.hierarchyData) {
+                // Switch to hierarchical view
+                this.switchToHierarchicalView();
+                toggleButton.classList.add('active');
+                toggleButton.querySelector('.toggle-text').textContent = 'Standard';
+                toggleButton.querySelector('i').className = 'fa-solid fa-list-ul';
             }
         });
     }
-
 
     // Updated iverilogCompilation method for processor mode
       async iverilogCompilation(processor) {
@@ -7264,17 +7310,23 @@ async runGtkWave(processor) {
 
     // Launch enhanced parallel simulation with output monitoring
     const result = await window.electronAPI.launchParallelSimulation({
-      vvpCmd: vvpCmd,
-      gtkwCmd: gtkwCmd,
-      vcdPath: vcdPath,
-      workingDir: tempPath
+        vvpCmd: vvpCmd,
+        gtkwCmd: gtkwCmd,
+        vcdPath: vcdPath,
+        workingDir: tempPath
     });
 
     if (result.success) {
-      this.terminalManager.appendToTerminal('twave', 'GTKWave launched with output monitoring and TCL script execution.', 'success');
+        // NEW: Store GTKWave process ID and start monitoring
+        this.gtkwaveProcess = result.gtkwavePid;
+        this.terminalManager.appendToTerminal('twave', 
+            'GTKWave launched successfully', 'success');
+        
+        // Start monitoring for GTKWave close
+        this.monitorGtkwaveProcess();
     } else {
-      hideVVPProgress();
-      throw new Error(`Failed to launch parallel simulation: ${result.message}`);
+        hideVVPProgress();
+        throw new Error(`Failed to launch simulation: ${result.message}`);
     }
 
     statusUpdater.compilationSuccess('wave');
@@ -7408,17 +7460,23 @@ async runProjectGtkWave() {
 
     // Launch enhanced parallel simulation with output monitoring
     const result = await window.electronAPI.launchParallelSimulation({
-      vvpCmd: vvpCmd,
-      gtkwCmd: gtkwCmd,
-      vcdPath: vcdPath,
-      workingDir: tempBaseDir
+        vvpCmd: vvpCmd,
+        gtkwCmd: gtkwCmd,
+        vcdPath: vcdPath,
+        workingDir: tempBaseDir
     });
 
     if (result.success) {
-      this.terminalManager.appendToTerminal('twave', 'GTKWave launched with output monitoring and TCL script execution.', 'success');
+        // NEW: Store GTKWave process ID and start monitoring
+        this.gtkwaveProcess = result.gtkwavePid;
+        this.terminalManager.appendToTerminal('twave',
+            'GTKWave launched successfully', 'success');
+
+        // Start monitoring for GTKWave close
+        this.monitorGtkwaveProcess();
     } else {
-      hideVVPProgress();
-      throw new Error(`Failed to launch parallel simulation: ${result.message}`);
+        hideVVPProgress();
+        throw new Error(`Failed to launch simulation: ${result.message}`);
     }
 
     statusUpdater.compilationSuccess('wave');
@@ -7576,6 +7634,15 @@ write_json ${jsonOutputPath}
         this.renderHierarchicalTree();
         this.updateToggleButton(true);
     }
+
+    enableHierarchyToggle() {
+    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    if (toggleButton) {
+        toggleButton.classList.remove('disabled');
+        this.terminalManager.appendToTerminal('tveri', 
+            'Hierarchical view available - click the button to toggle', 'success');
+    }
+}
 
     // NEW: Update toggle button state
     updateToggleButton(isHierarchical) {
@@ -7898,8 +7965,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, setting up PRISM button...');
     if (window.compilationModule) {
         window.compilationModule.setupHierarchyToggle();
-        window.compilationModule.setupGtkwaveCloseListener();
     }
+    console.log('Hierarchical tree system initialized with GTKWave monitoring');
 
     const prismButton = document.getElementById('prismcomp');
     let isCompiling = false;
@@ -8268,435 +8335,6 @@ window.addEventListener('message', (event) => {
         }
     }
 });
-
-class CompilationModuleExtended extends CompilationModule {
-    
-    constructor(projectPath) {
-        super(projectPath);
-        this.gtkwaveProcess = null;
-        this.hierarchyGenerated = false;
-    }
-
-    // ENHANCED: Monitor GTKWave process and auto-restore tree on close
-    async monitorGtkwaveProcess() {
-        if (!this.gtkwaveProcess) return;
-
-        const checkInterval = setInterval(async () => {
-            try {
-                const isRunning = await window.electronAPI.isProcessRunning(this.gtkwaveProcess);
-                
-                if (!isRunning) {
-                    clearInterval(checkInterval);
-                    
-                    if (this.isHierarchicalView) {
-                        this.terminalManager.appendToTerminal('twave', 
-                            'GTKWave closed - restoring standard file tree...', 'info');
-                        
-                        setTimeout(() => {
-                            this.restoreStandardTreeState();
-                            refreshFileTree();
-                        }, 500);
-                    }
-                    
-                    this.gtkwaveProcess = null;
-                    this.hierarchyGenerated = false;
-                }
-            } catch (error) {
-                clearInterval(checkInterval);
-            }
-        }, 2000);
-    }
-
-    // ENHANCED: Run GTKWave with hierarchy monitoring
-    async runGtkWave(processor) {
-        if (this.isProjectOriented) {
-            return this.runProjectGtkWave();
-        }
-
-        const { name } = processor;
-        this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
-        statusUpdater.startCompilation('wave');
-
-        let testbenchBackupInfo = null;
-        let vvpFinishedHandler = null;
-        let gtkwaveOutputHandler = null;
-
-        try {
-            // Setup paths
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-            const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-
-            const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-            const { tbModule, tbFile } = await this.getTestbenchInfo(processor, cmmBaseName);
-
-            // Modify testbench if needed
-            if (processor.testbenchFile && processor.testbenchFile !== 'standard') {
-                const simuDelay = this.getSimulationDelay(processor);
-                testbenchBackupInfo = await this.modifyTestbenchForSimulation(
-                    tbFile, tbModule, tempPath, simuDelay
-                );
-            }
-
-            // Create TCL info file
-            const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
-            const tclContent = `${tempPath}\n${binPath}\n`;
-            await window.electronAPI.writeFile(tclFilePath, tclContent);
-
-            // Icarus Verilog compilation
-            await TabManager.saveAllFiles();
-
-            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles.join(' ');
-            const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
-            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
-            
-            const iverilogCmd = `cd "${hdlPath}" && "${iveriCompPath}" -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
-
-            const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
-            this.terminalManager.processExecutableOutput('twave', iverilogResult);
-
-            if (iverilogResult.code !== 0) {
-                throw new Error('Icarus Verilog compilation failed');
-            }
-
-            // Copy memory files
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_data.mif`),
-                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_data.mif`)
-            );
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}_inst.mif`),
-                await window.electronAPI.joinPath(tempPath, `${cmmBaseName}_inst.mif`)
-            );
-
-            // Setup VCD and GTKWave commands
-            const vcdPath = await window.electronAPI.joinPath(tempPath, `${tbModule}.vcd`);
-            await window.electronAPI.deleteFileOrDirectory(vcdPath);
-
-            const vvpCmd = `"${vvpCompPath}" "${cmmBaseName}.vvp"`;
-
-            const useStandardGtkw = !processor.gtkwFile || processor.gtkwFile === 'standard';
-            let gtkwCmd;
-
-            if (useStandardGtkw) {
-                const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${scriptPath}"`;
-            } else {
-                const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
-                const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script="${posScript}"`;
-            }
-
-            // Setup GTKWave output handler
-            gtkwaveOutputHandler = (event, payload) => {
-                switch (payload.type) {
-                    case 'stdout':
-                    case 'stderr':
-                        if (payload.data.trim()) {
-                            this.terminalManager.processStreamedLine('twave', payload.data.trim());
-                        }
-                        break;
-                    case 'completion':
-                        this.terminalManager.appendToTerminal('twave', payload.message,
-                            payload.code === 0 ? 'success' : 'warning');
-                        break;
-                    case 'error':
-                        this.terminalManager.appendToTerminal('twave', payload.data, 'error');
-                        break;
-                }
-            };
-
-            window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
-
-            // Show progress
-            await showVVPProgress(String(name));
-
-            vvpFinishedHandler = () => hideVVPProgress();
-            window.electronAPI.once('vvp-finished', vvpFinishedHandler);
-
-            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation...');
-
-            // Launch parallel simulation
-            const result = await window.electronAPI.launchParallelSimulation({
-                vvpCmd: vvpCmd,
-                gtkwCmd: gtkwCmd,
-                vcdPath: vcdPath,
-                workingDir: tempPath
-            });
-
-            if (result.success) {
-                this.gtkwaveProcess = result.gtkwavePid;
-                this.terminalManager.appendToTerminal('twave', 
-                    'GTKWave launched successfully', 'success');
-                
-                // Start monitoring for GTKWave close
-                this.monitorGtkwaveProcess();
-            } else {
-                hideVVPProgress();
-                throw new Error(`Failed to launch simulation: ${result.message}`);
-            }
-
-            statusUpdater.compilationSuccess('wave');
-
-        } catch (error) {
-            hideVVPProgress();
-            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-            statusUpdater.compilationError('wave', error.message);
-            throw error;
-
-        } finally {
-            if (vvpFinishedHandler) {
-                window.electronAPI.removeListener('vvp-finished', vvpFinishedHandler);
-            }
-            if (gtkwaveOutputHandler) {
-                window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
-            }
-            if (testbenchBackupInfo) {
-                await window.electronAPI.restoreOriginalTestbench(
-                    testbenchBackupInfo.originalPath,
-                    testbenchBackupInfo.backupPath
-                );
-            }
-        }
-    }
-
-    // ENHANCED: Project GTKWave with hierarchy monitoring
-    async runProjectGtkWave() {
-        this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
-        statusUpdater.startCompilation('wave');
-
-        let testbenchBackupInfo = null;
-        let vvpFinishedHandler = null;
-        let gtkwaveOutputHandler = null;
-
-        try {
-            if (!this.projectConfig) {
-                throw new Error("Project configuration not loaded");
-            }
-
-            // Setup paths
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-
-            const testbenchFile = this.projectConfig.testbenchFile;
-            if (!testbenchFile) {
-                throw new Error("No testbench file specified");
-            }
-
-            const testbenchFileName = testbenchFile.split(/[\/\\]/).pop();
-            const tbModule = testbenchFileName.replace(/\.v$/i, '');
-            const simuDelay = this.getSimulationDelay();
-
-            testbenchBackupInfo = await this.modifyTestbenchForSimulation(
-                testbenchFile, tbModule, tempBaseDir, simuDelay
-            );
-
-            // Create TCL info file
-            const instances = (this.projectConfig.processors || [])
-                .map(p => p.instance).join(' ');
-            const processors = (this.projectConfig.processors || [])
-                .map(p => p.type).join(' ');
-            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-
-            const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
-            const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
-            await window.electronAPI.writeFile(tclFilePath, tclContent);
-
-            // Setup VCD and commands
-            const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
-            await window.electronAPI.deleteFileOrDirectory(vcdPath);
-
-            const projectName = this.projectPath.split(/[\/\\]/).pop();
-            const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
-
-            const vvpCmd = `"${vvpCompPath}" "${outputFilePath}"`;
-
-            const gtkwaveFile = this.projectConfig.gtkwaveFile;
-            let gtkwCmd;
-
-            if (gtkwaveFile && gtkwaveFile !== "Standard") {
-                const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script="${posScriptPath}"`;
-            } else {
-                const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-                gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
-            }
-
-            // Setup output handler
-            gtkwaveOutputHandler = (event, payload) => {
-                switch (payload.type) {
-                    case 'stdout':
-                    case 'stderr':
-                        if (payload.data.trim()) {
-                            this.terminalManager.processStreamedLine('twave', payload.data.trim());
-                        }
-                        break;
-                    case 'completion':
-                        this.terminalManager.appendToTerminal('twave', payload.message,
-                            payload.code === 0 ? 'success' : 'warning');
-                        break;
-                    case 'error':
-                        this.terminalManager.appendToTerminal('twave', payload.data, 'error');
-                        break;
-                }
-            };
-
-            window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
-
-            // Show progress
-            await showVVPProgress(projectName);
-
-            vvpFinishedHandler = () => hideVVPProgress();
-            window.electronAPI.once('vvp-finished', vvpFinishedHandler);
-
-            this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation...');
-
-            // Launch simulation
-            const result = await window.electronAPI.launchParallelSimulation({
-                vvpCmd: vvpCmd,
-                gtkwCmd: gtkwCmd,
-                vcdPath: vcdPath,
-                workingDir: tempBaseDir
-            });
-
-            if (result.success) {
-                this.gtkwaveProcess = result.gtkwavePid;
-                this.terminalManager.appendToTerminal('twave',
-                    'GTKWave launched successfully', 'success');
-
-                // Start monitoring
-                this.monitorGtkwaveProcess();
-            } else {
-                hideVVPProgress();
-                throw new Error(`Failed to launch simulation: ${result.message}`);
-            }
-
-            statusUpdater.compilationSuccess('wave');
-
-        } catch (error) {
-            hideVVPProgress();
-            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-            statusUpdater.compilationError('wave', error.message);
-            throw error;
-
-        } finally {
-            if (vvpFinishedHandler) {
-                window.electronAPI.removeListener('vvp-finished', vvpFinishedHandler);
-            }
-            if (gtkwaveOutputHandler) {
-                window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
-            }
-            if (testbenchBackupInfo) {
-                await this.restoreOriginalTestbench(
-                    testbenchBackupInfo.originalPath,
-                    testbenchBackupInfo.backupPath
-                );
-            }
-        }
-    }
-
-    // ENHANCED: Compile all with automatic hierarchy generation
-    async compileAll() {
-        try {
-            startCompilation();
-            await this.loadConfig();
-
-            if (this.isProjectOriented) {
-                // Project mode
-                if (this.projectConfig && this.projectConfig.processors) {
-                    const processedTypes = new Set();
-
-                    switchTerminal('terminal-tcmm');
-
-                    for (const processor of this.projectConfig.processors) {
-                        checkCancellation();
-
-                        if (processedTypes.has(processor.type)) {
-                            this.terminalManager.appendToTerminal('tcmm',
-                                `Skipping duplicate: ${processor.type}`);
-                            continue;
-                        }
-
-                        processedTypes.add(processor.type);
-
-                        try {
-                            const processorObj = {
-                                name: processor.type,
-                                type: processor.type,
-                                instance: processor.instance
-                            };
-
-                            checkCancellation();
-                            this.terminalManager.appendToTerminal('tcmm',
-                                `Processing ${processor.type}...`);
-                            
-                            await this.ensureDirectories(processor.type);
-                            await this.cmmCompilation(processorObj);
-                            checkCancellation();
-                            await this.asmCompilation(processor, 1);
-                            
-                        } catch (error) {
-                            this.terminalManager.appendToTerminal('tcmm',
-                                `Error processing ${processor.type}: ${error.message}`, 'error');
-                        }
-                    }
-                }
-
-                switchTerminal('terminal-tveri');
-                checkCancellation();
-                await this.iverilogProjectCompilation();
-
-                switchTerminal('terminal-twave');
-                checkCancellation();
-                await this.runProjectGtkWave();
-
-            } else {
-                // Processor mode
-                const activeProcessor = this.config.processors.find(p => p.isActive === true);
-                if (!activeProcessor) {
-                    throw new Error("No active processor found");
-                }
-
-                await this.ensureDirectories(activeProcessor.name);
-
-                switchTerminal('terminal-tcmm');
-                checkCancellation();
-                await this.cmmCompilation(activeProcessor);
-
-                checkCancellation();
-                await this.asmCompilation(activeProcessor, 0);
-
-                switchTerminal('terminal-tveri');
-                checkCancellation();
-                await this.iverilogCompilation(activeProcessor);
-
-                switchTerminal('terminal-twave');
-                checkCancellation();
-                await this.runGtkWave(activeProcessor);
-            }
-
-            endCompilation();
-            return true;
-            
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tcmm',
-                `Compilation error: ${error.message}`, 'error');
-            console.error('Complete compilation failed:', error);
-            endCompilation();
-            return false;
-        }
-    }
-}
 
 // Initialize the system
 document.addEventListener('DOMContentLoaded', () => {

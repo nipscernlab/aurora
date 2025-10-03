@@ -247,7 +247,7 @@
                             <div class="drop-zone">
                                 <div class="drop-zone-content">
                                     <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
-                                    <h4>Import Test Files</h4>
+                                    <h4>Import Testbench Files</h4>
                                     <p>Drag & drop .v and .gtkw files here or click to browse</p>
                                     <button id="importTestbenchBtn" class="btn btn-outline">
                                         <i class="fa-solid fa-file-import" aria-hidden="true"></i>
@@ -323,6 +323,11 @@
             </footer>
         </div>
     </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
+    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
+
 
     <!-- New Project Modal -->
     <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
@@ -455,11 +460,6 @@
         </div>
     </div>
 
-    <!-- Hidden file inputs -->
-    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
-    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
-
-
     <!-- Main Container -->
     <div class="main-container">
         <!-- File Tree Section -->
@@ -498,11 +498,15 @@
             </div>
             </div>
             
-            <div class="overlay-title" id="hierarchy-tree">
-                Standard Tree
-                <span id="refresh-button" style="cursor: pointer;">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                </span>
+            <div class="overlay-title">
+            <button id="hierarchy-tree-toggle" class="tree-toggle-btn" title="Toggle Hierarchical View">
+                <i class="fa-solid fa-sitemap"></i>
+                <span class="toggle-text">Hierarchical</span>
+            </button>
+            
+            <span id="refresh-button" style="cursor: pointer;">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </span>
                 <span id="open-hdl-button" style="cursor: pointer;">
                     <i class="fa-solid fa-hashtag"></i>
                 </span>

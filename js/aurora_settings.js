@@ -1,3 +1,4 @@
+// aurora_settings.js
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
     const modalOverlay = document.getElementById('settings-modal');
@@ -8,8 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetButton = document.getElementById('reset-settings-btn');
     const shortcutList = document.getElementById('shortcut-list');
     const shortcutWarning = document.getElementById('shortcut-warning');
+    const tooltipsToggle = document.getElementById('tooltips-toggle');
+
+    // NEW: Compilation mode toggle
+    const compilationModeToggle = document.getElementById('compilation-mode-toggle');
 
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
+    const SETTINGS_STORAGE_KEY = 'aurora-settings';
 
     const defaultShortcuts = {
         'compileAll': { label: 'Compile All', ctrlKey: true, shiftKey: true, altKey: false, key: 'B' },
@@ -20,8 +26,80 @@ document.addEventListener('DOMContentLoaded', () => {
         'openSettings': { label: 'Open Settings / Project', ctrlKey: true, shiftKey: true, altKey: false, key: 'C' }
     };
 
-    let currentShortcuts = {};
+    const defaultSettings = {
+        parallelCompilation: true,
+        tooltipsEnabled: true,
+        alertSoundEnabled: true,
+        verboseMode: true
+    };
 
+    let currentShortcuts = {};
+    let currentSettings = {};
+
+    /**
+     * Carrega configurações do localStorage (ou usa defaults) e aplica ao UI.
+     */
+    const loadSettings = () => {
+        const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        currentSettings = stored ? JSON.parse(stored) : { ...defaultSettings };
+
+        // Apply to UI toggles (safely)
+        if (compilationModeToggle) compilationModeToggle.checked = !!currentSettings.parallelCompilation;
+        if (tooltipsToggle) tooltipsToggle.checked = !!currentSettings.tooltipsEnabled;
+
+        // Aplica estado dos tooltips imediatamente
+        updateTooltipsState(!!currentSettings.tooltipsEnabled);
+    };
+
+    /**
+     * Salva configurações no localStorage e notifica a aplicação.
+     */
+    const saveSettings = () => {
+        currentSettings.parallelCompilation = compilationModeToggle?.checked ?? true;
+        currentSettings.tooltipsEnabled = tooltipsToggle?.checked ?? true;
+
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(currentSettings));
+        // Evento global para quem quiser reagir às mudanças de settings
+        window.dispatchEvent(new CustomEvent('aurora-settings-updated', { detail: currentSettings }));
+
+        // Notifica especificamente sobre tooltips
+        updateTooltipsState(currentSettings.tooltipsEnabled);
+    };
+
+    function updateTooltipsState(enabled) {
+    window.AURORA_TOOLTIPS_ENABLED = !!enabled;
+
+    // Apenas adiciona um atributo para evitar inicialização futura do tooltip
+    const tooltipElements = document.querySelectorAll('[data-tooltip-initialized]');
+    tooltipElements.forEach(el => {
+        if (enabled) {
+            el.removeAttribute('data-no-tooltip');
+        } else {
+            el.setAttribute('data-no-tooltip', 'true');
+        }
+    });
+
+    // Esconde ou mostra o tooltip flutuante
+    const tooltipDiv = document.querySelector('.custom-tooltip');
+    if (tooltipDiv) {
+        tooltipDiv.style.display = enabled ? '' : 'none';
+        if (!enabled) tooltipDiv.classList.remove('visible');
+    }
+
+    // Evento global para outros módulos
+    window.dispatchEvent(new CustomEvent('aurora-tooltips-updated', { detail: { enabled: !!enabled } }));
+}
+
+
+    // Listener para toggles com efeito imediato
+    if (tooltipsToggle) {
+        tooltipsToggle.addEventListener('change', () => {
+            const enabled = tooltipsToggle.checked;
+            updateTooltipsState(enabled);
+        });
+    }
+
+    // ---- Shortcuts UI / gravação ----
     const formatShortcutText = ({ ctrlKey, shiftKey, altKey, key }) => {
         if (!key) return 'Not Set';
         const parts = [];
@@ -33,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderShortcuts = () => {
+        if (!shortcutList) return;
         shortcutList.innerHTML = '';
         for (const action in currentShortcuts) {
             const item = document.createElement('div');
@@ -74,15 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeKeys.has('Alt')) parts.push('Alt');
         const mainKey = Array.from(activeKeys).find(k => !isModifier(k));
         if (mainKey) parts.push(mainKey);
-        
-        recordingInput.textContent = parts.join(' + ');
+
+        if (recordingInput) recordingInput.textContent = parts.join(' + ');
     };
-    
+
     const isShortcutDuplicate = (newShortcut, actionToExclude) => {
         for (const action in currentShortcuts) {
             if (action === actionToExclude) continue;
             const existing = currentShortcuts[action];
-            if (existing.key === newShortcut.key && existing.ctrlKey === newShortcut.ctrlKey && existing.shiftKey === newShortcut.shiftKey && existing.altKey === newShortcut.altKey) {
+            if (existing.key === newShortcut.key && existing.ctrlKey === newShortcut.ctrlKey &&
+                existing.shiftKey === newShortcut.shiftKey && existing.altKey === newShortcut.altKey) {
                 return true;
             }
         }
@@ -90,49 +170,54 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleRecordingKeyUp = (e) => {
-        // <<<<<<<<<<<<<<<<<<<< FIX IS HERE >>>>>>>>>>>>>>>>>>>>>>>>>
-        if (!recordingInput) return; // Prevents error if recording stops before keyup
-        // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        if (!recordingInput) return;
 
         e.preventDefault();
         e.stopPropagation();
         if (activeKeys.size === 0) return;
-        
+
         const finalShortcut = {
             ctrlKey: activeKeys.has('Control'),
             shiftKey: activeKeys.has('Shift'),
             altKey: activeKeys.has('Alt'),
             key: Array.from(activeKeys).find(k => !isModifier(k) && k.toUpperCase() !== 'ESCAPE')
         };
-        
+
         if (!finalShortcut.key) return;
 
         const action = recordingInput.dataset.action;
         if (isShortcutDuplicate(finalShortcut, action)) {
-            shortcutWarning.style.display = 'block';
-            setTimeout(() => shortcutWarning.style.display = 'none', 2500);
+            if (shortcutWarning) {
+                shortcutWarning.style.display = 'block';
+                setTimeout(() => { if (shortcutWarning) shortcutWarning.style.display = 'none'; }, 2500);
+            }
         } else {
             currentShortcuts[action] = finalShortcut;
-            shortcutWarning.style.display = 'none';
+            if (shortcutWarning) shortcutWarning.style.display = 'none';
         }
         stopRecording();
     };
 
-    shortcutList.addEventListener('click', (e) => {
-        const target = e.target.closest('.shortcut-input');
-        if (!target) return;
-        if (recordingInput) stopRecording();
+    if (shortcutList) {
+        shortcutList.addEventListener('click', (e) => {
+            const target = e.target.closest('.shortcut-input');
+            if (!target) return;
+            if (recordingInput) stopRecording();
 
-        recordingInput = target;
-        recordingInput.textContent = 'Recording...';
-        recordingInput.classList.add('recording');
-        
-        document.addEventListener('keydown', handleRecordingKeyDown, { capture: true });
-        document.addEventListener('keyup', handleRecordingKeyUp, { capture: true });
-    });
+            recordingInput = target;
+            recordingInput.textContent = 'Recording...';
+            recordingInput.classList.add('recording');
 
+            document.addEventListener('keydown', handleRecordingKeyDown, { capture: true });
+            document.addEventListener('keyup', handleRecordingKeyUp, { capture: true });
+        });
+    }
+
+    // ---- Modal open/close and persistence ----
     const openModal = () => {
-        currentShortcuts = JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) || JSON.parse(JSON.stringify(defaultShortcuts));
+        currentShortcuts = JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) ||
+                          JSON.parse(JSON.stringify(defaultShortcuts));
+        loadSettings();
         renderShortcuts();
         modalOverlay.style.display = 'flex';
         setTimeout(() => modalOverlay.classList.add('visible'), 10);
@@ -143,20 +228,35 @@ document.addEventListener('DOMContentLoaded', () => {
         modalOverlay.classList.remove('visible');
         setTimeout(() => modalOverlay.style.display = 'none', 300);
     };
-    
-    saveButton.addEventListener('click', () => {
-        localStorage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(currentShortcuts));
-        window.dispatchEvent(new CustomEvent('aurora-shortcuts-updated'));
-        closeModal();
-    });
-    
-    resetButton.addEventListener('click', () => {
-        currentShortcuts = JSON.parse(JSON.stringify(defaultShortcuts));
-        renderShortcuts();
-    });
+
+    if (saveButton) {
+        saveButton.addEventListener('click', () => {
+            localStorage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(currentShortcuts));
+            saveSettings();
+            window.dispatchEvent(new CustomEvent('aurora-shortcuts-updated'));
+            closeModal();
+        });
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            currentShortcuts = JSON.parse(JSON.stringify(defaultShortcuts));
+            currentSettings = { ...defaultSettings };
+            loadSettings();
+            renderShortcuts();
+        });
+    }
 
     settingsButton.addEventListener('click', openModal);
-    closeModalButton.addEventListener('click', closeModal);
+    if (closeModalButton) closeModalButton.addEventListener('click', closeModal);
     modalOverlay.addEventListener('click', (e) => (e.target === modalOverlay) && closeModal());
     document.addEventListener('keydown', (e) => (e.key === 'Escape' && modalOverlay.classList.contains('visible')) && closeModal());
+
+    // ---- Inicialização ----
+    loadSettings();
+
+    // Expose a programmatic API to change tooltips from other modules if needed
+    window.auroraSettings = window.auroraSettings || {};
+    window.auroraSettings.updateTooltipsState = updateTooltipsState;
+    window.auroraSettings.getCurrentSettings = () => ({ ...currentSettings });
 });

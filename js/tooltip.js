@@ -21,17 +21,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeElement = null;
     let tooltipTimeout = null;
   
+    // Helper to know if tooltips are enabled. Default = true.
+    function tooltipsEnabled() {
+        return typeof window.AURORA_TOOLTIPS_ENABLED === 'boolean'
+            ? window.AURORA_TOOLTIPS_ENABLED
+            : true;
+    }
+
+    // When aurora-settings toggles tooltips, react here
+    window.addEventListener('aurora-tooltips-updated', (ev) => {
+        const enabled = ev?.detail?.enabled;
+        // If explicitly disabled, make sure tooltip hides and we clear state
+        if (enabled === false) {
+            if (tooltipTimeout) {
+                clearTimeout(tooltipTimeout);
+                tooltipTimeout = null;
+            }
+            tooltip.classList.remove('visible');
+            tooltip.style.display = 'none';
+            activeElement = null;
+        } else if (enabled === true) {
+            tooltip.style.display = '';
+        }
+        // If detail is missing, still fallback to global flag check in handlers
+    });
+
     // Extended descriptions for each element
     const extendedDescriptions = {
-        // Main toolbar buttons
+        /* (mantive seu mapa) */
         'sidebarMenu': 'Opens the main navigation panel to access the website, report bugs, view GitHub repository, read update news, check keyboard shortcuts, and exit the program.',
         'refresh-button': 'Refreshes the file tree and reloads project structure.',
         'newProjectBtn': 'Creates a new AURORA .spf project with the complete folder structure and initial configuration files.',
         'backupFolderBtn': 'Creates a .zip backup of the entire project, making it easy to share or safeguard your work.',
         'openProjectBtn': 'Opens an existing .spf project and loads it into the workspace.',
         'projectInfo': 'Displays detailed information and properties about the currently loaded .spf project.',
-        
-        // Compilation buttons
         'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
         'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',
         'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
@@ -43,8 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'line-number': 'Shows current line and column position in the editor.',
         'themeToggle': 'Switches between light and dark themes for optimal comfort based on your environment.',
         'settings': 'Opens the processor configuration panel to customize hardware parameters and optimization settings.',
-        
-        // Additional main buttons
         'info-aurora': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
         'processorHub': 'Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.',
         'aiButton': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.',
@@ -56,8 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'context-refactor-button': 'Opens refactoring options for the current code context.',
         'cancel-everything': 'Cancel all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.',
         'translate': 'Opens translation tools for internationalization support.',
-        
-        // Terminal buttons
         'clear-terminal': 'Clear all content from the current terminal tab.',
         'goup-terminal': 'Scroll up in the terminal output.',
         'godown-terminal': 'Scroll down in the terminal output.',
@@ -67,15 +86,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'filter-warning': 'Toggle visibility of warning messages in the terminal output.',
         'filter-success': 'Toggle visibility of success messages in the terminal output.',
         'filter-tip': 'Toggle visibility of tip messages in the terminal output.',
-        
-        // File tree buttons
         'open-hdl-button': 'Open HDL files viewer for hardware description language files.',
         'open-folder-button': 'Open the current project folder in the system file explorer.',
         'close-button': 'Close the current project and return to the welcome screen.',
         'toggle-file-tree': 'Collapse or expand all folders in the file tree.',
         'clear-search': 'Clear the current file search query.',
-        
-        // Processor Configuration Modal
         'closeModal': 'Close the processor configuration modal without saving changes.',
         'deleteProcessor': 'Delete the currently selected processor configuration.',
         'saveConfig': 'Save the current processor configuration settings.',
@@ -88,8 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'processorSimulTime': 'Specify the total simulation time in picoseconds.',
         'processorgtkwaveSelect': 'Select a GTKWave configuration file (.gtkw) to customize waveform display.',
         'showArraysInGtkwave': 'Enable viewing of C± array contents in the waveform viewer (may slow simulation).',
-        
-        // Project Configuration Modal
         'closeProjectModal': 'Close the project configuration modal without saving changes.',
         'saveProjectConfig': 'Save the current project configuration settings.',
         'cancelProjectConfig': 'Cancel and discard any changes made to the project configuration.',
@@ -98,15 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'addProcessor': 'Add a new processor configuration to the current project.',
         'projectSimuDelay': 'Set the default simulation time value used in testbench timing calculations.',
         'showArraysInGtkwave-project': 'Enable viewing of C± array contents in the waveform viewer for all processors (may slow simulation).',
-        
-        // New Project Modal
         'browseBtn': 'Browse and select the directory where the new project will be created.',
         'generateProjectBtn': 'Generate the new project with the specified name and location.',
         'cancelProjectBtn': 'Cancel the new project creation and close the dialog.',
         'projectNameInput': 'Enter a name for your new processor project.',
         'projectLocationInput': 'Specify the directory where the project files will be created.',
-        
-        // Processor Hub Modal (dynamic elements)
         'processorName': 'Enter a unique name for your processor (used in file generation).',
         'nBits': 'Total number of bits for the processor architecture (must equal mantissa + exponent + 1 sign bit).',
         'nbMantissa': 'Number of bits allocated for the mantissa in floating-point operations.',
@@ -118,13 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'gain': 'Amplification factor for signal processing (must be a power of 2).',
         'cancelProcessorHub': 'Cancel processor creation and return to the main interface.',
         'generateProcessor': 'Create the processor with the specified configuration.',
-        
-        // Search and file inputs
         'file-search-input': 'Search for files in the current project by name or extension.',
         'synthesizableFileInput': 'Select synthesizable Verilog files to import.',
         'testbenchFileInput': 'Select testbench or GTKWave files to import.',
-        
-        // Power off
         'power-off': 'Exit the AURORA IDE application safely.'
     };
     
@@ -155,7 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
     // Function to get all relevant elements
     function getAllTooltipElements() {
-        return document.querySelectorAll(elementSelectors);
+        // Query everything once and filter out elements explicitly marked to ignore
+        const nodeList = document.querySelectorAll(elementSelectors);
+        return Array.from(nodeList).filter(el => !el.hasAttribute('data-no-tooltip'));
     }
     
     // Function to get tooltip text for an element
@@ -306,6 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle mouse enter
     function handleMouseEnter(e, element) {
+        // If tooltips are disabled globally, bail out early
+        if (!tooltipsEnabled()) return;
+
         // Clear any existing timeout
         if (tooltipTimeout) {
             clearTimeout(tooltipTimeout);
@@ -319,6 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Set a timeout to show the tooltip (prevents flashing on quick mouse movements)
         tooltipTimeout = setTimeout(() => {
+            // Double-check enabled state (in case toggled while waiting)
+            if (!tooltipsEnabled()) {
+                tooltipTimeout = null;
+                return;
+            }
+
             // Update tooltip content
             tooltipContent.textContent = tooltipText;
             tooltip.classList.add('visible');
@@ -348,6 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle mouse move
     function handleMouseMove(e, element) {
+        // Only reposition when visible and enabled
+        if (!tooltipsEnabled()) return;
         if (activeElement === element && tooltip.classList.contains('visible')) {
             positionTooltip(e);
         }

@@ -1436,7 +1436,6 @@ styleElement.textContent = `
   }
 `;
 document.head.appendChild(styleElement);
-
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Get references to the DOM elements once the document is ready
   const clkInput = document.getElementById("processorClk");
@@ -1444,19 +1443,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const simulTimeInput = document.getElementById("processorSimulTime");
 
   /**
-   * Calculates the clock period in picosseconds (ps) from a frequency in MHz.
+   * Calculates the clock period in picoseconds (ps) from a frequency in MHz.
    * @param {number} freqMHz - The clock frequency in MHz.
    * @returns {number|null} The clock period in ps, or null if frequency is invalid.
    */
   function getClockPeriodInPicoseconds(freqMHz) {
-    // A frequency must be a positive number.
     if (!freqMHz || freqMHz <= 0) {
       return null;
     }
-    // Formula: Period (ps) = 1,000,000 / Frequency (MHz)
-    // 1 MHz = 1,000,000 Hz
-    // Period (s) = 1 / Frequency (Hz)
-    // Period (ps) = Period (s) * 10^12 = 10^12 / (Frequency (MHz) * 10^6) = 10^6 / Frequency (MHz)
     return 1000000 / freqMHz;
   }
 
@@ -1469,13 +1463,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const numClocks = parseInt(numClocksInput.value, 10);
     const period_ps = getClockPeriodInPicoseconds(freqMHz);
 
-    // Check if all inputs are valid numbers
     if (period_ps !== null && !isNaN(numClocks) && numClocks >= 0) {
       const totalTime = numClocks * period_ps;
-      // Update the simulation time input, rounding to 2 decimal places for clarity
-      simulTimeInput.value = totalTime.toFixed(2);
+      // Remove casas decimais e ponto
+      simulTimeInput.value = Math.floor(totalTime).toString().replace(/\..*/, '');
     } else {
-      // If inputs are invalid (e.g., empty or zero), clear the output
       simulTimeInput.value = '';
     }
   }
@@ -1489,26 +1481,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const simTime_ps = parseFloat(simulTimeInput.value);
     const period_ps = getClockPeriodInPicoseconds(freqMHz);
 
-    // Check if all inputs are valid numbers
     if (period_ps !== null && !isNaN(simTime_ps) && simTime_ps >= 0) {
-      // As requested, round down to the nearest whole number of clocks
       const totalClocks = Math.floor(simTime_ps / period_ps);
-      numClocksInput.value = totalClocks;
+      // Remove casas decimais e ponto
+      numClocksInput.value = totalClocks.toString().replace(/\..*/, '');
     } else {
-      // If inputs are invalid, clear the output
       numClocksInput.value = '';
     }
   }
 
   // 2. Add event listeners to trigger the recalculations on user input
-
-  // If clock frequency changes, recalculate simulation time based on the current number of clocks.
   clkInput.addEventListener("input", updateSimulationTime);
-
-  // If the user types a number of clocks, calculate the resulting simulation time.
   numClocksInput.addEventListener("input", updateSimulationTime);
-
-  // If the user types a simulation time, calculate the required number of clocks.
   simulTimeInput.addEventListener("input", updateNumberOfClocks);
 });
 

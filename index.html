@@ -329,11 +329,6 @@
     <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
 
 
-        <!-- Hidden file inputs -->
-    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
-    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
-
-
     
     <!-- New Project Modal -->
     <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
@@ -686,6 +681,22 @@
                         <input type="checkbox" id="tooltips-toggle" checked>
                         <span class="slider"></span>
                     </label>
+                    <div class="setting-description">
+                        When enabled, tooltips are shown throughout the IDE for all buttons and inputs. 
+                        When disabled, no tooltips will appear.
+                    </div>
+                </div>
+                <!-- Add this in the "General" section -->
+                <div class="setting-item">
+                    <label for="compilation-mode-toggle">Parallel Compilation Mode</label>
+                    <label class="switch">
+                        <input type="checkbox" id="compilation-mode-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <div class="setting-description">
+                        When enabled, GTKWave opens immediately as VCD is being generated. 
+                        When disabled, GTKWave waits until VCD generation is 100% complete.
+                    </div>
                 </div>
                 <div class="setting-item">
                     <label for="alert-sound-toggle">Compilation Alert Sound</label>

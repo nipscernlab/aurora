@@ -96,10 +96,10 @@ const fileOperations = {
     },
 
     selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
-
-// Função para obter informações completas do arquivo incluindo path
-getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
-    
+    launchGtkwaveOnly: (options) => ipcRenderer.invoke('launch-gtkwave-only', options),
+    // Função para obter informações completas do arquivo incluindo path
+    getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+        launchSerialSimulation: (options) => ipcRenderer.invoke('launch-serial-simulation', options),
      // Directory watching methods
   watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),
   stopWatchingDirectory: (directoryPath) => ipcRenderer.invoke('stop-watching-directory', directoryPath),

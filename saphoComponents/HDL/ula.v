@@ -1224,27 +1224,23 @@ ula_mux #(NUBITS) ula_mux (.op (op ),
 
 `ifdef __ICARUS__ // ----------------------------------------------------------
 
-// desempacota as entradas e a saida pra float --------------------------------
+// pega a mantissa com sinal para as entradas e para a saida ------------------
 
-wire                        s_in1 =           in1[NBMANT+NBEXPO         ] ; // sinal    de in1
-wire                        s_in2 =           in2[NBMANT+NBEXPO         ] ; // sinal    de in2
-wire                        s_out =           out[NBMANT+NBEXPO         ] ; // sinal    de out
-integer e_in1; always @ (*) e_in1 =   $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // expoente de in1
-integer e_in2; always @ (*) e_in2 =   $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // expoente de in2
-integer e_ouu; always @ (*) e_ouu =   $signed(out[NBMANT+NBEXPO-1:NBMANT]); // expoente de out
-integer m_in1; always @ (*) m_in1 = $unsigned(in1[NBMANT       -1:0     ]); // mantissa de in1
-integer m_in2; always @ (*) m_in2 = $unsigned(in2[NBMANT       -1:0     ]); // mantissa de in2
-integer m_out; always @ (*) m_out = $unsigned(out[NBMANT       -1:0     ]); // mantissa de out
+integer sm_in1; always @ (*) sm_in1 = (in1[NBMANT+NBEXPO]) ? -in1[NBMANT-1:0] : in1[NBMANT-1:0]; // mantissa de in1 com sinal
+integer sm_in2; always @ (*) sm_in2 = (in2[NBMANT+NBEXPO]) ? -in2[NBMANT-1:0] : in2[NBMANT-1:0]; // mantissa de in2 com sinal
+integer sm_out; always @ (*) sm_out = (out[NBMANT+NBEXPO]) ? -out[NBMANT-1:0] : out[NBMANT-1:0]; // mantissa de out com sinal
+
+// pega o expoente das entradas e da saida ------------------------------------
+
+integer e_in1; always @ (*) e_in1 = $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // expoente de in1
+integer e_in2; always @ (*) e_in2 = $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // expoente de in2
+integer e_ouu; always @ (*) e_ouu = $signed(out[NBMANT+NBEXPO-1:NBMANT]); // expoente de out
 
 // obtem os valores reais das entradas e da saida -----------------------------
 
-integer sm_in1; always @ (*) sm_in1 = (s_in1) ? -m_in1 : m_in1; // mantissa de in1 com sinal
-integer sm_in2; always @ (*) sm_in2 = (s_in2) ? -m_in2 : m_in2; // mantissa de in2 com sinal
-integer sm_out; always @ (*) sm_out = (s_out) ? -m_out : m_out; // mantissa de out com sinal
-
-real r_in1; always @ (*) r_in1 = sm_in1*$pow(2,e_in1); // valor real de in1
-real r_in2; always @ (*) r_in2 = sm_in2*$pow(2,e_in2); // valor real de in2
-real r_out; always @ (*) r_out = sm_out*$pow(2,e_ouu); // valor real de out
+real r_in1; always @ (*) r_in1 = sm_in1*$pow(2.0,e_in1); // valor real de in1
+real r_in2; always @ (*) r_in2 = sm_in2*$pow(2.0,e_in2); // valor real de in2
+real r_out; always @ (*) r_out = sm_out*$pow(2.0,e_ouu); // valor real de out
 
 // calcula erro de arredondamento pra float -----------------------------------
 

@@ -54,10 +54,18 @@ proc addArrs {tipo padrao dataFormat tradutor} {
     for {set i 0} {$i < [gtkwave::getNumFacs]} {incr i} {
         set facname [gtkwave::getFacName $i]
 
-        if {[string match "*$padrao*" $facname] &&
-            [regexp {^(.*?)(\d{4})\[\d+:\d+\]$} $facname -> base _]} {
+        if {[string compare $tipo "float"] == 0} {
+            if {[string match "*$padrao*" $facname] &&
+                [regexp {^(.*?)(\d{4})$} $facname -> base _]} {
         
-            lappend grupos($base) $facname
+                lappend grupos($base) $facname
+            }
+        } else {
+            if {[string match "*$padrao*" $facname] &&
+                [regexp {^(.*?)(\d{4}\[\d+:\d+\])$} $facname -> base _]} {
+        
+                lappend grupos($base) $facname
+            }
         }
     }
 
@@ -106,8 +114,8 @@ close $fileID
 
 # Insere sinais basicos -------------------------------------------------------
 
-set clk      [getVar "core.clk" ]
-set rst      [getVar "core.rst" ]
+set clk      [getVar "clk"]
+set rst      [getVar "rst"]
 
 gtkwave::addSignalsFromList [list $clk $rst]
 
@@ -117,8 +125,8 @@ gtkwave::/Edit/Insert_Comment {I/O ****************}
 
 # Sinais de entrada -----------------------------------------------------------
 
-set req_in  [listVar "req_in_sim"]
-set entrada [listVar "in_sim"    ]
+set req_in  [listVar "proc.req_in_sim"]
+set entrada [listVar "proc.in_sim"    ]
 
 puts "Info: found [llength $req_in] input ports in use"
 
@@ -132,8 +140,8 @@ for {set i 0} {$i < [llength $req_in] } {incr i} {
 
 # Sinais de saida -------------------------------------------------------------
 
-set out_en [listVar "out_en_sim"]
-set saida  [listVar "out_sig"   ]
+set out_en [listVar "proc.out_en_sim"]
+set saida  [listVar "proc.out_sig"   ]
 
 puts "Info: found [llength $out_en] output ports in use"
 
@@ -166,10 +174,10 @@ gtkwave::/Edit/Insert_Comment {Variables **********}
 puts "Info: adding variables..."
 
 addVars "int"   "proc.me1"      "Signed_Decimal" ""
-addVars "float" "proc.me2"      "Binary"         "$bin_dir/float2gtkw.exe"
+addVars "float" "proc.me2"      "BitsToReal"     ""
 addVars "comp"  "proc.comp_me3" "Binary"         "$bin_dir/comp2gtkw.exe"
 addArrs "int"   "arr_me1"       "Signed_Decimal" ""
-addArrs "float" "arr_me2"       "Binary"         "$bin_dir/float2gtkw.exe"
+addArrs "float" "arr_me2"       "BitsToReal"     ""
 addArrs "comp"  "comp_arr_me3"  "Binary"         "$bin_dir/comp2gtkw.exe"
 
 # Separador de Flags ----------------------------------------------------------
@@ -208,21 +216,21 @@ gtkwave::/Edit/Alias_Highlighted_Trace "Inst Stack Max"
 gtkwave::highlightSignalsFromList [getVar "isp.fl_full"]
 gtkwave::/Edit/Alias_Highlighted_Trace "Inst Stack Overflow"
 
-# Adder -----------------------------------------------------------------------
+# ULA -------------------------------------------------------------------------
 
-set lista_flags [list [getVar "ula.delta_float"] [getVar "ula.delta_int"]]
+set lista_flags [list [getVar "ula.delta_int"] [getVar "ula.delta_float"]]
 gtkwave::addSignalsFromList $lista_flags
 gtkwave::/Edit/Create_Group "ULA"
 gtkwave::/Edit/Toggle_Group_Open|Close
 gtkwave::/Edit/UnHighlight_All
 
-gtkwave::highlightSignalsFromList [getVar "ula.delta_float"]
-gtkwave::/Edit/Data_Format/Analog/Step
-gtkwave::/Edit/Alias_Highlighted_Trace "Rounding Error (float)"
-
 gtkwave::highlightSignalsFromList [getVar "ula.delta_int"]
 gtkwave::/Edit/Data_Format/Analog/Step
 gtkwave::/Edit/Alias_Highlighted_Trace "Rounding Error (int)"
+
+gtkwave::highlightSignalsFromList [getVar "ula.delta_float"]
+gtkwave::/Edit/Data_Format/Analog/Step
+gtkwave::/Edit/Alias_Highlighted_Trace "Rounding Error (float)"
 
 # Visualizacao ----------------------------------------------------------------
 

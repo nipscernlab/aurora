@@ -220,8 +220,8 @@
 }
 
 .terminal-container {
-  height: 250px; /* Initial terminal height */
-  min-height: 4.5vh;
+  height: 250px; /* Initial terminal height 
+  min-height: 4.5vh;*/
   max-height: 100vh;
   overflow-y: auto;
   display: flex;

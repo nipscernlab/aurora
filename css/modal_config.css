@@ -55,7 +55,7 @@
 }
 
 .modal-container.large {
-  max-width: 900px;
+  max-width: 800px;
 }
 
 .modal-overlay[aria-hidden="false"] .modal-container,

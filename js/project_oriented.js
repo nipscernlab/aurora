@@ -482,30 +482,26 @@ function updateFileList(type) {
     return;
   }
   
-  // Clear current list
   fileList.innerHTML = '';
   
   if (type === 'synthesizable') {
     if (synthesizableFiles.length === 0) {
-      // Show empty state
       if (emptyState) {
         emptyState.style.display = 'flex';
         fileList.appendChild(emptyState.cloneNode(true));
       }
     } else {
-      // Hide empty state and show files
       if (emptyState) {
         emptyState.style.display = 'none';
       }
       
-      // Sort files: starred first, then alphabetically
       const sortedFiles = [...synthesizableFiles].sort((a, b) => {
         if (a.starred && !b.starred) return -1;
         if (!a.starred && b.starred) return 1;
         return a.name.localeCompare(b.name);
       });
       
-      sortedFiles.forEach((file, originalIndex) => {
+      sortedFiles.forEach((file) => {
         const actualIndex = synthesizableFiles.findIndex(f => f.name === file.name);
         const fileItem = createFileItem(file, actualIndex, 'synthesizable');
         fileList.appendChild(fileItem);
@@ -515,38 +511,34 @@ function updateFileList(type) {
     const totalFiles = testbenchFiles.length + gtkwFiles.length;
     
     if (totalFiles === 0) {
-      // Show empty state
       if (emptyState) {
         emptyState.style.display = 'flex';
         fileList.appendChild(emptyState.cloneNode(true));
       }
     } else {
-      // Hide empty state and show files
       if (emptyState) {
         emptyState.style.display = 'none';
       }
       
-      // Sort and display testbench files
       const sortedTestbench = [...testbenchFiles].sort((a, b) => {
         if (a.starred && !b.starred) return -1;
         if (!a.starred && b.starred) return 1;
         return a.name.localeCompare(b.name);
       });
       
-      sortedTestbench.forEach((file, originalIndex) => {
+      sortedTestbench.forEach((file) => {
         const actualIndex = testbenchFiles.findIndex(f => f.name === file.name);
         const fileItem = createFileItem(file, actualIndex, 'testbench');
         fileList.appendChild(fileItem);
       });
       
-      // Sort and display GTKW files
       const sortedGtkw = [...gtkwFiles].sort((a, b) => {
         if (a.starred && !b.starred) return -1;
         if (!a.starred && b.starred) return 1;
         return a.name.localeCompare(b.name);
       });
       
-      sortedGtkw.forEach((file, originalIndex) => {
+      sortedGtkw.forEach((file) => {
         const actualIndex = gtkwFiles.findIndex(f => f.name === file.name);
         const fileItem = createFileItem(file, actualIndex, 'gtkw');
         fileList.appendChild(fileItem);
@@ -656,29 +648,23 @@ function createFileItem(file, index, type) {
   fileItem.dataset.fileIndex = index;
   fileItem.dataset.fileType = type;
   
-  // Add animation class for new files
   setTimeout(() => fileItem.classList.add('file-animate-in'), 10);
   
-  const fileExtension = file.name.split('.').pop().toLowerCase();
   const isStarred = file.starred || false;
   
   fileItem.innerHTML = `
     <div class="project-file-info">
-      <div class="project-file-icon ${fileExtension === 'v' ? 'verilog-icon' : 'gtkw-icon'}">
-        ${fileExtension === 'v' ? 'V' : 'GTK'}
-      </div>
       <div class="project-file-details">
         <div class="project-file-name">${file.name}</div>
-        <div class="project-file-type">${fileExtension.toUpperCase()}</div>
-        <div class="project-file-size">${formatFileSize(file.size || 0)}</div>
       </div>
     </div>
     <div class="project-file-actions">
       <button class="project-icon-btn star-btn ${isStarred ? 'starred' : ''}" 
               data-index="${index}" 
               data-type="${type}"
-              title="${isStarred ? 'Remove from favorites' : 'Add to favorites'}">
-<i class="fa-solid fa-thumbtack"></i>      </button>
+              title="${isStarred ? 'Remove star' : 'Add star'}">
+        <i class="fa-solid fa-star-of-life"></i>
+      </button>
       <button class="project-icon-btn delete-btn" 
               data-index="${index}" 
               data-type="${type}"
@@ -688,7 +674,6 @@ function createFileItem(file, index, type) {
     </div>
   `;
   
-  // Add event listeners directly to the buttons
   const starBtn = fileItem.querySelector('.star-btn');
   const deleteBtn = fileItem.querySelector('.delete-btn');
   
@@ -836,7 +821,7 @@ function toggleFileStar(index, type) {
     if (targetFile.starred) {
       fileItem.classList.add('starred');
       starBtn.classList.add('starred');
-      starBtn.title = 'Remove from favorites';
+      starBtn.title = 'Remove star';
     } else {
       fileItem.classList.remove('starred');
       starBtn.classList.remove('aved');

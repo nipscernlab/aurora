@@ -3,24 +3,25 @@
  *
  *       Filename:  recent_projects.css
  *
- *    Description:  Versão corrigida e aprimorada para corresponder à estrutura HTML
- *                  gerada dinamicamente pela classe RecentProjectsManager.
+ *    Description:  Corrected and enhanced version to match the dynamically generated
+ *                  HTML structure from the RecentProjectsManager class.
  *
  * =====================================================================================
  */
 
 /* ===================================================================================
- *  Estrutura Principal da Tela de Boas-Vindas
+ *  Main Welcome Screen Structure
  * =================================================================================== */
 .welcome-screen {
   display: flex;
   width: 100%;
   height: 100%;
   animation: fadeIn var(--transition-slow) ease-out forwards;
+  position: relative; /* CRITICAL: Establishes positioning context for the main content */
 }
 
 /* ===================================================================================
- *  Barra Lateral e Cabeçalho (Inalterado)
+ *  Sidebar and Header
  * =================================================================================== */
 .welcome-sidebar {
   display: flex;
@@ -30,6 +31,7 @@
   height: 100%;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-primary);
+  z-index: 1; /* Ensures sidebar stays above the main content if they overlap */
 }
 
 .recent-projects-header {
@@ -64,10 +66,8 @@
 }
 
 /* ===================================================================================
- *  Estilo para cada Item da Lista de Projetos (CORRIGIDO E APRIMORADO)
+ *  Style for each Project List Item
  * =================================================================================== */
-
-/* Seletor principal corrigido para corresponder ao JS: 'project-item' */
 .project-item {
   display: flex;
   align-items: center;
@@ -87,7 +87,6 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Ícone à esquerda */
 .project-icon {
   color: var(--text-tertiary);
   font-size: var(--text-xl);
@@ -97,10 +96,9 @@
   color: var(--accent-hover);
 }
 
-/* Contêiner para nome e caminho */
 .project-details {
   flex-grow: 1;
-  overflow: hidden; /* Garante que o text-overflow funcione */
+  overflow: hidden;
 }
 
 .project-name {
@@ -120,15 +118,13 @@
   text-overflow: ellipsis;
 }
 
-/* Data à direita */
 .project-date {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
-  flex-shrink: 0; /* Impede que a data encolha */
+  flex-shrink: 0;
   margin-left: var(--space-2);
 }
 
-/* Botão de Remover (X) */
 .project-remove {
   display: flex;
   align-items: center;
@@ -140,13 +136,13 @@
   border-radius: var(--radius-full);
   color: var(--text-tertiary);
   cursor: pointer;
-  opacity: 0; /* Oculto por padrão */
+  opacity: 0;
   transform: scale(0.8);
   transition: opacity var(--transition-fast), transform var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .project-item:hover .project-remove {
-  opacity: 1; /* Aparece no hover do item */
+  opacity: 1;
   transform: scale(1);
 }
 
@@ -155,7 +151,6 @@
   background-color: var(--status-error-bg);
 }
 
-/* Animações de entrada e saída */
 .project-item.new-item {
   animation: itemFadeIn 300ms ease-out forwards;
 }
@@ -174,9 +169,8 @@
   margin-bottom: 0;
 }
 
-
 /* ===================================================================================
- *  Estado de Lista Vazia (Inalterado)
+ *  Empty List State
  * =================================================================================== */
 .welcome-sidebar .empty-state {
   display: flex;
@@ -204,12 +198,18 @@
   font-size: var(--text-sm);
 }
 
-
 /* ===================================================================================
- *  Conteúdo Principal de Boas-Vindas (Coluna da Direita)
+ *  Main Welcome Content (Right Column) - CORRECTED
  * =================================================================================== */
 .welcome-main-content {
-  flex-grow: 1; /* Ocupa todo o espaço horizontal restante */
+  /* --- START OF FIX --- */
+  position: absolute;
+  top: 0;
+  left: 350px; /* Must match the width of .welcome-sidebar */
+  right: 0;
+  bottom: 0;
+  /* --- END OF FIX --- */
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -218,8 +218,8 @@
   padding: var(--space-8);
 }
 
-.welcome-main-content #icon-container {
-  position: relative; /* Necessário para o botão de alterar ícone */
+.welcome-main-content .icon-container {
+  position: relative;
   margin-bottom: var(--space-6);
 }
 
@@ -227,7 +227,6 @@
   filter: drop-shadow(var(--shadow-glow));
 }
 
-/* Botão para alterar o ícone */
 .change-icon-btn {
   position: absolute;
   bottom: 0;
@@ -246,7 +245,7 @@
   opacity: 0.5;
 }
 
-#icon-container:hover .change-icon-btn {
+.icon-container:hover .change-icon-btn {
   opacity: 1;
   transform: scale(1.1);
 }

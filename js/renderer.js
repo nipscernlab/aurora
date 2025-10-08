@@ -38,7 +38,8 @@ class EditorManager {
 
     static createEditorInstance(filePath) {
         if (!this.editorContainer) {
-            this.initialize();
+            console.error('EditorManager has not been initialized. Please call EditorManager.initialize() on DOMContentLoaded.');
+            return;
         }
 
         const editorDiv = document.createElement('div');
@@ -508,37 +509,6 @@ class EditorManager {
 
     }
 
-
-
-    static initialize() {
-        // Add this line to ensure relative positioning
-        //this.editorContainer.style.position = 'relative';
-
-        this.editorContainer = document.getElementById('monaco-editor');
-        if (!this.editorContainer) {
-            console.error('Editor container not found');
-            return;
-        }
-
-
-        //this.editorContainer.style.position = 'relative';
-        this.editorContainer.style.height = '100%';
-        this.editorContainer.style.width = '100%';
-
-        // Load saved theme preference
-        const savedTheme = localStorage.getItem('editorTheme');
-        const isDark = savedTheme ? savedTheme === 'dark' : true;
-        this.setTheme(isDark);
-
-        // Setup responsive observer
-        this.setupResponsiveObserver(null);
-
-        // Start periodic checking if tabs are already open
-        if (this.tabs.size > 0) {
-            this.startPeriodicFileCheck();
-        }
-    }
-
     static cleanup() {
         this.stopPeriodicFileCheck();
         this.stopAllWatchers();
@@ -966,7 +936,7 @@ async function initMonaco() {
                     foreground: '#CE9178'
                 }],
                 colors: {
-                    'editor.background': '#17151f',
+                    'editor.background': '#101523',
                     'editor.foreground': '#e2dcff',
                     'editorLineNumber.foreground': '#776f97',
                     'editorLineNumber.activeForeground': '#9d7fff',
@@ -1318,6 +1288,7 @@ async function initMonaco() {
 document.addEventListener('DOMContentLoaded', async () => {
     // Inicializa o Monaco antes de qualquer outra coisa
     await initMonaco();
+    await EditorManager.initialize();
     // Handle window resize for responsive behavior
     window.addEventListener('resize', () => {
         if (EditorManager.editors.size > 0) {
@@ -5319,27 +5290,24 @@ class DirectoryWatcher {
         }
     }
 
-    updateFileTreeFromFiles(files) {
-        try {
-            // Update the file tree with new structure
-            updateFileTree(files);
-
-            // Dispatch custom event to notify other components
-            document.dispatchEvent(new CustomEvent('refresh-file-tree'));
-
-            // If search is active, reapply search
-            if (window.FileTreeSearch && window.FileTreeSearch.isSearching()) {
-                setTimeout(() => {
-                    const searchInput = document.getElementById('file-search-input');
-                    if (searchInput && searchInput.value) {
-                        window.FileTreeSearch.performSearch(searchInput.value);
-                    }
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error updating file tree from watcher:', error);
+    // In DirectoryWatcher.updateFileTreeFromFiles method, add this check:
+updateFileTreeFromFiles(files) {
+    try {
+        // Check if hierarchy view is active
+        const compilationModule = window.compilationModule;
+        if (compilationModule && compilationModule.isHierarchicalView) {
+            console.log('Skipping file tree update - hierarchy view active');
+            return;
         }
+        
+        // Update the file tree with new structure
+        updateFileTree(files);
+        
+        // ... rest of existing code ...
+    } catch (error) {
+        console.error('Error updating file tree from watcher:', error);
     }
+}
 
     getCurrentWatchedDirectory() {
         return this.currentWatchedDirectory;
@@ -6358,17 +6326,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 class CompilationModule {
     constructor(projectPath) {
-    this.projectPath = projectPath;
-    this.config = null;
-    this.projectConfig = null;
-    this.terminalManager = new TerminalManager();
-    this.isProjectOriented = false;
-    this.hierarchyData = null;
-    this.isHierarchicalView = false;
-    this.standardTreeState = null;
-    // NEW: Add GTKWave process tracking
-    this.gtkwaveProcess = null;
-    this.hierarchyGenerated = false;
+        this.projectPath = projectPath;
+        this.config = null;
+        this.projectConfig = null;
+        this.terminalManager = new TerminalManager();
+        this.isProjectOriented = false;
+        this.hierarchyData = null;
+        this.isHierarchicalView = false;
+        this.gtkwaveProcess = null;
+        this.hierarchyGenerated = false;
+        this.setupHierarchyToggle(); 
+        this.preventFileTreeRefreshInHierarchy();
+
 }
 
     // Extract file path and line number from Yosys source attribute
@@ -6510,7 +6479,6 @@ async monitorGtkwaveProcess() {
 
             const yosysCmd = `cd "${tempPath}" && "${yosysPath}" -s "${scriptPath}"`;
             const result = await window.electronAPI.execCommand(yosysCmd);
-            this.terminalManager.processExecutableOutput('tveri', result);
 
             if (result.code !== 0) {
                 throw new Error(`Yosys hierarchy generation failed.`);
@@ -6556,7 +6524,6 @@ async monitorGtkwaveProcess() {
 
             const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
             const result = await window.electronAPI.execCommand(yosysCmd);
-            this.terminalManager.processExecutableOutput('tveri', result);
 
             if (result.code !== 0) throw new Error(`Yosys project hierarchy generation failed.`);
             
@@ -7182,7 +7149,8 @@ end`;
 
             // NEW: Generate hierarchy after successful compilation
             await this.generateProjectHierarchy();
-            await this.switchToHierarchicalView();
+            this.enableHierarchyToggle();
+
 
             
 
@@ -7193,58 +7161,98 @@ end`;
         }
     }
 
-    // NEW: Setup hierarchy toggle button event listener
     setupHierarchyToggle() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
-    if (!toggleButton) {
-        console.warn('Hierarchy toggle button not found');
-        return;
-    }
-
-    // Initially disabled until hierarchy is generated
-    toggleButton.classList.add('disabled');
-    toggleButton.title = 'Generate hierarchy first by running Verilog compilation';
-    
-    toggleButton.addEventListener('click', async () => {
-        if (toggleButton.classList.contains('disabled')) {
-            this.terminalManager.appendToTerminal('tveri', 
-                'Generate hierarchy first by running Verilog compilation', 'warning');
+        // CORRIGIDO: Use o ID correto do HTML: 'hierarchy-tree-toggle'
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) {
+            console.warn('Botão de alternância de hierarquia não encontrado');
             return;
         }
 
-        // Prevent multiple rapid clicks
-        if (toggleButton.dataset.switching === 'true') return;
-        toggleButton.dataset.switching = 'true';
-
-        try {
-            if (this.isHierarchicalView) {
-                // Switch to standard view
-                this.restoreStandardTreeState();
-                toggleButton.classList.remove('active');
-                toggleButton.querySelector('.toggle-text').textContent = 'Hierarchical';
-                toggleButton.querySelector('i').className = 'fa-solid fa-sitemap';
-                
+        // Começa desabilitado até que uma hierarquia seja gerada
+        toggleButton.classList.add('disabled');
+        toggleButton.title = 'Execute a compilação Verilog para gerar a hierarquia';
+        
+        toggleButton.addEventListener('click', async () => {
+            // Previne a ação se estiver desabilitado ou em processo de troca
+            if (toggleButton.classList.contains('disabled') || 
+                toggleButton.dataset.switching === 'true') {
                 this.terminalManager.appendToTerminal('tveri', 
-                    'Switched to standard file tree view', 'info');
-            } else if (this.hierarchyData) {
-                // Switch to hierarchical view
-                await this.switchToHierarchicalView();
-                toggleButton.classList.add('active');
-                toggleButton.querySelector('.toggle-text').textContent = 'Standard';
-                toggleButton.querySelector('i').className = 'fa-solid fa-list-ul';
-                
-                this.terminalManager.appendToTerminal('tveri', 
-                    'Switched to hierarchical module view', 'info');
+                    'Por favor, execute a compilação Verilog primeiro para gerar a hierarquia', 'warning');
+                return;
             }
-        } finally {
-            // Small delay to prevent accidental double-clicks
-            setTimeout(() => {
-                toggleButton.dataset.switching = 'false';
-            }, 300);
+
+            toggleButton.dataset.switching = 'true';
+
+            try {
+                if (this.isHierarchicalView) {
+                    // Mudar para a visão padrão
+                    this.switchToStandardView();
+                } else {
+                    // Mudar para a visão hierárquica
+                    this.switchToHierarchicalView();
+                }
+            } catch (error) {
+                console.error('Erro ao alternar a visão de hierarquia:', error);
+                this.terminalManager.appendToTerminal('tveri', 
+                    `Erro ao trocar de visão: ${error.message}`, 'error');
+            } finally {
+                // Adiciona um pequeno delay para prevenir cliques múltiplos
+                setTimeout(() => {
+                    toggleButton.dataset.switching = 'false';
+                }, 300);
+            }
+        });
+    }
+
+preventFileTreeRefreshInHierarchy() {
+    // Store original refreshFileTree
+    if (!window._originalRefreshFileTree) {
+        window._originalRefreshFileTree = window.refreshFileTree;
+    }
+    
+    // Override refreshFileTree to check hierarchy state
+    window.refreshFileTree = async () => {
+        if (this.isHierarchicalView) {
+            console.log('File tree refresh blocked - hierarchy view active');
+            return;
         }
-    });
+        await window._originalRefreshFileTree();
+    };
 }
 
+switchToStandardView() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+    
+    // 1. Define o estado primeiro para consistência.
+    this.isHierarchicalView = false;
+    
+    // 2. Limpa o conteúdo atual da árvore e remove a classe da hierarquia.
+    fileTree.innerHTML = '';
+    fileTree.classList.remove('hierarchy-view');
+    
+    // 3. ATUALIZAÇÃO CRÍTICA: Chama a função original `_originalRefreshFileTree` diretamente.
+    // Isso garante que a árvore padrão seja reconstruída, ignorando a verificação
+    // da função modificada que serve apenas para bloquear atualizações em segundo plano.
+    if (typeof window._originalRefreshFileTree === 'function') {
+        // Usa um pequeno timeout para garantir que o DOM seja atualizado antes de recarregar a árvore.
+        setTimeout(() => {
+            window._originalRefreshFileTree();
+        }, 50);
+    } else if (typeof refreshFileTree === 'function') {
+        // Fallback caso a função original não tenha sido salva (medida de segurança).
+        setTimeout(() => {
+            refreshFileTree();
+        }, 50);
+    }
+    
+    // 4. Atualiza o estado visual do botão de alternância.
+    this.updateToggleButton(false);
+    
+    this.terminalManager.appendToTerminal('tveri', 
+        'Alternado para a visão padrão da árvore de arquivos', 'info');
+}
     // Updated iverilogCompilation method for processor mode
       async iverilogCompilation(processor) {
         if (this.isProjectOriented) {
@@ -7300,10 +7308,13 @@ end`;
             statusUpdater.compilationSuccess('verilog');
 
             // NEW: Generate hierarchy after successful compilation
-            await this.generateProcessorHierarchy(processor);
+        const hierarchyGenerated = await this.generateProcessorHierarchy(processor);
+        if (hierarchyGenerated) {
+            this.hierarchyGenerated = true;
+            this.enableHierarchyToggle();
             await this.switchToHierarchicalView();
-
-            
+        }
+                    
 
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
@@ -7949,7 +7960,8 @@ write_json ${jsonOutputPath}
     }
 
     // NEW: Restore standard tree state
-   restoreStandardTreeState() {
+  // Modify this method to properly restore the file tree
+restoreStandardTreeState() {
     const fileTree = document.getElementById('file-tree');
     if (!fileTree) return;
     
@@ -7962,56 +7974,83 @@ write_json ${jsonOutputPath}
     if (typeof refreshFileTree === 'function') {
         refreshFileTree();
     }
-    
-    this.updateToggleButton(false);
 }
     // NEW: Switch to hierarchical tree view
-    async switchToHierarchicalView() {
+switchToHierarchicalView() {
     if (!this.hierarchyData) {
-        this.terminalManager.appendToTerminal('tveri', 'No hierarchy data available', 'warning');
+        this.terminalManager.appendToTerminal('tveri', 
+            'No hierarchy data available. Run Verilog compilation first.', 'warning');
         return;
     }
 
-    this.saveStandardTreeState();
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) {
+        console.error('File tree element not found');
+        return;
+    }
+    
     this.isHierarchicalView = true;
     
-    // Clear and render hierarchy
-    const fileTree = document.getElementById('file-tree');
-    if (fileTree) {
-        fileTree.innerHTML = '';
-        this.renderHierarchicalTree();
-    }
+    // Clear file tree with transition
+    fileTree.style.transition = 'opacity 0.2s ease';
+    fileTree.style.opacity = '0';
     
-    this.updateToggleButton(true);
+    setTimeout(() => {
+        // Clear and add hierarchy class
+        fileTree.innerHTML = '';
+        fileTree.classList.add('hierarchy-view');
+        
+        // Render hierarchy
+        this.renderHierarchicalTree();
+        
+        // Fade in
+        fileTree.style.opacity = '1';
+        
+        // Update button state
+        this.updateToggleButton(true);
+        
+        this.terminalManager.appendToTerminal('tveri', 
+            'Switched to hierarchical module view', 'info');
+    }, 200);
 }
 
-enableHierarchyToggle() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
-    if (toggleButton) {
+// Modify this method to enable the toggle button
+    enableHierarchyToggle() {
+        // CORRIGIDO: Use o ID correto do HTML
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
         toggleButton.classList.remove('disabled');
-        toggleButton.title = 'Toggle between hierarchical and standard file tree';
+        toggleButton.title = 'Alternar entre visão hierárquica e padrão';
+        
         this.terminalManager.appendToTerminal('tveri', 
-            'Hierarchical view available - click the button to toggle', 'success');
+            'A visão hierárquica agora está disponível', 'success');
     }
-}
 
     // NEW: Update toggle button state
-    updateToggleButton(isHierarchical) {
-        const toggleButton = document.getElementById('hierarchy-tree');
+      updateToggleButton(isHierarchical) {
+        // CORRIGIDO: Use o ID correto do HTML
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
         if (!toggleButton) return;
 
-        const iconContainer = toggleButton.querySelector('i:last-child');
+        const icon = toggleButton.querySelector('i');
+        const text = toggleButton.querySelector('.toggle-text');
         
         if (isHierarchical) {
-            toggleButton.childNodes[0].textContent = 'Hierarchical Tree';
-            if (iconContainer) iconContainer.className = 'fa-solid fa-sitemap';
+            // Mostrando visão hierárquica - o botão alterna para a padrão
+            icon.className = 'fa-solid fa-list-ul';
+            text.textContent = 'Standard';
             toggleButton.classList.add('active');
+            toggleButton.title = 'Mudar para a árvore de arquivos padrão';
         } else {
-            toggleButton.childNodes[0].textContent = 'Standard Tree';
-            if (iconContainer) iconContainer.className = 'fa-solid fa-list-ul';
+            // Mostrando visão padrão - o botão alterna para a hierárquica
+            icon.className = 'fa-solid fa-sitemap';
+            text.textContent = 'Hierarchical';
             toggleButton.classList.remove('active');
+            toggleButton.title = 'Mudar para a visão de módulos hierárquica';
         }
     }
+
 
     getModuleNumber(moduleName, parentNumber = '', moduleIndex = 0) {
         if (moduleName === this.hierarchyData.topLevel) {
@@ -8024,135 +8063,6 @@ enableHierarchyToggle() {
 
         return `${parentNumber}.${moduleIndex + 1}`;
     }
-
-
-    // Enable hierarchical tree toggle button
-    enableHierarchicalTreeToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree');
-        if (toggleButton) {
-            toggleButton.classList.remove('disabled');
-            toggleButton.style.opacity = '1';
-            toggleButton.style.cursor = 'pointer';
-
-            // Update text and icon
-            const icon = toggleButton.querySelector('i');
-            if (icon) {
-                icon.className = 'fa-solid fa-list-ul';
-            }
-
-            // Add click event listener if not already added
-            if (!toggleButton.hasAttribute('data-listener-added')) {
-                toggleButton.addEventListener('click', (e) => this.handleHierarchicalToggle(e));
-                toggleButton.setAttribute('data-listener-added', 'true');
-            }
-        }
-    }
-
-    // Disable hierarchical tree toggle button
-    disableHierarchicalTreeToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree');
-        if (toggleButton) {
-            toggleButton.classList.add('disabled');
-            toggleButton.classList.remove('active');
-            toggleButton.style.opacity = '0.5';
-            toggleButton.style.cursor = 'not-allowed';
-
-            // Reset to standard tree
-            toggleButton.innerHTML = 'Standard Tree <i class="fa-solid fa-list-ul"></i>';
-
-            // Reset tree view if currently hierarchical
-            if (this.isHierarchicalView) {
-                this.isHierarchicalView = false;
-                this.refreshFileTree();
-            }
-        }
-    }
-
-    // Handle hierarchical toggle with smooth effects
-    handleHierarchicalToggle(event) {
-        const toggleButton = event.currentTarget;
-
-        // Check if button is disabled
-        if (toggleButton.classList.contains('disabled')) {
-            return;
-        }
-
-        // Add click effect
-        this.addClickEffect(toggleButton);
-
-        // Toggle after a short delay for the effect
-        setTimeout(() => {
-            this.toggleHierarchicalView();
-        }, 150);
-    }
-
-    // Add smooth click effect
-    addClickEffect(element) {
-        element.classList.add('clicked');
-
-        // Remove the effect after animation completes
-        setTimeout(() => {
-            element.classList.remove('clicked');
-        }, 300);
-    }
-
-    // Toggle between standard and hierarchical view
-    toggleHierarchicalView() {
-        const toggleButton = document.getElementById('hierarchy-tree');
-        const fileTree = document.getElementById('file-tree');
-
-        if (toggleButton && !toggleButton.classList.contains('disabled')) {
-            // Add transitioning class for smooth opacity change
-            if (fileTree) {
-                fileTree.classList.add('transitioning');
-            }
-
-            // Toggle state
-            this.isHierarchicalView = !this.isHierarchicalView;
-
-            // Update button appearance - keep all other icons intact
-            const buttonContent = toggleButton.innerHTML;
-            if (this.isHierarchicalView) {
-                // Replace only the tree icon and text, preserve other buttons
-                const updatedContent = buttonContent.replace(
-                        'Standard Tree', 'Hierarchical Tree'
-                    )
-                    .replace(
-                        'fa-list-ul', 'fa-sitemap'
-                    );
-                toggleButton.innerHTML = updatedContent;
-                toggleButton.classList.add('active');
-            } else {
-                // Replace only the tree icon and text, preserve other buttons
-                const updatedContent = buttonContent.replace(
-                        'Hierarchical Tree', 'Standard Tree'
-                    )
-                    .replace(
-                        'fa-sitemap', 'fa-list-ul'
-                    );
-                toggleButton.innerHTML = updatedContent;
-                toggleButton.classList.remove('active');
-            }
-
-            // Switch views with smooth transition
-            setTimeout(() => {
-                if (this.isHierarchicalView) {
-                    this.renderHierarchicalTree();
-                } else {
-                    refreshFileTree(); // Return to standard file tree view
-                }
-
-                // Remove transitioning class
-                if (fileTree) {
-                    setTimeout(() => {
-                        fileTree.classList.remove('transitioning');
-                    }, 100);
-                }
-            }, 150);
-        }
-    }
-
-
 
     // Add this method to your class for launching fractal visualizer
     async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
@@ -8315,7 +8225,10 @@ enableHierarchyToggle() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, setting up PRISM button...');
     if (window.compilationModule) {
-        window.compilationModule.setupHierarchyToggle();
+        const compilationModule = new CompilationModule(projectPath);
+compilationModule.setupHierarchyToggle();
+        
+        
     }
     console.log('Hierarchical tree system initialized with GTKWave monitoring');
 
@@ -8698,6 +8611,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('Hierarchical tree system initialized');
 });
+
 //TERMINAL      ======================================================================================================================================================== ƒ
 class TerminalManager {
     constructor() {

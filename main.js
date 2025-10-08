@@ -3968,7 +3968,7 @@ ipcMain.handle('launch-serial-simulation', async (event, options) => {
             const vvpPath = vvpMatch[1];
             const vvpFile = vvpMatch[2];
 
-            // Launch VVP process
+            // Launch VVP process (this part is already silent)
             const vvpProcess = spawn(vvpPath, [vvpFile], {
                 cwd: workingDir,
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -3976,118 +3976,77 @@ ipcMain.handle('launch-serial-simulation', async (event, options) => {
                 shell: false
             });
 
-            const vvpPid = vvpProcess.pid;
-            let vvpCompleted = false;
-
-            // Send VVP output to renderer
+            // --- VVP process listeners remain unchanged ---
             vvpProcess.stdout.on('data', (data) => {
-                event.sender.send('gtkwave-output', {
-                    type: 'stdout',
-                    data: data.toString()
-                });
+                event.sender.send('gtkwave-output', { type: 'stdout', data: data.toString() });
             });
-
             vvpProcess.stderr.on('data', (data) => {
-                event.sender.send('gtkwave-output', {
-                    type: 'stderr',
-                    data: data.toString()
-                });
+                event.sender.send('gtkwave-output', { type: 'stderr', data: data.toString() });
             });
-
             vvpProcess.on('error', (error) => {
-                event.sender.send('gtkwave-output', {
-                    type: 'error',
-                    data: `VVP error: ${error.message}`
-                });
+                event.sender.send('gtkwave-output', { type: 'error', data: `VVP error: ${error.message}` });
                 reject({ success: false, message: `VVP error: ${error.message}` });
             });
+            // --- End of unchanged VVP listeners ---
 
             vvpProcess.on('close', (code) => {
-                vvpCompleted = true;
                 event.sender.send('vvp-finished');
                 
                 if (code !== 0) {
-                    event.sender.send('gtkwave-output', {
-                        type: 'completion',
-                        code: code,
-                        message: `VVP exited with code ${code}`
-                    });
+                    event.sender.send('gtkwave-output', { type: 'completion', code: code, message: `VVP exited with code ${code}` });
                     reject({ success: false, message: `VVP failed with code ${code}` });
                     return;
                 }
 
-                // VVP completed successfully, now launch GTKWave
-                event.sender.send('gtkwave-output', {
-                    type: 'completion',
-                    code: 0,
-                    message: 'VVP simulation complete, launching GTKWave...'
-                });
+                event.sender.send('gtkwave-output', { type: 'completion', code: 0, message: 'VVP simulation complete, launching GTKWave...' });
 
-                // Parse GTKWave command
-                const gtkwMatch = gtkwCmd.match(/^"([^"]+)"\s*(.*)$/);
-                if (!gtkwMatch) {
-                    reject({ success: false, message: 'Invalid GTKWave command format' });
-                    return;
-                }
-
-                const gtkwavePath = gtkwMatch[1];
-                const argsString = gtkwMatch[2];
+                // --- START OF FIX: Replace GTKWave launch method ---
                 
-                // Parse arguments
-                const args = [];
-                const argRegex = /"([^"]+)"|(\S+)/g;
-                let match;
-                while ((match = argRegex.exec(argsString)) !== null) {
-                    args.push(match[1] || match[2]);
+                // Use the silent 'start /b' method, identical to the parallel handler, to prevent the cmd window.
+                const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
+
+                const gtkwaveProcess = exec(silentGtkwCmd, {
+                    cwd: workingDir,
+                    windowsHide: true,
+                    shell: true,
+                    detached: true
+                });
+
+                // Track the GTKWave process PID for monitoring
+                if (gtkwaveProcess.pid) {
+                    currentGtkwaveProcesses.add(gtkwaveProcess.pid);
                 }
 
-                // Launch GTKWave
-                const gtkwaveProcess = spawn(gtkwavePath, args, {
-                    cwd: workingDir,
-                    detached: true,
-                    stdio: ['ignore', 'pipe', 'pipe'],
-                    windowsHide: true,
-                    shell: false
-                });
-
-                const gtkwavePid = gtkwaveProcess.pid;
-
-                gtkwaveProcess.stdout.on('data', (data) => {
-                    event.sender.send('gtkwave-output', {
-                        type: 'stdout',
-                        data: data.toString()
-                    });
-                });
-
-                gtkwaveProcess.stderr.on('data', (data) => {
-                    event.sender.send('gtkwave-output', {
-                        type: 'stderr',
-                        data: data.toString()
-                    });
-                });
-
-                gtkwaveProcess.on('error', (error) => {
-                    event.sender.send('gtkwave-output', {
-                        type: 'error',
-                        data: `GTKWave error: ${error.message}`
-                    });
-                });
-
-                gtkwaveProcess.on('close', (code) => {
+                gtkwaveProcess.on('close', () => {
+                    if (gtkwaveProcess.pid) {
+                        currentGtkwaveProcesses.delete(gtkwaveProcess.pid);
+                    }
                     event.sender.send('gtkwave-output', {
                         type: 'completion',
-                        code: code,
-                        message: code === 0 ? 'GTKWave closed successfully' : `GTKWave exited with code ${code}`
+                        code: 0,
+                        message: 'GTKWave closed successfully'
                     });
                 });
 
+                gtkwaveProcess.on('error', (err) => {
+                    if (gtkwaveProcess.pid) {
+                        currentGtkwaveProcesses.delete(gtkwaveProcess.pid);
+                    }
+                    event.sender.send('gtkwave-output', {
+                        type: 'error',
+                        data: `GTKWave launch error: ${err.message}`
+                    });
+                });
+
+                // Unref to allow the main Electron process to exit independently
                 gtkwaveProcess.unref();
 
                 resolve({
                     success: true,
-                    gtkwavePid: gtkwavePid,
-                    message: 'Serial simulation completed, GTKWave launched'
+                    gtkwavePid: gtkwaveProcess.pid,
+                    message: 'Serial simulation completed, GTKWave launched silently'
                 });
+                // --- END OF FIX ---
             });
 
         } catch (error) {

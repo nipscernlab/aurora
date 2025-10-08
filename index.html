@@ -79,224 +79,177 @@
         </button>
     </div>
 </div>
-   <!-- Processor Configuration Modal -->
-    <div id="modalProcessorConfig" class="modal-overlay" aria-hidden="true">
-        <div class="modal-container" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
-            <header class="modal-header">
-                <h2 id="processor-modal-title" class="modal-title">
-                    <i class="fa-solid fa-gears" aria-hidden="true"></i>
-                    <span>Processor Configuration</span>
-                </h2>
-                <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                </button>
-            </header>
-            
-            <main class="modal-body">
-                <section class="config-section">
-                    <h3 class="section-title">
-                        <i class="fa-solid fa-microchip" aria-hidden="true"></i>
-                        Synthesis Configuration
-                    </h3>
-                    
-                    <div class="form-group">
-                        <label for="processorSelect" class="form-label">Select Processor</label>
-                        <div class="select-with-actions">
-                            <div class="select-container">
-                                <select id="processorSelect" class="form-select">
-                                    <option value="">Choose a processor...</option>
-                                </select>
-                            </div>
-                            <button id="deleteProcessor" class="icon-btn danger" aria-label="Delete Selected Processor">
-                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="cmmFileSelect" class="form-label">C± File</label>
+<!-- Processor Configuration Modal -->
+<div id="modalProcessorConfig" class="modal-overlay" aria-hidden="true">
+    <div class="modal-container" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
+        <header class="modal-header">
+            <h2 id="processor-modal-title" class="modal-title">
+                <i class="fa-solid fa-gears" aria-hidden="true"></i>
+                <span>Processor Configuration</span>
+            </h2>
+            <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </header>
+        
+        <main class="modal-body">
+            <section class="config-section">
+                <h3 class="section-title">
+                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    Synthesis Configuration
+                </h3>
+                
+                <div class="form-group">
+                    <label for="processorSelect" class="form-label">Select Processor</label>
+                    <div class="select-with-actions">
                         <div class="select-container">
-                            <select id="cmmFileSelect" class="form-select" disabled>
-                                <option value="">Select C± File</option>
+                            <select id="processorSelect" class="form-select">
+                                <option value="">Choose a processor...</option>
                             </select>
                         </div>
+                        <button id="deleteProcessor" class="icon-btn danger" aria-label="Delete Selected Processor">
+                            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                        </button>
                     </div>
-                </section>
-
-                <section class="config-section">
-                    <h3 class="section-title">
-                        <i class="fa-solid fa-play" aria-hidden="true"></i>
-                        Simulation Configuration
-                    </h3>
-                    
-                    <div class="form-group">
-                        <label for="processortestbenchSelect" class="form-label">Testbench File</label>
-                        <div class="select-container">
-                            <select id="processortestbenchSelect" class="form-select">
-                                <option value="">Select Testbench File</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="processorClk" class="form-label">CLK Frequency (MHz)</label>
-                            <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000">
-                            <small class="form-hint">Maximum of 1000MHz</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="processorNumClocks" class="form-label">Number of Clocks</label>
-                            <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="200000">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="processorSimulTime" class="form-label">Simulation Time (ps)</label>
-                            <input type="text" id="processorSimulTime" class="form-input" placeholder="e.g., 200000" value="200000">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="processorgtkwaveSelect" class="form-label">GTKWave File</label>
-                        <div class="select-container">
-                            <select id="processorgtkwaveSelect" class="form-select">
-                                <option value="">Select GTKWave File</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="showArraysInGtkwave" class="form-checkbox">
-                            <label for="showArraysInGtkwave" class="checkbox-label">
-                                Show C± arrays content in GTKWave
-                            </label>
-                        </div>
-                        <small class="form-hint">
-                            Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
-                        </small>
-                    </div>
-                </section>
-            </main>
-
-            <footer class="modal-footer">
-                <div class="footer-actions">
-                    <button id="cancelConfig" class="btn btn-secondary">
-                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                        <span>Cancel</span>
-                    </button>
-                    <button id="saveConfig" class="btn btn-primary">
-                        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                        <span>Save Configuration</span>
-                    </button>
                 </div>
-            </footer>
-        </div>
+
+                <div class="form-group">
+                    <label for="cmmFileSelect" class="form-label">C± File</label>
+                    <div class="select-container">
+                        <select id="cmmFileSelect" class="form-select" disabled>
+                            <option value="">Select C± File</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h3 class="section-title">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    Simulation Configuration
+                </h3>
+                
+                <div class="form-group">
+                    <label for="processortestbenchSelect" class="form-label">Testbench File</label>
+                    <div class="select-container">
+                        <select id="processortestbenchSelect" class="form-select">
+                            <option value="">Select Testbench File</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="processorClk" class="form-label">CLK Frequency (MHz)</label>
+                        <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000">
+                        <small class="form-hint">Maximum of 1000MHz</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="processorNumClocks" class="form-label">Number of Clocks</label>
+                        <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="200000">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="processorSimulTime" class="form-label">Simulation Time (ps)</label>
+                        <input type="text" id="processorSimulTime" class="form-input" placeholder="e.g., 200000" value="200000">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="processorgtkwaveSelect" class="form-label">GTKWave File</label>
+                    <div class="select-container">
+                        <select id="processorgtkwaveSelect" class="form-select">
+                            <option value="">Select GTKWave File</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showArraysInGtkwave" class="form-checkbox">
+                        <label for="showArraysInGtkwave" class="checkbox-label">
+                            Show C± arrays content in GTKWave
+                        </label>
+                    </div>
+                    <small class="form-hint">
+                        Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+                    </small>
+                </div>
+            </section>
+        </main>
+
+        <footer class="modal-footer">
+            <div class="footer-actions">
+                <button id="cancelConfig" class="btn btn-secondary">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    <span>Cancel</span>
+                </button>
+                <button id="saveConfig" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                    <span>Save Configuration</span>
+                </button>
+            </div>
+        </footer>
     </div>
+</div>
 
-    <!-- Project Configuration Modal -->
-    <div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
-        <div class="modal-container large" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
-            <header class="modal-header">
-                <h2 id="project-modal-title" class="modal-title">
-                    <i class="fa-solid fa-folder-gear" aria-hidden="true"></i>
-                    <span>Project Configuration</span>
-                </h2>
-                <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                </button>
-            </header>
-            
-            <main class="modal-body">
-                <div class="config-grid">
-                    <section class="config-section">
-                        <h3 class="section-title">
-                            <i class="fa-solid fa-file-code" aria-hidden="true"></i>
-                            Synthesizable Files (.v)
-                        </h3>
-                        
-                        <div class="file-drop-area" id="synthesizableDropArea">
-                            <div class="drop-zone">
-                                <div class="drop-zone-content">
-                                    <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
-                                    <h4>Import Verilog Files</h4>
-                                    <p>Drag & drop .v files here or click to browse</p>
-                                    <button id="importSynthesizableBtn" class="btn btn-outline">
-                                        <i class="fa-solid fa-file-import" aria-hidden="true"></i>
-                                        <span>Browse Files</span>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="file-list" id="synthesizableFileList">
-                                <div class="empty-state" id="synthesizableEmptyState">
-                                    <i class="fa-solid fa-file-code empty-icon" aria-hidden="true"></i>
-                                    <span>No synthesizable files imported yet</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
+<!-- Project Configuration Modal -->
+<div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
+    <div class="modal-container large" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
+        <header class="modal-header">
+            <h2 id="project-modal-title" class="modal-title">
+                <i class="fa-solid fa-folder-gear" aria-hidden="true"></i>
+                <span>Project Configuration</span>
+            </h2>
+            <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </header>
+        
+        <main class="modal-body">
+            <!-- Synthesis Configuration Section -->
+            <section class="config-section">
+                <h3 class="section-title">
+                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    Synthesis Configuration
+                </h3>
+                
+                <!-- Synthesizable Files -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fa-solid fa-file-code" aria-hidden="true"></i>
+                        Synthesizable Files (.v)
+                    </label>
                     
-                    <section class="config-section">
-                        <h3 class="section-title">
-                            <i class="fa-solid fa-vial" aria-hidden="true"></i>
-                            Testbench & GTKW Files
-                        </h3>
-                        
-                        <div class="file-drop-area" id="testbenchDropArea">
-                            <div class="drop-zone">
-                                <div class="drop-zone-content">
-                                    <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
-                                    <h4>Import Testbench Files</h4>
-                                    <p>Drag & drop .v and .gtkw files here or click to browse</p>
-                                    <button id="importTestbenchBtn" class="btn btn-outline">
-                                        <i class="fa-solid fa-file-import" aria-hidden="true"></i>
-                                        <span>Browse Files</span>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="file-list" id="testbenchFileList">
-                                <div class="empty-state" id="testbenchEmptyState">
-                                    <i class="fa-solid fa-vial empty-icon" aria-hidden="true"></i>
-                                    <span>No testbench or GTKW files imported yet</span>
-                                </div>
+                    <div class="file-drop-area" id="synthesizableDropArea">
+                        <div class="drop-zone">
+                            <div class="drop-zone-content">
+                                <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                <h4>Import Verilog Files</h4>
+                                <p>Drag & drop .v files here or click to browse</p>
+                                <button id="importSynthesizableBtn" class="btn btn-outline">
+                                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                    <span>Browse Files</span>
+                                </button>
                             </div>
                         </div>
-                    </section>
+                        
+                        <div class="file-list" id="synthesizableFileList">
+                            <div class="empty-state" id="synthesizableEmptyState">
+                                <i class="fa-solid fa-file-code empty-icon" aria-hidden="true"></i>
+                                <span>No synthesizable files imported yet</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <section class="config-section">
-                    <h3 class="section-title">
-                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-                        Simulation Settings
-                    </h3>
-                    
-                    <div class="form-group">
-                        <label for="projectSimuDelay" class="form-label">Simulation Time</label>
-                        <input type="text" id="projectSimuDelay" class="form-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
-                        <small class="form-hint">Simulation time value used in testbench timing</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="showArraysInGtkwave-project" class="form-checkbox">
-                            <label for="showArraysInGtkwave-project" class="checkbox-label">
-                                Show C± arrays content in GTKWave
-                            </label>
-                        </div>
-                        <small class="form-hint">
-                            <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
-                            Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
-                        </small>
-                    </div>
-                </section>
-                
-                <section class="config-section">
-                    <h3 class="section-title">
+                <!-- Processors Management -->
+                <div class="form-group">
+                    <label class="form-label">
                         <i class="fa-solid fa-microchip" aria-hidden="true"></i>
                         Processors Management
-                    </h3>
+                    </label>
                     
                     <div id="processorsList" class="processors-list">
                         <!-- Processor rows will be dynamically added here -->
@@ -306,29 +259,85 @@
                         <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         <span>Add Processor</span>
                     </button>
-                </section>
-            </main>
-
-            <footer class="modal-footer">
-                <div class="footer-actions">
-                    <button id="cancelProjectConfig" class="btn btn-secondary">
-                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                        <span>Cancel</span>
-                    </button>
-                    <button id="saveProjectConfig" class="btn btn-primary">
-                        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                        <span>Save Project</span>
-                    </button>
                 </div>
-            </footer>
-        </div>
+            </section>
+            
+            <!-- Simulation Configuration Section -->
+            <section class="config-section">
+                <h3 class="section-title">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    Simulation Configuration
+                </h3>
+                
+                <!-- Testbench & GTKW Files -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fa-solid fa-vial" aria-hidden="true"></i>
+                        Testbench & GTKW Files
+                    </label>
+                    
+                    <div class="file-drop-area" id="testbenchDropArea">
+                        <div class="drop-zone">
+                            <div class="drop-zone-content">
+                                <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                <h4>Import Testbench Files</h4>
+                                <p>Drag & drop .v and .gtkw files here or click to browse</p>
+                                <button id="importTestbenchBtn" class="btn btn-outline">
+                                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                    <span>Browse Files</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="file-list" id="testbenchFileList">
+                            <div class="empty-state" id="testbenchEmptyState">
+                                <i class="fa-solid fa-vial empty-icon" aria-hidden="true"></i>
+                                <span>No testbench or GTKW files imported yet</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Simulation Settings -->
+                <div class="form-group">
+                    <label for="projectSimuDelay" class="form-label">Simulation Time</label>
+                    <input type="text" id="projectSimuDelay" class="form-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
+                    <small class="form-hint">Simulation time value used in testbench timing</small>
+                </div>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showArraysInGtkwave-project" class="form-checkbox">
+                        <label for="showArraysInGtkwave-project" class="checkbox-label">
+                            Show C± arrays content in GTKWave
+                        </label>
+                    </div>
+                    <small class="form-hint">
+                        <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                        Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
+                    </small>
+                </div>
+            </section>
+        </main>
+
+        <footer class="modal-footer">
+            <div class="footer-actions">
+                <button id="cancelProjectConfig" class="btn btn-secondary">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    <span>Cancel</span>
+                </button>
+                <button id="saveProjectConfig" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                    <span>Save Project</span>
+                </button>
+            </div>
+        </footer>
     </div>
+</div>
 
-    <!-- Hidden file inputs -->
-    <input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
-    <input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
-
-
+<!-- Hidden file inputs -->
+<input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
+<input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
     
     <!-- New Project Modal -->
     <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
@@ -387,12 +396,11 @@
             
             <main class="modal-body">
                 <form class="processor-form" id="processorHubForm">
-                    <div class="form-grid">
                         <div class="form-group">
                             <label for="processorName" class="form-label">Processor Name</label>
                             <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00">
                         </div>
-
+                    <div class="form-grid">
                         <div class="form-group">
                             <label for="nBits" class="form-label">
                                 Total Number of Bits
@@ -534,13 +542,13 @@
 <div class="editor-terminal-container">
     <div class="editor-container">
         <div id="tabs-container" class="tabs-container">
-            <!-- Tabs serão inseridos dinamicamente aqui -->
+            <!-- Tabs will be dynamically inserted here -->
         </div>
         <div id="monaco-editor" class="monaco-editor">
-            <!-- A tela de boas-vindas foi completamente reestruturada -->
+            <!-- The welcome screen has been completely restructured -->
             <div id="editor-overlay" class="visible">
                 <div class="welcome-screen">
-                    <!-- Barra Lateral para Projetos Recentes -->
+                    <!-- Sidebar for Recent Projects -->
                     <aside class="welcome-sidebar">
                         <div class="recent-projects-header">
                             <i class="fa-solid fa-clock-rotate-left"></i>
@@ -550,28 +558,27 @@
                         <div class="recent-projects-list" id="recent-projects-list">
                             <div class="empty-state" id="empty-state">
                                 <i class="fa-solid fa-folder-open"></i>
-                                <p>Nenhum projeto recente</p>
-                                <span>Abra um projeto para vê-lo aqui.</span>
+                                <p>No recent projects</p>
+                                <span>Open a project to view it here.</span>
                             </div>
-                            <!-- Itens de projetos recentes serão inseridos aqui -->
+                            <!-- Recent project items will be inserted here -->
                         </div>
                     </aside>
 
-                    <!-- Conteúdo Principal de Boas-Vindas -->
+                    <!-- Main Welcome Content -->
                     <main class="welcome-main-content">
-                    <div class="icon-container">
-                        <!-- Use class aqui -->
-                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="120px" alt="Aurora" />
-                        <i class="fallback-icon fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-                    </div>
-                    <div class="overlay-text-content">
-                        <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
-                        <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
-                        <p class="overlay-subtitle">
-                            <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
-                        </p>
-                    </div>
-                </main>
+                        <div id="icon-container" class="icon-container">
+                            <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="120px" alt="Aurora" />
+                            <i class="fallback-icon fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
+                        </div>
+                        <div class="overlay-text-content">
+                            <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
+                            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
+                            <p class="overlay-subtitle">
+                                <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
+                            </p>
+                        </div>
+                    </main>
                 </div>
             </div>
         </div>
@@ -688,7 +695,7 @@
                 </div>
                 <!-- Add this in the "General" section -->
                 <div class="setting-item">
-                    <label for="compilation-mode-toggle">Parallel Compilation Mode</label>
+                    <label for="compilation-mode-toggle">Parallel Simulation Mode</label>
                     <label class="switch">
                         <input type="checkbox" id="compilation-mode-toggle" checked>
                         <span class="slider"></span>

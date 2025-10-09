@@ -4127,6 +4127,41 @@ ipcMain.handle('watch-directory', async (event, directoryPath) => {
   }
 });
 
+// Adicionar este handler IPC após os outros handlers de file tree
+ipcMain.handle('trigger-file-tree-refresh', async (event) => {
+  try {
+    console.log('Triggering file tree refresh from main process');
+    
+    // Get current project path
+    let projectPath = currentProjectPath;
+    if (!projectPath && currentOpenProjectPath) {
+      const spfData = await fse.readFile(currentOpenProjectPath, 'utf8');
+      const projectData = JSON.parse(spfData);
+      projectPath = projectData.structure.basePath;
+    }
+    
+    if (!projectPath) {
+      throw new Error('No project path available for refresh');
+    }
+    
+    // Get fresh directory structure
+    const files = await scanDirectory(projectPath);
+    
+    // Send to all windows
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(window => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('file-tree-refreshed', { files, projectPath });
+      }
+    });
+    
+    return { success: true, files };
+  } catch (error) {
+    console.error('Error triggering file tree refresh:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('stop-watching-directory', async (event, directoryPath) => {
   try {
     const watcherInfo = activeDirectoryWatchers.get(directoryPath);

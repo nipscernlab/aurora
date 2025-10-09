@@ -67,7 +67,6 @@ const testbenchEmptyState = document.getElementById('testbenchEmptyState');
 function initFileManagement() {
   setupImportButtons();
   setupDragAndDrop();
-  setupFileInputs();
 }
 
 

@@ -100,6 +100,12 @@ const fileOperations = {
     // Função para obter informações completas do arquivo incluindo path
     getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
         launchSerialSimulation: (options) => ipcRenderer.invoke('launch-serial-simulation', options),
+          triggerFileTreeRefresh: () => ipcRenderer.invoke('trigger-file-tree-refresh'),
+  
+  // Adicionar listener para refresh
+  onFileTreeRefreshed: (callback) => {
+    ipcRenderer.on('file-tree-refreshed', (event, data) => callback(data));
+  },
      // Directory watching methods
   watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),
   stopWatchingDirectory: (directoryPath) => ipcRenderer.invoke('stop-watching-directory', directoryPath),

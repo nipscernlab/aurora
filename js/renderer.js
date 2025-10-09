@@ -4473,6 +4473,13 @@ const FileTreeState = {
 // Atualizar a função refreshFileTree
 async function refreshFileTree() {
     try {
+        // ADICIONAR ESTAS LINHAS NO INÍCIO
+        const fileTree = document.getElementById('file-tree');
+        if (fileTree && fileTree.classList.contains('hierarchy-view')) {
+            console.log('Skipping refresh - hierarchy view is active');
+            return;
+        }
+        
         if (!currentProjectPath) {
             console.warn('No project is currently open');
             return;
@@ -4480,7 +4487,6 @@ async function refreshFileTree() {
 
         const isDirectory = await window.electronAPI.isDirectory(currentProjectPath);
         if (!isDirectory) {
-            // If not a directory, try to get the directory from the .spf file
             const directoryPath = path.dirname(currentSpfPath);
             currentProjectPath = directoryPath;
             const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
@@ -4498,7 +4504,7 @@ async function refreshFileTree() {
         const refreshButton = document.getElementById('refresh-button');
 
         if (refreshButton) {
-            refreshButton.style.pointerEvents = 'none'; // Desabilitar cliques durante refresh
+            refreshButton.style.pointerEvents = 'none';
             refreshButton.classList.add('spinning');
         }
 
@@ -4507,14 +4513,44 @@ async function refreshFileTree() {
         if (result) {
             const fileTree = document.getElementById('file-tree');
             if (fileTree) {
+                // CRÍTICO: Salvar estado ANTES de limpar
+                const expandedPaths = Array.from(FileTreeState.expandedFolders);
+                
                 // Aplicar fade-out antes de limpar
                 fileTree.style.transition = 'opacity 0.2s ease';
                 fileTree.style.opacity = '0';
 
                 setTimeout(() => {
                     fileTree.innerHTML = '';
+                    
+                    // CRÍTICO: Restaurar classe hierarchy se estava ativa
+                    const wasHierarchical = fileTree.classList.contains('hierarchy-view');
+                    
+                    // Renderizar nova árvore
                     renderFileTree(result.files, fileTree);
-
+                    
+                    // Se não estava em modo hierárquico, restaurar expansões
+                    if (!wasHierarchical) {
+                        // Reexpandir pastas que estavam abertas
+                        expandedPaths.forEach(path => {
+                            const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
+                            if (folderItem) {
+                                const folderToggle = folderItem.querySelector('.folder-toggle');
+                                const folderContent = folderItem.querySelector('.folder-content');
+                                const icon = folderItem.querySelector('.file-item-icon');
+                                
+                                if (folderToggle && folderContent) {
+                                    folderContent.classList.remove('hidden');
+                                    folderToggle.classList.add('rotated');
+                                    if (icon) {
+                                        icon.classList.remove('fa-folder');
+                                        icon.classList.add('fa-folder-open');
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
                     // Aplicar fade-in depois de renderizar
                     fileTree.style.opacity = '1';
                 }, 300);
@@ -4522,7 +4558,7 @@ async function refreshFileTree() {
         }
 
         if (refreshButton) {
-            refreshButton.style.pointerEvents = 'auto'; // Reabilitar cliques
+            refreshButton.style.pointerEvents = 'auto';
             refreshButton.classList.remove('spinning');
             refreshButton.style.visibility = 'visible';
         }
@@ -4618,19 +4654,18 @@ document.head.appendChild(style);
 
 function renderFileTree(files, container, level = 0, parentPath = '') {
     const filteredFiles = files.filter(file => {
-        // sempre mostrar diretórios
         if (file.type === 'directory') return true;
-
-        // esconder projectConfig.json
         if (file.name === 'projectOriented.json') return false;
-
         if (file.name === 'processorConfig.json') return false;
-
-        // esconder .spf
-        const extension = file.name.split('.')
-            .pop()
-            .toLowerCase();
+        const extension = file.name.split('.').pop().toLowerCase();
         return extension !== 'spf';
+    });
+
+    // ADICIONAR: Ordenar arquivos - pastas primeiro
+    filteredFiles.sort((a, b) => {
+        if (a.type === 'directory' && b.type !== 'directory') return -1;
+        if (a.type !== 'directory' && b.type === 'directory') return 1;
+        return a.name.localeCompare(b.name);
     });
 
     filteredFiles.forEach(file => {
@@ -4645,6 +4680,9 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         const filePath = parentPath ? `${parentPath}/${file.name}` : file.name;
 
         if (file.type === 'directory') {
+            // CRÍTICO: Adicionar data-path no wrapper
+            itemWrapper.setAttribute('data-path', filePath);
+            
             const folderToggle = document.createElement('i');
             folderToggle.className = 'fa-solid fa-caret-right folder-toggle';
             item.appendChild(folderToggle);
@@ -4656,12 +4694,11 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
             childContainer.className = 'folder-content';
 
             const wasExpanded = FileTreeState.isExpanded(filePath);
+            
             if (!wasExpanded) {
                 childContainer.classList.add('hidden');
-                icon.classList.remove('fa-folder-open');
-                icon.classList.add('fa-folder');
             } else {
-                folderToggle.classList.toggle('rotated');
+                folderToggle.classList.add('rotated');
                 icon.classList.remove('fa-folder');
                 icon.classList.add('fa-folder-open');
             }
@@ -4670,24 +4707,20 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
                 const isExpanded = !childContainer.classList.contains('hidden');
                 childContainer.classList.toggle('hidden');
                 folderToggle.classList.toggle('rotated');
-
                 icon.classList.toggle('fa-folder');
                 icon.classList.toggle('fa-folder-open');
-
                 FileTreeState.toggleFolder(filePath, !isExpanded);
 
                 if (!isExpanded) {
-                    // Adicionar delay dinâmico nos itens filhos ao expandir
                     const visibleItems = childContainer.querySelectorAll('.file-tree-item');
                     visibleItems.forEach((item, index) => {
-                        item.style.animation = 'none'; // reset
-                        item.offsetHeight; // force reflow
+                        item.style.animation = 'none';
+                        item.offsetHeight;
                         item.style.animation = `fadeInDown 0.3s ease forwards`;
                         item.style.animationDelay = `${index * 50}ms`;
                     });
                 }
             };
-
 
             item.addEventListener('click', toggleFolder);
 
@@ -4698,9 +4731,8 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
             itemWrapper.appendChild(item);
             itemWrapper.appendChild(childContainer);
         } else {
-            const extension = file.name.split('.')
-                .pop()
-                .toLowerCase();
+            // Renderização de arquivos (sem mudanças)
+            const extension = file.name.split('.').pop().toLowerCase();
             if (extension === 'gtkw') {
                 icon.className = 'fa-solid fa-file-waveform file-item-icon';
             } else if (extension === 'v') {
@@ -4712,24 +4744,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
             } else if (file.name === 'house_report.json') {
                 icon.className = 'fa-solid fa-file-export file-item-icon';
             } else if (extension === 'cmm') {
-
                 icon.className = 'fa-solid fa-microchip file-item-icon';
-                /* Em vez de remover o ícone existente, use-o como container
-        icon.className = 'cmm-icon-container';
-        icon.innerHTML = ''; // Limpa o conteúdo anterior
-        icon.style.display = 'inline-flex';
-        icon.style.alignItems = 'center';
-        icon.style.gap = '2px'; // Espaçamento uniforme entre os ícones (mais moderno que margin)
-        
-        // Adicionar os ícones dentro do container existente
-        const iconC = document.createElement('i');
-        iconC.className = 'fa-solid fa-c';
-        
-        const iconPlusMinus = document.createElement('i');
-        iconPlusMinus.className = 'fa-solid fa-plus-minus';
-        
-        icon.appendChild(iconC);
-        icon.appendChild(iconPlusMinus); */
             } else if (extension === 'mif') {
                 icon.className = 'fa-solid fa-square-binary file-item-icon';
             } else {
@@ -4746,7 +4761,6 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
                     console.error('Error opening file:', error);
                 }
             });
-            item.addEventListener('click', () => openFile(file.path));
 
             item.appendChild(icon);
             itemWrapper.appendChild(item);
@@ -4759,6 +4773,18 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         container.appendChild(itemWrapper);
     });
 }
+
+function forceFileTreeUpdate() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+    
+    // Remover classe hierarchy se estiver presente
+    fileTree.classList.remove('hierarchy-view');
+    
+    // Forçar refresh
+    refreshFileTree();
+}
+
 
 // Função para monitorar mudanças na pasta com debounce
 async function setupFileWatcher() {
@@ -4888,15 +4914,18 @@ function initializeProject(projectPath) {
 
 // Atualizar event listener do botão de refresh
 document.addEventListener('DOMContentLoaded', () => {
-    const refreshButton = document.getElementById('refresh-button');
-    if (refreshButton) {
-        refreshButton.addEventListener('click', async () => {
-            if (!FileTreeState.isRefreshing) {
-                
+if (window.electronAPI && window.electronAPI.onFileTreeRefreshed) {
+        window.electronAPI.onFileTreeRefreshed((data) => {
+            console.log('Recebeu atualização da file tree:', data);
+            
+            // Verificar se não está em modo hierárquico
+            const fileTree = document.getElementById('file-tree');
+            if (fileTree && !fileTree.classList.contains('hierarchy-view')) {
+                // Atualizar a árvore com os novos dados
+                updateFileTreeSafely(data.files);
             }
         });
     }
-
     // Limpar intervalos quando a janela for fechada
     window.addEventListener('beforeunload', () => {
         stopPollingRefresh();
@@ -5291,6 +5320,7 @@ class DirectoryWatcher {
     }
 
     // In DirectoryWatcher.updateFileTreeFromFiles method, add this check:
+// Localizar esta função dentro da classe DirectoryWatcher e substituir por:
 updateFileTreeFromFiles(files) {
     try {
         // Check if hierarchy view is active
@@ -5300,15 +5330,13 @@ updateFileTreeFromFiles(files) {
             return;
         }
         
-        // Update the file tree with new structure
-        updateFileTree(files);
+        // CORREÇÃO: Usar a nova função segura
+        updateFileTreeSafely(files);
         
-        // ... rest of existing code ...
     } catch (error) {
         console.error('Error updating file tree from watcher:', error);
     }
 }
-
     getCurrentWatchedDirectory() {
         return this.currentWatchedDirectory;
     }
@@ -5825,19 +5853,58 @@ function enableCompileButtons() {
     });
 }
 
-// Function to update file tree
-function updateFileTree(files) {
+function updateFileTreeSafely(files) {
     const fileTree = document.getElementById('file-tree');
-    fileTree.innerHTML = '';
-    renderFileTree(files, fileTree);
-
-    /*
-    // Add refresh animation
-    fileTree.style.animation = 'refresh-fade 0.5s ease';
+    if (!fileTree) {
+        console.error('File tree element not found');
+        return;
+    }
+    
+    // Verificar se está em modo hierárquico
+    const isHierarchical = fileTree.classList.contains('hierarchy-view');
+    
+    if (isHierarchical) {
+        console.log('Skipping file tree update - hierarchy view is active');
+        return;
+    }
+    
+    // Salvar estado de expansão
+    const expandedPaths = Array.from(FileTreeState.expandedFolders);
+    
+    // Limpar e renderizar
+    fileTree.style.transition = 'opacity 0.2s ease';
+    fileTree.style.opacity = '0';
+    
     setTimeout(() => {
-      fileTree.style.animation = '';
-    }, 500);
-    */
+        fileTree.innerHTML = '';
+        renderFileTree(files, fileTree);
+        
+        // Restaurar expansões
+        expandedPaths.forEach(path => {
+            const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
+            if (folderItem) {
+                const folderToggle = folderItem.querySelector('.folder-toggle');
+                const folderContent = folderItem.querySelector('.folder-content');
+                const icon = folderItem.querySelector('.file-item-icon');
+                
+                if (folderToggle && folderContent) {
+                    folderContent.classList.remove('hidden');
+                    folderToggle.classList.add('rotated');
+                    if (icon) {
+                        icon.classList.remove('fa-folder');
+                        icon.classList.add('fa-folder-open');
+                    }
+                }
+            }
+        });
+        
+        fileTree.style.opacity = '1';
+    }, 200);
+}
+// Function to update file tree (MODIFICADA)
+function updateFileTree(files) {
+    console.log('updateFileTree called with files:', files);
+    updateFileTreeSafely(files);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -7096,70 +7163,89 @@ end`;
         }
     }
 
-   async iverilogProjectCompilation() {
-        this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification for project...');
-        statusUpdater.startCompilation('verilog');
+ async iverilogProjectCompilation() {
+    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification for project...');
+    statusUpdater.startCompilation('verilog');
 
-        try {
-            if (!this.projectConfig) {
-                throw new Error("Project configuration not loaded");
-            }
-
-            // ... (keep existing project iverilog code)
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-
-            const testbenchFile = this.projectConfig.testbenchFile;
-            if (!testbenchFile) {
-                throw new Error("No testbench file specified");
-            }
-
-            const tbFileName = testbenchFile.split(/[\/\\]/).pop();
-            const tbModule = tbFileName.replace(/\.v$/i, '');
-
-            const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
-            if (!synthesizableFiles.length) {
-                throw new Error("No synthesizable files defined");
-            }
-
-            const synthesizableFilePaths = synthesizableFiles.map(f => `"${f.path}"`).join(' ');
-            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
-            const flags = this.projectConfig.iverilogFlags || "";
-
-            await TabManager.saveAllFiles();
-
-            const projectName = this.projectPath.split(/[\/\\]/).pop();
-            const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
-
-            const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
-            this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
-
-            const result = await window.electronAPI.execCommand(cmd);
-            this.terminalManager.processExecutableOutput('tveri', result);
-
-            if (result.code !== 0) {
-                statusUpdater.compilationError('verilog', `Icarus Verilog failed with code ${result.code}`);
-                throw new Error(`Icarus Verilog verification failed`);
-            }
-
-            this.terminalManager.appendToTerminal('tveri', 'Project verification completed', 'success');
-            statusUpdater.compilationSuccess('verilog');
-
-            // NEW: Generate hierarchy after successful compilation
-            await this.generateProjectHierarchy();
-            this.enableHierarchyToggle();
-
-
-            
-
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-            statusUpdater.compilationError('verilog', error.message);
-            throw error;
+    try {
+        if (!this.projectConfig) {
+            throw new Error("Project configuration not loaded");
         }
+
+        const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+        const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+        const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+
+        const testbenchFile = this.projectConfig.testbenchFile;
+        if (!testbenchFile) {
+            throw new Error("No testbench file specified");
+        }
+
+        const tbFileName = testbenchFile.split(/[\/\\]/).pop();
+        const tbModule = tbFileName.replace(/\.v$/i, '');
+
+        const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
+        if (!synthesizableFiles.length) {
+            throw new Error("No synthesizable files defined");
+        }
+
+        const synthesizableFilePaths = synthesizableFiles.map(f => `"${f.path}"`).join(' ');
+        const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+        const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
+        const flags = this.projectConfig.iverilogFlags || "";
+
+        await TabManager.saveAllFiles();
+
+        const projectName = this.projectPath.split(/[\/\\]/).pop();
+        const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
+
+        // FIXED: Proper command construction matching batch script
+        const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
+        this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
+
+        const result = await window.electronAPI.execCommand(cmd);
+        this.terminalManager.processExecutableOutput('tveri', result);
+
+        if (result.code !== 0) {
+            statusUpdater.compilationError('verilog', `Icarus Verilog failed with code ${result.code}`);
+            throw new Error(`Icarus Verilog verification failed`);
+        }
+
+        // FIXED: Copy testbench files to simulation folders (matching batch script)
+        const procList = this.projectConfig.processors || [];
+        for (const proc of procList) {
+            const tempProcDir = await window.electronAPI.joinPath(tempBaseDir, proc.type);
+            const tbFile = await window.electronAPI.joinPath(tempProcDir, `${proc.type}_tb.v`);
+            const destDir = await window.electronAPI.joinPath(this.projectPath, proc.type, 'Simulation');
+            const destFile = await window.electronAPI.joinPath(destDir, `${proc.type}_tb.v`);
+            
+            try {
+                const tbExists = await window.electronAPI.fileExists(tbFile);
+                if (tbExists) {
+                    await window.electronAPI.copyFile(tbFile, destFile);
+                    this.terminalManager.appendToTerminal('tveri', 
+                        `Copied testbench for ${proc.type} to Simulation folder`);
+                }
+            } catch (copyError) {
+                this.terminalManager.appendToTerminal('tveri', 
+                    `Warning: Could not copy testbench for ${proc.type}: ${copyError.message}`, 'warning');
+            }
+        }
+
+        this.terminalManager.appendToTerminal('tveri', 'Project verification completed', 'success');
+        statusUpdater.compilationSuccess('verilog');
+
+        // Generate hierarchy after successful compilation
+        await this.generateProjectHierarchy();
+        await this.switchToHierarchicalView();
+
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('verilog', error.message);
+        throw error;
     }
+}
+
 
     setupHierarchyToggle() {
         // CORRIGIDO: Use o ID correto do HTML: 'hierarchy-tree-toggle'
@@ -7225,29 +7311,30 @@ switchToStandardView() {
     const fileTree = document.getElementById('file-tree');
     if (!fileTree) return;
     
-    // 1. Define o estado primeiro para consistência.
+    // 1. Define o estado primeiro para consistência
     this.isHierarchicalView = false;
     
-    // 2. Limpa o conteúdo atual da árvore e remove a classe da hierarquia.
-    fileTree.innerHTML = '';
+    // 2. Remove a classe da hierarquia
     fileTree.classList.remove('hierarchy-view');
     
-    // 3. ATUALIZAÇÃO CRÍTICA: Chama a função original `_originalRefreshFileTree` diretamente.
-    // Isso garante que a árvore padrão seja reconstruída, ignorando a verificação
-    // da função modificada que serve apenas para bloquear atualizações em segundo plano.
-    if (typeof window._originalRefreshFileTree === 'function') {
-        // Usa um pequeno timeout para garantir que o DOM seja atualizado antes de recarregar a árvore.
-        setTimeout(() => {
-            window._originalRefreshFileTree();
-        }, 50);
-    } else if (typeof refreshFileTree === 'function') {
-        // Fallback caso a função original não tenha sido salva (medida de segurança).
-        setTimeout(() => {
-            refreshFileTree();
-        }, 50);
-    }
+    // 3. Limpa o conteúdo atual
+    fileTree.style.transition = 'opacity 0.2s ease';
+    fileTree.style.opacity = '0';
     
-    // 4. Atualiza o estado visual do botão de alternância.
+    setTimeout(() => {
+        fileTree.innerHTML = '';
+        
+        // 4. CRÍTICO: Força atualização completa usando a função original
+        if (typeof window._originalRefreshFileTree === 'function') {
+            window._originalRefreshFileTree();
+        } else if (typeof refreshFileTree === 'function') {
+            refreshFileTree();
+        }
+        
+        fileTree.style.opacity = '1';
+    }, 200);
+    
+    // 5. Atualiza o estado visual do botão
     this.updateToggleButton(false);
     
     this.terminalManager.appendToTerminal('tveri', 
@@ -7688,9 +7775,8 @@ async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
     statusUpdater.startCompilation('wave');
     
-    const isParallelMode = this.getCompilationMode();
-    
     let testbenchBackupInfo = null;
+    let vvpFinishedHandler = null;
     let gtkwaveOutputHandler = null;
 
     try {
@@ -7703,6 +7789,7 @@ async runProjectGtkWave() {
         const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
         const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
         const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+        const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
 
         const testbenchFile = this.projectConfig.testbenchFile;
         if (!testbenchFile) throw new Error("No testbench file specified");
@@ -7711,7 +7798,10 @@ async runProjectGtkWave() {
         const tbModule = testbenchFileName.replace(/\.v$/i, '');
         const simuDelay = this.getSimulationDelay();
         
-        testbenchBackupInfo = await this.modifyTestbenchForSimulation(testbenchFile, tbModule, tempBaseDir, simuDelay);
+        // Modify testbench
+        testbenchBackupInfo = await this.modifyTestbenchForSimulation(
+            testbenchFile, tbModule, tempBaseDir, simuDelay
+        );
         
         // Icarus Verilog compilation
         const synthesizableFilePaths = (this.projectConfig.synthesizableFiles || [])
@@ -7723,18 +7813,10 @@ async runProjectGtkWave() {
         
         await TabManager.saveAllFiles();
         const projectName = this.projectPath.split(/[\/\\]/).pop();
-        const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, projectName);
+        const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
         
         const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
         
-        const instances = (this.projectConfig.processors || []).map(p => p.instance).join(' ');
-        const processors = (this.projectConfig.processors || []).map(p => p.type).join(' ');
-        const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
-
-        const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
-        const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
-        await window.electronAPI.writeFile(tclFilePath, tclContent);
-
         const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
         this.terminalManager.processExecutableOutput('twave', iverilogResult);
         
@@ -7742,25 +7824,112 @@ async runProjectGtkWave() {
             throw new Error('Icarus Verilog compilation failed');
         }
 
+        // FIXED: Copy all necessary files before VVP execution (matching batch script)
+        this.terminalManager.appendToTerminal('twave', 'Copying necessary files for simulation...');
+        
+        // 1. Copy .txt files from TopLevel directory (matching batch: dir %TOPL_DIR%\*.txt)
+        const topLevelPath = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
+        
+        // Get list of .txt files that might exist in TopLevel
+        const commonTxtFiles = ['input.txt', 'data.txt', 'test.txt', 'config.txt'];
+        for (const txtFile of commonTxtFiles) {
+            try {
+                const srcPath = await window.electronAPI.joinPath(topLevelPath, txtFile);
+                const fileExists = await window.electronAPI.fileExists(srcPath);
+                
+                if (fileExists) {
+                    const destPath = await window.electronAPI.joinPath(tempBaseDir, txtFile);
+                    await window.electronAPI.copyFile(srcPath, destPath);
+                    this.terminalManager.appendToTerminal('twave', 
+                        `Copied ${txtFile} from TopLevel`);
+                }
+            } catch (error) {
+                // Silently skip files that don't exist
+            }
+        }
+
+        // 2. Copy .mif and pc_*_mem.txt files for each processor
+        const procList = this.projectConfig.processors || [];
+        for (const proc of procList) {
+            try {
+                // Copy _inst.mif file
+                const instMifSrc = await window.electronAPI.joinPath(
+                    this.projectPath, proc.type, 'Hardware', `${proc.type}_inst.mif`
+                );
+                const instMifDest = await window.electronAPI.joinPath(
+                    tempBaseDir, `${proc.type}_inst.mif`
+                );
+                await window.electronAPI.copyFile(instMifSrc, instMifDest);
+                this.terminalManager.appendToTerminal('twave', 
+                    `Copied ${proc.type}_inst.mif`);
+
+                // Copy _data.mif file
+                const dataMifSrc = await window.electronAPI.joinPath(
+                    this.projectPath, proc.type, 'Hardware', `${proc.type}_data.mif`
+                );
+                const dataMifDest = await window.electronAPI.joinPath(
+                    tempBaseDir, `${proc.type}_data.mif`
+                );
+                await window.electronAPI.copyFile(dataMifSrc, dataMifDest);
+                this.terminalManager.appendToTerminal('twave', 
+                    `Copied ${proc.type}_data.mif`);
+
+                // Copy pc_*_mem.txt file from processor temp directory
+                const pcMemSrc = await window.electronAPI.joinPath(
+                    tempBaseDir, proc.type, `pc_${proc.type}_mem.txt`
+                );
+                const pcMemDest = await window.electronAPI.joinPath(
+                    tempBaseDir, `pc_${proc.type}_mem.txt`
+                );
+                
+                const pcMemExists = await window.electronAPI.fileExists(pcMemSrc);
+                if (pcMemExists) {
+                    await window.electronAPI.copyFile(pcMemSrc, pcMemDest);
+                    this.terminalManager.appendToTerminal('twave', 
+                        `Copied pc_${proc.type}_mem.txt`);
+                } else {
+                    this.terminalManager.appendToTerminal('twave', 
+                        `Warning: pc_${proc.type}_mem.txt not found`, 'warning');
+                }
+
+            } catch (copyError) {
+                this.terminalManager.appendToTerminal('twave', 
+                    `Warning: Error copying files for ${proc.type}: ${copyError.message}`, 'warning');
+            }
+        }
+
+        // FIXED: Create TCL info file with correct format (5 lines as per batch script)
+        const instances = procList.map(p => p.instance).join(' ');
+        const processors = procList.map(p => p.type).join(' ');
+        
+        const tclFilePath = await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt');
+        const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
+        await window.electronAPI.writeFile(tclFilePath, tclContent);
+        this.terminalManager.appendToTerminal('twave', 'TCL info file created');
+
+        const fixVcdSrc = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
+        const fixVcdDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
+        await window.electronAPI.copyFile(fixVcdSrc, fixVcdDest);
+        this.terminalManager.appendToTerminal('twave', 'Copied fix.vcd to temp directory');
+
         // Setup VCD and commands
         const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
         await window.electronAPI.deleteFileOrDirectory(vcdPath);
 
-        const vvpCmd = `"${vvpCompPath}" "${outputFilePath}"`;
-        let gtkwCmd;
+        // FIXED: VVP command should run in tempBaseDir (matching batch: cd %TMP_DIR%)
+        const vvpCmd = `"${vvpCompPath}" "${projectName}.vvp"`;
         
+        let gtkwCmd;
         const gtkwaveFile = this.projectConfig.gtkwaveFile;
         if (gtkwaveFile && gtkwaveFile !== "Standard") {
             const posScriptPath = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-            // FIXED: Remove extra quotes
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script=${posScriptPath}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script="${posScriptPath}"`;
         } else {
             const initScriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-            // FIXED: Remove extra quotes
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script=${initScriptPath}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script="${initScriptPath}"`;
         }
 
-        // Setup GTKWave output handler ONCE
+        // Setup GTKWave output handler
         gtkwaveOutputHandler = (event, payload) => {
             switch (payload.type) {
                 case 'stdout':
@@ -7781,52 +7950,30 @@ async runProjectGtkWave() {
         
         window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
 
+        // Show progress and setup completion handler
         await showVVPProgress(projectName);
+        
+        vvpFinishedHandler = () => hideVVPProgress();
+        window.electronAPI.once('vvp-finished', vvpFinishedHandler);
 
-        if (isParallelMode) {
-            // PARALLEL MODE
-            this.terminalManager.appendToTerminal('twave', 
-                'Starting parallel simulation (VVP + GTKWave)...', 'info');
+        this.terminalManager.appendToTerminal('twave', 'Starting VVP simulation and waiting for VCD file...');
 
-            const result = await window.electronAPI.launchParallelSimulation({
-                vvpCmd: vvpCmd,
-                gtkwCmd: gtkwCmd,
-                vcdPath: vcdPath,
-                workingDir: tempBaseDir
-            });
+        // Launch parallel simulation with CORRECT working directory
+        const result = await window.electronAPI.launchParallelSimulation({
+            vvpCmd: vvpCmd,
+            gtkwCmd: gtkwCmd,
+            vcdPath: vcdPath,
+            workingDir: tempBaseDir  // CRITICAL: Must be tempBaseDir, not tempProcDir
+        });
 
-            hideVVPProgress();
-
-            if (result.success) {
-                this.gtkwaveProcess = result.gtkwavePid;
-                this.terminalManager.appendToTerminal('twave',
-                    'GTKWave launched successfully (parallel mode)', 'success');
-                this.monitorGtkwaveProcess();
-            } else {
-                throw new Error(`Failed to launch simulation: ${result.message}`);
-            }
+        if (result.success) {
+            this.gtkwaveProcess = result.gtkwavePid;
+            this.terminalManager.appendToTerminal('twave',
+                'GTKWave launched successfully', 'success');
+            this.monitorGtkwaveProcess();
         } else {
-            // SERIAL MODE
-            this.terminalManager.appendToTerminal('twave', 
-                'Starting serial simulation (VVP first, then GTKWave)...', 'info');
-            
-            const result = await window.electronAPI.launchSerialSimulation({
-                vvpCmd: vvpCmd,
-                gtkwCmd: gtkwCmd,
-                vcdPath: vcdPath,
-                workingDir: tempBaseDir
-            });
-
             hideVVPProgress();
-
-            if (result.success) {
-                this.gtkwaveProcess = result.gtkwavePid;
-                this.terminalManager.appendToTerminal('twave',
-                    'GTKWave launched successfully (serial mode)', 'success');
-                this.monitorGtkwaveProcess();
-            } else {
-                throw new Error(`Failed to launch simulation: ${result.message}`);
-            }
+            throw new Error(`Failed to launch simulation: ${result.message}`);
         }
 
         statusUpdater.compilationSuccess('wave');
@@ -7838,12 +7985,29 @@ async runProjectGtkWave() {
         throw error;
         
     } finally {
+        if (vvpFinishedHandler) {
+            window.electronAPI.removeListener('vvp-finished', vvpFinishedHandler);
+        }
         if (gtkwaveOutputHandler) {
             window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
         }
         if (testbenchBackupInfo) {
-            await this.restoreOriginalTestbench(testbenchBackupInfo.originalPath, testbenchBackupInfo.backupPath);
+            await window.electronAPI.restoreOriginalTestbench(
+                testbenchBackupInfo.originalPath, 
+                testbenchBackupInfo.backupPath
+            );
         }
+    }
+}
+
+async restoreOriginalTestbench(originalPath, backupPath) {
+    try {
+        if (backupPath && originalPath) {
+            await window.electronAPI.copyFile(backupPath, originalPath);
+            await window.electronAPI.deleteFileOrDirectory(backupPath);
+        }
+    } catch (error) {
+        console.warn('Failed to restore original testbench:', error);
     }
 }
     // Generate hierarchy using Yosys
@@ -8041,13 +8205,13 @@ switchToHierarchicalView() {
             icon.className = 'fa-solid fa-list-ul';
             text.textContent = 'Standard';
             toggleButton.classList.add('active');
-            toggleButton.title = 'Mudar para a árvore de arquivos padrão';
+            toggleButton.title = 'Switch to the default file tree';
         } else {
             // Mostrando visão padrão - o botão alterna para a hierárquica
             icon.className = 'fa-solid fa-sitemap';
             text.textContent = 'Hierarchical';
             toggleButton.classList.remove('active');
-            toggleButton.title = 'Mudar para a visão de módulos hierárquica';
+            toggleButton.title = 'Switch to the hierarchical modules view';
         }
     }
 

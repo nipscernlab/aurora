@@ -33,6 +33,7 @@ body {
   height: var(--space-8);
   overflow: hidden;
   flex-shrink: 0;
+  user-select: none;
   
   /* --- ALTERAÇÕES PRINCIPAIS --- */
   position: fixed; /* Fixa a barra de status em relação à janela de visualização */

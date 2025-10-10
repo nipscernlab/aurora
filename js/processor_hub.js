@@ -127,7 +127,7 @@ if (form) {
                 
                 // Mostrar notificação de sucesso
                 if (typeof showCardNotification === 'function') {
-                    showCardNotification(`Processador "${processorName}" criado com sucesso!`, 'success', 3000);
+                    showCardNotification(`Processor "${processorName}" created successfully!`, 'success', 3000);
                 }
             } else {
                 throw new Error(result.message || 'Falha ao criar o projeto do processador.');

@@ -1530,10 +1530,4 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelConfigButton?.addEventListener('click', closeProcessorModal);
     saveConfigButton?.addEventListener('click', closeProcessorModal);
 
-    // Fecha o modal se clicar fora da área do container
-    modal?.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            closeProcessorModal();
-        }
-    });
 });

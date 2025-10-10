@@ -492,7 +492,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isDirectory: (path) => ipcRenderer.invoke('file:is-directory', path),
   showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
   fileExists: (path) => ipcRenderer.invoke('file:exists', path),
-  
+  joinProjectPath: (...segments) => path.join(process.cwd(), ...segments),
+    openFolder: async (folderPath) => {
+        const { shell } = require('electron');
+        await shell.openPath(folderPath);
+    },
 
   // Store Operations
   getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
@@ -730,19 +734,6 @@ ipcRenderer.on('terminal-log', (event, terminal, message, type) => {
   }, '*');
 });
 
-const VERILOG_PATH = path.join(__dirname, 'saphoComponents', 'Packages', 'modules', 'verilog');
-
-contextBridge.exposeInMainWorld('verilogAPI', {
-  loadVerilogFile: async (moduleName) => {
-    try {
-      const filePath = path.join(VERILOG_PATH, `${moduleName}.v`);
-      const content = await fs.readFile(filePath, 'utf8');
-      return { success: true, content };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-});
 
 // Função para obter informações do projeto dos argumentos
 function getProjectInfoFromArgs() {

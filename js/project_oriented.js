@@ -1185,12 +1185,6 @@ function init() {
         closeProjectModal();
     });
 
-    projectModal?.addEventListener('click', (event) => {
-        if (event.target === projectModal) {
-            closeProjectModal();
-        }
-    });
-
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && projectModal?.getAttribute('aria-hidden') === 'false') {
             closeProjectModal();
@@ -2771,9 +2765,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Fecha o modal se clicar fora da área do container
-    projectModal?.addEventListener('click', (event) => {
-        if (event.target === projectModal) {
-            closeProjectModal();
-        }
-    });
 });

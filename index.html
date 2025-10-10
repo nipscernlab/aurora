@@ -384,91 +384,94 @@
         </div>
     </div>
 
-    <!-- Processor Hub Modal -->
-    <div id="modalContainer" class="modal-overlay" aria-hidden="true">
-        <div class="modal-container large" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
-            <header class="modal-header">
-                <h2 id="processor-hub-title" class="modal-title">
-                    <i class="fa-solid fa-star-of-life" aria-hidden="true"></i>
-                    <span>Create Processor Project</span>
-                </h2>
-            </header>
-            
-            <main class="modal-body">
-                <form class="processor-form" id="processorHubForm">
-                        <div class="form-group">
-                            <label for="processorName" class="form-label">Processor Name</label>
-                            <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00">
-                        </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="nBits" class="form-label">
-                                Total Number of Bits
-                                <span class="tooltip" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
-                                    <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
-                                </span>
-                            </label>
-                            <input type="number" id="nBits" class="form-input" required min="1" value="23">
-                        </div>
+   <div id="modalContainer" class="modal-overlay" aria-hidden="true">
+  <div class="modal-container large" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
+    <header class="modal-header">
+      <h2 id="processor-hub-title" class="modal-title">
+        <i class="fa-solid fa-star-of-life" aria-hidden="true"></i>
+        <span>Create Processor Project</span>
+      </h2>
+    </header>
 
-                        <div class="form-group">
-                            <label for="nbMantissa" class="form-label">Mantissa Bit Number</label>
-                            <input type="number" id="nbMantissa" class="form-input" min="1" value="16">
-                        </div>
+    <main class="modal-body">
+      <form class="processor-form" id="processorHubForm" novalidate>
+        <div class="form-group full-width">
+            <label for="processorName" class="form-label">Processor Name</label>
+            <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00" />
+          </div>
+        <!-- Processor name (full width) -->
+        <div class="form-grid">
+          <!-- Row: Total Number of Bits (left) | Gain (right) -->
+          <div class="form-group">
+            <label for="nBits" class="form-label">
+              Total Number of Bits
+              <span class="tooltip" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
+                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+              </span>
+            </label>
+            <input type="number" id="nBits" name="nBits" class="form-input" required min="1" value="23" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="nbExponent" class="form-label">Exponent Bit Number</label>
-                            <input type="number" id="nbExponent" class="form-input" min="1" value="6">
-                        </div>
+          <div class="form-group">
+            <label for="gain" class="form-label">
+              Gain
+              <span class="tooltip" title="Gain must be a power of 2">
+                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+              </span>
+            </label>
+            <input type="number" id="gain" name="gain" class="form-input" required step="any" value="128" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="dataStackSize" class="form-label">Data Stack Size</label>
-                            <input type="number" id="dataStackSize" class="form-input" required min="1" value="5">
-                        </div>
+          <!-- Row: Mantissa (left) | Exponent (right) -->
+          <div class="form-group">
+            <label for="nbMantissa" class="form-label">Mantissa Bit Number</label>
+            <input type="number" id="nbMantissa" name="nbMantissa" class="form-input" min="1" value="16" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
-                            <input type="number" id="instructionStackSize" class="form-input" required min="1" value="5">
-                        </div>
+          <div class="form-group">
+            <label for="nbExponent" class="form-label">Exponent Bit Number</label>
+            <input type="number" id="nbExponent" name="nbExponent" class="form-input" min="1" value="6" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="inputPorts" class="form-label">Number of Input Ports</label>
-                            <input type="number" id="inputPorts" class="form-input" required min="0" value="1">
-                        </div>
+          <!-- Row: Instruction Stack Size (left) | Data Stack Size (right) -->
+          <div class="form-group">
+            <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
+            <input type="number" id="instructionStackSize" name="instructionStackSize" class="form-input" required min="1" value="5" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="outputPorts" class="form-label">Number of Output Ports</label>
-                            <input type="number" id="outputPorts" class="form-input" required min="0" value="1">
-                        </div>
+          <div class="form-group">
+            <label for="dataStackSize" class="form-label">Data Stack Size</label>
+            <input type="number" id="dataStackSize" name="dataStackSize" class="form-input" required min="1" value="5" />
+          </div>
 
-                        <div class="form-group">
-                            <label for="gain" class="form-label">
-                                Gain
-                                <span class="tooltip" title="Gain must be a power of 2">
-                                    <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
-                                </span>
-                            </label>
-                            <input type="number" id="gain" class="form-input" required step="any" value="128">
-                        </div>
-                    </div>
-                </form>
-            </main>
-            
-            <footer class="modal-footer">
-                <div class="footer-actions">
-                    <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
-                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                        <span>Cancel</span>
-                    </button>
-                    <button type="submit" form="processorHubForm" id="generateProcessor" class="btn btn-primary" disabled>
-                        <i class="fa-solid fa-cogs" aria-hidden="true"></i>
-                        <span>Generate Processor</span>
-                    </button>
-                </div>
-            </footer>
+          <!-- Row: Input Ports (left) | Output Ports (right) -->
+          <div class="form-group">
+            <label for="inputPorts" class="form-label">Number of Input Ports</label>
+            <input type="number" id="inputPorts" name="inputPorts" class="form-input" required min="0" value="1" />
+          </div>
+
+          <div class="form-group">
+            <label for="outputPorts" class="form-label">Number of Output Ports</label>
+            <input type="number" id="outputPorts" name="outputPorts" class="form-input" required min="0" value="1" />
+          </div>
         </div>
-    </div>
+      </form>
+    </main>
 
+    <footer class="modal-footer">
+      <div class="footer-actions">
+        <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          <span>Cancel</span>
+        </button>
+        <button type="submit" form="processorHubForm" id="generateProcessor" class="btn btn-primary" disabled>
+          <i class="fa-solid fa-cogs" aria-hidden="true"></i>
+          <span>Generate Processor</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>
 
     <!-- Main Container -->
     <div class="main-container">

@@ -936,7 +936,7 @@ async function initMonaco() {
                     foreground: '#CE9178'
                 }],
                 colors: {
-                    'editor.background': '#101523',
+                    'editor.background': '#0B0F1A',
                     'editor.foreground': '#e2dcff',
                     'editorLineNumber.foreground': '#776f97',
                     'editorLineNumber.activeForeground': '#9d7fff',
@@ -5445,16 +5445,14 @@ document.getElementById('open-folder-button')
     });
 
 document.getElementById('open-hdl-button')
-    .addEventListener('click', async () => {
-        const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-        if (hdlDir) {
-            try {
-                await window.electronAPI.openFolder(hdlDir);
-            } catch (error) {
-                console.error('Error opening HDL folder:', error);
-            }
-        }
-    });
+  .addEventListener('click', async () => {
+      const hdlDir = await window.electronAPI.joinProjectPath('saphoComponents', 'HDL');
+      try {
+          await window.electronAPI.openFolder(hdlDir);
+      } catch (error) {
+          console.error('Error opening HDL folder:', error);
+      }
+  });
 
 document.addEventListener('keydown', (event) => {
     if (event.key === 'F2' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
@@ -10481,7 +10479,7 @@ document.getElementById('allcomp')
             if (toggleButton) {
                 const isProjectMode = toggleButton.classList.contains('active') || toggleButton.classList.contains('pressed');
                 if (isProjectMode) { // Project Mode
-                    document.getElementById('settings-project')
+                    document.getElementById('settings')
                         .click();
                 } else { // Processor Mode
                     document.getElementById('settings')

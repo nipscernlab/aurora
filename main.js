@@ -28,9 +28,6 @@ require('./js/preload_prism.js');
 
 const isDev = process.env.NODE_ENV === 'development';
 
-const settingsPath = path.join(__dirname, 'saphoComponents', 'Scripts' ,'settings.json');
-
-
 let progressWindow = null;
 let downloadInProgress = false;
 let updateCheckInProgress = false;

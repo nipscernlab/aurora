@@ -25,6 +25,7 @@
   border-radius: 8px 8px 0 0; /* Rounded top corners */
   overflow: hidden;
   padding: 1px;
+  user-select: none;
 }
 
 .terminal-tab {

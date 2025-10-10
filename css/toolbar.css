@@ -27,6 +27,7 @@
   border-bottom: 1px solid var(--border-primary);
   box-shadow: var(--shadow-md);
   box-sizing: border-box;
+  user-select: none;
 }
 
 /* ===================================================================================

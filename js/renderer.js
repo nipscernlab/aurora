@@ -7108,6 +7108,8 @@ end`;
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
             const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
             const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+            const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
+
             const {
                 tbFile
             } = await this.getTestbenchInfo(processor, cmmBaseName);
@@ -7129,7 +7131,7 @@ end`;
                 projectParam = this.isProjectOriented ? 1 : 0;
             }
 
-            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
             this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
 
             const asmResult = await window.electronAPI.execCommand(cmd);

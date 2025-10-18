@@ -552,7 +552,10 @@ module core
 	parameter  S_SHR   = 0,
 
 	parameter    SRS   = 0,
-	parameter  S_SRS   = 0
+	parameter  S_SRS   = 0,
+
+	// operacoes especiais
+	parameter  F_ROT   = 0   // potencia de 2 mais proxima da raiz (com ACC)
 )(
 	input               clk, rst,
 
@@ -707,7 +710,8 @@ instr_dec #(.NBOPCO  ( NBOPCO ),
 			   .SHR  (   SHR  ),
 			 .S_SHR  ( S_SHR  ),
 			   .SRS  (   SRS  ),
-			 .S_SRS  ( S_SRS  )) id(clk, rst,
+			 .S_SRS  ( S_SRS  ),
+			 .F_ROT  ( F_ROT  )) id(clk, rst,
                                     id_opcode,
                                     id_dsp_push, id_dsp_pop,
                                     id_ula_op,
@@ -792,7 +796,8 @@ ula #(.NUBITS (NUBITS ),
         .EQU  (  EQU   |  S_EQU  ),
         .SHL  (  SHL   |  S_SHL  ),
         .SHR  (  SHR   |  S_SHR  ),
-		.SRS  (  SRS   |  S_SRS  )) ula (id_ula_op, ula_data_in1, ula_data_in2, ula_out);
+		.SRS  (  SRS   |  S_SRS  ),	
+	  .F_ROT  (F_ROT             )) ula (id_ula_op, ula_data_in1, ula_data_in2, ula_out);
 
 assign sp_in = ula_out;
 

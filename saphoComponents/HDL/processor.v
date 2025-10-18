@@ -248,7 +248,10 @@ module processor
 	parameter  S_SHR   = 0,
 	
 	parameter    SRS   = 0,
-	parameter  S_SRS   = 0
+	parameter  S_SRS   = 0,
+
+	// operacoes especiais
+	parameter  F_ROT   = 0    // potencia de 2 mais proxima da raiz (com ACC)
 )(
 	input               clk     , rst,
 	input  [NUBITS-1:0] io_in   ,
@@ -393,7 +396,8 @@ core #(.NBOPCO ( NBOPCO ),
          .SHR  (   SHR  ),
 	   .S_SHR  ( S_SHR  ),
          .SRS  (   SRS  ),
-	   .S_SRS  ( S_SRS  )) core(clk, rst,
+	   .S_SRS  ( S_SRS  ),
+	   .F_ROT  ( F_ROT  )) core(clk, rst,
                                 instr, instr_addr,
                                 mem_wr, mem_addr_rd, mem_addr_wr, mem_data_in, mem_data_out,
                                 io_in, addr_in, addr_out, req_in, out_en, itr

@@ -2,21 +2,26 @@
 // Funcao sqrt ----------------------------------------------------------------
 
 @float_sqrt     SET sqrt_num       // pega parametro
-@L1_sqrt        SET sqrt_x         // atualiza x
-
+              F_ROT                // primeira estimativa (potencia de 2 mais proxima)
+              
+                PSH                // atualiza x
               F_DIV sqrt_num       // iteracao
-              F_ADD sqrt_x
+             SF_ADD 
               F_MLT 0.5
-                SET sqrt_raiz
 
-              F_NEG                // negacao da raiz
-              F_ADD sqrt_x         // x - raiz
+                PSH                // atualiza x
+              F_DIV sqrt_num       // iteracao
+             SF_ADD
+              F_MLT 0.5
 
-              F_GRE epsilon_taylor // checa tolerancia
-                JIZ L2else_sqrt 
+                PSH                // atualiza x
+              F_DIV sqrt_num       // iteracao
+             SF_ADD
+              F_MLT 0.5
 
-                LOD sqrt_raiz      // se eh, retorna o resultado
+                PSH                // atualiza x
+              F_DIV sqrt_num       // iteracao
+             SF_ADD
+              F_MLT 0.5
+
                 RET
-
-@L2else_sqrt    LOD sqrt_raiz      // se nao eh, volta
-                JMP L1_sqrt

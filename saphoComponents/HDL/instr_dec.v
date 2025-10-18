@@ -142,7 +142,10 @@ module instr_dec
 	parameter  S_SHR   = 0,
 
     parameter    SRS   = 0,
-	parameter  S_SRS   = 0
+	parameter  S_SRS   = 0,
+
+    // operacoes especiais
+    parameter  F_ROT   = 0   // potencia de 2 mais proxima da raiz (com ACC)
 )(
 	input                   clk, rst,
 	input      [NBOPCO-1:0] opcode,
@@ -305,6 +308,10 @@ wire  wS_SHR  ; generate if ( S_SHR  ) assign  wS_SHR   = opcode == 7'd93; else 
 wire    wSRS  ; generate if (   SRS  ) assign    wSRS   = opcode == 7'd94; else assign    wSRS   = 1'b0; endgenerate
 wire  wS_SRS  ; generate if ( S_SRS  ) assign  wS_SRS   = opcode == 7'd95; else assign  wS_SRS   = 1'b0; endgenerate
 
+// operacoes especiais (pula o NOP) -------------------------------------------
+
+wire  wF_ROT  ; generate if ( F_ROT  ) assign  wF_ROT   = opcode == 7'd97; else assign   wF_ROT  = 1'b0; endgenerate
+
 // ----------------------------------------------------------------------------
 // circuitos de controle ------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -359,11 +366,11 @@ wire b5,b4,b3,b2,b1,b0;
 generate
 if (              INV |    INV_M |  P_INV_M |     LAN |  S_LAN |    LOR |  S_LOR |     LIN |  LIN_M |  P_LIN_M |
                   LES |  S_LES   |  F_LES   |  SF_LES |    GRE |  S_GRE |  F_GRE |  SF_GRE |  EQU   |  S_EQU   |
-                  SHL |  S_SHL   |    SHR   |   S_SHR |    SRS |  S_SRS )
+                  SHL |  S_SHL   |    SHR   |   S_SHR |    SRS |  S_SRS |  F_ROT)
 
      assign b5 = wINV |   wINV_M | wP_INV_M |    wLAN | wS_LAN |   wLOR | wS_LOR |    wLIN | wLIN_M | wP_LIN_M |
                  wLES | wS_LES   | wF_LES   | wSF_LES |   wGRE | wS_GRE | wF_GRE | wSF_GRE | wEQU   | wS_EQU   |
-                 wSHL | wS_SHL   |   wSHR   |  wS_SHR |   wSRS | wS_SRS ;
+                 wSHL | wS_SHL   |   wSHR   |  wS_SHR |   wSRS | wS_SRS | wF_ROT ;
 else assign b5 = 1'b0 ;
 endgenerate
 
@@ -387,14 +394,14 @@ endgenerate
 
 // logica pra b3
 generate
-if               (F_INN | PF_INN   |
-                    MOD |  S_MOD   |   SGN    |   S_SGN |  F_SGN   |  SF_SGN   |
-                    NEG |    NEG_M |  P_NEG_M |   F_NEG |  F_NEG_M |  PF_NEG_M |
-                    ABS |    NRM_M |  P_NRM_M |
-                    I2F |    I2F_M |  P_I2F_M |     F2I |    F2I_M |   P_F2I_M |
-                    AND |  S_AND   |    ORR   |   S_ORR |    XOR   |   S_XOR   |
-                    GRE |  S_GRE   |  F_GRE   |  SF_GRE |    EQU   |   S_EQU   |
-                    SHL |  S_SHL   |    SHR   |   S_SHR |    SRS   |   S_SRS   )
+if               (F_INN | PF_INN    |
+                    MOD |  S_MOD    |   SGN    |   S_SGN |  F_SGN   |  SF_SGN   |
+                    NEG |    NEG_M  |  P_NEG_M |   F_NEG |  F_NEG_M |  PF_NEG_M |
+                    ABS |    NRM_M  |  P_NRM_M |
+                    I2F |    I2F_M  |  P_I2F_M |     F2I |    F2I_M |   P_F2I_M |
+                    AND |  S_AND    |    ORR   |   S_ORR |    XOR   |   S_XOR   |
+                    GRE |  S_GRE    |  F_GRE   |  SF_GRE |    EQU   |   S_EQU   |
+                    SHL |  S_SHL    |    SHR   |   S_SHR |    SRS   |   S_SRS   |   F_ROT)
 
      assign b3 = wF_INN | wPF_INN   | 
                    wMOD |  wS_MOD   |   wSGN   |  wS_SGN | wF_SGN   | wSF_SGN   |
@@ -403,7 +410,7 @@ if               (F_INN | PF_INN   |
                    wI2F |    wI2F_M | wP_I2F_M |    wF2I |   wF2I_M |  wP_F2I_M |
                    wAND |  wS_AND   |   wORR   |  wS_ORR |   wXOR   |  wS_XOR   |
                    wGRE |  wS_GRE   | wF_GRE   | wSF_GRE |   wEQU   |  wS_EQU   |
-                   wSHL |  wS_SHL   |   wSHR   |  wS_SHR |   wSRS   |  wS_SRS   ;
+                   wSHL |  wS_SHL   |   wSHR   |  wS_SHR |   wSRS   |  wS_SRS   |  wF_ROT;
 else assign b3 = 1'b0 ;
 endgenerate
 
@@ -416,7 +423,7 @@ if (              MLT   | S_MLT    |  F_MLT   |  SF_MLT   |
                   F2I_M | P_F2I_M  |
                   AND   | S_AND    |    ORR   |   S_ORR   |     XOR   | S_XOR |
                   LIN   |   LIN_M  |  P_LIN_M |     LES   |   S_LES   | F_LES |   SF_LES |
-                  SHR   | S_SHR    |    SRS   |   S_SRS   )
+                  SHR   | S_SHR    |    SRS   |   S_SRS   |   F_ROT   )
 
      assign b2 = wMLT   | wS_MLT   | wF_MLT   | wSF_MLT   |
                  wDIV   | wS_DIV   | wF_DIV   | wSF_DIV   |
@@ -425,7 +432,7 @@ if (              MLT   | S_MLT    |  F_MLT   |  SF_MLT   |
                  wF2I_M | wP_F2I_M |
                  wAND   | wS_AND   |   wORR   |  wS_ORR   |    wXOR   | wS_XOR |
                  wLIN   |   wLIN_M | wP_LIN_M |    wLES   |  wS_LES   | wF_LES | wSF_LES |
-                 wSHR   | wS_SHR   |   wSRS   |  wS_SRS   ;
+                 wSHR   | wS_SHR   |   wSRS   |  wS_SRS   |  wF_ROT   ;
 else assign b2 = 1'b0 ;
 endgenerate
 
@@ -443,7 +450,7 @@ if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
                   ORR |  S_ORR   |     XOR   |   S_XOR   |
                   LAN |  S_LAN   |     LOR   |   S_LOR   |
                   LES |  S_LES   |   F_LES   |  SF_LES   |
-                  EQU |  S_EQU   |     SHL   |   S_SHL   )
+                  EQU |  S_EQU   |     SHL   |   S_SHL   | F_ROT)
 
      assign b1 = wADD | wS_ADD   |  wF_ADD   | wSF_ADD   |
                  wDIV | wS_DIV   |  wF_DIV   | wSF_DIV   |
@@ -457,7 +464,7 @@ if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
                  wORR | wS_ORR   |    wXOR   |  wS_XOR   |
                  wLAN | wS_LAN   |    wLOR   |  wS_LOR   |
                  wLES | wS_LES   |  wF_LES   | wSF_LES   |
-                 wEQU | wS_EQU   |    wSHL   |  wS_SHL   ;
+                 wEQU | wS_EQU   |    wSHL   |  wS_SHL   | wF_ROT;
 else assign b1 = 1'b0 ;
 endgenerate
 
@@ -576,4 +583,5 @@ endmodule
     94: ula_op  <= 6'd45;    //    SRS   -> Shift pra direita com sinal usando a memoria
     95: ula_op  <= 6'd45;    //  S_SRS   -> Shift pra direita com sinal usando a pilha
     96: ula_op  <= 6'dx;     //    NOP   -> No Operation
+    97: ula_op  <= 6'd46;    //  F_ROT   -> Raiz quadrada em ponto flutuante
     ------------------------------------------------*/

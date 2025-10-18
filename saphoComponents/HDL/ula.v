@@ -111,6 +111,8 @@ always @ (*) case (op)
 	6'd44  : out <=   shr ;   //   SHR
 	6'd45  : out <=   srs ;   //   SRS
 
+	6'd46  : out <=   smx ;   // F_ROT
+
 	default: out <= {NUBITS{1'bx}};
 endcase
 
@@ -233,17 +235,20 @@ module norm_mux
 	 input [NUBITS-1:0] fmlt,
 	 input [NUBITS-1:0] fdiv,
 	 input [NUBITS-1:0] i2f , i2fm,
+	 input [NUBITS-1:0] frot,
 	output [NUBITS-1:0] out
 );
 
 // multiplexador de entrada
 reg [NUBITS-1:0] imux_out;
+
 always @ (*) case (op)
 	6'd3   : imux_out <=  fadd ;   // F_ADD
 	6'd5   : imux_out <=  fmlt ;   // F_MLT
 	6'd7   : imux_out <=  fdiv ;   // F_DIV
 	6'd25  : imux_out <=   i2f ;   //   I2F
 	6'd26  : imux_out <=   i2fm;   //   I2F_M
+	6'd46  : imux_out <=   frot;   // F_ROT
 	default: imux_out <= {NUBITS{1'bx}};
 endcase
 
@@ -540,7 +545,6 @@ assign out = (in[MAN+EXP]) ? {1'b0, 1'b1, {MAN+EXP-1{1'b0}}} : in;
 endmodule
 
 // NRM - divisao por uma constante --------------------------------------------
-// evita circuito de divisao generico -----------------------------------------
 
 module ula_nrm
 #(
@@ -822,14 +826,41 @@ endmodule
 
 module ula_srs
 #(
-	parameter NUBITS = 32
+	parameter      NUBITS = 32
 )(
-	 input     signed [NUBITS-1:0] in1,
-	 input            [NUBITS-1:0] in2,
-	output reg signed [NUBITS-1:0] out 
+	 input signed [NUBITS-1:0] in1,
+	 input        [NUBITS-1:0] in2,
+	output signed [NUBITS-1:0] out 
 );
 
 assign out = in1 >>> in2;
+
+endmodule
+
+// ****************************************************************************
+// Operacoes especiais ********************************************************
+// ****************************************************************************
+
+// F_ROT - potencia de 2 mais proxima da raiz ---------------------------------
+
+module ula_frot
+#(
+	parameter MAN = 23,
+	parameter EXP = 8
+)(
+	 input [MAN+EXP:0] in,
+	output [MAN+EXP:0] out
+);
+
+wire                  s_in  = in[MAN+EXP      ]; 
+wire signed [EXP-1:0] e_in  = in[MAN+EXP-1:MAN];
+wire        [MAN-1:0] m_in  = in[MAN    -1:0  ];
+
+wire                  s_out = s_in;
+wire signed [EXP-1:0] e_out = (e_in+(MAN-1))/2;
+wire        [MAN-1:0] m_out = 1;
+
+assign out = {s_out, e_out, m_out};
 
 endmodule
 
@@ -904,7 +935,10 @@ module ula
 	// operacoes de deslocamento de bits
 	parameter   SHL   = 0,
 	parameter   SHR   = 0,
-	parameter   SRS   = 0)
+	parameter   SRS   = 0,
+	
+	// operacoes especiais
+	parameter  F_ROT  = 0)
 (
 	input         [       5:0] op,
 	input  signed [NUBITS-1:0] in1, in2,
@@ -1182,11 +1216,17 @@ wire signed [NUBITS-1:0] srs;
 
 generate if (SRS) ula_srs #(NUBITS) my_srs(in1, in2, srs); else assign srs = {NUBITS{1'bx}}; endgenerate
 
+// F_ROT ----------------------------------------------------------------------
+
+wire signed [NUBITS-1:0] frot;
+
+generate if (F_ROT) ula_frot #(NBMANT,NBEXPO) my_frot(in2, frot); else assign frot = {NUBITS{1'bx}}; endgenerate
+
 // mux de desnormalizacao -----------------------------------------------------
 
 wire signed [NUBITS-1:0] smx;
 
-generate if (I2F | I2F_M | F_ADD | F_MLT | F_DIV) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(op, fadd, fmlt, fdiv, i2f, i2fm, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
+generate if (I2F | I2F_M | F_ADD | F_MLT | F_DIV | F_ROT) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(op, fadd, fmlt, fdiv, i2f, i2fm, frot, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
 
 // mux principal --------------------------------------------------------------
 

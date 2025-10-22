@@ -1065,13 +1065,13 @@ window.electronAPI.onProcessorCreated((data) => {
       
       // Set default values for the new processor
       processorClkInput.value = '100'; // Default clock, adjust as needed
-      processorNumClocksInput.value = '1000'; // Default clocks, adjust as needed
+      processorNumClocksInput.value = '2000'; // Default clocks, adjust as needed
       
       // Save the new processor to temp configs
       tempProcessorConfigs[processorName] = {
         name: processorName,
         clk: 100,
-        numClocks: 1000
+        numClocks: 2000
       };
     }
   }).catch(error => {

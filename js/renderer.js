@@ -6401,7 +6401,6 @@ class CompilationModule {
         this.gtkwaveProcess = null;
         this.hierarchyGenerated = false;
         this.setupHierarchyToggle(); 
-        this.preventFileTreeRefreshInHierarchy();
 
 }
 
@@ -7256,17 +7255,10 @@ end`;
         }
 
         // Começa desabilitado até que uma hierarquia seja gerada
-        toggleButton.classList.add('disabled');
         toggleButton.title = 'Execute a compilação Verilog para gerar a hierarquia';
         
         toggleButton.addEventListener('click', async () => {
-            // Previne a ação se estiver desabilitado ou em processo de troca
-            if (toggleButton.classList.contains('disabled') || 
-                toggleButton.dataset.switching === 'true') {
-                this.terminalManager.appendToTerminal('tveri', 
-                    'Por favor, execute a compilação Verilog primeiro para gerar a hierarquia', 'warning');
-                return;
-            }
+
 
             toggleButton.dataset.switching = 'true';
 
@@ -7291,21 +7283,6 @@ end`;
         });
     }
 
-preventFileTreeRefreshInHierarchy() {
-    // Store original refreshFileTree
-    if (!window._originalRefreshFileTree) {
-        window._originalRefreshFileTree = window.refreshFileTree;
-    }
-    
-    // Override refreshFileTree to check hierarchy state
-    window.refreshFileTree = async () => {
-        if (this.isHierarchicalView) {
-            console.log('File tree refresh blocked - hierarchy view active');
-            return;
-        }
-        await window._originalRefreshFileTree();
-    };
-}
 
 switchToStandardView() {
     const fileTree = document.getElementById('file-tree');
@@ -8141,11 +8118,6 @@ restoreStandardTreeState() {
 }
     // NEW: Switch to hierarchical tree view
 switchToHierarchicalView() {
-    if (!this.hierarchyData) {
-        this.terminalManager.appendToTerminal('tveri', 
-            'No hierarchy data available. Run Verilog compilation first.', 'warning');
-        return;
-    }
 
     const fileTree = document.getElementById('file-tree');
     if (!fileTree) {

@@ -57,7 +57,7 @@
         </button>
         <button id="allcomp" class="toolbar-button" disabled>
             <i class="fa-solid fa-font-awesome" style="color: #da70d6;"></i>
-            <span>Full Build - teste</span>
+            <span>Full Build</span>
         </button>
     </div>
 
@@ -141,13 +141,13 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="processorClk" class="form-label">CLK Frequency (MHz)</label>
-                        <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000">
+                        <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000" value="100">
                         <small class="form-hint">Maximum of 1000MHz</small>
                     </div>
                     
                     <div class="form-group">
                         <label for="processorNumClocks" class="form-label">Number of Clocks</label>
-                        <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="200000">
+                        <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="2000">
                     </div>
                     
                     <div class="form-group">
@@ -384,12 +384,12 @@
         </div>
     </div>
 
-   <div id="modalContainer" class="modal-overlay" aria-hidden="true">
+   <div id="modalContainer" class="modal-overlay" >
   <div class="modal-container large" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
     <header class="modal-header">
       <h2 id="processor-hub-title" class="modal-title">
         <i class="fa-solid fa-star-of-life" aria-hidden="true"></i>
-        <span>Create Processor Project</span>
+        <span>Create Processor Hub</span>
       </h2>
     </header>
 
@@ -857,13 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Overlay click: close when clicking on the overlay background
-    Object.values(modals).forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            // close only when clicking the overlay itself (not the modal container)
-            if (e.target === modal) closeModal(modal.id);
-        });
-    });
 
     // Escape key closes any open modal
     document.addEventListener('keydown', (e) => {

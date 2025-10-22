@@ -24,7 +24,6 @@ log.transports.file.level = 'debug';
 const { promisify } = require('util');
 const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
 require('./js/preload_prism.js');
-require('./js/preload_prism.js');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -73,7 +72,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -528,7 +527,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2544,7 +2543,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,

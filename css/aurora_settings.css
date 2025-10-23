@@ -206,7 +206,7 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 
 .setting-description {
     font-size: 0.85rem;
-    color: #666;
+    color: #b3b3b3;
     margin-top: 0.25rem;
     line-height: 1.4;
     max-width: 300px;

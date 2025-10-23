@@ -2,7 +2,7 @@
 .terminal-container {
   background-color: var(--bg-secondary);
   /* border-top: 1px solid var(--border-primary); */
-  min-height: inherit;
+  min-height: 70px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -227,7 +227,7 @@
   flex-direction: column;
   transition: height 0.4s ease; /* Smooth resize transition */
   overflow-y: auto; /* Scroll when terminal is too small */
-  padding: 2vh 2vh;
+  padding: 1vh 2vh;
 }
 
 .editor-terminal-container {

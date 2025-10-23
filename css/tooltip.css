@@ -121,7 +121,6 @@
 
 /* Enhanced styling for buttons when tooltips are shown */
 .toolbar-button:hover {
-    background-color: var(--bg-hover);
     transform: translateY(-1px);
     transition: transform 0.2s ease, background-color 0.2s ease;
 }

@@ -23,11 +23,6 @@
   transition: opacity var(--transition-normal), visibility var(--transition-normal);
 }
 
-.ai-assistant-backdrop.open {
-  opacity: 1;
-  visibility: visible;
-}
-
 .ai-assistant-container {
   position: fixed;
   top: 0;

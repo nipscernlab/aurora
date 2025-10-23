@@ -26,7 +26,7 @@
   --bg-secondary: #221f37;      /* Panels, sidebars, secondary surfaces */
   --bg-tertiary: #1a192b;       /* UI elements like input fields, list items */
   --bg-quaternary: #1c1a2f;    /* Subtle dividers, inactive elements */
-  --bg-elevated: #101523;      /* Modals, popovers, floating elements */
+  --bg-elevated: #221f3594;      /* Modals, popovers, floating elements */
 
   /* Accent Palette (Amethyst Purple) - Saturated and dynamic */
   --accent-primary: #9b59b6;   /* Main interactive elements, buttons, links */

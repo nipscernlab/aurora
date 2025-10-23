@@ -23,7 +23,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
-  border-bottom: 1px solid var(--border-color);
+  border-radius: 16px 16px 0px 0px;
   background-color: #1e1c30;
   user-select: none;
   position: relative;
@@ -225,7 +225,6 @@
   
   /* Aparência */
   background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
   color: var(--text-secondary); /* Cor de texto padrão para os segmentos */
 
   /* Tipografia */

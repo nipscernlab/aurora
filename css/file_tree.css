@@ -18,12 +18,15 @@
   width: 250px;
   min-width: 10px; /* Sensible minimum width */
   position: relative;
-  height: 100%;
-  background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-primary);
+  height: 96%;
+  background-color: var(--bg-tertiary);
   transition: width var(--transition-normal), transform var(--transition-normal);
   user-select: none;
   overflow: hidden;
+  left: 1%;
+  top: 3%;
+  padding: 4vh 2vh;
+  border-radius: 16px 16px 16px 16px;
 }
 
   .file-tree-item.active {

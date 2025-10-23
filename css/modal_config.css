@@ -219,7 +219,7 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
   font-family: var(--font-sans);
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   color: var(--text-primary);
@@ -355,9 +355,6 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  font-family: var(--font-sans);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -382,7 +379,7 @@
 }
 
 .btn-primary {
-  background: var(--gradient-primary);
+  background: var(--gradient-accent-text);
   color: var(--text-on-accent);
   box-shadow: var(--shadow-sm);
 }

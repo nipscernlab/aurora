@@ -22,10 +22,10 @@
    * =================================================================================== */
   
   /* Base Palette - Deep, nuanced darks with a cool undertone */
-  --bg-primary: #101523;        /* Deepest background, almost black */
-  --bg-secondary: #101523;      /* Panels, sidebars, secondary surfaces */
-  --bg-tertiary: #1d2437;       /* UI elements like input fields, list items */
-  --bg-quaternary: #1d2437;    /* Subtle dividers, inactive elements */
+  --bg-primary: #221f37;        /* Deepest background, almost black */
+  --bg-secondary: #221f37;      /* Panels, sidebars, secondary surfaces */
+  --bg-tertiary: #1a192b;       /* UI elements like input fields, list items */
+  --bg-quaternary: #1c1a2f;    /* Subtle dividers, inactive elements */
   --bg-elevated: #101523;      /* Modals, popovers, floating elements */
 
   /* Accent Palette (Amethyst Purple) - Saturated and dynamic */

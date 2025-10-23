@@ -24,7 +24,7 @@
   overflow-y: hidden;
   scroll-behavior: smooth;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  background-color: #1e1c30;
   user-select: none;
   position: relative;
 }

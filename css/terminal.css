@@ -1,6 +1,6 @@
 /* Terminal Container */
 .terminal-container {
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-secondary);
   /* border-top: 1px solid var(--border-primary); */
   min-height: inherit;
   display: flex;
@@ -11,18 +11,16 @@
   font-size: 14px;
   line-height: 1.5;
   z-index: 2;
-  border-radius: 8px; /* Added rounded corners */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
 }
 
 /* Terminal Tabs */
 .terminal-tabs {
   display: flex;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-quaternary);
   padding: 0;
   margin: 0;
-  border-radius: 8px 8px 0 0; /* Rounded top corners */
+  border-radius: 16px 16px 0px 0px; /* Rounded top corners */
   overflow: hidden;
   padding: 1px;
   user-select: none;
@@ -68,7 +66,7 @@
   overflow: auto;
   word-wrap: break-word;
   white-space: pre-wrap;
-  border-radius: 0 0 8px 8px; /* Rounded bottom corners */
+  border-radius: 0px 0px 16px 16px; /* Rounded top corners */
 }
 
 .terminal-body {
@@ -229,6 +227,7 @@
   flex-direction: column;
   transition: height 0.4s ease; /* Smooth resize transition */
   overflow-y: auto; /* Scroll when terminal is too small */
+  padding: 2vh 2vh;
 }
 
 .editor-terminal-container {
@@ -441,20 +440,16 @@
 
 /* Terminal styles */
 .terminal-content {
-  background-color: transparent;
-  border-radius: 8px;
+  background-color: var(--bg-tertiary);
   overflow: hidden;
   font-family: var(--font-mono);
-  box-shadow: var(--shadow-md);
 }
 
 .terminal-header {
   color: var(--text-primary);
   font-weight: bold;
-  border-bottom: 1px solid var(--border-primary);
   padding: 10px 10px;
   border-radius: 8px 8px 0 0;
-  background: linear-gradient(to right, var(--bg-secondary), var(--bg-tertiary));
 }
 
 .terminal-body {

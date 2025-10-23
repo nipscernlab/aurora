@@ -50,6 +50,12 @@ style.textContent = `
   }
   .resizer-horizontal {
     cursor: var(--cursor-resizing-horizontal);
+    background-color: var(--bg-secondary);
+    width: 96%;
+    left: 50%; 
+    transform: translateX(-50%);
+    position: relative;
+    border-radius: 16px;
   }
 `;
 document.head.appendChild(style);

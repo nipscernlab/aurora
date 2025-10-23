@@ -936,7 +936,7 @@ async function initMonaco() {
                     foreground: '#CE9178'
                 }],
                 colors: {
-                    'editor.background': '#0B0F1A',
+                    'editor.background': '#161626',
                     'editor.foreground': '#e2dcff',
                     'editorLineNumber.foreground': '#776f97',
                     'editorLineNumber.activeForeground': '#9d7fff',

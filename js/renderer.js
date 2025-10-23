@@ -4592,7 +4592,6 @@ style.textContent = `
   .file-item {
     display: flex;
     align-items: center;
-    padding: 4px 0;
     cursor: pointer;
   }
 

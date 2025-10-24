@@ -210,7 +210,7 @@
 .vvp-progress-overlay.minimized .vvp-progress-info {
   width: 250px;
   padding: var(--space-3);
-  right: 20px;
+  right: 30px;
   bottom: 30px;
 }
 

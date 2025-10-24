@@ -79,6 +79,9 @@ async function createMainWindow() {
       nodeIntegration: true,
       webviewTag: true,
       preload: path.join(__dirname, 'js', 'preload.js'),
+       enableWebSQL: false,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false
     },
     backgroundColor: '#1e1e1e',
     show: false,
@@ -1235,37 +1238,66 @@ ipcMain.handle('save-file', async (event, { filePath, content }) => {
 */
 
 // Function to scan a directory recursively
+// Enhanced scanDirectory that returns nested structure
 async function scanDirectory(dirPath) {
-  const items = await fse.readdir(dirPath, { withFileTypes: true });
-  const files = await Promise.all(
-    items.map(async item => {
-      const fullPath = path.join(dirPath, item.name);
-      if (item.isDirectory()) {
-        const children = await scanDirectory(fullPath); // Recursively scan subdirectories
-        return {
-          name: item.name,
-          path: fullPath,
-          type: 'directory',
-          children
-        };
+  async function buildTree(currentPath, isRoot = false) {
+    try {
+      const items = await fs.readdir(currentPath, { withFileTypes: true });
+      const result = [];
+
+      // Sort: directories first, then files, alphabetically
+      items.sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      for (const item of items) {
+        const fullPath = path.join(currentPath, item.name);
+        const relativePath = path.relative(dirPath, fullPath);
+
+        if (item.isDirectory()) {
+          // Recursively build directory tree
+          const children = await buildTree(fullPath, false);
+          result.push({
+            name: item.name,
+            path: fullPath,
+            relativePath: relativePath,
+            type: 'directory',
+            children: children
+          });
+        } else {
+          result.push({
+            name: item.name,
+            path: fullPath,
+            relativePath: relativePath,
+            type: 'file'
+          });
+        }
       }
-      return {
-        name: item.name,
-        path: fullPath,
-        type: 'file'
-      };
-    })
-  );
-  return files;
+
+      return result;
+    } catch (error) {
+      console.error(`Error scanning directory ${currentPath}:`, error);
+      return [];
+    }
+  }
+
+  return await buildTree(dirPath, true);
 }
 
+// Handler to refresh the folder structure
 // Handler to refresh the folder structure
 ipcMain.handle('refreshFolder', async (event, projectPath) => {
   try {
     if (!projectPath) {
       throw new Error('No project path provided');
     }
+    
+    console.log('Refreshing folder structure for:', projectPath);
     const files = await scanDirectory(projectPath);
+    console.log('Scanned files count:', files.length);
+    
     return { files };
   } catch (error) {
     console.error('Error scanning directory:', error);
@@ -4174,44 +4206,10 @@ ipcMain.handle('stop-watching-directory', async (event, directoryPath) => {
   }
 });
 
-// Get directory structure function
+// Get directory structure function - MUST return nested structure
 async function getDirectoryStructure(basePath) {
-  const files = [];
-  
-  async function scanDirectory(currentPath, relativePath = '') {
-    try {
-      const items = await fs.readdir(currentPath, { withFileTypes: true });
-      
-      for (const item of items) {
-        const fullPath = path.join(currentPath, item.name);
-        const itemRelativePath = path.join(relativePath, item.name);
-        
-        if (item.isDirectory()) {
-          files.push({
-            name: item.name,
-            path: fullPath,
-            relativePath: itemRelativePath,
-            isDirectory: true,
-            children: []
-          });
-          
-          await scanDirectory(fullPath, itemRelativePath);
-        } else {
-          files.push({
-            name: item.name,
-            path: fullPath,
-            relativePath: itemRelativePath,
-            isDirectory: false
-          });
-        }
-      }
-    } catch (error) {
-      console.error(`Error scanning directory ${currentPath}:`, error);
-    }
-  }
-  
-  await scanDirectory(basePath);
-  return files;
+  // Use the same scanDirectory function for consistency
+  return await scanDirectory(basePath);
 }
 
 // Periodic health check for directory watchers

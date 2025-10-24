@@ -4160,9 +4160,11 @@ const FileTreeState = {
 // Atualizar a função refreshFileTree
 async function refreshFileTree() {
     try {
-        // ADICIONAR ESTAS LINHAS NO INÍCIO
+        // CRITICAL: Skip if hierarchy view is active
         const fileTree = document.getElementById('file-tree');
-        if (fileTree && fileTree.classList.contains('hierarchy-view')) {
+        if (!fileTree) return;
+        
+        if (TreeViewState.isHierarchical) {
             console.log('Skipping refresh - hierarchy view is active');
             return;
         }
@@ -4172,17 +4174,7 @@ async function refreshFileTree() {
             return;
         }
 
-        const isDirectory = await window.electronAPI.isDirectory(currentProjectPath);
-        if (!isDirectory) {
-            const directoryPath = path.dirname(currentSpfPath);
-            currentProjectPath = directoryPath;
-            const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
-            if (currentProjectPath) {
-                await window.electronAPI.getCurrentProject(currentProjectPath);
-            }
-        }
-
-        // Prevenir múltiplas atualizações simultâneas
+        // Prevent multiple simultaneous refreshes
         if (FileTreeState.isRefreshing) {
             return;
         }
@@ -4195,59 +4187,56 @@ async function refreshFileTree() {
             refreshButton.classList.add('spinning');
         }
 
+        // Get fresh data from backend
         const result = await window.electronAPI.refreshFolder(currentProjectPath);
 
-        if (result) {
-            const fileTree = document.getElementById('file-tree');
-            if (fileTree) {
-                // CRÍTICO: Salvar estado ANTES de limpar
-                const expandedPaths = Array.from(FileTreeState.expandedFolders);
-                
-                // Aplicar fade-out antes de limpar
-                fileTree.style.transition = 'opacity 0.2s ease';
-                fileTree.style.opacity = '0';
+        if (result && result.files) {
+            // Save current expanded state
+            const expandedPaths = Array.from(FileTreeState.expandedFolders);
+            
+            // Apply fade-out transition
+            fileTree.style.transition = 'opacity 0.2s ease';
+            fileTree.style.opacity = '0';
 
-                setTimeout(() => {
-                    fileTree.innerHTML = '';
-                    
-                    // CRÍTICO: Restaurar classe hierarchy se estava ativa
-                    const wasHierarchical = fileTree.classList.contains('hierarchy-view');
-                    
-                    // Renderizar nova árvore
-                    renderFileTree(result.files, fileTree);
-                    
-                    // Se não estava em modo hierárquico, restaurar expansões
-                    if (!wasHierarchical) {
-                        // Reexpandir pastas que estavam abertas
-                        expandedPaths.forEach(path => {
-                            const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
-                            if (folderItem) {
-                                const folderToggle = folderItem.querySelector('.folder-toggle');
-                                const folderContent = folderItem.querySelector('.folder-content');
-                                const icon = folderItem.querySelector('.file-item-icon');
-                                
-                                if (folderToggle && folderContent) {
-                                    folderContent.classList.remove('hidden');
-                                    folderToggle.classList.add('rotated');
-                                    if (icon) {
-                                        icon.classList.remove('fa-folder');
-                                        icon.classList.add('fa-folder-open');
-                                    }
-                                }
+            setTimeout(() => {
+                // Clear and rebuild tree
+                fileTree.innerHTML = '';
+                fileTree.classList.remove('hierarchy-view'); // Ensure standard view
+                
+                // Render fresh tree
+                renderFileTree(result.files, fileTree);
+                
+                // Restore expanded folders
+                expandedPaths.forEach(path => {
+                    const folderItem = fileTree.querySelector(
+                        `.file-tree-item[data-path="${CSS.escape(path)}"]`
+                    );
+                    if (folderItem) {
+                        const folderToggle = folderItem.querySelector('.folder-toggle');
+                        const folderContent = folderItem.querySelector('.folder-content');
+                        const icon = folderItem.querySelector('.file-item-icon');
+                        
+                        if (folderToggle && folderContent) {
+                            folderContent.classList.remove('hidden');
+                            folderToggle.classList.add('rotated');
+                            if (icon) {
+                                icon.classList.remove('fa-folder');
+                                icon.classList.add('fa-folder-open');
                             }
-                        });
+                        }
                     }
-                    
-                    // Aplicar fade-in depois de renderizar
-                    fileTree.style.opacity = '1';
-                }, 300);
-            }
+                });
+                
+                // Fade back in
+                fileTree.style.opacity = '1';
+            }, 200);
         }
 
         if (refreshButton) {
-            refreshButton.style.pointerEvents = 'auto';
-            refreshButton.classList.remove('spinning');
-            refreshButton.style.visibility = 'visible';
+            setTimeout(() => {
+                refreshButton.style.pointerEvents = 'auto';
+                refreshButton.classList.remove('spinning');
+            }, 300);
         }
 
     } catch (error) {
@@ -4339,6 +4328,11 @@ style.textContent = `
 document.head.appendChild(style);
 
 function renderFileTree(files, container, level = 0, parentPath = '') {
+    if (!Array.isArray(files)) {
+        console.error('renderFileTree: files is not an array');
+        return;
+    }
+    
     const filteredFiles = files.filter(file => {
         if (file.type === 'directory') return true;
         if (file.name === 'projectOriented.json') return false;
@@ -4347,7 +4341,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         return extension !== 'spf';
     });
 
-    // ADICIONAR: Ordenar arquivos - pastas primeiro
+    // Sort: folders first, then files
     filteredFiles.sort((a, b) => {
         if (a.type === 'directory' && b.type !== 'directory') return -1;
         if (a.type !== 'directory' && b.type === 'directory') return 1;
@@ -4363,10 +4357,9 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
         item.style.paddingLeft = `${level * 20}px`;
 
         const icon = document.createElement('i');
-        const filePath = parentPath ? `${parentPath}/${file.name}` : file.name;
+        const filePath = file.path; // Use full path from file object
 
         if (file.type === 'directory') {
-            // CRÍTICO: Adicionar data-path no wrapper
             itemWrapper.setAttribute('data-path', filePath);
             
             const folderToggle = document.createElement('i');
@@ -4377,13 +4370,12 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
             item.appendChild(icon);
 
             const childContainer = document.createElement('div');
-            childContainer.className = 'folder-content';
+            childContainer.className = 'folder-content hidden';
 
             const wasExpanded = FileTreeState.isExpanded(filePath);
             
-            if (!wasExpanded) {
-                childContainer.classList.add('hidden');
-            } else {
+            if (wasExpanded) {
+                childContainer.classList.remove('hidden');
                 folderToggle.classList.add('rotated');
                 icon.classList.remove('fa-folder');
                 icon.classList.add('fa-folder-open');
@@ -4397,7 +4389,7 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
                 icon.classList.toggle('fa-folder-open');
                 FileTreeState.toggleFolder(filePath, !isExpanded);
 
-                if (!isExpanded) {
+                if (!isExpanded && file.children && file.children.length > 0) {
                     const visibleItems = childContainer.querySelectorAll('.file-tree-item');
                     visibleItems.forEach((item, index) => {
                         item.style.animation = 'none';
@@ -4410,21 +4402,22 @@ function renderFileTree(files, container, level = 0, parentPath = '') {
 
             item.addEventListener('click', toggleFolder);
 
-            if (file.children) {
+            // CRITICAL: Render children recursively
+            if (file.children && Array.isArray(file.children)) {
                 renderFileTree(file.children, childContainer, level + 1, filePath);
             }
 
             itemWrapper.appendChild(item);
             itemWrapper.appendChild(childContainer);
         } else {
-            // Renderização de arquivos (sem mudanças)
+            // File rendering
             const extension = file.name.split('.').pop().toLowerCase();
             if (extension === 'gtkw') {
                 icon.className = 'fa-solid fa-file-waveform file-item-icon';
             } else if (extension === 'v') {
                 icon.className = 'fa-solid fa-file-pen file-item-icon';
             } else if (extension === 'txt') {
-                icon.className = 'fa-solid fa-file-lines';
+                icon.className = 'fa-solid fa-file-lines file-item-icon';
             } else if (extension === 'zip' || extension === '7z') {
                 icon.className = 'fa-solid fa-file-zipper file-item-icon';
             } else if (file.name === 'house_report.json') {
@@ -4621,6 +4614,89 @@ if (window.electronAPI && window.electronAPI.onFileTreeRefreshed) {
     });
 });
 
+// Global state manager for tree views
+const TreeViewState = {
+    isHierarchical: false,
+    hierarchyData: null,
+    standardTreeHTML: null,
+    isToggleEnabled: false,
+    compilationModule: null, // Store reference to compilation module
+    
+    setHierarchical(value) {
+        this.isHierarchical = value;
+        this.updateToggleButton();
+    },
+    
+    setCompilationModule(module) {
+        this.compilationModule = module;
+    },
+    
+    updateToggleButton() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        const icon = toggleButton.querySelector('i');
+        const text = toggleButton.querySelector('.toggle-text');
+        
+        if (this.isHierarchical) {
+            icon.className = 'fa-solid fa-list-ul';
+            text.textContent = 'Standard';
+            toggleButton.classList.add('active');
+            toggleButton.title = 'Switch to standard file tree';
+        } else {
+            icon.className = 'fa-solid fa-sitemap';
+            text.textContent = 'Hierarchical';
+            toggleButton.classList.remove('active');
+            toggleButton.title = 'Switch to hierarchical module view';
+        }
+    },
+    
+    enableToggle() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        toggleButton.classList.remove('disabled');
+        toggleButton.disabled = false;
+        this.isToggleEnabled = true;
+    },
+    
+    disableToggle() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        toggleButton.classList.add('disabled');
+        toggleButton.disabled = true;
+        toggleButton.title = 'Compile Verilog to generate hierarchy';
+        this.isToggleEnabled = false;
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tree view state FIRST
+    TreeViewState.disableToggle();
+    TreeViewState.setHierarchical(false);
+    
+    // Setup refresh button
+    const refreshButton = document.getElementById('refresh-button');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+            if (!TreeViewState.isHierarchical) {
+                refreshFileTree();
+            } else {
+                console.log('Refresh disabled in hierarchy view');
+            }
+        });
+    }
+    
+    // Initialize compilation module
+    if (typeof CompilationModule !== 'undefined') {
+        const compilationModule = new CompilationModule(window.currentProjectPath || projectPath);
+        compilationModule.setupHierarchyToggle();
+        window.compilationModule = compilationModule;
+        console.log('Compilation module initialized with hierarchy support');
+    }
+    
+});
 
 // Adicione um listener para o evento customizado
 document.addEventListener('refresh-file-tree', () => {
@@ -5007,16 +5083,15 @@ class DirectoryWatcher {
 
     // In DirectoryWatcher.updateFileTreeFromFiles method, add this check:
 // Localizar esta função dentro da classe DirectoryWatcher e substituir por:
+// In DirectoryWatcher class, update this method:
 updateFileTreeFromFiles(files) {
     try {
-        // Check if hierarchy view is active
-        const compilationModule = window.compilationModule;
-        if (compilationModule && compilationModule.isHierarchicalView) {
+        // CRITICAL: Don't update if hierarchy view is active
+        if (TreeViewState.isHierarchical) {
             console.log('Skipping file tree update - hierarchy view active');
             return;
         }
         
-        // CORREÇÃO: Usar a nova função segura
         updateFileTreeSafely(files);
         
     } catch (error) {
@@ -5533,42 +5608,51 @@ function enableCompileButtons() {
 }
 
 function updateFileTreeSafely(files) {
-    const fileTree = document.getElementById('file-tree');
-    if (!fileTree) {
-        console.error('File tree element not found');
-        return;
-    }
-    
-    // Verificar se está em modo hierárquico
-    const isHierarchical = fileTree.classList.contains('hierarchy-view');
-    
-    if (isHierarchical) {
-        console.log('Skipping file tree update - hierarchy view is active');
-        return;
-    }
-    
-    // Salvar estado de expansão
-    const expandedPaths = Array.from(FileTreeState.expandedFolders);
-    
-    // Limpar e renderizar
-    fileTree.style.transition = 'opacity 0.2s ease';
-    fileTree.style.opacity = '0';
-    
-    setTimeout(() => {
-        fileTree.innerHTML = '';
-        renderFileTree(files, fileTree);
+    try {
+        // CRITICAL: Don't update if hierarchy view is active
+        if (TreeViewState.isHierarchical) {
+            console.log('Skipping update - hierarchy view active');
+            return;
+        }
         
-        // Restaurar expansões
+        const fileTree = document.getElementById('file-tree');
+        if (!fileTree) return;
+        
+        // Don't interrupt user interactions
+        if (FileTreeState.isRefreshing) {
+            console.log('Skipping update - refresh in progress');
+            return;
+        }
+        
+        // Validate that files is a proper nested structure
+        if (!Array.isArray(files)) {
+            console.error('Invalid files structure - not an array');
+            return;
+        }
+        
+        // Save state before update
+        const expandedPaths = Array.from(FileTreeState.expandedFolders);
+        
+        // Clear and rebuild
+        fileTree.innerHTML = '';
+        fileTree.classList.remove('hierarchy-view');
+        
+        // Render with proper nested structure
+        renderFileTree(files, fileTree, 0, '');
+        
+        // Restore expanded state
         expandedPaths.forEach(path => {
-            const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
+            const folderItem = fileTree.querySelector(
+                `.file-tree-item[data-path="${CSS.escape(path)}"]`
+            );
             if (folderItem) {
-                const folderToggle = folderItem.querySelector('.folder-toggle');
-                const folderContent = folderItem.querySelector('.folder-content');
+                const content = folderItem.querySelector('.folder-content');
+                const toggle = folderItem.querySelector('.folder-toggle');
                 const icon = folderItem.querySelector('.file-item-icon');
                 
-                if (folderToggle && folderContent) {
-                    folderContent.classList.remove('hidden');
-                    folderToggle.classList.add('rotated');
+                if (content && toggle) {
+                    content.classList.remove('hidden');
+                    toggle.classList.add('rotated');
                     if (icon) {
                         icon.classList.remove('fa-folder');
                         icon.classList.add('fa-folder-open');
@@ -5577,9 +5661,13 @@ function updateFileTreeSafely(files) {
             }
         });
         
-        fileTree.style.opacity = '1';
-    }, 200);
+        console.log('File tree updated successfully');
+        
+    } catch (error) {
+        console.error('Error in updateFileTreeSafely:', error);
+    }
 }
+
 // Function to update file tree (MODIFICADA)
 function updateFileTree(files) {
     console.log('updateFileTree called with files:', files);
@@ -6082,6 +6170,7 @@ class CompilationModule {
         this.gtkwaveProcess = null;
         this.hierarchyGenerated = false;
         this.setupHierarchyToggle(); 
+        this._hierarchyGenerationInProgress = false;
 
 }
 
@@ -6879,7 +6968,6 @@ end`;
         const projectName = this.projectPath.split(/[\/\\]/).pop();
         const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
 
-        // FIXED: Proper command construction matching batch script
         const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
         this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
 
@@ -6891,7 +6979,7 @@ end`;
             throw new Error(`Icarus Verilog verification failed`);
         }
 
-        // FIXED: Copy testbench files to simulation folders (matching batch script)
+        // FIXED: Use 'proc' instead of 'processor'
         const procList = this.projectConfig.processors || [];
         for (const proc of procList) {
             const tempProcDir = await window.electronAPI.joinPath(tempBaseDir, proc.type);
@@ -6905,6 +6993,8 @@ end`;
                     await window.electronAPI.copyFile(tbFile, destFile);
                     this.terminalManager.appendToTerminal('tveri', 
                         `Copied testbench for ${proc.type} to Simulation folder`);
+                    // FIXED: Use 'proc' instead of 'processor'
+                    await this.generateHierarchyAfterCompilation(proc);
                 }
             } catch (copyError) {
                 this.terminalManager.appendToTerminal('tveri', 
@@ -6912,10 +7002,9 @@ end`;
             }
         }
 
-        this.terminalManager.appendToTerminal('tveri', 'Project verification completed', 'success');
+        this.terminalManager.appendToTerminal('tveri', 'Sucesso: project verification completed', 'success');
         statusUpdater.compilationSuccess('verilog');
 
-        // Generate hierarchy after successful compilation
         await this.generateProjectHierarchy();
         await this.switchToHierarchicalView();
 
@@ -6927,77 +7016,120 @@ end`;
 }
 
 
-    setupHierarchyToggle() {
-        // CORRIGIDO: Use o ID correto do HTML: 'hierarchy-tree-toggle'
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
-        if (!toggleButton) {
-            console.warn('Botão de alternância de hierarquia não encontrado');
+   setupHierarchyToggle() {
+    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    if (!toggleButton) {
+        console.warn('Hierarchy toggle button not found');
+        return;
+    }
+
+    // Store reference to this module in TreeViewState
+    TreeViewState.setCompilationModule(this);
+    
+    // Start disabled
+    TreeViewState.disableToggle();
+    
+    toggleButton.addEventListener('click', () => {
+        if (toggleButton.disabled || toggleButton.dataset.switching === 'true') {
+            console.log('Toggle disabled or switching in progress');
+            return;
+        }
+        
+        // Check if hierarchy data exists when trying to switch to hierarchical
+        if (!TreeViewState.isHierarchical && !this.hierarchyData) {
+            console.warn('Cannot switch to hierarchical view - no data');
+            this.terminalManager.appendToTerminal('tveri', 
+                'Please compile Verilog first to generate hierarchy', 'warning');
             return;
         }
 
-        // Começa desabilitado até que uma hierarquia seja gerada
-        toggleButton.title = 'Execute a compilação Verilog para gerar a hierarquia';
-        
-        toggleButton.addEventListener('click', async () => {
+        toggleButton.dataset.switching = 'true';
 
-
-            toggleButton.dataset.switching = 'true';
-
-            try {
-                if (this.isHierarchicalView) {
-                    // Mudar para a visão padrão
-                    this.switchToStandardView();
-                } else {
-                    // Mudar para a visão hierárquica
-                    this.switchToHierarchicalView();
-                }
-            } catch (error) {
-                console.error('Erro ao alternar a visão de hierarquia:', error);
-                this.terminalManager.appendToTerminal('tveri', 
-                    `Erro ao trocar de visão: ${error.message}`, 'error');
-            } finally {
-                // Adiciona um pequeno delay para prevenir cliques múltiplos
-                setTimeout(() => {
-                    toggleButton.dataset.switching = 'false';
-                }, 300);
+        try {
+            if (TreeViewState.isHierarchical) {
+                this.switchToStandardView();
+            } else {
+                this.switchToHierarchicalView();
             }
-        });
-    }
-
+        } catch (error) {
+            console.error('Error toggling hierarchy view:', error);
+            this.terminalManager.appendToTerminal('tveri', 
+                `Error switching view: ${error.message}`, 'error');
+        } finally {
+            setTimeout(() => {
+                toggleButton.dataset.switching = 'false';
+            }, 300);
+        }
+    });
+}
 
 switchToStandardView() {
     const fileTree = document.getElementById('file-tree');
     if (!fileTree) return;
     
-    // 1. Define o estado primeiro para consistência
-    this.isHierarchicalView = false;
-    
-    // 2. Remove a classe da hierarquia
-    fileTree.classList.remove('hierarchy-view');
-    
-    // 3. Limpa o conteúdo atual
+    // Fade out
     fileTree.style.transition = 'opacity 0.2s ease';
     fileTree.style.opacity = '0';
     
     setTimeout(() => {
+        // Clear hierarchy
         fileTree.innerHTML = '';
+        fileTree.classList.remove('hierarchy-view');
         
-        // 4. CRÍTICO: Força atualização completa usando a função original
-        if (typeof window._originalRefreshFileTree === 'function') {
-            window._originalRefreshFileTree();
-        } else if (typeof refreshFileTree === 'function') {
-            refreshFileTree();
+        // Update state BEFORE refresh
+        TreeViewState.setHierarchical(false);
+        
+        // Trigger standard tree refresh
+        refreshFileTree();
+        
+        // Fade in happens in refreshFileTree
+        
+        this.terminalManager.appendToTerminal('tveri', 
+            'Switched to standard file tree', 'info');
+    }, 200);
+}
+
+async generateHierarchyAfterCompilation(processor = null) {
+    try {
+        // Check if hierarchy already generated in this compilation cycle
+        if (this._hierarchyGenerationInProgress) {
+            console.log('Hierarchy generation already in progress, skipping duplicate call');
+            return true;
         }
         
-        fileTree.style.opacity = '1';
-    }, 200);
-    
-    // 5. Atualiza o estado visual do botão
-    this.updateToggleButton(false);
-    
-    this.terminalManager.appendToTerminal('tveri', 
-        'Alternado para a visão padrão da árvore de arquivos', 'info');
+        this._hierarchyGenerationInProgress = true;
+        let success = false;
+        
+        if (this.isProjectOriented) {
+            success = await this.generateProjectHierarchy();
+        } else if (processor) {
+            success = await this.generateProcessorHierarchy(processor);
+        }
+        
+        if (success) {
+            this.hierarchyGenerated = true;
+            TreeViewState.hierarchyData = this.hierarchyData;
+            
+            // Only enable toggle once
+            if (!TreeViewState.isToggleEnabled) {
+                TreeViewState.enableToggle();
+                TreeViewState.isToggleEnabled = true;
+            }
+            
+            // Auto-switch to hierarchical view
+            await this.switchToHierarchicalView();
+        }
+        
+        return success;
+    } catch (error) {
+        console.error('Error generating hierarchy:', error);
+        return false;
+    } finally {
+        this._hierarchyGenerationInProgress = false;
+    }
 }
+
+
     // Updated iverilogCompilation method for processor mode
       async iverilogCompilation(processor) {
         if (this.isProjectOriented) {
@@ -7051,7 +7183,7 @@ switchToStandardView() {
 
             this.terminalManager.appendToTerminal('tveri', 'Verilog compilation completed', 'success');
             statusUpdater.compilationSuccess('verilog');
-
+            await this.generateHierarchyAfterCompilation(processor);
             // NEW: Generate hierarchy after successful compilation
         const hierarchyGenerated = await this.generateProcessorHierarchy(processor);
         if (hierarchyGenerated) {
@@ -7797,40 +7929,44 @@ restoreStandardTreeState() {
         refreshFileTree();
     }
 }
-    // NEW: Switch to hierarchical tree view
-switchToHierarchicalView() {
 
+switchToHierarchicalView() {
     const fileTree = document.getElementById('file-tree');
     if (!fileTree) {
-        console.error('File tree element not found');
+        console.warn('File tree element not found');
         return;
     }
     
-    this.isHierarchicalView = true;
+    // Check if hierarchy data exists
+    if (!this.hierarchyData) {
+        console.warn('No hierarchy data available');
+        this.terminalManager.appendToTerminal('tveri', 
+            'No hierarchy data available. Please compile Verilog first.', 'warning');
+        return;
+    }
     
-    // Clear file tree with transition
+    // Fade out
     fileTree.style.transition = 'opacity 0.2s ease';
     fileTree.style.opacity = '0';
     
     setTimeout(() => {
-        // Clear and add hierarchy class
+        // Clear and switch mode
         fileTree.innerHTML = '';
         fileTree.classList.add('hierarchy-view');
         
         // Render hierarchy
         this.renderHierarchicalTree();
         
+        // Update state
+        TreeViewState.setHierarchical(true);
+        
         // Fade in
         fileTree.style.opacity = '1';
-        
-        // Update button state
-        this.updateToggleButton(true);
         
         this.terminalManager.appendToTerminal('tveri', 
             'Switched to hierarchical module view', 'info');
     }, 200);
 }
-
 // Modify this method to enable the toggle button
     enableHierarchyToggle() {
         // CORRIGIDO: Use o ID correto do HTML
@@ -7841,7 +7977,7 @@ switchToHierarchicalView() {
         toggleButton.title = 'Alternar entre visão hierárquica e padrão';
         
         this.terminalManager.appendToTerminal('tveri', 
-            'A visão hierárquica agora está disponível', 'success');
+            'Hierarchical view is now available', 'success');
     }
 
     // NEW: Update toggle button state

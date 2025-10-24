@@ -100,6 +100,16 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('uiToggleState', elementsVisible ? 'visible' : 'hidden');
     console.log(`UI elements are now ${elementsVisible ? 'visible' : 'hidden'}`);
   }
+
+  function openProcessorModal() {
+    const modal = document.getElementById('modalProcessorConfig');
+    if (modal) {
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
   
   function updateElementsVisibility() {
     HIDE_ELEMENTS.buttons.forEach(id => {

@@ -36,7 +36,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-5);
   width: 480px;
-  bottom: 20px;
+  bottom: 30px;
   box-shadow: var(--shadow-xl);
   position: relative;
   overflow: hidden;

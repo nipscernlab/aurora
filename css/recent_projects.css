@@ -205,12 +205,10 @@
   /* --- START OF FIX --- */
   position: absolute;
   top: 0;
-  left: 350px; /* Must match the width of .welcome-sidebar */
-  right: 0;
-  bottom: 0;
-  /* --- END OF FIX --- */
-
-  display: flex;
+  left: 40%; /* Must match the width of .welcome-sidebar */
+  right: 35%;
+  top: 10%;
+  bottom: 0%;
   flex-direction: column;
   align-items: center;
   justify-content: center;

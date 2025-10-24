@@ -17,7 +17,7 @@ const tabsContainer = document.querySelector('#tabs-container');
 
 // Minimum panel sizes.
 const MIN_FILE_TREE_WIDTH = 10; // px
-const MIN_TERMINAL_HEIGHT = 40; // px
+const MIN_TERMINAL_HEIGHT = 30; // px
 
 // --- Inject CSS for cursor styles and to prevent text selection during resize ---
 const style = document.createElement('style');
@@ -73,7 +73,7 @@ function constrainFileTreeWidth(width) {
  * @returns {number} The constrained height.
  */
 function constrainTerminalHeight(height) {
-  const maxHeight = window.innerHeight * 0.8; // Do not allow terminal to be more than 80% of window
+  const maxHeight = window.innerHeight * 0.95; // Do not allow terminal to be more than 80% of window
   return Math.max(MIN_TERMINAL_HEIGHT, Math.min(height, maxHeight));
 }
 

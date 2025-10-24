@@ -8577,6 +8577,16 @@ class TerminalManager {
             tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
         };
 
+        this.messageCounts = {};
+        Object.keys(this.terminals).forEach(id => {
+            this.messageCounts[id] = {
+                error: 0,
+                warning: 0,
+                success: 0,
+                tips: 0
+            };
+        });
+
         this.setupTerminalTabs();
         this.setupAutoScroll();
         this.setupGoDownButton();
@@ -8601,6 +8611,8 @@ class TerminalManager {
         // Verbose mode - defaults to true (show all messages)
         this.verboseMode = this.loadVerboseMode();
         this.setupVerboseToggle();
+        this.createCounterBadges();
+        this.updateCounterDisplay();
     }
 
     // Load verbose mode from localStorage
@@ -8608,6 +8620,129 @@ class TerminalManager {
         const saved = localStorage.getItem('terminal-verbose-mode');
         return saved !== null ? JSON.parse(saved) : true;
     }
+
+      createCounterBadges() {
+        const filterButtons = {
+            error: document.getElementById('filter-error'),
+            warning: document.getElementById('filter-warning'),
+            success: document.getElementById('filter-success'),
+            tips: document.getElementById('filter-tip')
+        };
+
+        Object.entries(filterButtons).forEach(([type, button]) => {
+            if (button && !button.querySelector('.message-counter')) {
+                const badge = document.createElement('span');
+                badge.className = `message-counter counter-${type}`;
+                badge.textContent = '0';
+                badge.style.cssText = `
+                    position: absolute;
+                    top: -4px;
+                    right: -4px;
+                    background: var(--${type === 'tips' ? 'info' : type});
+                    color: white;
+                    border-radius: 50%;
+                    min-width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 2px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    transition: all 0.2s ease;
+                    pointer-events: none;
+                `;
+                button.style.position = 'relative';
+                button.appendChild(badge);
+            }
+        });
+    }
+
+    updateCounterDisplay() {
+        const activeTab = document.querySelector('.terminal-tabs .tab.active');
+        if (!activeTab) return;
+
+        const terminalId = activeTab.getAttribute('data-terminal');
+        const counts = this.messageCounts[terminalId] || { error: 0, warning: 0, success: 0, tips: 0 };
+
+        const updateBadge = (type, count) => {
+            // CORREÇÃO: Usa o ID correto 'filter-tip' quando o tipo for 'tips'.
+            const buttonId = type === 'tips' ? 'filter-tip' : `filter-${type}`;
+            const button = document.getElementById(buttonId);
+            
+            if (button) {
+                const badge = button.querySelector('.message-counter');
+                if (badge) {
+                    const oldCount = parseInt(badge.textContent, 10) || 0;
+                    badge.textContent = count;
+                    badge.style.display = count > 0 ? 'flex' : 'none';
+                    
+                    // Aciona a animação de pulso apenas quando o contador aumenta.
+                    if (count > oldCount) {
+                        badge.classList.add('pulse');
+                        setTimeout(() => {
+                            badge.classList.remove('pulse');
+                        }, 300); // A duração deve corresponder à animação CSS.
+                    }
+                }
+            }
+        };
+
+        updateBadge('error', counts.error);
+        updateBadge('warning', counts.warning);
+        updateBadge('success', counts.success);
+        updateBadge('tips', counts.tips);
+    }
+
+    incrementMessageCount(terminalId, type) {
+        if (this.messageCounts[terminalId] && this.messageCounts[terminalId][type] !== undefined) {
+            this.messageCounts[terminalId][type]++;
+            this.updateCounterDisplay();
+        }
+    }
+
+    resetMessageCounts(terminalId) {
+        if (this.messageCounts[terminalId]) {
+            this.messageCounts[terminalId] = {
+                error: 0,
+                warning: 0,
+                success: 0,
+                tips: 0
+            };
+            this.updateCounterDisplay();
+        }
+    }
+
+    recountMessages(terminalId) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+
+        // Reset counts
+        this.messageCounts[terminalId] = {
+            error: 0,
+            warning: 0,
+            success: 0,
+            tips: 0
+        };
+
+        // Count all visible messages
+        const entries = terminal.querySelectorAll('.log-entry');
+        entries.forEach(entry => {
+            if (entry.classList.contains('error')) {
+                this.messageCounts[terminalId].error++;
+            } else if (entry.classList.contains('warning')) {
+                this.messageCounts[terminalId].warning++;
+            } else if (entry.classList.contains('success')) {
+                this.messageCounts[terminalId].success++;
+            } else if (entry.classList.contains('tips') || entry.classList.contains('info')) {
+                this.messageCounts[terminalId].tips++;
+            }
+        });
+
+        this.updateCounterDisplay();
+    }
+
 
     // Save verbose mode to localStorage
     saveVerboseMode() {
@@ -8633,7 +8768,7 @@ class TerminalManager {
         }
     }
 
-    createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
+   createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
@@ -8659,6 +8794,11 @@ class TerminalManager {
             
             terminal.appendChild(card);
             this.updatableCards[terminalId][cardId] = card;
+
+            // Increment counter for new message
+            if (['error', 'warning', 'success', 'tips'].includes(type)) {
+                this.incrementMessageCount(terminalId, type);
+            }
 
             card.style.opacity = '0';
             requestAnimationFrame(() => {
@@ -8821,7 +8961,7 @@ class TerminalManager {
         });
     }
 
-    setupTerminalTabs() {
+   setupTerminalTabs() {
         const tabs = document.querySelectorAll('.terminal-tabs .tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -8835,10 +8975,13 @@ class TerminalManager {
                 const terminal = document.getElementById(`terminal-${terminalId}`);
                 terminal.classList.remove('hidden');
 
+                // Update counters when switching tabs
+                this.updateCounterDisplay();
                 this.scrollToBottom(terminalId);
             });
         });
     }
+
 
     setupFilterButtons() {
         const errorBtn = document.getElementById('filter-error');
@@ -8859,6 +9002,9 @@ class TerminalManager {
         warningBtn.parentNode.replaceChild(buttons.warning, warningBtn);
         infoBtn.parentNode.replaceChild(buttons.tips, infoBtn);
         successBtn.parentNode.replaceChild(buttons.success, successBtn);
+
+        // Recreate badges after replacing buttons
+        this.createCounterBadges();
 
         buttons.error.addEventListener('click', () => this.toggleFilter('error', buttons.error));
         buttons.warning.addEventListener('click', () => this.toggleFilter('warning', buttons.warning));
@@ -8918,6 +9064,11 @@ class TerminalManager {
             const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
             card = this.createGroupedCard(terminal, type, timestamp);
             this.currentSessionCards[terminalId][type] = card;
+            
+            // Increment counter for new grouped card
+            if (['error', 'warning', 'success', 'tips'].includes(type)) {
+                this.incrementMessageCount(terminalId, type);
+            }
         }
 
         this.addMessageToCard(card, text, type);
@@ -9183,6 +9334,11 @@ class TerminalManager {
                 }
             });
         });
+
+        const messageType = type === 'info' ? 'tips' : type;
+        if (['error', 'warning', 'success', 'tips'].includes(messageType)) {
+            this.incrementMessageCount(terminal.closest('.terminal-content').id.replace('terminal-', ''), messageType);
+        }
 
         logEntry.style.opacity = '0';
         logEntry.style.transform = 'translateY(10px)';

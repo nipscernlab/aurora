@@ -591,53 +591,61 @@
     <div class="resizer-horizontal"></div>
 
     <!-- O contêiner do terminal e todo o seu conteúdo permanecem exatamente os mesmos -->
-    <div id="terminal-container" class="terminal-container">
-        <div class="terminal-tabs">
-            <button id="clear-terminal" class="toolbar-button">
-                <i class="fa-solid fa-trash-can"></i>
-            </button>
-            <button id="filter-error" class="toolbar-button filter-btn filter-error">
-                <i class="fa-solid fa-circle-xmark"></i>
-            </button>
-            <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
-                <i class="fa-solid fa-circle-exclamation"></i>
-            </button>
-            <button id="filter-success" class="toolbar-button filter-btn filter-success">
-                <i class="fa-solid fa-circle-check"></i>
-            </button>
-            <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
-                <i class="fa-solid fa-circle-info"></i>
-            </button>
-            <button class="tab active" data-terminal="tcmm">
-                <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
-                <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
-                TCMM
-            </button>
-            <button class="tab" data-terminal="tasm">
-                <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
-                TASM
-            </button>
-            <button class="tab" data-terminal="tveri">
-                <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
-                TIVERI
-            </button>
-            <button class="tab" data-terminal="twave">
-                <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
-                TWAVE
-            </button>
-            <button id="goup-terminal" class="toolbar-button">
-                <i class="fa-solid fa-chevron-up"></i>
-            </button>
-            <button id="godown-terminal" class="toolbar-button">
-                <i class="fa-solid fa-chevron-down"></i>
-            </button>
-            <button id="export-log" class="toolbar-button">
-                <i class="fa-solid fa-file-export"></i>
-            </button>
-            <button id="reload-everything-terminal" class="toolbar-button">
-                <i class="fa-solid fa-hourglass"></i>
-            </button>
-        </div>
+<div id="terminal-container" class="terminal-container">
+    <div class="terminal-tabs">
+        <button id="clear-terminal" class="toolbar-button">
+            <i class="fa-solid fa-trash-can"></i>
+        </button>
+
+        <!-- MODIFIED FILTER BUTTONS -->
+        <button id="filter-error" class="toolbar-button filter-btn filter-error">
+            <i class="fa-solid fa-circle-xmark"></i>
+            <span id="error-count" class="message-count hidden">0</span>
+        </button>
+        <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="warning-count" class="message-count hidden">0</span>
+        </button>
+        <button id="filter-success" class="toolbar-button filter-btn filter-success">
+            <i class="fa-solid fa-circle-check"></i>
+            <span id="success-count" class="message-count hidden">0</span>
+        </button>
+        <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
+            <i class="fa-solid fa-circle-info"></i>
+            <span id="tip-count" class="message-count hidden">0</span>
+        </button>
+        <!-- END OF MODIFICATIONS -->
+
+        <button class="tab active" data-terminal="tcmm">
+            <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
+            <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
+            TCMM
+        </button>
+        <button class="tab" data-terminal="tasm">
+            <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+            TASM
+        </button>
+        <button class="tab" data-terminal="tveri">
+            <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+            TVERI
+        </button>
+        <button class="tab" data-terminal="twave">
+            <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+            TWAVE
+        </button>
+        <button id="goup-terminal" class="toolbar-button">
+            <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button id="godown-terminal" class="toolbar-button">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <button id="export-log" class="toolbar-button">
+            <i class="fa-solid fa-file-export"></i>
+        </button>
+        <button id="reload-everything-terminal" class="toolbar-button">
+            <i class="fa-solid fa-hourglass"></i>
+        </button>
+    </div>
         <div class="terminal-content" id="terminal-tcmm">
             <div class="terminal-header">TCMM Terminal</div>
             <div class="terminal-body">

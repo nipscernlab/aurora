@@ -1606,9 +1606,5 @@ document.addEventListener('DOMContentLoaded', () => {
   window.projectOrientedManager = new ProjectOrientedManager();
 });
 
-// Export for external access
-window.projectOrientedConfig = {
-  openModal: () => window.projectOrientedManager?.openModal(),
-  saveConfig: () => window.projectOrientedManager?.saveConfiguration(),
-  loadConfig: () => window.projectOrientedManager?.loadConfiguration()
-}
+
+});

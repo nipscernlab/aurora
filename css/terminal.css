@@ -2,7 +2,7 @@
 .terminal-container {
   background-color: var(--bg-secondary);
   /* border-top: 1px solid var(--border-primary); */
-  min-height: 70px;
+  min-height: 58px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -613,6 +613,7 @@
   transition: filter 0.2s ease;
 }
 
+
 /* Message type styles */
 .log-entry.error {
   border-left: 3px solid #ff4444;
@@ -815,4 +816,115 @@
 #editorStatus {
   will-change: contents;
   backface-visibility: hidden;
+}
+
+
+
+/* Message Counter Badge Styles */
+.message-counter {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px;
+  box-shadow: 0 0 0 2px rgba(255, 184, 108, 0.3);
+}
+
+/* Counter colors based on type */
+.counter-error {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  border: 2px solid rgba(255, 68, 68, 0.3);
+}
+
+.counter-warning {
+  background: linear-gradient(135deg, #ffaa00 0%, #ff8800 100%);
+  border: 2px solid rgba(255, 170, 0, 0.3);
+}
+
+.counter-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  border: 2px solid rgba(34, 197, 94, 0.3);
+}
+
+.counter-tips {
+  background: linear-gradient(135deg, #00aaff 0%, #0088cc 100%);
+  border: 2px solid rgba(0, 170, 255, 0.3);
+}
+
+/* Ensure filter buttons have relative positioning */
+.filter-btn {
+  position: relative !important;
+}
+
+/* Hide counter when zero */
+.message-counter[style*="display: none"] {
+  opacity: 0;
+  transform: scale(0);
+}
+
+/* Pulse animation for new messages */
+@keyframes counter-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+}
+
+.message-counter.pulse {
+  animation: counter-pulse 0.3s ease-in-out;
+}
+
+/* Enhanced filter button states with counters */
+.filter-btn.active .message-counter {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Hover effects for filter buttons */
+.filter-btn:hover .message-counter {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+/* Make sure counter stays visible above button effects */
+.filter-btn::before {
+  z-index: 1;
+}
+
+.message-counter {
+  z-index: 10;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .message-counter {
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+    top: -3px;
+    right: -3px;
+  }
+}
+
+/* Timestamp */
+.timestamp {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  opacity: 0.7;
+  font-weight: 500;
 }

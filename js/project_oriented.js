@@ -1,16 +1,3 @@
-// projectOriented.js - Implementação do gerenciamento de configuração orientada a projetos
-document.addEventListener('DOMContentLoaded', () => {
-  // Elementos do modal
-  const projectModal = document.getElementById('modalProjectConfig');
-  const topLevelSelect = document.getElementById('topLevelSelect');
-  const testbenchSelect = document.getElementById('testbenchSelect');
-  const gtkwaveSelect = document.getElementById('gtkwaveSelect');
-  const processorsList = document.getElementById('processorsList');
-  const addProcessorBtn = document.getElementById('addProcessor');
-  const iverilogFlags = document.getElementById('iverilogFlags');
-  const saveProjectConfigBtn = document.getElementById('saveProjectConfig');
-  const cancelProjectConfigBtn = document.getElementById('cancelProjectConfig');
-  const closeProjectModalBtn = document.getElementById('closeProjectModal');
 /**
  * =====================================================================================
  * Aurora IDE - Project Oriented Configuration System
@@ -1204,67 +1191,60 @@ class ProjectOrientedManager {
   /**
    * Load project configuration
    */
-   async loadConfiguration() {
-  try {
-    // reset completo do estado antes de carregar
-    this.currentConfig = {
-      topLevelFile: '',
-      testbenchFile: '',
-      gtkwaveFile: '',
-      processors: [],
-      iverilogFlags: '',
-      simuDelay: '200000',
-      showArraysInGtkwave: 0,
-      synthesizableFiles: [],
-      testbenchFiles: [],
-      gtkwFiles: []
-    };
-    this.synthesizableFiles = [];
-    this.testbenchFiles = [];
-    this.gtkwFiles = [];
-
-    let projectPath = window.currentProjectPath;
-    if (!projectPath) {
-      const projectData = await window.electronAPI.getCurrentProject();
-      if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-        projectPath = projectData.projectPath;
-        window.currentProjectPath = projectPath;
-      } else if (typeof projectData === 'string') {
-        projectPath = projectData;
-        window.currentProjectPath = projectPath;
+  async loadConfiguration() {
+    try {
+      this.currentConfig = {
+        topLevelFile: '',
+        testbenchFile: '',
+        gtkwaveFile: '',
+        processors: [],
+        iverilogFlags: '',
+        simuDelay: '200000',
+        showArraysInGtkwave: 0
+      };
+      
+      this.synthesizableFiles = [];
+      this.testbenchFiles = [];
+      this.gtkwFiles = [];
+      
+      let projectPath = window.currentProjectPath;
+      
+      if (!projectPath) {
+        const projectData = await window.electronAPI.getCurrentProject();
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
+        }
       }
+      
+      if (!projectPath) {
+        console.error('Project path not available');
+        return;
+      }
+      
+      const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+      const configExists = await window.electronAPI.fileExists(configPath);
+      
+      if (configExists) {
+        const configContent = await window.electronAPI.readFile(configPath);
+        const configData = JSON.parse(configContent);
+        this.currentConfig = configData;
+        
+        // Load and validate files
+        await this.loadAndValidateFiles(configData.synthesizableFiles, 'synthesizable');
+        await this.loadAndValidateFiles(configData.testbenchFiles, 'testbench');
+        await this.loadAndValidateFiles(configData.gtkwFiles, 'gtkw');
+        
+        this.updateFileList('synthesizable');
+        this.updateFileList('testbench');
+      }
+    } catch (error) {
+      console.error('Error loading project configuration:', error);
     }
-
-    if (!projectPath) {
-      console.error('Caminho do projeto não disponível');
-      return;
-    }
-
-    const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-    const configExists = await window.electronAPI.fileExists(configPath);
-
-    if (configExists) {
-      const configContent = await window.electronAPI.readFile(configPath);
-      const configData = JSON.parse(configContent);
-
-      // mescla com defaults
-      this.currentConfig = { ...this.currentConfig, ...configData };
-
-      // carrega e valida os arquivos salvos no JSON (garante que os arrays internos recebam os dados)
-      await this.loadAndValidateFiles(this.currentConfig.synthesizableFiles, 'synthesizable');
-      await this.loadAndValidateFiles(this.currentConfig.testbenchFiles, 'testbench');
-      await this.loadAndValidateFiles(this.currentConfig.gtkwFiles, 'gtkw');
-    }
-  } catch (error) {
-    console.error('Erro ao carregar a configuração do projeto:', error);
-  } finally {
-    // atualiza a UI com as listas carregadas (importante para refletir o .json imediatamente)
-    this.updateFileList('synthesizable');
-    this.updateFileList('testbench');
-    this.updateFileList('gtkw');
-    this.updateFormWithConfig(); // garante campos do formulário sincronizados
   }
-}
   
   /**
    * Load and validate files
@@ -1361,94 +1341,95 @@ class ProjectOrientedManager {
    * Save configuration
    */
   async saveConfiguration() {
-  try {
-    let projectPath = window.currentProjectPath;
-    if (!projectPath) {
-      const projectData = await window.electronAPI.getCurrentProject();
-      if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-        projectPath = projectData.projectPath;
-        window.currentProjectPath = projectPath;
-      } else if (typeof projectData === 'string') {
-        projectPath = projectData;
-        window.currentProjectPath = projectPath;
-      }
-    }
-
-    if (!projectPath) {
-      this.showNotification('Caminho do projeto não disponível. Não é possível salvar a configuração.', 'error', 4000);
-      return;
-    }
-
-    const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
-    const starredTestbench = this.testbenchFiles.find(file => file.starred);
-    const starredGtkw = this.gtkwFiles.find(file => file.starred);
-
-    const processors = [];
-    const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
-    processorRows.forEach(row => {
-      const processorSelect = row.querySelector('.processor-select');
-      const instanceSelect = row.querySelector('.processor-instance');
-      if (processorSelect && instanceSelect) {
-        const processorType = processorSelect.value;
-        const instanceName = instanceSelect.value;
-        if (processorType && processorType !== '' && instanceName && instanceName !== '') {
-          processors.push({ type: processorType, instance: instanceName });
+    try {
+      let projectPath = window.currentProjectPath;
+      
+      if (!projectPath) {
+        const projectData = await window.electronAPI.getCurrentProject();
+        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+          projectPath = projectData.projectPath;
+          window.currentProjectPath = projectPath;
+        } else if (typeof projectData === 'string') {
+          projectPath = projectData;
+          window.currentProjectPath = projectPath;
         }
       }
-    });
-
-    const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
-    const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
-    const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
-
-    const config = {
-      topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
-      testbenchFile: starredTestbench ? starredTestbench.path : '',
-      gtkwaveFile: starredGtkw ? starredGtkw.path : '',
-      synthesizableFiles: this.synthesizableFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        starred: file.starred || false,
-        size: file.size,
-        type: file.type
-      })),
-      testbenchFiles: this.testbenchFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        starred: file.starred || false,
-        size: file.size,
-        type: file.type
-      })),
-      gtkwFiles: this.gtkwFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        starred: file.starred || false,
-        size: file.size,
-        type: file.type
-      })),
-      processors: processors,
-      iverilogFlags: iverilogFlagsValue,
-      simuDelay: simuDelayValue,
-      showArraysInGtkwave: showArraysValue
-    };
-
-    const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-    await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
-
-    this.currentConfig = config;
-    await this.updateProcessorStatus();
-
-    // fechar o modal após salvar com sucesso (correção solicitada)
-    this.closeModal();
-
-    this.showNotification('Configuração do projeto salva com sucesso!', 'success', 3000);
-  } catch (error) {
-    console.error('Erro ao salvar a configuração do projeto:', error);
-    this.showNotification('Falha ao salvar a configuração do projeto. Por favor, tente novamente.', 'error', 4000);
+      
+      if (!projectPath) {
+        this.showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
+        return;
+      }
+      
+      const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
+      const starredTestbench = this.testbenchFiles.find(file => file.starred);
+      const starredGtkw = this.gtkwFiles.find(file => file.starred);
+      
+      const processors = [];
+      const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
+      
+      processorRows.forEach(row => {
+        const processorSelect = row.querySelector('.processor-select');
+        const instanceSelect = row.querySelector('.processor-instance');
+        
+        if (processorSelect && instanceSelect) {
+          const processorType = processorSelect.value;
+          const instanceName = instanceSelect.value;
+          
+          if (processorType && processorType !== '' && instanceName && instanceName !== '') {
+            processors.push({
+              type: processorType,
+              instance: instanceName
+            });
+          }
+        }
+      });
+      
+      const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
+      const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
+      const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
+      
+      const config = {
+        topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
+        testbenchFile: starredTestbench ? starredTestbench.path : '',
+        gtkwaveFile: starredGtkw ? starredGtkw.path : '',
+        synthesizableFiles: this.synthesizableFiles.map(file => ({
+          name: file.name,
+          path: file.path,
+          starred: file.starred || false
+        })),
+        testbenchFiles: this.testbenchFiles.map(file => ({
+          name: file.name,
+          path: file.path,
+          starred: file.starred || false
+        })),
+        gtkwFiles: this.gtkwFiles.map(file => ({
+          name: file.name,
+          path: file.path,
+          starred: file.starred || false
+        })),
+        processors: processors,
+        iverilogFlags: iverilogFlagsValue,
+        simuDelay: simuDelayValue,
+        showArraysInGtkwave: showArraysValue
+      };
+      
+      const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+      await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
+      
+      console.log('Project configuration saved:', config);
+      this.showNotification('Project configuration saved successfully!', 'success', 3000);
+      
+      this.currentConfig = config;
+      await this.updateProcessorStatus();
+      
+      // CORREÇÃO 1: Fechar o modal após salvar com sucesso
+      this.closeModal();
+      
+    } catch (error) {
+      console.error('Error saving project configuration:', error);
+      this.showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
+    }
   }
-}
-
-
   
   /**
    * Update processor status display
@@ -1606,5 +1587,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.projectOrientedManager = new ProjectOrientedManager();
 });
 
-
-});
+// Export for external access
+window.projectOrientedConfig = {
+  openModal: () => window.projectOrientedManager?.openModal(),
+  saveConfig: () => window.projectOrientedManager?.saveConfiguration(),
+  loadConfig: () => window.projectOrientedManager?.loadConfiguration()
+}

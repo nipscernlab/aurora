@@ -207,7 +207,6 @@
   top: 0;
   left: 40%; /* Must match the width of .welcome-sidebar */
   right: 35%;
-  top: 10%;
   bottom: 0%;
   flex-direction: column;
   align-items: center;

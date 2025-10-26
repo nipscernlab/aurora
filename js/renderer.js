@@ -7160,7 +7160,7 @@ async generateHierarchyAfterCompilation(processor = null) {
             const outputFile = await window.electronAPI.joinPath(tempPath, `${cmmBaseName}.vvp`);
             const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${cmmBaseName}.v`);
 
-            const cmd = `"${iveriCompPath}" ${flags} -s ${cmmBaseName} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
+            const cmd = `"${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFile}" "${tbFile}" "${hardwareFile}" ${verilogFilesString}`;
             this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
@@ -7461,11 +7461,11 @@ async runGtkWave(processor) {
         
         if (useStandardGtkw) {
             const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script=${scriptPath}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --fastload --dark "${vcdPath}" --script=${scriptPath}`;
         } else {
             const gtkwPath = await window.electronAPI.joinPath(simulationPath, processor.gtkwFile);
             const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwPath}" --script=${posScript}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --fastload --dark "${gtkwPath}" --script=${posScript}`;
         }
 
         // Setup GTKWave output handler
@@ -7534,6 +7534,9 @@ async runGtkWave(processor) {
 /**
  * Run project GTKWave with serial/parallel mode support
  */
+/**
+ * Run project GTKWave with serial/parallel mode support - FIXED
+ */
 async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', 'Starting GTKWave for project...');
     statusUpdater.startCompilation('wave');
@@ -7559,14 +7562,23 @@ async runProjectGtkWave() {
         
         const testbenchFileName = testbenchFile.split(/[\/\\]/).pop();
         const tbModule = testbenchFileName.replace(/\.v$/i, '');
+        
+        // CRITICAL FIX: Copy testbench to temp directory for VVP execution
+        const testbenchInTemp = await window.electronAPI.joinPath(tempBaseDir, testbenchFileName);
+        await window.electronAPI.copyFile(testbenchFile, testbenchInTemp);
+        this.terminalManager.appendToTerminal('twave', `Copied testbench to temp directory: ${testbenchFileName}`);
+        
         const simuDelay = this.getSimulationDelay();
         
-        // Modify testbench
+        // Modify testbench IN THE TEMP DIRECTORY
         testbenchBackupInfo = await this.modifyTestbenchForSimulation(
-            testbenchFile, tbModule, tempBaseDir, simuDelay
+            testbenchInTemp, // Use the temp copy, not original
+            tbModule, 
+            tempBaseDir, 
+            simuDelay
         );
         
-        // Compile with Icarus Verilog
+        // Compile with Icarus Verilog (using temp testbench)
         const synthesizableFilePaths = (this.projectConfig.synthesizableFiles || [])
             .map(file => `"${file.path}"`)
             .join(' ');
@@ -7578,7 +7590,8 @@ async runProjectGtkWave() {
         const projectName = this.projectPath.split(/[\/\\]/).pop();
         const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
         
-        const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
+        // CRITICAL: Use testbench from temp directory
+        const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchInTemp}"`;
         
         const iverilogResult = await window.electronAPI.execCommand(iverilogCmd);
         this.terminalManager.processExecutableOutput('twave', iverilogResult);
@@ -7587,37 +7600,93 @@ async runProjectGtkWave() {
             throw new Error('Icarus Verilog compilation failed');
         }
 
-        // Copy necessary files
+        // Copy necessary files for simulation
         this.terminalManager.appendToTerminal('twave', 'Copying necessary files for simulation...');
         const topLevelPath = await window.electronAPI.joinPath(this.projectPath, 'TopLevel');
-        
-        // Copy .txt files
-        const commonTxtFiles = ['input.txt', 'data.txt', 'test.txt', 'config.txt'];
-        for (const txtFile of commonTxtFiles) {
+
+        // Copy all necessary input data files from TopLevel (non-Verilog files)
+this.terminalManager.appendToTerminal('twave', `Copying input data from: ${topLevelPath}`);
+try {
+    const topLevelFiles = await window.electronAPI.readDir(topLevelPath);
+    
+    // Filtra para copiar QUALQUER arquivo que NÃO seja .v ou .vh
+    const dataFiles = topLevelFiles.filter(file => 
+        !file.toLowerCase().endsWith('.v') && !file.toLowerCase().endsWith('.vh')
+    );
+
+    if (dataFiles.length === 0) {
+        this.terminalManager.appendToTerminal('twave', 
+            'No data files (non-Verilog) found in TopLevel to copy.', 'info');
+    } else {
+        for (const dataFile of dataFiles) {
             try {
-                const srcPath = await window.electronAPI.joinPath(topLevelPath, txtFile);
-                if (await window.electronAPI.fileExists(srcPath)) {
-                    await window.electronAPI.copyFile(srcPath, await window.electronAPI.joinPath(tempBaseDir, txtFile));
+                const srcPath = await window.electronAPI.joinPath(topLevelPath, dataFile);
+                const destPath = await window.electronAPI.joinPath(tempBaseDir, dataFile);
+                await window.electronAPI.copyFile(srcPath, destPath);
+                this.terminalManager.appendToTerminal('twave', `Copied data file: ${dataFile}`, 'success');
+            } catch (copyError) {
+                this.terminalManager.appendToTerminal('twave', 
+                    `Warning: Could not copy ${dataFile}: ${copyError.message}`, 'warning');
+            }
+        }
+    }
+} catch (readError) {
+    this.terminalManager.appendToTerminal('twave', 
+        `Warning: Could not read TopLevel directory: ${readError.message}`, 'warning');
+}
+        
+        // Copy ALL .txt files from TopLevel (input data for testbench)
+        try {
+            const topLevelFiles = await window.electronAPI.readDir(topLevelPath);
+            const txtFiles = topLevelFiles.filter(file => file.toLowerCase().endsWith('.txt'));
+            
+            for (const txtFile of txtFiles) {
+                try {
+                    const srcPath = await window.electronAPI.joinPath(topLevelPath, txtFile);
+                    const destPath = await window.electronAPI.joinPath(tempBaseDir, txtFile);
+                    await window.electronAPI.copyFile(srcPath, destPath);
+                    this.terminalManager.appendToTerminal('twave', `Copied ${txtFile} from TopLevel`);
+                } catch (error) {
+                    this.terminalManager.appendToTerminal('twave', 
+                        `Warning: Could not copy ${txtFile}: ${error.message}`, 'warning');
                 }
-            } catch (error) {}
+            }
+        } catch (error) {
+            this.terminalManager.appendToTerminal('twave', 
+                `Warning: Could not read TopLevel directory: ${error.message}`, 'warning');
         }
 
-        // Copy processor files
+        // Copy processor files (.mif and pc_*_mem.txt)
         const procList = this.projectConfig.processors || [];
         for (const proc of procList) {
             try {
-                const instMif = await window.electronAPI.joinPath(this.projectPath, proc.type, 'Hardware', `${proc.type}_inst.mif`);
-                await window.electronAPI.copyFile(instMif, await window.electronAPI.joinPath(tempBaseDir, `${proc.type}_inst.mif`));
+                // Copy _inst.mif
+                const instMifSrc = await window.electronAPI.joinPath(
+                    this.projectPath, proc.type, 'Hardware', `${proc.type}_inst.mif`
+                );
+                const instMifDest = await window.electronAPI.joinPath(tempBaseDir, `${proc.type}_inst.mif`);
+                await window.electronAPI.copyFile(instMifSrc, instMifDest);
                 
-                const dataMif = await window.electronAPI.joinPath(this.projectPath, proc.type, 'Hardware', `${proc.type}_data.mif`);
-                await window.electronAPI.copyFile(dataMif, await window.electronAPI.joinPath(tempBaseDir, `${proc.type}_data.mif`));
+                // Copy _data.mif
+                const dataMifSrc = await window.electronAPI.joinPath(
+                    this.projectPath, proc.type, 'Hardware', `${proc.type}_data.mif`
+                );
+                const dataMifDest = await window.electronAPI.joinPath(tempBaseDir, `${proc.type}_data.mif`);
+                await window.electronAPI.copyFile(dataMifSrc, dataMifDest);
                 
-                const pcMem = await window.electronAPI.joinPath(tempBaseDir, proc.type, `pc_${proc.type}_mem.txt`);
-                if (await window.electronAPI.fileExists(pcMem)) {
-                    await window.electronAPI.copyFile(pcMem, await window.electronAPI.joinPath(tempBaseDir, `pc_${proc.type}_mem.txt`));
+                // Copy pc_*_mem.txt from processor temp directory
+                const pcMemSrc = await window.electronAPI.joinPath(
+                    tempBaseDir, proc.type, `pc_${proc.type}_mem.txt`
+                );
+                const pcMemDest = await window.electronAPI.joinPath(tempBaseDir, `pc_${proc.type}_mem.txt`);
+                
+                if (await window.electronAPI.fileExists(pcMemSrc)) {
+                    await window.electronAPI.copyFile(pcMemSrc, pcMemDest);
+                    this.terminalManager.appendToTerminal('twave', `Copied pc_${proc.type}_mem.txt`);
                 }
             } catch (error) {
-                this.terminalManager.appendToTerminal('twave', `Warning: ${error.message}`, 'warning');
+                this.terminalManager.appendToTerminal('twave', 
+                    `Warning: Error copying files for ${proc.type}: ${error.message}`, 'warning');
             }
         }
 
@@ -7625,27 +7694,33 @@ async runProjectGtkWave() {
         const instances = procList.map(p => p.instance).join(' ');
         const processors = procList.map(p => p.type).join(' ');
         const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
-        await window.electronAPI.writeFile(await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt'), tclContent);
+        await window.electronAPI.writeFile(
+            await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt'), 
+            tclContent
+        );
 
+        // Copy fix.vcd script
         await window.electronAPI.copyFile(
             await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
             await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
         );
 
-        // Setup commands
+        // Setup VCD and commands
         const vcdPath = await window.electronAPI.joinPath(tempBaseDir, `${tbModule}.vcd`);
         await window.electronAPI.deleteFileOrDirectory(vcdPath);
 
+        // CRITICAL: VVP command runs in tempBaseDir where all files are located
         const vvpCmd = `"${vvpCompPath}" "${projectName}.vvp"`;
         
+        // Build GTKWave command
         const gtkwaveFile = this.projectConfig.gtkwaveFile;
         let gtkwCmd;
         if (gtkwaveFile && gtkwaveFile !== "Standard") {
             const posScript = await window.electronAPI.joinPath(scriptsPath, 'pos_gtkw.tcl');
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${gtkwaveFile}" --script=${posScript}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --fastload --dark "${gtkwaveFile}" --script=${posScript}`;
         } else {
             const initScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --dark "${vcdPath}" --script=${initScript}`;
+            gtkwCmd = `"${gtkwCompPath}" --rcvar "hide_sst on" --fastload --dark "${vcdPath}" --script=${initScript}`;
         }
 
         // Setup output handler
@@ -7679,7 +7754,7 @@ async runProjectGtkWave() {
             vvpCmd: vvpCmd,
             gtkwCmd: gtkwCmd,
             vcdPath: vcdPath,
-            workingDir: tempBaseDir
+            workingDir: tempBaseDir // CRITICAL: Working directory must be tempBaseDir
         });
 
         hideVVPProgress();
@@ -7705,25 +7780,11 @@ async runProjectGtkWave() {
         if (gtkwaveOutputHandler) {
             window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
         }
-        if (testbenchBackupInfo) {
-            await window.electronAPI.restoreOriginalTestbench(
-                testbenchBackupInfo.originalPath, 
-                testbenchBackupInfo.backupPath
-            );
-        }
+        // CRITICAL FIX: Don't restore original testbench since we modified the temp copy
+        // The original testbench file remains unchanged
     }
 }
 
-async restoreOriginalTestbench(originalPath, backupPath) {
-    try {
-        if (backupPath && originalPath) {
-            await window.electronAPI.copyFile(backupPath, originalPath);
-            await window.electronAPI.deleteFileOrDirectory(backupPath);
-        }
-    } catch (error) {
-        console.warn('Failed to restore original testbench:', error);
-    }
-}
     // Generate hierarchy using Yosys
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');

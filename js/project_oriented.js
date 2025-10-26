@@ -462,86 +462,77 @@ class ProjectOrientedManager {
   /**
    * Handle file drop with path preservation - ENHANCED FOR WINDOWS
    */
-  async handleDrop(e, type) {
-    const droppedFiles = e.dataTransfer.files;
+  /**
+ * Handle file drop with PROPER path capture for Electron
+ */
+/**
+ * Handle file drop - SIMPLIFIED VERSION
+ */
+async handleDrop(e, type) {
+  const droppedFiles = e.dataTransfer.files;
+  
+  if (!droppedFiles || droppedFiles.length === 0) {
+    this.showNotification('No files dropped', 'warning', 2000);
+    return;
+  }
+  
+  const filesWithPath = [];
+  
+  for (let i = 0; i < droppedFiles.length; i++) {
+    const file = droppedFiles[i];
     
-    if (!droppedFiles || droppedFiles.length === 0) {
-      this.showNotification('No files dropped', 'warning', 2000);
-      return;
+    // Get file path using Electron's webUtils (works in dev and production)
+    let filePath = window.electronAPI.getPathForFile(file);
+    
+    if (!filePath || filePath === '') {
+      console.warn('Cannot get path for file:', file.name);
+      this.showNotification(
+        `Cannot get path for "${file.name}". Try using Browse Files button.`, 
+        'warning', 
+        3000
+      );
+      continue;
     }
     
-    const isElectron = typeof window.electronAPI !== 'undefined';
+    // Normalize path for Windows
+    filePath = filePath.replace(/\//g, '\\');
     
-    if (!isElectron) {
-      this.showNotification('Drag & drop only works in the desktop application', 'error', 3000);
-      return;
-    }
-    
-    const filesWithPath = [];
-    
-    for (let i = 0; i < droppedFiles.length; i++) {
-      const file = droppedFiles[i];
+    // Verify file exists
+    try {
+      const exists = await window.electronAPI.fileExists(filePath);
       
-      // Try multiple methods to get the file path
-      let filePath = file.path || '';
-      
-      // If path is empty, try using webkitRelativePath or other properties
-      if (!filePath && file.webkitRelativePath) {
-        filePath = file.webkitRelativePath;
-      }
-      
-      // For Electron, we can also try to get path from dataTransfer items
-      if (!filePath && e.dataTransfer.items && e.dataTransfer.items[i]) {
-        const item = e.dataTransfer.items[i];
-        if (item.kind === 'file' && item.getAsFile) {
-          const itemFile = item.getAsFile();
-          if (itemFile && itemFile.path) {
-            filePath = itemFile.path;
-          }
-        }
-      }
-      
-      // Last resort: try to read from FileSystemEntry API
-      if (!filePath && e.dataTransfer.items && e.dataTransfer.items[i]) {
-        const entry = e.dataTransfer.items[i].webkitGetAsEntry?.();
-        if (entry && entry.fullPath) {
-          filePath = entry.fullPath;
-        }
-      }
-      
-      if (filePath && filePath !== '') {
-        // Normalize path for Windows
-        filePath = filePath.replace(/\//g, '\\');
-        
-        filesWithPath.push({
-          name: file.name,
-          path: filePath,
-          size: file.size,
-          type: file.type || this.getMimeTypeFromExtension(file.name),
-          lastModified: file.lastModified,
-          starred: false
-        });
-      } else {
-        // If we still don't have a path, try to use the Electron API to resolve it
-        console.warn('File dropped without accessible path:', file.name);
-        
-        // Show a more helpful message
+      if (!exists) {
         this.showNotification(
-          `Cannot import "${file.name}": Unable to access file path. Try using the Browse button instead.`, 
+          `File does not exist: ${filePath}`, 
           'warning', 
           3000
         );
+        continue;
       }
-    }
-    
-    if (filesWithPath.length > 0) {
-      console.log('Files with paths ready for import:', filesWithPath);
-      await this.importFiles(filesWithPath, type);
-    } else {
-      this.showNotification('No files could be imported. Please use the Browse Files button.', 'warning', 3000);
+      
+      filesWithPath.push({
+        name: file.name,
+        path: filePath,
+        type: file.type || this.getMimeTypeFromExtension(file.name),
+        starred: false
+      });
+      
+    } catch (error) {
+      console.error(`Error validating file:`, error);
+      this.showNotification(
+        `Error validating "${file.name}"`, 
+        'error', 
+        3000
+      );
     }
   }
   
+  if (filesWithPath.length > 0) {
+    await this.importFiles(filesWithPath, type);
+  } else {
+    this.showNotification('No files could be imported. Use Browse Files button.', 'warning', 3000);
+  }
+}
   /**
    * Handle import button click
    */
@@ -575,86 +566,88 @@ class ProjectOrientedManager {
   /**
    * Import files with validation
    */
-  async importFiles(files, type) {
-    const validFiles = [];
-    const errors = [];
-    
-    for (let file of files) {
-      // Validate path
-      if (!file.path || file.path === '') {
-        errors.push(`"${file.name}" has no path information`);
-        continue;
-      }
-      
-      // Validate extension
-      const ext = file.name.toLowerCase().split('.').pop();
-      const allowedExtensions = type === 'synthesizable' 
-        ? ['v', 'sv', 'vh'] 
-        : ['v', 'sv', 'gtkw'];
-      
-      if (!allowedExtensions.includes(ext)) {
-        errors.push(`"${file.name}" has unsupported extension .${ext}`);
-        continue;
-      }
-      
-      // Check for duplicates
-      const existingFiles = type === 'synthesizable' ? this.synthesizableFiles : 
-                            ext === 'gtkw' ? this.gtkwFiles : this.testbenchFiles;
-      
-      if (existingFiles.some(f => f.path === file.path)) {
-        errors.push(`"${file.name}" already exists in the project`);
-        continue;
-      }
-      
-      validFiles.push({
-        name: file.name,
-        path: file.path,
-        size: file.size || 0,
-        type: file.type || this.getMimeTypeFromExtension(file.name),
-        starred: false,
-        lastModified: file.lastModified || Date.now()
-      });
+ /**
+ * Import files with validation (without size property)
+ */
+async importFiles(files, type) {
+  const validFiles = [];
+  const errors = [];
+  
+  for (let file of files) {
+    // Validate path
+    if (!file.path || file.path === '') {
+      errors.push(`"${file.name}" has no path information`);
+      continue;
     }
     
-    // Show errors
-    if (errors.length > 0) {
-      errors.forEach(error => {
-        this.showNotification(error, 'warning', 2500);
-      });
+    // Validate extension
+    const ext = file.name.toLowerCase().split('.').pop();
+    const allowedExtensions = type === 'synthesizable' 
+      ? ['v', 'sv', 'vh'] 
+      : ['v', 'sv', 'gtkw'];
+    
+    if (!allowedExtensions.includes(ext)) {
+      errors.push(`"${file.name}" has unsupported extension .${ext}`);
+      continue;
     }
     
-    if (validFiles.length === 0) {
-      if (errors.length === 0) {
-        this.showNotification('No valid files to import', 'warning', 3000);
-      }
-      return;
+    // Check for duplicates
+    const existingFiles = type === 'synthesizable' ? this.synthesizableFiles : 
+                          ext === 'gtkw' ? this.gtkwFiles : this.testbenchFiles;
+    
+    if (existingFiles.some(f => f.path === file.path)) {
+      errors.push(`"${file.name}" already exists in the project`);
+      continue;
     }
     
-    // Add files to appropriate lists
-    if (type === 'synthesizable') {
-      this.synthesizableFiles.push(...validFiles);
-      this.updateFileList('synthesizable');
-      
-      // Re-parse for processor instances
-      await this.parseAllSynthesizableFiles();
-      this.refreshAllInstanceSelects();
-    } else {
-      validFiles.forEach(file => {
-        if (file.name.toLowerCase().endsWith('.gtkw')) {
-          this.gtkwFiles.push(file);
-        } else {
-          this.testbenchFiles.push(file);
-        }
-      });
-      this.updateFileList('testbench');
-    }
-    
-    this.showNotification(
-      `Successfully added ${validFiles.length} file(s)`, 
-      'success', 
-      3000
-    );
+    // Add file WITHOUT size property
+    validFiles.push({
+      name: file.name,
+      path: file.path,
+      type: file.type || this.getMimeTypeFromExtension(file.name),
+      starred: false
+    });
   }
+  
+  // Show errors
+  if (errors.length > 0) {
+    errors.forEach(error => {
+      this.showNotification(error, 'warning', 2500);
+    });
+  }
+  
+  if (validFiles.length === 0) {
+    if (errors.length === 0) {
+      this.showNotification('No valid files to import', 'warning', 3000);
+    }
+    return;
+  }
+  
+  // Add files to appropriate lists
+  if (type === 'synthesizable') {
+    this.synthesizableFiles.push(...validFiles);
+    this.updateFileList('synthesizable');
+    
+    // Re-parse for processor instances
+    await this.parseAllSynthesizableFiles();
+    this.refreshAllInstanceSelects();
+  } else {
+    validFiles.forEach(file => {
+      if (file.name.toLowerCase().endsWith('.gtkw')) {
+        this.gtkwFiles.push(file);
+      } else {
+        this.testbenchFiles.push(file);
+      }
+    });
+    this.updateFileList('testbench');
+  }
+  
+  this.showNotification(
+    `Successfully added ${validFiles.length} file(s)`, 
+    'success', 
+    3000
+  );
+}
   
   /**
    * Get MIME type from file extension
@@ -1249,43 +1242,44 @@ class ProjectOrientedManager {
   /**
    * Load and validate files
    */
-  async loadAndValidateFiles(files, type) {
-    if (!files || !Array.isArray(files)) return;
-    
-    const validFiles = [];
-    
-    for (const fileData of files) {
-      if (fileData.path && fileData.path !== '') {
-        try {
-          const exists = await window.electronAPI.fileExists(fileData.path);
-          
-          if (exists) {
-            validFiles.push({
-              name: fileData.name,
-              path: fileData.path,
-              starred: fileData.starred || false,
-              size: fileData.size || 0,
-              type: fileData.type || 'text/plain'
-            });
-          } else {
-            console.warn(`File no longer exists: ${fileData.path}`);
-            this.showNotification(`File not found: ${fileData.name}`, 'warning', 2000);
-          }
-        } catch (error) {
-          console.error(`Error validating file ${fileData.path}:`, error);
+ /**
+ * Load and validate files (without size property)
+ */
+async loadAndValidateFiles(files, type) {
+  if (!files || !Array.isArray(files)) return;
+  
+  const validFiles = [];
+  
+  for (const fileData of files) {
+    if (fileData.path && fileData.path !== '') {
+      try {
+        const exists = await window.electronAPI.fileExists(fileData.path);
+        
+        if (exists) {
+          validFiles.push({
+            name: fileData.name,
+            path: fileData.path,
+            starred: fileData.starred || false,
+            type: fileData.type || 'text/plain'
+          });
+        } else {
+          console.warn(`File no longer exists: ${fileData.path}`);
+          this.showNotification(`File not found: ${fileData.name}`, 'warning', 2000);
         }
+      } catch (error) {
+        console.error(`Error validating file ${fileData.path}:`, error);
       }
-    }
-    
-    if (type === 'synthesizable') {
-      this.synthesizableFiles = validFiles;
-    } else if (type === 'testbench') {
-      this.testbenchFiles = validFiles;
-    } else if (type === 'gtkw') {
-      this.gtkwFiles = validFiles;
     }
   }
   
+  if (type === 'synthesizable') {
+    this.synthesizableFiles = validFiles;
+  } else if (type === 'testbench') {
+    this.testbenchFiles = validFiles;
+  } else if (type === 'gtkw') {
+    this.gtkwFiles = validFiles;
+  }
+}
   /**
    * Update form with loaded configuration
    */
@@ -1340,96 +1334,99 @@ class ProjectOrientedManager {
   /**
    * Save configuration
    */
-  async saveConfiguration() {
-    try {
-      let projectPath = window.currentProjectPath;
-      
-      if (!projectPath) {
-        const projectData = await window.electronAPI.getCurrentProject();
-        if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-          projectPath = projectData.projectPath;
-          window.currentProjectPath = projectPath;
-        } else if (typeof projectData === 'string') {
-          projectPath = projectData;
-          window.currentProjectPath = projectPath;
-        }
+ /**
+ * Save configuration (without size property)
+ */
+async saveConfiguration() {
+  try {
+    let projectPath = window.currentProjectPath;
+    
+    if (!projectPath) {
+      const projectData = await window.electronAPI.getCurrentProject();
+      if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+        projectPath = projectData.projectPath;
+        window.currentProjectPath = projectPath;
+      } else if (typeof projectData === 'string') {
+        projectPath = projectData;
+        window.currentProjectPath = projectPath;
       }
-      
-      if (!projectPath) {
-        this.showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
-        return;
-      }
-      
-      const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
-      const starredTestbench = this.testbenchFiles.find(file => file.starred);
-      const starredGtkw = this.gtkwFiles.find(file => file.starred);
-      
-      const processors = [];
-      const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
-      
-      processorRows.forEach(row => {
-        const processorSelect = row.querySelector('.processor-select');
-        const instanceSelect = row.querySelector('.processor-instance');
-        
-        if (processorSelect && instanceSelect) {
-          const processorType = processorSelect.value;
-          const instanceName = instanceSelect.value;
-          
-          if (processorType && processorType !== '' && instanceName && instanceName !== '') {
-            processors.push({
-              type: processorType,
-              instance: instanceName
-            });
-          }
-        }
-      });
-      
-      const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
-      const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
-      const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
-      
-      const config = {
-        topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
-        testbenchFile: starredTestbench ? starredTestbench.path : '',
-        gtkwaveFile: starredGtkw ? starredGtkw.path : '',
-        synthesizableFiles: this.synthesizableFiles.map(file => ({
-          name: file.name,
-          path: file.path,
-          starred: file.starred || false
-        })),
-        testbenchFiles: this.testbenchFiles.map(file => ({
-          name: file.name,
-          path: file.path,
-          starred: file.starred || false
-        })),
-        gtkwFiles: this.gtkwFiles.map(file => ({
-          name: file.name,
-          path: file.path,
-          starred: file.starred || false
-        })),
-        processors: processors,
-        iverilogFlags: iverilogFlagsValue,
-        simuDelay: simuDelayValue,
-        showArraysInGtkwave: showArraysValue
-      };
-      
-      const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-      await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
-      
-      console.log('Project configuration saved:', config);
-      this.showNotification('Project configuration saved successfully!', 'success', 3000);
-      
-      this.currentConfig = config;
-      await this.updateProcessorStatus();
-      
-      // CORREÇÃO 1: Fechar o modal após salvar com sucesso
-      this.closeModal();
-      
-    } catch (error) {
-      console.error('Error saving project configuration:', error);
-      this.showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
     }
+    
+    if (!projectPath) {
+      this.showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
+      return;
+    }
+    
+    const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
+    const starredTestbench = this.testbenchFiles.find(file => file.starred);
+    const starredGtkw = this.gtkwFiles.find(file => file.starred);
+    
+    const processors = [];
+    const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
+    
+    processorRows.forEach(row => {
+      const processorSelect = row.querySelector('.processor-select');
+      const instanceSelect = row.querySelector('.processor-instance');
+      
+      if (processorSelect && instanceSelect) {
+        const processorType = processorSelect.value;
+        const instanceName = instanceSelect.value;
+        
+        if (processorType && processorType !== '' && instanceName && instanceName !== '') {
+          processors.push({
+            type: processorType,
+            instance: instanceName
+          });
+        }
+      }
+    });
+    
+    const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
+    const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
+    const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
+    
+    // Save WITHOUT size property
+    const config = {
+      topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
+      testbenchFile: starredTestbench ? starredTestbench.path : '',
+      gtkwaveFile: starredGtkw ? starredGtkw.path : '',
+      synthesizableFiles: this.synthesizableFiles.map(file => ({
+        name: file.name,
+        path: file.path,
+        starred: file.starred || false
+      })),
+      testbenchFiles: this.testbenchFiles.map(file => ({
+        name: file.name,
+        path: file.path,
+        starred: file.starred || false
+      })),
+      gtkwFiles: this.gtkwFiles.map(file => ({
+        name: file.name,
+        path: file.path,
+        starred: file.starred || false
+      })),
+      processors: processors,
+      iverilogFlags: iverilogFlagsValue,
+      simuDelay: simuDelayValue,
+      showArraysInGtkwave: showArraysValue
+    };
+    
+    const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+    await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
+    
+    console.log('Project configuration saved:', config);
+    this.showNotification('Project configuration saved successfully!', 'success', 3000);
+    
+    this.currentConfig = config;
+    await this.updateProcessorStatus();
+    
+    this.closeModal();
+    
+  } catch (error) {
+    console.error('Error saving project configuration:', error);
+    this.showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
   }
+}
   
   /**
    * Update processor status display

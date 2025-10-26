@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const validListenerChannels = ['vvp-finished', 'command-output-stream', 'gtkwave-output'];
@@ -231,6 +231,7 @@ readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
   readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
 
 };
+
 
 const projectOperations = {
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
@@ -497,7 +498,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         const { shell } = require('electron');
         await shell.openPath(folderPath);
     },
-
+  getPathForFile: (file) => {
+    try {
+      // Electron 20+ provides webUtils.getPathForFile
+      if (webUtils && webUtils.getPathForFile) {
+        return webUtils.getPathForFile(file);
+      }
+      // Fallback to file.path for older Electron or packaged apps
+      return file.path || '';
+    } catch (error) {
+      console.error('Error getting file path:', error);
+      return '';
+    }
+  },
   // Store Operations
   getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
   setLastFolder: (path) => ipcRenderer.invoke('set-last-folder', path),

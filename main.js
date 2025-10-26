@@ -3888,7 +3888,6 @@ function getMimeType(filePath) {
 }
 
 // In your main process (main.js or similar)
-// In your main process (main.js or similar)
 
 ipcMain.handle('launch-gtkwave-only', async (event, options) => {
     const { gtkwCmd, workingDir } = options;
@@ -3981,107 +3980,145 @@ ipcMain.handle('launch-gtkwave-only', async (event, options) => {
     });
 });
 
-ipcMain.handle('launch-serial-simulation', async (event, options) => {
-    const { vvpCmd, gtkwCmd, vcdPath, workingDir } = options;
+ipcMain.handle('launch-serial-simulation', async (event, {
+  vvpCmd,
+  gtkwCmd,
+  vcdPath,
+  workingDir
+}) => {
+  try {
+    console.log('Starting serial simulation (VVP first, GTKWave after completion)...');
     
-    return new Promise((resolve, reject) => {
-        try {
-            // Parse VVP command
-            const vvpMatch = vvpCmd.match(/^"([^"]+)"\s+"([^"]+)"$/);
-            if (!vvpMatch) {
-                resolve({ success: false, message: 'Invalid VVP command format' });
-                return;
-            }
+    // Parse VVP command
+    const vvpMatch = vvpCmd.match(/^"([^"]+)"\s+"([^"]+)"$/);
+    if (!vvpMatch) {
+      throw new Error('Invalid VVP command format');
+    }
 
-            const vvpPath = vvpMatch[1];
-            const vvpFile = vvpMatch[2];
+    const vvpPath = vvpMatch[1];
+    const vvpFile = vvpMatch[2];
 
-            // Launch VVP process (this part is already silent)
-            const vvpProcess = spawn(vvpPath, [vvpFile], {
-                cwd: workingDir,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                windowsHide: true,
-                shell: false
-            });
+    // Launch VVP and WAIT for completion
+    await new Promise((resolve, reject) => {
+      const vvpProcess = spawn(vvpPath, [vvpFile], {
+        cwd: workingDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        shell: false,
+        detached: false
+      });
 
-            // --- VVP process listeners remain unchanged ---
-            vvpProcess.stdout.on('data', (data) => {
-                event.sender.send('gtkwave-output', { type: 'stdout', data: data.toString() });
-            });
-            vvpProcess.stderr.on('data', (data) => {
-                event.sender.send('gtkwave-output', { type: 'stderr', data: data.toString() });
-            });
-            vvpProcess.on('error', (error) => {
-                event.sender.send('gtkwave-output', { type: 'error', data: `VVP error: ${error.message}` });
-                reject({ success: false, message: `VVP error: ${error.message}` });
-            });
-            // --- End of unchanged VVP listeners ---
+      currentVvpProcess = vvpProcess;
+      vvpProcessPid = vvpProcess.pid;
 
-            vvpProcess.on('close', (code) => {
-                event.sender.send('vvp-finished');
-                
-                if (code !== 0) {
-                    event.sender.send('gtkwave-output', { type: 'completion', code: code, message: `VVP exited with code ${code}` });
-                    reject({ success: false, message: `VVP failed with code ${code}` });
-                    return;
-                }
+      vvpProcess.stdout.on('data', (data) => {
+        event.sender.send('gtkwave-output', { 
+          type: 'stdout', 
+          data: data.toString() 
+        });
+      });
 
-                event.sender.send('gtkwave-output', { type: 'completion', code: 0, message: 'VVP simulation complete, launching GTKWave...' });
+      vvpProcess.stderr.on('data', (data) => {
+        event.sender.send('gtkwave-output', { 
+          type: 'stderr', 
+          data: data.toString() 
+        });
+      });
 
-                // --- START OF FIX: Replace GTKWave launch method ---
-                
-                // Use the silent 'start /b' method, identical to the parallel handler, to prevent the cmd window.
-                const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
+      vvpProcess.on('error', (error) => {
+        currentVvpProcess = null;
+        vvpProcessPid = null;
+        reject(new Error(`VVP error: ${error.message}`));
+      });
 
-                const gtkwaveProcess = exec(silentGtkwCmd, {
-                    cwd: workingDir,
-                    windowsHide: true,
-                    shell: true,
-                    detached: true
-                });
-
-                // Track the GTKWave process PID for monitoring
-                if (gtkwaveProcess.pid) {
-                    currentGtkwaveProcesses.add(gtkwaveProcess.pid);
-                }
-
-                gtkwaveProcess.on('close', () => {
-                    if (gtkwaveProcess.pid) {
-                        currentGtkwaveProcesses.delete(gtkwaveProcess.pid);
-                    }
-                    event.sender.send('gtkwave-output', {
-                        type: 'completion',
-                        code: 0,
-                        message: 'GTKWave closed successfully'
-                    });
-                });
-
-                gtkwaveProcess.on('error', (err) => {
-                    if (gtkwaveProcess.pid) {
-                        currentGtkwaveProcesses.delete(gtkwaveProcess.pid);
-                    }
-                    event.sender.send('gtkwave-output', {
-                        type: 'error',
-                        data: `GTKWave launch error: ${err.message}`
-                    });
-                });
-
-                // Unref to allow the main Electron process to exit independently
-                gtkwaveProcess.unref();
-
-                resolve({
-                    success: true,
-                    gtkwavePid: gtkwaveProcess.pid,
-                    message: 'Serial simulation completed, GTKWave launched silently'
-                });
-                // --- END OF FIX ---
-            });
-
-        } catch (error) {
-            reject({ success: false, message: `Serial simulation error: ${error.message}` });
+      vvpProcess.on('close', (code) => {
+        currentVvpProcess = null;
+        vvpProcessPid = null;
+        event.sender.send('vvp-finished', { code });
+        
+        if (code !== 0) {
+          reject(new Error(`VVP failed with code ${code}`));
+        } else {
+          event.sender.send('gtkwave-output', {
+            type: 'completion',
+            code: 0,
+            message: 'VVP simulation completed successfully (100%)'
+          });
+          resolve();
         }
+      });
     });
+
+    // VVP completed, now launch GTKWave
+    console.log('VVP completed at 100%, launching GTKWave...');
+    event.sender.send('gtkwave-output', {
+      type: 'stdout',
+      data: 'VVP simulation complete (100%), launching GTKWave...\n'
+    });
+
+    // CRITICAL FIX: Use silent batch method
+    const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
+
+    const gtkwaveProcess = exec(silentGtkwCmd, {
+      cwd: workingDir,
+      windowsHide: true,
+      shell: true,
+      detached: true
+    });
+
+    const gtkwavePid = gtkwaveProcess.pid;
+    currentGtkwaveProcesses.add(gtkwavePid);
+
+    if (gtkwaveProcess.stdout) {
+      gtkwaveProcess.stdout.on('data', (data) => {
+        const output = filterGtkWaveOutput(data.toString());
+        if (output.trim()) {
+          event.sender.send('gtkwave-output', { type: 'stdout', data: output });
+        }
+      });
+    }
+
+    if (gtkwaveProcess.stderr) {
+      gtkwaveProcess.stderr.on('data', (data) => {
+        const error = filterGtkWaveOutput(data.toString());
+        if (error.trim()) {
+          event.sender.send('gtkwave-output', { type: 'stderr', data: error });
+        }
+      });
+    }
+
+    gtkwaveProcess.on('close', (code) => {
+      currentGtkwaveProcesses.delete(gtkwavePid);
+      event.sender.send('gtkwave-output', {
+        type: 'completion',
+        code: code,
+        message: 'GTKWave closed'
+      });
+    });
+
+    gtkwaveProcess.on('error', (error) => {
+      currentGtkwaveProcesses.delete(gtkwavePid);
+      console.error('GTKWave error:', error);
+    });
+
+    gtkwaveProcess.unref();
+
+    console.log('Serial simulation completed, GTKWave launched');
+    return {
+      success: true,
+      gtkwavePid: gtkwavePid,
+      message: 'Serial simulation completed, GTKWave launched successfully'
+    };
+
+  } catch (error) {
+    console.error('Serial simulation error:', error);
+    return {
+      success: false,
+      message: error.message
+    };
+  }
 });
+
 
 // Directory watcher for file tree updates
 const activeDirectoryWatchers = new Map();
@@ -4851,7 +4888,6 @@ ipcMain.handle('get-system-performance', () => {
 });
 
 
-// Enhanced parallel simulation launcher with silent GTKWave
 ipcMain.handle('launch-parallel-simulation', async (event, {
   vvpCmd,
   gtkwCmd,
@@ -4859,148 +4895,125 @@ ipcMain.handle('launch-parallel-simulation', async (event, {
   workingDir
 }) => {
   try {
-    // Parse VVP command
-    const vvpParts = vvpCmd.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(arg => arg.replace(/"/g, '')) || [];
-    if (vvpParts.length === 0) {
-      throw new Error('Invalid VVP command');
-    }
-
-    // Use start /b cmd /c for silent VVP execution
-    const silentVvpCmd = `start /b cmd /c "${vvpCmd}"`;
+    console.log('Starting parallel simulation...');
     
-    // Launch VVP silently
-    const vvpProcess = exec(silentVvpCmd, {
+    // Parse VVP command
+    const vvpMatch = vvpCmd.match(/^"([^"]+)"\s+"([^"]+)"$/);
+    if (!vvpMatch) {
+      throw new Error('Invalid VVP command format');
+    }
+
+    const vvpPath = vvpMatch[1];
+    const vvpFile = vvpMatch[2];
+
+    // Launch VVP process
+    const vvpProcess = spawn(vvpPath, [vvpFile], {
       cwd: workingDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-      shell: true
+      shell: false,
+      detached: false
     });
 
-    // Monitor VVP process completion
+    currentVvpProcess = vvpProcess;
+    vvpProcessPid = vvpProcess.pid;
+
+    // Stream VVP output
+    vvpProcess.stdout.on('data', (data) => {
+      event.sender.send('gtkwave-output', { 
+        type: 'stdout', 
+        data: data.toString() 
+      });
+    });
+
+    vvpProcess.stderr.on('data', (data) => {
+      event.sender.send('gtkwave-output', { 
+        type: 'stderr', 
+        data: data.toString() 
+      });
+    });
+
+    vvpProcess.on('error', (error) => {
+      console.error('VVP process error:', error);
+      event.sender.send('gtkwave-output', { 
+        type: 'error', 
+        data: `VVP error: ${error.message}` 
+      });
+    });
+
     vvpProcess.on('close', (code) => {
-      console.log(`VVP process completed with code ${code}`);
+      currentVvpProcess = null;
+      vvpProcessPid = null;
       event.sender.send('vvp-finished', { code });
-    });
-
-    vvpProcess.on('error', (err) => {
-      console.error('VVP process error:', err);
-      event.sender.send('vvp-finished', { code: -1, error: err.message });
-    });
-
-    // Wait for VCD file with enhanced timeout
-    await waitForFile(vcdPath, 45000); // Increased timeout to 45 seconds
-
-    // Parse GTKWave command
-    const gtkwParts = gtkwCmd.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(arg => arg.replace(/"/g, '')) || [];
-    if (gtkwParts.length === 0) {
-      throw new Error('Invalid GTKWave command');
-    }
-
-    // Launch GTKWave with output capture for TCL script execution
-   const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
-
-const gtkwProcess = exec(silentGtkwCmd, {
-  cwd: workingDir,
-  windowsHide: true,
-  shell: true,
-  detached: true
-});
-
-// Track GTKWave process
-if (gtkwProcess.pid) {
-  currentGtkwaveProcesses.add(gtkwProcess.pid);
-}
-
-// Clean up tracking when process ends
-gtkwProcess.on('close', () => {
-  if (gtkwProcess.pid) {
-    currentGtkwaveProcesses.delete(gtkwProcess.pid);
-  }
-});
-
-gtkwProcess.on('error', (err) => {
-  console.error('GTKWave launch error:', err);
-  if (gtkwProcess.pid) {
-    currentGtkwaveProcesses.delete(gtkwProcess.pid);
-  }
-});
-
-// Unref to allow parent process independence
-gtkwProcess.unref();
-
-    // Track GTKWave process
-    if (gtkwProcess.pid) {
-      currentGtkwaveProcesses.add(gtkwProcess.pid);
-    }
-
-    // Capture and filter GTKWave output for TCL execution
-    let gtkwOutput = '';
-    let gtkwError = '';
-
-    gtkwProcess.stdout.on('data', (data) => {
-      const output = data.toString();
-      gtkwOutput += output;
-      
-      // Send filtered output immediately to terminal
-      const filteredOutput = filterGtkWaveOutput(output);
-      if (filteredOutput.trim()) {
-        event.sender.send('gtkwave-output', {
-          type: 'stdout',
-          data: filteredOutput
-        });
-      }
-    });
-
-    gtkwProcess.stderr.on('data', (data) => {
-      const error = data.toString();
-      gtkwError += error;
-      
-      // Send filtered error output immediately to terminal
-      const filteredError = filterGtkWaveOutput(error);
-      if (filteredError.trim()) {
-        event.sender.send('gtkwave-output', {
-          type: 'stderr',
-          data: filteredError
-        });
-      }
-    });
-
-    // Clean up tracking when process ends
-    gtkwProcess.on('close', (code) => {
-      if (gtkwProcess.pid) {
-        currentGtkwaveProcesses.delete(gtkwProcess.pid);
-      }
-      
-      // Send final completion message
       event.sender.send('gtkwave-output', {
         type: 'completion',
         code: code,
-        message: code === 0 ? 'GTKWave TCL script executed successfully' : `GTKWave exited with code ${code}`
+        message: code === 0 ? 'VVP simulation completed' : `VVP exited with code ${code}`
       });
     });
 
-    gtkwProcess.on('error', (err) => {
-      console.error('GTKWave launch error:', err);
-      if (gtkwProcess.pid) {
-        currentGtkwaveProcesses.delete(gtkwProcess.pid);
-      }
-      
-      // Send error to terminal
+    // Wait briefly to ensure VCD starts
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // CRITICAL FIX: Use silent batch method from original code
+    const silentGtkwCmd = `start /b cmd /c "${gtkwCmd}"`;
+
+    const gtkwaveProcess = exec(silentGtkwCmd, {
+      cwd: workingDir,
+      windowsHide: true,
+      shell: true,
+      detached: true
+    });
+
+    const gtkwavePid = gtkwaveProcess.pid;
+    currentGtkwaveProcesses.add(gtkwavePid);
+
+    // Capture filtered output
+    if (gtkwaveProcess.stdout) {
+      gtkwaveProcess.stdout.on('data', (data) => {
+        const output = filterGtkWaveOutput(data.toString());
+        if (output.trim()) {
+          event.sender.send('gtkwave-output', { type: 'stdout', data: output });
+        }
+      });
+    }
+
+    if (gtkwaveProcess.stderr) {
+      gtkwaveProcess.stderr.on('data', (data) => {
+        const error = filterGtkWaveOutput(data.toString());
+        if (error.trim()) {
+          event.sender.send('gtkwave-output', { type: 'stderr', data: error });
+        }
+      });
+    }
+
+    gtkwaveProcess.on('close', (code) => {
+      currentGtkwaveProcesses.delete(gtkwavePid);
       event.sender.send('gtkwave-output', {
-        type: 'error',
-        data: `GTKWave launch error: ${err.message}`
+        type: 'completion',
+        code: code,
+        message: 'GTKWave closed'
       });
     });
 
-    // Unref to allow parent process independence
-    gtkwProcess.unref();
+    gtkwaveProcess.on('error', (error) => {
+      currentGtkwaveProcesses.delete(gtkwavePid);
+      console.error('GTKWave error:', error);
+    });
 
+    // Detach for independent execution
+    gtkwaveProcess.unref();
+
+    console.log('Parallel simulation launched successfully');
     return {
       success: true,
-      message: 'VVP and GTKWave launched silently with output monitoring'
+      gtkwavePid: gtkwavePid,
+      vvpPid: vvpProcessPid,
+      message: 'Parallel simulation launched successfully'
     };
 
   } catch (error) {
-    console.error('Parallel simulation launch failed:', error);
+    console.error('Parallel simulation error:', error);
     return {
       success: false,
       message: error.message
@@ -5019,15 +5032,10 @@ function filterGtkWaveOutput(output) {
     '[0] end time',
   ];
 
-  if (!output) return '';
-  
   return output.split('\n')
     .filter(line => {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) return false;
-      
-      // Filter out noise lines
-      return !noisePrefixes.some(prefix => trimmedLine.startsWith(prefix));
+      const trimmed = line.trim();
+      return trimmed && !noisePrefixes.some(prefix => trimmed.startsWith(prefix));
     })
     .join('\n');
 }

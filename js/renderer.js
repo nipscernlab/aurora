@@ -1324,12 +1324,10 @@ function setupASMLanguage() {
 }
 
 function setupCMMLanguage() {
-    // Register CMM language
     monaco.languages.register({
         id: 'cmm'
     });
 
-    // Define CMM language configuration
     monaco.languages.setMonarchTokensProvider('cmm', {
         defaultToken: '',
         tokenPostfix: '.cmm',
@@ -1352,13 +1350,10 @@ function setupCMMLanguage() {
 
         tokenizer: {
             root: [
-                // CMM directives
                 [/#(USEMAC|ENDMAC|INTERPOINT|PRNAME|DATYPE|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ)/, 'keyword.directive.cmm'],
 
-                // StdLib functions
-                [/\b(in|fin|out|fout|norm|pset|abs|vtv|sin|cos|complex|sqrt|atan|mod2|sign|real|imag|fase)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
 
-                // Dirac notation rules...
                 [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([^⟨|⟩\s]+)(\|)\s*([^⟨|⟩\s]+)?\s*(⟩)/, ['identifier', 'operator', 'identifier', 'dirac.bar', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
                 [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([BI])(\|)/, ['identifier', 'operator', 'identifier', 'dirac.bar', 'keyword.special.dirac', 'dirac.bar']],
                 [/(\w+)\s*(#)\s*(\|)([^⟨|⟩\s]+)(⟩⟨)([^⟨|⟩\s]+)(\|)/, ['identifier', 'operator', 'dirac.bar', 'identifier', 'dirac.bracket', 'identifier', 'dirac.bar']],
@@ -1375,20 +1370,15 @@ function setupCMMLanguage() {
                 [/[⟨⟩]/, 'dirac.bracket'],
                 [/\|/, 'dirac.bar'],
 
-                // Array rules...
                 [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
                 [/\[\s*\w+\s*\)/, 'delimiter.square.inverted'],
 
-                // CORRECT COMPLEX NUMBER RULE
-                // This will match '5i', '3.14i', etc., and assign separate tokens
                 [/(\d*\.?\d+)(i)\b/, ['number', 'number.complex.imaginary.cmm']],
 
-                // Other numbers
                 [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
                 [/0[xX][0-9a-fA-F]+/, 'number.hex'],
                 [/\d+/, 'number'],
-                
-                // Identifiers and keywords
+
                 [/[a-zA-Z_]\w*/, {
                     cases: {
                         '@typeKeywords': 'keyword.type',
@@ -1397,12 +1387,10 @@ function setupCMMLanguage() {
                     }
                 }],
 
-                // Whitespace
                 {
                     include: '@whitespace'
                 },
 
-                // Strings, Chars, Operators...
                 [/"([^"\\]|\\.)*$/, 'string.invalid'],
                 [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
                 [/'[^\\']'/, 'string'],
@@ -1437,9 +1425,7 @@ function setupCMMLanguage() {
             ],
         }
     });
-
 }
-
 // Enhanced version with smooth animation
 function updateCursorPosition(event) {
     const position = event.position;
@@ -8884,16 +8870,17 @@ class TerminalManager {
         const hasActiveFilters = this.activeFilters.size > 0;
 
         cards.forEach(card => {
-            // Check if this plain message contains clickable line numbers
+            // Check if this message contains clickable line numbers FIRST
             const hasLineLinks = card.querySelector('.line-link') !== null;
             
-            // First check verbose mode for plain messages
+            // Always show messages that contain line links, regardless of verbose mode
+            if (hasLineLinks) {
+                card.style.display = '';
+                return;
+            }
+            
+            // Now check verbose mode for plain messages WITHOUT line links
             if (!this.verboseMode && card.classList.contains('plain')) {
-                // Always show plain messages that contain line links, even in non-verbose mode
-                if (hasLineLinks) {
-                    card.style.display = '';
-                    return;
-                }
                 card.style.display = 'none';
                 return;
             }

@@ -27,10 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const defaultSettings = {
-        parallelCompilation: true,
+        parallelCompilation: false,
         tooltipsEnabled: true,
-        alertSoundEnabled: true,
-        verboseMode: true
+        alertSoundEnabled: false,
+        verboseMode: false
     };
 
     let currentShortcuts = {};

@@ -3,7 +3,7 @@
     "productName": "Aurora IDE",
     "description": "Aurora IDE",
     "author": "NIPSCERN",
-    "version": "v4.0.0",
+    "version": "v4.27.10",
     "win": {
         "icon": "./assets/icons/sapho_aurora_icon.ico"
     },
@@ -52,7 +52,7 @@
                 }
             ],
             "icon": "./assets/icons/sapho_aurora_icon.ico",
-            "artifactName": "AuroraIDE-Setup-v4.0.0.${ext}"
+            "artifactName": "AuroraIDE-Setup-v4.27.10.${ext}"
         },
         "nsis": {
             "oneClick": true,

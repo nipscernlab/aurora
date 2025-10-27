@@ -43,18 +43,19 @@ class ProjectOrientedManager {
    * Initialize the entire system
    */
   async init() {
-    try {
-      this.cacheElements();
-      this.setupEventListeners();
-      this.enhanceDropZones();
-      await this.loadAvailableProcessors();
-      console.log('Project Oriented Configuration System initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Project Oriented System:', error);
-      this.showNotification('Failed to initialize configuration system', 'error', 4000);
-    }
+      try {
+        this.cacheElements();
+        this.setupEventListeners();
+        this.enhanceDropZones();
+        await this.loadAvailableProcessors();
+        this.updateCompilationModeStatus(); // <-- ADD THIS LINE
+        console.log('Project Oriented Configuration System initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize Project Oriented System:', error);
+        this.showNotification('Failed to initialize configuration system', 'error', 4000);
+      }
   }
-  
+    
   /**
    * Cache all DOM elements for better performance
    */
@@ -104,6 +105,11 @@ class ProjectOrientedManager {
     this.elements.cancelBtn?.addEventListener('click', () => this.closeModal());
     this.elements.saveBtn?.addEventListener('click', () => this.saveConfiguration());
     
+    this.elements.toggleButton?.addEventListener('click', () => {
+        setTimeout(() => this.updateCompilationModeStatus(), 50);
+    });
+
+
     // Import buttons
     this.elements.importSynthesizableBtn?.addEventListener('click', () => this.handleImportClick('synthesizable'));
     this.elements.importTestbenchBtn?.addEventListener('click', () => this.handleImportClick('testbench'));
@@ -133,6 +139,34 @@ class ProjectOrientedManager {
     this.setupDragAndDrop();
   }
   
+  updateCompilationModeStatus() {
+    if (!this.elements.toggleButton || !this.elements.statusText) {
+        console.warn('UI toggle button or status text element not found.');
+        return;
+    }
+
+    const statusElement = this.elements.statusText;
+    const isProjectMode = this.elements.toggleButton.classList.contains('active');
+
+    const newHTML = isProjectMode
+        ? '<i class="fa-solid fa-lock"></i> Project Oriented'
+        : '<i class="fa-solid fa-lock-open"></i> Processor Oriented';
+
+    // Para evitar um piscar desnecessário se o conteúdo já estiver correto
+    if (statusElement.innerHTML.trim() === newHTML.trim()) {
+        return;
+    }
+
+    // 1. Inicia o fade-out
+    statusElement.style.opacity = '0';
+
+    // 2. Aguarda o término do fade-out, troca o conteúdo e inicia o fade-in
+    setTimeout(() => {
+        statusElement.innerHTML = newHTML;
+        statusElement.style.opacity = '1';
+    }, 300); // Esta duração (300ms) deve corresponder à transição do CSS (0.3s)
+}
+
   /**
    * Enhanced drag and drop setup with visual feedback
    */
@@ -433,6 +467,11 @@ class ProjectOrientedManager {
         border-color: var(--status-error);
         color: var(--status-error);
       }
+
+      #processorProjectOriented {
+        transition: opacity 0.3s ease-in-out;
+      }
+
     `;
     document.head.appendChild(style);
   }
@@ -1337,8 +1376,36 @@ async loadAndValidateFiles(files, type) {
  /**
  * Save configuration (without size property)
  */
+// Paste this code to replace the existing saveConfiguration function
+
 async saveConfiguration() {
   try {
+    // --- VALIDATION START ---
+
+    // 1. Check if at least one synthesizable file has been imported and starred as the top-level.
+    if (this.synthesizableFiles.length === 0) {
+      this.showNotification('You must import at least one synthesizable file (.v, .sv).', 'error', 4000);
+      return; // Stop the saving process
+    }
+    const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
+    if (!starredSynthesizable) {
+      this.showNotification('You must star one synthesizable file as the top-level module.', 'error', 4000);
+      return; // Stop the saving process
+    }
+
+    // 2. Check if at least one testbench file has been imported and starred.
+    if (this.testbenchFiles.length === 0) {
+      this.showNotification('You must import at least one testbench file (.v, .sv).', 'error', 4000);
+      return; // Stop the saving process
+    }
+    const starredTestbench = this.testbenchFiles.find(file => file.starred);
+    if (!starredTestbench) {
+      this.showNotification('You must star one file as the main testbench.', 'error', 4000);
+      return; // Stop the saving process
+    }
+    
+    // --- VALIDATION END ---
+
     let projectPath = window.currentProjectPath;
     
     if (!projectPath) {
@@ -1357,8 +1424,6 @@ async saveConfiguration() {
       return;
     }
     
-    const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
-    const starredTestbench = this.testbenchFiles.find(file => file.starred);
     const starredGtkw = this.gtkwFiles.find(file => file.starred);
     
     const processors = [];
@@ -1385,7 +1450,6 @@ async saveConfiguration() {
     const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
     const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
     
-    // Save WITHOUT size property
     const config = {
       topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
       testbenchFile: starredTestbench ? starredTestbench.path : '',

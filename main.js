@@ -72,7 +72,7 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
@@ -530,7 +530,7 @@ function createSettingsWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -2192,32 +2192,30 @@ app.whenReady().then(() => {
   }
 });
 
-ipcMain.handle('export-log', async (_, logData) => {
+ipcMain.handle('export-log', async (event, logData) => { 
   try {
-    // Descobrir o projeto aberto. Ajuste conforme sua lógica:
-    // Exemplo:
     const projectPath = global.currentProjectPath || global.currentOpenProjectPath || (global.currentProject && global.currentProject.path);
     if (!projectPath) {
-      return { success: false, message: 'Nenhum projeto aberto. Não foi possível exportar o log.' };
+      return { success: false, message: 'No open project. Could not export the log.' };
     }
 
-    // Pasta de backup dentro do projeto:
     const backupDir = path.join(projectPath, 'Backup');
-    // Garante existência:
     await fse.ensureDir(backupDir);
 
-    // Caminho do arquivo:
     const reportFilename = 'house_report.json';
     const reportFilePath = path.join(backupDir, reportFilename);
 
-    // Escreve JSON com identação de 2 espaços:
     await fse.writeJson(reportFilePath, logData, { spaces: 2 });
-    ipcMain.on('refresh-file-tree', (event) => {
-      event.sender.send('trigger-refresh-file-tree'); // Notify renderer to refresh the file tree
-    });
+
+    event.sender.send('trigger-refresh-file-tree');
+
+
+    return { success: true, message: 'Log exported successfully!' };
+
+
   } catch (error) {
-    console.error('Erro ao exportar log:', error);
-    return { success: false, message: 'Erro ao exportar log: ' + error.message };
+    console.error('Error exporting log:', error);
+    return { success: false, message: 'Error exporting log: ' + error.message };
   }
 });
 
@@ -2575,7 +2573,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,

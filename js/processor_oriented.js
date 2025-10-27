@@ -333,6 +333,8 @@ function updateProcessorSelect() {
 }
 
 // Update the saveCurrentProcessorToTemp function to save simulation file selections
+// Cole este código no lugar da função loadCmmFiles existente
+
 async function loadCmmFiles(processorName) {
   if (!cmmFileSelect) {
     console.error("C± file select element not found");
@@ -340,7 +342,7 @@ async function loadCmmFiles(processorName) {
   }
 
   if (!processorName) {
-    // Reset and disable select if no processor is selected
+    // Reseta e desabilita o seletor se nenhum processador for selecionado
     cmmFileSelect.innerHTML = '<option value="" selected>Select C± File</option>';
     cmmFileSelect.disabled = true;
     selectedCmmFile = null;
@@ -353,7 +355,7 @@ async function loadCmmFiles(processorName) {
     
     console.log(`Loading C± files for processor: ${processorName}`);
     
-    // Get current project path
+    // Obtém o caminho do projeto atual
     const projectInfo = await window.electronAPI.getCurrentProject();
     const currentProjectPath = projectInfo.projectPath || 
       window.currentProjectPath || 
@@ -365,16 +367,28 @@ async function loadCmmFiles(processorName) {
       return;
     }
     
-    // Get the software folder path for this processor
+    // Obtém o caminho para a pasta Software do processador
     const softwareFolderPath = await window.electronAPI.joinPath(currentProjectPath, processorName, 'Software');
     
-    // Get all .cmm files from the software folder
+    // Obtém todos os arquivos .cmm da pasta
     const files = await window.electronAPI.listFilesInDirectory(softwareFolderPath);
     const cmmFiles = files.filter(file => file.toLowerCase().endsWith('.cmm'));
     
     console.log(`Found ${cmmFiles.length} C± files`);
+
+    // NOVO: Se houver apenas um arquivo .cmm e nenhum já estiver configurado, seleciona-o por padrão
+    if (cmmFiles.length === 1) {
+        if (!tempProcessorConfigs[processorName]) {
+            tempProcessorConfigs[processorName] = { name: processorName };
+        }
+        // Define o arquivo apenas se ele não foi previamente salvo na configuração
+        if (!tempProcessorConfigs[processorName].cmmFile) {
+            tempProcessorConfigs[processorName].cmmFile = cmmFiles[0];
+            console.log(`Auto-selecting the single C± file: ${cmmFiles[0]}`);
+        }
+    }
     
-    // Update CMM file select
+    // Atualiza o seletor de arquivos CMM
     cmmFileSelect.innerHTML = '<option value="">Select C± File</option>';
     
     if (cmmFiles.length === 0) {
@@ -389,7 +403,7 @@ async function loadCmmFiles(processorName) {
         option.value = file;
         option.textContent = file;
         
-        // Select this option if it matches saved configuration
+        // Esta verificação agora selecionará uma configuração salva ou a que foi auto-selecionada
         if (tempProcessorConfigs[processorName] && 
             tempProcessorConfigs[processorName].cmmFile === file) {
           option.selected = true;
@@ -400,7 +414,7 @@ async function loadCmmFiles(processorName) {
       });
     }
     
-    // Enable select
+    // Habilita o seletor
     cmmFileSelect.disabled = false;
     
   } catch (error) {
@@ -409,20 +423,6 @@ async function loadCmmFiles(processorName) {
     showNotification("Failed to load C± files", 'error');
   }
 }
-
-// Add event listener for CMM file selection
-cmmFileSelect.addEventListener("change", function() {
-  selectedCmmFile = this.value;
-  console.log(`Selected C± file: ${selectedCmmFile}`);
-  
-  // Save to temp config if processor is selected
-  if (selectedProcessor && selectedCmmFile) {
-    if (!tempProcessorConfigs[selectedProcessor]) {
-      tempProcessorConfigs[selectedProcessor] = { name: selectedProcessor };
-    }
-    tempProcessorConfigs[selectedProcessor].cmmFile = selectedCmmFile;
-  }
-});
 
 
 // Add this function to handle testbench selection changes

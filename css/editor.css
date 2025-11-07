@@ -362,20 +362,6 @@
   border-radius: var(--radius-sm) !important;
 }
 
-/* Glifo de Breakpoint customizado */
-.myBreakpointGlyph {
-  width: 12px;
-  height: 12px;
-  margin-left: 2px;
-  border-radius: var(--radius-full);
-  background-color: var(--status-error);
-  box-shadow: var(--shadow-glow);
-  opacity: 0.8;
-  transition: opacity var(--transition-fast);
-}
-.margin-view-overlays .myBreakpointGlyph:hover {
-  opacity: 1;
-}
 
 /* ===================================================================================
  *  Ajustes Responsivos

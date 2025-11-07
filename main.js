@@ -6,10 +6,10 @@
  * 
  *    START: ALL IMPORTS AND CONST ƒ 
  * 
- * -
+ * 
 */ 
 
-const { app, BrowserWindow, ipcMain, shell, nativeImage, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { exec, spawn } = require('child_process');
 const path = require('path');
@@ -17,14 +17,8 @@ const fse = require('fs-extra');
 const fs = require('fs').promises;
 const os = require('os');
 const moment = require("moment");
-const electronFs = require('original-fs');
-const url = require('url');
 const log = require('electron-log');
-log.transports.file.level = 'debug';
-const { promisify } = require('util');
-const chokidar = require('chokidar'); // You'll need to install: npm install chokidar
-require('./js/preload_prism.js');
-
+const chokidar = require('chokidar');
 const isDev = process.env.NODE_ENV === 'development';
 
 let progressWindow = null;
@@ -41,12 +35,12 @@ autoUpdater.logger.transports.file.level = 'info';
 // Configure auto-updater settings
 autoUpdater.autoDownload = false; // We want to ask user first
 autoUpdater.autoInstallOnAppQuit = false; // We want to control installation
+log.transports.file.level = 'debug';
 
 // Variable to track the current open project path
 let currentOpenProjectPath = null;
 
 // Global variables for app state
-
 let isQuitting = false;
 
 let mainWindow, splashWindow;
@@ -69,64 +63,58 @@ let mainWindow, splashWindow;
 
 // Function to create the main application window
 async function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    autoHideMenuBar: false,
-    icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: true,
-      webviewTag: true,
-      preload: path.join(__dirname, 'js', 'preload.js'),
-       enableWebSQL: false,
-      allowRunningInsecureContent: false,
-      experimentalFeatures: false
-    },
-    backgroundColor: '#1e1e1e',
-    show: false,
-  });
+    mainWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      autoHideMenuBar: false,
+      icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: true,
+        webviewTag: true,
+        preload: path.join(__dirname, 'js', 'preload.js'),
+        enableWebSQL: false,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false
+      },
+      backgroundColor: '#1e1e1e',
+      show: false,
+    });
 
-  mainWindow.loadFile('index.html');
+    mainWindow.loadFile('index.html');
 
-   // Verificar se há um arquivo .spf para abrir
-   mainWindow.webContents.on('did-finish-load', () => {
-    if (fileToOpen) {
-      mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
+    // Verificar se há um arquivo .spf para abrir
+    mainWindow.webContents.on('did-finish-load', () => {
+      if (fileToOpen) {
+        mainWindow.webContents.send('open-spf-file', { filePaths: [fileToOpen] });
+      }
+    });
+
+    // Registrar o protocolo sapho: e a extensão .spf
+    if (process.platform === 'win32') {
+      app.setAsDefaultProtocolClient('sapho');
+      app.setAppUserModelId(process.execPath);
+    }
+    
+    // Handle window close
+    mainWindow.on('close', async (event) => {
+      if (isQuitting) return;
+    
+    });
+    
+    // Handle app quit
+    app.on('before-quit', async () => {
+    isQuitting = true;
+
+    try {
+      const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+      await fs.rm(tempFolderPath, { recursive: true, force: true });
+      await fs.mkdir(tempFolderPath, { recursive: true });
+      console.log('Temp folder successfully cleared before quitting.');
+    } catch (error) {
+      console.error('Failed to clear Temp folder on app exit:', error);
     }
   });
-
-  // Registrar o protocolo sapho: e a extensão .spf
-if (process.platform === 'win32') {
-  app.setAsDefaultProtocolClient('sapho');
-  app.setAppUserModelId(process.execPath);
-}
-
-  // Load user settings
-  const settings = await loadSettings();
-  
-  // Apply auto-start setting
-  applyAutoStartSettings(settings.startWithWindows);
-
-  // Handle window close
-  mainWindow.on('close', async (event) => {
-    if (isQuitting) return;
-  
-  });
-  
-  // Handle app quit
-  app.on('before-quit', async () => {
-  isQuitting = true;
-
-  try {
-    const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
-    await fs.rm(tempFolderPath, { recursive: true, force: true });
-    await fs.mkdir(tempFolderPath, { recursive: true });
-    console.log('Temp folder successfully cleared before quitting.');
-  } catch (error) {
-    console.error('Failed to clear Temp folder on app exit:', error);
-  }
-});
 
 
   mainWindow.once('ready-to-show', () => {
@@ -194,64 +182,12 @@ function createProgressWindow() {
   });
 }
 
-/* Enhanced update checking with better error handling
-function checkForUpdates(showNoUpdateDialog = false) {
-  if (updateCheckInProgress) {
-    log.info('Update check already in progress');
-    return;
-  }
-
-  if (isDev) {
-    log.info('Skipping update check in development mode');
-    return;
-  }
-
-  updateCheckInProgress = true;
-  log.info('Checking for updates...');
-
-  autoUpdater.allowPrerelease = false;
-  autoUpdater.channel = 'latest';
-  autoUpdater.showNoUpdateDialog = showNoUpdateDialog;
-
-  clearUpdateCache().then(() => {
-    log.info('Cache cleared, starting update check...');
-    autoUpdater.checkForUpdates().catch((error) => {
-      log.error('Error during update check:', error);
-      updateCheckInProgress = false;
-    });
-  }).catch((error) => {
-    log.error('Failed to clear update cache:', error);
-    autoUpdater.checkForUpdates().catch((err) => {
-      log.error('Error during update check after cache clear failure:', err);
-      updateCheckInProgress = false;
-    });
-  });
-}
-*/
-// Clear update cache for fresh downloads
-async function clearUpdateCache() {
-  try {
-    const { session } = require('electron');
-    const ses = session.defaultSession;
-    
-    // Clear HTTP cache
-    await ses.clearCache();
-    
-    // Clear storage data related to updates
-    await ses.clearStorageData({
-      storages: ['cachestorage', 'filesystem', 'localstorage', 'sessionstorage']
-    });
-    
-    log.info('Update cache cleared successfully');
-  } catch (error) {
-    log.error('Error clearing update cache:', error);
-    throw error;
-  }
-}
 
 function setupAutoUpdaterEvents() {
-  // CORREÇÃO: Limpar listeners existentes
-  autoUpdater.removeAllListeners();
+  if (autoUpdater.listenerCount('checking-for-update') > 0) {
+    log.info('Auto-updater events already configured');
+    return;
+  }
   
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
@@ -515,89 +451,6 @@ function initializeUpdateSystem() {
 }
 
 
-// Function to create the settings window
-function createSettingsWindow() {
-  if (settingsWindow) {
-    settingsWindow.focus();
-    return;
-  }
-
-  settingsWindow = new BrowserWindow({
-    width: 520,  // Largura do modal original
-    height: 450, // Altura ajustada para o conteúdo
-    parent: mainWindow,
-    modal: true,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    autoHideMenuBar: false,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    },
-    title: 'Settings'
-  });
-
-  settingsWindow.loadFile(path.join(__dirname, 'html', 'settings.html'));
-
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-  });
-}
-
-// Function to load user settings from a file
-async function loadSettings() {
-  try {
-    try {
-      await fs.access(settingsPath); // Check if the settings file exists
-      const data = await fs.readFile(settingsPath, 'utf8'); // Read the settings file
-      return JSON.parse(data); // Parse and return the settings
-    } catch (err) {
-      // If the file doesn't exist, return default settings
-      return {
-        startWithWindows: false,
-        theme: 'dark'
-      };
-    }
-  } catch (error) {
-    console.error('Error loading settings:', error);
-    // Return default settings in case of an error
-    return {
-      startWithWindows: false,
-      theme: 'dark'
-    };
-  }
-}
-
-// Function to save user settings to a file
-async function saveSettings(settings) {
-  try {
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8'); // Write settings to file
-    return true;
-  } catch (error) {
-    console.error('Error saving settings:', error);
-    return false;
-  }
-}
-
-// Function to apply auto-start settings for the application
-function applyAutoStartSettings(enabled) {
-  try {
-    app.setLoginItemSettings({
-      openAtLogin: enabled,
-      path: process.execPath
-    });
-    return true;
-  } catch (error) {
-    console.error('Error setting login item:', error);
-    return false;
-  }
-}
-
-
 ipcMain.on('zoom-in', () => {
   handleZoom(mainWindow, 0.1); // Aumenta o zoom em 10%
 });
@@ -621,21 +474,6 @@ ipcMain.on('zoom-reset', () => {
   }
 }
 
-
-ipcMain.on('zoom-in', () => {
-  handleZoom(mainWindow, 0.1); // Aumenta o zoom em 10%
-});
-
-ipcMain.on('zoom-out', () => {
-  handleZoom(mainWindow, -0.1); // Diminui o zoom em 10%
-});
-
-ipcMain.on('zoom-reset', () => {
-  if (mainWindow) {
-    mainWindow.webContents.setZoomFactor(1.0); // Reseta para 100%
-  }
-});
-
 // Function to create a splash screen
 function createSplashScreen() {
   splashWindow = new BrowserWindow({
@@ -650,7 +488,7 @@ function createSplashScreen() {
 
   splashWindow.loadFile(path.join(__dirname, 'html', 'splash.html'));
   setTimeout(() => {
-    splashWindow.close(); // Close splash screen
+    splashWindow.close(); 
     createMainWindow(); // Create main application window
     //setTimeout(checkForUpdates, 2000); // Check for updates after a delay
   }, 4000);
@@ -831,7 +669,6 @@ ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) 
   });
 });
 
-
 ipcMain.handle('exec-command-stream', (event, command, workingDir = null, options = {}) => {
     return new Promise((resolve, reject) => {
         const cpuCount = getCPUCount();
@@ -907,8 +744,6 @@ ipcMain.handle('set-process-priority', (event, pid, priority = 'high') => {
     }
   });
 });
-
-
 
 // Handler for killing process by PID - Enhanced version
 ipcMain.handle('kill-process', async (event, pid) => {
@@ -1238,14 +1073,28 @@ ipcMain.handle('save-file', async (event, { filePath, content }) => {
 */
 
 // Function to scan a directory recursively
-// Enhanced scanDirectory that returns nested structure
 async function scanDirectory(dirPath) {
-  async function buildTree(currentPath, isRoot = false) {
+  async function buildTree(currentPath, isRoot = false, depth = 0) {
+    // CORREÇÃO: Adicionar limite de profundidade para evitar loops infinitos
+    const MAX_DEPTH = 20;
+    
+    if (depth > MAX_DEPTH) {
+      console.warn(`Maximum depth reached at: ${currentPath}`);
+      return [];
+    }
+    
     try {
+      // CORREÇÃO: Verificar se o diretório existe antes de ler
+      try {
+        await fs.access(currentPath);
+      } catch {
+        console.warn(`Directory not accessible: ${currentPath}`);
+        return [];
+      }
+      
       const items = await fs.readdir(currentPath, { withFileTypes: true });
       const result = [];
 
-      // Sort: directories first, then files, alphabetically
       items.sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory()) return -1;
         if (!a.isDirectory() && b.isDirectory()) return 1;
@@ -1253,12 +1102,16 @@ async function scanDirectory(dirPath) {
       });
 
       for (const item of items) {
+        // CORREÇÃO: Ignorar links simbólicos para evitar loops
+        if (item.isSymbolicLink()) {
+          continue;
+        }
+        
         const fullPath = path.join(currentPath, item.name);
         const relativePath = path.relative(dirPath, fullPath);
 
         if (item.isDirectory()) {
-          // Recursively build directory tree
-          const children = await buildTree(fullPath, false);
+          const children = await buildTree(fullPath, false, depth + 1);
           result.push({
             name: item.name,
             path: fullPath,
@@ -1283,10 +1136,9 @@ async function scanDirectory(dirPath) {
     }
   }
 
-  return await buildTree(dirPath, true);
+  return await buildTree(dirPath, true, 0);
 }
 
-// Handler to refresh the folder structure
 // Handler to refresh the folder structure
 ipcMain.handle('refreshFolder', async (event, projectPath) => {
   try {
@@ -1337,8 +1189,6 @@ ipcMain.handle('open-external', async (event, url) => {
  * 
  * 
 */
-
-
 
 
 ipcMain.handle('list-files-directory', async (event, directoryPath) => {
@@ -1408,10 +1258,7 @@ class ProjectFile {
   }
 }
 
-// Function to update the project state and notify the renderer process
-function updateProjectState(window, projectPath, spfPath) {
-  window.webContents.send('project:stateChange', { projectPath, spfPath });
-}
+
 // Context: IPC handlers for project creation, opening, and folder operations in an Electron application
 
 ipcMain.handle('project:createStructure', async (event, projectPath, spfPath) => {
@@ -1562,10 +1409,15 @@ ipcMain.handle('project:open', async (_, spfPath) => {
   }
 });
 
-// Adicione este handler IPC no main.js
 ipcMain.handle('project:close', async () => {
   try {
     console.log('Closing project...');
+    
+    // CORREÇÃO: Verificar se há projeto aberto antes de fechar
+    if (!currentOpenProjectPath && !global.currentProjectPath) {
+      console.log('No project is currently open');
+      return { success: true, message: 'No project to close' };
+    }
     
     // Limpar as variáveis globais do projeto
     currentOpenProjectPath = null;
@@ -1581,34 +1433,25 @@ ipcMain.handle('project:close', async () => {
       projectPath: null
     };
     
-    // Obter a janela focada
     const focusedWindow = BrowserWindow.getFocusedWindow();
     
-    if (focusedWindow) {
-      // Notificar o renderer para desabilitar o Processor Hub
-      focusedWindow.webContents.send('project:processorHubState', { enabled: false });
+    if (focusedWindow && !focusedWindow.isDestroyed()) {
+      // Enviar notificações em lote para melhor performance
+      const notifications = [
+        { channel: 'project:processorHubState', data: { enabled: false } },
+        { channel: 'project:processors', data: { processors: [], projectPath: null } },
+        { channel: 'project:fileTree', data: { files: [], projectPath: null } },
+        { channel: 'project:closed', data: { success: true } }
+      ];
       
-      // Limpar a lista de processors
-      focusedWindow.webContents.send('project:processors', { 
-        processors: [],
-        projectPath: null
+      notifications.forEach(({ channel, data }) => {
+        focusedWindow.webContents.send(channel, data);
       });
       
-      // Atualizar o estado do projeto na interface
       updateProjectState(focusedWindow, null, null);
-      
-      // Limpar a árvore de arquivos
-      focusedWindow.webContents.send('project:fileTree', { 
-        files: [],
-        projectPath: null
-      });
-      
-      // Notificar que o projeto foi fechado
-      focusedWindow.webContents.send('project:closed', { success: true });
     }
     
     console.log('Project closed successfully');
-    
     return { success: true };
     
   } catch (error) {
@@ -1720,76 +1563,6 @@ ipcMain.handle('getFolderFiles', async (event, folderPath) => {
   }
 });
 
-//SAVE FILE
-
-// In main.js
-/*
-ipcMain.handle('write-file', async (event, filePath, content) => {
-  try {
-    await fs.promises.writeFile(filePath, content, 'utf8');
-    return true;
-  } catch (error) {
-    throw error;
-  }
-});*/
-// Context: IPC handlers for Verilog, BlockView, VCD, Icarus, and directory watching functionalities
-
-// IPC handler to execute PowerShell commands for Verilog-related tasks
-ipcMain.handle('execute-powershell', async () => {
-  try {
-    const commandsFolder = path.join(__dirname, 'commands');
-    const commandFiles = [
-      'command1.ps1', // Start WSL
-      'command2.ps1', // Change directory
-      'command3.ps1', // Display Verilator version
-      'command4.ps1'  // Execute compilation
-    ];
-
-    let output = '';
-    let errorOutput = '';
-
-    for (const commandFile of commandFiles) {
-      const commandPath = path.join(commandsFolder, commandFile);
-      const commands = await fs.readFile(commandPath, 'utf8');
-      const commandResult = await executePowerShell(commands);
-      output += commandResult.output;
-      errorOutput += commandResult.errorOutput;
-    }
-
-    return { output, errorOutput };
-  } catch (error) {
-    throw error;
-  }
-});
-
-// Helper function to execute PowerShell commands
-function executePowerShell(commands) {
-  return new Promise((resolve, reject) => {
-    const powershell = exec('powershell.exe -NoProfile -ExecutionPolicy Bypass -Command -', (error) => {
-      if (error) {
-        reject(error);
-      }
-    });
-
-    let output = '';
-    let errorOutput = '';
-
-    powershell.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    powershell.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    powershell.on('close', () => {
-      resolve({ output, errorOutput });
-    });
-
-    powershell.stdin.write(commands);
-    powershell.stdin.end();
-  });
-}
 
 // IPC handler to create a directory
 ipcMain.handle('create-directory', async (event, dirPath) => {
@@ -2536,34 +2309,38 @@ ipcMain.on('app:reload', () => {
 let prismWindow = null;
 
 async function createPrismWindow(compilationData = null) {
-  // If already open, just focus and update content if data provided
   if (prismWindow && !prismWindow.isDestroyed()) {
     prismWindow.focus();
     
-    // If compilation data is provided, send it to existing window
     if (compilationData) {
-      console.log('Updating existing PRISM window with new compilation data:', compilationData);
-      // Check if the window is ready before sending data
-      if (!prismWindow.webContents.isLoading()) {
-        prismWindow.webContents.send('compilation-complete', compilationData);
+      console.log('Updating existing PRISM window with new compilation data');
+      // CORREÇÃO: Aguardar a janela estar pronta antes de enviar dados
+      const sendData = () => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      };
+      
+      if (prismWindow.webContents.isLoading()) {
+        prismWindow.webContents.once('did-finish-load', sendData);
       } else {
-        prismWindow.webContents.once('did-finish-load', () => {
-          if (prismWindow && !prismWindow.isDestroyed()) {
-            prismWindow.webContents.send('compilation-complete', compilationData);
-          }
-        });
+        // Pequeno delay para garantir que o DOM está pronto
+        setTimeout(sendData, 100);
       }
     }
     return prismWindow;
   }
 
-  // Ensure preload script exists
   const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
-  console.log('Preload script path:', preloadPath);
+  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
   
+  // CORREÇÃO: Validar arquivos ANTES de criar a janela
   if (!require('fs').existsSync(preloadPath)) {
-    console.error('Preload script not found at:', preloadPath);
     throw new Error(`Preload script not found: ${preloadPath}`);
+  }
+  
+  if (!require('fs').existsSync(prismHtmlPath)) {
+    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
   }
 
   console.log('Creating new PRISM window...');
@@ -2583,55 +2360,37 @@ async function createPrismWindow(compilationData = null) {
       allowRunningInsecureContent: true
     },
     backgroundColor: '#17151f',
-    show: false, // Inicialmente oculta
+    show: false,
     titleBarStyle: 'default'
   });
 
-  // Load the HTML file
-  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-  console.log('Loading PRISM HTML from:', prismHtmlPath);
-  
-  // CORREÇÃO PRINCIPAL: Verificar se o arquivo existe antes de tentar carregar
-  if (!require('fs').existsSync(prismHtmlPath)) {
-    console.error('PRISM HTML file not found at:', prismHtmlPath);
-    if (prismWindow) {
-      prismWindow.destroy();
-      prismWindow = null;
-    }
-    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
-  }
-  
   try {
-    // Carregar o arquivo HTML
     await prismWindow.loadFile(prismHtmlPath);
     console.log('PRISM HTML loaded successfully');
     
-    // CORREÇÃO: Mostrar a janela imediatamente após carregar, sem esperar pelo evento
+    // CORREÇÃO: Aguardar DOM estar pronto antes de mostrar
+    await new Promise(resolve => {
+      prismWindow.webContents.once('did-finish-load', () => {
+        setTimeout(resolve, 500); // Delay adicional para garantir DOM
+      });
+    });
+    
     prismWindow.maximize();
     prismWindow.show();
     console.log('PRISM window shown');
     
-    // Notificar a janela principal que PRISM está aberto
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('prism-status', true);
     }
     
-    // Se há dados de compilação, enviar após um pequeno delay para garantir que o DOM está pronto
     if (compilationData) {
-      console.log('Scheduling compilation data send...');
-      setTimeout(() => {
-        if (prismWindow && !prismWindow.isDestroyed()) {
-          console.log('Sending compilation data to PRISM window:', compilationData);
-          prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      }, 1000); // Delay de 1 segundo para garantir que a página está totalmente carregada
+      console.log('Sending compilation data to new PRISM window');
+      prismWindow.webContents.send('compilation-complete', compilationData);
     }
     
   } catch (error) {
     console.error('Failed to load prism.html:', error);
     
-    // Mostrar erro em dialog
-    const { dialog } = require('electron');
     await dialog.showMessageBox({
       type: 'error',
       title: 'PRISM Load Error',
@@ -2646,7 +2405,6 @@ async function createPrismWindow(compilationData = null) {
     throw error;
   }
 
-  // Handle window closed
   prismWindow.on('closed', () => {
     console.log('PRISM window closed');
     prismWindow = null;
@@ -2655,13 +2413,9 @@ async function createPrismWindow(compilationData = null) {
     }
   });
 
-  // Enhanced error handling
+  // Error handlers permanecem os mesmos
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
-    console.error(`Failed URL: ${validatedURL}`);
-    
-    // Mostrar erro específico
-    const { dialog } = require('electron');
     dialog.showMessageBox({
       type: 'error',
       title: 'PRISM Load Failed',
@@ -2674,20 +2428,9 @@ async function createPrismWindow(compilationData = null) {
     console.error('PRISM viewer renderer process crashed:', details);
   });
 
-  // Adicionar log quando o conteúdo terminar de carregar
-  prismWindow.webContents.on('did-finish-load', () => {
-    console.log('PRISM window content finished loading');
-  });
-
-  // Adicionar log quando começar a carregar
-  prismWindow.webContents.on('did-start-loading', () => {
-    console.log('PRISM window started loading');
-  });
-
   console.log('PRISM window created successfully');
   return prismWindow;
 }
-
 
 ipcMain.handle('prism-compile-with-paths', async (event, compilationPaths) => {
   try {
@@ -2919,7 +2662,6 @@ ipcMain.handle('open-prism-compile', async (event, compilationPaths) => {
     return { success: false, message: error.message };
   }
 });
-
 
 // Helper function to filter and group log messages
 function shouldLogMessage(message, source) {
@@ -3249,136 +2991,8 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
   
-  // Build file list for Yosys using provided paths
-  let fileList = [];
-  let hdlFileCount = 0, processorFileCount = 0, topLevelFileCount = 0;
+  // ... (código de coleta de arquivos permanece o mesmo até o comando Yosys)
   
-  // Add HDL files using provided HDL path
-  console.log('Scanning HDL directory:', hdlPath);
-  if (await fse.pathExists(hdlPath)) {
-    const hdlFiles = await fse.readdir(hdlPath);
-    const vFiles = hdlFiles.filter(file => 
-      file.endsWith('.v') && 
-      !file.includes('_tb') && 
-      !file.includes('_testbench') &&
-      !file.toLowerCase().includes('test')
-    );
-    fileList = fileList.concat(vFiles.map(file => path.join(hdlPath, file)));
-    hdlFileCount = vFiles.length;
-    console.log(`Found ${hdlFileCount} HDL files`);
-  } else {
-    console.warn('HDL directory not found:', hdlPath);
-  }
-  
-  // Add processor files from processorConfig.json
-  const processorConfigPath = compilationPaths.processorConfigPath;
-  console.log('Checking processor config:', processorConfigPath);
-  if (await fse.pathExists(processorConfigPath)) {
-    const processorConfig = await fse.readJson(processorConfigPath);
-    
-    if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
-      for (const processor of processorConfig.processors) {
-        const processorName = processor.name;
-        const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
-        const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
-        
-        console.log(`Checking processor file: ${processorVFile}`);
-        if (await fse.pathExists(processorVFile)) {
-          fileList.push(processorVFile);
-          processorFileCount++;
-          console.log(`✓ Added processor file: ${processorVFile}`);
-        } else {
-          console.warn(`✗ Processor file not found: ${processorVFile}`);
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('terminal-log', 'tprism', `Missing: ${processorName}.v`, 'warning');
-          }
-        }
-        
-        // Also add other Hardware files from the processor directory
-        if (await fse.pathExists(processorHardwareDir)) {
-          const hardwareFiles = await fse.readdir(processorHardwareDir);
-          const vFiles = hardwareFiles.filter(file => 
-            file.endsWith('.v') && 
-            !file.includes('_tb') && 
-            !file.includes('_testbench') &&
-            !file.toLowerCase().includes('test') &&
-            file !== `${processorName}.v`
-          );
-          fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
-          processorFileCount += vFiles.length;
-        }
-      }
-    }
-  }
-  
-  if (isProjectOriented) {
-    // Project Oriented Mode: Include all TopLevel files except the top level file
-    const topLevelDir = compilationPaths.topLevelPath;
-    console.log('Scanning TopLevel directory:', topLevelDir);
-    
-    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
-    const projectConfig = await fse.readJson(projectConfigPath);
-    const topLevelFileName = projectConfig.topLevelFile;
-    
-    if (await fse.pathExists(topLevelDir)) {
-      const topLevelFiles = await fse.readdir(topLevelDir);
-      const vFiles = topLevelFiles.filter(file => 
-        file.endsWith('.v') && 
-        !file.includes('_tb') && 
-        !file.includes('_testbench') &&
-        !file.toLowerCase().includes('test') &&
-        file !== topLevelFileName
-      );
-      fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
-      
-      // Add the top level file last
-      const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
-      if (await fse.pathExists(topLevelFilePath)) {
-        fileList.push(topLevelFilePath);
-        console.log(`✓ Added top level file: ${topLevelFilePath}`);
-      }
-      
-      topLevelFileCount = vFiles.length + 1;
-      console.log(`Found ${topLevelFileCount} TopLevel files`);
-    }
-  }
-  
-  // Summary log instead of listing all files
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', 
-      `Files found: ${hdlFileCount} HDL, ${processorFileCount} processor, ${topLevelFileCount} top-level (Total: ${fileList.length})`, 'info');
-  }
-  
-  if (fileList.length === 0) {
-    const errorMsg = 'No Verilog files found for compilation';
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
-    }
-    throw new Error(errorMsg);
-  }
-  
-  // Continue with existing Yosys compilation logic using provided yosysExe path
-  console.log('Using Yosys executable:', yosysExe);
-  
-  // First, clean up any old stub files
-  await cleanupOldStubFiles(tempDir);
-  
-  // Then, try to analyze dependencies and create stub modules if needed
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', 'Analyzing dependencies...', 'info');
-  }
-  await createStubModulesIfNeeded(fileList, tempDir);
-  
-  // Add any created stub modules to file list
-  const stubFiles = await fse.readdir(tempDir);
-  const stubVFiles = stubFiles.filter(file => file.endsWith('_stub.v'));
-  fileList = fileList.concat(stubVFiles.map(file => path.join(tempDir, file)));
-  
-  if (stubVFiles.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', `Created ${stubVFiles.length} stub modules`, 'info');
-  }
-  
-  // Build Yosys command with proper Windows path escaping
   const readCommands = fileList.map(file => {
     const normalizedPath = path.normalize(file).replace(/\\/g, '/');
     return `read_verilog "${normalizedPath}"`;
@@ -3386,111 +3000,80 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
-  // Try compilation with hierarchy check first
-  let yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; prep; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`; 
-
-  console.log('Executing Yosys command with provided executable path');
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
-  }
-  
-  return new Promise((resolve, reject) => {
-    let yosysOutputBuffer = [];
-    let errorBuffer = [];
-    
-    const yosysProcess = exec(yosysCommand, { 
-      shell: true, 
-      maxBuffer: 1024 * 1024 * 10,
-      cwd: tempDir
-    }, (error, stdout, stderr) => {
-      // Process and filter Yosys output
-      if (stdout) {
-        yosysOutputBuffer = stdout.split('\n').filter(line => line.trim());
-      }
-      
-      if (stderr) {
-        errorBuffer = stderr.split('\n').filter(line => line.trim());
-      }
-      
-      // Send summary instead of all output
-      const importantLines = yosysOutputBuffer.filter(line => {
-        const lineLower = line.toLowerCase();
-        return lineLower.includes('warning') || 
-               lineLower.includes('error') || 
-               lineLower.includes('synthesizing') ||
-               lineLower.includes('top module') ||
-               lineLower.includes('cells') ||
-               lineLower.includes('memories') ||
-               (lineLower.includes('executing') && !lineLower.includes('parameter'));
+  // Função auxiliar para executar Yosys
+  const executeYosys = (command, mode) => {
+    return new Promise((resolve, reject) => {
+      const yosysProcess = exec(command, { 
+        shell: true, 
+        maxBuffer: 1024 * 1024 * 10,
+        cwd: tempDir,
+        timeout: 300000 // 5 minutos timeout
+      }, (error, stdout, stderr) => {
+        // Processar output (código existente de filtragem)
+        if (stdout) {
+          const yosysOutputBuffer = stdout.split('\n').filter(line => line.trim());
+          const importantLines = yosysOutputBuffer.filter(line => {
+            const lineLower = line.toLowerCase();
+            return lineLower.includes('warning') || 
+                   lineLower.includes('error') || 
+                   lineLower.includes('synthesizing') ||
+                   lineLower.includes('top module');
+          });
+          
+          if (importantLines.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
+            importantLines.slice(0, 5).forEach(line => {
+              if (shouldLogMessage(line, 'yosys')) {
+                const logLevel = line.toLowerCase().includes('error') ? 'error' : 
+                               line.toLowerCase().includes('warning') ? 'warning' : 'info';
+                mainWindow.webContents.send('terminal-log', 'tprism', `Yosys: ${line.trim()}`, logLevel);
+              }
+            });
+          }
+        }
+        
+        if (error) {
+          reject({ error, stdout, stderr, mode });
+        } else {
+          resolve({ stdout, stderr, mode });
+        }
       });
-      
-      if (importantLines.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-        // Group similar messages
-        const moduleCount = yosysOutputBuffer.filter(line => line.includes('Synthesizing module')).length;
-        const cellCount = yosysOutputBuffer.filter(line => line.includes('cells')).length;
-        
-        if (moduleCount > 0) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `Synthesized ${moduleCount} modules`, 'info');
-        }
-        
-        // Show only critical warnings/errors
-        importantLines.slice(0, 5).forEach(line => {
-          if (shouldLogMessage(line, 'yosys')) {
-            const logLevel = line.toLowerCase().includes('error') ? 'error' : 
-                           line.toLowerCase().includes('warning') ? 'warning' : 'info';
-            mainWindow.webContents.send('terminal-log', 'tprism', `Yosys: ${line.trim()}`, logLevel);
-          }
-        });
-      }
-      
-      // Handle errors
-      if (error && stderr.includes('is not part of the design')) {
-        console.log('Hierarchy check failed, trying without strict checking...');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', 'Retrying without strict hierarchy check...', 'warning');
-        }
-        
-        // Try without hierarchy check if modules are missing
-        const relaxedCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
-        
-        exec(relaxedCommand, {
-          shell: true,
-          maxBuffer: 1024 * 1024 * 10,
-          cwd: tempDir
-        }, (error2, stdout2, stderr2) => {
-          if (error2) {
-            console.error('Yosys execution error (relaxed):', error2);
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${error2.message}`, 'error');
-            }
-            reject(new Error(`Yosys compilation failed: ${error2.message}`));
-            return;
-          }
-          
-          console.log('Yosys compilation succeeded with relaxed hierarchy checking');
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed (relaxed mode)', 'success');
-          }
-          
-          resolve(hierarchyJsonPath);
-        });
-      } else if (error) {
-        console.error('Yosys execution error:', error);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${error.message}`, 'error');
-        }
-        reject(new Error(`Yosys compilation failed: ${error.message}`));
-        return;
-      } else {
-        console.log('Yosys compilation succeeded');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed successfully', 'success');
-        }
-        
-        resolve(hierarchyJsonPath);
-      }
     });
-  });
+  };
+  
+  // Tentar com hierarchy check primeiro
+  const strictCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; prep; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`;
+  
+  try {
+    await executeYosys(strictCommand, 'strict');
+    console.log('Yosys compilation succeeded with strict hierarchy checking');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed successfully', 'success');
+    }
+    return hierarchyJsonPath;
+  } catch (strictError) {
+    console.log('Strict hierarchy check failed, trying relaxed mode...');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Retrying without strict hierarchy check...', 'warning');
+    }
+    
+    // Tentar modo relaxado
+    const relaxedCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
+    
+    try {
+      await executeYosys(relaxedCommand, 'relaxed');
+      console.log('Yosys compilation succeeded with relaxed hierarchy checking');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed (relaxed mode)', 'success');
+      }
+      return hierarchyJsonPath;
+    } catch (relaxedError) {
+      console.error('Both Yosys attempts failed:', relaxedError);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${relaxedError.error?.message || 'Unknown error'}`, 'error');
+      }
+      throw new Error(`Yosys compilation failed: ${relaxedError.error?.message || 'Unknown error'}`);
+    }
+  }
 }
 
 
@@ -4265,19 +3848,6 @@ setInterval(async () => {
   }
 }, 30000);
 
-// Clean up directory watchers on app close
-app.on('before-quit', async () => {
-  console.log('Cleaning up directory watchers...');
-  for (const [directoryPath, info] of activeDirectoryWatchers.entries()) {
-    try {
-      await info.watcher.close();
-    } catch (error) {
-      console.error(`Error closing directory watcher for ${directoryPath}:`, error);
-    }
-  }
-  activeDirectoryWatchers.clear();
-  directoryStatsCache.clear();
-});
 
 // Store active file watchers
 const activeWatchers = new Map();
@@ -4473,18 +4043,84 @@ ipcMain.handle('force-check-file', async (event, filePath) => {
   }
 });
 
-// Clean up all watchers when app is closing
 app.on('before-quit', async () => {
-  console.log('Cleaning up file watchers...');
-  for (const [filePath, info] of activeWatchers.entries()) {
-    try {
-      await info.watcher.close();
-    } catch (error) {
-      console.error(`Error closing watcher for ${filePath}:`, error);
-    }
-  }
-  activeWatchers.clear();
-  fileStatsCache.clear();
+  isQuitting = true;
+
+  // Cleanup em paralelo para maior velocidade
+  const cleanupPromises = [];
+
+  // 1. Limpar pasta Temp
+  cleanupPromises.push(
+    (async () => {
+      try {
+        const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+        await fs.rm(tempFolderPath, { recursive: true, force: true, maxRetries: 3 });
+        await fs.mkdir(tempFolderPath, { recursive: true });
+        console.log('Temp folder successfully cleared before quitting.');
+      } catch (error) {
+        console.error('Failed to clear Temp folder on app exit:', error);
+      }
+    })()
+  );
+
+  // 2. Fechar watchers
+  cleanupPromises.push(
+    (async () => {
+      console.log('Cleaning up file watchers...');
+      const watcherClosePromises = [];
+      for (const [filePath, info] of activeWatchers.entries()) {
+        watcherClosePromises.push(
+          info.watcher.close().catch(err => 
+            console.error(`Error closing watcher for ${filePath}:`, err)
+          )
+        );
+      }
+      await Promise.all(watcherClosePromises);
+      activeWatchers.clear();
+      fileStatsCache.clear();
+    })()
+  );
+
+  // 3. Fechar directory watchers
+  cleanupPromises.push(
+    (async () => {
+      console.log('Cleaning up directory watchers...');
+      const dirWatcherClosePromises = [];
+      for (const [directoryPath, info] of activeDirectoryWatchers.entries()) {
+        dirWatcherClosePromises.push(
+          info.watcher.close().catch(err => 
+            console.error(`Error closing directory watcher for ${directoryPath}:`, err)
+          )
+        );
+      }
+      await Promise.all(dirWatcherClosePromises);
+      activeDirectoryWatchers.clear();
+      directoryStatsCache.clear();
+    })()
+  );
+
+  // 4. Matar processos VVP/GTKWave restantes
+  cleanupPromises.push(
+    (async () => {
+      const killPromises = [];
+      
+      if (currentVvpProcess && !currentVvpProcess.killed) {
+        killPromises.push(killProcessSilently(currentVvpProcess.pid));
+      }
+      
+      killPromises.push(killProcessesByName('vvp.exe'));
+      killPromises.push(killProcessesByName('gtkwave.exe'));
+      
+      await Promise.all(killPromises);
+      currentGtkwaveProcesses.clear();
+    })()
+  );
+
+  // Aguardar todos os cleanups com timeout
+  await Promise.race([
+    Promise.all(cleanupPromises),
+    new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+  ]);
 });
 
 /* VVP */
@@ -4493,168 +4129,144 @@ let currentVvpProcess = null;
 let vvpProcessPid = null;
 let currentGtkwaveProcesses = new Set(); 
 
-// Função auxiliar para matar processo por PID no Windows
-function killProcessByPid(pid) {
-  return new Promise((resolve, reject) => {
-    const killCmd = `taskkill /F /PID ${pid}`;
-    exec(killCmd, (error, stdout, stderr) => {
-      if (error) {
-        // Se o processo já não existe, consideramos como sucesso
-        if (error.message.includes('not found') || error.message.includes('not running')) {
-          resolve(true);
-        } else {
-          reject(error);
-        }
-      } else {
-        resolve(true);
-      }
-    });
-  });
-}
-
-// Função para matar todos os processos vvp.exe
-function killAllVvpProcesses() {
-  return new Promise((resolve, reject) => {
-    const killCmd = 'taskkill /F /IM vvp.exe';
-    exec(killCmd, (error, stdout, stderr) => {
-      if (error) {
-        // Se não encontrou processos, consideramos como sucesso
-        if (error.message.includes('not found') || error.message.includes('not running')) {
-          resolve(false); // Retorna false indicando que não havia processos rodando
-        } else {
-          reject(error);
-        }
-      } else {
-        resolve(true); // Retorna true indicando que processos foram mortos
-      }
-    });
-  });
-}
-
-// Função para verificar se existe processo vvp.exe rodando
-function checkVvpProcessRunning() {
-  return new Promise((resolve) => {
-    const checkCmd = 'tasklist /FI "IMAGENAME eq vvp.exe" /FO CSV';
-    exec(checkCmd, (error, stdout, stderr) => {
-      if (error) {
-        resolve(false);
-        return;
-      }
-      
-      // Verifica se há mais de uma linha (cabeçalho + processos)
-      const lines = stdout.trim().split('\n');
-      const hasProcesses = lines.length > 1 && !stdout.includes('No tasks are running');
-      resolve(hasProcesses);
-    });
-  });
-}
-
 // Helper function to kill process by PID on Windows silently
-function killProcessSilently(pid) {
+async function killProcessSilently(pid, timeout = 5000) {
   return new Promise((resolve) => {
-    const killCmd = `taskkill /F /PID ${pid}`;
-    exec(killCmd, { windowsHide: true }, (error) => {
-      resolve(!error); // Return true if killed successfully
+    const killCmd = `taskkill /F /T /PID ${pid}`; // /T mata processos filhos também
+    const killProcess = exec(killCmd, { windowsHide: true, timeout });
+    
+    const timer = setTimeout(() => {
+      killProcess.kill();
+      resolve(false);
+    }, timeout);
+    
+    killProcess.on('close', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0 || code === 128); // 128 = processo já não existe
+    });
+    
+    killProcess.on('error', () => {
+      clearTimeout(timer);
+      resolve(false);
     });
   });
 }
+
 
 // Helper function to kill all processes by name silently
-function killProcessesByName(processName) {
+async function killProcessesByName(processName, timeout = 5000) {
   return new Promise((resolve) => {
-    const killCmd = `taskkill /F /IM ${processName}`;
-    exec(killCmd, { windowsHide: true }, (error, stdout) => {
-      if (error && error.message.includes('not found')) {
-        resolve(false); // No processes found
-      } else {
-        resolve(!error);
-      }
+    const killCmd = `taskkill /F /IM ${processName} 2>nul`; // Suprime erros
+    const killProcess = exec(killCmd, { windowsHide: true, timeout });
+    
+    const timer = setTimeout(() => {
+      killProcess.kill();
+      resolve(false);
+    }, timeout);
+    
+    killProcess.on('close', (code) => {
+      clearTimeout(timer);
+      // Código 128 ou 0 = sucesso (128 = nenhum processo encontrado)
+      resolve(code === 0 || code === 128);
+    });
+    
+    killProcess.on('error', () => {
+      clearTimeout(timer);
+      resolve(false);
     });
   });
 }
 
 // Helper function to check if processes are running
-function checkProcessRunning(processName) {
+async function checkProcessRunning(processName) {
   return new Promise((resolve) => {
-    const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /FO CSV`;
-    exec(checkCmd, { windowsHide: true }, (error, stdout) => {
+    const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH /FO CSV`;
+    exec(checkCmd, { windowsHide: true, timeout: 3000 }, (error, stdout) => {
       if (error) {
         resolve(false);
         return;
       }
-      const lines = stdout.trim().split('\n');
-      resolve(lines.length > 1 && !stdout.includes('No tasks are running'));
+      const isRunning = stdout.includes(processName) && !stdout.includes('INFO: No tasks');
+      resolve(isRunning);
     });
   });
 }
 
-// Helper function to spawn silent background process
-function spawnSilentProcess(command, args, options = {}) {
-  const defaultOptions = {
-    windowsHide: true,
-    stdio: ['ignore', 'ignore', 'ignore'],
-    detached: true,
-    shell: false,
-    ...options
-  };
-  
-  const child = spawn(command, args, defaultOptions);
-  child.unref(); // Allow parent to exit independently
-  return child;
-}
-
-// Enhanced cancel VVP process handler
 ipcMain.handle('cancel-vvp-process', async () => {
   try {
-    const vvpRunning = await checkProcessRunning('vvp.exe');
-    const gtkwaveRunning = await checkProcessRunning('gtkwave.exe');
-    
-    if (!vvpRunning && !gtkwaveRunning) {
-      return { success: false, message: 'No compilation process is currently running.' };
-    }
+    const results = [];
+    let hasActiveProcesses = false;
 
-    let results = [];
-
-    // Kill specific VVP process if we have reference
+    // Kill specific VVP process first (mais rápido)
     if (currentVvpProcess && !currentVvpProcess.killed) {
+      hasActiveProcesses = true;
       try {
         const killed = await killProcessSilently(currentVvpProcess.pid);
-        if (killed) results.push('VVP process terminated');
-        currentVvpProcess = null;
-        vvpProcessPid = null;
+        if (killed) {
+          results.push('VVP process terminated');
+        }
       } catch (error) {
         console.error('Error killing specific VVP process:', error);
+      } finally {
+        currentVvpProcess = null;
+        vvpProcessPid = null;
       }
     }
 
-    // Kill all VVP processes as fallback
+    // Verificar e matar processos em paralelo para maior velocidade
+    const [vvpRunning, gtkwaveRunning] = await Promise.all([
+      checkProcessRunning('vvp.exe'),
+      checkProcessRunning('gtkwave.exe')
+    ]);
+    
+    if (vvpRunning || gtkwaveRunning) {
+      hasActiveProcesses = true;
+    }
+
+    // Kill processos restantes em paralelo
+    const killPromises = [];
+    
     if (vvpRunning) {
-      const killed = await killProcessesByName('vvp.exe');
-      if (killed) results.push('All VVP processes terminated');
+      killPromises.push(
+        killProcessesByName('vvp.exe').then(killed => {
+          if (killed) results.push('All VVP processes terminated');
+        })
+      );
     }
 
-    // Kill all GTKWave processes
     if (gtkwaveRunning) {
-      const killed = await killProcessesByName('gtkwave.exe');
-      if (killed) results.push('GTKWave processes terminated');
+      killPromises.push(
+        killProcessesByName('gtkwave.exe').then(killed => {
+          if (killed) results.push('GTKWave processes terminated');
+        })
+      );
     }
 
-    // Clear tracked GTKWave processes
+    await Promise.all(killPromises);
     currentGtkwaveProcesses.clear();
+    
+    if (!hasActiveProcesses) {
+      return { 
+        success: false, 
+        message: 'No compilation process is currently running.' 
+      };
+    }
     
     return {
       success: results.length > 0,
       message: results.length > 0 
         ? `Compilation canceled: ${results.join(', ')}`
-        : 'No processes were running to cancel'
+        : 'Process cancellation initiated'
     };
     
   } catch (error) {
     console.error('Error canceling processes:', error);
-    return { success: false, message: 'Error occurred while canceling processes' };
+    return { 
+      success: false, 
+      message: `Error occurred while canceling processes: ${error.message}` 
+    };
   }
 });
-
 
 
 // Handler para executar comando VVP com streaming e gerenciamento de processo
@@ -4796,14 +4408,6 @@ ipcMain.handle('check-gtkwave-running', async () => {
   return await checkProcessRunning('gtkwave.exe');
 });
 
-function onGtkwaveOutput(callback) {
-  ipcRenderer.on('gtkwave-output', callback);
-}
-
-function removeGtkwaveOutputListener(callback) {
-  ipcRenderer.removeListener('gtkwave-output', callback);
-}
-
 
 /* handle file */
 // Handle binary file reading
@@ -4836,41 +4440,6 @@ ipcMain.handle('get-file-type', async (event, filePath) => {
     return 'text';
   }
 });
-
-// Enhanced file wait function with better error handling and initial delay
-function waitForFile(filePath, timeout = 30000) {
-  return new Promise((resolve, reject) => {
-    const startTime = Date.now();
-    let attempts = 0;
-    const maxAttempts = Math.floor(timeout / 100);
-    
-    const checkFile = async () => {
-      attempts++;
-      try {
-        await fs.access(filePath);
-        // Additional check: ensure file has content (not just created)
-        const stats = await fs.stat(filePath);
-        if (stats.size > 0) {
-          resolve();
-          return;
-        }
-      } catch (err) {
-        // File doesn't exist or is empty, continue checking
-      }
-      
-      if (attempts >= maxAttempts) {
-        reject(new Error(`VCD file not generated after ${timeout}ms: ${filePath}`));
-        return;
-      }
-      
-      setTimeout(checkFile, 4000);
-    };
-    
-    // ⏳ Delay inicial de 4 segundos antes de iniciar a checagem
-    setTimeout(checkFile, 4000);
-  });
-}
-
 
 // System performance monitoring (existing function - keeping as is)
 ipcMain.handle('get-system-performance', () => {

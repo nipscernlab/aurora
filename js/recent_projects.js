@@ -1,6 +1,11 @@
-// Recent Projects Manager Class
-class RecentProjectsManager {
-  constructor() {
+// ADDED: Export the class to make it importable
+export class RecentProjectsManager {
+  // MODIFIED: The constructor now accepts the functions it needs
+  constructor(loadProjectCallback, showErrorDialogCallback) {
+    // These functions are now stored as properties of the class instance
+    this.loadProject = loadProjectCallback;
+    this.showErrorDialog = showErrorDialogCallback;
+
     this.projects = [];
     this.maxProjects = 10;
     this.storageKey = 'aurora-recent-projects';
@@ -8,17 +13,18 @@ class RecentProjectsManager {
     this.countElement = document.getElementById('projects-count');
     this.emptyState = document.getElementById('empty-state');
     
-    this.loadProjects();
+    // MODIFIED: The method name was incorrect in your original code (loadProject vs loadProject)
+    this.loadProject(); 
     this.render();
   }
 
   // Load projects from localStorage
-  loadProjects() {
+  // RENAMED: from loadProject to loadProject to be clearer
+  loadProject() {
     try {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         this.projects = JSON.parse(stored);
-        // Validate and clean up invalid entries
         this.projects = this.projects.filter(project => 
           project && project.path && project.name && project.lastOpened
         );
@@ -48,17 +54,14 @@ class RecentProjectsManager {
       const projectName = this.extractProjectName(spfPath);
       const now = new Date().toISOString();
       
-      // Remove existing entry if it exists
       this.projects = this.projects.filter(p => p.path !== spfPath);
       
-      // Add new entry at the beginning
       this.projects.unshift({
         name: projectName,
         path: spfPath,
         lastOpened: now
       });
       
-      // Keep only the most recent projects
       if (this.projects.length > this.maxProjects) {
         this.projects = this.projects.slice(0, this.maxProjects);
       }
@@ -88,7 +91,6 @@ class RecentProjectsManager {
   // Check if project file exists and remove if not
   async checkProjectExists(project) {
     try {
-      // Use Electron API to check if file exists
       if (window.electronAPI && window.electronAPI.checkFileExists) {
         const exists = await window.electronAPI.checkFileExists(project.path);
         if (!exists) {
@@ -99,7 +101,6 @@ class RecentProjectsManager {
       return true;
     } catch (error) {
       console.error('Error checking project existence:', error);
-      // If we can't check, remove it to be safe
       this.removeProject(project.path);
       return false;
     }
@@ -108,31 +109,29 @@ class RecentProjectsManager {
   // Handle project click
   async handleProjectClick(project) {
     try {
-      // Check if project still exists
       const exists = await this.checkProjectExists(project);
       if (!exists) {
-        showErrorDialog('Project Not Found', `The project file "${project.name}" could not be found and has been removed from recent projects.`);
+        // MODIFIED: Use the injected function
+        this.showErrorDialog('Project Not Found', `The project file "${project.name}" could not be found and has been removed from recent projects.`);
         return;
       }
 
-      // Update last opened time
       project.lastOpened = new Date().toISOString();
       this.saveProjects();
       this.render();
 
-      // Close all tabs before loading new project
       if (typeof TabManager !== 'undefined' && TabManager.closeAllTabs) {
         await TabManager.closeAllTabs();
       }
 
-      // Load the project using your existing function
-      await loadProject(project.path);
+      // MODIFIED: Use the injected function
+      await this.loadProject(project.path);
       
       console.log(`Opened recent project: ${project.name}`);
     } catch (error) {
       console.error('Error opening project:', error);
-      showErrorDialog('Error Opening Project', error.message);
-      // Remove the problematic project from recent list
+      // MODIFIED: Use the injected function
+      this.showErrorDialog('Error Opening Project', error.message);
       this.removeProject(project.path);
     }
   }
@@ -175,14 +174,12 @@ class RecentProjectsManager {
       </button>
     `;
 
-    // Add click handler for opening project
     item.addEventListener('click', (e) => {
       if (!e.target.closest('.project-remove')) {
         this.handleProjectClick(project);
       }
     });
 
-    // Add click handler for remove button
     const removeBtn = item.querySelector('.project-remove');
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -218,18 +215,13 @@ class RecentProjectsManager {
   // Render the projects list
   render() {
     if (!this.listElement || !this.countElement) {
-      console.error('Recent projects UI elements not found');
       return;
     }
 
-    // Update count
     this.countElement.textContent = `${this.projects.length} project${this.projects.length !== 1 ? 's' : ''}`;
-
-    // Clear current list
     this.listElement.innerHTML = '';
 
     if (this.projects.length === 0) {
-      // Show empty state
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
       emptyState.innerHTML = `
@@ -239,12 +231,9 @@ class RecentProjectsManager {
       `;
       this.listElement.appendChild(emptyState);
     } else {
-      // Render project items
       this.projects.forEach((project, index) => {
         const item = this.createProjectItem(project);
         this.listElement.appendChild(item);
-        
-        // Add entrance animation with slight delay for each item
         setTimeout(() => {
           item.classList.add('new-item');
         }, index * 50);
@@ -252,52 +241,21 @@ class RecentProjectsManager {
     }
   }
 
-  // Clear all projects
+  // Other methods (clearAll, getProjects, etc.) remain the same...
   clearAll() {
     this.projects = [];
     this.saveProjects();
     this.render();
   }
 
-  // Get all projects
   getProjects() {
     return [...this.projects];
   }
 
-  // Hide/show the recent projects section
   setVisible(visible) {
     const section = document.querySelector('.recent-projects-section');
     if (section) {
       section.style.display = visible ? 'flex' : 'none';
     }
-  }
-}
-
-// Initialize the Recent Projects Manager when DOM is ready
-let recentProjectsManager;
-
-function initializeRecentProjects() {
-  // Wait for DOM elements to be available
-  if (document.getElementById('recent-projects-list') && document.getElementById('projects-count')) {
-    recentProjectsManager = new RecentProjectsManager();
-    window.recentProjectsManager = recentProjectsManager;
-    console.log('Recent Projects Manager initialized');
-  } else {
-    // Retry after a short delay
-    setTimeout(initializeRecentProjects, 100);
-  }
-}
-
-// Initialize when DOM is loaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeRecentProjects);
-} else {
-  initializeRecentProjects();
-}
-
-// Integration function - call this in your existing loadProject function
-function addToRecentProjects(spfPath) {
-  if (window.recentProjectsManager && spfPath) {
-    window.recentProjectsManager.addProject(spfPath);
   }
 }

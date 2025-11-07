@@ -10,10 +10,1182 @@ import { EditorManager } from './monaco_editor.js';
 import { initMonaco } from './monaco_editor.js';
 import { RecentProjectsManager } from './recent_projects.js';
 import { TabManager } from './tab_manager.js';
-import { FileTreeManager } from './file_tree.js';
 
 //FILETREE      ======================================================================================================================================================== ƒ
+// Gerenciador de estado para a file tree
+const FileTreeState = {
+    expandedFolders: new Set(),
+    isRefreshing: false,
 
+    isExpanded(path) {
+        return this.expandedFolders.has(path);
+    },
+
+    toggleFolder(path, expanded) {
+        if (expanded) {
+            this.expandedFolders.add(path);
+        } else {
+            this.expandedFolders.delete(path);
+        }
+    }
+};
+
+// Atualizar a função refreshFileTree
+async function refreshFileTree() {
+    try {
+        // CRITICAL: Skip if hierarchy view is active
+        const fileTree = document.getElementById('file-tree');
+        if (!fileTree) return;
+        
+        if (TreeViewState.isHierarchical) {
+            console.log('Skipping refresh - hierarchy view is active');
+            return;
+        }
+        
+        if (!currentProjectPath) {
+            console.warn('No project is currently open');
+            return;
+        }
+
+        // Prevent multiple simultaneous refreshes
+        if (FileTreeState.isRefreshing) {
+            return;
+        }
+
+        FileTreeState.isRefreshing = true;
+        const refreshButton = document.getElementById('refresh-button');
+
+        if (refreshButton) {
+            refreshButton.style.pointerEvents = 'none';
+            refreshButton.classList.add('spinning');
+        }
+
+        // Get fresh data from backend
+        const result = await window.electronAPI.refreshFolder(currentProjectPath);
+
+        if (result && result.files) {
+            // Save current expanded state
+            const expandedPaths = Array.from(FileTreeState.expandedFolders);
+            
+            // Apply fade-out transition
+            fileTree.style.transition = 'opacity 0.2s ease';
+            fileTree.style.opacity = '0';
+
+            setTimeout(() => {
+                // Clear and rebuild tree
+                fileTree.innerHTML = '';
+                fileTree.classList.remove('hierarchy-view'); // Ensure standard view
+                
+                // Render fresh tree
+                renderFileTree(result.files, fileTree);
+                
+                // Restore expanded folders
+                expandedPaths.forEach(path => {
+                    const folderItem = fileTree.querySelector(
+                        `.file-tree-item[data-path="${CSS.escape(path)}"]`
+                    );
+                    if (folderItem) {
+                        const folderToggle = folderItem.querySelector('.folder-toggle');
+                        const folderContent = folderItem.querySelector('.folder-content');
+                        const icon = folderItem.querySelector('.file-item-icon');
+                        
+                        if (folderToggle && folderContent) {
+                            folderContent.classList.remove('hidden');
+                            folderToggle.classList.add('rotated');
+                            if (icon) {
+                                icon.classList.remove('fa-folder');
+                                icon.classList.add('fa-folder-open');
+                            }
+                        }
+                    }
+                });
+                
+                // Fade back in
+                fileTree.style.opacity = '1';
+            }, 200);
+        }
+
+        if (refreshButton) {
+            setTimeout(() => {
+                refreshButton.style.pointerEvents = 'auto';
+                refreshButton.classList.remove('spinning');
+            }, 300);
+        }
+
+    } catch (error) {
+        console.error('Error refreshing file tree:', error);
+    } finally {
+        FileTreeState.isRefreshing = false;
+    }
+}
+
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes refresh-fade {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  #refresh-button {
+    transition: transform 0.3s ease;
+  }
+
+  #refresh-button.spinning {
+    transform: rotate(180deg);
+  }
+
+  .file-tree-item {
+    width: 100%;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .file-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .folder-toggle {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    transition: transform 0.2s;
+  }
+
+  .folder-content {
+    width: 100%;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .file-item-icon {
+    margin-right: 8px;
+  }
+
+  .file-item span {
+    margin-left: 4px;
+  }
+
+  #refresh-button {
+    transition: transform 0.3s ease;
+    visibility: visible !important; /* Forçar visibilidade */
+    opacity: 1 !important; /* Garantir opacidade */
+    pointer-events: auto; /* Garantir que cliques funcionem */
+  }
+
+  #refresh-button.spinning {
+    transform: rotate(180deg);
+    pointer-events: none;
+  }
+
+  @keyframes blinkEffect {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+
+  .blink {
+    animation: blinkEffect 0.3s ease-in-out;
+  }
+
+
+`;
+document.head.appendChild(style);
+
+
+function renderFileTree(files, container, level = 0, parentPath = '') {
+    if (!Array.isArray(files)) {
+        console.error('renderFileTree: files is not an array');
+        return;
+    }
+    
+    const filteredFiles = files.filter(file => {
+        if (file.type === 'directory') return true;
+        if (file.name === 'projectOriented.json') return false;
+        if (file.name === 'processorConfig.json') return false;
+        const extension = file.name.split('.').pop().toLowerCase();
+        return extension !== 'spf';
+    });
+
+    // Sort: folders first, then files
+    filteredFiles.sort((a, b) => {
+        if (a.type === 'directory' && b.type !== 'directory') return -1;
+        if (a.type !== 'directory' && b.type === 'directory') return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    filteredFiles.forEach(file => {
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'file-tree-item';
+
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.style.paddingLeft = `${level * 20}px`;
+
+        const icon = document.createElement('i');
+        const filePath = file.path; // Use full path from file object
+
+        if (file.type === 'directory') {
+            itemWrapper.setAttribute('data-path', filePath);
+            
+            const folderToggle = document.createElement('i');
+            folderToggle.className = 'fa-solid fa-caret-right folder-toggle';
+            item.appendChild(folderToggle);
+
+            icon.className = 'fas fa-folder file-item-icon';
+            item.appendChild(icon);
+
+            const childContainer = document.createElement('div');
+            childContainer.className = 'folder-content hidden';
+
+            const wasExpanded = FileTreeState.isExpanded(filePath);
+            
+            if (wasExpanded) {
+                childContainer.classList.remove('hidden');
+                folderToggle.classList.add('rotated');
+                icon.classList.remove('fa-folder');
+                icon.classList.add('fa-folder-open');
+            }
+
+            const toggleFolder = () => {
+                const isExpanded = !childContainer.classList.contains('hidden');
+                childContainer.classList.toggle('hidden');
+                folderToggle.classList.toggle('rotated');
+                icon.classList.toggle('fa-folder');
+                icon.classList.toggle('fa-folder-open');
+                FileTreeState.toggleFolder(filePath, !isExpanded);
+
+                if (!isExpanded && file.children && file.children.length > 0) {
+                    const visibleItems = childContainer.querySelectorAll('.file-tree-item');
+                    visibleItems.forEach((item, index) => {
+                        item.style.animation = 'none';
+                        item.offsetHeight;
+                        item.style.animation = `fadeInDown 0.3s ease forwards`;
+                        item.style.animationDelay = `${index * 50}ms`;
+                    });
+                }
+            };
+
+            item.addEventListener('click', toggleFolder);
+
+            // CRITICAL: Render children recursively
+            if (file.children && Array.isArray(file.children)) {
+                renderFileTree(file.children, childContainer, level + 1, filePath);
+            }
+
+            itemWrapper.appendChild(item);
+            itemWrapper.appendChild(childContainer);
+        } else {
+            // File rendering
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (extension === 'gtkw') {
+                icon.className = 'fa-solid fa-file-waveform file-item-icon';
+            }
+            else if (extension === 'asm') {
+                icon.className = 'fa-solid fa-file-lines';
+            } else if (extension === 'v') {
+                icon.className = 'fa-solid fa-file-pen file-item-icon';
+            } else if (extension === 'txt') {
+                icon.className = 'fa-solid fa-file-lines file-item-icon';
+            } else if (extension === 'zip' || extension === '7z') {
+                icon.className = 'fa-solid fa-file-zipper file-item-icon';
+            } else if (file.name === 'house_report.json') {
+                icon.className = 'fa-solid fa-file-export file-item-icon';
+            } else if (extension === 'cmm') {
+                icon.className = 'fa-solid fa-file-code'; 
+            }
+            else if (extension === 'mif') {
+                icon.className = 'fa-solid fa-square-binary file-item-icon';
+            } else {
+                icon.className = TabManager.getFileIcon(file.name);
+            }
+
+            itemWrapper.setAttribute('data-path', file.path);
+
+            item.addEventListener('click', async () => {
+                try {
+                    const content = await window.electronAPI.readFile(file.path);
+                    TabManager.addTab(file.path, content);
+                } catch (error) {
+                    console.error('Error opening file:', error);
+                }
+            });
+
+            item.appendChild(icon);
+            itemWrapper.appendChild(item);
+        }
+
+        const name = document.createElement('span');
+        name.textContent = file.name;
+        item.appendChild(name);
+
+        container.appendChild(itemWrapper);
+    });
+}
+
+// Add this function to display files from fileOriented.json
+async function renderFileModeTree() {
+  const fileTree = document.getElementById('file-tree');
+  if (!fileTree) return;
+  
+  try {
+    const projectPath = window.currentProjectPath;
+    if (!projectPath) return;
+    
+    const fileModeConfigPath = await window.electronAPI.joinPath(projectPath, 'fileOriented.json');
+    const configExists = await window.electronAPI.fileExists(fileModeConfigPath);
+    
+    if (!configExists) return;
+    
+    const configContent = await window.electronAPI.readFile(fileModeConfigPath);
+    const config = JSON.parse(configContent);
+    
+    if (!config.synthesizableFiles || config.synthesizableFiles.length === 0) return;
+    
+    fileTree.innerHTML = '';
+    fileTree.classList.add('file-mode-view');
+    
+    const container = document.createElement('div');
+    container.className = 'file-mode-list';
+    container.style.cssText = `
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    `;
+    
+    const sortedFiles = config.synthesizableFiles.sort((a, b) => {
+      if (a.starred && !b.starred) return -1;
+      if (!a.starred && b.starred) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    sortedFiles.forEach(file => {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-mode-item';
+      fileItem.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: var(--bg-tertiary);
+        border: 1px solid ${file.starred ? 'var(--accent-primary)' : 'var(--border-primary)'};
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      `;
+      
+      fileItem.addEventListener('mouseenter', () => {
+        fileItem.style.background = 'var(--bg-quaternary)';
+        fileItem.style.borderColor = 'var(--accent-secondary)';
+      });
+      
+      fileItem.addEventListener('mouseleave', () => {
+        fileItem.style.background = 'var(--bg-tertiary)';
+        fileItem.style.borderColor = file.starred ? 'var(--accent-primary)' : 'var(--border-primary)';
+      });
+      
+      const icon = document.createElement('i');
+      icon.className = TabManager.getFileIcon(file.name);
+      icon.style.color = file.starred ? 'var(--accent-primary)' : 'var(--icon-primary)';
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = file.name;
+      nameSpan.style.cssText = `
+        flex: 1;
+        font-size: var(--text-sm);
+        color: var(--text-primary);
+        font-weight: ${file.starred ? 'var(--font-semibold)' : 'var(--font-normal)'};
+      `;
+      
+      if (file.starred) {
+        const badge = document.createElement('span');
+        badge.innerHTML = '<i class="fa-solid fa-star-of-life"></i>';
+        badge.style.cssText = `
+          color: var(--accent-primary);
+          font-size: var(--text-xs);
+        `;
+        fileItem.appendChild(icon);
+        fileItem.appendChild(nameSpan);
+        fileItem.appendChild(badge);
+      } else {
+        fileItem.appendChild(icon);
+        fileItem.appendChild(nameSpan);
+      }
+      
+      fileItem.addEventListener('click', async () => {
+        try {
+          const content = await window.electronAPI.readFile(file.path);
+          TabManager.addTab(file.path, content);
+        } catch (error) {
+          console.error('Error opening file:', error);
+        }
+      });
+      
+      container.appendChild(fileItem);
+    });
+    
+    fileTree.appendChild(container);
+    
+  } catch (error) {
+    console.error('Error rendering file mode tree:', error);
+  }
+}
+
+// Export for use
+window.renderFileModeTree = renderFileModeTree;
+
+// Update the refreshFileTree function to check for File Mode
+const originalRefreshFileTree = refreshFileTree;
+refreshFileTree = async function() {
+  try {
+    const projectPath = window.currentProjectPath;
+    if (!projectPath) return originalRefreshFileTree();
+    
+    const fileModeConfigPath = await window.electronAPI.joinPath(projectPath, 'fileOriented.json');
+    const fileModeExists = await window.electronAPI.fileExists(fileModeConfigPath);
+    
+    if (fileModeExists) {
+      await renderFileModeTree();
+    } else {
+      await originalRefreshFileTree();
+    }
+  } catch (error) {
+    console.error('Error in refreshFileTree:', error);
+  }
+};
+
+function forceFileTreeUpdate() {
+    const fileTree = document.getElementById('file-tree');
+    if (!fileTree) return;
+    
+    // Remover classe hierarchy se estiver presente
+    fileTree.classList.remove('hierarchy-view');
+    
+    // Forçar refresh
+    refreshFileTree();
+}
+
+
+// Função para monitorar mudanças na pasta com debounce
+async function setupFileWatcher() {
+    if (!currentProjectPath) {
+        console.warn('No project is currently open');
+        return;
+    }
+
+    try {
+        // Configurar watcher usando Electron
+        await window.electronAPI.watchFolder(currentProjectPath, async (eventType, filename) => {
+            // Usar debounce para evitar múltiplas atualizações simultâneas
+            if (watcherTimeout) {
+                clearTimeout(watcherTimeout);
+            }
+
+            watcherTimeout = setTimeout(() => {
+                refreshFileTree();
+            }, REFRESH_DELAY);
+        });
+
+        // Iniciar polling de backup para garantir atualizações
+        startPollingRefresh();
+
+    } catch (error) {
+        console.error('Error setting up file watcher:', error);
+    }
+}
+
+// Polling de backup para garantir atualizações
+
+function startPollingRefresh() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+
+    // Fazer polling a cada 2 segundos como backup
+    pollingInterval = setInterval(() => {
+        if (!FileTreeState.isRefreshing) {
+            refreshFileTree();
+        }
+    }, 2000);
+}
+
+function stopPollingRefresh() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+}
+
+// Modify the openFile function to work with the new TabManager
+async function openFile(filePath) {
+    try {
+        // Check if file is already open
+        if (TabManager.tabs.has(filePath)) {
+            TabManager.activateTab(filePath);
+            return;
+        }
+
+        // Read file content
+        const content = await window.electronAPI.readFile(filePath);
+
+        // Add tab and open file
+        TabManager.addTab(filePath, content);
+    } catch (error) {
+        console.error('Error opening file:', error);
+        // Optional: Show error dialog to user
+    }
+}
+
+
+function setActiveFile(filePath) {
+    if (!editor) return;
+
+    // Obter conteúdo do arquivo
+    const content = openFiles.get(filePath);
+    if (!content) return;
+
+    // Atualizar conteúdo do Monaco Editor
+    editor.setValue(content);
+    activeFile = filePath;
+
+    // Atualizar linguagem com base na extensão
+    const extension = filePath.split('.')
+        .pop()
+        .toLowerCase();
+    const languageMap = {
+        'js': 'javascript',
+        'jsx': 'javascript',
+        'ts': 'typescript',
+        'tsx': 'typescript',
+        'html': 'html',
+        'css': 'css',
+        'json': 'json',
+        'md': 'markdown',
+        'py': 'python',
+        'c': 'c',
+        'cpp': 'cpp',
+        'h': 'c',
+        'hpp': 'cpp'
+    };
+    const language = languageMap[extension] || 'plaintext';
+    editor.getModel()
+        ?.dispose();
+    editor.setModel(monaco.editor.createModel(content, language));
+
+    // Atualizar o estado da aba
+    const tab = document.querySelector(`.tab[data-path="${filePath}"]`);
+    if (tab) {
+        // Ativar a aba clicada
+        TabManager.activateTab(filePath); // Alteração: Passe diretamente o filePath aqui
+    }
+}
+
+// Show modal when "New Project" button is clicked
+newProjectBtn.addEventListener('click', () => {
+    newProjectModal.classList.remove('hidden'); // Remove the "hidden" class to show the modal
+});
+
+// Atualizar a inicialização do projeto
+function initializeProject(projectPath) {
+    currentProjectPath = projectPath;
+    refreshFileTree();
+    setupFileWatcher();
+}
+
+// Atualizar event listener do botão de refresh
+document.addEventListener('DOMContentLoaded', () => {
+if (window.electronAPI && window.electronAPI.onFileTreeRefreshed) {
+        window.electronAPI.onFileTreeRefreshed((data) => {
+            console.log('Recebeu atualização da file tree:', data);
+            
+            // Verificar se não está em modo hierárquico
+            const fileTree = document.getElementById('file-tree');
+            if (fileTree && !fileTree.classList.contains('hierarchy-view')) {
+                // Atualizar a árvore com os novos dados
+                updateFileTreeSafely(data.files);
+            }
+        });
+    }
+    // Limpar intervalos quando a janela for fechada
+    window.addEventListener('beforeunload', () => {
+        stopPollingRefresh();
+        if (watcherTimeout) {
+            clearTimeout(watcherTimeout);
+        }
+    });
+});
+
+// Global state manager for tree views
+const TreeViewState = {
+    isHierarchical: false,
+    hierarchyData: null,
+    standardTreeHTML: null,
+    isToggleEnabled: false,
+    compilationModule: null, // Store reference to compilation module
+    
+    setHierarchical(value) {
+        this.isHierarchical = value;
+        this.updateToggleButton();
+    },
+    
+    setCompilationModule(module) {
+        this.compilationModule = module;
+    },
+    
+    updateToggleButton() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        const icon = toggleButton.querySelector('i');
+        const text = toggleButton.querySelector('.toggle-text');
+        
+        if (this.isHierarchical) {
+            icon.className = 'fa-solid fa-list-ul';
+            text.textContent = 'Standard';
+            toggleButton.classList.add('active');
+            toggleButton.title = 'Switch to standard file tree';
+        } else {
+            icon.className = 'fa-solid fa-sitemap';
+            text.textContent = 'Hierarchical';
+            toggleButton.classList.remove('active');
+            toggleButton.title = 'Switch to hierarchical module view';
+        }
+    },
+    
+    enableToggle() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        toggleButton.classList.remove('disabled');
+        toggleButton.disabled = false;
+        this.isToggleEnabled = true;
+    },
+    
+    disableToggle() {
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        toggleButton.classList.add('disabled');
+        toggleButton.disabled = true;
+        toggleButton.title = 'Compile Verilog to generate hierarchy';
+        this.isToggleEnabled = false;
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tree view state FIRST
+    TreeViewState.disableToggle();
+    TreeViewState.setHierarchical(false);
+    
+    // Setup refresh button
+    const refreshButton = document.getElementById('refresh-button');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+            if (!TreeViewState.isHierarchical) {
+                refreshFileTree();
+            } else {
+                console.log('Refresh disabled in hierarchy view');
+            }
+        });
+    }
+    
+    // Initialize compilation module
+    if (typeof CompilationModule !== 'undefined') {
+        const compilationModule = new CompilationModule(window.currentProjectPath || projectPath);
+        compilationModule.setupHierarchyToggle();
+        window.compilationModule = compilationModule;
+        console.log('Compilation module initialized with hierarchy support');
+    }
+    
+});
+
+// Adicione um listener para o evento customizado
+document.addEventListener('refresh-file-tree', () => {
+    refreshFileTree();
+});
+
+// File Tree Search System
+class FileTreeSearch {
+    constructor() {
+        this.searchInput = null;
+        this.clearButton = null;
+        this.resultsCounter = null;
+        this.originalFileTree = new Map(); // Store original file tree state
+        this.searchResults = [];
+        this.isSearchActive = false;
+        this.debounceTimer = null;
+
+        this.init();
+    }
+
+    init() {
+        // A injeção de estilo foi removida daqui
+        this.setupEventListeners();
+    }
+
+    // O MÉTODO createStyles() FOI COMPLETAMENTE REMOVIDO
+
+    setupEventListeners() {
+        document.addEventListener('DOMContentLoaded', () => {
+            this.searchInput = document.getElementById('file-search-input');
+            this.clearButton = document.getElementById('clear-search');
+            this.resultsCounter = document.getElementById('search-results-count');
+
+            if (!this.searchInput || !this.clearButton || !this.resultsCounter) {
+                console.warn('Search elements not found in the DOM.');
+                return;
+            }
+
+            // Search input events
+            this.searchInput.addEventListener('input', (e) => {
+                this.handleSearchInput(e.target.value);
+            });
+
+            this.searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.clearSearch();
+                    this.searchInput.blur();
+                }
+            });
+
+            // Clear button event
+            this.clearButton.addEventListener('click', () => {
+                this.clearSearch();
+                this.searchInput.focus();
+            });
+
+            // Update clear button visibility
+            this.searchInput.addEventListener('input', () => {
+                const wrapper = this.searchInput.closest('.search-input-wrapper');
+                if (this.searchInput.value.length > 0) {
+                    wrapper.classList.add('has-content');
+                } else {
+                    wrapper.classList.remove('has-content');
+                }
+            });
+
+            // Listen for file tree refreshes
+            document.addEventListener('refresh-file-tree', () => {
+                if (this.isSearchActive) {
+                    // Reapply search after tree refresh
+                    setTimeout(() => {
+                        this.performSearch(this.searchInput.value);
+                    }, 100);
+                }
+            });
+        });
+    }
+
+    handleSearchInput(query) {
+        // Clear previous debounce timer
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+
+        // Debounce search to avoid excessive calls
+        this.debounceTimer = setTimeout(() => {
+            this.performSearch(query);
+        }, 300);
+    }
+
+    performSearch(query) {
+        const trimmedQuery = query.trim()
+            .toLowerCase();
+
+        if (trimmedQuery === '') {
+            this.clearSearch();
+            return;
+        }
+
+        this.isSearchActive = true;
+        this.showSearchingState();
+
+        // Get all file tree items
+        const fileTreeItems = document.querySelectorAll('.file-tree-item');
+        const fileTree = document.getElementById('file-tree');
+
+        if (fileTree) {
+            fileTree.classList.add('searching');
+        }
+
+        let matchCount = 0;
+        const matches = [];
+
+        fileTreeItems.forEach(item => {
+            const nameSpan = item.querySelector('.file-item span');
+            const filePath = item.getAttribute('data-path');
+
+            if (!nameSpan) return;
+
+            const fileName = nameSpan.textContent.toLowerCase();
+            const isMatch = fileName.includes(trimmedQuery) ||
+                (filePath && filePath.toLowerCase()
+                    .includes(trimmedQuery));
+
+            if (isMatch) {
+                item.classList.remove('search-hidden');
+                item.classList.add('search-match');
+                this.highlightMatchInText(nameSpan, trimmedQuery);
+                matchCount++;
+                matches.push(item);
+
+                // Show parent folders
+                this.showParentFolders(item);
+            } else {
+                item.classList.add('search-hidden');
+                item.classList.remove('search-match');
+                this.removeHighlights(nameSpan);
+            }
+        });
+
+        // Update results counter
+        this.updateResultsCounter(matchCount, trimmedQuery);
+
+        // Show empty state if no matches
+        if (matchCount === 0) {
+            this.showEmptyState(trimmedQuery);
+        } else {
+            this.hideEmptyState();
+        }
+
+        this.hideSearchingState();
+        this.searchResults = matches;
+    }
+
+    showParentFolders(item) {
+        let parent = item.parentElement;
+        while (parent && parent.classList.contains('folder-content')) {
+            const folderItem = parent.previousElementSibling;
+            if (folderItem && folderItem.classList.contains('file-item')) {
+                const folderContainer = folderItem.parentElement;
+                if (folderContainer) {
+                    folderContainer.classList.remove('search-hidden');
+
+                    // Expand parent folder if it's collapsed
+                    const folderContent = folderContainer.querySelector('.folder-content');
+                    if (folderContent && folderContent.classList.contains('hidden')) {
+                        folderContent.classList.remove('hidden');
+                        const toggleIcon = folderItem.querySelector('.folder-toggle');
+                        const folderIcon = folderItem.querySelector('.file-item-icon');
+                        if (toggleIcon) toggleIcon.classList.add('rotated');
+                        if (folderIcon) {
+                            folderIcon.classList.remove('fa-folder');
+                            folderIcon.classList.add('fa-folder-open');
+                        }
+                    }
+                }
+            }
+            parent = parent.parentElement?.parentElement;
+        }
+    }
+
+    highlightMatchInText(element, query) {
+        const originalText = element.getAttribute('data-original-text') || element.textContent;
+        element.setAttribute('data-original-text', originalText);
+
+        const regex = new RegExp(`(${this.escapeRegExp(query)})`, 'gi');
+        const highlightedText = originalText.replace(regex, '<span class="search-highlight">$1</span>');
+        element.innerHTML = highlightedText;
+    }
+
+    removeHighlights(element) {
+        const originalText = element.getAttribute('data-original-text');
+        if (originalText) {
+            element.textContent = originalText;
+            element.removeAttribute('data-original-text');
+        }
+    }
+
+    escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    showSearchingState() {
+        const wrapper = this.searchInput.closest('.search-input-wrapper');
+        if (wrapper) {
+            wrapper.classList.add('searching');
+        }
+    }
+
+    hideSearchingState() {
+        const wrapper = this.searchInput.closest('.search-input-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('searching');
+        }
+    }
+
+    updateResultsCounter(count, query) {
+        if (!this.resultsCounter) return;
+
+        this.resultsCounter.parentElement.classList.add('active');
+
+        if (count === 0) {
+            this.resultsCounter.textContent = `No results for "${query}"`;
+        } else if (count === 1) {
+            this.resultsCounter.textContent = `1 file found`;
+        } else {
+            this.resultsCounter.textContent = `${count} files found`;
+        }
+    }
+
+    showEmptyState(query) {
+        this.hideEmptyState();
+
+        const fileTree = document.getElementById('file-tree');
+        if (!fileTree) return;
+
+        const emptyState = document.createElement('div');
+        emptyState.className = 'search-empty-state';
+        emptyState.innerHTML = `
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <div>No files found matching "${query}"</div>
+    `;
+
+        fileTree.appendChild(emptyState);
+    }
+
+    hideEmptyState() {
+        const emptyState = document.querySelector('.search-empty-state');
+        if (emptyState) {
+            emptyState.remove();
+        }
+    }
+
+    clearSearch() {
+        this.isSearchActive = false;
+
+        if (this.searchInput) {
+            this.searchInput.value = '';
+            const wrapper = this.searchInput.closest('.search-input-wrapper');
+            if (wrapper) {
+                wrapper.classList.remove('has-content', 'searching');
+            }
+        }
+
+        // Remove all search classes and restore original state
+        const fileTreeItems = document.querySelectorAll('.file-tree-item');
+        fileTreeItems.forEach(item => {
+            item.classList.remove('search-hidden', 'search-match');
+            const nameSpan = item.querySelector('.file-item span');
+            if (nameSpan) {
+                this.removeHighlights(nameSpan);
+            }
+        });
+
+        const fileTree = document.getElementById('file-tree');
+        if (fileTree) {
+            fileTree.classList.remove('searching');
+        }
+
+        // Clear results counter
+        if (this.resultsCounter) {
+            this.resultsCounter.textContent = '';
+            this.resultsCounter.parentElement.classList.remove('active');
+        }
+
+        // Hide empty state
+        this.hideEmptyState();
+
+        // Clear search results
+        this.searchResults = [];
+    }
+
+    // Public API methods
+    focusSearch() {
+        if (this.searchInput) {
+            this.searchInput.focus();
+        }
+    }
+
+    getSearchResults() {
+        return this.searchResults;
+    }
+
+    isSearching() {
+        return this.isSearchActive;
+    }
+}
+
+// Initialize the search system
+const fileSearchSystem = new FileTreeSearch();
+// Add keyboard shortcut (Ctrl+F or Cmd+F)
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        fileSearchSystem.focusSearch();
+    }
+});
+
+// Export for use in other modules if needed
+window.FileTreeSearch = fileSearchSystem;
+
+// Directory watcher management
+class DirectoryWatcher {
+    constructor() {
+        this.currentWatchedDirectory = null;
+        this.isWatching = false;
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Listen for directory changes
+        window.electronAPI.onDirectoryChanged((directoryPath, files) => {
+            if (directoryPath === this.currentWatchedDirectory) {
+                console.log('Directory changed, refreshing file tree');
+                this.updateFileTreeFromFiles(files);
+            }
+        });
+
+        // Listen for watcher errors
+        window.electronAPI.onDirectoryWatcherError((directoryPath, error) => {
+            console.error(`Directory watcher error for ${directoryPath}:`, error);
+            // Attempt to restart watching after a delay
+            setTimeout(() => {
+                this.startWatching(directoryPath);
+            }, 2000);
+        });
+    }
+
+    async startWatching(directoryPath) {
+        try {
+            // Stop watching previous directory if any
+            await this.stopWatching();
+
+            if (!directoryPath) {
+                console.warn('No directory path provided for watching');
+                return;
+            }
+
+            console.log(`Starting to watch directory: ${directoryPath}`);
+
+            const watcherId = await window.electronAPI.watchDirectory(directoryPath);
+            this.currentWatchedDirectory = directoryPath;
+            this.isWatching = true;
+
+            console.log(`Directory watcher started with ID: ${watcherId}`);
+        } catch (error) {
+            console.error('Failed to start directory watching:', error);
+            this.isWatching = false;
+        }
+    }
+
+    async stopWatching() {
+        if (this.currentWatchedDirectory && this.isWatching) {
+            try {
+                console.log(`Stopping directory watcher for: ${this.currentWatchedDirectory}`);
+                await window.electronAPI.stopWatchingDirectory(this.currentWatchedDirectory);
+                this.currentWatchedDirectory = null;
+                this.isWatching = false;
+            } catch (error) {
+                console.error('Failed to stop directory watching:', error);
+            }
+        }
+    }
+
+    // In DirectoryWatcher.updateFileTreeFromFiles method, add this check:
+// Localizar esta função dentro da classe DirectoryWatcher e substituir por:
+// In DirectoryWatcher class, update this method:
+updateFileTreeFromFiles(files) {
+    try {
+        // CRITICAL: Don't update if hierarchy view is active
+        if (TreeViewState.isHierarchical) {
+            console.log('Skipping file tree update - hierarchy view active');
+            return;
+        }
+        
+        updateFileTreeSafely(files);
+        
+    } catch (error) {
+        console.error('Error updating file tree from watcher:', error);
+    }
+}
+    getCurrentWatchedDirectory() {
+        return this.currentWatchedDirectory;
+    }
+
+    isCurrentlyWatching() {
+        return this.isWatching;
+    }
+}
+
+// Initialize directory watcher
+const directoryWatcher = new DirectoryWatcher();
+
+// Update your existing loadProject function to start watching
+async function loadProject(spfPath) {
+    try {
+        const result = await window.electronAPI.openProject(spfPath);
+        currentProjectPath = result.projectData.structure.basePath;
+
+        console.log('Loading project from SPF:', spfPath);
+
+        // Store both paths
+        currentProjectPath = result.projectData.structure.basePath;
+        currentSpfPath = spfPath;
+
+        updateProjectNameUI(result.projectData);
+        await TabManager.closeAllTabs();
+
+        console.log('Current SPF path:', currentSpfPath);
+        console.log('Current project path:', currentProjectPath);
+
+        // Enable the processor hub button
+        enableCompileButtons();
+        refreshFileTree();
+
+        // Start watching project directory
+        await directoryWatcher.startWatching(currentProjectPath);
+
+        // Check if folders exist
+        const missingFolders = result.projectData.structure.folders.filter(folder => !folder.exists);
+        if (missingFolders.length > 0) {
+            const shouldRecreate = await showConfirmDialog(
+                'Missing Folders', 'Some project folders are missing. Would you like to recreate them?'
+            );
+
+            if (shouldRecreate) {
+                const newResult = await window.electronAPI.createStructure(
+                    result.projectData.structure.basePath, spfPath
+                );
+                updateFileTree(newResult.files);
+                await TabManager.closeAllTabs();
+            } else {
+                updateFileTree(result.files);
+            }
+        } else {
+            updateFileTree(result.files);
+        }
+        addToRecentProjects(currentSpfPath);
+
+    } catch (error) {
+        console.error('Error loading project:', error);
+        showCardNotification(`Error loading project: ${error.message}'`, 'error', 3000);
+    }
+}
+
+// Clean up watcher when closing project or app
+window.addEventListener('beforeunload', async () => {
+    await directoryWatcher.stopWatching();
+    window.electronAPI.removeDirectoryListeners();
+});
+
+// Export for global access
+window.DirectoryWatcher = directoryWatcher;
+
+function addToRecentProjects(spfPath) {
+  if (window.recentProjectsManager && spfPath) {
+    window.recentProjectsManager.addProject(spfPath);
+  }
+}
 
 //PROJECTBUTTON ======================================================================================================================================================== ƒ
 

@@ -258,4 +258,6 @@ export class RecentProjectsManager {
       section.style.display = visible ? 'flex' : 'none';
     }
   }
+  
 }
+

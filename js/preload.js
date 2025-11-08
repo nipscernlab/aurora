@@ -1,114 +1,118 @@
+/**
+ * PRELOAD.JS - Electron Context Bridge
+ * This file exposes secure APIs to the renderer process
+ */
+
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const validListenerChannels = ['vvp-finished', 'command-output-stream', 'gtkwave-output'];
 
-// Grouping functions by category
+// Valid IPC channels for listeners
+const VALID_LISTENER_CHANNELS = [
+  'vvp-finished',
+  'command-output-stream',
+  'gtkwave-output',
+  'terminal-log',
+  'file-changed',
+  'file-watcher-error',
+  'directory-changed',
+  'directory-watcher-error',
+  'file-tree-refreshed',
+  'compilation-complete',
+  'get-toggle-ui-state',
+  'toggle-ui-state-response',
+  'prism-status',
+  'project-opened',
+  'processor-created',
+  'project:stateChange',
+  'project:created',
+  'project:processorHubState',
+  'project:processors',
+  'update-progress',
+  'update-available',
+  'update-downloaded',
+  'update-error',
+  'open-spf-file',
+  'terminal-data',
+  'terminal-error'
+];
+
+// ============================================================================
+// FILE OPERATIONS
+// ============================================================================
+
 const fileOperations = {
-    prismCompileWithPaths: (compilationPaths) => {
-    console.log('prismCompileWithPaths called with paths:', compilationPaths);
-    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
-  },
-  readFile: (path) => ipcRenderer.invoke('read-file', path),
+  // Basic file operations
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
-  reloadApp: () => ipcRenderer.send('app:reload'),
-  createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
-  directoryExists: (dirPath) => ipcRenderer.invoke('directory-exists', dirPath),
-  mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
   copyFile: (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
-  getFolderFiles: (folderPath) => ipcRenderer.invoke('getFolderFiles', folderPath),
-  isDirectory: (path) => ipcRenderer.invoke('isDirectory', path),
-  openExternalLink: (url) => shell.openExternal(url),
-  getFilesWithExtension: (folderPath, extension) => ipcRenderer.invoke('get-files-with-extension', folderPath, extension),
-  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
-  openGitHubDesktop: () => {
-    try {
-      exec('github-desktop.exe', (error) => {
-        if (error) {
-          console.error('Failed to open GitHub Desktop:', error);
-          ipcRenderer.send('show-error-dialog', 'GitHub Desktop', 'Could not launch GitHub Desktop');
-        }
-      });
-    } catch (err) {
-      console.error('Error opening GitHub Desktop:', err);
-    }
-  },
-
-  //watcher
-  // Enhanced file watching methods
+  
+  // File information
+  getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+  getFileType: (filePath) => ipcRenderer.invoke('get-file-type', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
+  
+  // Directory operations
+  createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
+  mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
+  directoryExists: (dirPath) => ipcRenderer.invoke('directory-exists', dirPath),
+  isDirectory: (path) => ipcRenderer.invoke('isDirectory', path),
+  getFolderFiles: (folderPath) => ipcRenderer.invoke('getFolderFiles', folderPath),
+  getFilesWithExtension: (folderPath, extension) => 
+    ipcRenderer.invoke('get-files-with-extension', folderPath, extension),
+  
+  // File tree operations
+  refreshFolder: (path) => ipcRenderer.invoke('refreshFolder', path),
+  triggerFileTreeRefresh: () => ipcRenderer.invoke('trigger-file-tree-refresh'),
+  
+  // File/Directory CRUD operations
+  createFile: (filePath) => ipcRenderer.invoke('file:create', filePath),
+  createDirectory: (dirPath) => ipcRenderer.invoke('directory:create', dirPath),
+  renameFileOrDirectory: (oldPath, newPath) => ipcRenderer.invoke('file:rename', oldPath, newPath),
+  deleteFileOrDirectory: (path) => ipcRenderer.invoke('file:delete', path),
+  getParentDirectory: (filePath) => ipcRenderer.invoke('file:get-parent', filePath),
+  
+  // Path operations
+  pathExists: (filePath) => ipcRenderer.invoke('path-exists', filePath),
+  validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
+  ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
+  joinPath: (...paths) => ipcRenderer.invoke('join-path', ...paths),
+  
+  // External operations
+  openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  
+  // File selection
+  selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
+  
+  // Export operations
+  exportLog: (logData) => ipcRenderer.invoke('export-log', logData)
+};
+
+// ============================================================================
+// FILE WATCHING OPERATIONS
+// ============================================================================
+
+const fileWatchingOperations = {
+  // File watching
   watchFile: (filePath) => ipcRenderer.invoke('watch-file', filePath),
   stopWatchingFile: (watcherId) => ipcRenderer.invoke('stop-watching-file', watcherId),
   forceCheckFile: (filePath) => ipcRenderer.invoke('force-check-file', filePath),
   
-  // File change event listeners
+  // Directory watching
+  watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),
+  stopWatchingDirectory: (directoryPath) => ipcRenderer.invoke('stop-watching-directory', directoryPath),
+  
+  // File change listeners
   onFileChanged: (callback) => {
     ipcRenderer.on('file-changed', (event, filePath) => callback(filePath));
   },
   onFileWatcherError: (callback) => {
     ipcRenderer.on('file-watcher-error', (event, filePath, error) => callback(filePath, error));
   },
-
-  // Remove listeners
-  removeFileChangeListeners: () => {
-    ipcRenderer.removeAllListeners('file-changed');
-    ipcRenderer.removeAllListeners('file-watcher-error');
-  },
- // PRISM compilation methods
-     prismCompile: (compilationPaths) => {
-    console.log('prismCompile called with paths:', compilationPaths);
-    return ipcRenderer.invoke('prism-compile', compilationPaths);
-  },
-    
-    // Check if PRISM window is open
-    checkPrismWindowOpen: () => {
-      console.log('checkPrismWindowOpen called');
-      return ipcRenderer.invoke('is-prism-window-open');
-    },
-    
-    // Listen for PRISM window status
-    onPrismStatus: (callback) => {
-      console.log('onPrismStatus listener registered');
-      const handler = (event, isOpen) => {
-        console.log('prism-status event received:', isOpen);
-        callback(isOpen);
-      };
-      
-      ipcRenderer.on('prism-status', handler);
-      
-      // Return cleanup function
-      return () => {
-        ipcRenderer.removeListener('prism-status', handler);
-      };
-    },
-    
-    // SVG generation from module
-    generateSVGFromModule: (moduleName, tempDir) => {
-      console.log('generateSVGFromModule called:', moduleName);
-      return ipcRenderer.invoke('generate-svg-from-module', moduleName, tempDir);
-    },
-    
-    // Get available modules
-    getAvailableModules: (tempDir) => {
-      console.log('getAvailableModules called');
-      return ipcRenderer.invoke('get-available-modules', tempDir);
-    },
-
-    selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
-    launchGtkwaveOnly: (options) => ipcRenderer.invoke('launch-gtkwave-only', options),
-    // Função para obter informações completas do arquivo incluindo path
-    getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
-        launchSerialSimulation: (options) => ipcRenderer.invoke('launch-serial-simulation', options),
-          triggerFileTreeRefresh: () => ipcRenderer.invoke('trigger-file-tree-refresh'),
-  
-  // Adicionar listener para refresh
-  onFileTreeRefreshed: (callback) => {
-    ipcRenderer.on('file-tree-refreshed', (event, data) => callback(data));
-  },
-     // Directory watching methods
-  watchDirectory: (directoryPath) => ipcRenderer.invoke('watch-directory', directoryPath),
-  stopWatchingDirectory: (directoryPath) => ipcRenderer.invoke('stop-watching-directory', directoryPath),
   
   // Directory change listeners
   onDirectoryChanged: (callback) => {
@@ -116,145 +120,65 @@ const fileOperations = {
       callback(directoryPath, files);
     });
   },
-  
   onDirectoryWatcherError: (callback) => {
     ipcRenderer.on('directory-watcher-error', (event, directoryPath, error) => {
       callback(directoryPath, error);
     });
   },
   
+  // File tree listeners
+  onFileTreeRefreshed: (callback) => {
+    ipcRenderer.on('file-tree-refreshed', (event, data) => callback(data));
+  },
+  
   // Remove listeners
+  removeFileChangeListeners: () => {
+    ipcRenderer.removeAllListeners('file-changed');
+    ipcRenderer.removeAllListeners('file-watcher-error');
+  },
   removeDirectoryListeners: () => {
     ipcRenderer.removeAllListeners('directory-changed');
     ipcRenderer.removeAllListeners('directory-watcher-error');
-  },
-  
-    // Listen for compilation complete events
-    onCompilationComplete: (callback) => {
-      console.log('onCompilationComplete listener registered');
-      const handler = (event, data) => {
-        console.log('compilation-complete event received:', data);
-        callback(data);
-      };
-      
-      ipcRenderer.on('compilation-complete', handler);
-      
-      // Return cleanup function
-      return () => {
-        ipcRenderer.removeListener('compilation-complete', handler);
-      };
-    },
-    
-    // CORREÇÃO: Listen for toggle UI state requests - corrigido
-    onGetToggleUIState: (callback) => {
-      console.log('onGetToggleUIState listener registered');
-      const handler = (event) => {
-        console.log('get-toggle-ui-state request received');
-        // Get the current state of toggle UI button
-        const toggleButton = document.getElementById('toggle-ui');
-        const isActive = toggleButton ? toggleButton.classList.contains('active') : false;
-        console.log('Current toggle UI state:', isActive);
-        
-        // Send response immediately
-        ipcRenderer.send('toggle-ui-state-response', isActive);
-        
-        // Also call the callback if provided
-        if (typeof callback === 'function') {
-          callback(isActive);
-        }
-      };
-      
-      ipcRenderer.on('get-toggle-ui-state', handler);
-      
-      // Return cleanup function
-      return () => {
-        ipcRenderer.removeListener('get-toggle-ui-state', handler);
-      };
-    },
-
-      onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
-      removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
-
-          // Fix for the missing openPrismCompile function
-    openPrismCompile: () => {
-      console.log('openPrismCompile called');
-      return ipcRenderer.invoke('open-prism-compile');
-    },
-     prismRecompile: (compilationPaths) => {
-    console.log('prismRecompile called with paths:', compilationPaths);
-    return ipcRenderer.invoke('prism-recompile', compilationPaths);
-  },
-     zoomIn: () => ipcRenderer.send('zoom-in'),
-  zoomOut: () => ipcRenderer.send('zoom-out'),
-  zoomReset: () => ipcRenderer.send('zoom-reset'),
-    exportLog: (logData) => ipcRenderer.invoke('export-log', logData),
-    
-    // Send messages to main process
-    send: (channel, data) => {
-      console.log('send called:', channel, data);
-      ipcRenderer.send(channel, data);
-    },
-    
-    // Remove listeners (cleanup)
-    removeAllListeners: (channel) => {
-      console.log('removeAllListeners called:', channel);
-      ipcRenderer.removeAllListeners(channel);
-    },
-
-    compileForPRISM: () => window.electron.invoke('prism-compile'),
-
-
-  quitApp: () => ipcRenderer.send('app-quit'),
-
-  // Modal and dialog interactions
-  showOpenDialog: () => ipcRenderer.invoke('dialog:openFile'),
-  showErrorDialog: (title, message) => ipcRenderer.send('show-error-dialog', title, message),
-
-  start: () => ipcRenderer.send('terminal:start'),
-  onStarted: (callback) => ipcRenderer.on('terminal:started', callback),
-  onData: (callback) => ipcRenderer.on('terminal:data', (_, data) => callback(data)),
-  write: (data) => ipcRenderer.send('terminal:input', data),
-  resize: (cols, rows) => ipcRenderer.send('terminal:resize', cols, rows),
-  clear: () => ipcRenderer.send('terminal:clear'),
-  openBrowser: () => ipcRenderer.send('open-browser'),
-  openGithubDesktop: () => ipcRenderer.send('open-github-desktop'),
-  quitApp: () => ipcRenderer.send('quit-app'),
-readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
-  
-  // File type detection
-  getFileType: (filePath) => ipcRenderer.invoke('get-file-type', filePath),
-  
-  // Your existing file operations...
-  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
-  writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
-  getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
-  readFileBuffer: (filePath) => ipcRenderer.invoke('read-file-buffer', filePath),
-
+  }
 };
 
+// ============================================================================
+// PROJECT OPERATIONS
+// ============================================================================
 
 const projectOperations = {
+  // Project lifecycle
   openProject: (spfPath) => ipcRenderer.invoke('project:open', spfPath),
-  closeProject: (spfPath) => ipcRenderer.invoke('project:close'),
-  createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
+  closeProject: () => ipcRenderer.invoke('project:close'),
   createProject: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
-  getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
-  loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
+  createProjectStructure: (projectPath, spfPath) => ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
+  
+  // Project information
   getProjectInfo: (path) => ipcRenderer.invoke('project:getInfo', path),
+  getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
+  getProjectName: () => ipcRenderer.invoke('getProjectName'),
+  setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
+  
+  // Processor operations
   createProcessorProject: (formData) => ipcRenderer.invoke('create-processor-project', formData),
-  cancelVvpProcess: () => ipcRenderer.invoke('cancel-vvp-process'),
-runVvpCommand: (vvpCmd, tempPath) => ipcRenderer.invoke('run-vvp-command', vvpCmd, tempPath),
-checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
-  getSimulationFolderPath: (processorName, inputDir) => ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
-  saveCompilationResult: (hardwareFolderPath, fileName, content) => ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
+  getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
+  deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
+  
+  // Configuration
+  loadConfig: () => ipcRenderer.invoke('load-config'),
+  loadConfigFromPath: (configPath) => ipcRenderer.invoke('load-config-from-path', configPath),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  
+  // Backup operations
+  createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
+  deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
+  
+  // Directory operations
   readDir: (dirPath) => ipcRenderer.invoke('readDir', dirPath),
-  showSaveDialog: () => ipcRenderer.invoke('dialog:showSave'),
-  onProjectStateChange: (callback) => ipcRenderer.on('project:stateChange', callback),
-  onProjectCreated: (callback) => ipcRenderer.on('project:created', callback),
-  onProcessorHubStateChange: (callback) => ipcRenderer.on('project:processorHubState', callback),
-  onProcessorHubState: (callback) => ipcRenderer.on('project:processorHubState', callback),
-  getProjectName: () => ipcRenderer.invoke("getProjectName"),
-  createBackup: (folderPath) => ipcRenderer.invoke("create-backup", folderPath),
+  listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath),
+  scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath),
+  
+  // App information
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppInfo: async () => {
     try {
@@ -271,88 +195,286 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
     }
   },
   getPerformanceStats: () => ipcRenderer.invoke('get-performance-stats'),
+  getSystemPerformance: () => ipcRenderer.invoke('get-system-performance'),
+  
+  // Path utilities
+  getAppPath: () => ipcRenderer.invoke('getAppPath'),
   joinPath: (...args) => require('path').join(...args),
+  
+  // Listeners
+  onProjectStateChange: (callback) => ipcRenderer.on('project:stateChange', callback),
+  onProjectCreated: (callback) => ipcRenderer.on('project:created', callback),
+  onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
+  onProcessorHubStateChange: (callback) => ipcRenderer.on('project:processorHubState', callback),
+  onProcessorHubState: (callback) => ipcRenderer.on('project:processorHubState', callback),
+  onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
+  onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
   onSimulateOpenProject: (callback) => {
     ipcRenderer.on('open-spf-file', (_, result) => callback(result));
   },
+  onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),
+  
+  // Debug
+  debugProjectPath: () => ipcRenderer.invoke('debug-project-path')
+};
+
+// ============================================================================
+// COMPILATION & SIMULATION OPERATIONS
+// ============================================================================
+
+const compilationOperations = {
+  // Compilation
+  compile: (options) => ipcRenderer.invoke('compile', options),
+  execCommand: (command, options = {}) => ipcRenderer.invoke('exec-command', command, options),
+  execCommandStream: (command, workingDir = null, options = {}) => 
+    ipcRenderer.invoke('exec-command-stream', command, workingDir, options),
+  
+  // VVP operations
+  execVvpOptimized: (command, workingDir, options = {}) => 
+    ipcRenderer.invoke('exec-vvp-optimized', command, workingDir, options),
+  runVvpCommand: (vvpCmd, tempPath) => ipcRenderer.invoke('run-vvp-command', vvpCmd, tempPath),
+  checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
+  cancelVvpProcess: () => ipcRenderer.invoke('cancel-vvp-process'),
+  
+  // Simulation operations
+  getSimulationFolderPath: (processorName, inputDir) => 
+    ipcRenderer.invoke('get-simulation-folder-path', processorName, inputDir),
+  saveCompilationResult: (hardwareFolderPath, fileName, content) => 
+    ipcRenderer.invoke('save-compilation-result', hardwareFolderPath, fileName, content),
+  
+  // Simulation launchers
+  launchGtkwaveOnly: (options) => ipcRenderer.invoke('launch-gtkwave-only', options),
+  launchSerialSimulation: (options) => ipcRenderer.invoke('launch-serial-simulation', options),
   launchParallelSimulation: (options) => ipcRenderer.invoke('launch-parallel-simulation', options),
-  execCommand: (command) => ipcRenderer.invoke('exec-command', command),
+  launchPipedSimulation: (args) => ipcRenderer.invoke('launch-piped-simulation', args),
+  
+  // Process management
+  setProcessPriority: (pid, priority = 'high') => 
+    ipcRenderer.invoke('set-process-priority', pid, priority),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
   killProcessByName: (processName) => ipcRenderer.invoke('kill-process-by-name', processName),
-  checkProcessRunning: (pid) => ipcRenderer.invoke('check-process-running', pid),    
-  // Check if file/directory exists
-  pathExists: (path) => ipcRenderer.invoke('path-exists', path),
+  checkProcessRunning: (pid) => ipcRenderer.invoke('check-process-running', pid),
+  
+  // Output listeners
+  onCommandOutputStream: (callback) => {
+    ipcRenderer.on('command-output-stream', callback);
+  },
+  removeCommandOutputListener: (callback) => {
+    ipcRenderer.removeListener('command-output-stream', callback);
+  },
+  onGtkwaveOutput: (callback) => {
+    ipcRenderer.on('gtkwave-output', callback);
+  },
+  removeGtkwaveOutputListener: (callback) => {
+    ipcRenderer.removeListener('gtkwave-output', callback);
+  },
+  
+  // Generic listeners for VVP
+  once: (channel, callback) => {
+    const validChannels = ['vvp-finished'];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.once(channel, (event, ...args) => callback(...args));
+    }
+  },
+  removeListener: (channel, callback) => {
+    const validChannels = ['vvp-finished'];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.removeListener(channel, callback);
+    }
+  }
+};
+
+// ============================================================================
+// PRISM OPERATIONS
+// ============================================================================
+
+const prismOperations = {
+  // PRISM compilation
+  prismCompile: (compilationPaths) => {
+    console.log('prismCompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile', compilationPaths);
+  },
+  prismCompileWithPaths: (compilationPaths) => {
+    console.log('prismCompileWithPaths called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
+  },
+  prismRecompile: (compilationPaths) => {
+    console.log('prismRecompile called with paths:', compilationPaths);
+    return ipcRenderer.invoke('prism-recompile', compilationPaths);
+  },
+  openPrismCompile: () => {
+    console.log('openPrismCompile called');
+    return ipcRenderer.invoke('open-prism-compile');
+  },
+  
+  // PRISM window management
+  checkPrismWindowOpen: () => {
+    console.log('checkPrismWindowOpen called');
+    return ipcRenderer.invoke('is-prism-window-open');
+  },
+  
+  // PRISM module operations
+  generateSVGFromModule: (moduleName, tempDir) => {
+    console.log('generateSVGFromModule called:', moduleName);
+    return ipcRenderer.invoke('generate-svg-from-module', moduleName, tempDir);
+  },
+  getAvailableModules: (tempDir) => {
+    console.log('getAvailableModules called');
+    return ipcRenderer.invoke('get-available-modules', tempDir);
+  },
+  
+  // PRISM listeners
+  onPrismStatus: (callback) => {
+    console.log('onPrismStatus listener registered');
+    const handler = (event, isOpen) => {
+      console.log('prism-status event received:', isOpen);
+      callback(isOpen);
+    };
     
-  pathExists: (filePath) => ipcRenderer.invoke('path-exists', filePath),
-
-  launchPipedSimulation: (args) => ipcRenderer.invoke('launch-piped-simulation', args),
-  getAvailableProcessors: (projectPath) => ipcRenderer.invoke('get-available-processors', projectPath),
-  deleteProcessor: (processorName) => ipcRenderer.invoke('delete-processor', processorName),
-  deleteBackupFolder: (folderPath) => ipcRenderer.invoke('delete-backup-folder', folderPath),
-
-  onProcessorCreated: (callback) => ipcRenderer.on('processor:created', (_, data) => callback(data)),
-  onProjectOpen: (callback) => ipcRenderer.on('project:opened', (_, data) => callback(data)),
-  onProcessorsUpdated: (callback) => ipcRenderer.on('project:processors', (_, data) => callback(data)),
-
-    onUpdateProgress: (callback) => {
-    const wrappedCallback = (event, data) => callback(data);
-    ipcRenderer.on('update-progress', wrappedCallback);
+    ipcRenderer.on('prism-status', handler);
     
-    // Return cleanup function
     return () => {
-      ipcRenderer.removeListener('update-progress', wrappedCallback);
+      ipcRenderer.removeListener('prism-status', handler);
     };
   },
+  onCompilationComplete: (callback) => {
+    console.log('onCompilationComplete listener registered');
+    const handler = (event, data) => {
+      console.log('compilation-complete event received:', data);
+      callback(data);
+    };
+    
+    ipcRenderer.on('compilation-complete', handler);
+    
+    return () => {
+      ipcRenderer.removeListener('compilation-complete', handler);
+    };
+  }
+};
 
-  checkForUpdates: () => {
-    return ipcRenderer.invoke('check-for-updates');
+// ============================================================================
+// DIALOG OPERATIONS
+// ============================================================================
+
+const dialogOperations = {
+  showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
+  showSaveDialog: () => ipcRenderer.invoke('dialog:showSave'),
+  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+  showErrorDialog: (title, message) => ipcRenderer.send('show-error-dialog', title, message),
+  showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
+  getBasename: (fullPath) => path.basename(fullPath)
+};
+
+// ============================================================================
+// UI & WINDOW OPERATIONS
+// ============================================================================
+
+const uiOperations = {
+  // Zoom operations
+  zoomIn: () => ipcRenderer.send('zoom-in'),
+  zoomOut: () => ipcRenderer.send('zoom-out'),
+  zoomReset: () => ipcRenderer.send('zoom-reset'),
+  
+  // App control
+  reloadApp: () => ipcRenderer.send('app:reload'),
+  quitApp: () => ipcRenderer.send('app-quit'),
+  
+  // External applications
+  openBrowser: () => ipcRenderer.send('open-browser'),
+  openGithubDesktop: () => ipcRenderer.send('open-github-desktop'),
+  
+  // Toggle UI state
+  getToggleUIState: () => {
+    const toggleButton = document.getElementById('toggle-ui');
+    if (toggleButton) {
+      return toggleButton.classList.contains('active') || 
+             toggleButton.getAttribute('aria-pressed') === 'true' ||
+             toggleButton.hasAttribute('data-active');
+    }
+    return false;
   },
+  onGetToggleUIState: (callback) => {
+    console.log('onGetToggleUIState listener registered');
+    const handler = (event) => {
+      console.log('get-toggle-ui-state request received');
+      const toggleButton = document.getElementById('toggle-ui');
+      const isActive = toggleButton ? toggleButton.classList.contains('active') : false;
+      console.log('Current toggle UI state:', isActive);
+      
+      ipcRenderer.send('toggle-ui-state-response', isActive);
+      
+      if (typeof callback === 'function') {
+        callback(isActive);
+      }
+    };
+    
+    ipcRenderer.on('get-toggle-ui-state', handler);
+    
+    return () => {
+      ipcRenderer.removeListener('get-toggle-ui-state', handler);
+    };
+  }
+};
 
-  cancelUpdateDownload: () => {
-    return ipcRenderer.invoke('cancel-update-download');
+// ============================================================================
+// TERMINAL OPERATIONS
+// ============================================================================
+
+const terminalOperations = {
+  onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
+  removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
+  
+  // Generic send/receive
+  send: (channel, data) => {
+    console.log('send called:', channel, data);
+    ipcRenderer.send(channel, data);
   },
+  removeAllListeners: (channel) => {
+    console.log('removeAllListeners called:', channel);
+    ipcRenderer.removeAllListeners(channel);
+  }
+};
 
-  getAppVersion: () => {
-    return ipcRenderer.invoke('get-app-version');
+// ============================================================================
+// TERMINAL API (Separate Terminal System)
+// ============================================================================
+
+const terminalAPI = {
+  createTerminal: (terminalId) => ipcRenderer.invoke('create-terminal', terminalId),
+  sendCommand: (terminalId, command) => {
+    return new Promise((resolve, reject) => {
+      try {
+        ipcRenderer.send('terminal-command', terminalId, command);
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
   },
+  destroyTerminal: (terminalId) => ipcRenderer.send('destroy-terminal', terminalId),
+  onData: (callback) => ipcRenderer.on('terminal-data', callback),
+  onError: (callback) => ipcRenderer.on('terminal-error', callback)
+};
 
-   // Check for updates manually
-  checkForUpdates: () => {
-    return ipcRenderer.invoke('check-for-updates');
-  },
+// ============================================================================
+// UPDATE OPERATIONS
+// ============================================================================
 
-  // Cancel update download
-  cancelUpdateDownload: () => {
-    return ipcRenderer.invoke('cancel-update-download');
-  },
-
-  // Get current app version
-  getAppVersion: () => {
-    return ipcRenderer.invoke('get-app-version');
-  },
-
-  // Get update status
-  getUpdateStatus: () => {
-    return ipcRenderer.invoke('get-update-status');
-  },
-
-  // Force download update if available
-  downloadUpdate: () => {
-    return ipcRenderer.invoke('download-update');
-  },
-
-  // Listen for update progress events
+const updateOperations = {
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  cancelUpdateDownload: () => ipcRenderer.invoke('cancel-update-download'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
+  
+  // Update listeners
   onUpdateProgress: (callback) => {
     const wrappedCallback = (event, data) => callback(data);
     ipcRenderer.on('update-progress', wrappedCallback);
     
-    // Return cleanup function
     return () => {
       ipcRenderer.removeListener('update-progress', wrappedCallback);
     };
   },
-
-  // Listen for update available events
   onUpdateAvailable: (callback) => {
     const wrappedCallback = (event, data) => callback(data);
     ipcRenderer.on('update-available', wrappedCallback);
@@ -361,59 +483,6 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
       ipcRenderer.removeListener('update-available', wrappedCallback);
     };
   },
-
-  // Optimized VVP execution
-  execVvpOptimized: (command, workingDir, options = {}) => 
-    ipcRenderer.invoke('exec-vvp-optimized', command, workingDir, options),
-  
-  // Enhanced command execution with performance optimization
-  execCommandStream: (command, workingDir = null, options = {}) => 
-    ipcRenderer.invoke('exec-command-stream', command, workingDir, options),
-  
-  // Process priority management
-  setProcessPriority: (pid, priority = 'high') => 
-    ipcRenderer.invoke('set-process-priority', pid, priority),
-  
-  // System performance monitoring
-  getSystemPerformance: () => 
-    ipcRenderer.invoke('get-system-performance'),
-  
-  // Enhanced command output streaming
- // Enhanced command output streaming
-  onCommandOutputStream: (callback) => {
-    ipcRenderer.on('command-output-stream', callback);
-  },
-  
-  removeCommandOutputListener: (callback) => {
-    ipcRenderer.removeListener('command-output-stream', callback);
-  },
-  // GTKWave's dedicated TCL output stream
-  onGtkwaveOutput: (callback) => {
-    ipcRenderer.on('gtkwave-output', callback);
-  },
-  removeGtkwaveOutputListener: (callback) => {
-    ipcRenderer.removeListener('gtkwave-output', callback);
-  },
-  
-
-  // ADD THESE NEW FUNCTIONS
-  // A generic "once" listener for whitelisted channels
-  once: (channel, callback) => {
-    const validChannels = ['vvp-finished']; // Whitelist of allowed channels
-    if (validChannels.includes(channel)) {
-      // Deliberately pass only the ...args to the callback, not the event object
-      ipcRenderer.once(channel, (event, ...args) => callback(...args));
-    }
-  },
-
-  // A generic "removeListener" for whitelisted channels
-  removeListener: (channel, callback) => {
-    const validChannels = ['vvp-finished']; // Whitelist must match
-    if (validChannels.includes(channel)) {
-      ipcRenderer.removeListener(channel, callback);
-    }
-  },
-  
   onUpdateDownloaded: (callback) => {
     const wrappedCallback = (event, data) => callback(data);
     ipcRenderer.on('update-downloaded', wrappedCallback);
@@ -422,18 +491,6 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
       ipcRenderer.removeListener('update-downloaded', wrappedCallback);
     };
   },
-
-  // Listen for update downloaded events
-  onUpdateDownloaded: (callback) => {
-    const wrappedCallback = (event, data) => callback(data);
-    ipcRenderer.on('update-downloaded', wrappedCallback);
-    
-    return () => {
-      ipcRenderer.removeListener('update-downloaded', wrappedCallback);
-    };
-  },
-
-  // Listen for update errors
   onUpdateError: (callback) => {
     const wrappedCallback = (event, error) => callback(error);
     ipcRenderer.on('update-error', wrappedCallback);
@@ -441,99 +498,16 @@ checkVvpRunning: () => ipcRenderer.invoke('check-vvp-running'),
     return () => {
       ipcRenderer.removeListener('update-error', wrappedCallback);
     };
-  },
-
-  listFilesInDirectory: (directoryPath) => ipcRenderer.invoke('list-files-directory', directoryPath), //Processor Config
-
-  onUpdateProgress: (callback) => {
-    ipcRenderer.on('update-progress', (event, data) => callback(data));
-  },
- 
+  }
 };
 
-const dialogOperations = {
-  showOpenDialog: () => ipcRenderer.invoke('dialog:showOpen'),
-  getBasename: (fullPath) => path.basename(fullPath),
-  openFolder: (folderPath) => ipcRenderer.invoke('folder:open', folderPath),
-  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
-};
+// ============================================================================
+// UTILITY OPERATIONS
+// ============================================================================
 
-const compileOperations = {
-  compile: (options) => ipcRenderer.invoke('compile', options),
-  execCommand: (command) => ipcRenderer.invoke('exec-command', command),
-};
-
-const pathOperations = {
-  joinPath: (...paths) => ipcRenderer.invoke('join-path', ...paths)
-};
-
-
-// Exposing API to the renderer process
-contextBridge.exposeInMainWorld('electronAPI', {
-  // File Operations
-  ...fileOperations,
-  
-  // Project Operations
-  ...projectOperations,
-  
-  // Dialog Operations
-  ...dialogOperations,
-  
-  // Compile Operations
-  ...compileOperations,
-  
-  // Path Operations
-  ...pathOperations,
-
-  createFile: (filePath) => ipcRenderer.invoke('file:create', filePath),
-  createDirectory: (dirPath) => ipcRenderer.invoke('directory:create', dirPath),
-  renameFileOrDirectory: (oldPath, newPath) => ipcRenderer.invoke('file:rename', oldPath, newPath),
-  deleteFileOrDirectory: (path) => ipcRenderer.invoke('file:delete', path),
-  getParentDirectory: (filePath) => ipcRenderer.invoke('file:get-parent', filePath),
-  isDirectory: (path) => ipcRenderer.invoke('file:is-directory', path),
-  showConfirmDialog: (title, message) => ipcRenderer.invoke('dialog:confirm', title, message),
-  fileExists: (path) => ipcRenderer.invoke('file:exists', path),
-  joinProjectPath: (...segments) => path.join(process.cwd(), ...segments),
-    openFolder: async (folderPath) => {
-        const { shell } = require('electron');
-        await shell.openPath(folderPath);
-    },
-  getPathForFile: (file) => {
-    try {
-      // Electron 20+ provides webUtils.getPathForFile
-      if (webUtils && webUtils.getPathForFile) {
-        return webUtils.getPathForFile(file);
-      }
-      // Fallback to file.path for older Electron or packaged apps
-      return file.path || '';
-    } catch (error) {
-      console.error('Error getting file path:', error);
-      return '';
-    }
-  },
-  // Store Operations
-  getLastFolder: () => ipcRenderer.invoke('get-last-folder'),
-  setLastFolder: (path) => ipcRenderer.invoke('set-last-folder', path),
-  
-  // Refresh Operations
-  refreshFolder: (path) => ipcRenderer.invoke('refreshFolder', path),
-  refreshFileTree: () => ipcRenderer.send('refresh-file-tree'),
-  
-  // External Tools
-  openExternal: (url) => ipcRenderer.invoke('open-external', url),
-  openExe: () => ipcRenderer.invoke('open-exe'),
-  executePowerShell: () => ipcRenderer.invoke('execute-powershell'),
-  openGTKWave: (filePath) => ipcRenderer.invoke('open-gtkwave', filePath),
-  prismCompileWithPaths: (compilationPaths) => {
-    console.log('prismCompileWithPaths called with paths:', compilationPaths);
-    return ipcRenderer.invoke('prism-compile-with-paths', compilationPaths);
-  },
-  // Config Operations
-  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
-  loadConfig: () => ipcRenderer.invoke('load-config'),
-  
-  // Create a new folder
-  async createFolder(folderPath) {
+const utilityOperations = {
+  // File utilities
+  createFolder: async (folderPath) => {
     try {
       await fs.promises.mkdir(folderPath, { recursive: true });
       return { success: true };
@@ -543,8 +517,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  // Delete a file or folder
-  async deleteItem(itemPath, isDirectory) {
+  createFile: async (filePath, content = '') => {
+    try {
+      await fs.promises.writeFile(filePath, content, 'utf8');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  deleteItem: async (itemPath, isDirectory) => {
     try {
       if (isDirectory) {
         await fs.promises.rm(itemPath, { recursive: true, force: true });
@@ -558,9 +541,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  
-  // Check if a file or directory exists
-  async checkIfExists(itemPath) {
+  checkIfExists: async (itemPath) => {
     try {
       await fs.promises.access(itemPath);
       return { exists: true };
@@ -569,14 +550,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  // Copy a file or directory
-  async copyItem(sourcePath, destPath, isDirectory) {
+  copyItem: async (sourcePath, destPath, isDirectory) => {
     try {
       if (isDirectory) {
-        // For directories, we need to recursively copy
         await copyDir(sourcePath, destPath);
       } else {
-        // For files, just copy the file
         await fs.promises.copyFile(sourcePath, destPath);
       }
       return { success: true };
@@ -586,13 +564,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   
-  // Move a file or directory
-  async moveItem(sourcePath, destPath) {
+  moveItem: async (sourcePath, destPath) => {
     try {
       await fs.promises.rename(sourcePath, destPath);
       return { success: true };
     } catch (error) {
-      // If rename fails (e.g., across devices), try copy & delete
       try {
         const isDirectory = (await fs.promises.stat(sourcePath)).isDirectory();
         
@@ -602,7 +578,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
           await fs.promises.copyFile(sourcePath, destPath);
         }
         
-        // Delete original after successful copy
         if (isDirectory) {
           await fs.promises.rm(sourcePath, { recursive: true, force: true });
         } else {
@@ -615,24 +590,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return { success: false, message: copyError.message };
       }
     }
-    
-  },
-
-   async createFile(filePath, content = '') {
-    try {
-      await fs.promises.writeFile(filePath, content, 'utf8');
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to create file:', error);
-      return { success: false, message: error.message };
-    }
   },
   
-
-  // Rename a file or folder
-  async renameItem(oldPath, newPath) {
+  renameItem: async (oldPath, newPath) => {
     try {
-      // Check if destination already exists
       try {
         await fs.promises.access(newPath);
         return { 
@@ -650,94 +611,103 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: false, message: error.message };
     }
   },
-
   
-
-// Debug project path
-debugProjectPath: () => ipcRenderer.invoke('debug-project-path'),
-
-// Toggle UI state methods
-getToggleUIState: () => {
-  const toggleButton = document.getElementById('toggle-ui');
-  if (toggleButton) {
-    return toggleButton.classList.contains('active') || 
-           toggleButton.getAttribute('aria-pressed') === 'true' ||
-           toggleButton.hasAttribute('data-active');
-  }
-  return false;
-},
-
-// Listen for toggle UI state requests from main process
-onGetToggleUIState: (callback) => {
-  ipcRenderer.on('get-toggle-ui-state', () => {
-    // Get toggle UI state directly here instead of calling through window.electronAPI
-    const toggleButton = document.getElementById('toggle-ui');
-    let isActive = false;
-    
-    if (toggleButton) {
-      isActive = toggleButton.classList.contains('active') || 
-                 toggleButton.getAttribute('aria-pressed') === 'true' ||
-                 toggleButton.hasAttribute('data-active');
+  // Path utilities
+  getPathForFile: (file) => {
+    try {
+      if (webUtils && webUtils.getPathForFile) {
+        return webUtils.getPathForFile(file);
+      }
+      return file.path || '';
+    } catch (error) {
+      console.error('Error getting file path:', error);
+      return '';
     }
-    
-    ipcRenderer.send('toggle-ui-state-response', isActive);
-  });
-},
+  },
+  
+  joinProjectPath: (...segments) => path.join(process.cwd(), ...segments)
+};
 
-  setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
-    
-  // Event Listeners
-  openFromSystem: (spfPath) => ipcRenderer.invoke('project:openFromSystem', spfPath),
-  onOpenFromSystem: (callback) => ipcRenderer.on('project:openFromSystem', callback),
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
-  getAppPath: () => ipcRenderer.invoke('getAppPath'),
-  validatePath: (filePath) => ipcRenderer.invoke('validate-path', filePath),
-  ensureDir: (dirPath) => ipcRenderer.invoke('ensure-dir', dirPath),
+// Helper function to recursively copy directory
+async function copyDir(src, dest) {
+  await fs.promises.mkdir(dest, { recursive: true });
+  const entries = await fs.promises.readdir(src, { withFileTypes: true });
 
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
 
-  onProjectPathUpdated: (callback) => ipcRenderer.on('project:pathUpdated', (event, data) => callback(data)),
-
-  scanTopLevelFolder: (projectPath) => ipcRenderer.invoke('scan-toplevel-folder', projectPath),
-
-   // Processor creation event listener
- onProcessorCreated: (callback) => {
-  ipcRenderer.on('processor-created', (event, processorName) => callback(event, processorName));
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await fs.promises.copyFile(srcPath, destPath);
+    }
+  }
 }
 
+// ============================================================================
+// EXPOSE MAIN API
+// ============================================================================
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // File Operations
+  ...fileOperations,
+  
+  // File Watching
+  ...fileWatchingOperations,
+  
+  // Project Operations
+  ...projectOperations,
+  
+  // Compilation & Simulation
+  ...compilationOperations,
+  
+  // PRISM Operations
+  ...prismOperations,
+  
+  // Dialog Operations
+  ...dialogOperations,
+  
+  // UI Operations
+  ...uiOperations,
+  
+  // Terminal Operations
+  ...terminalOperations,
+  
+  // Update Operations
+  ...updateOperations,
+  
+  // Utility Operations
+  ...utilityOperations
 });
 
+// ============================================================================
+// EXPOSE TERMINAL API (Separate Namespace)
+// ============================================================================
 
 if (ipcRenderer) {
-  contextBridge.exposeInMainWorld('terminalAPI', {
-    createTerminal: (terminalId) => ipcRenderer.invoke('create-terminal', terminalId),
-    sendCommand: (terminalId, command) => {
-      return new Promise((resolve, reject) => {
-        try {
-          ipcRenderer.send('terminal-command', terminalId, command);
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      });
-    },
-    destroyTerminal: (terminalId) => ipcRenderer.send('destroy-terminal', terminalId),
-    onData: (callback) => ipcRenderer.on('terminal-data', callback),
-    onError: (callback) => ipcRenderer.on('terminal-error', callback),
-  });
+  contextBridge.exposeInMainWorld('terminalAPI', terminalAPI);
 } else {
   console.error('ipcRenderer is not available');
 }
 
+// ============================================================================
+// GLOBAL EVENT LISTENERS
+// ============================================================================
 
-// Variável global para manter o caminho do projeto atual
-let currentProjectPath = null;
-
-// Adicione um listener para atualizar o caminho do projeto atual
+// Listen for project opened events
 ipcRenderer.on('project-opened', (event, projectPath) => {
-  currentProjectPath = projectPath;
+  window.postMessage({ 
+    type: 'project-opened', 
+    projectPath 
+  }, '*');
 });
 
-// Add to existing IPC handlers
+// Listen for terminal log events
 ipcRenderer.on('terminal-log', (event, terminal, message, type) => {
   window.postMessage({ 
     type: 'terminal-log', 
@@ -747,22 +717,30 @@ ipcRenderer.on('terminal-log', (event, terminal, message, type) => {
   }, '*');
 });
 
+// ============================================================================
+// PROJECT INFO FROM ARGS
+// ============================================================================
 
-// Função para obter informações do projeto dos argumentos
 function getProjectInfoFromArgs() {
-    try {
-        const args = process.argv;
-        const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
-        
-        if (projectInfoArg) {
-            // Decodificar corretamente o URI antes de fazer parse do JSON
-            const encodedJson = projectInfoArg.replace('--project-info=', '');
-            const decodedJson = decodeURIComponent(encodedJson);
-            return JSON.parse(decodedJson);
-        }
-        return null;
-    } catch (error) {
-        console.error('Failed to parse project info from arguments:', error);
-        return null;
+  try {
+    const args = process.argv;
+    const projectInfoArg = args.find(arg => arg.startsWith('--project-info='));
+    
+    if (projectInfoArg) {
+      const encodedJson = projectInfoArg.replace('--project-info=', '');
+      const decodedJson = decodeURIComponent(encodedJson);
+      return JSON.parse(decodedJson);
     }
+    return null;
+  } catch (error) {
+    console.error('Failed to parse project info from arguments:', error);
+    return null;
+  }
 }
+
+// ============================================================================
+// CONSOLE INFO
+// ============================================================================
+
+console.log('Preload script loaded successfully');
+console.log('Valid listener channels:', VALID_LISTENER_CHANNELS);

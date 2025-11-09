@@ -968,9 +968,9 @@ class VVPProgressManager {
         const useFlat = toggleBtn && toggleBtn.classList.contains('active');
 
         if (useFlat) {
-            return await window.electronAPI.joinPath('saphoComponents', 'Temp', 'progress.txt');
+            return await window.electronAPI.joinPath('components', 'Temp', 'progress.txt');
         } else {
-            return await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'progress.txt');
+            return await window.electronAPI.joinPath('components', 'Temp', name, 'progress.txt');
         }
     }
 

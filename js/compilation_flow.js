@@ -195,11 +195,11 @@ class CompilationFlowManager {
     async acquirePrismPaths() {
         const projectPath = window.currentProjectPath;
         if (!projectPath) throw new Error('No project path available.');
-        const sapho = (path) => window.electronAPI.joinPath('saphoComponents', path);
+        const sapho = (path) => window.electronAPI.joinPath('components', path);
         
         return {
             projectPath,
-            saphoComponentsPath: await sapho(''),
+            componentsPath: await sapho(''),
             hdlPath: await sapho('HDL'),
             tempPath: await sapho('Temp/PRISM'),
             yosysPath: await sapho('Packages/PRISM/yosys/yosys.exe'),

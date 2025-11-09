@@ -465,7 +465,8 @@ const updateOperations = {
   cancelUpdateDownload: () => ipcRenderer.invoke('cancel-update-download'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
-  
+  // Adicionar em fileOperations ou criar nova seção:
+  getComponentsPath: () => ipcRenderer.invoke('get-components-path'),
   // Update listeners
   onUpdateProgress: (callback) => {
     const wrappedCallback = (event, data) => callback(data);

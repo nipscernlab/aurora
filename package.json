@@ -9,6 +9,7 @@
     },
     "main": "main.js",
     "scripts": {
+        "prestart": "node components/scripts/copy-components.js",
         "start": "electron .",
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "electron-builder"
@@ -63,15 +64,15 @@
         },
         "extraResources": [
             {
-                "from": "saphoComponents",
-                "to": "saphoComponents_tmp"
+                "from": "components",
+                "to": "components_tmp"
             },
             {
-                "from": "saphoComponents/Packages/PRISM/netlistsvg/netlistsvg.exe",
+                "from": "components/Packages/PRISM/netlistsvg/netlistsvg.exe",
                 "to": "bin/netlistsvg.exe"
             },
             {
-                "from": "saphoComponents/Packages/PRISM/yosys.exe",
+                "from": "components/Packages/PRISM/yosys.exe",
                 "to": "bin/yosys.exe",
                 "filter": [
                     "**/*"

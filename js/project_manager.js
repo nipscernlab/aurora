@@ -102,7 +102,7 @@ class ProjectManager {
         });
 
         document.getElementById('open-hdl-button')?.addEventListener('click', async () => {
-            const hdlDir = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const hdlDir = await window.electronAPI.joinPath('components', 'HDL');
             window.electronAPI.openFolder(hdlDir);
         });
 

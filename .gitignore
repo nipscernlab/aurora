@@ -78,6 +78,6 @@ dist/builder-effective-config.yaml
 dist/builder-debug.yml
 dist/Aurora IDE-Setup-1.0.0.exe
 dist/${Aurora IDE}-Setup-${1.0.0}.exe.blockmap
-/saphoComponents/Projeto
-/saphoComponents/Temp
+/components/Projeto
+/components/Temp
 /dist/

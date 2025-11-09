@@ -1,3 +1,3 @@
 !macro customInstall 
-  Rename "$INSTDIR\resources\saphoComponents_tmp" "$INSTDIR\saphoComponents"
+  Rename "$INSTDIR\resources\components_tmp" "$INSTDIR\components"
 !macroend

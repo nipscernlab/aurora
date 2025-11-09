@@ -17,7 +17,8 @@ class CompilationModule {
         this.hierarchyGenerated = false;
         this.setupHierarchyToggle();
         this._hierarchyGenerationInProgress = false;
-
+        this.componentsPath = null;
+        this.initializeComponentsPath();
     }
 
     static extractFileInfoFromSource(sourceAttr) {
@@ -89,6 +90,12 @@ class CompilationModule {
         });
     }
 
+    async initializeComponentsPath() {
+        if (!this.componentsPath) {
+            this.componentsPath = await window.electronAPI.getComponentsPath();
+        }
+    }
+
 
     async monitorGtkwaveProcess() {
         if (!this.gtkwaveProcess) return;
@@ -124,9 +131,9 @@ class CompilationModule {
 
     async generateProcessorHierarchy(processor) {
         try {
-            const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', processor.name);
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', processor.name);
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const designTopModule = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -178,8 +185,8 @@ class CompilationModule {
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in projectOriented.json");
 
             const designTopModule = topLevelFilePath.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-            const yosysPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
             this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
 
@@ -506,14 +513,14 @@ class CompilationModule {
 
     async ensureDirectories(name) {
         try {
-            const saphoComponentsDir = await window.electronAPI.joinPath('saphoComponents');
-            await window.electronAPI.mkdir(saphoComponentsDir);
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
+            const componentsDir = await window.electronAPI.joinPath('components');
+            await window.electronAPI.mkdir(componentsDir);
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
             await window.electronAPI.mkdir(tempBaseDir);
-            const tempProcessorDir = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+            const tempProcessorDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
             await window.electronAPI.mkdir(tempProcessorDir);
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts', 'fix.vcd');
-            const destPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name, 'fix.vcd');
+            const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts', 'fix.vcd');
+            const destPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name, 'fix.vcd');
             await window.electronAPI.copyFile(scriptsPath, destPath);
             return tempProcessorDir;
         } catch (error) {
@@ -635,9 +642,9 @@ end`;
         try {
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-            const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-            const cmmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'cmmcomp.exe');
+            const macrosPath = await window.electronAPI.joinPath(this.componentsPath, 'Macros');
+            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            const cmmCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'cmmcomp.exe');
             const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
             const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
             const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
@@ -675,15 +682,15 @@ end`;
 
         try {
             const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-            const appCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'appcomp.exe');
-            const asmCompPath = await window.electronAPI.joinPath('saphoComponents', 'bin', 'asmcomp.exe');
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            const appCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'appcomp.exe');
+            const asmCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'asmcomp.exe');
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
             const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
             const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-            const macrosPath = await window.electronAPI.joinPath('saphoComponents', 'Macros');
+            const macrosPath = await window.electronAPI.joinPath(this.componentsPath, 'Macros');
 
             const {
                 tbFile
@@ -747,9 +754,9 @@ end`;
                 throw new Error("Project configuration not loaded");
             }
 
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+            const iveriCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
 
             const testbenchFile = this.projectConfig.testbenchFile;
             if (!testbenchFile) {
@@ -934,10 +941,10 @@ end`;
         statusUpdater.startCompilation('verilog');
 
         try {
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const iveriCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe');
 
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -1170,15 +1177,15 @@ end`;
         let gtkwaveOutputHandler = null;
 
         try {
-            const tempPath = await window.electronAPI.joinPath('saphoComponents', 'Temp', name);
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
+            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Hardware');
             const simulationPath = await window.electronAPI.joinPath(this.projectPath, name, 'Simulation');
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+            const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+            const iveriCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const vvpCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe');
+            const gtkwCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+            const binPath = await window.electronAPI.joinPath(this.componentsPath, 'bin');
 
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -1309,13 +1316,13 @@ end`;
         try {
             if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
-            const tempBaseDir = await window.electronAPI.joinPath('saphoComponents', 'Temp');
-            const scriptsPath = await window.electronAPI.joinPath('saphoComponents', 'Scripts');
-            const iveriCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const vvpCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwCompPath = await window.electronAPI.joinPath('saphoComponents', 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-            const hdlPath = await window.electronAPI.joinPath('saphoComponents', 'HDL');
-            const binPath = await window.electronAPI.joinPath('saphoComponents', 'bin');
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+            const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+            const iveriCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe');
+            const vvpCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe');
+            const gtkwCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            const binPath = await window.electronAPI.joinPath(this.componentsPath, 'bin');
 
             const testbenchFile = this.projectConfig.testbenchFile;
             if (!testbenchFile) throw new Error("No testbench file specified");
@@ -1718,7 +1725,7 @@ write_json ${jsonOutputPath}
             );
 
             const fancyFractalPath = await window.electronAPI.joinPath(
-                'saphoComponents', 'Packages', 'FFPGA', 'fancyFractal.exe'
+                this.componentsPath, 'Packages', 'FFPGA', 'fancyFractal.exe'
             );
 
 

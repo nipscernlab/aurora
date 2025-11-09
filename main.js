@@ -28,6 +28,15 @@ let updateAvailable = false;
 let updateInfo = null;
 let updateSystemInitialized = false;
 
+// CORRETO: Caminho para a pasta components na raiz da aplicação
+const componentsPath = isDev 
+  ? path.join(__dirname, 'components')
+  : path.join(path.dirname(app.getPath('exe')), 'components');
+  
+ipcMain.handle('get-components-path', () => {
+  return componentsPath;
+});
+
 // Configure auto-updater logging
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
@@ -107,7 +116,7 @@ async function createMainWindow() {
     isQuitting = true;
 
     try {
-      const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+      const tempFolderPath = path.join(componentsPath, 'Temp');
       await fs.rm(tempFolderPath, { recursive: true, force: true });
       await fs.mkdir(tempFolderPath, { recursive: true });
       console.log('Temp folder successfully cleared before quitting.');
@@ -1773,7 +1782,7 @@ ipcMain.handle('join-path', (event, ...paths) => {
   if (!paths.every(p => typeof p === 'string')) {
     throw new TypeError('All arguments to join-path must be strings');
   }
-  if (paths[0] === 'saphoComponents') {
+  if (paths[0] === 'components') {
     return path.join(rootPath, ...paths);
   }
   return path.join(...paths);
@@ -2468,11 +2477,11 @@ function getExecutablePath(executableName) {
   console.log(`Main executable directory: ${__dirname}`);
   
   if (executableName === 'yosys') {
-    const yosysPath = path.join(__dirname, '..' , '..' ,'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    const yosysPath = path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
     console.log(`Yosys path: ${yosysPath}`);
     return yosysPath;
   } else if (executableName === 'netlistsvg') {
-    const netlistsvgPath = path.join(__dirname, '..' , '..' , 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+    const netlistsvgPath = path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
     console.log(`Netlistsvg path: ${netlistsvgPath}`);
     return netlistsvgPath;
   }
@@ -2871,11 +2880,11 @@ ipcMain.handle('get-prism-compilation-paths', async (event) => {
         // Build all required paths
         const compilationPaths = {
             projectPath,
-            saphoComponentsPath: path.join(__dirname, 'saphoComponents'),
-            hdlPath: path.join(__dirname, 'saphoComponents', 'HDL'),
-            tempPath: path.join(__dirname, 'saphoComponents', 'Temp', 'PRISM'),
-            yosysPath: path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
-            netlistsvgPath: path.join(__dirname, 'saphoComponents', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
+            componentsPath: path.join(componentsPath),
+            hdlPath: path.join(componentsPath, 'HDL'),
+            tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
+            yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
+            netlistsvgPath: path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
             processorConfigPath: path.join(projectPath, 'processorConfig.json'),
             projectOrientedConfigPath: path.join(projectPath, 'projectOriented.json'),
             topLevelPath: path.join(projectPath, 'TopLevel')
@@ -4053,7 +4062,7 @@ app.on('before-quit', async () => {
   cleanupPromises.push(
     (async () => {
       try {
-        const tempFolderPath = path.join(rootPath, 'saphoComponents', 'Temp');
+        const tempFolderPath = path.join(componentsPath, 'Temp');
         await fs.rm(tempFolderPath, { recursive: true, force: true, maxRetries: 3 });
         await fs.mkdir(tempFolderPath, { recursive: true });
         console.log('Temp folder successfully cleared before quitting.');

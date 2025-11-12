@@ -45,11 +45,30 @@
         </button>
     </div>
 
-    <!-- UI Toggle Button -->
+    <div class="toggle-group">
+         <!-- UI Toggle Button -->
     <button id="toggle-ui" class="toolbar-toggle-ui">
         <i class="fa-solid fa-fan"></i>
     </button>
 
+    <!-- Economical -->
+    <input type="radio" name="mode" id="economical" value="economical" />
+    <label for="economical">
+        <i class="fa-solid fa-v fa-sm" title="Economical"></i>
+    </label>
+    <!-- Balanced -->
+    <input type="radio" name="mode" id="balanced" value="balanced" />
+    <label for="balanced">
+        <i class="fa-solid fa-microchip" title="Balanced"></i>
+    </label>
+    <!-- Performance -->
+    <input type="radio" name="mode" id="performance" value="performance" />
+    <label for="performance">
+        <i class="fa-solid fa-umbrella" title="Performance"></i>
+    </label>
+    </div>
+
+   
     <!-- Compile All Group -->
     <div class="compile-all-group">
         <button id="cancel-everything" class="toolbar-button" disabled>
@@ -778,7 +797,7 @@
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item" id="ready">
-            <i class="fa-solid fa-check"></i> Ready
+            <i class="fa-solid fa-plug-circle-xmark"></i> Offline
         </div>
         <div class="status-item" id="processorProjectOriented">
             <i class="fa-solid fa-lock-open"></i> Processor Oriented

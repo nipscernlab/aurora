@@ -56,6 +56,40 @@ function enableCompileButtons() {
             button.style.cursor = 'pointer';
         }
     });
+
+    const statusElement = document.getElementById('ready');
+    if (statusElement) {
+        statusElement.style.cursor = 'default';
+        // Adiciona a classe 'fading' para iniciar a transição de desaparecimento
+        statusElement.classList.add('fading');
+
+        // Função que será executada ao final da transição
+        const onFadeOut = () => {
+            // Remove o listener para não ser acionado novamente na transição de volta
+            statusElement.removeEventListener('transitionend', onFadeOut);
+
+            const icon = statusElement.querySelector('i');
+            const statusText = document.getElementById('status-text');
+
+            // Altera o ícone
+            if (icon) {
+                icon.classList.remove('fa-plug-circle-xmark');
+                icon.classList.add('fa-plug-circle-check');
+            }
+
+            // Altera o texto
+            if (statusText) {
+                statusText.textContent = 'On-line';
+            }
+            
+            // Adiciona a classe 'online' para alterar a cor e remove a 'fading' para reaparecer
+            statusElement.classList.add('online');
+            statusElement.classList.remove('fading');
+        };
+
+        // Adiciona um listener para o evento de fim da transição
+        statusElement.addEventListener('transitionend', onFadeOut);
+    }
 }
 
 async function loadProject(spfPath) {
@@ -117,6 +151,31 @@ class ProjectManager {
         return loadProject(spfPath);
     }
 }
+
+function setupStatusIndicator() {
+  const statusIndicator = document.getElementById('ready');
+  const openProjectButton = document.getElementById('openProjectBtn');
+
+  // Garante que ambos os elementos existam antes de adicionar o evento
+  if (!statusIndicator || !openProjectButton) {
+    console.warn('Status indicator or open project button not found. Click functionality will not be enabled.');
+    return;
+  }
+
+  // Define o estado inicial do cursor como 'pointer', pois a aplicação começa offline
+  statusIndicator.style.cursor = 'pointer';
+
+  statusIndicator.addEventListener('click', () => {
+    // A ação de clique só funciona se o status NÃO for 'online'
+    const isOnline = statusIndicator.classList.contains('online');
+    
+    if (!isOnline) {
+      openProjectButton.click();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setupStatusIndicator);
 
 const projectManager = new ProjectManager();
 export { projectManager };

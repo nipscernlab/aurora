@@ -399,6 +399,7 @@ class FileTreeManager {
         fileTree.innerHTML = '';
         fileTree.classList.remove('hierarchy-view');
         renderFileTree(files, fileTree);
+        refreshFileTree();
         
         expandedPaths.forEach(path => {
             const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);

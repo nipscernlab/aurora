@@ -157,7 +157,7 @@ body {
 
 /* Styles for status bar text elements */
 #processorName,
-#processorProjectOriented,
+#compmode,
 #processorNameID {
   transition: opacity var(--transition-normal);
 }

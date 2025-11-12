@@ -212,10 +212,11 @@
 .editor-terminal-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 96%;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
+  margin: 28px;
 }
 
 .terminal-container {

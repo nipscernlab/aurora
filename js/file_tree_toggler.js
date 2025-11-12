@@ -158,7 +158,7 @@ class FileTreeController {
     if (!this.collapseButton) return;
     const icon = this.collapseButton.querySelector('i');
     if (icon) {
-      icon.className = 'fa-solid fa-compress';
+      icon.className = 'fa-solid fa-square-minus';
       this.collapseButton.title = 'Collapse All';
       this.collapseButton.setAttribute('data-i18n-title', 'ui.fileTree.collapse');
     }

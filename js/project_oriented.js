@@ -48,7 +48,6 @@ class ProjectOrientedManager {
         this.setupEventListeners();
         this.enhanceDropZones();
         await this.loadAvailableProcessors();
-        this.updateCompilationModeStatus(); // <-- ADD THIS LINE
         console.log('Project Oriented Configuration System initialized successfully');
       } catch (error) {
         console.error('Failed to initialize Project Oriented System:', error);
@@ -92,7 +91,6 @@ class ProjectOrientedManager {
       toggleButton: document.getElementById('toggle-ui'),
       settingsButton: document.getElementById('settings'),
       processorStatus: document.getElementById('processorNameID'),
-      statusText: document.getElementById('processorProjectOriented')
     };
   }
   
@@ -104,12 +102,7 @@ class ProjectOrientedManager {
     this.elements.closeBtn?.addEventListener('click', () => this.closeModal());
     this.elements.cancelBtn?.addEventListener('click', () => this.closeModal());
     this.elements.saveBtn?.addEventListener('click', () => this.saveConfiguration());
-    
-    this.elements.toggleButton?.addEventListener('click', () => {
-        setTimeout(() => this.updateCompilationModeStatus(), 50);
-    });
-
-
+  
     // Import buttons
     this.elements.importSynthesizableBtn?.addEventListener('click', () => this.handleImportClick('synthesizable'));
     this.elements.importTestbenchBtn?.addEventListener('click', () => this.handleImportClick('testbench'));
@@ -138,34 +131,6 @@ class ProjectOrientedManager {
     // Setup drag and drop
     this.setupDragAndDrop();
   }
-  
-  updateCompilationModeStatus() {
-    if (!this.elements.toggleButton || !this.elements.statusText) {
-        console.warn('UI toggle button or status text element not found.');
-        return;
-    }
-
-    const statusElement = this.elements.statusText;
-    const isProjectMode = this.elements.toggleButton.classList.contains('active');
-
-    const newHTML = isProjectMode
-        ? '<i class="fa-solid fa-lock"></i> Project Oriented'
-        : '<i class="fa-solid fa-lock-open"></i> Processor Oriented';
-
-    // Para evitar um piscar desnecessário se o conteúdo já estiver correto
-    if (statusElement.innerHTML.trim() === newHTML.trim()) {
-        return;
-    }
-
-    // 1. Inicia o fade-out
-    statusElement.style.opacity = '0';
-
-    // 2. Aguarda o término do fade-out, troca o conteúdo e inicia o fade-in
-    setTimeout(() => {
-        statusElement.innerHTML = newHTML;
-        statusElement.style.opacity = '1';
-    }, 300); // Esta duração (300ms) deve corresponder à transição do CSS (0.3s)
-}
 
   /**
    * Enhanced drag and drop setup with visual feedback
@@ -466,10 +431,6 @@ class ProjectOrientedManager {
         background: var(--status-error-bg);
         border-color: var(--status-error);
         color: var(--status-error);
-      }
-
-      #processorProjectOriented {
-        transition: opacity 0.3s ease-in-out;
       }
 
     `;

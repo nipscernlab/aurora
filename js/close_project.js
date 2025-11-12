@@ -1,62 +1,103 @@
-// Add this to renderer.js or the appropriate UI JavaScript file
+/**
+ * @file Manages the logic for closing a project.
+ * @author Your Name
+ * @date November 12, 2025
+ */
+
+function disableCompileButtons() {
+    const buttonIds = [
+        'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 
+        'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 
+        'projectInfo', 'settings-project'
+    ];
+
+    buttonIds.forEach(id => {
+        const button = document.getElementById(id);
+        if (button) {
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+        }
+    });
+
+    const statusElement = document.getElementById('ready');
+    if (!statusElement) return;
+
+    statusElement.classList.add('fading');
+    statusElement.style.cursor = 'pointer';
+    const onFadeOutComplete = () => {
+        statusElement.removeEventListener('transitionend', onFadeOutComplete);
+
+        const icon = statusElement.querySelector('i');
+        const statusText = document.getElementById('status-text');
+
+        if (icon) {
+            icon.classList.remove('fa-plug-circle-check');
+            icon.classList.add('fa-plug-circle-xmark');
+        }
+        if (statusText) {
+            statusText.textContent = 'Offline';
+        }
+        
+        statusElement.classList.remove('online');
+        statusElement.classList.remove('fading');
+    };
+
+    statusElement.addEventListener('transitionend', onFadeOutComplete);
+}
+
+function clearProjectInterface() {
+    const selectors = {
+        '#file-tree': el => el.innerHTML = '',
+        '#processor-list': el => el.innerHTML = '',
+        '#editor': el => el.innerHTML = '',
+        '#project-title': el => el.textContent = 'No project open',
+        '#current-spf-name': el => el.textContent = 'No project open'
+    };
+
+    for (const selector in selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+            selectors[selector](element);
+        }
+    }
+
+    disableCompileButtons();
+
+    const projectActionButtons = document.querySelectorAll('.project-action-button');
+    projectActionButtons.forEach(button => {
+        button.disabled = true;
+        button.style.cursor = 'not-allowed';
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-  const closeButton = document.querySelector('#close-button');
+    const closeButton = document.querySelector('#close-button');
 
-  if (closeButton) {
+    if (!closeButton) return;
+
     closeButton.addEventListener('click', async () => {
-      const confirmClose = confirm('Are you sure you want to close the current project?');
-
-      if (!confirmClose) return;
-
-      closeButton.disabled = true;
-
-      try {
-        const result = await window.electronAPI.closeProject();
-
-        if (result.success) {
-          clearProjectInterface();
-        } else {
-          console.error('Failed to close project:', result.error);
+        if (!confirm('Are you sure you want to close the current project?')) {
+            return;
         }
-      } catch (error) {
-        console.error('Error closing project:', error);
-      } finally {
-        closeButton.disabled = false;
-      }
+
+        closeButton.disabled = true;
+        closeButton.style.cursor = 'not-allowed';
+
+        try {
+            const result = await window.electronAPI.closeProject();
+
+            if (result.success) {
+                clearProjectInterface();
+            } else {
+                console.error('Failed to close project:', result.error);
+                alert(`Error: Could not close the project. Reason: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('An unexpected error occurred while closing the project:', error);
+            alert('An unexpected error occurred. Please check the console for details.');
+        } finally {
+            closeButton.disabled = false;
+            closeButton.style.cursor = 'pointer';
+        }
     });
-  }
 });
-
-// Clears the UI when a project is closed
-function clearProjectInterface() {
-  const fileTree = document.querySelector('#file-tree');
-  if (fileTree) {
-    fileTree.innerHTML = '';
-  }
-
-  const processorList = document.querySelector('#processor-list');
-  if (processorList) {
-    processorList.innerHTML = '';
-  }
-
-  const projectTitle = document.querySelector('#project-title');
-  if (projectTitle) {
-    projectTitle.textContent = 'No project open';
-  }
-
-  const currentSpfName = document.querySelector('#current-spf-name');
-  if (currentSpfName) {
-    currentSpfName.textContent = 'No project open';
-  }
-
-  const editor = document.querySelector('#editor');
-  if (editor) {
-    editor.innerHTML = '';
-  }
-
-  const projectButtons = document.querySelectorAll('.project-action-button');
-  projectButtons.forEach(button => {
-    button.disabled = true;
-  });
-}

@@ -152,6 +152,7 @@
   color: var(--accent-hover);
   font-weight: var(--font-medium);
   margin-left: 5px;
+  padding-left: 4px !important;
 }
 
 .file-tree-item.multi-selected > .file-item {

@@ -205,7 +205,7 @@
   position: absolute;
   top: 0;
   left: 40%; /* Must match the width of .welcome-sidebar */
-  right: 35%;
+  right: 26%;
   bottom: 0%;
   flex-direction: column;
   align-items: center;
@@ -278,4 +278,19 @@
 .welcome-main-content .overlay-subtitle a:hover {
   color: var(--text-link-hover);
   text-decoration: underline;
+}
+
+#ready {
+    /* Define a duração e o tipo de transição para a opacidade e cor */
+    transition: opacity 0.3s ease-in-out, color 0.3s ease-in-out;
+    color: #c52b2b; /* Cor para o estado "Offline" (vermelho) */
+}
+
+#ready.online {
+    color: #28a545; /* Cor para o estado "On-line" (verde) */
+}
+
+/* Classe auxiliar para controlar o efeito de fade */
+#ready.fading {
+    opacity: 0;
 }

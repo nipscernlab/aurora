@@ -46,25 +46,25 @@
     </div>
 
     <div class="toggle-group">
-         <!-- UI Toggle Button -->
+         <!-- UI Toggle Button 
     <button id="toggle-ui" class="toolbar-toggle-ui">
         <i class="fa-solid fa-fan"></i>
-    </button>
+    </button> -->
 
-    <!-- Economical -->
-    <input type="radio" name="mode" id="economical" value="economical" />
-    <label for="economical">
-        <i class="fa-solid fa-v fa-sm" title="Economical"></i>
+    <!-- Verilog Mode -->
+    <input type="radio" name="mode" id="Verilog Mode" value="Verilog Mode" />
+    <label for="Verilog Mode">
+        <i class="fa-solid fa-v fa-sm" title="Verilog Mode"></i>
     </label>
-    <!-- Balanced -->
-    <input type="radio" name="mode" id="balanced" value="balanced" />
-    <label for="balanced">
-        <i class="fa-solid fa-microchip" title="Balanced"></i>
+    <!-- Processor Mode -->
+    <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
+    <label for="Processor Mode">
+        <i class="fa-solid fa-microchip" title="Processor Mode"></i>
     </label>
-    <!-- Performance -->
-    <input type="radio" name="mode" id="performance" value="performance" />
-    <label for="performance">
-        <i class="fa-solid fa-umbrella" title="Performance"></i>
+    <!-- Project Mode -->
+    <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
+    <label for="Project Mode">
+        <i class="fa-solid fa-umbrella" title="Project Mode"></i>
     </label>
     </div>
 
@@ -549,7 +549,7 @@
                     <i class="fa-solid fa-circle-xmark"></i>
                 </span>
                 <span id="toggle-file-tree" style="cursor: pointer;">
-                        <i class="fa-solid fa-list-ul"></i>
+                        <i class="fa-solid fa-square-minus"></i>
                 </span>
                 <span id="backup-project" style="cursor: pointer;">
                         <i class="fa-solid fa-hard-drive"></i>
@@ -666,22 +666,7 @@
     </div>
         <div class="terminal-content" id="terminal-tcmm">
             <div class="terminal-header">TCMM Terminal</div>
-            <div class="terminal-body">
-<span style="color: #f8fafc;">Bem-vindo ao Terminal TCMM!</span><br>
-<span style="color: #f8fafc;">Para criar um projeto de Processador, clique em</span> <span class="keyword" onclick="activateButton('newProjectBtn')">Novo Projeto</span>. <span style="color: #f8fafc;">Dê um nome ao seu projeto e selecione o local de instalação. Em seguida, o projeto .spf será aberto automaticamente e o botão</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span> <span style="color: #f8fafc;">será habilitado. Se você já tem um projeto criado, clique em</span> <span class="keyword" onclick="activateButton('openProjectBtn')">Abrir Projeto</span><br>
-                
-<span style="color: #f8fafc;">Clique em</span> <span class="keyword" onclick="activateButton('processorHub')">Processor Hub</span><span style="color: #f8fafc;">para criar um processador com todos os parâmetros pré-definidos por você. Programe seu processador usando a linguagem C± no arquivo .cmm dentro da pasta Software do seu projeto. Ao modificar um arquivo, clique em</span><span style="color: #f8fafc;">para salvá-lo</span><br>
-                
-<span style="color: #f8fafc;">Em seguida, configure a compilação no botão</span> <span class="keyword" onclick="activateButton('settings')">Processor Config</span><span style="color: #f8fafc;">, configurando o processador a ser compilado, o número de clocks e ciclos (frequência) para simulação, bem como as flags de compilação para cmmcomp, asmcomp e iverilog</span><br>
-                
-<span style="color: #f8fafc;">Após a configuração, você pode compilar passo a passo ou usar o botão</span> <span class="keyword" onclick="activateButton('allcomp')">Full Build</span> <span style="color: #f8fafc;">para compilar todo o projeto e visualizar a simulação no gtkwave. Monitore o log do processo nos terminais</span><span class="terminal-keyword" onclick="activateTerminal('tcmm')">TCMM</span>, <span class="terminal-keyword" onclick="activateTerminal('tasm')">TASM</span>, <span class="terminal-keyword" onclick="activateTerminal('tveri')">TIVERI</span>, <span class="terminal-keyword" onclick="activateTerminal('twave')">TWAVE</span> 
-<span style="color: #f8fafc;">Limpe cada terminal individualmente com o botão</span> <span class="keyword" onclick="activateButton('clear-terminal')">Limpar Terminal</span>
-            
-<span style="color: #f8fafc;">A assistência de IA pode ser útil. Clique no botão</span> <span class="keyword" onclick="activateButton('aiButton')">Assistente de IA</span> <span style="color: #f8fafc;">para ativá-lo. Selecione um dos modelos: ChatGPT, Claude ou DeepSeek. Verifique a hierarquia do seu projeto em</span> <span class="keyword" onclick="activateButton('open-folder-button')">Abrir Pasta</span><br>
-                
-<span style="color: #f8fafc;">Deseja visualizar informações sobre o projeto atual? Clique em</span> <span class="keyword" onclick="activateButton('projectInfo')">Informações do Projeto</span>
-<span style="color: #f8fafc;">Há mais em</span> <span class="keyword" onclick="activateButton('sidebarMenu'); toggleSidebar()">Menu</span>
-            </div>
+            <div class="terminal-body">Bem-vindo ao Terminal TCMM!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
             <div class="terminal-header">TASM Terminal</div>
@@ -797,10 +782,12 @@
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item" id="ready">
-            <i class="fa-solid fa-plug-circle-xmark"></i> Offline
+            <i class="fa-solid fa-plug-circle-xmark"></i>
+            <span id="status-text">Offline</span>
         </div>
-        <div class="status-item" id="processorProjectOriented">
-            <i class="fa-solid fa-lock-open"></i> Processor Oriented
+        <div class="status-item" id="compmode">
+            <i class="fa-solid fa-v fa-sm"></i>
+            <span id="compmode-text">Verilog Mode</span>
         </div>
         <div class="status-item" id="statusUpdater">
             <i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation
@@ -1051,6 +1038,9 @@ function closeAuroraAboutModal() {
     <script src="./js/terminal.js"></script>
     <script src="./js/tooltip.js"></script>
     <script src="./js/zoom.js"></script>
+    <script src="./js/ui_state.js"></script>
+
+
 
     <script src="./js/monaco_editor.js" type="module"></script>
     <script src="./js/tab_manager.js" type="module"></script>

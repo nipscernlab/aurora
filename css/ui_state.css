@@ -205,19 +205,19 @@ body.glow-fading::after {
 
 /* Change the color of the label when the icon is selected */
 .toggle-group input[type="radio"]:not(:is(:checked)) + label {
-  color: grey;
+  color: var(--text-secondary);
 }
 
 .toggle-group input[id="Verilog Mode"] + label {
-  color: #4caf50;
+  color: #00b907;
 }
 
 .toggle-group input[id="Processor Mode"] + label {
-  color: #2196f3;
+  color: #67b6d5;
 }
 
 .toggle-group input[id="Project Mode"] + label {
-  color: #f44336;
+  color: #a92218;
 }
 
 /* ===================================================================================

@@ -43,8 +43,8 @@
   border-radius: var(--radius-md);
   overflow: hidden; 
   box-shadow: var(--shadow-sm);
-  
-  /* A MUDANÇA PRINCIPAL: Impede que os grupos de botões sejam "espremidos" */
+  max-width: 50vh;
+
   flex-shrink: 0;
 }
 

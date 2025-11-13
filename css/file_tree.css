@@ -470,3 +470,248 @@
   margin-bottom: var(--space-3);
   opacity: 0.6;
 }
+
+/*
+ * =====================================================================================
+ *
+ *       Filename:  file_mode.css
+ *
+ *    Description:  Styles for Verilog Mode file manager with drag & drop support
+ *
+ * =====================================================================================
+ */
+
+/* ===================================================================================
+ *  Verilog Mode Tree Container
+ * =================================================================================== */
+.file-tree.verilog-mode-tree {
+  min-height: 200px;
+  position: relative;
+}
+
+.file-tree.verilog-mode-active {
+  border: 2px dashed var(--border-primary);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-normal), background-color var(--transition-normal);
+  padding: var(--space-4);
+}
+
+/* Drag over state */
+.file-tree.drag-over {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-subtle-bg);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Visual feedback during drag */
+.file-tree-container.verilog-mode-active {
+  position: relative;
+}
+
+.file-tree-container.verilog-mode-active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--transition-normal);
+  z-index: -1;
+}
+
+/* ===================================================================================
+ *  Empty State
+ * =================================================================================== */
+.file-mode-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-8);
+  text-align: center;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.file-mode-empty-state i {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-4);
+  color: var(--accent-primary);
+  opacity: 0.5;
+}
+
+.file-mode-empty-state p {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.file-mode-empty-state span {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* ===================================================================================
+ *  File Mode Items
+ * =================================================================================== */
+.file-mode-item {
+  animation: fadeInSlide var(--transition-normal) ease-out;
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.file-mode-item .file-item {
+  position: relative;
+  padding-right: var(--space-8);
+}
+
+.file-mode-item .file-name {
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Delete Button */
+.file-mode-delete-btn {
+  position: absolute;
+  right: var(--space-2);
+  width: var(--space-5);
+  height: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), 
+              background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.file-mode-item:hover .file-mode-delete-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.file-mode-delete-btn:hover {
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+.file-mode-delete-btn:active {
+  transform: scale(0.9);
+}
+
+/* ===================================================================================
+ *  Notifications
+ * =================================================================================== */
+.file-mode-notification {
+  position: fixed;
+  top: var(--space-8);
+  right: var(--space-8);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  z-index: var(--z-50);
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+  max-width: 400px;
+}
+
+.file-mode-notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.file-mode-notification i {
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+
+/* Notification types */
+.notification-success {
+  border-color: var(--status-success);
+}
+
+.notification-success i {
+  color: var(--status-success);
+}
+
+.notification-error {
+  border-color: var(--status-error);
+}
+
+.notification-error i {
+  color: var(--status-error);
+}
+
+.notification-warning {
+  border-color: var(--status-warning);
+}
+
+.notification-warning i {
+  color: var(--status-warning);
+}
+
+.notification-info {
+  border-color: var(--status-info);
+}
+
+.notification-info i {
+  color: var(--status-info);
+}
+
+/* ===================================================================================
+ *  File Type Icons
+ * =================================================================================== */
+.file-mode-item .fa-microchip {
+  color: var(--accent-primary);
+}
+
+.file-mode-item .fa-file-lines {
+  color: var(--text-secondary);
+}
+
+.file-mode-item .fa-file-image {
+  color: var(--status-info);
+}
+
+/* ===================================================================================
+ *  Responsive Adjustments
+ * =================================================================================== */
+@media (max-width: 768px) {
+  .file-mode-notification {
+    top: var(--space-4);
+    right: var(--space-4);
+    left: var(--space-4);
+    max-width: none;
+  }
+  
+  .file-mode-empty-state {
+    padding: var(--space-12) var(--space-4);
+  }
+}

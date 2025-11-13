@@ -35,10 +35,10 @@ function disableCompileButtons() {
             icon.classList.add('fa-plug-circle-xmark');
         }
         if (statusText) {
-            statusText.textContent = 'Offline';
+            statusText.textContent = 'Not Ready';
         }
         
-        statusElement.classList.remove('online');
+        statusElement.classList.remove('Ready');
         statusElement.classList.remove('fading');
     };
 

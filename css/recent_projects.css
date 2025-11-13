@@ -283,11 +283,11 @@
 #ready {
     /* Define a duração e o tipo de transição para a opacidade e cor */
     transition: opacity 0.3s ease-in-out, color 0.3s ease-in-out;
-    color: #c52b2b; /* Cor para o estado "Offline" (vermelho) */
+    color: #c52b2b; 
 }
 
-#ready.online {
-    color: #28a545; /* Cor para o estado "On-line" (verde) */
+#ready.ready {
+    color: #28a545;
 }
 
 /* Classe auxiliar para controlar o efeito de fade */

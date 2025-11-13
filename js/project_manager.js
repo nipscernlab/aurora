@@ -79,11 +79,11 @@ function enableCompileButtons() {
 
             // Altera o texto
             if (statusText) {
-                statusText.textContent = 'On-line';
+                statusText.textContent = 'Ready';
             }
             
-            // Adiciona a classe 'online' para alterar a cor e remove a 'fading' para reaparecer
-            statusElement.classList.add('online');
+            // Adiciona a classe 'ready' para alterar a cor e remove a 'fading' para reaparecer
+            statusElement.classList.add('ready');
             statusElement.classList.remove('fading');
         };
 
@@ -162,14 +162,14 @@ function setupStatusIndicator() {
     return;
   }
 
-  // Define o estado inicial do cursor como 'pointer', pois a aplicação começa offline
+  // Define o estado inicial do cursor como 'pointer', pois a aplicação começa not ready
   statusIndicator.style.cursor = 'pointer';
 
   statusIndicator.addEventListener('click', () => {
-    // A ação de clique só funciona se o status NÃO for 'online'
-    const isOnline = statusIndicator.classList.contains('online');
+    // A ação de clique só funciona se o status NÃO for 'ready'
+    const isReady = statusIndicator.classList.contains('ready');
     
-    if (!isOnline) {
+    if (!isReady) {
       openProjectButton.click();
     }
   });

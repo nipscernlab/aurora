@@ -167,132 +167,94 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Function to get tooltip text for an element
     function getTooltipText(element) {
-        const elementId = element.id;
-        
-        // Priority order: extended descriptions > data-tooltip > title attribute > fallback
-        if (elementId && extendedDescriptions[elementId]) {
-            return extendedDescriptions[elementId];
-        }
-        
-        if (element.getAttribute('data-tooltip')) {
-            return element.getAttribute('data-tooltip');
-        }
-        
-        if (element.getAttribute('title')) {
-            const titleText = element.getAttribute('title');
-            // Remove the title attribute to prevent native tooltip from showing
-            element.removeAttribute('title');
-            // Store it as data-original-title for reference
-            element.setAttribute('data-original-title', titleText);
-            return titleText;
-        }
-        
-        if (element.getAttribute('data-original-title')) {
-            return element.getAttribute('data-original-title');
-        }
-        
-        // Fallback based on element type
-        if (element.tagName === 'INPUT') {
-            const placeholder = element.getAttribute('placeholder');
-            const label = element.getAttribute('aria-label') || element.getAttribute('name');
-            if (placeholder) return `Input field: ${placeholder}`;
-            if (label) return `Input field for ${label}`;
-            return 'Input field for data entry';
-        }
-        
-        if (element.tagName === 'SELECT') {
-            const label = element.getAttribute('aria-label') || element.getAttribute('name');
-            if (label) return `Selection dropdown for ${label}`;
-            return 'Selection dropdown';
-        }
-        
-        if (element.textContent && element.textContent.trim()) {
-            const text = element.textContent.trim();
-            if (text.length < 50) { // Don't use long text content as tooltip
-                return `${text}`;
+        const truncateText = (text, maxLength = 250) => {
+            if (typeof text !== 'string' || text.length <= maxLength) {
+                return text;
             }
+            let truncated = text.substring(0, maxLength);
+            const lastSpace = truncated.lastIndexOf(' ');
+            if (lastSpace > 0) {
+                truncated = truncated.substring(0, lastSpace);
+            }
+            return truncated.trim() + '...';
+        };
+
+        let rawText = null;
+        const elementId = element.id;
+
+        if (elementId && extendedDescriptions[elementId]) {
+            rawText = extendedDescriptions[elementId];
+        } else if (element.dataset.tooltip) {
+            rawText = element.dataset.tooltip;
+        } else if (element.dataset.originalTitle) {
+            rawText = element.dataset.originalTitle;
+        } else if (element.title) {
+            const titleText = element.title;
+            element.removeAttribute('title');
+            element.dataset.originalTitle = titleText;
+            rawText = titleText;
+        } else {
+            return null; 
         }
         
-        return null;
+        return truncateText(rawText);
     }
-    
+  
     // Calculate optimal tooltip position
-    function calculateTooltipPosition(mouseX, mouseY, tooltipWidth, tooltipHeight) {
+    function calculateTooltipPosition(element, mouseX, mouseY) {
+        const tooltipRect = tooltip.getBoundingClientRect();
         const viewport = {
             width: window.innerWidth,
             height: window.innerHeight
         };
-        
-        const margin = 10; // Margin from viewport edges
-        let position = {
-            x: mouseX + tooltipConfig.distance,
-            y: mouseY + tooltipConfig.distance,
-            arrowPosition: 'top-left' // Default arrow position
+        const margin = 10;
+        const pos = {
+            x: 0,
+            y: 0,
+            arrowDirection: 'bottom'
         };
-        
-        // Check horizontal overflow and adjust
-        if (position.x + tooltipWidth > viewport.width - margin) {
-            position.x = mouseX - tooltipWidth - tooltipConfig.distance;
-            position.arrowPosition = position.arrowPosition.replace('left', 'right');
+
+        pos.x = mouseX - tooltipRect.width / 2;
+        pos.y = mouseY - tooltipRect.height - tooltipConfig.distance;
+        pos.arrowDirection = 'bottom';
+
+        if (pos.y < margin) {
+            pos.y = mouseY + tooltipConfig.distance;
+            pos.arrowDirection = 'top';
+        }
+
+        if (pos.x < margin) {
+            pos.x = margin;
+        }
+
+        if (pos.x + tooltipRect.width > viewport.width - margin) {
+            pos.x = viewport.width - tooltipRect.width - margin;
         }
         
-        // Check vertical overflow and adjust
-        if (position.y + tooltipHeight > viewport.height - margin) {
-            position.y = mouseY - tooltipHeight - tooltipConfig.distance;
-            position.arrowPosition = position.arrowPosition.replace('top', 'bottom');
-        }
-        
-        // Ensure tooltip doesn't go off screen edges
-        if (position.x < margin) {
-            position.x = margin;
-            position.arrowPosition = 'top-left';
-        }
-        
-        if (position.y < margin) {
-            position.y = margin;
-            position.arrowPosition = 'top-left';
-        }
-        
-        return position;
+        return pos;
     }
     
     // Position the tooltip arrow based on tooltip and mouse position
-    function positionTooltipArrow(tooltipPos, mouseX, mouseY) {
+    function positionTooltipArrow(tooltipPos, mouseX) {
         const tooltipRect = tooltip.getBoundingClientRect();
-        const arrowSize = tooltipConfig.arrowSize;
+        const arrowHalfWidth = tooltipConfig.arrowSize;
         
-        // Calculate relative mouse position to tooltip
-        const relativeX = mouseX - tooltipPos.x;
-        const relativeY = mouseY - tooltipPos.y;
-        
-        // Reset arrow classes
         tooltipArrow.className = 'tooltip-arrow';
-        
-        // Determine arrow position and styling
-        if (tooltipPos.arrowPosition.includes('bottom')) {
-            tooltipArrow.classList.add('arrow-bottom');
-            tooltipArrow.style.top = '100%';
-            tooltipArrow.style.bottom = 'auto';
-            tooltipArrow.style.left = Math.max(arrowSize, Math.min(tooltipRect.width - arrowSize, relativeX)) + 'px';
-        } else {
+
+        let arrowLeft = mouseX - tooltipRect.left - arrowHalfWidth;
+
+        arrowLeft = Math.max(arrowHalfWidth, arrowLeft);
+        arrowLeft = Math.min(tooltipRect.width - arrowHalfWidth * 2, arrowLeft);
+
+        if (tooltipPos.arrowDirection === 'top') {
             tooltipArrow.classList.add('arrow-top');
-            tooltipArrow.style.top = `-${arrowSize}px`;
-            tooltipArrow.style.bottom = 'auto';
-            tooltipArrow.style.left = Math.max(arrowSize, Math.min(tooltipRect.width - arrowSize, relativeX)) + 'px';
+        } else {
+            tooltipArrow.classList.add('arrow-bottom');
         }
         
-        if (tooltipPos.arrowPosition.includes('right')) {
-            tooltipArrow.classList.add('arrow-right');
-            tooltipArrow.style.left = '100%';
-            tooltipArrow.style.right = 'auto';
-            tooltipArrow.style.top = Math.max(arrowSize, Math.min(tooltipRect.height - arrowSize, relativeY)) + 'px';
-        } else if (!tooltipPos.arrowPosition.includes('bottom') && !tooltipPos.arrowPosition.includes('top')) {
-            tooltipArrow.classList.add('arrow-left');
-            tooltipArrow.style.left = `-${arrowSize}px`;
-            tooltipArrow.style.right = 'auto';
-        }
+        tooltipArrow.style.left = `${arrowLeft}px`;
     }
-    
+
     // Add event listeners to all relevant elements
     function addTooltipListeners() {
         const elements = getAllTooltipElements();
@@ -313,42 +275,34 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle mouse enter
     function handleMouseEnter(e, element) {
-        // If tooltips are disabled globally, bail out early
         if (!tooltipsEnabled()) return;
 
-        // Clear any existing timeout
         if (tooltipTimeout) {
             clearTimeout(tooltipTimeout);
         }
         
-        // Get tooltip text
         const tooltipText = getTooltipText(element);
         if (!tooltipText) {
             return;
         }
         
-        // Set a timeout to show the tooltip (prevents flashing on quick mouse movements)
         tooltipTimeout = setTimeout(() => {
-            // Double-check enabled state (in case toggled while waiting)
             if (!tooltipsEnabled()) {
                 tooltipTimeout = null;
                 return;
             }
 
-            // Update tooltip content
             tooltipContent.textContent = tooltipText;
+            
+            positionTooltip(e, element);
+            
             tooltip.classList.add('visible');
-            
-            // Position the tooltip
-            positionTooltip(e);
-            
-            // Track this as the active element
             activeElement = element;
         }, tooltipConfig.delay);
     }
     
     // Handle mouse leave
-    function handleMouseLeave(e, element) {
+ function handleMouseLeave(e, element) {
         // Clear the show timeout if it exists
         if (tooltipTimeout) {
             clearTimeout(tooltipTimeout);
@@ -372,31 +326,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Position the tooltip with improved arrow positioning
-    function positionTooltip(e) {
+    function positionTooltip(e, element) {
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.display = 'block';
+
         const mouseX = e.clientX;
         const mouseY = e.clientY;
         
-        // Force a layout calculation to get accurate dimensions
-        tooltip.style.visibility = 'hidden';
-        tooltip.style.display = 'block';
-        
-        const tooltipRect = tooltip.getBoundingClientRect();
-        const tooltipWidth = tooltipRect.width;
-        const tooltipHeight = tooltipRect.height;
-        
-        // Calculate optimal position
-        const position = calculateTooltipPosition(mouseX, mouseY, tooltipWidth, tooltipHeight);
-        
-        // Set the tooltip position
+        const position = calculateTooltipPosition(element, mouseX, mouseY);
+
         tooltip.style.left = `${position.x}px`;
         tooltip.style.top = `${position.y}px`;
-        tooltip.style.visibility = 'visible';
         
-        // Position the arrow after a brief delay to ensure tooltip is rendered
-        setTimeout(() => {
-            positionTooltipArrow(position, mouseX, mouseY);
-        }, 10);
+        positionTooltipArrow(position, mouseX);
+
+        tooltip.style.visibility = 'visible';
     }
+
     
     // Initialize tooltips
     addTooltipListeners();

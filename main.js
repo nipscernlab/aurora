@@ -500,7 +500,7 @@ function createSplashScreen() {
     splashWindow.close(); 
     createMainWindow(); // Create main application window
     //setTimeout(checkForUpdates, 2000); // Check for updates after a delay
-  }, 4000);
+  }, 500);
 }
 
 // Initialize the application when ready

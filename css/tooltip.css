@@ -24,6 +24,14 @@
     display: none;
 }
 
+.custom-tooltip {
+  /* ... other styles ... */
+  max-width: 350px;      /* Prevent it from becoming too wide */
+  white-space: normal;   /* Allow text to wrap naturally */
+  overflow-wrap: break-word; /* Break long words if necessary */
+  width: max-content;    /* Crucial: makes the box fit the content */
+}
+
 .custom-tooltip.visible {
     opacity: 1;
     transform: translateY(0);

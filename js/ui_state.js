@@ -24,7 +24,7 @@ class UIStateManager {
                 text: 'Processor Mode',
             },
             'Project Mode': {
-                icon: 'fa-solid fa-umbrella',
+                icon: 'fa-solid fa-compass-drafting',
                 text: 'Project Mode',
         
             }

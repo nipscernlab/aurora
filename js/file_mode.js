@@ -7,6 +7,12 @@
 
 import { TabManager } from './tab_manager.js';
 
+const pathUtils = {
+    basename: (filePath) => {
+        return filePath.split(/[\\/]/).pop();
+    }
+};
+
 class VerilogModeManager {
     constructor() {
         // Configuration
@@ -26,7 +32,10 @@ class VerilogModeManager {
         this.handleDragEnter = this.handleDragEnter.bind(this);
         this.handleDragLeave = this.handleDragLeave.bind(this);
         this.handleDrop = this.handleDrop.bind(this);
-        
+        this.handleTreeClick = this.handleTreeClick.bind(this);
+        this.createNewFile = this.createNewFile.bind(this);
+        this.deleteFile = this.deleteFile.bind(this);
+
         // Initialize
         this.init();
     }
@@ -51,6 +60,14 @@ class VerilogModeManager {
             console.error('❌ Failed to initialize Verilog Mode Manager:', error);
         }
     }
+
+    setupHierarchyToggle() {
+    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    if (!toggleButton) return;
+    
+    // Only enable toggle after successful compilation
+    TreeViewState.disableToggle();
+}
     
     /**
      * Cache all DOM elements
@@ -105,7 +122,11 @@ class VerilogModeManager {
                 }
             });
         }
-        
+
+        if (this.elements.fileTree) {
+            this.elements.fileTree.addEventListener('click', this.handleTreeClick);
+        }
+
         // Open HDL button - triggers file selection dialog
         this.elements.openHdlButton?.addEventListener('click', () => {
             if (this.isVerilogModeActive) {
@@ -394,7 +415,7 @@ class VerilogModeManager {
     /**
      * Activate Verilog Mode
      */
-    async activateVerilogMode() {
+   async activateVerilogMode() {
         if (this.isVerilogModeActive) {
             console.log('⚠️ Verilog Mode already active');
             return;
@@ -415,7 +436,7 @@ class VerilogModeManager {
                 window.currentProjectPath = projectData;
             }
             
-            console.log('📁 Project path:', this.currentProjectPath);
+            console.log('📂 Project path:', this.currentProjectPath);
         } catch (error) {
             console.error('Error getting project path:', error);
         }
@@ -425,6 +446,9 @@ class VerilogModeManager {
         
         // Render Verilog tree
         this.renderVerilogTree();
+        
+        // Setup hierarchy toggle
+        this.setupHierarchyToggle();
         
         console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
     }
@@ -603,7 +627,7 @@ class VerilogModeManager {
         const starredOption = file.isStarred
             ? { text: 'Remove Star', icon: 'fa-star', action: 'remove-star' }
             : { text: 'Add Star', icon: 'fa-star', action: 'add-star', disabled: hasStarred && !file.isStarred };
-        
+
         menu.innerHTML = `
             <div class="context-menu-item ${topLevelOption.disabled ? 'disabled' : ''}" data-action="${topLevelOption.action}">
                 <i class="fa-solid ${topLevelOption.icon}"></i>
@@ -612,6 +636,11 @@ class VerilogModeManager {
             <div class="context-menu-item ${starredOption.disabled ? 'disabled' : ''}" data-action="${starredOption.action}">
                 <i class="fa-solid ${starredOption.icon}"></i>
                 <span>${starredOption.text}</span>
+            </div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item delete-item" data-action="delete">
+                <i class="fa-solid fa-trash"></i>
+                <span>Delete File</span>
             </div>
         `;
         
@@ -648,7 +677,342 @@ class VerilogModeManager {
             document.addEventListener('click', this.closeContextMenu.bind(this), { once: true });
         }, 100);
     }
+
+    handleTreeClick(event) {
+    if (!this.isVerilogModeActive) return;
     
+    // Don't show if clicking on a file item or its children
+    if (event.target.closest('.verilog-file-item')) return;
+    
+    // Don't show if clicking on a button
+    if (event.target.closest('button')) return;
+    
+    // Remove any existing create menu
+    this.closeCreateMenu();
+    
+    const menu = document.createElement('div');
+    menu.className = 'verilog-create-menu';
+    menu.id = 'verilog-create-menu';
+    
+    menu.innerHTML = `
+        <div class="create-menu-item" data-action="create-file">
+            <i class="fa-solid fa-file-code"></i>
+            <span>New Verilog File (.v)</span>
+        </div>
+    `;
+    
+    // Position menu at click location
+    menu.style.left = event.pageX + 'px';
+    menu.style.top = event.pageY + 'px';
+    
+    document.body.appendChild(menu);
+    
+    // Adjust position if menu goes off screen
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (event.pageX - rect.width) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (event.pageY - rect.height) + 'px';
+        }
+        menu.classList.add('show');
+    }, 10);
+    
+    // Handle menu item click
+    menu.addEventListener('click', async (e) => {
+        const item = e.target.closest('.create-menu-item');
+        if (!item) return;
+        
+        const action = item.getAttribute('data-action');
+        if (action === 'create-file') {
+            await this.createNewFile();
+        }
+        this.closeCreateMenu();
+    });
+    
+    // Close menu on outside click
+    setTimeout(() => {
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#verilog-create-menu')) {
+                this.closeCreateMenu();
+            }
+        }, { once: true });
+    }, 100);
+}
+
+   /**
+ * Create a new Verilog file
+ */
+async createNewFile() {
+    // Show input dialog for file name
+    const fileName = await this.showFileNameDialog();
+    
+    if (!fileName) {
+        return; // User cancelled
+    }
+    
+    // Validate file name format
+    const invalidChars = /[<>:"/\\|?*]/;
+    const nameWithoutExt = fileName.replace('.v', '');
+    if (invalidChars.test(nameWithoutExt)) {
+        this.showNotification('File name contains invalid characters', 'error', 3000);
+        return;
+    }
+    
+    try {
+        // Open save dialog with showSaveDialog
+        const result = await window.electronAPI.showSaveDialog({
+            title: 'Save New Verilog File',
+            defaultPath: fileName,
+            filters: [
+                { name: 'Verilog Files', extensions: ['v'] }
+            ],
+            properties: ['createDirectory', 'showOverwriteConfirmation']
+        });
+        
+        if (result.canceled || !result.filePath) {
+            return; // User cancelled
+        }
+        
+        const filePath = result.filePath;
+        
+        // Ensure file has .v extension
+        const finalPath = filePath.endsWith('.v') ? filePath : filePath + '.v';
+        const finalFileName = pathUtils.basename(finalPath);
+        
+        // Create empty file
+        await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
+        
+        // Add to Verilog files list
+        const newFile = {
+            name: finalFileName,
+            path: finalPath,
+            isTopLevel: false,
+            isStarred: false
+        };
+        
+        this.verilogFiles.push(newFile);
+        this.sortFilesAlphabetically();
+        await this.saveConfiguration();
+        this.renderVerilogTree();
+        
+        this.showNotification(`Created "${finalFileName}" successfully`, 'success', 2000);
+        
+        // Open file in editor
+        try {
+            const content = await window.electronAPI.readFile(finalPath);
+            TabManager.addTab(finalPath, content);
+        } catch (error) {
+            console.error('Error opening new file:', error);
+        }
+        
+    } catch (error) {
+        console.error('Error creating file:', error);
+        this.showNotification('Error creating file', 'error', 3000);
+    }
+}
+
+    /**
+     * Show file name input dialog
+     */
+    showFileNameDialog() {
+        return new Promise((resolve) => {
+            const modalHTML = `
+                <div class="file-name-modal" id="file-name-modal">
+                    <div class="file-name-modal-content">
+                        <div class="file-name-modal-header">
+                            <div class="file-name-modal-icon">
+                                <i class="fa-solid fa-file-code"></i>
+                            </div>
+                            <h3 class="file-name-modal-title">New Verilog File</h3>
+                        </div>
+                        <div class="file-name-modal-body">
+                            <label for="new-file-name">File Name:</label>
+                            <div class="file-name-input-wrapper">
+                                <input 
+                                    type="text" 
+                                    id="new-file-name" 
+                                    class="file-name-input" 
+                                    placeholder="module_name"
+                                />
+                                <span class="file-extension">.v</span>
+                            </div>
+                        </div>
+                        <div class="file-name-modal-actions">
+                            <button class="file-name-btn cancel" data-action="cancel">Cancel</button>
+                            <button class="file-name-btn create" data-action="create">Create</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = document.getElementById('file-name-modal');
+            const input = document.getElementById('new-file-name');
+            
+            // Focus input
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 100);
+            
+            const closeModal = (result) => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.remove();
+                    resolve(result);
+                }, 200);
+            };
+            
+            // Handle button clicks
+            modal.addEventListener('click', (e) => {
+                const action = e.target.getAttribute('data-action');
+                if (action === 'cancel') {
+                    closeModal(null);
+                } else if (action === 'create') {
+                    const fileName = input.value.trim();
+                    if (fileName) {
+                        closeModal(fileName + '.v');
+                    }
+                }
+            });
+            
+            // Handle Enter key
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const fileName = input.value.trim();
+                    if (fileName) {
+                        closeModal(fileName + '.v');
+                    }
+                } else if (e.key === 'Escape') {
+                    closeModal(null);
+                }
+            });
+            
+            // Show modal
+            setTimeout(() => modal.classList.add('show'), 10);
+        });
+    }
+
+
+    /**
+     * Delete a file
+     */
+    async deleteFile(index) {
+    if (!this.verilogFiles[index]) return;
+    
+    const file = this.verilogFiles[index];
+    const fileName = file.name;
+    
+    // Show confirmation dialog
+    const confirmed = await this.showDeleteConfirmDialog(fileName);
+    
+    if (!confirmed) return;
+    
+    try {
+        // Delete file from disk
+        await window.electronAPI.deleteFile(file.path);
+        
+        // Remove from list
+        this.verilogFiles.splice(index, 1);
+        await this.saveConfiguration();
+        this.renderVerilogTree();
+        
+        this.showNotification(`Deleted "${fileName}" successfully`, 'success', 2000);
+        
+        // Close tab if open
+        if (typeof TabManager !== 'undefined' && TabManager.tabs && TabManager.tabs.has(file.path)) {
+            TabManager.closeTab(file.path);
+        }
+        
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        
+        // Check if file doesn't exist anymore
+        if (error.code === 'ENOENT') {
+            // File already deleted, just remove from list
+            this.verilogFiles.splice(index, 1);
+            await this.saveConfiguration();
+            this.renderVerilogTree();
+            this.showNotification(`File "${fileName}" was already deleted`, 'info', 2000);
+        } else {
+            this.showNotification(`Error deleting "${fileName}": ${error.message}`, 'error', 3000);
+        }
+    }
+}
+
+
+    /**
+     * Show delete confirmation dialog
+     */
+   showDeleteConfirmDialog(fileName) {
+    return new Promise((resolve) => {
+        const modalHTML = `
+            <div class="confirm-modal delete-confirm-modal" id="delete-confirm-modal">
+                <div class="confirm-modal-content">
+                    <div class="confirm-modal-header">
+                        <div class="confirm-modal-icon delete-icon">⚠️</div>
+                        <h3 class="confirm-modal-title">Delete File</h3>
+                    </div>
+                    <div class="confirm-modal-message">
+                        Are you sure you want to delete "<strong>${fileName}</strong>"?<br>
+                        <span style="color: var(--status-error); font-weight: 600;">This action cannot be undone.</span>
+                    </div>
+                    <div class="confirm-modal-actions">
+                        <button class="confirm-btn cancel" data-action="cancel">Cancel</button>
+                        <button class="confirm-btn delete" data-action="delete">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        const modal = document.getElementById('delete-confirm-modal');
+        
+        const closeModal = (result) => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                resolve(result);
+            }, 200);
+        };
+        
+        // Handle button clicks
+        modal.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action === 'cancel') {
+                closeModal(false);
+            } else if (action === 'delete') {
+                closeModal(true);
+            }
+        });
+        
+        // Handle Escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', handleEscape);
+                closeModal(false);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Show modal
+        setTimeout(() => modal.classList.add('show'), 10);
+    });
+}
+
+    /**
+     * Close create menu
+     */
+    closeCreateMenu() {
+        const existingMenu = document.getElementById('verilog-create-menu');
+        if (existingMenu) {
+            existingMenu.classList.remove('show');
+            setTimeout(() => existingMenu.remove(), 200);
+        }
+    }
+        
     /**
      * Handle context menu actions
      */
@@ -683,12 +1047,15 @@ class VerilogModeManager {
                 console.log('⭐ Removed Star:', file.name);
                 this.showNotification(`Removed star from "${file.name}"`, 'success', 2000);
                 break;
+            case 'delete':
+                await this.deleteFile(index);
+                break;
         }
-        
-        // Re-sort and re-render
-        this.sortFilesAlphabetically();
-        await this.saveConfiguration();
-        this.renderVerilogTree();
+        if (action !== 'delete') {
+            this.sortFilesAlphabetically();
+            await this.saveConfiguration();
+            this.renderVerilogTree();
+        }
     }
     
     /**
@@ -1106,6 +1473,228 @@ class VerilogModeManager {
                 background: linear-gradient(90deg, var(--accent-subtle-bg) 0%, rgba(255, 215, 0, 0.1) 100%);
                 border-left: 3px solid var(--accent-primary);
                 box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2);
+            }
+
+            .verilog-create-menu {
+                position: fixed;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-primary);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-xl);
+                padding: var(--space-2);
+                min-width: 200px;
+                z-index: 10000;
+                opacity: 0;
+                transform: scale(0.95);
+                transition: opacity var(--transition-fast), transform var(--transition-fast);
+            }
+
+            .verilog-create-menu.show {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            .create-menu-item {
+                display: flex;
+                align-items: center;
+                gap: var(--space-3);
+                padding: var(--space-3) var(--space-4);
+                border-radius: var(--radius-sm);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+                color: var(--text-primary);
+                font-size: var(--text-sm);
+            }
+
+            .create-menu-item:hover {
+                background: var(--overlay-hover);
+                color: var(--accent-primary);
+            }
+
+            .create-menu-item i {
+                width: 16px;
+                font-size: var(--text-base);
+            }
+
+            /* File Name Modal */
+           .file-name-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 99999;
+                opacity: 0;
+                transition: opacity var(--transition-normal);
+            }
+
+            .file-name-modal.show {
+                opacity: 1;
+            }
+
+            .file-name-modal-content {
+                background: var(--bg-elevated);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-xl);
+                min-width: 400px;
+                max-width: 90%;
+                transform: scale(0.9);
+                transition: transform var(--transition-normal);
+            }
+
+            .file-name-modal.show .file-name-modal-content {
+                transform: scale(1);
+            }
+
+            .file-name-modal-header {
+                display: flex;
+                align-items: center;
+                gap: var(--space-3);
+                padding: var(--space-6);
+                border-bottom: 1px solid var(--border-primary);
+            }
+
+            .file-name-modal-icon {
+                font-size: 24px;
+                color: var(--accent-primary);
+            }
+
+            .file-name-modal-title {
+                margin: 0;
+                font-size: var(--text-xl);
+                font-weight: var(--font-semibold);
+                color: var(--text-primary);
+            }
+
+            .file-name-modal-body {
+                padding: var(--space-6);
+            }
+
+            .file-name-modal-body label {
+                display: block;
+                margin-bottom: var(--space-2);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+                color: var(--text-secondary);
+            }
+
+            .file-name-input-wrapper {
+                display: flex;
+                align-items: center;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border-primary);
+                border-radius: var(--radius-md);
+                transition: all var(--transition-fast);
+            }
+
+            .file-name-input-wrapper:focus-within {
+                border-color: var(--accent-primary);
+                box-shadow: 0 0 0 3px var(--accent-subtle-bg);
+            }
+
+            .file-name-input {
+                flex: 1;
+                padding: var(--space-3);
+                background: transparent;
+                border: none;
+                color: var(--text-primary);
+                font-size: var(--text-base);
+                font-family: 'JetBrains Mono', monospace;
+                outline: none;
+            }
+
+            .file-extension {
+                padding-right: var(--space-3);
+                color: var(--text-tertiary);
+                font-size: var(--text-base);
+                font-family: 'JetBrains Mono', monospace;
+                user-select: none;
+            }
+
+            .file-name-modal-actions {
+                display: flex;
+                gap: var(--space-3);
+                padding: var(--space-6);
+                border-top: 1px solid var(--border-primary);
+                justify-content: flex-end;
+            }
+
+            .file-name-btn {
+                padding: var(--space-2) var(--space-4);
+                border: none;
+                border-radius: var(--radius-md);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+            }
+
+            .file-name-btn.cancel {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+            }
+
+            .file-name-btn.cancel:hover {
+                background: var(--bg-quaternary);
+            }
+
+            .file-name-btn.create {
+                background: var(--accent-primary);
+                color: white;
+            }
+
+            .file-name-btn.create:hover {
+                background: var(--accent-secondary);
+            }
+
+            /* Delete Confirm Modal */
+            .delete-confirm-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100000;
+                opacity: 0;
+                transition: opacity var(--transition-normal);
+            }
+
+            .delete-confirm-modal.show {
+                opacity: 1;
+            }
+
+            .confirm-modal .delete-icon {
+                color: var(--status-error);
+                font-size: 32px;
+            }
+
+            .confirm-btn.delete {
+                background: var(--status-error);
+                color: white;
+                font-weight: 600;
+            }
+
+            .confirm-btn.delete:hover {
+                background: #dc2626;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+            }
+
+            .confirm-btn.cancel {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+            }
+
+            .confirm-btn.cancel:hover {
+                background: var(--bg-quaternary);
             }
         `;
         

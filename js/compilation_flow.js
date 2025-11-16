@@ -90,15 +90,64 @@ async function runProjectPipeline(compiler) {
 }
 
 class CompilationFlowManager {
-    initialize() {
-        document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
-        document.getElementById('asmcomp')?.addEventListener('click', () => this.runSingleStep('asm'));
-        document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
-        document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
-        document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
-        document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
+        initialize() {
+            document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
+            document.getElementById('asmcomp')?.addEventListener('click', () => this.runSingleStep('asm'));
+            document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
+            document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
+            document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
+            document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
+            document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
+            
+            // Setup mode change listeners
+            this.setupModeListeners();
+        }
+
+    setupModeListeners() {
+        const verilogModeRadio = document.getElementById('Verilog Mode');
+        const processorModeRadio = document.getElementById('Processor Mode');
+        const projectModeRadio = document.getElementById('Project Mode');
+        const settingsBtn = document.getElementById('settings');
         
-        this.initializePrismButton();
+        const updateButtonStates = () => {
+            const mode = this.getCurrentMode();
+            
+            // Button states
+            const cmmBtn = document.getElementById('cmmcomp');
+            const asmBtn = document.getElementById('asmcomp');
+            const veriBtn = document.getElementById('vericomp');
+            const waveBtn = document.getElementById('wavecomp');
+            const prismBtn = document.getElementById('prismcomp');
+            const allBtn = document.getElementById('allcomp');
+            
+            if (mode === 'verilog') {
+                // Verilog Mode: only verilog and prism enabled
+                if (cmmBtn) cmmBtn.disabled = true;
+                if (asmBtn) asmBtn.disabled = true;
+                if (veriBtn) veriBtn.disabled = false;
+                if (waveBtn) waveBtn.disabled = true;
+                if (prismBtn) prismBtn.disabled = false;
+                if (allBtn) allBtn.disabled = true;
+                if (settingsBtn) settingsBtn.disabled = true;
+            } else {
+                // Processor/Project modes: normal behavior
+                const hasProcessor = this.isProcessorConfigured();
+                if (cmmBtn) cmmBtn.disabled = !hasProcessor;
+                if (asmBtn) asmBtn.disabled = !hasProcessor;
+                if (veriBtn) veriBtn.disabled = !hasProcessor;
+                if (waveBtn) waveBtn.disabled = !hasProcessor;
+                if (prismBtn) prismBtn.disabled = !hasProcessor;
+                if (allBtn) allBtn.disabled = !hasProcessor;
+                if (settingsBtn) settingsBtn.disabled = false;
+            }
+        };
+        
+        verilogModeRadio?.addEventListener('change', updateButtonStates);
+        processorModeRadio?.addEventListener('change', updateButtonStates);
+        projectModeRadio?.addEventListener('change', updateButtonStates);
+        
+        // Initial update
+        updateButtonStates();
     }
 
     isProcessorConfigured() {
@@ -127,33 +176,78 @@ class CompilationFlowManager {
         }
     }
 
+    getCurrentMode() {
+    const verilogModeRadio = document.getElementById('Verilog Mode');
+    const processorModeRadio = document.getElementById('Processor Mode');
+    const projectModeRadio = document.getElementById('Project Mode');
+    
+    if (verilogModeRadio?.checked) return 'verilog';
+    if (processorModeRadio?.checked) return 'processor';
+    if (projectModeRadio?.checked) return 'project';
+    
+    return 'processor'; // Default fallback
+}
+
     async runSingleStep(step) {
-        if (!this.isProcessorConfigured()) return alert('Please configure a processor first.');
+        const currentMode = this.getCurrentMode();
+        
+        // For Verilog Mode, only certain steps are valid
+        if (currentMode === 'verilog') {
+            if (!['verilog', 'prism'].includes(step)) {
+                alert('This compilation step is not available in Verilog Mode.');
+                return;
+            }
+        } else {
+            // Processor/Project modes need processor configuration
+            if (!this.isProcessorConfigured()) {
+                return alert('Please configure a processor first.');
+            }
+        }
 
         startCompilation();
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
-            await compiler.loadConfig();
-            const isProjectMode = document.getElementById('toggle-ui')?.classList.contains('active');
-            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+            
+            if (currentMode === 'verilog') {
+                // Verilog Mode specific compilation
+                switch(step) {
+                    case 'verilog':
+                        switchTerminal('terminal-tveri');
+                        await compiler.iverilogVerilogModeCompilation();
+                        break;
+                    case 'prism':
+                        switchTerminal('terminal-tveri');
+                        await compiler.prismVerilogModeCompilation();
+                        break;
+                }
+            } else {
+                // Existing processor/project mode logic
+                await compiler.loadConfig();
+                const isProjectMode = currentMode === 'project';
+                const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
 
-            switch(step) {
-                case 'cmm':
-                    switchTerminal('terminal-tcmm');
-                    await compiler.cmmCompilation(activeProcessor);
-                    break;
-                case 'asm':
-                    switchTerminal('terminal-tasm');
-                    await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
-                    break;
-                case 'verilog':
-                    switchTerminal('terminal-tveri');
-                    isProjectMode ? await compiler.iverilogProjectCompilation() : await compiler.iverilogCompilation(activeProcessor);
-                    break;
-                case 'wave':
-                    switchTerminal('terminal-twave');
-                    isProjectMode ? await compiler.runProjectGtkWave() : await compiler.runGtkWave(activeProcessor);
-                    break;
+                switch(step) {
+                    case 'cmm':
+                        switchTerminal('terminal-tcmm');
+                        await compiler.cmmCompilation(activeProcessor);
+                        break;
+                    case 'asm':
+                        switchTerminal('terminal-tasm');
+                        await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
+                        break;
+                    case 'verilog':
+                        switchTerminal('terminal-tveri');
+                        isProjectMode ? 
+                            await compiler.iverilogProjectCompilation() : 
+                            await compiler.iverilogCompilation(activeProcessor);
+                        break;
+                    case 'wave':
+                        switchTerminal('terminal-twave');
+                        isProjectMode ? 
+                            await compiler.runProjectGtkWave() : 
+                            await compiler.runGtkWave(activeProcessor);
+                        break;
+                }
             }
         } catch (error) {
             console.error(`${step} compilation error:`, error);
@@ -178,32 +272,49 @@ class CompilationFlowManager {
             if (prismButton.disabled) return;
             
             prismButton.disabled = true;
-            prismButton.innerHTML = 'Compiling...';
+            const originalHTML = prismButton.innerHTML;
+            prismButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Compiling...</span>';
+            
             try {
-                // Simplified PRISM logic
                 const paths = await this.acquirePrismPaths();
-                await window.electronAPI.prismCompileWithPaths(paths);
+                const result = await window.electronAPI.prismCompileWithPaths(paths);
+                
+                if (result.success) {
+                    this.showNotification('PRISM window opened successfully', 'success', 3000);
+                } else {
+                    throw new Error(result.message || 'PRISM compilation failed');
+                }
             } catch (error) {
                 console.error('PRISM compilation error:', error);
+                this.showNotification(`PRISM error: ${error.message}`, 'error', 4000);
             } finally {
                 prismButton.disabled = false;
-                prismButton.innerHTML = 'PRISM';
+                prismButton.innerHTML = originalHTML;
             }
         });
+    }
+
+    showNotification(message, type, duration) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type, duration);
+        } else {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
     }
 
     async acquirePrismPaths() {
         const projectPath = window.currentProjectPath;
         if (!projectPath) throw new Error('No project path available.');
-        const sapho = (path) => window.electronAPI.joinPath('components', path);
+        
+        const componentsPath = await window.electronAPI.getComponentsPath();
         
         return {
             projectPath,
-            componentsPath: await sapho(''),
-            hdlPath: await sapho('HDL'),
-            tempPath: await sapho('Temp/PRISM'),
-            yosysPath: await sapho('Packages/PRISM/yosys/yosys.exe'),
-            netlistsvgPath: await sapho('Packages/PRISM/netlistsvg/netlistsvg.exe'),
+            componentsPath: componentsPath,
+            hdlPath: await window.electronAPI.joinPath(componentsPath, 'HDL'),
+            tempPath: await window.electronAPI.joinPath(componentsPath, 'Temp', 'PRISM'),
+            yosysPath: await window.electronAPI.joinPath(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
+            netlistsvgPath: await window.electronAPI.joinPath(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
             processorConfigPath: await window.electronAPI.joinPath(projectPath, 'processorConfig.json'),
             projectOrientedConfigPath: await window.electronAPI.joinPath(projectPath, 'projectOriented.json'),
             topLevelPath: await window.electronAPI.joinPath(projectPath, 'TopLevel')

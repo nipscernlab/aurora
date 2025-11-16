@@ -54,24 +54,34 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- NOVA LÓGICA PARA O BOTÃO SETTINGS ---
     if (settingsButton) {
-        settingsButton.addEventListener('click', () => {
-            // Se os elementos NÃO estão visíveis (toggle-ui ATIVADO)
-            if (!elementsVisible) {
-                // Abra o modal de configuração do projeto
-                if (typeof openProjectModal === 'function') {
-                    openProjectModal();
-                } else {
-                    console.error('Função openProjectModal não encontrada!');
-                }
-            } else { // Se os elementos estão visíveis (toggle-ui DESATIVADO)
-                // Abra o modal de configuração do processador
-                if (typeof openProcessorModal === 'function') {
-                    openProcessorModal();
-                } else {
-                    console.error('Função openProcessorModal não encontrada!');
-                }
+    settingsButton.addEventListener('click', () => {
+        const verilogMode = document.getElementById('Verilog Mode');
+        const processorMode = document.getElementById('Processor Mode');
+        const projectMode = document.getElementById('Project Mode');
+        
+        if (processorMode?.checked) {
+            // Open Processor Configuration Modal
+            const processorModal = document.getElementById('modalProcessorConfig');
+            if (processorModal) {
+                processorModal.setAttribute('aria-hidden', 'false');
+                processorModal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            } else {
+                console.error('Processor config modal not found');
             }
-        });
+        } else if (projectMode?.checked) {
+            // Open Project Configuration Modal
+            const projectModal = document.getElementById('modalProjectConfig');
+            if (projectModal) {
+                projectModal.setAttribute('aria-hidden', 'false');
+                projectModal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            } else {
+                console.error('Project config modal not found');
+            }
+        }
+        // Verilog Mode: button is disabled, no action needed
+    });
     }
     // --- FIM DA NOVA LÓGICA ---
     

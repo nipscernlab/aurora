@@ -4615,3 +4615,20 @@ function filterGtkWaveOutput(output) {
     })
     .join('\n');
 }
+
+// Delete file handler
+ipcMain.handle('delete-file', async (event, filePath) => {
+    try {
+        await fs.unlink(filePath);
+        return { success: true };
+    } catch (error) {
+        log.error('Error deleting file:', error);
+        throw error;
+    }
+});
+
+// Show save dialog handler
+ipcMain.handle('show-save-dialog', async (event, options) => {
+    const result = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow(), options);
+    return result;
+});

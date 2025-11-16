@@ -541,7 +541,9 @@ const utilityOperations = {
       return { success: false, message: error.message };
     }
   },
-  
+
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
   checkIfExists: async (itemPath) => {
     try {
       await fs.promises.access(itemPath);

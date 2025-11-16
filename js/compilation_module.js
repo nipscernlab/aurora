@@ -1771,6 +1771,256 @@ write_json ${jsonOutputPath}
         }
     }
 
+    async loadFileModeConfig() {
+    try {
+        const fileModeConfigPath = await window.electronAPI.joinPath(this.projectPath, 'fileMode.json');
+        const fileModeExists = await window.electronAPI.fileExists(fileModeConfigPath);
+        
+        if (!fileModeExists) {
+            throw new Error('fileMode.json not found in project root');
+        }
+        
+        const fileModeData = await window.electronAPI.readFile(fileModeConfigPath, { encoding: 'utf8' });
+        this.fileModeConfig = JSON.parse(fileModeData);
+        
+        console.log("File mode config loaded:", this.fileModeConfig);
+        return true;
+    } catch (error) {
+        console.error("Failed to load fileMode.json:", error);
+        throw error;
+    }
+}
+
+async iverilogVerilogModeCompilation() {
+    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Verilog Mode)...');
+    statusUpdater.startCompilation('verilog');
+
+    try {
+        // Load fileMode.json configuration
+        await this.loadFileModeConfig();
+
+        if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
+            throw new Error('No files defined in fileMode.json');
+        }
+
+        // Find top-level module
+        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        if (!topLevelFile) {
+            throw new Error('No top-level module marked in fileMode.json (isTopLevel: true)');
+        }
+
+        const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
+        this.terminalManager.appendToTerminal('tveri', `Top-level module: ${topLevelModuleName}`);
+
+        // Setup paths
+        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+        const iveriCompPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe'
+        );
+        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+
+        // Collect all HDL files from components/HDL
+        const hdlFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+        const hdlFilesString = hdlFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
+
+        // Collect all files from fileMode.json
+        const fileModeFiles = this.fileModeConfig.files
+            .map(file => `"${file.path}"`)
+            .join(' ');
+
+        // Save all open files
+        await TabManager.saveAllFiles();
+
+        // Output file path
+        const projectName = this.projectPath.split(/[\/\\]/).pop();
+        const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}_verilog.vvp`);
+
+        // Get optional flags from fileMode.json
+        const flags = this.fileModeConfig.iverilogFlags || '';
+
+        // Build iverilog command
+        const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${topLevelModuleName} -o "${outputFilePath}" ${fileModeFiles} ${hdlFilesString}`;
+        
+        this.terminalManager.appendToTerminal('tveri', `Executing: ${cmd}`);
+
+        const result = await window.electronAPI.execCommand(cmd);
+        this.terminalManager.processExecutableOutput('tveri', result);
+
+        if (result.code !== 0) {
+            statusUpdater.compilationError('verilog', `Icarus Verilog failed with code ${result.code}`);
+            throw new Error('Icarus Verilog compilation failed');
+        }
+    // At the end of successful compilation (before catch block)
+    this.terminalManager.appendToTerminal('tveri', 'Verilog Mode compilation completed successfully', 'success');
+    statusUpdater.compilationSuccess('verilog');
+
+    // Generate hierarchy for Verilog Mode
+    await this.generateVerilogModeHierarchy();
+    if (this.hierarchyData) {
+        TreeViewState.hierarchyData = this.hierarchyData;
+        TreeViewState.enableToggle();
+        this.hierarchyGenerated = true;
+    }
+        await this.switchToHierarchicalView();
+
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('verilog', error.message);
+        throw error;
+    }
+}
+
+async generateVerilogModeHierarchy() {
+    try {
+        if (!this.fileModeConfig) {
+            await this.loadFileModeConfig();
+        }
+
+        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        if (!topLevelFile) {
+            throw new Error('No top-level module defined in fileMode.json');
+        }
+
+        const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
+        const yosysPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'
+        );
+        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+
+        this.terminalManager.appendToTerminal('tveri', 'Generating Verilog Mode hierarchy with Yosys...');
+
+        // Build Yosys script with all files
+        const readVerilogCommands = this.fileModeConfig.files
+            .map(file => `read_verilog -sv "${file.path}"`)
+            .join('\n');
+
+        const yosysScript = `
+${readVerilogCommands}
+hierarchy -top ${topLevelModuleName}
+proc
+write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
+`;
+
+        const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'verilog_mode_hierarchy_gen.ys');
+        await window.electronAPI.writeFile(scriptPath, yosysScript);
+
+        const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
+        const result = await window.electronAPI.execCommand(yosysCmd);
+
+        if (result.code !== 0) {
+            throw new Error('Yosys hierarchy generation failed');
+        }
+
+        const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'verilog_mode_hierarchy.json');
+        const hierarchyJson = JSON.parse(
+            await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' })
+        );
+
+        this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, topLevelModuleName);
+        this.terminalManager.appendToTerminal('tveri', 'Verilog Mode hierarchy generated successfully', 'success');
+        
+        TreeViewState.hierarchyData = this.hierarchyData;
+        TreeViewState.enableToggle();
+        
+        return true;
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri', 
+            `Verilog Mode hierarchy generation error: ${error.message}`, 'warning');
+        return false;
+    }
+}
+
+async prismVerilogModeCompilation() {
+    this.terminalManager.appendToTerminal('tveri', 'Starting PRISM synthesis (Verilog Mode)...');
+    
+    try {
+        // Load fileMode.json configuration
+        await this.loadFileModeConfig();
+
+        if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
+            throw new Error('No files defined in fileMode.json');
+        }
+
+        // Find top-level module
+        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        if (!topLevelFile) {
+            throw new Error('No top-level module marked in fileMode.json');
+        }
+
+        const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
+        
+        // Setup paths
+        const yosysPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'
+        );
+        const netlistsvgPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'
+        );
+        const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', 'PRISM');
+        
+        // Ensure PRISM temp directory exists
+        await window.electronAPI.mkdir(tempPath);
+
+        // Save all open files
+        await TabManager.saveAllFiles();
+
+        // Build Yosys synthesis script
+        const readVerilogCommands = this.fileModeConfig.files
+            .map(file => `read_verilog -sv "${file.path}"`)
+            .join('\n');
+
+        const yosysScript = `
+${readVerilogCommands}
+hierarchy -top ${topLevelModuleName}
+proc
+opt
+flatten
+opt
+write_json "${tempPath}\\${topLevelModuleName}_synth.json"
+`;
+
+        const scriptPath = await window.electronAPI.joinPath(tempPath, 'prism_synth.ys');
+        await window.electronAPI.writeFile(scriptPath, yosysScript);
+
+        // Run Yosys synthesis
+        this.terminalManager.appendToTerminal('tveri', 'Running Yosys synthesis...');
+        const yosysCmd = `cd "${tempPath}" && "${yosysPath}" -s "${scriptPath}"`;
+        const yosysResult = await window.electronAPI.execCommand(yosysCmd);
+        
+        this.terminalManager.processExecutableOutput('tveri', yosysResult);
+
+        if (yosysResult.code !== 0) {
+            throw new Error('Yosys synthesis failed');
+        }
+
+        // Run netlistsvg
+        this.terminalManager.appendToTerminal('tveri', 'Generating schematic with netlistsvg...');
+        const jsonFile = await window.electronAPI.joinPath(tempPath, `${topLevelModuleName}_synth.json`);
+        const svgFile = await window.electronAPI.joinPath(tempPath, `${topLevelModuleName}_schematic.svg`);
+        
+        const netlistsvgCmd = `"${netlistsvgPath}" "${jsonFile}" -o "${svgFile}"`;
+        const svgResult = await window.electronAPI.execCommand(netlistsvgCmd);
+        
+        this.terminalManager.processExecutableOutput('tveri', svgResult);
+
+        if (svgResult.code !== 0) {
+            throw new Error('netlistsvg generation failed');
+        }
+
+        // Open the generated SVG
+        this.terminalManager.appendToTerminal('tveri', 
+            `PRISM synthesis completed successfully. Output: ${svgFile}`, 'success');
+        
+        // Optionally open the SVG file
+        await window.electronAPI.openExternal(svgFile);
+
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri', 
+            `PRISM compilation error: ${error.message}`, 'error');
+        throw error;
+    }
+}
+
     async compileAll() {
         try {
             startCompilation();

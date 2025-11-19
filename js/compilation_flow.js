@@ -155,6 +155,36 @@ class CompilationFlowManager {
         return el && !el.textContent.includes('No Processor Configured');
     }
 
+    /**
+ * Run PRISM compilation based on current mode
+ */
+async runPrismForCurrentMode() {
+    const currentMode = this.getCurrentMode();
+    const compiler = new CompilationModule(window.currentProjectPath);
+    
+    try {
+        if (currentMode === 'verilog') {
+            // Verilog Mode PRISM
+            await compiler.prismVerilogModeCompilation();
+        } else if (currentMode === 'processor') {
+            // Processor Mode PRISM
+            await compiler.loadConfig();
+            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+            if (!activeProcessor) {
+                throw new Error('No active processor found');
+            }
+            await compiler.prismProcessorCompilation(activeProcessor);
+        } else if (currentMode === 'project') {
+            // Project Mode PRISM
+            await compiler.loadConfig();
+            await compiler.prismProjectCompilation();
+        }
+    } catch (error) {
+        console.error('PRISM compilation error:', error);
+        throw error;
+    }
+}
+
     async runAll() {
         if (!this.isProcessorConfigured()) return alert('Please configure a processor first.');
         
@@ -189,72 +219,76 @@ class CompilationFlowManager {
 }
 
     async runSingleStep(step) {
-        const currentMode = this.getCurrentMode();
-        
-        // For Verilog Mode, only certain steps are valid
-        if (currentMode === 'verilog') {
-            if (!['verilog', 'prism'].includes(step)) {
-                alert('This compilation step is not available in Verilog Mode.');
-                return;
-            }
-        } else {
-            // Processor/Project modes need processor configuration
-            if (!this.isProcessorConfigured()) {
-                return alert('Please configure a processor first.');
-            }
+    const currentMode = this.getCurrentMode();
+    
+    // For Verilog Mode, only certain steps are valid
+    if (currentMode === 'verilog') {
+        if (!['verilog', 'prism'].includes(step)) {
+            alert('This compilation step is not available in Verilog Mode.');
+            return;
         }
-
-        startCompilation();
-        try {
-            const compiler = new CompilationModule(window.currentProjectPath);
-            
-            if (currentMode === 'verilog') {
-                // Verilog Mode specific compilation
-                switch(step) {
-                    case 'verilog':
-                        switchTerminal('terminal-tveri');
-                        await compiler.iverilogVerilogModeCompilation();
-                        break;
-                    case 'prism':
-                        switchTerminal('terminal-tveri');
-                        await compiler.prismVerilogModeCompilation();
-                        break;
-                }
-            } else {
-                // Existing processor/project mode logic
-                await compiler.loadConfig();
-                const isProjectMode = currentMode === 'project';
-                const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-
-                switch(step) {
-                    case 'cmm':
-                        switchTerminal('terminal-tcmm');
-                        await compiler.cmmCompilation(activeProcessor);
-                        break;
-                    case 'asm':
-                        switchTerminal('terminal-tasm');
-                        await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
-                        break;
-                    case 'verilog':
-                        switchTerminal('terminal-tveri');
-                        isProjectMode ? 
-                            await compiler.iverilogProjectCompilation() : 
-                            await compiler.iverilogCompilation(activeProcessor);
-                        break;
-                    case 'wave':
-                        switchTerminal('terminal-twave');
-                        isProjectMode ? 
-                            await compiler.runProjectGtkWave() : 
-                            await compiler.runGtkWave(activeProcessor);
-                        break;
-                }
-            }
-        } catch (error) {
-            console.error(`${step} compilation error:`, error);
-        } finally {
-            endCompilation();
+    } else {
+        // Processor/Project modes need processor configuration
+        if (!this.isProcessorConfigured()) {
+            return alert('Please configure a processor first.');
         }
     }
+
+    startCompilation();
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        
+        if (currentMode === 'verilog') {
+            // Verilog Mode specific compilation
+            switch(step) {
+                case 'verilog':
+                    switchTerminal('terminal-tveri');
+                    await compiler.iverilogVerilogModeCompilation();
+                    break;
+                case 'prism':
+                    switchTerminal('terminal-tveri');
+                    await compiler.prismVerilogModeCompilation();
+                    break;
+            }
+        } else {
+            // Existing processor/project mode logic
+            await compiler.loadConfig();
+            const isProjectMode = currentMode === 'project';
+            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+
+            switch(step) {
+                case 'cmm':
+                    switchTerminal('terminal-tcmm');
+                    await compiler.cmmCompilation(activeProcessor);
+                    break;
+                case 'asm':
+                    switchTerminal('terminal-tasm');
+                    await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
+                    break;
+                case 'verilog':
+                    switchTerminal('terminal-tveri');
+                    isProjectMode ? 
+                        await compiler.iverilogProjectCompilation() : 
+                        await compiler.iverilogCompilation(activeProcessor);
+                    break;
+                case 'wave':
+                    switchTerminal('terminal-twave');
+                    isProjectMode ? 
+                        await compiler.runProjectGtkWave() : 
+                        await compiler.runGtkWave(activeProcessor);
+                    break;
+                case 'prism':
+                    switchTerminal('terminal-tveri');
+                    await this.runPrismForCurrentMode();
+                    break;
+            }
+        }
+    } catch (error) {
+        console.error(`${step} compilation error:`, error);
+    } finally {
+        endCompilation();
+    }
+}
 
     cancelAll() {
         compilationCanceled = true;

@@ -357,6 +357,7 @@ class FileTreeManager {
     constructor() {
         this.directoryWatcher = new DirectoryWatcher();
         this.fileSearch = null;
+        this.currentStandardTree = null; // Cache for standard tree
     }
 
     initialize() {
@@ -365,7 +366,14 @@ class FileTreeManager {
         this.fileSearch = new FileTreeSearch();
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
-            if (!TreeViewState.isHierarchical) this.refresh();
+            const currentMode = this.getCurrentMode();
+            if (currentMode === 'verilog' && !TreeViewState.isHierarchical) {
+                // Refresh Verilog file mode tree
+                window.verilogModeManager?.refreshVerilogTree();
+            } else if (!TreeViewState.isHierarchical) {
+                // Refresh standard file tree
+                this.refresh();
+            }
         });
         
         // Hierarchy toggle button
@@ -375,7 +383,10 @@ class FileTreeManager {
         
         window.electronAPI.onDirectoryChanged((dir, files) => {
             if (dir === this.directoryWatcher.currentWatchedDirectory && !TreeViewState.isHierarchical) {
-                this.updateFileTree(files);
+                const currentMode = this.getCurrentMode();
+                if (currentMode !== 'verilog') {
+                    this.updateFileTree(files);
+                }
             }
         });
         
@@ -388,50 +399,34 @@ class FileTreeManager {
                 this.fileSearch.searchInput.focus();
             }
         });
+
+        // Initialize tree based on saved mode
+        this.initializeTreeBasedOnMode();
+    }
+
+    async initializeTreeBasedOnMode() {
+        // Wait a bit for DOM to be fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const savedMode = localStorage.getItem('aurora-ide-compilation-mode');
+        const currentMode = this.getCurrentMode();
+        const modeToUse = savedMode || currentMode;
+        
+        console.log('🌳 Initializing tree for mode:', modeToUse);
+        
+        if (modeToUse === 'Verilog Mode') {
+            // Activate Verilog Mode tree
+            if (window.verilogModeManager) {
+                await window.verilogModeManager.activateVerilogMode();
+            }
+        } else {
+            // Show standard file tree for Processor/Project modes
+            this.refresh();
+        }
     }
 
     refresh() {
         refreshFileTree();
-    }
-
-    toggleHierarchyView() {
-        const currentMode = this.getCurrentMode();
-        
-        // Only allow hierarchy toggle in Verilog Mode
-        if (currentMode === 'verilog') {
-            const verilogManager = window.verilogModeManager;
-            if (!verilogManager || !verilogManager.isVerilogModeActive) {
-                console.warn('Verilog Mode not active');
-                return;
-            }
-            
-            if (TreeViewState.isHierarchical) {
-                // Switch to Verilog File Mode tree
-                TreeViewState.setHierarchical(false);
-                verilogManager.renderVerilogTree();
-            } else {
-                // Switch to Hierarchical tree
-                if (!TreeViewState.hierarchyData) {
-                    console.warn('No hierarchy data available');
-                    return;
-                }
-                TreeViewState.setHierarchical(true);
-                this.renderHierarchicalTreeFromData();
-            }
-        } else {
-            // For Processor/Project modes, use standard behavior
-            if (TreeViewState.isHierarchical) {
-                this.refresh();
-                TreeViewState.setHierarchical(false);
-            } else {
-                if (!TreeViewState.hierarchyData) {
-                    console.warn('Compile Verilog first to generate hierarchy');
-                    return;
-                }
-                TreeViewState.setHierarchical(true);
-                this.renderHierarchicalTreeFromData();
-            }
-        }
     }
 
     getCurrentMode() {
@@ -446,12 +441,71 @@ class FileTreeManager {
         return 'processor';
     }
 
+    toggleHierarchyView() {
+        const currentMode = this.getCurrentMode();
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        
+        if (!toggleButton || toggleButton.disabled) {
+            console.warn('⚠️ Toggle button is disabled');
+            return;
+        }
+        
+        console.log('🔄 Toggling hierarchy view. Current mode:', currentMode, 'Is hierarchical:', TreeViewState.isHierarchical);
+        
+        if (currentMode === 'verilog') {
+            // Verilog Mode: Toggle between File Mode and Hierarchical
+            const verilogManager = window.verilogModeManager;
+            if (!verilogManager || !verilogManager.isVerilogModeActive) {
+                console.warn('⚠️ Verilog Mode not active');
+                return;
+            }
+            
+            if (TreeViewState.isHierarchical) {
+                // Switch back to Verilog File Mode tree
+                console.log('📁 Switching to Verilog File Mode tree');
+                TreeViewState.setHierarchical(false);
+                verilogManager.renderVerilogTree();
+            } else {
+                // Switch to Hierarchical tree
+                if (!TreeViewState.hierarchyData) {
+                    console.warn('⚠️ No hierarchy data available for Verilog Mode');
+                    return;
+                }
+                console.log('🌲 Switching to Hierarchical tree');
+                TreeViewState.setHierarchical(true);
+                this.renderHierarchicalTreeFromData();
+            }
+        } else {
+            // Processor/Project Mode: Toggle between Standard File Tree and Hierarchical
+            if (TreeViewState.isHierarchical) {
+                // Switch back to Standard File Tree
+                console.log('📂 Switching to Standard File Tree');
+                TreeViewState.setHierarchical(false);
+                this.refresh();
+            } else {
+                // Switch to Hierarchical tree
+                if (!TreeViewState.hierarchyData) {
+                    console.warn('⚠️ No hierarchy data available. Compile Verilog first.');
+                    return;
+                }
+                console.log('🌲 Switching to Hierarchical tree');
+                TreeViewState.setHierarchical(true);
+                this.renderHierarchicalTreeFromData();
+            }
+        }
+    }
+
     renderHierarchicalTreeFromData() {
         const fileTree = document.getElementById('file-tree');
-        if (!fileTree || !TreeViewState.hierarchyData) return;
+        if (!fileTree || !TreeViewState.hierarchyData) {
+            console.error('❌ Cannot render hierarchy: missing tree or data');
+            return;
+        }
         
         if (TreeViewState.compilationModule) {
             TreeViewState.compilationModule.renderHierarchicalTree();
+        } else {
+            console.error('❌ CompilationModule not set in TreeViewState');
         }
     }
 

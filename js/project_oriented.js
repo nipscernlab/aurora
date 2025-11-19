@@ -97,12 +97,15 @@ class ProjectOrientedManager {
   /**
    * Setup all event listeners
    */
-  setupEventListeners() {
+/**
+ * Setup all event listeners
+ */
+setupEventListeners() {
     // Modal controls
     this.elements.closeBtn?.addEventListener('click', () => this.closeModal());
     this.elements.cancelBtn?.addEventListener('click', () => this.closeModal());
     this.elements.saveBtn?.addEventListener('click', () => this.saveConfiguration());
-  
+
     // Import buttons
     this.elements.importSynthesizableBtn?.addEventListener('click', () => this.handleImportClick('synthesizable'));
     this.elements.importTestbenchBtn?.addEventListener('click', () => this.handleImportClick('testbench'));
@@ -111,26 +114,49 @@ class ProjectOrientedManager {
     this.elements.addProcessorBtn?.addEventListener('click', () => this.addProcessorRow());
     this.elements.processorsList?.addEventListener('click', (e) => this.handleProcessorListClick(e));
     
-    // Settings button
+    // Settings button - Opens correct modal based on active mode
     this.elements.settingsButton?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const isProjectMode = this.elements.toggleButton?.classList.contains('active');
-      if (isProjectMode) {
-        await this.openModal();
-      }
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Determine which mode is active
+        const verilogModeRadio = document.getElementById('Verilog Mode');
+        const processorModeRadio = document.getElementById('Processor Mode');
+        const projectModeRadio = document.getElementById('Project Mode');
+        
+        if (processorModeRadio?.checked) {
+            // Open Processor Configuration Modal
+            const processorModal = document.getElementById('modalProcessorConfig');
+            if (processorModal) {
+                processorModal.setAttribute('aria-hidden', 'false');
+                processorModal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+                
+                // Initialize processor modal content if needed
+                if (typeof window.processorConfigManager !== 'undefined' && 
+                    typeof window.processorConfigManager.openModal === 'function') {
+                    await window.processorConfigManager.openModal();
+                }
+            } else {
+                console.error('Processor config modal not found');
+            }
+        } else if (projectModeRadio?.checked) {
+            // Open Project Configuration Modal
+            await this.openModal();
+        }
+        // Verilog Mode: button is disabled by ui_state.js, no action needed
     });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.elements.modal?.classList.contains('show')) {
-        this.closeModal();
-      }
+        if (e.key === 'Escape' && this.elements.modal?.classList.contains('show')) {
+            this.closeModal();
+        }
     });
     
     // Setup drag and drop
     this.setupDragAndDrop();
-  }
+}
 
   /**
    * Enhanced drag and drop setup with visual feedback

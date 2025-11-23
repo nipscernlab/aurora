@@ -12,6 +12,7 @@ import { aiAssistantManager } from './ai_assistant_manager.js';
 import { uiComponentsManager } from './ui_components.js';
 import { compilationFlowManager } from './compilation_flow.js';
 import { verilogModeManager } from './file_mode.js';
+import { CommandPalette } from './command_palette.js'; // ✅ NEW
 
 // --- Global State ---
 let currentProjectPath = null;
@@ -37,23 +38,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize managers that depend on the DOM
     const recentProjectsManager = new RecentProjectsManager(projectManager.loadProject);
-    window.recentProjectsManager = recentProjectsManager; // Make it globally accessible if needed
+    window.recentProjectsManager = recentProjectsManager;
 
     // Initialize the main CompilationModule and link it to the TreeViewState
     if (typeof CompilationModule !== 'undefined') {
         const compilationModule = new CompilationModule(window.currentProjectPath);
         TreeViewState.setCompilationModule(compilationModule);
-        window.compilationModule = compilationModule; // Make it globally accessible
+        window.compilationModule = compilationModule;
     }
 
     // Initialize global terminal manager
     window.initializeGlobalTerminalManager();
+    
+    // ✅ Command Palette is auto-initialized via its own DOMContentLoaded listener
 });
 
 // --- Initialization on Window Load ---
 window.onload = () => {
     initMonaco();
-    aiAssistantManager.initialize(); // Initialize the AI assistant UI
+    aiAssistantManager.initialize();
 };
 
 // --- Global Keyboard Shortcuts ---

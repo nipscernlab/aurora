@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="./css/import.css">
 </head>
 <body class="theme-dark">
-   <div class="toolbar">
+   <div class="toolbar" style="display: none;">
     <!-- Left Group - Project Management -->
     <div class="toolbar-left">
         <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
@@ -1039,14 +1039,7 @@ function closeAuroraAboutModal() {
     <script src="./js/tooltip.js"></script>
     <script src="./js/zoom.js"></script>
     <script src="./js/ui_state.js"></script>
-    <!-- 1. Adicione o CSS da biblioteca (a posição do CSS não é crítica, mas é bom manter junto) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glowing/dist/index.css">
-
-    <!-- 2. PRIMEIRO, carregue o SCRIPT DA BIBLIOTECA que define a classe 'Glowing' -->
-
-
-    <!-- 3. DEPOIS, carregue o SEU SCRIPT que USA a classe 'Glowing' -->
-    <script type="module" src="./js/glowing.js"></script>
+    <script src="./js/command_palette.js" type="module"></script>
 
 
     <script src="./js/monaco_editor.js" type="module"></script>

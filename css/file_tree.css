@@ -24,8 +24,8 @@
   user-select: none;
   overflow: hidden;
   left: 1%;
-  top: 3%;
-  padding: 4vh 3vh;
+  top: 2%;
+  padding: 2vh 1vh;
   border-radius: 16px 16px 16px 16px;
 }
 
@@ -152,7 +152,6 @@
   color: var(--accent-hover);
   font-weight: var(--font-medium);
   margin-left: 5px;
-  padding-left: 4px !important;
 }
 
 .file-tree-item.multi-selected > .file-item {

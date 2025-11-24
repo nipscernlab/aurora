@@ -12,7 +12,6 @@ import { aiAssistantManager } from './ai_assistant_manager.js';
 import { uiComponentsManager } from './ui_components.js';
 import { compilationFlowManager } from './compilation_flow.js';
 import { verilogModeManager } from './file_mode.js';
-import { CommandPalette } from './command_palette.js'; // ✅ NEW
 
 // --- Global State ---
 let currentProjectPath = null;

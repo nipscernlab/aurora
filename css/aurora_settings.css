@@ -1,18 +1,13 @@
 /*
- * =====================================================================================
+ * aurora_settings.css (refactored layout only)
  *
- *       Filename:  aurora_settings.css
+ * Purpose: keep HTML unchanged. Align toggles to the right, ensure labels
+ * and descriptions are consistently formatted and responsive.
  *
- *    Description:  Styling for the Aurora settings modal.
- *                  Relies entirely on variables from theme_variables.css.
- *
- * =====================================================================================
+ * Relies on tokens from theme_variables.css (same as before).
  */
 
-/* ===================================================================================
- *  MODAL CONTAINER & OVERLAY
- * =================================================================================== */
-
+/* ---------- Modal overlay & content (unchanged visual) ---------- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -43,16 +38,14 @@
   box-shadow: var(--shadow-xl);
   transform: scale(0.95);
   transition: transform var(--transition-normal);
+  overflow: hidden;
 }
 
 .modal-overlay.visible .modal-content {
-    transform: scale(1);
+  transform: scale(1);
 }
 
-/* ===================================================================================
- *  MODAL SECTIONS (HEADER, BODY, FOOTER)
- * =================================================================================== */
-
+/* ---------- Header / Body / Footer ---------- */
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -88,6 +81,7 @@
   padding: var(--space-2) var(--space-6) var(--space-6);
   overflow-y: auto;
   flex-grow: 1;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-footer {
@@ -101,10 +95,7 @@
   border-bottom-right-radius: var(--radius-lg);
 }
 
-/* ===================================================================================
- *  MODAL CONTENT & CONTROLS
- * =================================================================================== */
-
+/* ---------- Settings Sections ---------- */
 .settings-section {
   margin-top: var(--space-6);
 }
@@ -119,25 +110,46 @@
   padding-bottom: var(--space-2);
 }
 
+/* ---------- Reworked setting-item layout (grid) ---------- */
+/* Each .setting-item now creates a two-column layout:
+   - left: label (auto spanning)
+   - right: control (toggle, button) aligned to the right
+   - description flows below and spans both columns
+*/
 .setting-item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label toggle"
+    "desc desc";
   align-items: center;
-  padding: var(--space-3) 0;
+  column-gap: var(--space-4);
+  row-gap: 6px;
+  padding: var(--space-2) 0;
 }
 
-.setting-item label {
+.setting-item > label:first-of-type {
+  /* the textual label (left column) */
+  grid-area: label;
+  margin: 0;
   color: var(--text-primary);
   font-size: var(--text-base);
+  align-self: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Toggle Switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
+/* The switch label (toggle) sits in the 'toggle' area and is right-aligned */
+.setting-item .switch {
+  grid-area: toggle;
+  justify-self: end;         /* right align toggles */
+  align-self: center;
+  margin: 0;
 }
+
+/* If toggles contain input/slider, keep their internal layout; no modification */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute;
@@ -163,60 +175,60 @@ input:checked + .slider { background-color: var(--accent-primary); border-color:
 input:checked + .slider:before { transform: translateX(20px); background-color: var(--text-on-accent); }
 input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 
+/* Description spans full width under label and toggle (grid area 'desc') */
+.setting-description {
+  grid-area: desc;
+  font-size: 0.90rem;
+  color: var(--text-tertiary);
+  margin-top: 0.125rem;
+  line-height: 1.35;
+  max-width: 100%;
+}
 
-/* Icon Changer */
+/* Ensure last element spacing */
+.setting-item + .setting-item { margin-top: 0.35rem; }
+
+/* ---------- Icon container (left untouched visually, but aligned center) ---------- */
 #icon-container {
-    position: relative;
-    width: 100px;
-    height: 100px;
-    margin: var(--space-4) auto;
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: var(--space-4) auto;
 }
 #aurora-icon, #fallback-icon {
-    width: 100%;
-    height: 100%;
-    border-radius: var(--radius-md);
-    border: 2px solid var(--border-secondary);
-    transition: filter var(--transition-normal);
-    object-fit: cover;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-secondary);
+  transition: filter var(--transition-normal);
+  object-fit: cover;
 }
 #fallback-icon { display: none; font-size: 80px; color: var(--text-tertiary); }
 #icon-upload { display: none; }
 .change-icon-btn {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 40px;
-    background-color: rgba(16, 21, 35, 0.7); /* From --bg-primary with alpha */
-    border: 1px solid var(--accent-subtle-border);
-    border-radius: var(--radius-full);
-    color: var(--text-on-accent);
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: var(--text-lg);
-    opacity: 0;
-    backdrop-filter: blur(4px);
-    transition: opacity var(--transition-fast), transform var(--transition-fast);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background-color: rgba(16, 21, 35, 0.7); /* From --bg-primary with alpha */
+  border: 1px solid var(--accent-subtle-border);
+  border-radius: var(--radius-full);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: var(--text-lg);
+  opacity: 0;
+  backdrop-filter: blur(4px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 #icon-container:hover #aurora-icon { filter: brightness(0.6); }
-#icon-container:hover .change-icon-btn { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+#icon-container:hover .change-icon-btn { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
 
-.setting-description {
-    font-size: 0.85rem;
-    color: #b3b3b3;
-    margin-top: 0.25rem;
-    line-height: 1.4;
-    max-width: 300px;
-}
-
-.setting-item {
-    margin-bottom: 1rem;
-}
-
-/* Shortcut Remapping */
+/* ---------- Shortcuts list alignment improvements ---------- */
 #shortcut-list {
   display: flex;
   flex-direction: column;
@@ -225,7 +237,7 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 
 .shortcut-item {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 180px;
   align-items: center;
   gap: var(--space-8);
 }
@@ -233,8 +245,12 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 .shortcut-item .action {
   color: var(--text-primary);
   font-size: var(--text-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Shortcut input visual */
 .shortcut-input {
   font-family: var(--font-mono);
   background-color: var(--bg-tertiary);
@@ -246,6 +262,7 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
   cursor: pointer;
   transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
   user-select: none;
+  justify-self: end;
 }
 
 .shortcut-input:hover {
@@ -259,19 +276,18 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 }
 
 .shortcut-warning {
-    color: var(--status-warning);
-    background-color: var(--status-warning-bg);
-    border: 1px solid var(--status-warning);
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    margin-top: var(--space-4);
-    font-size: var(--text-sm);
-    text-align: center;
-    display: none;
+  color: var(--status-warning);
+  background-color: var(--status-warning-bg);
+  border: 1px solid var(--status-warning);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  text-align: center;
+  display: none;
 }
 
-
-/* Buttons */
+/* ---------- Buttons (footer) - unchanged but keep them aligned right ---------- */
 .modal-button {
   padding: var(--space-2) var(--space-4);
   border: none;
@@ -288,3 +304,25 @@ input:focus-visible + .slider { box-shadow: var(--shadow-focus-outline); }
 .modal-button.primary:active { background-color: var(--accent-active); }
 .modal-button.secondary { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border-primary); }
 .modal-button.secondary:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+
+/* ---------- Responsive: stack label / toggle vertically on narrow screens ---------- */
+@media (max-width: 560px) {
+  .setting-item {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "label"
+      "toggle"
+      "desc";
+    column-gap: var(--space-2);
+  }
+  .setting-item .switch {
+    justify-self: start;   /* left align toggles when stacked */
+  }
+
+  .shortcut-item {
+    grid-template-columns: 1fr;
+  }
+  .shortcut-input {
+    justify-self: start;
+  }
+}

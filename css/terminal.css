@@ -228,7 +228,7 @@
   flex-direction: column;
   transition: height 0.4s ease; /* Smooth resize transition */
   overflow-y: auto; /* Scroll when terminal is too small */
-  padding: 1vh 2vh;
+  padding: 1vh 0vh;
 }
 
 .editor-terminal-container {

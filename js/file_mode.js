@@ -32,7 +32,7 @@ class VerilogModeManager {
         this.handleDragEnter = this.handleDragEnter.bind(this);
         this.handleDragLeave = this.handleDragLeave.bind(this);
         this.handleDrop = this.handleDrop.bind(this);
-        this.handleTreeClick = this.handleTreeClick.bind(this);
+        this.handleTreeContextMenu = this.handleTreeContextMenu.bind(this);
         this.createNewFile = this.createNewFile.bind(this);
         this.deleteFile = this.deleteFile.bind(this);
 
@@ -124,7 +124,7 @@ class VerilogModeManager {
         }
 
         if (this.elements.fileTree) {
-            this.elements.fileTree.addEventListener('click', this.handleTreeClick);
+            this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
         }
 
         // Open HDL button - triggers file selection dialog
@@ -678,68 +678,73 @@ class VerilogModeManager {
         }, 100);
     }
 
-    handleTreeClick(event) {
-    if (!this.isVerilogModeActive) return;
-    
-    // Don't show if clicking on a file item or its children
-    if (event.target.closest('.verilog-file-item')) return;
-    
-    // Don't show if clicking on a button
-    if (event.target.closest('button')) return;
-    
-    // Remove any existing create menu
-    this.closeCreateMenu();
-    
-    const menu = document.createElement('div');
-    menu.className = 'verilog-create-menu';
-    menu.id = 'verilog-create-menu';
-    
-    menu.innerHTML = `
-        <div class="create-menu-item" data-action="create-file">
-            <i class="fa-solid fa-file-code"></i>
-            <span>New Verilog File (.v)</span>
-        </div>
-    `;
-    
-    // Position menu at click location
-    menu.style.left = event.pageX + 'px';
-    menu.style.top = event.pageY + 'px';
-    
-    document.body.appendChild(menu);
-    
-    // Adjust position if menu goes off screen
-    setTimeout(() => {
-        const rect = menu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            menu.style.left = (event.pageX - rect.width) + 'px';
-        }
-        if (rect.bottom > window.innerHeight) {
-            menu.style.top = (event.pageY - rect.height) + 'px';
-        }
-        menu.classList.add('show');
-    }, 10);
-    
-    // Handle menu item click
-    menu.addEventListener('click', async (e) => {
-        const item = e.target.closest('.create-menu-item');
-        if (!item) return;
+   async handleTreeContextMenu(event) {
+        // ESSENCIAL: Previne que o menu de contexto padrão do navegador apareça.
+        event.preventDefault();
+
+        if (!this.isVerilogModeActive) return;
         
-        const action = item.getAttribute('data-action');
-        if (action === 'create-file') {
-            await this.createNewFile();
-        }
+        // O resto da sua lógica para verificar onde o clique ocorreu permanece o mesmo.
+        if (event.target.closest('.verilog-file-item')) return;
+        if (event.target.closest('button')) return;
+        
+        // Fecha qualquer menu que já esteja aberto antes de criar um novo.
         this.closeCreateMenu();
-    });
-    
-    // Close menu on outside click
-    setTimeout(() => {
-        document.addEventListener('click', (e) => {
+        
+        const menu = document.createElement('div');
+        menu.className = 'verilog-create-menu';
+        menu.id = 'verilog-create-menu';
+        
+        menu.innerHTML = `
+            <div class="create-menu-item" data-action="create-file">
+                <i class="fa-solid fa-file-code"></i>
+                <span>New Verilog File (.v)</span>
+            </div>
+        `;
+        
+        // Posiciona o menu onde o usuário clicou.
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        
+        document.body.appendChild(menu);
+        
+        // Ajusta a posição para garantir que o menu não saia da tela.
+        setTimeout(() => {
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                menu.style.left = (event.pageX - rect.width) + 'px';
+            }
+            if (rect.bottom > window.innerHeight) {
+                menu.style.top = (event.pageY - rect.height) + 'px';
+            }
+            menu.classList.add('show'); // Adiciona a classe para a animação de fade-in.
+        }, 10);
+        
+        // Adiciona um listener para as ações DENTRO do menu (usando 'click' normal).
+        menu.addEventListener('click', async (e) => {
+            const item = e.target.closest('.create-menu-item');
+            if (!item) return;
+            
+            const action = item.getAttribute('data-action');
+            if (action === 'create-file') {
+                await this.createNewFile();
+            }
+            this.closeCreateMenu(); // Fecha o menu após a ação.
+        });
+        
+        // Adiciona um listener para fechar o menu se o usuário clicar com o BOTÃO ESQUERDO em qualquer outro lugar.
+        const closeOnClickOutside = (e) => {
             if (!e.target.closest('#verilog-create-menu')) {
                 this.closeCreateMenu();
+                // Importante: remove o listener de si mesmo após ser usado.
+                document.removeEventListener('click', closeOnClickOutside);
             }
-        }, { once: true });
-    }, 100);
-}
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeOnClickOutside);
+        }, 100);
+    }
 
    /**
  * Create a new Verilog file

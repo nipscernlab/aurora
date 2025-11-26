@@ -1,3 +1,5 @@
+import { projectManager } from './project_manager.js';
+
 document.addEventListener("DOMContentLoaded", () => {
     const newProjectModal = document.getElementById("newProjectModal");
     const newProjectBtn = document.getElementById("newProjectBtn");
@@ -57,11 +59,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
                 // Update global paths (if necessary)
+                let currentProjectPath;
+                let currentSpfPath;
                 currentProjectPath = projectPath;
                 currentSpfPath = spfPath;
 
                 // Load the project using the correct SPF path
-                await loadProject(spfPath);
+                await projectManager.loadProject(spfPath);
             } else {
                 throw new Error('Failed to create project structure');
             }

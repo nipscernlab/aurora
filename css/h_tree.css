@@ -348,7 +348,7 @@
   color: var(--text-secondary);
   border-radius: var(--radius-md);
   margin: var(--space-3);
-}
+  gap: 6px;
 
 .overlay-title i {
   color: var(--accent-primary);

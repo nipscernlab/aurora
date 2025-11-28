@@ -6,6 +6,14 @@ import { showVVPProgress, hideVVPProgress } from './terminal_module.js';
 let isCompilationRunning = false;
 let compilationCanceled = false;
 
+// Helper to check the Simulation Toggle State (ID: Verilog Mode)
+// Checked = Compile & Simulate
+// Unchecked = Compile Only (and conceptually activates Verilog Mode in your UI logic)
+function isSimulationEnabled() {
+    const toggle = document.getElementById('Verilog Mode');
+    return toggle ? toggle.checked : false;
+}
+
 function checkCancellation() {
     if (compilationCanceled) {
         throw new Error('Compilation canceled by user');
@@ -43,24 +51,38 @@ function endCompilation() {
     setCompilationButtonsState(false);
 }
 
+// ----------------------------------------------------------------------
+// PIPELINES (Updated to respect Toggle State)
+// ----------------------------------------------------------------------
+
 async function runProcessorPipeline(compiler) {
     const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
     if (!activeProcessor) throw new Error("No active processor found.");
     
     await compiler.ensureDirectories(activeProcessor.name);
     
+    // 1. CMM Compilation
     switchTerminal('terminal-tcmm');
     checkCancellation();
     await compiler.cmmCompilation(activeProcessor);
     
+    // 2. ASM Compilation
     switchTerminal('terminal-tasm');
     checkCancellation();
     await compiler.asmCompilation(activeProcessor, 0);
 
+    // CHECK: Should we simulate?
+    if (!isSimulationEnabled()) {
+        compiler.terminalManager.appendToTerminal('tasm', 'Simulation skipped (Compile Only).', 'info');
+        return; // Stop here
+    }
+
+    // 3. Verilog Simulation/Verification
     switchTerminal('terminal-tveri');
     checkCancellation();
     await compiler.iverilogCompilation(activeProcessor);
 
+    // 4. Waveform Visualization
     switchTerminal('terminal-twave');
     checkCancellation();
     await compiler.runGtkWave(activeProcessor);
@@ -70,6 +92,8 @@ async function runProjectPipeline(compiler) {
     if (!compiler.projectConfig?.processors) throw new Error('No processors defined in projectoriented.json');
 
     switchTerminal('terminal-tcmm');
+    
+    // 1. Compile all processors (CMM + ASM)
     for (const projectProcessor of compiler.projectConfig.processors) {
         checkCancellation();
         const processorConfig = compiler.config.processors.find(p => p.name === projectProcessor.type);
@@ -80,74 +104,119 @@ async function runProjectPipeline(compiler) {
         await compiler.asmCompilation(processorConfig, 1);
     }
     
+    // CHECK: Should we simulate?
+    if (!isSimulationEnabled()) {
+        compiler.terminalManager.appendToTerminal('tasm', 'Project Simulation skipped (Compile Only).', 'info');
+        return; // Stop here
+    }
+    
+    // 2. Project Verification
     switchTerminal('terminal-tveri');
     checkCancellation();
     await compiler.iverilogProjectCompilation();
 
+    // 3. Project Waveform
     switchTerminal('terminal-twave');
     checkCancellation();
     await compiler.runProjectGtkWave();
 }
 
+// ----------------------------------------------------------------------
+// MANAGER CLASS
+// ----------------------------------------------------------------------
+
 class CompilationFlowManager {
-        initialize() {
-            document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
-            document.getElementById('asmcomp')?.addEventListener('click', () => this.runSingleStep('asm'));
-            document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
-            document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
-            document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
-            document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
-            document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
-            
-            // Setup mode change listeners
-            this.setupModeListeners();
+    initialize() {
+        document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
+        document.getElementById('asmcomp')?.addEventListener('click', () => this.runSingleStep('asm'));
+        document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
+        document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
+        document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
+        document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
+        document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
+        
+        // --- PERSISTENCE LOGIC START ---
+        // Restore the toggle state from localStorage
+        const toggle = document.getElementById('Verilog Mode');
+        const savedState = localStorage.getItem('aurora_compile_sim_state');
+
+        if (toggle) {
+            if (savedState !== null) {
+                // 'true' string -> true boolean
+                toggle.checked = (savedState === 'true');
+            } else {
+                // Default default if nothing saved (e.g., true/Simulate ON)
+                toggle.checked = true;
+            }
+
+            // Manually trigger change event so UI/CSS (hiding sections) updates immediately
+            toggle.dispatchEvent(new Event('change'));
+
+            // Save state whenever user changes it
+            toggle.addEventListener('change', (e) => {
+                localStorage.setItem('aurora_compile_sim_state', e.target.checked);
+                // Also update button states when toggling
+                this.updateButtonStates();
+            });
         }
+        // --- PERSISTENCE LOGIC END ---
+
+        // Setup mode change listeners
+        this.setupModeListeners();
+    }
 
     setupModeListeners() {
-        const verilogModeRadio = document.getElementById('Verilog Mode');
+        // We listen to radio buttons to update UI states, 
+        // but the persistence of the toggle is handled in initialize()
         const processorModeRadio = document.getElementById('Processor Mode');
         const projectModeRadio = document.getElementById('Project Mode');
-        const settingsBtn = document.getElementById('settings');
         
-        const updateButtonStates = () => {
-            const mode = this.getCurrentMode();
-            
-            // Button states
-            const cmmBtn = document.getElementById('cmmcomp');
-            const asmBtn = document.getElementById('asmcomp');
-            const veriBtn = document.getElementById('vericomp');
-            const waveBtn = document.getElementById('wavecomp');
-            const prismBtn = document.getElementById('prismcomp');
-            const allBtn = document.getElementById('allcomp');
-            
-            if (mode === 'verilog') {
-                // Verilog Mode: only verilog and prism enabled
-                if (cmmBtn) cmmBtn.disabled = true;
-                if (asmBtn) asmBtn.disabled = true;
-                if (veriBtn) veriBtn.disabled = false;
-                if (waveBtn) waveBtn.disabled = true;
-                if (prismBtn) prismBtn.disabled = false;
-                if (allBtn) allBtn.disabled = true;
-                if (settingsBtn) settingsBtn.disabled = true;
-            } else {
-                // Processor/Project modes: normal behavior
-                const hasProcessor = this.isProcessorConfigured();
-                if (cmmBtn) cmmBtn.disabled = !hasProcessor;
-                if (asmBtn) asmBtn.disabled = !hasProcessor;
-                if (veriBtn) veriBtn.disabled = !hasProcessor;
-                if (waveBtn) waveBtn.disabled = !hasProcessor;
-                if (prismBtn) prismBtn.disabled = !hasProcessor;
-                if (allBtn) allBtn.disabled = !hasProcessor;
-                if (settingsBtn) settingsBtn.disabled = false;
-            }
-        };
-        
-        verilogModeRadio?.addEventListener('change', updateButtonStates);
-        processorModeRadio?.addEventListener('change', updateButtonStates);
-        projectModeRadio?.addEventListener('change', updateButtonStates);
+        // If user clicks Processor Mode, we might want to ensure buttons reflect the toggle
+        processorModeRadio?.addEventListener('change', () => this.updateButtonStates());
+        projectModeRadio?.addEventListener('change', () => this.updateButtonStates());
         
         // Initial update
-        updateButtonStates();
+        this.updateButtonStates();
+    }
+
+    // Extracted logic to allow calling from multiple places
+    updateButtonStates() {
+        const mode = this.getCurrentMode();
+        const settingsBtn = document.getElementById('settings');
+        
+        // Button states
+        const cmmBtn = document.getElementById('cmmcomp');
+        const asmBtn = document.getElementById('asmcomp');
+        const veriBtn = document.getElementById('vericomp');
+        const waveBtn = document.getElementById('wavecomp');
+        const prismBtn = document.getElementById('prismcomp');
+        const allBtn = document.getElementById('allcomp');
+        
+        // In Verilog Mode (Toggle Unchecked), compilation flow buttons are restricted
+        if (mode === 'verilog') {
+            if (cmmBtn) cmmBtn.disabled = true;
+            if (asmBtn) asmBtn.disabled = true;
+            if (veriBtn) veriBtn.disabled = false;
+            if (waveBtn) waveBtn.disabled = true;
+            if (prismBtn) prismBtn.disabled = false;
+            if (allBtn) allBtn.disabled = true;
+            if (settingsBtn) settingsBtn.disabled = true;
+        } else {
+            // Processor/Project modes: normal behavior based on processor config
+            const hasProcessor = this.isProcessorConfigured();
+            if (cmmBtn) cmmBtn.disabled = !hasProcessor;
+            if (asmBtn) asmBtn.disabled = !hasProcessor;
+            
+            // If Sim toggle is OFF, we might want to disable specific sim buttons individually
+            // or let them run partial pipelines. For now, we keep them enabled if processor exists,
+            // but the pipeline will skip steps if run via "Run All".
+            if (veriBtn) veriBtn.disabled = !hasProcessor;
+            if (waveBtn) waveBtn.disabled = !hasProcessor;
+            
+            if (prismBtn) prismBtn.disabled = !hasProcessor;
+            if (allBtn) allBtn.disabled = !hasProcessor;
+            if (settingsBtn) settingsBtn.disabled = false;
+        }
     }
 
     isProcessorConfigured() {
@@ -155,35 +224,27 @@ class CompilationFlowManager {
         return el && !el.textContent.includes('No Processor Configured');
     }
 
-    /**
- * Run PRISM compilation based on current mode
- */
-async runPrismForCurrentMode() {
-    const currentMode = this.getCurrentMode();
-    const compiler = new CompilationModule(window.currentProjectPath);
-    
-    try {
-        if (currentMode === 'verilog') {
-            // Verilog Mode PRISM
-            await compiler.prismVerilogModeCompilation();
-        } else if (currentMode === 'processor') {
-            // Processor Mode PRISM
-            await compiler.loadConfig();
-            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-            if (!activeProcessor) {
-                throw new Error('No active processor found');
+    async runPrismForCurrentMode() {
+        const currentMode = this.getCurrentMode();
+        const compiler = new CompilationModule(window.currentProjectPath);
+        
+        try {
+            if (currentMode === 'verilog') {
+                await compiler.prismVerilogModeCompilation();
+            } else if (currentMode === 'processor') {
+                await compiler.loadConfig();
+                const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+                if (!activeProcessor) throw new Error('No active processor found');
+                await compiler.prismProcessorCompilation(activeProcessor);
+            } else if (currentMode === 'project') {
+                await compiler.loadConfig();
+                await compiler.prismProjectCompilation();
             }
-            await compiler.prismProcessorCompilation(activeProcessor);
-        } else if (currentMode === 'project') {
-            // Project Mode PRISM
-            await compiler.loadConfig();
-            await compiler.prismProjectCompilation();
+        } catch (error) {
+            console.error('PRISM compilation error:', error);
+            throw error;
         }
-    } catch (error) {
-        console.error('PRISM compilation error:', error);
-        throw error;
     }
-}
 
     async runAll() {
         if (!this.isProcessorConfigured()) return alert('Please configure a processor first.');
@@ -207,95 +268,99 @@ async runPrismForCurrentMode() {
     }
 
     getCurrentMode() {
-    const verilogModeRadio = document.getElementById('Verilog Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
-    const projectModeRadio = document.getElementById('Project Mode');
-    
-    if (verilogModeRadio?.checked) return 'verilog';
-    if (processorModeRadio?.checked) return 'processor';
-    if (projectModeRadio?.checked) return 'project';
-    
-    return 'processor'; // Default fallback
-}
+        const verilogModeToggle = document.getElementById('Verilog Mode');
+        const processorModeRadio = document.getElementById('Processor Mode');
+        const projectModeRadio = document.getElementById('Project Mode');
+        
+        // Based on previous instructions:
+        // Toggle Unchecked (False) -> Verilog Mode Active
+        // Toggle Checked (True) -> Simulation Enabled -> Processor/Project Mode Active
+        
+        if (verilogModeToggle && !verilogModeToggle.checked) {
+            return 'verilog';
+        }
+        
+        if (projectModeRadio?.checked) return 'project';
+        return 'processor'; // Default fallback
+    }
 
     async runSingleStep(step) {
-    const currentMode = this.getCurrentMode();
-    
-    // For Verilog Mode, only certain steps are valid
-    if (currentMode === 'verilog') {
-        if (!['verilog', 'prism'].includes(step)) {
-            alert('This compilation step is not available in Verilog Mode.');
-            return;
-        }
-    } else {
-        // Processor/Project modes need processor configuration
-        if (!this.isProcessorConfigured()) {
-            return alert('Please configure a processor first.');
-        }
-    }
-
-    startCompilation();
-    try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const currentMode = this.getCurrentMode();
         
+        // For Verilog Mode, only certain steps are valid
         if (currentMode === 'verilog') {
-            // Verilog Mode specific compilation
-            switch(step) {
-                case 'verilog':
-                    switchTerminal('terminal-tveri');
-                    await compiler.iverilogVerilogModeCompilation();
-                    break;
-                case 'prism':
-                    switchTerminal('terminal-tveri');
-                    await compiler.prismVerilogModeCompilation();
-                    break;
+            if (!['verilog', 'prism'].includes(step)) {
+                alert('This compilation step is not available in Verilog Mode (Compile & Simulate is disabled).');
+                return;
             }
         } else {
-            // Existing processor/project mode logic
-            await compiler.loadConfig();
-            const isProjectMode = currentMode === 'project';
-            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-
-            switch(step) {
-                case 'cmm':
-                    switchTerminal('terminal-tcmm');
-                    await compiler.cmmCompilation(activeProcessor);
-                    break;
-                case 'asm':
-                    switchTerminal('terminal-tasm');
-                    await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
-                    break;
-                case 'verilog':
-                    switchTerminal('terminal-tveri');
-                    isProjectMode ? 
-                        await compiler.iverilogProjectCompilation() : 
-                        await compiler.iverilogCompilation(activeProcessor);
-                    break;
-                case 'wave':
-                    switchTerminal('terminal-twave');
-                    isProjectMode ? 
-                        await compiler.runProjectGtkWave() : 
-                        await compiler.runGtkWave(activeProcessor);
-                    break;
-                case 'prism':
-                    switchTerminal('terminal-tveri');
-                    await this.runPrismForCurrentMode();
-                    break;
+            // Processor/Project modes need processor configuration
+            if (!this.isProcessorConfigured()) {
+                return alert('Please configure a processor first.');
             }
         }
-    } catch (error) {
-        console.error(`${step} compilation error:`, error);
-    } finally {
-        endCompilation();
+
+        startCompilation();
+        try {
+            const compiler = new CompilationModule(window.currentProjectPath);
+            
+            if (currentMode === 'verilog') {
+                // Verilog Mode specific compilation
+                switch(step) {
+                    case 'verilog':
+                        switchTerminal('terminal-tveri');
+                        await compiler.iverilogVerilogModeCompilation();
+                        break;
+                    case 'prism':
+                        switchTerminal('terminal-tveri');
+                        await compiler.prismVerilogModeCompilation();
+                        break;
+                }
+            } else {
+                // Existing processor/project mode logic
+                await compiler.loadConfig();
+                const isProjectMode = document.getElementById('toggle-ui')?.classList.contains('active'); // Safer check for project mode
+                const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+
+                switch(step) {
+                    case 'cmm':
+                        switchTerminal('terminal-tcmm');
+                        await compiler.cmmCompilation(activeProcessor);
+                        break;
+                    case 'asm':
+                        switchTerminal('terminal-tasm');
+                        await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
+                        break;
+                    case 'verilog':
+                        switchTerminal('terminal-tveri');
+                        isProjectMode ? 
+                            await compiler.iverilogProjectCompilation() : 
+                            await compiler.iverilogCompilation(activeProcessor);
+                        break;
+                    case 'wave':
+                        switchTerminal('terminal-twave');
+                        isProjectMode ? 
+                            await compiler.runProjectGtkWave() : 
+                            await compiler.runGtkWave(activeProcessor);
+                        break;
+                    case 'prism':
+                        switchTerminal('terminal-tveri');
+                        await this.runPrismForCurrentMode();
+                        break;
+                }
+            }
+        } catch (error) {
+            console.error(`${step} compilation error:`, error);
+        } finally {
+            endCompilation();
+        }
     }
-}
 
     cancelAll() {
         compilationCanceled = true;
         isCompilationRunning = false;
         window.electronAPI.cancelVvpProcess();
         setCompilationButtonsState(false);
-        // Add user notification if needed
     }
 
     initializePrismButton() {

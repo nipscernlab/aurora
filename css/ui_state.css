@@ -217,9 +217,6 @@ body.glow-fading::after {
   background-color: var(--accent-subtle-bg);
 }
 
-.toggle-group input[id="Verilog Mode"]:checked + label {
-  color: #00b907;
-}
 
 .toggle-group input[id="Processor Mode"]:checked + label {
   color: #67b6d5;
@@ -231,4 +228,130 @@ body.glow-fading::after {
 
 .toggle-group label:not(:last-of-type) {
     border-right: 1px solid var(--border-primary);
+}
+
+/* ===================================================================================
+ * TOGGLE BUTTON & SIMULATION VISIBILITY CONTROL
+ * =================================================================================== */
+
+/* 1. Logic: Hide/Show Section based on Checkbox */
+/* We assume the section comes AFTER the input in HTML structure */
+
+/* Hide the actual checkbox input */
+input.simulation-toggle-control {
+    display: none;
+}
+
+/* When Toggle is UNCHECKED (Off) -> Hide the Section */
+input.simulation-toggle-control:not(:checked) ~ .simulation-settings-container {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    transform: translateY(-10px);
+    pointer-events: none; /* Prevents clicking while hidden */
+    transition: 
+        max-height 0.5s cubic-bezier(0, 1, 0, 1),
+        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        margin 0.3s ease,
+        transform 0.3s ease;
+}
+
+/* When Toggle is CHECKED (On) -> Show the Section */
+input.simulation-toggle-control:checked ~ .simulation-settings-container {
+    max-height: 1500px; /* Arbitrary large height to fit content */
+    opacity: 1;
+    transform: translateY(0);
+    transition: 
+        max-height 0.8s ease-in-out,
+        opacity 0.4s ease-in,
+        transform 0.4s ease;
+}
+
+
+/* 2. Visual Styling of the Toggle Button */
+
+.simulation-toggle-visual {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-2);
+    margin: var(--space-4) 0;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: background-color 0.2s ease;
+    user-select: none;
+}
+
+.simulation-toggle-visual:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* Switch Track (Background) */
+.toggle-switch-wrapper {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.toggle-track {
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 20px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Switch Thumb (Circle) */
+.toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background-color: var(--text-secondary);
+    border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Text Styling */
+.toggle-text-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.toggle-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.toggle-description {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+/* 3. Active State Styling (Controlled by Sibling Selector) */
+
+/* When Checked: Color the Track */
+input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-track {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* When Checked: Move and Color the Thumb */
+input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-thumb {
+    transform: translateX(22px);
+    background-color: #ffffff;
+}
+
+/* When Checked: Highlight Title */
+input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-title {
+    color: var(--accent-primary);
 }

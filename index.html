@@ -51,11 +51,6 @@
         <i class="fa-solid fa-fan"></i>
     </button> -->
 
-    <!-- Verilog Mode -->
-    <input type="radio" name="mode" id="Verilog Mode" value="Verilog Mode" />
-    <label for="Verilog Mode">
-        <i class="fa-solid fa-v fa-sm" title="Verilog Mode"></i>
-    </label>
     <!-- Processor Mode -->
     <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
     <label for="Processor Mode">
@@ -263,13 +258,29 @@
                     </div>
                 </div>
             </section>
+
+           <input type="checkbox" id="Verilog Mode" class="simulation-toggle-control" checked />
+
+            <!-- 2. O Visual do Toggle (O que o usuário clica) -->
+            <label for="Verilog Mode" class="simulation-toggle-visual">
+                <div class="toggle-switch-wrapper">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-thumb"></div>
+                </div>
+                <div class="toggle-text-content">
+                    <span class="toggle-title">Compile & Simulate</span>
+                    <small class="toggle-description">Enable to run processor simulation after synthesis. Disable for synthesis only.</small>
+                </div>
+            </label>
             
-            <!-- Simulation Configuration Section -->
-            <section class="config-section">
+            <!-- 3. Simulation Configuration Section (Controlada pelo input acima) -->
+            <section class="config-section simulation-settings-container">
                 <h3 class="section-title">
                     <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
                     Simulation Configuration
                 </h3>
+                
+                <!-- ... O conteúdo interno da simulação continua aqui ... -->
                 
                 <!-- Testbench & GTKW Files -->
                 <div class="form-group">
@@ -300,7 +311,7 @@
                     </div>
                 </div>
 
-                    <!-- Processors Management -->
+                <!-- Processors Management -->
                 <div class="form-group">
                     <label class="form-label">
                         <i class="fa-solid fa-microchip" aria-hidden="true"></i>
@@ -501,14 +512,14 @@
                 <span>FILE TREE</span>
                 <span id="current-spf-name">No project open</span>
                 
-                <!-- Search Section -->
+                <!--
+   
                 <div class="file-search-container">
-                <!-- O contêiner principal para a barra de pesquisa interativa -->
+      
                 <div class="search-input-wrapper">
-                    <!-- Ícone de pesquisa, puramente visual -->
+       
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
 
-                    <!-- O campo de texto real onde o usuário digita -->
                     <input 
                         type="text" 
                         id="file-search-input" 
@@ -517,17 +528,15 @@
                         aria-label="Search file tree"
                     >
 
-                    <!-- Botão para limpar a pesquisa, aparece quando há texto -->
                     <button id="clear-search" class="clear-search-btn" aria-label="Clear search">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
 
-                <!-- Container para exibir o feedback da pesquisa (ex: "5 files found") -->
                 <div class="search-results-info">
                     <span id="search-results-count"></span>
                 </div>
-            </div>
+            </div> -->
             </div>
             
         <div class="overlay-title">
@@ -561,52 +570,71 @@
             </div>
         </div>
 
-<div class="editor-terminal-container">
-    <div class="editor-container">
-        <div id="tabs-container" class="tabs-container">
-            <!-- Tabs will be dynamically inserted here -->
-        </div>
-        <div id="monaco-editor" class="monaco-editor">
-            <!-- The welcome screen has been completely restructured -->
-            <div id="editor-overlay" class="visible">
-                <div class="welcome-screen">
-                    <!-- Sidebar for Recent Projects -->
-                    <aside class="welcome-sidebar">
-                        <div class="recent-projects-header">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
-                            <h2 class="recent-projects-title">Recent Projects</h2>
-                            <span class="recent-projects-count" id="projects-count">0</span>
+        <div class="editor-terminal-container">
+            <div class="editor-container">
+                <div id="tabs-container" class="tabs-container">
+                    <!-- Tabs will be dynamically inserted here -->
+                </div>
+                <div id="monaco-editor" class="monaco-editor">
+                    <div id="editor-overlay" class="visible">
+                        <div class="welcome-screen">
+                            <!-- Sidebar for Recent Projects -->
+                            <aside class="welcome-sidebar">
+                                <div class="recent-projects-header">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <h2 class="recent-projects-title">Recent</h2>
+                                    <span class="recent-projects-count" id="projects-count">0</span>
+                                </div>
+                                <div class="recent-projects-list" id="recent-projects-list">
+                                    <div class="empty-state" id="empty-state">
+                                        <i class="fa-solid fa-folder-open"></i>
+                                        <p>No recent projects</p>
+                                        <span>Open a folder to get started</span>
+                                    </div>
+                                    <!-- Recent project items will be inserted here -->
+                                </div>
+                            </aside>
+                            
+                            <!-- Main Welcome Content -->
+                            <main class="welcome-main-content">
+                                <div class="welcome-hero">
+                                    <div class="icon-container">
+                                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="96" alt="Aurora" />
+                                        <i class="fallback-icon fa-solid fa-notdef" style="display: none;"></i>
+                                    </div>
+                                    <h1 class="welcome-title">SAPHO & AURORA IDE</h1>
+                                    <p class="welcome-subtitle">Hardware optimization platform for the future</p>
+                                </div>
+                                
+                                <div class="welcome-actions">
+                                    <button class="action-card primary-action" id="open-folder-btn">
+                                        <i class="fa-solid fa-folder-open"></i>
+                                        <span class="action-label">Open Project</span>
+                                        <span class="action-hint">Start working on a project</span>
+                                    </button>
+                                    
+                                    <button class="action-card" id="new-file-btn">
+                                        <i class="fa-solid fa-file-plus"></i>
+                                        <span class="action-label">New Project</span>
+                                        <span class="action-hint">Create a new project</span>
+                                    </button>
+                                </div>
+                                
+                                <footer class="welcome-footer">
+                                    <a href="#" class="footer-link" id="website-link">
+                                        <i class="fa-solid fa-globe"></i>
+                                        nipscern.com
+                                    </a>
+                                    <span class="footer-divider">•</span>
+                                    <span class="footer-version">v1.0.0</span>
+                                </footer>
+                            </main>
                         </div>
-                        <div class="recent-projects-list" id="recent-projects-list">
-                            <div class="empty-state" id="empty-state">
-                                <i class="fa-solid fa-folder-open"></i>
-                                <p>No recent projects</p>
-                                <span>Open a project to view it here.</span>
-                            </div>
-                            <!-- Recent project items will be inserted here -->
-                        </div>
-                    </aside>
-
-                    <!-- Main Welcome Content -->
-                    <main class="welcome-main-content">
-                        <div id="icon-container" class="icon-container">
-                            <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="120px" alt="Aurora" />
-                            <i class="fallback-icon fa-solid fa-notdef" style="display: none; font-size: 80px; color: #999;"></i>
-                        </div>
-                        <div class="overlay-text-content">
-                            <h1 id="aurora-welcome" class="overlay-title">Welcome to SAPHO & AURORA IDE!</h1>
-                            <p class="overlay-subtitle">Your gateway to building the future of hardware optimization.</p>
-                            <p class="overlay-subtitle">
-                                <a href="https://nipscern.com" target="_blank" rel="noopener">nipscern.com</a>
-                            </p>
-                        </div>
-                    </main>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="resizer-horizontal"></div>
+            <div class="resizer-horizontal"></div>
+        
 
     <!-- O contêiner do terminal e todo o seu conteúdo permanecem exatamente os mesmos -->
 <div id="terminal-container" class="terminal-container">

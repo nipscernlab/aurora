@@ -71,3 +71,14 @@ document.addEventListener('keydown', (e) => {
         window.electronAPI.openFolder(currentProjectPath);
     }
 });
+
+ddocument.addEventListener('DOMContentLoaded', () => {
+    const websiteLink = document.getElementById('website-link');
+    
+    if (websiteLink) {
+        websiteLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            require('electron').shell.openExternal('https://nipscern.com');
+        });
+    }
+});

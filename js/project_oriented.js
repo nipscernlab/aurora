@@ -293,7 +293,7 @@ setupEventListeners() {
         transform: translateX(2px);
       }
       
-      .project-file-item.starred {
+      .project-file-item.isTopLevel {
         background: var(--accent-subtle-bg);
         border-color: var(--accent-primary);
       }
@@ -358,11 +358,11 @@ setupEventListeners() {
         color: var(--text-primary);
       }
       
-      .project-icon-btn.star-btn.starred {
+      .project-icon-btn.star-btn.isTopLevel {
         color: var(--accent-primary);
       }
       
-      .project-icon-btn.star-btn.starred:hover {
+      .project-icon-btn.star-btn.isTopLevel:hover {
         color: var(--accent-hover);
       }
       
@@ -540,7 +540,7 @@ async handleDrop(e, type) {
         name: file.name,
         path: filePath,
         type: file.type || this.getMimeTypeFromExtension(file.name),
-        starred: false
+        isTopLevel: false
       });
       
     } catch (error) {
@@ -631,7 +631,7 @@ async importFiles(files, type) {
       name: file.name,
       path: file.path,
       type: file.type || this.getMimeTypeFromExtension(file.name),
-      starred: false
+      isTopLevel: false
     });
   }
   
@@ -740,12 +740,12 @@ async importFiles(files, type) {
   }
   
   /**
-   * Get sorted files (starred first, then alphabetically)
+   * Get sorted files (isTopLevel first, then alphabetically)
    */
   getSortedFiles(files) {
     return [...files].sort((a, b) => {
-      if (a.starred && !b.starred) return -1;
-      if (!a.starred && b.starred) return 1;
+      if (a.isTopLevel && !b.isTopLevel) return -1;
+      if (!a.isTopLevel && b.isTopLevel) return 1;
       return a.name.localeCompare(b.name);
     });
   }
@@ -755,11 +755,11 @@ async importFiles(files, type) {
    */
   createFileItem(file, index, type) {
     const fileItem = document.createElement('div');
-    fileItem.className = `project-file-item ${file.starred ? 'starred' : ''}`;
+    fileItem.className = `project-file-item ${file.isTopLevel ? 'isTopLevel' : ''}`;
     fileItem.dataset.fileIndex = index;
     fileItem.dataset.fileType = type;
     
-    const isStarred = file.starred || false;
+    const isisTopLevel = file.isTopLevel || false;
     
     fileItem.innerHTML = `
       <div class="project-file-info">
@@ -768,10 +768,10 @@ async importFiles(files, type) {
         </div>
       </div>
       <div class="project-file-actions">
-        <button class="project-icon-btn star-btn ${isStarred ? 'starred' : ''}" 
+        <button class="project-icon-btn star-btn ${isisTopLevel ? 'isTopLevel' : ''}" 
                 data-index="${index}" 
                 data-type="${type}"
-                title="${isStarred ? 'Remove star' : 'Set as main file'}">
+                title="${isisTopLevel ? 'Remove star' : 'Set as main file'}">
           <i class="fa-solid fa-star-of-life"></i>
         </button>
         <button class="project-icon-btn delete-btn" 
@@ -802,7 +802,7 @@ async importFiles(files, type) {
   }
   
   /**
-   * Toggle file star status (only one starred per type)
+   * Toggle file star status (only one isTopLevel per type)
    */
   toggleFileStar(index, type) {
     let files, targetFile;
@@ -821,16 +821,16 @@ async importFiles(files, type) {
     if (!targetFile) return;
     
     // If starring a file, unstar all others of the same type
-    if (!targetFile.starred) {
+    if (!targetFile.isTopLevel) {
       files.forEach(file => {
         if (file !== targetFile) {
-          file.starred = false;
+          file.isTopLevel = false;
         }
       });
     }
     
-    // Toggle starred status
-    targetFile.starred = !targetFile.starred;
+    // Toggle isTopLevel status
+    targetFile.isTopLevel = !targetFile.isTopLevel;
     
     // Update UI
     setTimeout(() => {
@@ -838,7 +838,7 @@ async importFiles(files, type) {
       this.updateFileList('testbench');
     }, 100);
     
-    const action = targetFile.starred ? 'selected as main file' : 'deselected';
+    const action = targetFile.isTopLevel ? 'selected as main file' : 'deselected';
     this.showNotification(`File "${targetFile.name}" ${action}`, 'success', 2000);
   }
   
@@ -1285,7 +1285,7 @@ async loadAndValidateFiles(files, type) {
           validFiles.push({
             name: fileData.name,
             path: fileData.path,
-            starred: fileData.starred || false,
+            isTopLevel: fileData.isTopLevel || false,
             type: fileData.type || 'text/plain'
           });
         } else {
@@ -1367,28 +1367,40 @@ async loadAndValidateFiles(files, type) {
 
 async saveConfiguration() {
   try {
+    // --- DETERMINE MODE ---
+    // Get the state of the "Compile & Simulate" toggle
+    // We use the ID 'Verilog Mode' as preserved from the previous HTML
+    const simToggle = document.getElementById('Verilog Mode');
+    const isSimulationEnabled = simToggle ? simToggle.checked : false;
+
     // --- VALIDATION START ---
 
-    // 1. Check if at least one synthesizable file has been imported and starred as the top-level.
+    // 1. SYNTHESIS VALIDATION (Always required)
+    // Check if at least one synthesizable file has been imported and isTopLevel as the top-level.
     if (this.synthesizableFiles.length === 0) {
       this.showNotification('You must import at least one synthesizable file (.v, .sv).', 'error', 4000);
       return; // Stop the saving process
     }
-    const starredSynthesizable = this.synthesizableFiles.find(file => file.starred);
-    if (!starredSynthesizable) {
+    
+    const isTopLevelSynthesizable = this.synthesizableFiles.find(file => file.isTopLevel);
+    if (!isTopLevelSynthesizable) {
       this.showNotification('You must star one synthesizable file as the top-level module.', 'error', 4000);
       return; // Stop the saving process
     }
 
-    // 2. Check if at least one testbench file has been imported and starred.
-    if (this.testbenchFiles.length === 0) {
-      this.showNotification('You must import at least one testbench file (.v, .sv).', 'error', 4000);
-      return; // Stop the saving process
-    }
-    const starredTestbench = this.testbenchFiles.find(file => file.starred);
-    if (!starredTestbench) {
-      this.showNotification('You must star one file as the main testbench.', 'error', 4000);
-      return; // Stop the saving process
+    // 2. SIMULATION VALIDATION (Only if "Compile & Simulate" is enabled)
+    if (isSimulationEnabled) {
+      // Check if at least one testbench file has been imported and isTopLevel.
+      if (this.testbenchFiles.length === 0) {
+        this.showNotification('To run simulation, you must import at least one testbench file (.v, .sv).', 'error', 4000);
+        return; // Stop the saving process
+      }
+      
+      const isTopLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
+      if (!isTopLevelTestbench) {
+        this.showNotification('To run simulation, you must star one file as the main testbench.', 'error', 4000);
+        return; // Stop the saving process
+      }
     }
     
     // --- VALIDATION END ---
@@ -1411,8 +1423,13 @@ async saveConfiguration() {
       return;
     }
     
-    const starredGtkw = this.gtkwFiles.find(file => file.starred);
+    // Get pointers to isTopLevel files (safe to access even if they are undefined in synthesis-only mode)
+    const isTopLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
+    const isTopLevelGtkw = this.gtkwFiles.find(file => file.isTopLevel);
     
+    // Collect Processors Configuration
+    // We collect them regardless of mode, so data isn't lost if the user toggles back and forth,
+    // but we don't validate them strictly here.
     const processors = [];
     const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
     
@@ -1437,25 +1454,36 @@ async saveConfiguration() {
     const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
     const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
     
+    // Construct the Configuration Object
     const config = {
-      topLevelFile: starredSynthesizable ? starredSynthesizable.path : '',
-      testbenchFile: starredTestbench ? starredTestbench.path : '',
-      gtkwaveFile: starredGtkw ? starredGtkw.path : '',
+      // Simulation Flag: Stores whether the user wants to compile & simulate or just compile
+      simulationEnabled: isSimulationEnabled,
+      
+      // Paths and File Lists
+      topLevelFile: isTopLevelSynthesizable ? isTopLevelSynthesizable.path : '',
+      // Only save testbench path as "active" if it exists, otherwise empty string is fine
+      testbenchFile: isTopLevelTestbench ? isTopLevelTestbench.path : '',
+      gtkwaveFile: isTopLevelGtkw ? isTopLevelGtkw.path : '',
+      
       synthesizableFiles: this.synthesizableFiles.map(file => ({
         name: file.name,
         path: file.path,
-        starred: file.starred || false
+        isTopLevel: file.isTopLevel || false
       })),
+      
       testbenchFiles: this.testbenchFiles.map(file => ({
         name: file.name,
         path: file.path,
-        starred: file.starred || false
+        isTopLevel: file.isTopLevel || false
       })),
+      
       gtkwFiles: this.gtkwFiles.map(file => ({
         name: file.name,
         path: file.path,
-        starred: file.starred || false
+        isTopLevel: file.isTopLevel || false
       })),
+      
+      // Settings
       processors: processors,
       iverilogFlags: iverilogFlagsValue,
       simuDelay: simuDelayValue,
@@ -1469,6 +1497,8 @@ async saveConfiguration() {
     this.showNotification('Project configuration saved successfully!', 'success', 3000);
     
     this.currentConfig = config;
+    
+    // Only update processor status if needed, or maybe handle it inside the function based on config
     await this.updateProcessorStatus();
     
     this.closeModal();

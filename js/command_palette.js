@@ -151,14 +151,10 @@ class CommandPalette {
       { id: 'switch-tveri', label: 'Show TVERI Terminal', description: 'Switch to Verilog terminal', category: 'Terminal', action: () => clickTerminalTab('tveri') },
       { id: 'switch-twave', label: 'Show TWAVE Terminal', description: 'Switch to waveform terminal', category: 'Terminal', action: () => clickTerminalTab('twave') },
 
-      // Mode radios (we use their IDs so we don't create new radios)
-      { id: 'Verilog Mode', label: 'Switch to Verilog Mode', description: 'Set Verilog mode', category: 'Mode', action: () => {
-        const r = document.getElementById('Verilog Mode'); if (r) { r.checked = true; r.dispatchEvent(new Event('change',{bubbles:true})); return true; } return false;
-      } },
-      { id: 'Processor Mode', label: 'Switch to Processor Mode', description: 'Set Processor mode', category: 'Mode', action: () => {
+      { id: 'Processor Mode', label: 'Switch to Processor Mode', description: 'Set Processor mode', category: 'Mode', icon: 'fa-solid fa-microchip', action: () => {
         const r = document.getElementById('Processor Mode'); if (r) { r.checked = true; r.dispatchEvent(new Event('change',{bubbles:true})); return true; } return false;
       } },
-      { id: 'Project Mode', label: 'Switch to Project Mode', description: 'Set Project mode', category: 'Mode', action: () => {
+      { id: 'Project Mode', label: 'Switch to Project Mode', description: 'Set Project mode', category: 'Mode', icon: 'fa-solid fa-compass-drafting', action: () => {
         const r = document.getElementById('Project Mode'); if (r) { r.checked = true; r.dispatchEvent(new Event('change',{bubbles:true})); return true; } return false;
       } },
 
@@ -168,6 +164,7 @@ class CommandPalette {
         if (window.TabManager && typeof window.TabManager.saveCurrentFile === 'function') return window.TabManager.saveCurrentFile();
         return false;
       }},
+      
 
       { id: 'save-all-files', label: 'Save All Files', description: 'Save all open files', category: 'File', action: () => {
         if (window.TabManager && typeof window.TabManager.saveAllFiles === 'function') return window.TabManager.saveAllFiles();
@@ -317,30 +314,47 @@ class CommandPalette {
   }
 
   // find icon markup from existing toolbar element (does not clone the button)
+// find icon markup from existing toolbar element
   _getIconHtmlForCommand(cmd) {
     try {
-      // Try to find element by id
+      // 1. First, check if the command object has a manually defined icon
+      if (cmd.icon) {
+        if (!cmd.icon.trim().startsWith('<')) {
+          return `<i class="${cmd.icon}"></i>`;
+        }
+        return cmd.icon;
+      }
+
+      // 2. Try to find element by id to extract icon
       let el = document.getElementById(cmd.id);
+      
       // If not found and command is a "switch-*" terminal, try data-terminal
       if (!el && cmd.id && cmd.id.startsWith('switch-')) {
         const termId = cmd.id.replace('switch-', '');
         el = document.querySelector(`[data-terminal="${termId}"]`);
       }
+      
       // fallback to querySelector by id selector
       if (!el) el = document.querySelector(`#${CSS.escape ? CSS.escape(cmd.id) : cmd.id}`) || null;
       if (!el) return '<i class="fa-solid fa-keyboard"></i>'; // fallback icon
 
-      // Search for first <i> or <img> child inside the existing element
-      const iconCandidate = el.querySelector('i, img, svg') || el;
-      // Return its outerHTML if available; otherwise, fallback to text icon
-      if (iconCandidate && iconCandidate.outerHTML) return iconCandidate.outerHTML;
+      // 3. CHANGED: Search for ALL <i>, <img>, or <svg> children, not just the first one
+      const icons = el.querySelectorAll('i, img, svg');
+
+      if (icons.length > 0) {
+        // Combine the HTML of all icons found (e.g. C icon + PlusMinus icon)
+        const combinedHtml = Array.from(icons).map(icon => icon.outerHTML).join('');
+        
+        // Wrap in a span with inline-flex to keep them side-by-side and aligned
+        return `<span style="display: inline-flex; align-items: center; gap: 2px;">${combinedHtml}</span>`;
+      }
+
       return '<i class="fa-solid fa-keyboard"></i>';
     } catch (err) {
       console.warn('[CommandPalette] icon lookup error', err);
       return '<i class="fa-solid fa-keyboard"></i>';
     }
   }
-
   // is enabled: check underlying element disabled property if present
   _isEnabled(cmd) {
     try {

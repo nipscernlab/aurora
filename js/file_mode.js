@@ -1,7 +1,7 @@
 /**
  * =====================================================================================
  * Aurora IDE - Verilog Mode File Manager
- * Handles Verilog Mode file tree with drag-and-drop functionality
+ * Handles Verilog Mode file tree reading directly from projectOriented.json
  * =====================================================================================
  */
 
@@ -15,9 +15,9 @@ const pathUtils = {
 
 class VerilogModeManager {
     constructor() {
-        // Configuration
-        this.CONFIG_FILENAME = 'fileMode.json';
-        this.ALLOWED_EXTENSIONS = ['.v', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'];
+        // Configuration - Points to the main project config
+        this.CONFIG_FILENAME = 'projectOriented.json';
+        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'];
         
         // State management
         this.verilogFiles = [];
@@ -62,12 +62,14 @@ class VerilogModeManager {
     }
 
     setupHierarchyToggle() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
-    if (!toggleButton) return;
-    
-    // Only enable toggle after successful compilation
-    TreeViewState.disableToggle();
-}
+        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        if (!toggleButton) return;
+        
+        // Only enable toggle after successful compilation logic is handled elsewhere
+        if (typeof TreeViewState !== 'undefined') {
+            TreeViewState.disableToggle();
+        }
+    }
     
     /**
      * Cache all DOM elements
@@ -78,16 +80,15 @@ class VerilogModeManager {
             fileTreeContainer: document.querySelector('.file-tree-container'),
             openHdlButton: document.getElementById('open-hdl-button'),
             refreshButton: document.getElementById('refresh-button'),
-            verilogModeRadio: document.getElementById('Verilog Mode'),
+            // References the Checkbox/Toggle 
+            compileSimulateToggle: document.getElementById('Verilog Mode'),
             processorModeRadio: document.getElementById('Processor Mode'),
             projectModeRadio: document.getElementById('Project Mode')
         };
         
         console.log('📦 Cached elements:', {
             fileTree: !!this.elements.fileTree,
-            verilogModeRadio: !!this.elements.verilogModeRadio,
-            processorModeRadio: !!this.elements.processorModeRadio,
-            projectModeRadio: !!this.elements.projectModeRadio
+            compileSimulateToggle: !!this.elements.compileSimulateToggle
         });
     }
     
@@ -95,31 +96,34 @@ class VerilogModeManager {
      * Setup event listeners
      */
     setupEventListeners() {
-        // Listen for radio button changes
-        if (this.elements.verilogModeRadio) {
-            this.elements.verilogModeRadio.addEventListener('change', (e) => {
+        // Handle Compile & Simulate Toggle Logic
+        // UNCHECKED (Off) = Verilog Mode Active (Compile Only)
+        // CHECKED (On) = Simulation Enabled (Full Pipeline) -> Deactivate Verilog Mode UI
+        if (this.elements.compileSimulateToggle) {
+            // Check initial state
+            if (!this.elements.compileSimulateToggle.checked) {
+                this.activateVerilogMode();
+            }
+
+            this.elements.compileSimulateToggle.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    console.log('🔵 Verilog Mode selected');
+                    this.deactivateVerilogMode();
+                } else {
                     this.activateVerilogMode();
                 }
             });
         }
         
+        // Keep listeners for other modes
         if (this.elements.processorModeRadio) {
             this.elements.processorModeRadio.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    console.log('🔴 Processor Mode selected');
-                    this.deactivateVerilogMode();
-                }
+                if (e.target.checked) this.deactivateVerilogMode();
             });
         }
         
         if (this.elements.projectModeRadio) {
             this.elements.projectModeRadio.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    console.log('🟢 Project Mode selected');
-                    this.deactivateVerilogMode();
-                }
+                if (e.target.checked) this.deactivateVerilogMode();
             });
         }
 
@@ -127,24 +131,21 @@ class VerilogModeManager {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
         }
 
-        // Open HDL button - triggers file selection dialog
         this.elements.openHdlButton?.addEventListener('click', () => {
             if (this.isVerilogModeActive) {
                 this.handleImportClick();
             }
         });
         
-        // Refresh button - reload Verilog Mode tree
         this.elements.refreshButton?.addEventListener('click', () => {
             if (this.isVerilogModeActive) {
                 this.refreshVerilogTree();
             }
         });
         
-        // Setup drag and drop
         this.setupDragAndDrop();
     }
-    
+
     /**
      * Setup drag and drop functionality
      */
@@ -266,7 +267,6 @@ class VerilogModeManager {
                     name: file.name,
                     path: filePath,
                     isTopLevel: false,
-                    isStarred: false
                 });
                 
             } catch (error) {
@@ -290,7 +290,7 @@ class VerilogModeManager {
     async handleImportClick() {
         try {
             const filters = [
-                { name: 'Verilog Files', extensions: ['v'] },
+                { name: 'Verilog Files', extensions: ['v', 'sv'] },
                 { name: 'Text Files', extensions: ['txt'] },
                 { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'] },
                 { name: 'All Files', extensions: ['*'] }
@@ -326,6 +326,7 @@ class VerilogModeManager {
             
             const ext = this.getFileExtension(file.name);
             
+            // Only allow standard Verilog/Images in this mode
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
                 errors.push(`"${file.name}" has unsupported extension ${ext}`);
                 continue;
@@ -340,7 +341,6 @@ class VerilogModeManager {
                 name: file.name,
                 path: file.path,
                 isTopLevel: false,
-                isStarred: false
             });
         }
         
@@ -370,17 +370,13 @@ class VerilogModeManager {
     }
     
     /**
-     * Sort files: Top Level first, then Starred, then alphabetically
+     * Sort files: Top Level first, then alphabetically
      */
     sortFilesAlphabetically() {
         this.verilogFiles.sort((a, b) => {
             // Top Level files come first
             if (a.isTopLevel && !b.isTopLevel) return -1;
             if (!a.isTopLevel && b.isTopLevel) return 1;
-            
-            // Then starred files
-            if (a.isStarred && !b.isStarred) return -1;
-            if (!a.isStarred && b.isStarred) return 1;
             
             // Finally alphabetical
             return a.name.localeCompare(b.name);
@@ -401,7 +397,7 @@ class VerilogModeManager {
     getFileIcon(fileName) {
         const ext = this.getFileExtension(fileName);
         
-        if (ext === '.v') {
+        if (ext === '.v' || ext === '.sv') {
             return 'fa-solid fa-microchip';
         } else if (ext === '.txt') {
             return 'fa-solid fa-file-lines';
@@ -505,9 +501,8 @@ class VerilogModeManager {
             emptyState.innerHTML = `
                 <i class="fa-solid fa-folder-open verilog-empty-icon"></i>
                 <div class="verilog-empty-text">
-                    No files in Verilog Mode<br>
-                    <strong>Drag and drop files here</strong><br>
-                    or click the <i class="fa-solid fa-hashtag"></i> button
+                    No synthesizable files<br>
+                    <strong>Drag and drop .v files here</strong>
                 </div>
             `;
             fileTree.appendChild(emptyState);
@@ -533,24 +528,17 @@ class VerilogModeManager {
         fileItem.dataset.fileIndex = index;
         fileItem.dataset.filePath = file.path;
         
-        // Add special classes for top level and starred files
+        // Add special classes for top level
         if (file.isTopLevel) {
             fileItem.classList.add('top-level-file');
         }
-        if (file.isStarred) {
-            fileItem.classList.add('starred-file');
-        }
         
         const icon = this.getFileIcon(file.name);
-        const isVerilogFile = this.getFileExtension(file.name) === '.v';
         
         // Build badges HTML
         let badgesHtml = '';
         if (file.isTopLevel) {
             badgesHtml += '<span class="file-badge top-level-badge" title="Top Level Module"><i class="fa-solid fa-layer-group"></i></span>';
-        }
-        if (file.isStarred) {
-            badgesHtml += '<span class="file-badge starred-badge" title="Starred"><i class="fa-solid fa-star"></i></span>';
         }
         
         fileItem.innerHTML = `
@@ -575,8 +563,6 @@ class VerilogModeManager {
                 if (e.target.closest('.delete-btn')) return;
 
                 try {
-                    // For images and other non-text files, this will read the raw buffer.
-                    // Monaco might display it as garbled text, but it will open.
                     const content = await window.electronAPI.readFile(file.path);
                     TabManager.addTab(file.path, content);
                     console.log('📝 Opened file in editor:', file.name);
@@ -615,32 +601,23 @@ class VerilogModeManager {
         menu.className = 'verilog-context-menu';
         menu.id = 'verilog-context-menu';
         
-        // Check if there's already a top level file
         const hasTopLevel = this.verilogFiles.some(f => f.isTopLevel);
-        const hasStarred = this.verilogFiles.some(f => f.isStarred);
         
         // Determine menu options
         const topLevelOption = file.isTopLevel
             ? { text: 'Remove Top Level', icon: 'fa-layer-group', action: 'remove-top-level' }
-            : { text: 'Set as Top Level', icon: 'fa-layer-group', action: 'set-top-level', disabled: hasTopLevel && !file.isTopLevel };
+            : { text: 'Set as Top Level', icon: 'fa-layer-group', action: 'set-top-level', disabled: false }; // Allow switching top level
         
-        const starredOption = file.isStarred
-            ? { text: 'Remove Star', icon: 'fa-star', action: 'remove-star' }
-            : { text: 'Add Star', icon: 'fa-star', action: 'add-star', disabled: hasStarred && !file.isStarred };
 
         menu.innerHTML = `
             <div class="context-menu-item ${topLevelOption.disabled ? 'disabled' : ''}" data-action="${topLevelOption.action}">
                 <i class="fa-solid ${topLevelOption.icon}"></i>
                 <span>${topLevelOption.text}</span>
             </div>
-            <div class="context-menu-item ${starredOption.disabled ? 'disabled' : ''}" data-action="${starredOption.action}">
-                <i class="fa-solid ${starredOption.icon}"></i>
-                <span>${starredOption.text}</span>
-            </div>
             <div class="context-menu-divider"></div>
             <div class="context-menu-item delete-item" data-action="delete">
                 <i class="fa-solid fa-trash"></i>
-                <span>Delete File</span>
+                <span>Remove File</span>
             </div>
         `;
         
@@ -679,16 +656,13 @@ class VerilogModeManager {
     }
 
    async handleTreeContextMenu(event) {
-        // ESSENCIAL: Previne que o menu de contexto padrão do navegador apareça.
         event.preventDefault();
 
         if (!this.isVerilogModeActive) return;
         
-        // O resto da sua lógica para verificar onde o clique ocorreu permanece o mesmo.
         if (event.target.closest('.verilog-file-item')) return;
         if (event.target.closest('button')) return;
         
-        // Fecha qualquer menu que já esteja aberto antes de criar um novo.
         this.closeCreateMenu();
         
         const menu = document.createElement('div');
@@ -702,13 +676,11 @@ class VerilogModeManager {
             </div>
         `;
         
-        // Posiciona o menu onde o usuário clicou.
         menu.style.left = event.pageX + 'px';
         menu.style.top = event.pageY + 'px';
         
         document.body.appendChild(menu);
         
-        // Ajusta a posição para garantir que o menu não saia da tela.
         setTimeout(() => {
             const rect = menu.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
@@ -717,10 +689,9 @@ class VerilogModeManager {
             if (rect.bottom > window.innerHeight) {
                 menu.style.top = (event.pageY - rect.height) + 'px';
             }
-            menu.classList.add('show'); // Adiciona a classe para a animação de fade-in.
+            menu.classList.add('show'); 
         }, 10);
         
-        // Adiciona um listener para as ações DENTRO do menu (usando 'click' normal).
         menu.addEventListener('click', async (e) => {
             const item = e.target.closest('.create-menu-item');
             if (!item) return;
@@ -729,14 +700,12 @@ class VerilogModeManager {
             if (action === 'create-file') {
                 await this.createNewFile();
             }
-            this.closeCreateMenu(); // Fecha o menu após a ação.
+            this.closeCreateMenu();
         });
         
-        // Adiciona um listener para fechar o menu se o usuário clicar com o BOTÃO ESQUERDO em qualquer outro lugar.
         const closeOnClickOutside = (e) => {
             if (!e.target.closest('#verilog-create-menu')) {
                 this.closeCreateMenu();
-                // Importante: remove o listener de si mesmo após ser usado.
                 document.removeEventListener('click', closeOnClickOutside);
             }
         };
@@ -750,14 +719,12 @@ class VerilogModeManager {
  * Create a new Verilog file
  */
 async createNewFile() {
-    // Show input dialog for file name
     const fileName = await this.showFileNameDialog();
     
     if (!fileName) {
-        return; // User cancelled
+        return; 
     }
     
-    // Validate file name format
     const invalidChars = /[<>:"/\\|?*]/;
     const nameWithoutExt = fileName.replace('.v', '');
     if (invalidChars.test(nameWithoutExt)) {
@@ -766,7 +733,6 @@ async createNewFile() {
     }
     
     try {
-        // Open save dialog with showSaveDialog
         const result = await window.electronAPI.showSaveDialog({
             title: 'Save New Verilog File',
             defaultPath: fileName,
@@ -777,24 +743,20 @@ async createNewFile() {
         });
         
         if (result.canceled || !result.filePath) {
-            return; // User cancelled
+            return;
         }
         
         const filePath = result.filePath;
         
-        // Ensure file has .v extension
         const finalPath = filePath.endsWith('.v') ? filePath : filePath + '.v';
         const finalFileName = pathUtils.basename(finalPath);
         
-        // Create empty file
         await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
         
-        // Add to Verilog files list
         const newFile = {
             name: finalFileName,
             path: finalPath,
             isTopLevel: false,
-            isStarred: false
         };
         
         this.verilogFiles.push(newFile);
@@ -804,7 +766,6 @@ async createNewFile() {
         
         this.showNotification(`Created "${finalFileName}" successfully`, 'success', 2000);
         
-        // Open file in editor
         try {
             const content = await window.electronAPI.readFile(finalPath);
             TabManager.addTab(finalPath, content);
@@ -856,7 +817,6 @@ async createNewFile() {
             const modal = document.getElementById('file-name-modal');
             const input = document.getElementById('new-file-name');
             
-            // Focus input
             setTimeout(() => {
                 input.focus();
                 input.select();
@@ -870,7 +830,6 @@ async createNewFile() {
                 }, 200);
             };
             
-            // Handle button clicks
             modal.addEventListener('click', (e) => {
                 const action = e.target.getAttribute('data-action');
                 if (action === 'cancel') {
@@ -883,7 +842,6 @@ async createNewFile() {
                 }
             });
             
-            // Handle Enter key
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     const fileName = input.value.trim();
@@ -895,7 +853,6 @@ async createNewFile() {
                 }
             });
             
-            // Show modal
             setTimeout(() => modal.classList.add('show'), 10);
         });
     }
@@ -910,23 +867,19 @@ async createNewFile() {
     const file = this.verilogFiles[index];
     const fileName = file.name;
     
-    // Show confirmation dialog
     const confirmed = await this.showDeleteConfirmDialog(fileName);
     
     if (!confirmed) return;
     
     try {
-        // Delete file from disk
         await window.electronAPI.deleteFile(file.path);
         
-        // Remove from list
         this.verilogFiles.splice(index, 1);
         await this.saveConfiguration();
         this.renderVerilogTree();
         
         this.showNotification(`Deleted "${fileName}" successfully`, 'success', 2000);
         
-        // Close tab if open
         if (typeof TabManager !== 'undefined' && TabManager.tabs && TabManager.tabs.has(file.path)) {
             TabManager.closeTab(file.path);
         }
@@ -934,9 +887,7 @@ async createNewFile() {
     } catch (error) {
         console.error('Error deleting file:', error);
         
-        // Check if file doesn't exist anymore
         if (error.code === 'ENOENT') {
-            // File already deleted, just remove from list
             this.verilogFiles.splice(index, 1);
             await this.saveConfiguration();
             this.renderVerilogTree();
@@ -983,7 +934,6 @@ async createNewFile() {
             }, 200);
         };
         
-        // Handle button clicks
         modal.addEventListener('click', (e) => {
             const action = e.target.getAttribute('data-action');
             if (action === 'cancel') {
@@ -993,7 +943,6 @@ async createNewFile() {
             }
         });
         
-        // Handle Escape key
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
                 document.removeEventListener('keydown', handleEscape);
@@ -1002,7 +951,6 @@ async createNewFile() {
         };
         document.addEventListener('keydown', handleEscape);
         
-        // Show modal
         setTimeout(() => modal.classList.add('show'), 10);
     });
 }
@@ -1024,9 +972,7 @@ async createNewFile() {
     async handleContextMenuAction(action, file, index) {
         switch (action) {
             case 'set-top-level':
-                // Remove top level from all files
                 this.verilogFiles.forEach(f => f.isTopLevel = false);
-                // Set this file as top level
                 this.verilogFiles[index].isTopLevel = true;
                 console.log('🎯 Set as Top Level:', file.name);
                 this.showNotification(`"${file.name}" set as Top Level`, 'success', 2000);
@@ -1038,20 +984,6 @@ async createNewFile() {
                 this.showNotification(`Removed Top Level from "${file.name}"`, 'success', 2000);
                 break;
                 
-            case 'add-star':
-                // Remove star from all files
-                this.verilogFiles.forEach(f => f.isStarred = false);
-                // Add star to this file
-                this.verilogFiles[index].isStarred = true;
-                console.log('⭐ Added Star:', file.name);
-                this.showNotification(`"${file.name}" starred`, 'success', 2000);
-                break;
-                
-            case 'remove-star':
-                this.verilogFiles[index].isStarred = false;
-                console.log('⭐ Removed Star:', file.name);
-                this.showNotification(`Removed star from "${file.name}"`, 'success', 2000);
-                break;
             case 'delete':
                 await this.deleteFile(index);
                 break;
@@ -1101,7 +1033,8 @@ async createNewFile() {
     }
     
     /**
-     * Save configuration to fileMode.json
+     * Save configuration to projectOriented.json
+     * Updates only synthesizableFiles and topLevelFile without affecting other sections
      */
     async saveConfiguration() {
         try {
@@ -1120,21 +1053,45 @@ async createNewFile() {
                 console.error('❌ Project path not available. Cannot save configuration.');
                 return;
             }
-            
-            const config = {
-                files: this.verilogFiles.map(file => ({
-                    name: file.name,
-                    path: file.path,
-                    isTopLevel: file.isTopLevel || false,
-                    isStarred: file.isStarred || false
-                }))
-            };
-            
+
             const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-            await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
             
-            console.log('💾 Verilog Mode configuration saved:', configPath);
-            console.log('📄 Files:', config.files.length);
+            // Read existing configuration to preserve other fields
+            let currentConfig = {};
+            try {
+                if (await window.electronAPI.fileExists(configPath)) {
+                    const content = await window.electronAPI.readFile(configPath);
+                    currentConfig = JSON.parse(content);
+                }
+            } catch (err) {
+                console.warn('Could not read existing config, creating new one.', err);
+            }
+
+            // Map internal VerilogFiles to the schema required by projectOriented.json
+            // MAPPING: isTopLevel (internal) -> starred (JSON)
+            const synthesizableFiles = this.verilogFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                starred: file.isTopLevel || false
+            }));
+
+            // Determine top level file path
+            const topFile = this.verilogFiles.find(f => f.isTopLevel);
+            const topLevelPath = topFile ? topFile.path : "";
+
+            // Update specific fields
+            currentConfig.synthesizableFiles = synthesizableFiles;
+            currentConfig.topLevelFile = topLevelPath;
+
+            // Ensure other required arrays exist
+            if (!currentConfig.testbenchFiles) currentConfig.testbenchFiles = [];
+            if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
+            if (!currentConfig.processors) currentConfig.processors = [];
+
+            // Write back to file
+            await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
+            
+            console.log('💾 Verilog Mode configuration saved to projectOriented.json');
             
         } catch (error) {
             console.error('❌ Error saving Verilog Mode configuration:', error);
@@ -1142,7 +1099,7 @@ async createNewFile() {
     }
     
     /**
-     * Load configuration from fileMode.json
+     * Load configuration from projectOriented.json
      */
     async loadConfiguration() {
         try {
@@ -1173,8 +1130,8 @@ async createNewFile() {
                 
                 console.log('📖 Loading configuration from:', configPath);
                 
-                if (configData.files && Array.isArray(configData.files)) {
-                    for (const fileData of configData.files) {
+                if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
+                    for (const fileData of configData.synthesizableFiles) {
                         if (fileData.path && fileData.name) {
                             try {
                                 const exists = await window.electronAPI.fileExists(fileData.path);
@@ -1183,8 +1140,8 @@ async createNewFile() {
                                     this.verilogFiles.push({
                                         name: fileData.name,
                                         path: fileData.path,
-                                        isTopLevel: fileData.isTopLevel || false,
-                                        isStarred: fileData.isStarred || false
+                                        // MAPPING: starred (JSON) -> isTopLevel (internal)
+                                        isTopLevel: fileData.starred || false,
                                     });
                                 } else {
                                     console.warn(`⚠️ File no longer exists: ${fileData.path}`);
@@ -1200,7 +1157,7 @@ async createNewFile() {
                 
                 console.log('✅ Loaded', this.verilogFiles.length, 'files from configuration');
             } else {
-                console.log('📝 No fileMode.json found, starting with empty list');
+                console.log('📝 projectOriented.json not found, starting with empty list');
             }
         } catch (error) {
             console.error('❌ Error loading Verilog Mode configuration:', error);
@@ -1458,26 +1415,11 @@ async createNewFile() {
                 border: 1px solid var(--accent-subtle-border);
             }
             
-            .starred-badge {
-                background: rgba(255, 215, 0, 0.15);
-                color: #FFD700;
-                border: 1px solid rgba(255, 215, 0, 0.3);
-            }
             
             /* Special file item styles */
             .verilog-file-item.top-level-file {
                 border-left: 3px solid var(--accent-primary);
                 background: var(--accent-subtle-bg);
-            }
-            
-            .verilog-file-item.starred-file {
-                border-left: 3px solid #FFD700;
-            }
-            
-            .verilog-file-item.top-level-file.starred-file {
-                background: linear-gradient(90deg, var(--accent-subtle-bg) 0%, rgba(255, 215, 0, 0.1) 100%);
-                border-left: 3px solid var(--accent-primary);
-                box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2);
             }
 
             .verilog-create-menu {

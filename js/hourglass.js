@@ -55,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- NOVA LÓGICA PARA O BOTÃO SETTINGS ---
     if (settingsButton) {
     settingsButton.addEventListener('click', () => {
-        const verilogMode = document.getElementById('Verilog Mode');
         const processorMode = document.getElementById('Processor Mode');
         const projectMode = document.getElementById('Project Mode');
         
@@ -111,16 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log(`UI elements are now ${elementsVisible ? 'visible' : 'hidden'}`);
   }
 
-  function openProcessorModal() {
-    const modal = document.getElementById('modalProcessorConfig');
-    if (modal) {
-        modal.setAttribute('aria-hidden', 'false');
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-  
+  // openProcessorModal is defined but not used in current code
+  // function openProcessorModal() {
+  //   const modal = document.getElementById('modalProcessorConfig');
+  //   if (modal) {
+  //       modal.setAttribute('aria-hidden', 'false');
+  //       modal.classList.add('show');
+  //       document.body.style.overflow = 'hidden';
+  //   }
+  // }  
   function updateElementsVisibility() {
     HIDE_ELEMENTS.buttons.forEach(id => {
       const element = document.getElementById(id);

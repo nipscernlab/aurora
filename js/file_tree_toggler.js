@@ -1,4 +1,11 @@
-// File Tree Controller (Collapse, Refresh, and Backup Functionality)
+/**
+ * @file Controller for File Tree interactions (Collapse, Refresh, Backup).
+ */
+
+/* eslint-disable no-undef */
+
+import { showCardNotification } from './notification.js';
+
 class FileTreeController {
   constructor() {
     this.init();
@@ -8,7 +15,7 @@ class FileTreeController {
     // Get the UI elements
     this.collapseButton = document.getElementById('toggle-file-tree');
     this.refreshButton = document.getElementById('refresh-file-tree');
-    this.backupButton = document.getElementById('backup-project'); // NOVO: Botão de backup
+    this.backupButton = document.getElementById('backup-project');
     this.fileTreeContainer = document.getElementById('file-tree');
 
     if (!this.fileTreeContainer) {
@@ -27,7 +34,7 @@ class FileTreeController {
       this.refreshButton.addEventListener('click', () => this.handleRefresh());
     }
 
-    // NOVO: Add click event listener for the backup button
+    // Add click event listener for the backup button
     if (this.backupButton) {
       this.backupButton.addEventListener('click', () => this.handleBackup());
     }
@@ -37,48 +44,44 @@ class FileTreeController {
   }
 
   /**
-   * NOVO: Handles the project backup process.
+   * Handles the project backup process.
    */
   async handleBackup() {
     const icon = this.backupButton.querySelector('i');
     if (!icon) return;
 
-    // 1. Obter o caminho do projeto atual
+    // 1. Get current project path
     const projectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
 
-    // 2. Validar se um projeto está aberto
+    // 2. Validate if a project is open
     if (!projectPath) {
-        if (typeof showNotification === 'function') {
-            showNotification('No project is open. Cannot create a backup.', 'error', 4000);
-        }
+        showCardNotification('No project is open. Cannot create a backup.', 'error', 4000);
         return;
     }
 
-    // 3. Inicia o feedback visual (animação de pulso) e desabilita o botão
-    icon.classList.add('backup-active'); // USA A NOVA ANIMAÇÃO
+    // 3. UI Feedback: Start pulse animation and disable button
+    icon.classList.add('backup-active');
     this.backupButton.style.pointerEvents = 'none';
-    if (typeof showNotification === 'function') {
-        showNotification('Creating project backup... Please wait.', 'info', 5000);
-    }
+    
+    showCardNotification('Creating project backup... Please wait.', 'info', 5000);
 
     try {
-        // 4. Chamar a função do main.js
+        // 4. Invoke main process handler
         const result = await window.electronAPI.createBackup(projectPath);
 
-        // 5. Mostrar o resultado para o usuário
+        // 5. Show result
         if (result.success) {
-            showNotification(result.message, 'success', 6000);
+            showCardNotification(result.message, 'success', 6000);
         } else {
-            showNotification(result.message || 'Failed to create backup.', 'error', 6000);
+            showCardNotification(result.message || 'Failed to create backup.', 'error', 6000);
         }
     } catch (error) {
         console.error('Error invoking create-backup IPC handler:', error);
-        showNotification('A critical error occurred during the backup process.', 'error', 5000);
+        showCardNotification('A critical error occurred during the backup process.', 'error', 5000);
     } finally {
-        // 6. Remove o feedback visual e reabilita o botão
-        // Usamos um timeout para garantir que a animação não seja cortada abruptamente
+        // 6. Restore UI
         setTimeout(() => {
-            icon.classList.remove('backup-active'); // REMOVE A NOVA ANIMAÇÃO
+            icon.classList.remove('backup-active');
             this.backupButton.style.pointerEvents = 'auto';
         }, 500);
     }
@@ -99,12 +102,11 @@ class FileTreeController {
         window.electronAPI.refreshFileTree();
       } else {
         console.error('refreshFileTree API is not available.');
-        if (typeof showNotification === 'function') {
-          showNotification('Refresh function is not available.', 'error', 3000);
-        }
+        showCardNotification('Refresh function is not available.', 'error', 3000);
       }
     } catch (error) {
       console.error('Error triggering file tree refresh:', error);
+      showCardNotification('Error triggering file tree refresh.', 'error', 3000);
     } finally {
       setTimeout(() => {
         icon.classList.remove('fa-spin');
@@ -173,23 +175,13 @@ class FileTreeController {
       const style = document.createElement('style');
       style.id = 'file-tree-controller-styles';
       style.textContent = `
-        /* Keyframes para a animação de pulso */
+        /* Pulse Animation */
         @keyframes pulse-backup-icon {
-          0% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.2);
-            opacity: 0.7;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.7; }
+          100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Classe que aplica a animação de pulso ao ícone */
         #backup-project i.backup-active {
           animation: pulse-backup-icon 1.5s ease-in-out infinite;
         }
@@ -212,13 +204,14 @@ class FileTreeController {
   }
 }
 
-// Initialize the controller when the DOM is ready
+// Initialize the controller
 function initFileTreeController() {
   if (document.getElementById('file-tree')) {
     window.fileTreeController = new FileTreeController();
   }
 }
 
+// Ensure DOM is ready (Module scripts are deferred by default, but this is safe)
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initFileTreeController);
 } else {

@@ -5,6 +5,7 @@
  * =====================================================================================
  */
 
+/* eslint-disable no-undef */
 import { TabManager } from './tab_manager.js';
 
 const pathUtils = {
@@ -188,7 +189,7 @@ class VerilogModeManager {
     /**
      * Handle drag enter
      */
-    handleDragEnter(e) {
+    handleDragEnter() {
         if (this.isVerilogModeActive) {
             this.elements.fileTree.classList.add('verilog-dragover');
         }
@@ -600,8 +601,6 @@ class VerilogModeManager {
         const menu = document.createElement('div');
         menu.className = 'verilog-context-menu';
         menu.id = 'verilog-context-menu';
-        
-        const hasTopLevel = this.verilogFiles.some(f => f.isTopLevel);
         
         // Determine menu options
         const topLevelOption = file.isTopLevel

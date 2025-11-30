@@ -259,7 +259,7 @@
  * =================================================================================== */
 .welcome-main-content {
   flex: 1;
-  display: flex;
+  display: block;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -339,6 +339,7 @@
   position: relative;
   overflow: hidden;
   min-width: 160px;
+  left: 30%;
 }
 
 .action-card::before {
@@ -367,6 +368,7 @@
 .action-card.primary-action {
   border-color: var(--accent-subtle-border);
   background: var(--accent-subtle-bg);
+  left: 30%;
 }
 
 .action-card i {

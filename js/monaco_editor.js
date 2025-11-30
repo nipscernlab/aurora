@@ -1,3 +1,7 @@
+/* eslint-disable no-undef */
+// monaco is loaded globally via index.html
+// require is the AMD loader from monaco-editor/min/vs/loader.js
+
 class EditorManager {
     static editors = new Map();
     static activeEditor = null;
@@ -396,12 +400,12 @@ class EditorManager {
                 lineNumber,
                 column
             });
-            editor.revealLineInCenter(lineNumber);
-            editor.focus();
+            _editor.revealLineInCenter(lineNumber);
+            _editor.focus();
         }
     }
 
-    static setupResponsiveObserver(editor) {
+    static setupResponsiveObserver() {
         if (!this.resizeObserver) {
             this.resizeObserver = new ResizeObserver(() => {
                 this.updateResponsiveSettings();
@@ -525,7 +529,6 @@ class EditorManager {
         }
 
         this.editors.forEach(({
-            editor,
             container
         }) => {
             container.style.display = 'none';
@@ -717,7 +720,8 @@ async function initMonaco() {
                     'scrollbarSlider.background': '#776f9720',
                     'scrollbarSlider.hoverBackground': '#776f9740',
                     'scrollbarSlider.activeBackground': '#9d7ff760',
-                    'minimap.background': '#1e1b2c'
+                    'minimap.background': '#1e1b2c',
+                    'minimap.z-index': '0',
                 }
             });
 
@@ -838,7 +842,7 @@ function setupASMLanguage() {
             'JMP', 'JIZ'
         ],
 
-        symbols: /[=><!~?:&|+\-*\/\^%]+/,
+        symbols: /[=><!~?:&|+*/%^-]+/,
 
         tokenizer: {
             root: [
@@ -887,7 +891,7 @@ function setupASMLanguage() {
 
                 // Operadores e símbolos
                 [/[(),]/, 'delimiter'],
-                [/[=<>!+\-*\/]/, 'operator'],
+                [/[=<>!+\-*/]/, 'operator'],
 
                 [/@\w+/, 'annotation.asm'],
             ],
@@ -1072,7 +1076,7 @@ function setupCMMLanguage() {
             '=', '>', '<', '!', '~', '?', ':', '==', '<=', '>=', '!=', '&&', '||', '++', '--', '+', '-', '*', '/', '&', '|', '^', '%', '<<', '>>', '>>>', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '>>>='
         ],
 
-        symbols: /[=><!~?:&|+\-*\/\^%]+/,
+        symbols: /[=><!~?:&|+*/%^-]+/,
 
         escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
@@ -1103,7 +1107,7 @@ function setupCMMLanguage() {
 
                 [/(\d*\.?\d+)(i)\b/, ['number', 'number.complex.imaginary.cmm']],
 
-                [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+                [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
                 [/0[xX][0-9a-fA-F]+/, 'number.hex'],
                 [/\d+/, 'number'],
 
@@ -1134,10 +1138,10 @@ function setupCMMLanguage() {
             ],
 
             comment: [
-                [/[^\/*]+/, 'comment'],
+                [/[^/*]+/, 'comment'],
                 [/\/\*/, 'comment', '@push'],
-                ["\\*/", 'comment', '@pop'],
-                [/[\/*]/, 'comment']
+                [/\*\//, 'comment', '@pop'],
+                [/[/*]/, 'comment']
             ],
 
             string: [

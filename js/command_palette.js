@@ -441,7 +441,7 @@ class CommandPalette {
 
     // Execute mapped action
     try {
-      const res = cmd.action();
+      cmd.action();
       // close after slight delay so UI can update (if necessary)
     } catch (err) {
       console.error('[CommandPalette] error executing command', err);

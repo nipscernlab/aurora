@@ -1,9 +1,7 @@
 // compilation_flow.js
 
 import { CompilationModule } from './compilation_module.js';
-import { showVVPProgress, hideVVPProgress } from './terminal_module.js';
 
-let isCompilationRunning = false;
 let compilationCanceled = false;
 
 // Helper to check the Simulation Toggle State (ID: Verilog Mode)
@@ -40,14 +38,12 @@ function setCompilationButtonsState(disabled) {
 }
 
 function startCompilation() {
-    isCompilationRunning = true;
     compilationCanceled = false;
     setCompilationButtonsState(true);
     window.initializeGlobalTerminalManager();
 }
 
 function endCompilation() {
-    isCompilationRunning = false;
     setCompilationButtonsState(false);
 }
 
@@ -269,7 +265,6 @@ class CompilationFlowManager {
 
     getCurrentMode() {
         const verilogModeToggle = document.getElementById('Verilog Mode');
-        const processorModeRadio = document.getElementById('Processor Mode');
         const projectModeRadio = document.getElementById('Project Mode');
         
         // Based on previous instructions:
@@ -358,7 +353,6 @@ class CompilationFlowManager {
 
     cancelAll() {
         compilationCanceled = true;
-        isCompilationRunning = false;
         window.electronAPI.cancelVvpProcess();
         setCompilationButtonsState(false);
     }

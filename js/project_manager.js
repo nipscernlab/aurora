@@ -121,6 +121,13 @@ class ProjectManager {
             }
         });
 
+        document.getElementById('openProjectBtnWelcome')?.addEventListener('click', async () => {
+            const result = await window.electronAPI.showOpenDialog();
+            if (!result.canceled && result.filePaths.length > 0) {
+                await loadProject(result.filePaths[0]);
+            }
+        });
+
         document.getElementById('projectInfo')?.addEventListener('click', async () => {
             if (!window.currentSpfPath) return;
             try {

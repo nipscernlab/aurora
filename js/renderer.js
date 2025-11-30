@@ -11,11 +11,9 @@ import { projectManager } from './project_manager.js';
 import { aiAssistantManager } from './ai_assistant_manager.js';
 import { uiComponentsManager } from './ui_components.js';
 import { compilationFlowManager } from './compilation_flow.js';
-import { verilogModeManager } from './file_mode.js';
 
 // --- Global State ---
 let currentProjectPath = null;
-let currentSpfPath = null;
 let globalTerminalManager = null;
 
 // --- Global Functions ---
@@ -72,13 +70,14 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-ddocument.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     const websiteLink = document.getElementById('website-link');
     
     if (websiteLink) {
         websiteLink.addEventListener('click', (e) => {
             e.preventDefault();
-            require('electron').shell.openExternal('https://nipscern.com');
+            // CORREÇÃO AQUI: Usando a API exposta pelo preload
+            window.electronAPI.openExternal('https://nipscern.com');
         });
     }
 });

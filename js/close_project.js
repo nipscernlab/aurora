@@ -4,6 +4,9 @@
  * @date November 12, 2025
  */
 
+// Import the generic dialog module
+import { showDialog } from './dialogManager.js'; // Adjust path as necessary
+
 function disableCompileButtons() {
     const buttonIds = [
         'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 
@@ -24,6 +27,7 @@ function disableCompileButtons() {
 
     statusElement.classList.add('fading');
     statusElement.style.cursor = 'pointer';
+    
     const onFadeOutComplete = () => {
         statusElement.removeEventListener('transitionend', onFadeOutComplete);
 
@@ -76,7 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!closeButton) return;
 
     closeButton.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to close the current project?')) {
+        
+        // 1. Replace native confirm with custom dialog
+        const userChoice = await showDialog({
+            title: 'Close Project',
+            message: 'Are you sure you want to close the current project?',
+            buttons: [
+                { label: 'Cancel', action: 'cancel', type: 'cancel' },
+                { label: 'Close Project', action: 'confirm', type: 'save' } // Using 'save' class for the primary button style
+            ]
+        });
+
+        if (userChoice !== 'confirm') {
             return;
         }
 
@@ -90,11 +105,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearProjectInterface();
             } else {
                 console.error('Failed to close project:', result.error);
-                alert(`Error: Could not close the project. Reason: ${result.error}`);
+                
+                // 2. Replace native alert (Error) with custom dialog
+                await showDialog({
+                    title: 'Error',
+                    message: `Could not close the project.<br>Reason: ${result.error}`,
+                    buttons: [
+                        { label: 'OK', action: 'ok', type: 'cancel' } // Using 'cancel' style for neutral 'OK'
+                    ]
+                });
             }
         } catch (error) {
             console.error('An unexpected error occurred while closing the project:', error);
-            alert('An unexpected error occurred. Please check the console for details.');
+            
+            // 3. Replace native alert (Exception) with custom dialog
+            await showDialog({
+                title: 'Unexpected Error',
+                message: 'An unexpected error occurred. Please check the console for details.',
+                buttons: [
+                    { label: 'OK', action: 'ok', type: 'cancel' }
+                ]
+            });
         } finally {
             closeButton.disabled = false;
             closeButton.style.cursor = 'pointer';

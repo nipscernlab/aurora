@@ -13,8 +13,6 @@
     let iconUploadInput;
     let auroraIcons;
     let fallbackIcons;
-    
-    let isIconLoaded = false;
 
     /**
      * Updates all aurora icon images with the new source.

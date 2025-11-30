@@ -2,6 +2,32 @@
 
 import { TabManager } from './tab_manager.js';
 
+const treeStyle = document.createElement('style');
+treeStyle.textContent = `
+    .tree-delete-btn {
+        opacity: 0; /* Invisível por padrão */
+        pointer-events: none; /* Não clicável quando invisível */
+        transition: opacity 0.2s ease-in-out;
+        padding: 4px 8px;
+        color: #ff4444;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Quando passar o mouse sobre o item do arquivo, mostre o botão */
+    .file-item:hover .tree-delete-btn {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .tree-delete-btn:hover {
+        color: #ff0000; /* Vermelho mais forte ao passar o mouse no ícone */
+        transform: scale(1.1);
+    }
+`;
+document.head.appendChild(treeStyle);
+
 // --- Tree View State (Standard vs. Hierarchical) ---
 const TreeViewState = {
     isHierarchical: false,
@@ -145,13 +171,26 @@ async function refreshFileTree() {
 }
 
 function renderFileTree(files, container, level = 0) {
-    if (!Array.isArray(files)) return;
+    if (!files || files.length === 0) {
+        if (level === 0) {
+            container.innerHTML = '<div class="empty-tree">No files found</div>';
+        }
+        return;
+    }
 
+    // --- NOVA LÓGICA DE FILTRAGEM ---
+    // Mantém diretórios, remove arquivos ocultos (.), remove .spf e os JSONs de configuração específicos
     const filteredFiles = files.filter(file => {
         if (file.type === 'directory') return true;
-        return !['projectOriented.json', 'processorConfig.json',  'projectOriented.json',  'fileOriented.json'].includes(file.name) && !file.name.endsWith('.spf');
+        
+        const ignoredFiles = ['projectOriented.json', 'processorConfig.json', 'fileOriented.json'];
+        
+        return !file.name.startsWith('.') && 
+               !ignoredFiles.includes(file.name) && 
+               !file.name.endsWith('.spf');
     });
 
+    // Ordenação (Diretórios primeiro, depois alfabético)
     filteredFiles.sort((a, b) => {
         if (a.type === 'directory' && b.type !== 'directory') return -1;
         if (a.type !== 'directory' && b.type === 'directory') return 1;
@@ -161,63 +200,107 @@ function renderFileTree(files, container, level = 0) {
     filteredFiles.forEach(file => {
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'file-tree-item';
+        itemWrapper.setAttribute('data-path', file.path);
+
         const item = document.createElement('div');
         item.className = 'file-item';
-        item.style.paddingLeft = `${level * 20}px`;
+
+        // Conteúdo (Ícone + Texto)
+        const contentWrapper = document.createElement('div');
+        contentWrapper.style.display = 'flex';
+        contentWrapper.style.alignItems = 'center';
+        contentWrapper.style.flexGrow = '1';
+        contentWrapper.style.overflow = 'hidden';
+
         const icon = document.createElement('i');
-        const filePath = file.path;
-
+        icon.className = 'file-item-icon';
         if (file.type === 'directory') {
-            itemWrapper.setAttribute('data-path', filePath);
-            const folderToggle = document.createElement('i');
-            folderToggle.className = 'fa-solid fa-caret-right folder-toggle';
-            item.appendChild(folderToggle);
-            icon.className = 'fas fa-folder file-item-icon';
-            item.appendChild(icon);
-
-            const childContainer = document.createElement('div');
-            childContainer.className = 'folder-content hidden';
-            if (FileTreeState.isExpanded(filePath)) {
-                childContainer.classList.remove('hidden');
-                folderToggle.classList.add('rotated');
-                icon.classList.replace('fa-folder', 'fa-folder-open');
-            }
-
-            item.addEventListener('click', () => {
-                const isExpanded = childContainer.classList.toggle('hidden');
-                folderToggle.classList.toggle('rotated');
-                icon.classList.toggle('fa-folder');
-                icon.classList.toggle('fa-folder-open');
-                FileTreeState.toggleFolder(filePath, !isExpanded);
-            });
-
-            if (file.children && Array.isArray(file.children)) {
-                renderFileTree(file.children, childContainer, level + 1);
-            }
-            itemWrapper.appendChild(item);
-            itemWrapper.appendChild(childContainer);
+            const isExpanded = FileTreeState.isExpanded(file.path);
+            icon.classList.add('fa-solid', isExpanded ? 'fa-folder-open' : 'fa-folder');
         } else {
             icon.className = TabManager.getFileIcon(file.name);
-            itemWrapper.setAttribute('data-path', file.path);
-            item.addEventListener('click', async () => {
+        }
+        contentWrapper.appendChild(icon);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = file.name;
+        nameSpan.style.marginLeft = '8px';
+        nameSpan.style.whiteSpace = 'nowrap';
+        nameSpan.style.overflow = 'hidden';
+        nameSpan.style.textOverflow = 'ellipsis';
+        contentWrapper.appendChild(nameSpan);
+
+        item.appendChild(contentWrapper);
+
+        // --- LÓGICA DO ÍCONE DA LIXEIRA (MANTIDA) ---
+        const isProcessor = file.type === 'directory' && 
+                            Array.isArray(window.availableProcessors) && 
+                            window.availableProcessors.includes(file.name);
+
+        if (isProcessor) {
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'tree-delete-btn';
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+            deleteBtn.title = 'Delete Processor';
+            
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.confirmAndDeleteProcessor === 'function') {
+                    window.confirmAndDeleteProcessor(file.name);
+                } else {
+                    console.error("Função window.confirmAndDeleteProcessor não encontrada.");
+                }
+            });
+
+            item.appendChild(deleteBtn);
+        }
+
+        // Eventos de clique do item
+        item.addEventListener('click', async (e) => {
+            if (file.type === 'directory') {
+                const isExpanded = FileTreeState.isExpanded(file.path);
+                FileTreeState.toggleFolder(file.path, !isExpanded);
+                
+                // Atualização visual imediata
+                const folderIcon = item.querySelector('.fa-folder, .fa-folder-open');
+                if (folderIcon) {
+                    folderIcon.classList.toggle('fa-folder');
+                    folderIcon.classList.toggle('fa-folder-open');
+                }
+                
+                // Gerencia visibilidade dos filhos
+                let childContainer = itemWrapper.querySelector('.folder-content');
+                if (!childContainer && !isExpanded && file.children) {
+                    childContainer = document.createElement('div');
+                    childContainer.className = 'folder-content';
+                    renderFileTree(file.children, childContainer, level + 1);
+                    itemWrapper.appendChild(childContainer);
+                } else if (childContainer) {
+                    childContainer.classList.toggle('hidden', isExpanded);
+                }
+            } else {
                 try {
                     const content = await window.electronAPI.readFile(file.path);
                     TabManager.addTab(file.path, content);
                 } catch (error) {
                     console.error('Error opening file:', error);
                 }
-            });
-            item.appendChild(icon);
-            itemWrapper.appendChild(item);
+            }
+        });
+
+        itemWrapper.appendChild(item);
+
+        // Renderiza filhos se já estiver expandido
+        if (file.type === 'directory' && FileTreeState.isExpanded(file.path) && file.children) {
+            const childContainer = document.createElement('div');
+            childContainer.className = 'folder-content';
+            renderFileTree(file.children, childContainer, level + 1);
+            itemWrapper.appendChild(childContainer);
         }
 
-        const name = document.createElement('span');
-        name.textContent = file.name;
-        item.appendChild(name);
         container.appendChild(itemWrapper);
     });
 }
-
 // --- File Tree Search ---
 class FileTreeSearch {
     constructor() {
@@ -539,3 +622,5 @@ class FileTreeManager {
 
 const fileTreeManager = new FileTreeManager();
 export { fileTreeManager, TreeViewState };
+
+window.refreshFileTree = refreshFileTree;

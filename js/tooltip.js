@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'browseBtn': 'Browse and select the directory where the new project will be created.',
         'generateProjectBtn': 'Generate the new project with the specified name and location.',
         'cancelProjectBtn': 'Cancel the new project creation and close the dialog.',
-        'projectNameInput': 'Enter a name, without blank space, for your new processor project.',
+        'projectNameInput': 'Enter a name, without blank space, for your new project.',
         'projectLocationInput': 'Specify the directory where the project files will be created.',
         'processorName': 'Enter a unique name, without blank space, for your processor (used in file generation).',
         'nBits': 'Total number of bits for the processor architecture (must equal mantissa + exponent + 1 sign bit).',

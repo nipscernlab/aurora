@@ -5,9 +5,6 @@
 */
 
 /* --- import existing toolbar.css (uploaded file path) --- */
-/* NOTE: environment will convert the local path to an accessible URL. */
-@import url("file:///mnt/data/toolbar.css");
-
 /* -------------------- palette base -------------------- */
 .aurora-command-palette-overlay {
   position: fixed;

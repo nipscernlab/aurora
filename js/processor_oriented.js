@@ -1,4 +1,5 @@
 //modalProcessorConfig.js Modal configuration Processor Oriented Configuration
+import { showDialog } from './dialogManager.js';
 
 const settingsButton = document.getElementById("settings");
 const modal = document.getElementById("modalProcessorConfig");
@@ -22,6 +23,8 @@ let availableProcessors = [];
 let selectedProcessor = null;
 let selectedCmmFile = null;
 
+window.availableProcessors = [];
+
 let currentConfig = {
   processors: [],
   iverilogFlags: [],
@@ -33,307 +36,114 @@ let currentConfig = {
 
 };
 
-// Create a custom confirmation dialog component
-function createConfirmationDialog() {
-  // Check if dialog already exists and remove it
-  const existingDialog = document.getElementById('custom-confirm-dialog');
-  if (existingDialog) {
-    document.body.removeChild(existingDialog);
-  }
+// --- Global Delete Handler (Accessible by File Tree) ---
+window.confirmAndDeleteProcessor = async function(processorName) {
+    if (!processorName) return;
 
-  // Create dialog container
-  const dialog = document.createElement('div');
-  dialog.id = 'custom-confirm-dialog';
-  dialog.style.position = 'fixed';
-  dialog.style.top = '0';
-  dialog.style.left = '0';
-  dialog.style.width = '100%';
-  dialog.style.height = '100%';
-  dialog.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-  dialog.style.display = 'flex';
-  dialog.style.justifyContent = 'center';
-  dialog.style.alignItems = 'center';
-  dialog.style.zIndex = '9999';
-  dialog.style.opacity = '0';
-  dialog.style.transition = 'opacity 0.3s ease';
+    // Usa o dialogManager padronizado
+    const result = await showDialog({
+        title: 'Confirm Deletion',
+        message: `Are you sure you want to delete the processor "<strong>${processorName}</strong>"?<br>This action cannot be undone.`,
+        buttons: [
+            { label: 'Cancel', action: 'cancel', type: 'cancel' },
+            { label: 'Delete', action: 'confirm', type: 'save' } 
+        ]
+    });
 
-  // Create dialog content
-  const dialogContent = document.createElement('div');
-  dialogContent.style.backgroundColor = 'var(--bg-tertiary)';
-  dialogContent.style.borderRadius = '8px';
-  dialogContent.style.boxShadow = 'var(--shadow-lg)';
-  dialogContent.style.padding = '24px';
-  dialogContent.style.maxWidth = '400px';
-  dialogContent.style.width = '90%';
-  dialogContent.style.transform = 'translateY(-20px)';
-  dialogContent.style.transition = 'transform 0.3s ease';
-  dialogContent.style.border = '1px solid var(--border-primary)';
+    if (result === 'confirm') {
+        try {
+            await window.electronAPI.deleteProcessor(processorName);
+            console.log(`Processor "${processorName}" deleted.`);
 
-  return {
-    dialog,
-    dialogContent
-  };
-}
+            // Atualiza listas e interface
+            await loadAvailableProcessors(); 
+            
+            // Limpa a seleção no modal se necessário
+            const processorSelect = document.getElementById("processorSelect");
+            const deleteBtn = document.getElementById("deleteProcessor");
+            
+            if (processorSelect && processorSelect.value === processorName) {
+                processorSelect.value = "";
+                if (deleteBtn) deleteBtn.disabled = true;
+                processorSelect.dispatchEvent(new Event('change'));
+            }
 
-// Function to display a custom confirmation dialog
-function showConfirmationDialog(message, onConfirm, onCancel) {
-  const { dialog, dialogContent } = createConfirmationDialog();
-
-  // Create dialog header
-  const header = document.createElement('div');
-  header.style.marginBottom = '16px';
-  
-  const icon = document.createElement('span');
-  icon.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-      <line x1="12" y1="9" x2="12" y2="13"></line>
-      <line x1="12" y1="17" x2="12.01" y2="17"></line>
-    </svg>
-  `;
-  icon.style.marginRight = '12px';
-  icon.style.display = 'inline-block';
-  icon.style.verticalAlign = 'middle';
-  
-  const title = document.createElement('span');
-  title.textContent = "Confirm Deletion";
-  title.style.fontSize = '18px';
-  title.style.fontWeight = 'bold';
-  title.style.color = 'var(--text-primary)';
-  title.style.verticalAlign = 'middle';
-  
-  header.appendChild(icon);
-  header.appendChild(title);
-
-  // Create message
-  const messageEl = document.createElement('p');
-  messageEl.textContent = message;
-  messageEl.style.color = 'var(--text-secondary)';
-  messageEl.style.marginBottom = '20px';
-  messageEl.style.fontSize = '14px';
-  messageEl.style.lineHeight = '1.5';
-
-  // Create buttons container
-  const buttonsContainer = document.createElement('div');
-  buttonsContainer.style.display = 'flex';
-  buttonsContainer.style.justifyContent = 'flex-end';
-  buttonsContainer.style.gap = '12px';
-
-  // Create cancel button
-  const cancelButton = document.createElement('button');
-  cancelButton.textContent = "Cancel";
-  cancelButton.style.padding = '8px 16px';
-  cancelButton.style.borderRadius = '4px';
-  cancelButton.style.backgroundColor = 'transparent';
-  cancelButton.style.color = 'var(--text-secondary)';
-  cancelButton.style.border = '1px solid var(--border-primary)';
-  cancelButton.style.cursor = 'pointer';
-  cancelButton.style.fontFamily = 'var(--font-sans)';
-  cancelButton.style.fontSize = '14px';
-  cancelButton.style.transition = 'all 0.2s ease';
-
-  // Hover effects for cancel button
-  cancelButton.addEventListener('mouseover', () => {
-    cancelButton.style.backgroundColor = 'var(--bg-hover)';
-  });
-  cancelButton.addEventListener('mouseout', () => {
-    cancelButton.style.backgroundColor = 'transparent';
-  });
-
-  // Create confirm button
-  const confirmButton = document.createElement('button');
-  confirmButton.textContent = "Delete";
-  confirmButton.style.padding = '8px 16px';
-  confirmButton.style.borderRadius = '4px';
-  confirmButton.style.backgroundColor = 'var(--error)';
-  confirmButton.style.color = 'white';
-  confirmButton.style.border = 'none';
-  confirmButton.style.cursor = 'pointer';
-  confirmButton.style.fontFamily = 'var(--font-sans)';
-  confirmButton.style.fontSize = '14px';
-  confirmButton.style.transition = 'all 0.2s ease';
-
-  // Hover effect for confirm button
-  confirmButton.addEventListener('mouseover', () => {
-    confirmButton.style.backgroundColor = '#f65d78'; // Lighter error color
-  });
-  confirmButton.addEventListener('mouseout', () => {
-    confirmButton.style.backgroundColor = 'var(--error)';
-  });
-
-  // Append elements to dialog content
-  dialogContent.appendChild(header);
-  dialogContent.appendChild(messageEl);
-  buttonsContainer.appendChild(cancelButton);
-  buttonsContainer.appendChild(confirmButton);
-  dialogContent.appendChild(buttonsContainer);
-  dialog.appendChild(dialogContent);
-
-  // Add to DOM
-  document.body.appendChild(dialog);
-
-  // Trigger animation
-  setTimeout(() => {
-    dialog.style.opacity = '1';
-    dialogContent.style.transform = 'translateY(0)';
-  }, 10);
-
-  // Close dialog function
-  const closeDialog = () => {
-    dialog.style.opacity = '0';
-    dialogContent.style.transform = 'translateY(-20px)';
-    setTimeout(() => {
-      if (dialog.parentNode) {
-        dialog.parentNode.removeChild(dialog);
-      }
-    }, 300);
-  };
-
-  // Add event listeners
-  cancelButton.addEventListener('click', () => {
-    closeDialog();
-    if (onCancel) onCancel();
-  });
-
-  confirmButton.addEventListener('click', () => {
-    closeDialog();
-    onConfirm();
-  });
-
-  // Close on backdrop click
-  dialog.addEventListener('click', (e) => {
-    if (e.target === dialog) {
-      closeDialog();
-      if (onCancel) onCancel();
+        } catch (error) {
+            console.error("Failed to delete processor:", error);
+            await showDialog({
+                title: 'Error',
+                message: `Failed to delete processor: ${error.message}`,
+                buttons: [{ label: 'Close', action: 'close', type: 'cancel' }]
+            });
+        }
     }
-  });
+};
 
-  // Add keyboard support (Escape to cancel, Enter to confirm)
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      closeDialog();
-      if (onCancel) onCancel();
-    } else if (e.key === 'Enter') {
-      closeDialog();
-      onConfirm();
+const dialogStyle = document.createElement('style');
+dialogStyle.innerHTML = `
+    .confirm-modal {
+        z-index: 20000 !important; /* Valor bem alto para sobrepor o modal de settings */
     }
-  };
-  
-  document.addEventListener('keydown', handleKeyDown);
-  
-  // Clean up event listener when dialog is closed
-  const cleanupKeyListener = () => {
-    document.removeEventListener('keydown', handleKeyDown);
-  };
-  
-  dialog.addEventListener('transitionend', () => {
-    if (dialog.style.opacity === '0') {
-      cleanupKeyListener();
-    }
-  });
-
-  return {
-    close: closeDialog
-  };
-}
-
+`;
+document.head.appendChild(dialogStyle);
 
 // Temporary storage for processor configurations
 let tempProcessorConfigs = {};
 
 // Get available processors from the main process
 async function loadAvailableProcessors() {
-  try {
-    // First try to get current project info from the main process
-    const projectInfo = await window.electronAPI.getCurrentProject();
-    
-    if (projectInfo.projectOpen) {
-      console.log("Current project found:", projectInfo);
-      window.currentProjectPath = projectInfo.projectPath;
-      localStorage.setItem('currentProjectPath', projectInfo.projectPath);
-      localStorage.setItem('currentSpfPath', projectInfo.spfPath);
-      
-      // Use processors from the current project
-      availableProcessors = projectInfo.processors || [];
-      updateProcessorSelect();
-      return availableProcessors;
+    try {
+        const projectInfo = await window.electronAPI.getCurrentProject();
+        let processors = [];
+        
+        if (projectInfo.projectOpen) {
+            processors = projectInfo.processors || [];
+        } else {
+             const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+             if (currentProjectPath) {
+                 processors = await window.electronAPI.getAvailableProcessors(currentProjectPath);
+             }
+        }
+
+        availableProcessors = processors;
+        window.availableProcessors = processors;
+
+        updateProcessorSelect();
+
+        // Atualiza a árvore para mostrar os ícones de lixeira (se necessário)
+        if (typeof window.refreshFileTree === 'function') {
+            await window.refreshFileTree();
+        }
+
+        return processors;
+    } catch (error) {
+        console.error("Error loading processors:", error);
+        return [];
     }
-    
-    // If no current project, try to use stored project path
-    const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
-    
-    if (!currentProjectPath) {
-      console.warn("No project path available to load processors");
-      availableProcessors = [];
-      updateProcessorSelect();
-      return [];
-    }
-    
-    console.log("Loading processors for project:", currentProjectPath);
-    
-    // Call the IPC method to get processors with the current project path
-    const processors = await window.electronAPI.getAvailableProcessors(currentProjectPath);
-    console.log("Loaded processors:", processors);
-    
-    availableProcessors = processors || [];
-    updateProcessorSelect();
-    return availableProcessors;
-  } catch (error) {
-    console.error("Failed to load available processors:", error);
-    // Don't throw the error, just use empty array to continue
-    availableProcessors = [];
-    updateProcessorSelect();
-    return [];
-  }
 }
 
-// Update the processor select dropdown with available processors
 function updateProcessorSelect() {
-  console.log("Updating processor select with processors:", availableProcessors);
-  
-  // Clear existing options
-  processorSelect.innerHTML = '';
-  
-  // Add a default option
-  const defaultOption = document.createElement("option");
-  defaultOption.value = "";
-  defaultOption.textContent = "Select Processor";
-  defaultOption.disabled = true;
-  
-  // Se não há processadores ou nenhum está selecionado, selecione a opção padrão
-  defaultOption.selected = availableProcessors.length === 0 || !selectedProcessor;
-  processorSelect.appendChild(defaultOption);
-  
-  // Add processor options
-  availableProcessors.forEach(processor => {
-    const option = document.createElement("option");
-    option.value = processor;
-    option.textContent = processor;
-    option.selected = processor === selectedProcessor;
-    processorSelect.appendChild(option);
-    console.log(`Added processor option: ${processor}`);
-  });
-  
-  // Garantir que selectedProcessor está definido corretamente
-  if (availableProcessors.length > 0 && !selectedProcessor) {
-    selectedProcessor = availableProcessors[0];
-    console.log("Auto-selected the first processor:", selectedProcessor);
-  } else if (availableProcessors.length === 0) {
-    // Se não há processadores, garantir que selectedProcessor é nulo
-    selectedProcessor = null;
-    console.log("No processors available, set selectedProcessor to null");
-  }
-  
-  // Enable/disable delete button based on selection
-  deleteProcessorButton.disabled = !selectedProcessor;
-  
-  // Force a UI refresh
-  processorSelect.blur();
-  processorSelect.focus();
+    const processorSelect = document.getElementById("processorSelect");
+    if (!processorSelect) return;
+
+    const currentSelection = processorSelect.value;
+    processorSelect.innerHTML = '<option value="">Choose a processor...</option>';
+
+    availableProcessors.forEach(proc => {
+        const option = document.createElement("option");
+        option.value = proc;
+        option.textContent = proc;
+        processorSelect.appendChild(option);
+    });
+
+    if (availableProcessors.includes(currentSelection)) {
+        processorSelect.value = currentSelection;
+        const deleteBtn = document.getElementById("deleteProcessor");
+        if (deleteBtn) deleteBtn.disabled = false;
+    }
 }
 
 // Update the saveCurrentProcessorToTemp function to save simulation file selections
-// Cole este código no lugar da função loadCmmFiles existente
 
 async function loadCmmFiles(processorName) {
   if (!cmmFileSelect) {
@@ -1436,17 +1246,38 @@ styleElement.textContent = `
   }
 `;
 document.head.appendChild(styleElement);
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Get references to the DOM elements once the document is ready
   const clkInput = document.getElementById("processorClk");
   const numClocksInput = document.getElementById("processorNumClocks");
   const simulTimeInput = document.getElementById("processorSimulTime");
+const deleteProcessorButton = document.getElementById("deleteProcessor");
+    const processorSelect = document.getElementById("processorSelect");
 
-  /**
-   * Calculates the clock period in picoseconds (ps) from a frequency in MHz.
-   * @param {number} freqMHz - The clock frequency in MHz.
-   * @returns {number|null} The clock period in ps, or null if frequency is invalid.
-   */
+    // Remove qualquer listener antigo clonando o nó (hack rápido) ou apenas garantindo que o código antigo foi removido do arquivo.
+    // Assumindo que você substituiu o código antigo por este:
+    
+    if (deleteProcessorButton && processorSelect) {
+        // Removemos listeners anteriores para evitar "duplo aviso"
+        const newBtn = deleteProcessorButton.cloneNode(true);
+        deleteProcessorButton.parentNode.replaceChild(newBtn, deleteProcessorButton);
+        
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const processorName = processorSelect.value;
+            if (processorName) {
+                window.confirmAndDeleteProcessor(processorName);
+            }
+        });
+
+        processorSelect.addEventListener('change', () => {
+            newBtn.disabled = !processorSelect.value;
+        });
+    }
+
+    loadAvailableProcessors();
+
   function getClockPeriodInPicoseconds(freqMHz) {
     if (!freqMHz || freqMHz <= 0) {
       return null;

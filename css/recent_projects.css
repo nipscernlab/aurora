@@ -354,7 +354,6 @@
 .action-card:hover {
   transform: translateY(-4px);
   border-color: var(--accent-subtle-border);
-  box-shadow: var(--shadow-lg), 0 0 30px rgba(155, 89, 182, 0.2);
 }
 
 .action-card:hover::before {

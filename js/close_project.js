@@ -6,6 +6,7 @@
 
 // Import the generic dialog module
 import { showDialog } from './dialogManager.js'; // Adjust path as necessary
+import { TabManager } from './tab_manager.js';
 
 function disableCompileButtons() {
     const buttonIds = [
@@ -102,6 +103,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await window.electronAPI.closeProject();
 
             if (result.success) {
+                // Close all open tabs properly using TabManager
+                // This ensures watchers are stopped and UI state is cleared
+                const openFiles = Array.from(TabManager.tabs.keys());
+                for (const file of openFiles) {
+                    await TabManager.closeTab(file);
+                }
+
                 clearProjectInterface();
             } else {
                 console.error('Failed to close project:', result.error);

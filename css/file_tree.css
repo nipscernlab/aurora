@@ -434,6 +434,21 @@
 }
 
 /* --- Estilos Aplicados na Árvore de Arquivos --- */
+/* Styling for the trash button inside the file tree */
+.file-tree-item .tree-delete-btn {
+    color: #ff4444; /* Standard Red */
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.file-tree-item:hover .tree-delete-btn {
+    opacity: 1;
+}
+
+.file-tree-item .tree-delete-btn:hover {
+    transform: scale(1.1);
+    color: #ff0000; /* Brighter Red on hover */
+}
 
 /* Item que corresponde à busca */
 .file-tree-item.search-match > .file-item {

@@ -1,87 +1,151 @@
 import { projectManager } from './project_manager.js';
+import { showDialog } from './dialogManager.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     const newProjectModal = document.getElementById("newProjectModal");
     const newProjectBtn = document.getElementById("newProjectBtn");
     const newProjectBtnWelcome = document.getElementById("newProjectBtnWelcome");
+    
+    // Input Elements
+    const projectNameInput = document.getElementById('projectNameInput');
+    const projectLocationInput = document.getElementById('projectLocationInput');
 
-    // Open the "New Project" modal when the button is clicked
-    newProjectBtn.addEventListener("click", () => {
-        newProjectModal.classList.remove("hidden");
+    // --- Styling Helpers ---
+
+    const setErrorStyle = (element) => {
+        element.style.border = "1px solid rgba(255, 82, 82, 0.8)"; // Soft red
+        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)"; // Slight glow
+        element.style.transition = "border 0.3s ease";
+    };
+
+    const resetInputStyle = (element) => {
+        element.style.border = "";
+        element.style.boxShadow = "";
+    };
+
+    /**
+     * Checks if the input contains spaces.
+     * Applies error style if spaces are found, removes it otherwise.
+     * @param {HTMLElement} element - The input element to validate
+     * @returns {boolean} - Returns false if invalid (has spaces), true if valid.
+     */
+    const validateInput = (element) => {
+        const value = element.value;
+        const hasSpaceRegex = /\s/;
+
+        if (hasSpaceRegex.test(value)) {
+            setErrorStyle(element);
+            return false; // Invalid
+        } else {
+            resetInputStyle(element);
+            return true; // Valid
+        }
+    };
+
+    // --- Event Listeners for Live Validation ---
+
+    // 1. Live check for Project Name (typing)
+    projectNameInput.addEventListener('input', () => {
+        validateInput(projectNameInput);
     });
 
-    newProjectBtnWelcome.addEventListener("click", () => {
-        newProjectModal.classList.remove("hidden");
-    });
+    // --- Modal Logic ---
 
-    // Handle the "Browse" button to select a directory
+    // Open Modal Handlers
+    const openModal = () => {
+        newProjectModal.classList.remove("hidden");
+        // Reset styles and values when opening fresh
+        resetInputStyle(projectNameInput);
+        resetInputStyle(projectLocationInput);
+    };
+
+    if(newProjectBtn) newProjectBtn.addEventListener("click", openModal);
+    if(newProjectBtnWelcome) newProjectBtnWelcome.addEventListener("click", openModal);
+
+    // Handle "Browse" Button
     document.getElementById('browseBtn').addEventListener('click', async () => {
         try {
             const folderPath = await window.electronAPI.selectDirectory();
+            
             if (folderPath) {
-                document.getElementById('projectLocationInput').value = folderPath;
+                projectLocationInput.value = folderPath;
+                // Trigger live validation immediately after selection
+                validateInput(projectLocationInput);
             }
         } catch (error) {
             console.error('Error selecting directory:', error);
         }
     });
 
-    // Handle the "Generate Project" button to create a new project
+    // Handle "Generate Project" Button
     document.getElementById('generateProjectBtn').addEventListener('click', async () => {
         try {
-            const projectName = document.getElementById('projectNameInput').value.trim();
-            const projectLocation = document.getElementById('projectLocationInput').value.trim();
+            const projectName = projectNameInput.value.trim();
+            const projectLocation = projectLocationInput.value.trim();
 
-            // Validate input fields
+            // 1. Check for Empty Fields
             if (!projectName || !projectLocation) {
-                alert('Please enter both Project Name and Location.');
+                await showDialog({
+                    title: 'Missing Information',
+                    message: 'Please enter both the Project Name and Project Location.',
+                    buttons: [{ label: 'OK', action: 'ok', type: 'save' }]
+                });
                 return;
             }
 
-            // Define the project folder and SPF file paths
+            // 2. Check for Spaces (Final Validation check before submission)
+            const isNameValid = validateInput(projectNameInput);
+            const isLocationValid = validateInput(projectLocationInput);
+
+            if (!isNameValid || !isLocationValid) {
+                await showDialog({
+                    title: 'Invalid Input',
+                    message: 'Spaces are not allowed in the Project Name or Project Location path.',
+                    buttons: [{ label: 'Understood', action: 'ok', type: 'save' }]
+                });
+                return; 
+            }
+
+            // Define Paths
             const projectPath = `${projectLocation}\\${projectName}`;
             const spfPath = `${projectPath}\\${projectName}.spf`;
 
-            console.log('Project Name:', projectName);
-            console.log('Project Location:', projectLocation);
-            console.log('Project Path:', projectPath);
-            console.log('SPF Path:', spfPath);
-
-            // Validate paths and project name
-            if (!projectPath || !spfPath || !projectName) {
-                alert('Please provide valid project path, SPF path, and project name.');
-                return;
-            }
-
-            // Call the function to create the project structure
+            // Call API to create structure
             const result = await window.electronAPI.createProjectStructure(projectPath, spfPath, projectName);
 
             if (result.success) {
-                // Close the modal
                 closeNewProjectModal();
 
-                // Wait briefly to ensure files are created
+                // Wait briefly to ensure file system acts
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Load the project using the correct SPF path
+                // Load Project
+                // This call triggers enableCompileButtons() in project_manager.js
+                // which handles the UI transition (Not Ready -> Ready) automatically.
                 await projectManager.loadProject(spfPath);
+
             } else {
                 throw new Error('Failed to create project structure');
             }
 
         } catch (error) {
             console.error('Error generating project:', error);
-            alert('Failed to create the project. See console for details.');
+            await showDialog({
+                title: 'Generation Error',
+                message: 'Failed to create the project. Please check the console for details.',
+                buttons: [{ label: 'Close', action: 'close', type: 'cancel' }]
+            });
         }
     });
 
-    // Close the "New Project" modal and reset form fields
+    // Close Modal Logic
     function closeNewProjectModal() {
         newProjectModal.classList.add('hidden');
-        document.getElementById('projectNameInput').value = '';
-        document.getElementById('projectLocationInput').value = '';
+        projectNameInput.value = '';
+        projectLocationInput.value = '';
+        resetInputStyle(projectNameInput);
+        resetInputStyle(projectLocationInput);
     }
 
-    // Handle the "Cancel" button to close the modal
     document.getElementById('cancelProjectBtn').addEventListener('click', closeNewProjectModal);
 });

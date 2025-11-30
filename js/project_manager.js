@@ -47,8 +47,10 @@ function showProjectInfoDialog(projectData) {
     modalContainer.querySelector('.aurora-modal-close').addEventListener('click', closeModal);
 }
 
+// CORREÇÃO AQUI: Atualização direta da UI sem depender de animações CSS
 function enableCompileButtons() {
     const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'settings-project'];
+    
     buttons.forEach(id => {
         const button = document.getElementById(id);
         if (button) {
@@ -58,37 +60,27 @@ function enableCompileButtons() {
     });
 
     const statusElement = document.getElementById('ready');
+    const statusText = document.getElementById('status-text');
+    const icon = statusElement ? statusElement.querySelector('i') : null;
+
     if (statusElement) {
+        // 1. Configura o cursor
         statusElement.style.cursor = 'default';
-        // Adiciona a classe 'fading' para iniciar a transição de desaparecimento
-        statusElement.classList.add('fading');
+        
+        // 2. Adiciona a classe visual de pronto
+        statusElement.classList.add('ready');
+        statusElement.classList.remove('fading'); // Remove caso tenha sobrado de alguma tentativa anterior
 
-        // Função que será executada ao final da transição
-        const onFadeOut = () => {
-            // Remove o listener para não ser acionado novamente na transição de volta
-            statusElement.removeEventListener('transitionend', onFadeOut);
+        // 3. Troca o ícone imediatamente
+        if (icon) {
+            // Reseta as classes para garantir e aplica o novo ícone
+            icon.className = 'fa-solid fa-plug-circle-check';
+        }
 
-            const icon = statusElement.querySelector('i');
-            const statusText = document.getElementById('status-text');
-
-            // Altera o ícone
-            if (icon) {
-                icon.classList.remove('fa-plug-circle-xmark');
-                icon.classList.add('fa-plug-circle-check');
-            }
-
-            // Altera o texto
-            if (statusText) {
-                statusText.textContent = 'Ready';
-            }
-            
-            // Adiciona a classe 'ready' para alterar a cor e remove a 'fading' para reaparecer
-            statusElement.classList.add('ready');
-            statusElement.classList.remove('fading');
-        };
-
-        // Adiciona um listener para o evento de fim da transição
-        statusElement.addEventListener('transitionend', onFadeOut);
+        // 4. Troca o texto imediatamente
+        if (statusText) {
+            statusText.textContent = 'Ready';
+        }
     }
 }
 
@@ -100,13 +92,18 @@ async function loadProject(spfPath) {
         
         updateProjectNameUI(result.projectData);
         await TabManager.closeAllTabs();
-        enableCompileButtons();
+        
+        // Atualiza a árvore de arquivos
         fileTreeManager.updateFileTree(result.files);
         fileTreeManager.watcher.startWatching(window.currentProjectPath);
 
         if (window.recentProjectsManager) {
             window.recentProjectsManager.addProject(spfPath);
         }
+
+        // Habilita os botões E atualiza o status para Ready
+        enableCompileButtons();
+
     } catch (error) {
         console.error('Error loading project:', error);
     }
@@ -114,6 +111,7 @@ async function loadProject(spfPath) {
 
 class ProjectManager {
     initialize() {
+        // Listener para o botão "Open Project" da UI principal
         document.getElementById('openProjectBtn')?.addEventListener('click', async () => {
             const result = await window.electronAPI.showOpenDialog();
             if (!result.canceled && result.filePaths.length > 0) {
@@ -121,6 +119,7 @@ class ProjectManager {
             }
         });
 
+        // Listener para o botão da tela de boas-vindas
         document.getElementById('openProjectBtnWelcome')?.addEventListener('click', async () => {
             const result = await window.electronAPI.showOpenDialog();
             if (!result.canceled && result.filePaths.length > 0) {
@@ -147,6 +146,7 @@ class ProjectManager {
             window.electronAPI.openFolder(hdlDir);
         });
 
+        // Listener para quando o projeto é aberto via "File > Open" ou atalhos
         window.electronAPI.onSimulateOpenProject(async (result) => {
             if (!result.canceled && result.filePaths.length > 0) {
                 await loadProject(result.filePaths[0]);
@@ -154,6 +154,7 @@ class ProjectManager {
         });
     }
 
+    // Método público para ser chamado pelo renderer.js (New Project)
     loadProject(spfPath) {
         return loadProject(spfPath);
     }
@@ -163,20 +164,20 @@ function setupStatusIndicator() {
   const statusIndicator = document.getElementById('ready');
   const openProjectButton = document.getElementById('openProjectBtn');
 
-  // Garante que ambos os elementos existam antes de adicionar o evento
   if (!statusIndicator || !openProjectButton) {
-    console.warn('Status indicator or open project button not found. Click functionality will not be enabled.');
     return;
   }
 
-  // Define o estado inicial do cursor como 'pointer', pois a aplicação começa not ready
+  // Define o estado inicial como 'pointer'
   statusIndicator.style.cursor = 'pointer';
 
   statusIndicator.addEventListener('click', () => {
-    // A ação de clique só funciona se o status NÃO for 'ready'
+    // Só abre o diálogo se NÃO estiver ready (ou seja, se estiver Not Ready)
     const isReady = statusIndicator.classList.contains('ready');
     
     if (!isReady) {
+      // Isso simula o clique no botão de abrir, que por sua vez chama o showOpenDialog (dialogo nativo do Windows)
+      // É o comportamento esperado para "Carregar um projeto" se nenhum estiver carregado.
       openProjectButton.click();
     }
   });

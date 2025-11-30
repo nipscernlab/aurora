@@ -1177,7 +1177,7 @@ export class TabManager {
             html += `<span class="file-type-indicator">${fileType}</span>`;
         } else {
             // Add formatting button (broom icon) only for text files
-html += `<i class="fa-solid fa-satellite context-refactor-button toolbar-button" title="Code Formatter" style="margin-left: auto; cursor: pointer;"></i>`;
+        html += `<img src="./assets/icons/aksnes.png" alt="Code Formatter" class="context-refactor-button toolbar-button" title="Code Formatter" style="margin-left: auto; width: 100px; cursor: pointer;"/>`;
 
             //html += `<i class="fa-solid fa-table-columns context-split-button toolbar-button" title="Split Monaco Editor" style="margin-left: auto; cursor: pointer;"></i>`;
         }

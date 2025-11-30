@@ -133,6 +133,8 @@
   --leading-relaxed: 1.75;
   
   /* Z-Index Scale */
+  --z-1:0;
+  --z-1:1;
   --z-10: 10;  /* Tooltips, popovers */
   --z-20: 20;  /* Dropdowns */
   --z-30: 30;  /* Sticky elements */

@@ -1,4 +1,5 @@
 // modalImport.js - Advanced File Import Modal System
+/* eslint-disable no-undef */
 class ImportModal {
   constructor() {
     this.importedFiles = [];
@@ -20,9 +21,10 @@ class ImportModal {
   async getProjectPath() {
     if (!this.projectPath && window.electronAPI) {
       try {
-        this.projectPath = currentProjectPath;
-      } catch (error) {
-        console.warn('Could not get project path:', error);
+        // currentProjectPath is a global variable set by the main app
+        this.projectPath = typeof currentProjectPath !== 'undefined' ? currentProjectPath : null;
+      } catch (_error) {
+        console.warn('Could not get project path');
         this.projectPath = './'; // Fallback
       }
     }
@@ -363,7 +365,7 @@ class ImportModal {
   
   createFileItem(file) {
     const icon = this.getFileIcon(file.extension);
-    const relativeTime = this.getRelativeTime(file.dateAdded);
+    this.getRelativeTime(file.dateAdded);
     
     return `
       <div class="file-item" data-file-id="${file.id}">
@@ -571,7 +573,7 @@ class ImportModal {
         try {
           const configData = await window.electronAPI.readFile(importFilePath, 'utf8');
           config = JSON.parse(configData);
-        } catch (error) {
+        } catch {
           // File doesn't exist yet, which is fine
           console.log('No existing import config found');
         }

@@ -1,4 +1,5 @@
 // PRELOAD SCRIPT - Fixed preload_prism.js
+/* eslint-disable no-undef */
 const { contextBridge, ipcRenderer } = require('electron');
 
 console.log('Preload script loading...');

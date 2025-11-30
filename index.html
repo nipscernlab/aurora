@@ -593,13 +593,21 @@
                                     </div>
                                     <!-- Recent project items will be inserted here -->
                                 </div>
+                                                                <footer class="welcome-footer">
+                                    <a href="#" class="footer-link" id="website-link">
+                                        <i class="fa-solid fa-globe"></i>
+                                        nipscern.com
+                                    </a>
+                                    <span class="footer-divider">•</span>
+                                    <span class="footer-version">v4.1.12</span>
+                                </footer>
                             </aside>
                             
                             <!-- Main Welcome Content -->
                             <main class="welcome-main-content">
                                 <div class="welcome-hero">
                                     <div class="icon-container">
-                                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="96" alt="Aurora" />
+                                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="150" style="border-radius: 10px" alt="Aurora" />
                                         <i class="fallback-icon fa-solid fa-notdef" style="display: none;"></i>
                                     </div>
                                     <h1 class="welcome-title">SAPHO & AURORA IDE</h1>
@@ -607,27 +615,20 @@
                                 </div>
                                 
                                 <div class="welcome-actions">
-                                    <button class="action-card primary-action" id="open-folder-btn">
+                                    <button class="action-card primary-action" id="openProjectBtnWelcome">
                                         <i class="fa-solid fa-folder-open"></i>
                                         <span class="action-label">Open Project</span>
                                         <span class="action-hint">Start working on a project</span>
                                     </button>
                                     
-                                    <button class="action-card" id="new-file-btn">
-                                        <i class="fa-solid fa-file-plus"></i>
+                                    <button class="action-card" id="newProjectBtnWelcome">
+                                        <i class="fas fa-folder-plus"></i>
                                         <span class="action-label">New Project</span>
                                         <span class="action-hint">Create a new project</span>
                                     </button>
                                 </div>
                                 
-                                <footer class="welcome-footer">
-                                    <a href="#" class="footer-link" id="website-link">
-                                        <i class="fa-solid fa-globe"></i>
-                                        nipscern.com
-                                    </a>
-                                    <span class="footer-divider">•</span>
-                                    <span class="footer-version">v1.0.0</span>
-                                </footer>
+
                             </main>
                         </div>
                     </div>
@@ -694,19 +695,19 @@
     </div>
         <div class="terminal-content" id="terminal-tcmm">
             <div class="terminal-header">TCMM Terminal</div>
-            <div class="terminal-body">Bem-vindo ao Terminal TCMM!</div>
+            <div class="terminal-body">Welcome to the terminal TCMM!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tasm">
             <div class="terminal-header">TASM Terminal</div>
-            <div class="terminal-body">Bem-vindo ao Terminal TASM!</div>
+            <div class="terminal-body">Welcome to the terminal TASM!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-tveri">
             <div class="terminal-header">TVERI Terminal</div>
-            <div class="terminal-body">Bem-vindo ao Terminal TVERI!</div>
+            <div class="terminal-body">Welcome to the terminal TVERI!</div>
         </div>
         <div class="terminal-content hidden" id="terminal-twave">
             <div class="terminal-header">TWAVE Terminal</div>
-            <div class="terminal-body">Bem-vindo ao Terminal TWAVE!</div>
+            <div class="terminal-body">Welcome to the terminal TWAVE!</div>
         </div>
     </div>
 
@@ -805,6 +806,7 @@
         </div>
     </div>
 </div>
+
 <input type="file" id="icon-upload" accept="image/*" style="display: none;" />
 
     <!-- Status Bar -->
@@ -835,7 +837,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Map your toolbar trigger IDs -> modal IDs
     const triggerToModal = {
         newProjectBtn: 'newProjectModal', // New Project -> New Project modal
-        processorHub: 'modalContainer' // Processor Hub -> Processor Hub modal
+        processorHub: 'modalContainer', // Processor Hub -> Processor Hub modal
+        newProjectBtnWelcome: 'newProjectModal',
     };
 
     // Collect modal elements
@@ -959,7 +962,7 @@ function activateTerminal(terminalId) {
 
 // Add highlight effects
 document.addEventListener('DOMContentLoaded', function() {
-    const buttons = ['newProjectBtn', 'processorHub', 'openProjectBtn', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
+    const buttons = ['newProjectBtn', 'newProjectBtnWelcome', 'processorHub', 'openProjectBtn', 'openProjectBtnWelcome', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
 
     buttons.forEach(id => {
         const button = document.getElementById(id);
@@ -1052,12 +1055,10 @@ function closeAuroraAboutModal() {
     <script src="./js/processor_hub.js"></script>
     <script src="./js/processor_oriented.js" type="module"></script>
     <script src="./js/project_oriented.js" type="module"></script>
-    <script src="./js/close_project.js"></script>
     <script src="./js/file_tree_toggler.js"></script>
     <script src="./js/hourglass.js"></script>
     <script src="./js/icon_aurora.js" type="module"></script>
     <script src="./js/import_file.js"></script>
-    <script src="./js/notification.js"></script>
     <script src="./js/modal.js" type="module"></script>
     <script src="./js/recent_projects.js" type="module"></script>
     <script src="./js/resize.js" type="module"></script>
@@ -1070,11 +1071,14 @@ function closeAuroraAboutModal() {
     <script src="./js/command_palette.js" type="module"></script>
 
 
+    <script src="./js/notification.js" type="module"></script>
+    <script src="./js/close_project.js" type="module"></script>
     <script src="./js/monaco_editor.js" type="module"></script>
     <script src="./js/tab_manager.js" type="module"></script>
     <script src="./js/compilation_module.js" type="module"></script>
     <script src="./js/terminal_module.js" type="module"></script>
     <script src="./js/file_mode.js" type="module"></script>
+    <script src="./js/dialogManager.js" type="module"></script>
 
     </script>
   </body>

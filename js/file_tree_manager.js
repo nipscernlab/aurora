@@ -149,7 +149,7 @@ function renderFileTree(files, container, level = 0) {
 
     const filteredFiles = files.filter(file => {
         if (file.type === 'directory') return true;
-        return !['projectOriented.json', 'processorConfig.json',  'fileMode.json',  'fileOriented.json'].includes(file.name) && !file.name.endsWith('.spf');
+        return !['projectOriented.json', 'processorConfig.json',  'projectOriented.json',  'fileOriented.json'].includes(file.name) && !file.name.endsWith('.spf');
     });
 
     filteredFiles.sort((a, b) => {

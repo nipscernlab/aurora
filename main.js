@@ -7,7 +7,8 @@
  *    START: ALL IMPORTS AND CONST ƒ 
  * 
  * 
-*/ 
+*/
+/* eslint-disable no-undef, no-unused-vars */
 
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
@@ -106,7 +107,7 @@ async function createMainWindow() {
     }
     
     // Handle window close
-    mainWindow.on('close', async (event) => {
+    mainWindow.on('close', async (_event) => {
       if (isQuitting) return;
     
     });
@@ -241,7 +242,7 @@ function setupAutoUpdaterEvents() {
     }
   });
 
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', (_info) => {
     updateCheckInProgress = false;
     updateAvailable = false;
     log.info('No updates available');
@@ -461,24 +462,24 @@ function initializeUpdateSystem() {
 
 
 ipcMain.on('zoom-in', () => {
-  handleZoom(mainWindow, 0.1); // Aumenta o zoom em 10%
+  handleZoom(mainWindow, 0.1);
 });
 
 ipcMain.on('zoom-out', () => {
-  handleZoom(mainWindow, -0.1); // Diminui o zoom em 10%
+  handleZoom(mainWindow, -0.1);
 });
 
 ipcMain.on('zoom-reset', () => {
   if (mainWindow) {
-    mainWindow.webContents.setZoomFactor(1.0); // Reseta para 100%
+    mainWindow.webContents.setZoomFactor(1.0);
   }
 });
 
- function handleZoom(mainWindow, factorChange) {
+function handleZoom(mainWindow, factorChange) {
   if (mainWindow) {
     const webContents = mainWindow.webContents;
     const currentZoom = webContents.getZoomFactor();
-    const newZoom = Math.max(0.2, currentZoom + factorChange); // Impede zoom menor que 20%
+    const newZoom = Math.max(0.5, Math.min(2.0, currentZoom + factorChange));
     webContents.setZoomFactor(newZoom);
   }
 }
@@ -801,7 +802,7 @@ ipcMain.handle('kill-process-by-name', async (event, processName) => {
 // Handler for checking if process is still running
 ipcMain.handle('check-process-running', async (event, pid) => {
   return new Promise((resolve) => {
-    exec(`tasklist /FI "PID eq ${pid}"`, (error, stdout, stderr) => {
+    exec(`tasklist /FI "PID eq ${pid}"`, (error, stdout) => {
       if (error) {
         resolve(false);
       } else {
@@ -1083,7 +1084,7 @@ ipcMain.handle('save-file', async (event, { filePath, content }) => {
 
 // Function to scan a directory recursively
 async function scanDirectory(dirPath) {
-  async function buildTree(currentPath, isRoot = false, depth = 0) {
+  async function buildTree(currentPath, _isRoot = false, depth = 0) {
     // CORREÇÃO: Adicionar limite de profundidade para evitar loops infinitos
     const MAX_DEPTH = 20;
     
@@ -1222,21 +1223,17 @@ ipcMain.handle('dialog:showOpen', async () => {
 
 // Handler to get project information from a .spf file
 ipcMain.handle('project:getInfo', async (_, spfPath) => {
-  try {
-    if (!spfPath) {
-      throw new Error('No project file path provided');
-    }
-
-    const exists = await fse.pathExists(spfPath); // Check if the file exists
-    if (!exists) {
-      throw new Error(`Project file not found at: ${spfPath}`);
-    }
-
-    const projectData = await fse.readJSON(spfPath); // Read and parse the project file
-    return projectData;
-  } catch (error) {
-    throw error;
+  if (!spfPath) {
+    throw new Error('No project file path provided');
   }
+
+  const exists = await fse.pathExists(spfPath); // Check if the file exists
+  if (!exists) {
+    throw new Error(`Project file not found at: ${spfPath}`);
+  }
+
+  const projectData = await fse.readJSON(spfPath); // Read and parse the project file
+  return projectData;
 });
 
 
@@ -1357,12 +1354,6 @@ ipcMain.handle('project:open', async (_, spfPath) => {
     const oldBasePath = projectData.structure.basePath;
     const basePathExists = await fse.pathExists(oldBasePath);
 
-    // Update the project state
-    projectState = {
-      spfLoaded: true,
-      projectPath: path.dirname(spfPath)
-    };
-
     if (!basePathExists) {
       const newBasePath = path.dirname(spfPath);
       projectData.metadata.projectPath = newBasePath;
@@ -1436,12 +1427,6 @@ ipcMain.handle('project:close', async () => {
       global.currentProject = {};
     }
     
-    // Resetar o estado do projeto
-    projectState = {
-      spfLoaded: false,
-      projectPath: null
-    };
-    
     const focusedWindow = BrowserWindow.getFocusedWindow();
     
     if (focusedWindow && !focusedWindow.isDestroyed()) {
@@ -1484,7 +1469,7 @@ ipcMain.handle('isDirectory', async (_, path) => {
   try {
     const stats = await fse.stat(path);
     return stats.isDirectory();
-  } catch (error) {
+  } catch {
     return false;
   }
 });
@@ -1498,7 +1483,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
+  app.on('second-instance', (event, commandLine) => {
     // Alguém tentou executar uma segunda instância com um arquivo .spf
     const mainWindow = BrowserWindow.getAllWindows()[0];
     if (mainWindow) {
@@ -1545,7 +1530,7 @@ ipcMain.handle('file-exists', async (event, filePath) => {
     await fs.access(filePath);
     log.debug(`Arquivo existe: ${filePath}`);
     return true;
-  } catch (error) {
+  } catch {
     log.debug(`Arquivo não existe: ${filePath}`);
     return false;
   }
@@ -1685,7 +1670,7 @@ ipcMain.handle('load-config', async (event, projectPath) => {
     // Check if config file exists
     try {
       await fs.access(configFilePath);
-    } catch (error) {
+    } catch {
       // If file doesn't exist, create a default config
       const defaultConfig = { 
         processors: [], 
@@ -1794,7 +1779,7 @@ ipcMain.handle('load-config-from-path', async (event, configFilePath) => {
     // Check if config file exists
     try {
       await fs.access(configFilePath);
-    } catch (error) {
+    } catch {
       // If file doesn't exist, create a default config
       const defaultConfig = { 
         processors: [], 
@@ -2192,7 +2177,7 @@ ipcMain.handle('file:rename', async (event, oldPath, newPath) => {
     // Check if old path exists
     try {
       await fs.access(normalizedOldPath);
-    } catch (error) {
+    } catch {
       throw new Error(`Source path does not exist: ${normalizedOldPath}`);
     }
     
@@ -2509,7 +2494,7 @@ ipcMain.on('toggle-ui-state-response', (event, isActive) => {
 
 
 // Alternative simpler approach - get toggle state directly
-ipcMain.handle('get-toggle-ui-state-direct', async (event) => {
+ipcMain.handle('get-toggle-ui-state-direct', async (_event) => {
   try {
     if (mainWindow && mainWindow.webContents) {
       // Send request and wait for response
@@ -2564,7 +2549,7 @@ ipcMain.handle('prism-compile', async (event, compilationPaths) => {
 });
 
 // IPC handler to check if PRISM window is open
-ipcMain.handle('is-prism-window-open', async (event) => {
+ipcMain.handle('is-prism-window-open', async (_event) => {
   return prismWindow && !prismWindow.isDestroyed();
 });
 
@@ -2750,9 +2735,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     
     // Use provided paths instead of resolving them here
     const projectPath = compilationPaths.projectPath;
-    const hdlPath = compilationPaths.hdlPath;
     const tempDir = compilationPaths.tempPath;
-    const yosysPath = compilationPaths.yosysPath;
     const netlistsvgPath = compilationPaths.netlistsvgPath;
     
     console.log(`Using project path: ${projectPath}`);
@@ -2863,13 +2846,13 @@ async function performPrismCompilationWithPaths(compilationPaths) {
 }
 
 // Add handler to get compilation paths for recompile
-ipcMain.handle('get-prism-compilation-paths', async (event) => {
+ipcMain.handle('get-prism-compilation-paths', async (_event) => {
     try {
         console.log('Getting compilation paths for PRISM recompile...');
         
         // Get current project path
-        let projectPath = currentProjectPath || currentOpenProjectPath;
-        if (currentOpenProjectPath && !currentProjectPath) {
+        let projectPath = global.currentProjectPath || currentOpenProjectPath;
+        if (currentOpenProjectPath && !global.currentProjectPath) {
             projectPath = path.dirname(currentOpenProjectPath);
         }
         
@@ -2992,18 +2975,19 @@ ipcMain.handle('get-dirname', async (event, filePath) => {
 debugPaths();
 
 // Updated Yosys compilation function with optimized logging
-async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented) {
+async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, _isProjectOriented) {
   console.log('=== RUNNING YOSYS COMPILATION WITH PROVIDED PATHS ===');
   
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
-  const projectPath = compilationPaths.projectPath;
-  const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
   
-  // ... (código de coleta de arquivos permanece o mesmo até o comando Yosys)
+  // Get Verilog files from HDL directory
+  const hdlPath = compilationPaths.hdlPath;
+  const files = await fse.readdir(hdlPath);
+  const verilogFiles = files.filter(f => f.endsWith('.v'));
   
-  const readCommands = fileList.map(file => {
-    const normalizedPath = path.normalize(file).replace(/\\/g, '/');
+  const readCommands = verilogFiles.map(file => {
+    const normalizedPath = path.normalize(path.join(hdlPath, file)).replace(/\\/g, '/');
     return `read_verilog "${normalizedPath}"`;
   }).join('; ');
   
@@ -3120,7 +3104,7 @@ function cleanModuleName(moduleName) {
   cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
   
   // Clean up any remaining backslashes or dollar signs at the beginning
-  cleanName = cleanName.replace(/^[\\\$]+/, '');
+  cleanName = cleanName.replace(/^[$\\]+/, '');
   
   return cleanName;
 }
@@ -3183,7 +3167,7 @@ async function createStubModulesIfNeeded(fileList, tempDir) {
       const content = await fse.readFile(filePath, 'utf8');
       
       // Find module definitions
-      const moduleDefMatches = content.match(/^\s*module\s+(\w+)\s*[\(\;]/gm);
+      const moduleDefMatches = content.match(/^\s*module\s+(\w+)\s*[;(]/gm);
       if (moduleDefMatches) {
         moduleDefMatches.forEach(match => {
           const moduleName = match.match(/module\s+(\w+)/)[1];
@@ -3299,7 +3283,17 @@ async function cleanupOldStubFiles(tempDir) {
 
 // Sanitize file names to remove invalid characters
 function sanitizeFileName(fileName) {
-  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
+  // Remove invalid characters: <, >, :, ", /, \, |, ?, * and control characters
+  // Using multiple regex replacements for clarity
+  let result = fileName
+    .replace(/[<>:"\\|?*]/g, '_');  // Remove invalid characters
+  
+  // Remove control characters (ASCII 0-31)
+  for (let i = 0; i < 32; i++) {
+    result = result.replace(new RegExp(String.fromCharCode(i), 'g'), '_');
+  }
+  
+  return result.replace(/\s+/g, '_'); // Replace whitespace
 }
 
 // 4. Updated split hierarchy function with module filtering
@@ -3573,7 +3567,6 @@ ipcMain.handle('launch-gtkwave-only', async (event, options) => {
 ipcMain.handle('launch-serial-simulation', async (event, {
   vvpCmd,
   gtkwCmd,
-  vcdPath,
   workingDir
 }) => {
   try {
@@ -3731,7 +3724,7 @@ ipcMain.handle('watch-directory', async (event, directoryPath) => {
     }, 500);
 
     const watcher = chokidar.watch(directoryPath, {
-      ignored: /[\/\\]\./,
+      ignored: /[\\/]\./,
       persistent: true,
       ignoreInitial: true,
       depth: 10,
@@ -3844,7 +3837,7 @@ setInterval(async () => {
   for (const [directoryPath, watcherInfo] of activeDirectoryWatchers.entries()) {
     try {
       await fs.access(directoryPath);
-    } catch (error) {
+    } catch {
       console.log(`Directory no longer accessible: ${directoryPath}, removing watcher`);
       try {
         await watcherInfo.watcher.close();
@@ -3921,12 +3914,12 @@ ipcMain.handle('watch-file', async (event, filePath) => {
       // Add these options for better reliability
       alwaysStat: true,
       depth: 0,
-      ignored: /[\/\\]\./
+      ignored: /[\\/]\./
     });
 
     const watcherId = `watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    watcher.on('change', (path, stats) => {
+    watcher.on('change', (path) => {
       console.log(`File changed: ${path}`);
       debouncedChangeHandler('change');
     });
@@ -4013,7 +4006,7 @@ setInterval(async () => {
       // Check if file still exists
       await fs.access(filePath);
       watcherInfo.lastCheck = Date.now();
-    } catch (error) {
+    } catch {
       console.log(`File no longer accessible: ${filePath}, removing watcher`);
       try {
         await watcherInfo.watcher.close();
@@ -4400,7 +4393,7 @@ ipcMain.handle('run-vvp-command', async (event, vvpCmd, tempPath) => {
     });
 
     // Listener para quando o processo termina por signal
-    currentVvpProcess.on('exit', (code, signal) => {
+    currentVvpProcess.on('exit', () => {
       currentVvpProcess = null;
       vvpProcessPid = null;
     });
@@ -4467,7 +4460,6 @@ ipcMain.handle('get-system-performance', () => {
 ipcMain.handle('launch-parallel-simulation', async (event, {
   vvpCmd,
   gtkwCmd,
-  vcdPath,
   workingDir
 }) => {
   try {

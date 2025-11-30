@@ -1,4 +1,5 @@
-
+/* eslint-disable no-undef */
+// statusUpdater, refreshFileTree, checkCancellation, startCompilation, endCompilation are global
 import { TabManager } from './tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { TerminalManager, showVVPProgress, hideVVPProgress} from './terminal_module.js';
@@ -184,7 +185,7 @@ class CompilationModule {
             const topLevelFilePath = this.projectConfig.topLevelFile;
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in projectOriented.json");
 
-            const designTopModule = topLevelFilePath.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+            const designTopModule = topLevelFilePath.split(/[\\\\/]/).pop().replace(/\.v$/i, '');
             const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
@@ -314,7 +315,7 @@ async prismProjectCompilation() {
             throw new Error('No top-level file specified in projectOriented.json');
         }
         
-        const topLevelModuleName = topLevelFile.split(/[\/\\]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = topLevelFile.split(/[\\\\/]/).pop().replace(/\.v$/i, '');
         
         const yosysPath = await window.electronAPI.joinPath(
             this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'
@@ -392,7 +393,7 @@ write_json "${tempPath}\\${topLevelModuleName}_synth.json"
             const parts = cleanName.split('\\');
             if (parts.length >= 2) cleanName = parts[1];
         }
-        cleanName = cleanName.replace(/\$[a-f0-9]{32,}/g, '').replace(/^\$[0-9]+\$/g, '').replace(/[\\\$]+$/, '').replace(/^[\\\$]+/, '');
+        cleanName = cleanName.replace(/\$[a-f0-9]{32,}/g, '').replace(/^\$[0-9]+\$/g, '').replace(/[$\\]+$/, '').replace(/^[$\\]+/, '');
         if (!cleanName.trim()) cleanName = yosysName.split('\\').pop() || 'unknown';
         return {
             cleanName,
@@ -713,7 +714,7 @@ write_json "${tempPath}\\${topLevelModuleName}_synth.json"
                 const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
                 tbFile = await window.electronAPI.joinPath(simulationPath, testbenchFilePath);
             }
-            const tbFileName = testbenchFilePath.split(/[\\\/]/)
+            const tbFileName = testbenchFilePath.split(/[\\\\/]/)
                 .pop();
             tbModule = tbFileName.replace(/\.v$/i, '');
         } else {
@@ -888,7 +889,7 @@ end`;
             }
 
             if (!this.isProjectOriented && processor.testbenchFile == 'standard') {
-                const tbFileName = tbFile.split(/[\\\/]/)
+                const tbFileName = tbFile.split(/[\\\\/]/)
                     .pop();
                 const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
                 const destinationTestbench = tbFile;
@@ -924,7 +925,7 @@ end`;
                 throw new Error("No testbench file specified");
             }
 
-            const tbFileName = testbenchFile.split(/[\/\\]/).pop();
+            const tbFileName = testbenchFile.split(/[\\\\/]/).pop();
             const tbModule = tbFileName.replace(/\.v$/i, '');
 
             const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
@@ -939,7 +940,7 @@ end`;
 
             await TabManager.saveAllFiles();
 
-            const projectName = this.projectPath.split(/[\/\\]/).pop();
+            const projectName = this.projectPath.split(/[\\\\/]/).pop();
             const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
 
             const cmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${flags} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchFile}"`;
@@ -1267,7 +1268,7 @@ end`;
                     } else {
                         setTimeout(checkProgress, 500);
                     }
-                } catch (error) {
+                } catch {
                     setTimeout(checkProgress, 500);
                 }
             };
@@ -1471,7 +1472,6 @@ end`;
         statusUpdater.startCompilation('wave');
 
         const isParallelMode = this.getCompilationMode();
-        let testbenchBackupInfo = null;
         let gtkwaveOutputHandler = null;
 
         try {
@@ -1488,7 +1488,7 @@ end`;
             const testbenchFile = this.projectConfig.testbenchFile;
             if (!testbenchFile) throw new Error("No testbench file specified");
 
-            const testbenchFileName = testbenchFile.split(/[\/\\]/).pop();
+            const testbenchFileName = testbenchFile.split(/[\\\\/]/).pop();
             const tbModule = testbenchFileName.replace(/\.v$/i, '');
 
             const testbenchInTemp = await window.electronAPI.joinPath(tempBaseDir, testbenchFileName);
@@ -1497,7 +1497,7 @@ end`;
 
             const simuDelay = this.getSimulationDelay();
 
-            testbenchBackupInfo = await this.modifyTestbenchForSimulation(
+            await this.modifyTestbenchForSimulation(
                 testbenchInTemp,
                 tbModule,
                 tempBaseDir,
@@ -1512,7 +1512,7 @@ end`;
                 .join(' ');
 
             await TabManager.saveAllFiles();
-            const projectName = this.projectPath.split(/[\/\\]/).pop();
+            const projectName = this.projectPath.split(/[\\\\/]/).pop();
             const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}.vvp`);
 
             const iverilogCmd = `cd "${tempBaseDir}" && "${iveriCompPath}" ${this.projectConfig.iverilogFlags || ""} -s ${tbModule} -o "${outputFilePath}" ${synthesizableFilePaths} ${verilogFilesString} "${testbenchInTemp}"`;
@@ -1695,7 +1695,7 @@ end`;
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');
 
-        const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
+        const projectConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
         const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
         this.projectConfig = JSON.parse(projectConfigData);
 
@@ -1704,7 +1704,7 @@ end`;
             throw new Error(`No top-level module specified in project configuration`);
         }
 
-        const topLevelModule = topLevelFile.split(/[\/\\]/)
+        const topLevelModule = topLevelFile.split(/[\\\\/]/)
             .pop()
             .replace(/\.v$/i, '');
 
@@ -1779,7 +1779,7 @@ write_json ${jsonOutputPath}
 
         cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
         cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
-        cleanName = cleanName.replace(/^[\\\$]+/, '');
+        cleanName = cleanName.replace(/^[$\\]+/, '');
 
         return cleanName;
     }
@@ -1984,15 +1984,15 @@ getCurrentMode() {
         }
     }
 /**
- * Load fileMode.json configuration
+ * Load projectOriented.json configuration
  */
 async loadFileModeConfig() {
     try {
-        const fileModeConfigPath = await window.electronAPI.joinPath(this.projectPath, 'fileMode.json');
+        const fileModeConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
         const fileModeExists = await window.electronAPI.fileExists(fileModeConfigPath);
         
         if (!fileModeExists) {
-            throw new Error('fileMode.json not found in project root');
+            throw new Error('projectOriented.json not found in project root');
         }
         
         const fileModeData = await window.electronAPI.readFile(fileModeConfigPath, { encoding: 'utf8' });
@@ -2001,31 +2001,31 @@ async loadFileModeConfig() {
         console.log("File mode config loaded:", this.fileModeConfig);
         return true;
     } catch (error) {
-        console.error("Failed to load fileMode.json:", error);
+        console.error("Failed to load projectOriented.json:", error);
         throw error;
     }
 }
 
 /**
  * Icarus Verilog compilation for Verilog Mode
- * Compiles all HDL files + files from fileMode.json
+ * Compiles all HDL files + files from projectOriented.json
  */
 async iverilogVerilogModeCompilation() {
     this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Verilog Mode)...');
     statusUpdater.startCompilation('verilog');
 
     try {
-        // Load fileMode.json configuration
+        // Load projectOriented.json configuration
         await this.loadFileModeConfig();
 
         if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
-            throw new Error('No files defined in fileMode.json');
+            throw new Error('No files defined in projectOriented.json');
         }
 
         // Find top-level module
         const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module marked in fileMode.json (isTopLevel: true)');
+            throw new Error('No top-level module marked in projectOriented.json (isTopLevel: true)');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2042,7 +2042,7 @@ async iverilogVerilogModeCompilation() {
         const hdlFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
         const hdlFilesString = hdlFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
 
-        // Collect all files from fileMode.json
+        // Collect all files from projectOriented.json
         const fileModeFiles = this.fileModeConfig.files
             .map(file => `"${file.path}"`)
             .join(' ');
@@ -2051,10 +2051,10 @@ async iverilogVerilogModeCompilation() {
         await TabManager.saveAllFiles();
 
         // Output file path
-        const projectName = this.projectPath.split(/[\/\\]/).pop();
+        const projectName = this.projectPath.split(/[\\\\/]/).pop();
         const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}_verilog.vvp`);
 
-        // Get optional flags from fileMode.json
+        // Get optional flags from projectOriented.json
         const flags = this.fileModeConfig.iverilogFlags || '';
 
         // Build iverilog command
@@ -2101,7 +2101,7 @@ async generateVerilogModeHierarchy() {
 
         const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module defined in fileMode.json');
+            throw new Error('No top-level module defined in projectOriented.json');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2162,17 +2162,17 @@ async prismVerilogModeCompilation() {
     this.terminalManager.appendToTerminal('tveri', 'Starting PRISM synthesis (Verilog Mode)...');
     
     try {
-        // Load fileMode.json configuration
+        // Load projectOriented.json configuration
         await this.loadFileModeConfig();
 
         if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
-            throw new Error('No files defined in fileMode.json');
+            throw new Error('No files defined in projectOriented.json');
         }
 
         // Find top-level module
         const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module marked in fileMode.json');
+            throw new Error('No top-level module marked in projectOriented.json');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2281,7 +2281,7 @@ write_json "${tempPath}\\${topLevelModuleName}_synth.json"
                             this.terminalManager.appendToTerminal('tcmm', `Processing ${processor.type}...`);
                             await this.ensureDirectories(processor.type);
 
-                            const asmPath = await this.cmmCompilation(processorObj);
+                            await this.cmmCompilation(processorObj);
                             checkCancellation();
 
                             await this.asmCompilation(processor, 1);
@@ -2310,7 +2310,7 @@ write_json "${tempPath}\\${topLevelModuleName}_synth.json"
 
                 switchTerminal('terminal-tcmm');
                 checkCancellation();
-                const asmPath = await this.cmmCompilation(processor);
+                await this.cmmCompilation(processor);
 
                 checkCancellation();
                 await this.asmCompilation(processor, 0);

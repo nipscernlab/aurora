@@ -48,6 +48,7 @@
 #monaco-editor {
   border-radius: 0px 0px 16px 16px;
   overflow: hidden;
+  z-index: 0;
 }
 
 /* ===================================================================================
@@ -74,7 +75,7 @@
   background-color: var(--bg-tertiary); /* Cor mais sutil para o divisor */
   cursor: row-resize;
   transition: background-color var(--transition-fast);
-  z-index: var(--z-10);
+  z-index: var(--z-0);
 }
 
 .resizer-horizontal:hover {
@@ -360,6 +361,7 @@
 .monaco-editor .minimap-slider {
   background: rgba(155, 89, 182, 0.4) !important; /* Cor accent com opacidade balanceada */
   border-radius: var(--radius-sm) !important;
+  z-index: 0;
 }
 
 

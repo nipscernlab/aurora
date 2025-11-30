@@ -3,9 +3,14 @@ import { projectManager } from './project_manager.js';
 document.addEventListener("DOMContentLoaded", () => {
     const newProjectModal = document.getElementById("newProjectModal");
     const newProjectBtn = document.getElementById("newProjectBtn");
+    const newProjectBtnWelcome = document.getElementById("newProjectBtnWelcome");
 
     // Open the "New Project" modal when the button is clicked
     newProjectBtn.addEventListener("click", () => {
+        newProjectModal.classList.remove("hidden");
+    });
+
+    newProjectBtnWelcome.addEventListener("click", () => {
         newProjectModal.classList.remove("hidden");
     });
 
@@ -57,12 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // Wait briefly to ensure files are created
                 await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // Update global paths (if necessary)
-                let currentProjectPath;
-                let currentSpfPath;
-                currentProjectPath = projectPath;
-                currentSpfPath = spfPath;
 
                 // Load the project using the correct SPF path
                 await projectManager.loadProject(spfPath);

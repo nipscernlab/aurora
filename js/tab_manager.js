@@ -1,4 +1,5 @@
 import { EditorManager } from './monaco_editor.js';
+import { showCardNotification } from './notification.js';
 
 export class TabManager {
     static tabs = new Map();

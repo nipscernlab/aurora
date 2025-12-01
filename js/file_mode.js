@@ -312,63 +312,6 @@ class VerilogModeManager {
         }
     }
     
-    /**
-     * Import files with validation
-     */
-    async importFiles(files) {
-        const validFiles = [];
-        const errors = [];
-        
-        for (let file of files) {
-            if (!file.path || file.path === '') {
-                errors.push(`"${file.name}" has no path information`);
-                continue;
-            }
-            
-            const ext = this.getFileExtension(file.name);
-            
-            // Only allow standard Verilog/Images in this mode
-            if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
-                errors.push(`"${file.name}" has unsupported extension ${ext}`);
-                continue;
-            }
-            
-            if (this.verilogFiles.some(f => f.path === file.path)) {
-                errors.push(`"${file.name}" already exists`);
-                continue;
-            }
-            
-            validFiles.push({
-                name: file.name,
-                path: file.path,
-                isTopLevel: false,
-            });
-        }
-        
-        if (errors.length > 0) {
-            errors.forEach(error => {
-                this.showNotification(error, 'warning', 2500);
-            });
-        }
-        
-        if (validFiles.length === 0) {
-            if (errors.length === 0) {
-                this.showNotification('No valid files to import', 'warning', 3000);
-            }
-            return;
-        }
-        
-        this.verilogFiles.push(...validFiles);
-        this.sortFilesAlphabetically();
-        await this.saveConfiguration();
-        this.renderVerilogTree();
-        
-        this.showNotification(
-            `Successfully added ${validFiles.length} file(s)`, 
-            'success', 
-            2000
-        );
-    }
     
     /**
      * Sort files: Top Level first, then alphabetically
@@ -653,6 +596,64 @@ class VerilogModeManager {
             document.addEventListener('click', this.closeContextMenu.bind(this), { once: true });
         }, 100);
     }
+    async syncToProjectConfig() {
+    try {
+        let projectPath = this.currentProjectPath || window.currentProjectPath;
+        
+        if (!projectPath) {
+            const projectData = await window.electronAPI.getCurrentProject();
+            if (projectData && projectData.projectPath) {
+                projectPath = projectData.projectPath;
+            }
+        }
+        
+        if (!projectPath) {
+            console.error('❌ Project path not available for sync');
+            return;
+        }
+
+        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+        
+        // Read existing config
+        let currentConfig = {};
+        try {
+            if (await window.electronAPI.fileExists(configPath)) {
+                const content = await window.electronAPI.readFile(configPath);
+                currentConfig = JSON.parse(content);
+            }
+        } catch (err) {
+            console.warn('Could not read existing config:', err);
+        }
+
+        // Map verilogFiles to synthesizableFiles format
+        const synthesizableFiles = this.verilogFiles.map(file => ({
+            name: file.name,
+            path: file.path,
+            isTopLevel: file.isTopLevel || false
+        }));
+
+        // Determine top level file
+        const topFile = this.verilogFiles.find(f => f.isTopLevel);
+        const topLevelPath = topFile ? topFile.path : "";
+
+        // Update config
+        currentConfig.synthesizableFiles = synthesizableFiles;
+        currentConfig.topLevelFile = topLevelPath;
+
+        // Ensure other arrays exist
+        if (!currentConfig.testbenchFiles) currentConfig.testbenchFiles = [];
+        if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
+        if (!currentConfig.processors) currentConfig.processors = [];
+
+        // Write back
+        await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
+        
+        console.log('💾 Synced to projectOriented.json');
+        
+    } catch (error) {
+        console.error('❌ Error syncing to project config:', error);
+    }
+}
 
    async handleTreeContextMenu(event) {
         event.preventDefault();
@@ -714,15 +715,13 @@ class VerilogModeManager {
         }, 100);
     }
 
-   /**
- * Create a new Verilog file
+  /**
+ * Create new file with sync
  */
 async createNewFile() {
     const fileName = await this.showFileNameDialog();
     
-    if (!fileName) {
-        return; 
-    }
+    if (!fileName) return;
     
     const invalidChars = /[<>:"/\\|?*]/;
     const nameWithoutExt = fileName.replace('.v', '');
@@ -741,14 +740,11 @@ async createNewFile() {
             properties: ['createDirectory', 'showOverwriteConfirmation']
         });
         
-        if (result.canceled || !result.filePath) {
-            return;
-        }
+        if (result.canceled || !result.filePath) return;
         
         const filePath = result.filePath;
-        
         const finalPath = filePath.endsWith('.v') ? filePath : filePath + '.v';
-        const finalFileName = pathUtils.basename(finalPath);
+        const finalFileName = this.basename(finalPath);
         
         await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
         
@@ -767,7 +763,9 @@ async createNewFile() {
         
         try {
             const content = await window.electronAPI.readFile(finalPath);
-            TabManager.addTab(finalPath, content);
+            if (typeof TabManager !== 'undefined') {
+                TabManager.addTab(finalPath, content);
+            }
         } catch (error) {
             console.error('Error opening new file:', error);
         }
@@ -858,9 +856,9 @@ async createNewFile() {
 
 
     /**
-     * Delete a file
-     */
-    async deleteFile(index) {
+ * Delete file from disk and sync
+ */
+async deleteFile(index) {
     if (!this.verilogFiles[index]) return;
     
     const file = this.verilogFiles[index];
@@ -897,7 +895,12 @@ async createNewFile() {
     }
 }
 
-
+/**
+ * Helper to extract basename
+ */
+basename(filePath) {
+    return filePath.split(/[\\/]/).pop();
+}
     /**
      * Show delete confirmation dialog
      */
@@ -1005,164 +1008,251 @@ async createNewFile() {
         }
     }
     
-    /**
-     * Remove file from list
-     */
-    async removeFile(index) {
-        if (!this.verilogFiles[index]) return;
+/**
+ * Toggle file top level status with sync
+ */
+toggleFileStar(index, type) {
+    let files = this.verilogFiles;
+    let targetFile = files[index];
+    
+    if (!targetFile) return;
+    
+    // If marking as top level, unmark all others
+    if (!targetFile.isTopLevel) {
+        files.forEach(file => {
+            if (file !== targetFile) {
+                file.isTopLevel = false;
+            }
+        });
+    }
+    
+    // Toggle top level status
+    targetFile.isTopLevel = !targetFile.isTopLevel;
+    
+    // Update UI
+    setTimeout(() => {
+        this.updateFileList('synthesizable');
+    }, 100);
+    
+    // Sync to projectOriented.json
+    this.saveConfiguration();
+    
+    const action = targetFile.isTopLevel ? 'set as top level' : 'removed from top level';
+    this.showNotification(`File "${targetFile.name}" ${action}`, 'success', 2000);
+}
+
+/**
+ * Remove file with sync
+ */
+async removeFile(index, type) {
+    if (!this.verilogFiles[index]) return;
+    
+    const fileName = this.verilogFiles[index].name;
+    const fileItem = document.querySelector(`.verilog-file-item[data-file-index="${index}"]`);
+    
+    if (fileItem) {
+        fileItem.classList.add('verilog-file-animate-out');
         
-        const fileName = this.verilogFiles[index].name;
-        const fileItem = document.querySelector(`.verilog-file-item[data-file-index="${index}"]`);
-        
-        if (fileItem) {
-            fileItem.classList.add('verilog-file-animate-out');
-            
-            setTimeout(async () => {
-                this.verilogFiles.splice(index, 1);
-                await this.saveConfiguration();
-                this.renderVerilogTree();
-                this.showNotification(`Removed "${fileName}"`, 'success', 2000);
-            }, 300);
-        } else {
+        setTimeout(async () => {
             this.verilogFiles.splice(index, 1);
             await this.saveConfiguration();
             this.renderVerilogTree();
             this.showNotification(`Removed "${fileName}"`, 'success', 2000);
+        }, 300);
+    } else {
+        this.verilogFiles.splice(index, 1);
+        await this.saveConfiguration();
+        this.renderVerilogTree();
+        this.showNotification(`Removed "${fileName}"`, 'success', 2000);
+    }
+}
+
+/**
+ * Import files with sync
+ */
+async importFiles(files, type) {
+    const validFiles = [];
+    const errors = [];
+    
+    for (let file of files) {
+        if (!file.path || file.path === '') {
+            errors.push(`"${file.name}" has no path information`);
+            continue;
         }
+        
+        const ext = this.getFileExtension(file.name);
+        
+        if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
+            errors.push(`"${file.name}" has unsupported extension ${ext}`);
+            continue;
+        }
+        
+        if (this.verilogFiles.some(f => f.path === file.path)) {
+            errors.push(`"${file.name}" already exists`);
+            continue;
+        }
+        
+        validFiles.push({
+            name: file.name,
+            path: file.path,
+            isTopLevel: false,
+        });
     }
     
+    if (errors.length > 0) {
+        errors.forEach(error => {
+            this.showNotification(error, 'warning', 2500);
+        });
+    }
+    
+    if (validFiles.length === 0) {
+        if (errors.length === 0) {
+            this.showNotification('No valid files to import', 'warning', 3000);
+        }
+        return;
+    }
+    
+    this.verilogFiles.push(...validFiles);
+    this.sortFilesAlphabetically();
+    await this.saveConfiguration();
+    this.renderVerilogTree();
+    
+    this.showNotification(
+        `Successfully added ${validFiles.length} file(s)`, 
+        'success', 
+        2000
+    );
+}
     /**
      * Save configuration to projectOriented.json
      * Updates only synthesizableFiles and topLevelFile without affecting other sections
      */
-    async saveConfiguration() {
-        try {
-            let projectPath = this.currentProjectPath || window.currentProjectPath;
-            
-            if (!projectPath) {
-                const projectData = await window.electronAPI.getCurrentProject();
-                if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-                    projectPath = projectData.projectPath;
-                } else if (typeof projectData === 'string') {
-                    projectPath = projectData;
-                }
+async saveConfiguration() {
+    try {
+        let projectPath = this.currentProjectPath || window.currentProjectPath;
+        
+        if (!projectPath) {
+            const projectData = await window.electronAPI.getCurrentProject();
+            if (projectData && projectData.projectPath) {
+                projectPath = projectData.projectPath;
             }
-            
-            if (!projectPath) {
-                console.error('❌ Project path not available. Cannot save configuration.');
-                return;
-            }
-
-            const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-            
-            // Read existing configuration to preserve other fields
-            let currentConfig = {};
-            try {
-                if (await window.electronAPI.fileExists(configPath)) {
-                    const content = await window.electronAPI.readFile(configPath);
-                    currentConfig = JSON.parse(content);
-                }
-            } catch (err) {
-                console.warn('Could not read existing config, creating new one.', err);
-            }
-
-            // Map internal VerilogFiles to the schema required by projectOriented.json
-            // MAPPING: isTopLevel (internal) -> starred (JSON)
-            const synthesizableFiles = this.verilogFiles.map(file => ({
-                name: file.name,
-                path: file.path,
-                starred: file.isTopLevel || false
-            }));
-
-            // Determine top level file path
-            const topFile = this.verilogFiles.find(f => f.isTopLevel);
-            const topLevelPath = topFile ? topFile.path : "";
-
-            // Update specific fields
-            currentConfig.synthesizableFiles = synthesizableFiles;
-            currentConfig.topLevelFile = topLevelPath;
-
-            // Ensure other required arrays exist
-            if (!currentConfig.testbenchFiles) currentConfig.testbenchFiles = [];
-            if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
-            if (!currentConfig.processors) currentConfig.processors = [];
-
-            // Write back to file
-            await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
-            
-            console.log('💾 Verilog Mode configuration saved to projectOriented.json');
-            
-        } catch (error) {
-            console.error('❌ Error saving Verilog Mode configuration:', error);
         }
-    }
-    
-    /**
-     * Load configuration from projectOriented.json
-     */
-    async loadConfiguration() {
+        
+        if (!projectPath) {
+            console.error('❌ Project path not available. Cannot save configuration.');
+            return;
+        }
+
+        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+        
+        // Read existing configuration to preserve other fields
+        let currentConfig = {};
         try {
-            this.verilogFiles = [];
-            
-            let projectPath = this.currentProjectPath || window.currentProjectPath;
-            
-            if (!projectPath) {
-                const projectData = await window.electronAPI.getCurrentProject();
-                if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-                    projectPath = projectData.projectPath;
-                } else if (typeof projectData === 'string') {
-                    projectPath = projectData;
-                }
+            if (await window.electronAPI.fileExists(configPath)) {
+                const content = await window.electronAPI.readFile(configPath);
+                currentConfig = JSON.parse(content);
             }
-            
-            if (!projectPath) {
-                console.error('❌ Project path not available');
-                return;
+        } catch (err) {
+            console.warn('Could not read existing config, creating new one.', err);
+        }
+
+        // Map internal verilogFiles to synthesizableFiles format
+        const synthesizableFiles = this.verilogFiles.map(file => ({
+            name: file.name,
+            path: file.path,
+            isTopLevel: file.isTopLevel || false
+        }));
+
+        // Determine top level file path
+        const topFile = this.verilogFiles.find(f => f.isTopLevel);
+        const topLevelPath = topFile ? topFile.path : "";
+
+        // Update specific fields while preserving others
+        currentConfig.synthesizableFiles = synthesizableFiles;
+        currentConfig.topLevelFile = topLevelPath;
+
+        // Ensure other required arrays exist
+        if (!currentConfig.testbenchFiles) currentConfig.testbenchFiles = [];
+        if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
+        if (!currentConfig.processors) currentConfig.processors = [];
+        if (!currentConfig.iverilogFlags) currentConfig.iverilogFlags = '';
+        if (!currentConfig.simuDelay) currentConfig.simuDelay = '200000';
+        if (!currentConfig.showArraysInGtkwave) currentConfig.showArraysInGtkwave = 0;
+
+        // Write back to file
+        await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
+        
+        console.log('💾 Verilog Mode configuration saved to projectOriented.json');
+        
+    } catch (error) {
+        console.error('❌ Error saving Verilog Mode configuration:', error);
+    }
+}
+
+    
+/**
+ * Load configuration from projectOriented.json
+ */
+async loadConfiguration() {
+    try {
+        this.verilogFiles = [];
+        
+        let projectPath = this.currentProjectPath || window.currentProjectPath;
+        
+        if (!projectPath) {
+            const projectData = await window.electronAPI.getCurrentProject();
+            if (projectData && projectData.projectPath) {
+                projectPath = projectData.projectPath;
             }
+        }
+        
+        if (!projectPath) {
+            console.error('❌ Project path not available');
+            return;
+        }
+        
+        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+        const configExists = await window.electronAPI.fileExists(configPath);
+        
+        if (configExists) {
+            const configContent = await window.electronAPI.readFile(configPath);
+            const configData = JSON.parse(configContent);
             
-            const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-            const configExists = await window.electronAPI.fileExists(configPath);
+            console.log('📖 Loading configuration from:', configPath);
             
-            if (configExists) {
-                const configContent = await window.electronAPI.readFile(configPath);
-                const configData = JSON.parse(configContent);
-                
-                console.log('📖 Loading configuration from:', configPath);
-                
-                if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
-                    for (const fileData of configData.synthesizableFiles) {
-                        if (fileData.path && fileData.name) {
-                            try {
-                                const exists = await window.electronAPI.fileExists(fileData.path);
-                                
-                                if (exists) {
-                                    this.verilogFiles.push({
-                                        name: fileData.name,
-                                        path: fileData.path,
-                                        // MAPPING: starred (JSON) -> isTopLevel (internal)
-                                        isTopLevel: fileData.starred || false,
-                                    });
-                                } else {
-                                    console.warn(`⚠️ File no longer exists: ${fileData.path}`);
-                                }
-                            } catch (error) {
-                                console.error(`❌ Error validating file ${fileData.path}:`, error);
+            if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
+                for (const fileData of configData.synthesizableFiles) {
+                    if (fileData.path && fileData.name) {
+                        try {
+                            const exists = await window.electronAPI.fileExists(fileData.path);
+                            
+                            if (exists) {
+                                this.verilogFiles.push({
+                                    name: fileData.name,
+                                    path: fileData.path,
+                                    isTopLevel: fileData.isTopLevel || false,
+                                });
+                            } else {
+                                console.warn(`⚠️ File no longer exists: ${fileData.path}`);
                             }
+                        } catch (error) {
+                            console.error(`❌ Error validating file ${fileData.path}:`, error);
                         }
                     }
                 }
-                
-                this.sortFilesAlphabetically();
-                
-                console.log('✅ Loaded', this.verilogFiles.length, 'files from configuration');
-            } else {
-                console.log('📝 projectOriented.json not found, starting with empty list');
             }
-        } catch (error) {
-            console.error('❌ Error loading Verilog Mode configuration:', error);
+            
+            this.sortFilesAlphabetically();
+            
+            console.log('✅ Loaded', this.verilogFiles.length, 'files from configuration');
+        } else {
+            console.log('📁 projectOriented.json not found, starting with empty list');
         }
+    } catch (error) {
+        console.error('❌ Error loading Verilog Mode configuration:', error);
     }
-    
+}
+
     /**
      * Refresh Verilog Mode tree
      */

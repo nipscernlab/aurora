@@ -1365,148 +1365,141 @@ async loadAndValidateFiles(files, type) {
  */
 // Paste this code to replace the existing saveConfiguration function
 
+/**
+ * Save configuration and sync to Verilog File Mode
+ */
 async saveConfiguration() {
-  try {
-    // --- DETERMINE MODE ---
-    // Get the state of the "Compile & Simulate" toggle
-    // We use the ID 'Verilog Mode' as preserved from the previous HTML
-    const simToggle = document.getElementById('Verilog Mode');
-    const isSimulationEnabled = simToggle ? simToggle.checked : false;
-
-    // --- VALIDATION START ---
-
-    // 1. SYNTHESIS VALIDATION (Always required)
-    // Check if at least one synthesizable file has been imported and isTopLevel as the top-level.
-    if (this.synthesizableFiles.length === 0) {
-      this.showNotification('You must import at least one synthesizable file (.v, .sv).', 'error', 4000);
-      return; // Stop the saving process
-    }
-    
-    const isTopLevelSynthesizable = this.synthesizableFiles.find(file => file.isTopLevel);
-    if (!isTopLevelSynthesizable) {
-      this.showNotification('You must star one synthesizable file as the top-level module.', 'error', 4000);
-      return; // Stop the saving process
-    }
-
-    // 2. SIMULATION VALIDATION (Only if "Compile & Simulate" is enabled)
-    if (isSimulationEnabled) {
-      // Check if at least one testbench file has been imported and isTopLevel.
-      if (this.testbenchFiles.length === 0) {
-        this.showNotification('To run simulation, you must import at least one testbench file (.v, .sv).', 'error', 4000);
-        return; // Stop the saving process
-      }
-      
-      const isTopLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
-      if (!isTopLevelTestbench) {
-        this.showNotification('To run simulation, you must star one file as the main testbench.', 'error', 4000);
-        return; // Stop the saving process
-      }
-    }
-    
-    // --- VALIDATION END ---
-
-    let projectPath = window.currentProjectPath;
-    
-    if (!projectPath) {
-      const projectData = await window.electronAPI.getCurrentProject();
-      if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-        projectPath = projectData.projectPath;
-        window.currentProjectPath = projectPath;
-      } else if (typeof projectData === 'string') {
-        projectPath = projectData;
-        window.currentProjectPath = projectPath;
-      }
-    }
-    
-    if (!projectPath) {
-      this.showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
-      return;
-    }
-    
-    // Get pointers to isTopLevel files (safe to access even if they are undefined in synthesis-only mode)
-    const isTopLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
-    const isTopLevelGtkw = this.gtkwFiles.find(file => file.isTopLevel);
-    
-    // Collect Processors Configuration
-    // We collect them regardless of mode, so data isn't lost if the user toggles back and forth,
-    // but we don't validate them strictly here.
-    const processors = [];
-    const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
-    
-    processorRows.forEach(row => {
-      const processorSelect = row.querySelector('.processor-select');
-      const instanceSelect = row.querySelector('.processor-instance');
-      
-      if (processorSelect && instanceSelect) {
-        const processorType = processorSelect.value;
-        const instanceName = instanceSelect.value;
+    try {
+        let projectPath = window.currentProjectPath;
         
-        if (processorType && processorType !== '' && instanceName && instanceName !== '') {
-          processors.push({
-            type: processorType,
-            instance: instanceName
-          });
+        if (!projectPath) {
+            const projectData = await window.electronAPI.getCurrentProject();
+            if (projectData && projectData.projectPath) {
+                projectPath = projectData.projectPath;
+            }
         }
-      }
-    });
-    
-    const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
-    const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
-    const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
-    
-    // Construct the Configuration Object
-    const config = {
-      // Simulation Flag: Stores whether the user wants to compile & simulate or just compile
-      simulationEnabled: isSimulationEnabled,
-      
-      // Paths and File Lists
-      topLevelFile: isTopLevelSynthesizable ? isTopLevelSynthesizable.path : '',
-      // Only save testbench path as "active" if it exists, otherwise empty string is fine
-      testbenchFile: isTopLevelTestbench ? isTopLevelTestbench.path : '',
-      gtkwaveFile: isTopLevelGtkw ? isTopLevelGtkw.path : '',
-      
-      synthesizableFiles: this.synthesizableFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        isTopLevel: file.isTopLevel || false
-      })),
-      
-      testbenchFiles: this.testbenchFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        isTopLevel: file.isTopLevel || false
-      })),
-      
-      gtkwFiles: this.gtkwFiles.map(file => ({
-        name: file.name,
-        path: file.path,
-        isTopLevel: file.isTopLevel || false
-      })),
-      
-      // Settings
-      processors: processors,
-      iverilogFlags: iverilogFlagsValue,
-      simuDelay: simuDelayValue,
-      showArraysInGtkwave: showArraysValue
-    };
-    
-    const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-    await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
-    
-    console.log('Project configuration saved:', config);
-    this.showNotification('Project configuration saved successfully!', 'success', 3000);
-    
-    this.currentConfig = config;
-    
-    // Only update processor status if needed, or maybe handle it inside the function based on config
-    await this.updateProcessorStatus();
-    
-    this.closeModal();
-    
-  } catch (error) {
-    console.error('Error saving project configuration:', error);
-    this.showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
-  }
+        
+        if (!projectPath) {
+            this.showNotification('Project path not available. Cannot save configuration.', 'error', 4000);
+            return;
+        }
+        
+        // Get top level files
+        const topLevelSynthesizable = this.synthesizableFiles.find(file => file.isTopLevel);
+        const topLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
+        const topLevelGtkw = this.gtkwFiles.find(file => file.isTopLevel);
+        
+        // Validation: Synthesizable files
+        if (this.synthesizableFiles.length === 0) {
+            this.showNotification('You must import at least one synthesizable file (.v, .sv).', 'error', 4000);
+            return;
+        }
+        
+        if (!topLevelSynthesizable) {
+            this.showNotification('You must mark one synthesizable file as top-level (star icon).', 'error', 4000);
+            return;
+        }
+        
+        // Validation: Simulation files (only if simulation is enabled)
+        const simToggle = document.getElementById('Verilog Mode');
+        const isSimulationEnabled = simToggle ? simToggle.checked : false;
+        
+        if (isSimulationEnabled) {
+            if (this.testbenchFiles.length === 0) {
+                this.showNotification('To run simulation, you must import at least one testbench file (.v, .sv).', 'error', 4000);
+                return;
+            }
+            
+            if (!topLevelTestbench) {
+                this.showNotification('To run simulation, you must mark one file as the main testbench (star icon).', 'error', 4000);
+                return;
+            }
+        }
+        
+        // Collect Processors Configuration
+        const processors = [];
+        const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
+        
+        processorRows.forEach(row => {
+            const processorSelect = row.querySelector('.processor-select');
+            const instanceSelect = row.querySelector('.processor-instance');
+            
+            if (processorSelect && instanceSelect) {
+                const processorType = processorSelect.value;
+                const instanceName = instanceSelect.value;
+                
+                if (processorType && processorType !== '' && instanceName && instanceName !== '') {
+                    processors.push({
+                        type: processorType,
+                        instance: instanceName
+                    });
+                }
+            }
+        });
+        
+        const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
+        const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
+        const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
+        
+        // Construct the Configuration Object
+        const config = {
+            simulationEnabled: isSimulationEnabled,
+            
+            // Paths
+            topLevelFile: topLevelSynthesizable ? topLevelSynthesizable.path : '',
+            testbenchFile: topLevelTestbench ? topLevelTestbench.path : '',
+            gtkwaveFile: topLevelGtkw ? topLevelGtkw.path : '',
+            
+            // File Lists
+            synthesizableFiles: this.synthesizableFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                isTopLevel: file.isTopLevel || false
+            })),
+            
+            testbenchFiles: this.testbenchFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                isTopLevel: file.isTopLevel || false
+            })),
+            
+            gtkwFiles: this.gtkwFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                isTopLevel: file.isTopLevel || false
+            })),
+            
+            // Settings
+            processors: processors,
+            iverilogFlags: iverilogFlagsValue,
+            simuDelay: simuDelayValue,
+            showArraysInGtkwave: showArraysValue
+        };
+        
+        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
+        await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
+        
+        console.log('Project configuration saved:', config);
+        this.showNotification('Project configuration saved successfully!', 'success', 3000);
+        
+        this.currentConfig = config;
+        
+        // Update processor status
+        await this.updateProcessorStatus();
+        
+        // Sync to Verilog File Mode if active
+        if (window.verilogModeManager && window.verilogModeManager.isVerilogModeActive) {
+            await window.verilogModeManager.loadConfiguration();
+            window.verilogModeManager.renderVerilogTree();
+            console.log('✅ Synced changes to Verilog File Mode');
+        }
+        
+        this.closeModal();
+        
+    } catch (error) {
+        console.error('Error saving project configuration:', error);
+        this.showNotification('Failed to save project configuration. Please try again.', 'error', 4000);
+    }
 }
   
   /**

@@ -1,3 +1,7 @@
+import { TabManager } from './tab_manager.js';
+import { EditorManager } from './monaco_editor.js';
+
+
 class TerminalManager {
     constructor() {
         this.terminals = {
@@ -196,57 +200,6 @@ class TerminalManager {
         }
     }
 
-    createOrUpdateCard(terminalId, cardId, lines, type, status = 'running') {
-        const terminal = this.terminals[terminalId];
-        if (!terminal) return;
-
-        if (!this.updatableCards[terminalId]) {
-            this.updatableCards[terminalId] = {};
-        }
-
-        let card = this.updatableCards[terminalId][cardId];
-        const timestamp = new Date().toLocaleString('pt-BR', {
-            hour12: false
-        });
-
-        const contentHTML = lines.map(line => `<div>${line}</div>`).join('');
-
-        if (!card) {
-            card = document.createElement('div');
-            card.classList.add('log-entry', type);
-
-            card.innerHTML = `
-                <span class="timestamp">[${timestamp}]</span>
-                <div class="message-content">
-                    <div class="message-lines">${contentHTML}</div>
-                </div>
-            `;
-
-            terminal.appendChild(card);
-            this.updatableCards[terminalId][cardId] = card;
-
-            if (['error', 'warning', 'success', 'tips'].includes(type)) {
-                this.incrementMessageCount(terminalId, type);
-            }
-
-            card.style.opacity = '0';
-            requestAnimationFrame(() => {
-                card.style.transition = 'opacity 0.3s ease';
-                card.style.opacity = '1';
-            });
-
-        } else {
-            const messageContainer = card.querySelector('.message-lines');
-            if (messageContainer) {
-                messageContainer.innerHTML = contentHTML;
-            }
-        }
-
-        card.setAttribute('data-status', status);
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
-        return card;
-    }
 
     processExecutableOutput(terminalId, result) {
         const terminal = this.terminals[terminalId];
@@ -500,9 +453,10 @@ class TerminalManager {
         this.addMessageToCard(card, text, type);
     }
 
-    createGroupedCard(terminal, type, timestamp) {
+   createGroupedCard(terminal, type, timestamp) {
         const logEntry = document.createElement('div');
-        logEntry.classList.add('log-entry', type);
+        // Add 'animating-in'
+        logEntry.classList.add('log-entry', type, 'animating-in');
 
         const timestampElement = document.createElement('span');
         timestampElement.classList.add('timestamp');
@@ -519,14 +473,8 @@ class TerminalManager {
         logEntry.appendChild(messageContent);
         terminal.appendChild(logEntry);
 
-        logEntry.style.opacity = '0';
-        logEntry.style.transform = 'translateY(10px)';
-        requestAnimationFrame(() => {
-            logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            logEntry.style.opacity = '1';
-            logEntry.style.transform = 'translateY(0)';
-        });
-
+        // Logic for translation removed here as CSS class 'animating-in' handles it
+        
         return logEntry;
     }
 
@@ -659,9 +607,9 @@ class TerminalManager {
         });
     }
 
-    createLogEntry(terminal, text, type, timestamp) {
+createLogEntry(terminal, text, type, timestamp) {
         const logEntry = document.createElement('div');
-        logEntry.classList.add('log-entry', type);
+        logEntry.classList.add('log-entry', type); // Sem animações extras aqui
 
         const timestampElement = document.createElement('span');
         timestampElement.classList.add('timestamp');
@@ -670,107 +618,50 @@ class TerminalManager {
         const messageContent = document.createElement('div');
         messageContent.classList.add('message-content');
 
+        // Processamento de texto e links (MANTIDO IGUAL)
         let processedText = this.makeLineNumbersClickable(text);
         processedText = processedText.replace(
-            /^(Atenção|Erro|Sucesso|Info)(:)?/i, (_, word, colon) => `<strong>${word}</strong>${colon || ''}`
+            /^(Atenção|Erro|Sucesso|Info)(:)?/i, 
+            (_, word, colon) => `<strong>${word}</strong>${colon || ''}`
         );
         messageContent.innerHTML = processedText;
 
         logEntry.appendChild(timestampElement);
         logEntry.appendChild(messageContent);
+        
+        // Adiciona ao DOM (ainda invisível se terminal.classList contiver 'faded-out')
         terminal.appendChild(logEntry);
 
+        // Listeners e Contadores (MANTIDO IGUAL)
         const lineLinks = messageContent.querySelectorAll('.line-link');
         lineLinks.forEach(link => {
-            link.addEventListener('click', async (e) => {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const lineNumber = parseInt(link.getAttribute('data-line'));
-                console.log(`Clicked on line ${lineNumber}`);
-
-                try {
-                    let cmmFilePath = null;
-
-                    if (window.compilationManager?.getCurrentProcessor) {
-                        const currentProcessor = window.compilationManager.getCurrentProcessor();
-                        if (currentProcessor) {
-                            try {
-                                const selectedCmmFile = await window.compilationManager.getSelectedCmmFile(currentProcessor);
-                                if (selectedCmmFile) {
-                                    const projectPath = window.compilationManager.projectPath;
-                                    const softwarePath = await window.electronAPI.joinPath(projectPath, currentProcessor.name, 'Software');
-                                    cmmFilePath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
-                                }
-                            } catch (error) {
-                                console.log('Error getting CMM file from compilation manager:', error);
-                            }
-                        }
-                    }
-
-                    if (!cmmFilePath) {
-                        const terminalContent = logEntry.closest('.terminal-content');
-                        if (terminalContent) {
-                            const logEntries = terminalContent.querySelectorAll('.log-entry');
-
-                            for (const entry of Array.from(logEntries).reverse()) {
-                                const entryText = entry.textContent || '';
-
-                                const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
-                                if (cmmCompMatch) {
-                                    const cmmFileName = cmmCompMatch[1];
-                                    const processorName = cmmCompMatch[2];
-                                    const projectPath = cmmCompMatch[3];
-
-                                    cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!cmmFilePath) {
-                        console.log('Could not determine CMM file path');
-                        return;
-                    }
-
-                    const fileExists = await window.electronAPI.fileExists(cmmFilePath);
-                    if (!fileExists) {
-                        console.log(`CMM file does not exist: ${cmmFilePath}`);
-                        return;
-                    }
-
-                    const isFileOpen = TabManager.tabs.has(cmmFilePath);
-
-                    if (!isFileOpen) {
-                        const content = await window.electronAPI.readFile(cmmFilePath, {
-                            encoding: 'utf8'
-                        });
-                        TabManager.addTab(cmmFilePath, content);
-                    } else {
-                        TabManager.activateTab(cmmFilePath);
-                    }
-
-                    setTimeout(() => {
-                        this.goToLine(lineNumber);
-                    }, 100);
-
-                } catch (error) {
-                    console.error('Error opening CMM file and navigating to line:', error);
-                }
+                if(this.handleLineClick) this.handleLineClick(lineNumber, logEntry);
             });
         });
 
         const messageType = type === 'info' ? 'tips' : type;
         if (['error', 'warning', 'success', 'tips'].includes(messageType)) {
-            this.incrementMessageCount(terminal.closest('.terminal-content').id.replace('terminal-', ''), messageType);
+            const termId = terminal.closest('.terminal-content')?.id.replace('terminal-', '');
+            if (termId) this.incrementMessageCount(termId, messageType);
         }
 
-        logEntry.style.opacity = '0';
-        logEntry.style.transform = 'translateY(10px)';
-        requestAnimationFrame(() => {
-            logEntry.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            logEntry.style.opacity = '1';
-            logEntry.style.transform = 'translateY(0)';
-        });
+        // --- AQUI ESTÁ O TRUQUE DE REVELAÇÃO ---
+        // Se o terminal estiver apagado (pós-clear), revelamos agora.
+        // O requestAnimationFrame garante que o navegador renderizou o HTML inserido acima
+        // antes de mudar a opacidade para 1, criando o efeito de "aparecer pronto".
+        if (terminal.classList.contains('faded-out')) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => { // Double RAF para garantir o paint cycle
+                    terminal.classList.remove('faded-out');
+                    this.scrollToBottom(terminal.id.replace('terminal-', ''));
+                });
+            });
+        }
+
+        return logEntry;
     }
 
     setupGoDownButton() {
@@ -898,12 +789,26 @@ class TerminalManager {
         });
     }
 
-    clearTerminal(terminalId) {
+async clearTerminal(terminalId) {
         const terminal = this.terminals[terminalId];
-        if (terminal) {
-            terminal.innerHTML = '';
-            this.currentSessionCards[terminalId] = {};
-        }
+        if (!terminal) return;
+
+        // 1. Inicia o Fade Out do container inteiro
+        terminal.classList.add('faded-out');
+
+        // 2. Aguarda a animação CSS terminar (200ms definido no CSS)
+        // Damos uma pequena folga (250ms) para garantir fluidez
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // 3. Limpa os dados lógicos
+        this.currentSessionCards[terminalId] = {};
+        this.updatableCards[terminalId] = {};
+        
+        // 4. Limpa o DOM (o usuário não vê isso acontecer pois opacity está 0)
+        terminal.innerHTML = '';
+        
+        // Mantemos a classe 'faded-out' aqui! 
+        // Ela só será removida quando novo conteúdo for adicionado.
     }
 
     clearAllTerminals() {

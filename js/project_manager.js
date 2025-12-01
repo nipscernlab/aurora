@@ -84,6 +84,9 @@ function enableCompileButtons() {
     }
 }
 
+/**
+ * Load project with full orchestration
+ */
 async function loadProject(spfPath) {
     try {
         const result = await window.electronAPI.openProject(spfPath);
@@ -93,7 +96,7 @@ async function loadProject(spfPath) {
         updateProjectNameUI(result.projectData);
         await TabManager.closeAllTabs();
         
-        // Atualiza a árvore de arquivos
+        // Update file tree
         fileTreeManager.updateFileTree(result.files);
         fileTreeManager.watcher.startWatching(window.currentProjectPath);
 
@@ -101,11 +104,21 @@ async function loadProject(spfPath) {
             window.recentProjectsManager.addProject(spfPath);
         }
 
-        // Habilita os botões E atualiza o status para Ready
+        // Enable buttons and update status
         enableCompileButtons();
+        
+        // Save as last opened project
+        if (window.appInitializer) {
+            window.appInitializer.saveCurrentProject(spfPath);
+        }
 
     } catch (error) {
         console.error('Error loading project:', error);
+        await showDialog({
+            title: 'Error Loading Project',
+            message: `Failed to load project: ${error.message}`,
+            buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+        });
     }
 }
 

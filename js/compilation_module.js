@@ -2035,18 +2035,24 @@ async loadFileModeConfig() {
     }
 }
 
-
 /**
  * Icarus Verilog compilation for Verilog Mode (Project without Simulation)
  * Compiles all HDL files + synthesizable files from projectOriented.json
  */
 async iverilogVerilogModeCompilation() {
+    await this.terminalManager.clearTerminal('tveri');
+
     this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Verilog Mode)...');
+    
     statusUpdater.startCompilation('verilog');
 
     try {
         // Load projectOriented.json configuration
         await this.loadFileModeConfig();
+
+        const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+            
+        await window.electronAPI.createDirectory(tempPath);
 
         // Validate synthesizable files exist
         if (!this.fileModeConfig.synthesizableFiles || !Array.isArray(this.fileModeConfig.synthesizableFiles)) {

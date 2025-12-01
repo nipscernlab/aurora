@@ -1,6 +1,7 @@
 // compilation_flow.js
 
 import { CompilationModule } from './compilation_module.js';
+import { showDialog } from './dialogManager.js';
 
 let compilationCanceled = false;
 
@@ -82,6 +83,8 @@ async function runProcessorPipeline(compiler) {
     switchTerminal('terminal-twave');
     checkCancellation();
     await compiler.runGtkWave(activeProcessor);
+
+            await compiler.iverilogCompilation(activeProcessor);
 }
 
 async function runProjectPipeline(compiler) {
@@ -196,7 +199,6 @@ class CompilationFlowManager {
             if (waveBtn) waveBtn.disabled = true;
             if (prismBtn) prismBtn.disabled = false;
             if (allBtn) allBtn.disabled = true;
-            if (settingsBtn) settingsBtn.disabled = true;
         } else {
             // Processor/Project modes: normal behavior based on processor config
             const hasProcessor = this.isProcessorConfigured();
@@ -211,7 +213,6 @@ class CompilationFlowManager {
             
             if (prismBtn) prismBtn.disabled = !hasProcessor;
             if (allBtn) allBtn.disabled = !hasProcessor;
-            if (settingsBtn) settingsBtn.disabled = false;
         }
     }
 
@@ -243,7 +244,16 @@ class CompilationFlowManager {
     }
 
     async runAll() {
-        if (!this.isProcessorConfigured()) return alert('Please configure a processor first.');
+        if (!this.isProcessorConfigured()) {
+            await showDialog({
+                title: 'Configuration Required',
+                message: 'Please configure a processor first.',
+                buttons: [
+                    { label: 'OK', type: 'cancel', action: 'close' }
+                ]
+            });
+            return;
+        }
         
         startCompilation();
         try {
@@ -285,13 +295,26 @@ class CompilationFlowManager {
         // For Verilog Mode, only certain steps are valid
         if (currentMode === 'verilog') {
             if (!['verilog', 'prism'].includes(step)) {
-                alert('This compilation step is not available in Verilog Mode (Compile & Simulate is disabled).');
+                await showDialog({
+                    title: 'Action Not Available',
+                    message: 'This compilation step is not available in Verilog Mode (Compile & Simulate is disabled).',
+                    buttons: [
+                        { label: 'OK', type: 'cancel', action: 'close' }
+                    ]
+                });
                 return;
             }
         } else {
             // Processor/Project modes need processor configuration
             if (!this.isProcessorConfigured()) {
-                return alert('Please configure a processor first.');
+                await showDialog({
+                    title: 'Configuration Required',
+                    message: 'Please configure a processor first.',
+                    buttons: [
+                        { label: 'OK', type: 'cancel', action: 'close' }
+                    ]
+                });
+                return;
             }
         }
 

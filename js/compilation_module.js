@@ -800,12 +800,24 @@ end`;
             showArraysInGtkwave
         } = processor;
         const showArraysFlag = showArraysInGtkwave === 1 ? '1' : '0';
+        await this.terminalManager.clearTerminal('tcmm');
+
         this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
+        
         try {
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+            
+            // 1. Caminhos
             const macrosPath = await window.electronAPI.joinPath(this.componentsPath, 'Macros');
+            
+            // Define o caminho da pasta temporária específica do processador: components/Temp/{name}
             const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            
+            // 2. NOVA LÓGICA: Criar a pasta Temp/{name} se não existir
+            // O parâmetro { recursive: true } no backend garante que cria a pasta 'Temp' e a subpasta '{name}'
+            await window.electronAPI.createDirectory(tempPath);
+
             const cmmCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'cmmcomp.exe');
             const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
             const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
@@ -814,12 +826,13 @@ end`;
             await TabManager.saveAllFiles();
             statusUpdater.startCompilation('cmm');
 
+            // 3. Comando (Voltou a usar "${macrosPath}" como argumento único para macros)
             const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
+            
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tcmm', result);
-
 
             if (result.code !== 0) {
                 statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
@@ -840,6 +853,8 @@ end`;
             clk,
             numClocks
         } = processor;
+        await this.terminalManager.clearTerminal('tasm');
+
         this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation process for ${name}...`);
 
         try {
@@ -908,6 +923,8 @@ end`;
     }
 
     async iverilogProjectCompilation() {
+        await this.terminalManager.clearTerminal('tveri');
+
         this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification for project...');
         statusUpdater.startCompilation('verilog');
 
@@ -1099,6 +1116,8 @@ end`;
         const {
             name
         } = processor;
+        await this.terminalManager.clearTerminal('tveri');
+
         this.terminalManager.appendToTerminal('tveri', `Starting Icarus Verilog compilation for ${name}...`);
         statusUpdater.startCompilation('verilog');
 
@@ -1330,6 +1349,8 @@ end`;
         const {
             name
         } = processor;
+        await this.terminalManager.clearTerminal('twave');
+        
         this.terminalManager.appendToTerminal('twave', `Starting GTKWave for ${name}...`);
         statusUpdater.startCompilation('wave');
 
@@ -1348,6 +1369,7 @@ end`;
             const vvpCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe');
             const gtkwCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
             const binPath = await window.electronAPI.joinPath(this.componentsPath, 'bin');
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
             const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
@@ -1362,6 +1384,12 @@ end`;
             }
 
             const tclFilePath = await window.electronAPI.joinPath(tempPath, 'tcl_infos.txt');
+
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
+                await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
+            );
+
             const tclContent = `${tempPath}\n${binPath}\n`;
             await window.electronAPI.writeFile(tclFilePath, tclContent);
 
@@ -1983,8 +2011,9 @@ getCurrentMode() {
             }
         }
     }
-/**
- * Load projectOriented.json configuration
+
+    /**
+ * Load File Mode configuration from projectOriented.json
  */
 async loadFileModeConfig() {
     try {
@@ -2006,9 +2035,10 @@ async loadFileModeConfig() {
     }
 }
 
+
 /**
- * Icarus Verilog compilation for Verilog Mode
- * Compiles all HDL files + files from projectOriented.json
+ * Icarus Verilog compilation for Verilog Mode (Project without Simulation)
+ * Compiles all HDL files + synthesizable files from projectOriented.json
  */
 async iverilogVerilogModeCompilation() {
     this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Verilog Mode)...');
@@ -2018,14 +2048,19 @@ async iverilogVerilogModeCompilation() {
         // Load projectOriented.json configuration
         await this.loadFileModeConfig();
 
-        if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
-            throw new Error('No files defined in projectOriented.json');
+        // Validate synthesizable files exist
+        if (!this.fileModeConfig.synthesizableFiles || !Array.isArray(this.fileModeConfig.synthesizableFiles)) {
+            throw new Error('No synthesizable files defined in projectOriented.json');
+        }
+
+        if (this.fileModeConfig.synthesizableFiles.length === 0) {
+            throw new Error('synthesizableFiles array is empty. Please import at least one .v file in Project Settings.');
         }
 
         // Find top-level module
-        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        const topLevelFile = this.fileModeConfig.synthesizableFiles.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module marked in projectOriented.json (isTopLevel: true)');
+            throw new Error('No top-level module marked in synthesizableFiles. Please set one file as top level (star icon).');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2042,8 +2077,8 @@ async iverilogVerilogModeCompilation() {
         const hdlFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
         const hdlFilesString = hdlFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
 
-        // Collect all files from projectOriented.json
-        const fileModeFiles = this.fileModeConfig.files
+        // Collect all synthesizable files from projectOriented.json
+        const fileModeFiles = this.fileModeConfig.synthesizableFiles
             .map(file => `"${file.path}"`)
             .join(' ');
 
@@ -2051,7 +2086,7 @@ async iverilogVerilogModeCompilation() {
         await TabManager.saveAllFiles();
 
         // Output file path
-        const projectName = this.projectPath.split(/[\\\\/]/).pop();
+        const projectName = this.projectPath.split(/[\\/]/).pop();
         const outputFilePath = await window.electronAPI.joinPath(tempBaseDir, `${projectName}_verilog.vvp`);
 
         // Get optional flags from projectOriented.json
@@ -2075,13 +2110,13 @@ async iverilogVerilogModeCompilation() {
 
         // Generate hierarchy for Verilog Mode
         await this.generateVerilogModeHierarchy();
-if (this.hierarchyData) {
-    TreeViewState.hierarchyData = this.hierarchyData;
-    this.enableHierarchyToggle(); // ✅ Enable toggle
-    this.hierarchyGenerated = true;
-    await this.switchToHierarchicalView();
-}
-        await this.switchToHierarchicalView();
+        
+        if (this.hierarchyData) {
+            TreeViewState.hierarchyData = this.hierarchyData;
+            TreeViewState.enableToggle();
+            this.hierarchyGenerated = true;
+            await this.switchToHierarchicalView();
+        }
 
     } catch (error) {
         this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
@@ -2099,9 +2134,14 @@ async generateVerilogModeHierarchy() {
             await this.loadFileModeConfig();
         }
 
-        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        // Validate synthesizable files
+        if (!this.fileModeConfig.synthesizableFiles || this.fileModeConfig.synthesizableFiles.length === 0) {
+            throw new Error('No synthesizable files available for hierarchy generation');
+        }
+
+        const topLevelFile = this.fileModeConfig.synthesizableFiles.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module defined in projectOriented.json');
+            throw new Error('No top-level module defined in synthesizableFiles');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2112,8 +2152,8 @@ async generateVerilogModeHierarchy() {
 
         this.terminalManager.appendToTerminal('tveri', 'Generating Verilog Mode hierarchy with Yosys...');
 
-        // Build Yosys script with all files
-        const readVerilogCommands = this.fileModeConfig.files
+        // Build Yosys script with all synthesizable files
+        const readVerilogCommands = this.fileModeConfig.synthesizableFiles
             .map(file => `read_verilog -sv "${file.path}"`)
             .join('\n');
 
@@ -2153,7 +2193,6 @@ write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
     }
 }
 
-
 /**
  * PRISM synthesis for Verilog Mode
  * Generates schematic using Yosys + netlistsvg
@@ -2165,14 +2204,15 @@ async prismVerilogModeCompilation() {
         // Load projectOriented.json configuration
         await this.loadFileModeConfig();
 
-        if (!this.fileModeConfig || !this.fileModeConfig.files || this.fileModeConfig.files.length === 0) {
-            throw new Error('No files defined in projectOriented.json');
+        // Validate synthesizable files
+        if (!this.fileModeConfig.synthesizableFiles || this.fileModeConfig.synthesizableFiles.length === 0) {
+            throw new Error('No synthesizable files defined in projectOriented.json');
         }
 
         // Find top-level module
-        const topLevelFile = this.fileModeConfig.files.find(file => file.isTopLevel === true);
+        const topLevelFile = this.fileModeConfig.synthesizableFiles.find(file => file.isTopLevel === true);
         if (!topLevelFile) {
-            throw new Error('No top-level module marked in projectOriented.json');
+            throw new Error('No top-level module marked in synthesizableFiles');
         }
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
@@ -2193,7 +2233,7 @@ async prismVerilogModeCompilation() {
         await TabManager.saveAllFiles();
 
         // Build Yosys synthesis script
-        const readVerilogCommands = this.fileModeConfig.files
+        const readVerilogCommands = this.fileModeConfig.synthesizableFiles
             .map(file => `read_verilog -sv "${file.path}"`)
             .join('\n');
 
@@ -2239,7 +2279,6 @@ write_json "${tempPath}\\${topLevelModuleName}_synth.json"
         this.terminalManager.appendToTerminal('tveri', 
             `PRISM synthesis completed successfully. Output: ${svgFile}`, 'success');
         
-        // Optionally open the SVG file
         await window.electronAPI.openExternal(svgFile);
 
     } catch (error) {

@@ -261,7 +261,6 @@ class UIStateManager {
             'asmcomp',
             'wavecomp',
             'processorHub',
-            'settings',
             'cancel-everything',
             'allcomp'
         ];

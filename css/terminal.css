@@ -692,6 +692,71 @@
 }
 
 
+/* --- EFEITO DE MATERIALIZAÇÃO (AI STYLE) --- */
+
+/* Classe base para o item ao ser criado (invisível inicialmente) */
+.log-entry {
+  opacity: 0;
+  filter: blur(4px); /* Começa levemente borrado */
+  transition: opacity 0.4s ease-out, filter 0.4s ease-out;
+  will-change: opacity, filter;
+}
+
+/* Estado visível (aplicado logo após a criação) */
+.log-entry.visible {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* --- EFEITO DE DISSOLUÇÃO (CLEAR) --- */
+
+/* Classe aplicada para remover itens */
+.log-entry.dissolve {
+  opacity: 0;
+  filter: blur(8px); /* Borra enquanto some */
+  transition: opacity 0.3s ease-in, filter 0.3s ease-in;
+}
+
+/* terminal.css */
+
+/* Aplica a máscara de desvanecimento nas bordas (efeito esfumaçado) */
+.terminal-body {
+  /* O gradiente define onde o conteúdo é visível (black) e invisível (transparent) */
+  /* Topo (fade curto), Meio (visível), Fundo (fade curto) */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+  
+  /* Garante transição suave de opacidade para o container inteiro */
+  transition: opacity 0.3s ease-in-out;
+  opacity: 1; /* Estado padrão visível */
+  will-change: opacity;
+}
+
+/* Classe para esconder o terminal inteiro (Fade Out) */
+.terminal-body.faded-out {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out; /* Saída um pouco mais rápida */
+}
+
+/* Ajuste nos cards para remover qualquer resquício de animação individual */
+.log-entry {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Garante que o container pai tenha fundo sólido para o fade funcionar bem visualmente */
+.terminal-container {
+  background-color: var(--bg-secondary); /* Mantém sua cor original */
+  overflow: hidden; /* Importante para a mask funcionar bem com scrollbar customizada se houver */
+}
+
+/* Opcional: Garante que o scroll seja suave */
+.terminal-container {
+  scroll-behavior: smooth;
+}
 
 .filter-btn i {
   font-size: 16px;

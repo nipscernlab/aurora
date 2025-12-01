@@ -11,7 +11,7 @@ import { TabManager } from './tab_manager.js';
 function disableCompileButtons() {
     const buttonIds = [
         'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 
-        'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 
+        'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 
         'projectInfo', 'settings-project'
     ];
 

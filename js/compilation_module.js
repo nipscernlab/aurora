@@ -19,6 +19,7 @@ class CompilationModule {
         this.setupHierarchyToggle();
         this._hierarchyGenerationInProgress = false;
         this.componentsPath = null;
+        this.projectTestbenchBackup = null;
         this.initializeComponentsPath();
     }
 
@@ -966,123 +967,207 @@ end
         }
     }
 
-/**
-     * Helper: Instruments the testbench to ensure VCD generation
-     * Injects $dumpfile and $dumpvars if they are missing or forces them to a specific path.
-     */
-    async instrumentTestbench(sourcePath, destPath, vcdFilename) {
-        try {
-            let content = await window.electronAPI.readFile(sourcePath, { encoding: 'utf8' });
-            
-            // 1. Remove existing dump commands to avoid conflicts
-            content = content.replace(/\$dumpfile\s*\([^)]+\)\s*;/g, '');
-            content = content.replace(/\$dumpvars\s*\([^)]+\)\s*;/g, ''); // Optional: remove args to reset
-            content = content.replace(/\$dumpvars\s*;/g, '');
-
-            // 2. Prepare injection code
-            // We use forward slashes for paths to ensure Verilog compatibility on Windows
-            const cleanVcdName = vcdFilename.replace(/\\/g, '/');
-            
-            const injection = `
-    // --- AURORA AUTO-INJECTED DUMP BLOCK ---
-    initial begin
-        $dumpfile("${cleanVcdName}");
-        $dumpvars(0);
-    end
-    // ---------------------------------------
-`;
-
-            // 3. Inject before 'endmodule'
-            const lastEndmoduleIndex = content.lastIndexOf('endmodule');
-            if (lastEndmoduleIndex === -1) {
-                throw new Error("Invalid Testbench: 'endmodule' keyword not found.");
-            }
-
-            const newContent = content.slice(0, lastEndmoduleIndex) + injection + content.slice(lastEndmoduleIndex);
-            
-            await window.electronAPI.writeFile(destPath, newContent);
-            return true;
-        } catch (error) {
-            console.error("Failed to instrument testbench:", error);
-            throw error;
-        }
-    }
 
     /**
-     * Icarus Verilog Compilation (Project Mode)
-     * Compiles user files + instrumented testbench -> project.vvp
-     */
-    async iverilogProjectCompilation() {
-        this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification (Project Mode)...');
+ * Icarus Verilog Compilation (Project Mode)
+ * Compiles user files with instrumented testbench (using a temp file, preserving original)
+ */
+async iverilogProjectCompilation() {
+    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification (Project Mode)...');
+    statusUpdater.startCompilation('verilog');
 
+    try {
+        if (!this.projectConfig) throw new Error("Project configuration not loaded");
+
+        // 1. Setup Paths
+        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+        const iveriCompPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe'
+        );
+
+        await window.electronAPI.mkdir(tempBaseDir);
+
+        // 2. Copy fix.vcd to Temp directory
+        const fixVcdSource = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
+        const fixVcdDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
+        
         try {
-            if (!this.projectConfig) throw new Error("Project configuration not loaded");
-
-            // 1. Setup Paths
-            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-            const iveriCompPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe');
-            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL'); // For standard libs if needed
-
-            await window.electronAPI.mkdir(tempBaseDir);
-
-            // 2. Identify Files
-            const topLevelFile = this.projectConfig.topLevelFile;
-            const testbenchFile = this.projectConfig.testbenchFile;
-            
-            if (!testbenchFile) throw new Error("No testbench file specified in projectOriented.json");
-            
-            // 3. Instrument Testbench (Copy to Temp and Inject VCD logic)
-            const testbenchName = testbenchFile.split(/[\\\/]/).pop();
-            const instrumentedTbPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${testbenchName}`);
-            
-            // We force the VCD output to be "project.vcd" inside the execution folder
-            await this.instrumentTestbench(testbenchFile, instrumentedTbPath, "project.vcd");
-            this.terminalManager.appendToTerminal('tveri', `Instrumented testbench created: instr_${testbenchName}`);
-
-            // 4. Determine Top Level Module Name (for -s flag)
-            // Strategy: Use the name of the testbench file minus extension, or parse it. 
-            // Usually, the testbench module name matches the filename.
-            const tbModuleName = testbenchName.replace(/\.v$/i, '');
-
-            // 5. Build Command
-            const flags = this.projectConfig.iverilogFlags || '';
-            const outputFile = await window.electronAPI.joinPath(tempBaseDir, 'project.vvp');
-            
-            // Gather all synthesizable files from config
-            const userSourceFiles = (this.projectConfig.synthesizableFiles || [])
-                .map(f => `"${f.path}"`)
-                .join(' ');
-
-            // Note: We include standard HDL files in case the user relies on Aurora's standard components
-            // If strictly pure Verilog is desired, you might remove the map below.
-            const standardHdlFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const standardHdlString = standardHdlFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
-
-            // Construct command: iverilog -s [TB_MODULE] -o [OUT.vvp] [INSTRUMENTED_TB] [USER_FILES] [STD_LIB]
-            const cmd = `"${iveriCompPath}" ${flags} -s ${tbModuleName} -o "${outputFile}" "${instrumentedTbPath}" ${userSourceFiles} ${standardHdlString}`;
-
-            this.terminalManager.appendToTerminal('tveri', `Executing compilation...`);
-            
-            // 6. Execute
-            const result = await window.electronAPI.execCommand(cmd);
-            
-            if (result.code !== 0) {
-                this.terminalManager.processExecutableOutput('tveri', result);
-                throw new Error(`Compilation failed with code ${result.code}`);
-            }
-
-            this.terminalManager.appendToTerminal('tveri', 'Project verification compiled successfully.', 'success');
-            statusUpdater.compilationSuccess('verilog');
-
-            // 7. Optional: Generate Hierarchy
-            await this.generateProjectHierarchy();
-
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-            statusUpdater.compilationError('verilog', error.message);
-            throw error;
+            await window.electronAPI.copyFile(fixVcdSource, fixVcdDest);
+            this.terminalManager.appendToTerminal('tveri', 'fix.vcd copied to Temp directory');
+        } catch (e) {
+            this.terminalManager.appendToTerminal('tveri', 
+                'Warning: Could not copy fix.vcd (may not exist)', 'warning');
         }
+
+        // 3. Validate Files
+        const topLevelFile = this.projectConfig.topLevelFile;
+        const testbenchFile = this.projectConfig.testbenchFile;
+        
+        if (!topLevelFile) throw new Error("No top-level file specified in projectOriented.json");
+        if (!testbenchFile) throw new Error("No testbench file specified in projectOriented.json");
+
+        // 4. Determine Module Names and Paths
+        const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        
+        // Define path for the temporary instrumented testbench
+        const tempTbFileName = `tb_inst_${testbenchModuleName}.v`;
+        const tempTbPath = await window.electronAPI.joinPath(tempBaseDir, tempTbFileName);
+
+        // 5. Instrument Testbench (Create temp file, do NOT overwrite original)
+        const simuDelay = this.projectConfig.simuDelay || '200000';
+        
+        await this.instrumentProjectTestbench(
+            testbenchFile,      // Source (Original)
+            tempTbPath,         // Destination (Temp)
+            tempBaseDir,        // Temp Dir for aux files
+            testbenchModuleName, 
+            topLevelModuleName,
+            simuDelay
+        );
+
+        // 6. Build Compilation Command
+        const flags = this.projectConfig.iverilogFlags || '';
+        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
+        
+        const userSourceFiles = (this.projectConfig.synthesizableFiles || [])
+            .map(f => `"${f.path}"`)
+            .join(' ');
+
+        // --- CORREÇÃO DO INCLUDE PATH ---
+        // Encontra a última ocorrência de '/' OU '\' para garantir que pega o diretório
+        // independentemente de como o OS formatou a string.
+        const lastSeparatorIndex = Math.max(testbenchFile.lastIndexOf('/'), testbenchFile.lastIndexOf('\\'));
+        
+        let originalTbDir;
+        if (lastSeparatorIndex !== -1) {
+            originalTbDir = testbenchFile.substring(0, lastSeparatorIndex);
+        } else {
+            // Se não encontrar nenhuma barra, assume que está no diretório atual (ou trata como erro)
+            originalTbDir = "."; 
+        }
+        
+        const includeFlag = `-I "${originalTbDir}"`;
+        // --------------------------------
+
+        // Use tempTbPath instead of testbenchFile in the command
+        const cmd = `"${iveriCompPath}" ${flags} ${includeFlag} -s ${testbenchModuleName} -o "${outputFile}" "${tempTbPath}" ${userSourceFiles}`;
+
+        this.terminalManager.appendToTerminal('tveri', `Compiling with instrumented testbench (Temp file)...`);
+        this.terminalManager.appendToTerminal('tveri', cmd);
+
+        await TabManager.saveAllFiles();
+
+        // 7. Execute Compilation
+        const result = await window.electronAPI.execCommand(cmd);
+        this.terminalManager.processExecutableOutput('tveri', result);
+
+        if (result.code !== 0) {
+            throw new Error(`Compilation failed with code ${result.code}`);
+        }
+
+        this.terminalManager.appendToTerminal('tveri', 'Project verification compiled successfully.', 'success');
+        statusUpdater.compilationSuccess('verilog');
+
+        // 8. Generate Hierarchy
+        await this.generateProjectHierarchy();
+
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('verilog', error.message);
+        throw error;
     }
+}
+
+/**
+ * Instrument testbench for Project Mode with progress tracking and VCD generation
+ * Creates a TEMPORARY file, does NOT modify the user file.
+ * Conditionally adds VCD logic only if missing.
+ */
+async instrumentProjectTestbench(sourcePath, destPath, tempDir, tbModuleName, topLevelModuleName, simuDelay) {
+    try {
+        const originalContent = await window.electronAPI.readFile(sourcePath, { encoding: 'utf8' });
+        
+        // Check if the user already defined dumping logic
+        // We use a regex to look for uncommented $dumpvars or $dumpfile
+        // (Simple check, assumes they aren't commented out with /* */, // handles single line)
+        const hasDumpVars = /\$dumpvars/.test(originalContent);
+        const hasDumpFile = /\$dumpfile/.test(originalContent);
+        const userHasVcdLogic = hasDumpVars || hasDumpFile;
+
+        // 1. Clean existing $finish to avoid early exit (we want our loop to control finish)
+        // We do NOT remove dumpvars here if the user put them, we respect them.
+        let content = originalContent
+            .replace(/\$finish\s*;/g, '// $finish; (Aurora controlled)');
+
+        // 2. Prepare injection code
+        const numericSimuDelay = parseFloat(simuDelay) || 200000.0;
+        const vcdFileName = `${topLevelModuleName}.vcd`;
+        // Ensure paths use double backslashes for Verilog string compatibility on Windows
+        const progressFilePath = `${tempDir.replace(/\\/g, '\\\\')}\\\\progress.txt`;
+
+        let vcdLogic = '';
+        
+        // ONLY generate VCD commands if the user hasn't defined them
+        if (!userHasVcdLogic) {
+            vcdLogic = `
+    // VCD Configuration - SCOPED to testbench module (Auto-injected by Aurora)
+    $dumpfile("${vcdFileName}");
+    $dumpvars(0, ${tbModuleName});`;
+        } else {
+            vcdLogic = `
+    // VCD Configuration skipped: User defined $dumpvars/$dumpfile detected.`;
+        }
+
+        const injectionCode = `
+// ============================================
+// AURORA PROJECT MODE SIMULATION BLOCK
+// ============================================
+integer aurora_progress_file, aurora_progress_counter;
+initial begin
+    ${vcdLogic}
+    
+    // Progress Tracking
+    aurora_progress_file = $fopen("${progressFilePath}", "w");
+    // Loop reflects numericSimuDelay from user settings
+    for (aurora_progress_counter = 10; aurora_progress_counter <= 100; aurora_progress_counter = aurora_progress_counter + 10) begin
+        #${numericSimuDelay}; 
+        $fdisplay(aurora_progress_file, "%0d", aurora_progress_counter);
+        $fflush(aurora_progress_file);
+    end
+    $fclose(aurora_progress_file);
+    $finish;
+end
+// ============================================
+`;
+
+        // 3. Inject before last 'endmodule'
+        const lastEndmoduleIndex = content.lastIndexOf('endmodule');
+        if (lastEndmoduleIndex === -1) {
+            throw new Error("Invalid testbench: 'endmodule' keyword not found");
+        }
+
+        const instrumentedContent = 
+            content.slice(0, lastEndmoduleIndex) + 
+            injectionCode + 
+            content.slice(lastEndmoduleIndex);
+
+        // 4. WRITE to DESTINATION (Temp file), leaving source untouched
+        await window.electronAPI.writeFile(destPath, instrumentedContent);
+        
+        this.terminalManager.appendToTerminal('tveri', 
+            `Testbench instrumented to temp file: ${destPath.split(/[\\\/]/).pop()}`, 'info');
+        
+        return {
+            instrumentedPath: destPath
+        };
+
+    } catch (error) {
+        console.error("Failed to instrument testbench:", error);
+        throw new Error(`Testbench instrumentation failed: ${error.message}`);
+    }
+}
 
     setupHierarchyToggle() {
         const toggleButton = document.getElementById('hierarchy-tree-toggle');
@@ -1581,86 +1666,173 @@ async runGtkWave(processor) {
         }
     }
 
-/**
-     * Executa GTKWave (Modo Projeto)
-     * Gera tcl_infos.txt e usa o script TCL para carregar os sinais.
-     */
-    async runProjectGtkWave() {
-        this.terminalManager.appendToTerminal('twave', 'Starting Simulation & GTKWave...');
 
+    /**
+ * Run GTKWave for Project Mode with progress monitoring
+ */
+async runProjectGtkWave() {
+    await this.terminalManager.clearTerminal('twave');
+    this.terminalManager.appendToTerminal('twave', 'Starting Simulation & GTKWave (Project Mode)...');
+    statusUpdater.startCompilation('wave');
+
+    let gtkwaveOutputHandler = null;
+
+    try {
+        if (!this.projectConfig) throw new Error("Project configuration not loaded");
+
+        // 1. Setup Paths
+        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+        const vvpPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe'
+        );
+        const gtkwavePath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe'
+        );
+
+        // 2. Determine File Names
+        const topLevelFile = this.projectConfig.topLevelFile;
+        if (!topLevelFile) throw new Error("No top-level file specified");
+        
+        const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
+        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vcd`);
+        const fixVcdFile = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
+
+        // 3. Validate Compilation
+        if (!await window.electronAPI.fileExists(vvpFile)) {
+            throw new Error(`${topLevelModuleName}.vvp not found. Please compile first.`);
+        }
+
+        // 4. Validate fix.vcd exists
+        if (!await window.electronAPI.fileExists(fixVcdFile)) {
+            this.terminalManager.appendToTerminal('twave', 
+                'Warning: fix.vcd not found in Temp directory', 'warning');
+        }
+
+        // 5. Clean Previous VCD
         try {
-            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-            const vvpPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe');
-            const gtkwavePath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
+            await window.electronAPI.deleteFileOrDirectory(vcdFile);
+        } catch (e) {
+            // Ignore if file doesn't exist
+        }
 
-            const vvpFile = await window.electronAPI.joinPath(tempBaseDir, 'project.vvp');
-            const vcdFile = await window.electronAPI.joinPath(tempBaseDir, 'project.vcd');
+        // 6. Run Simulation with Progress Monitoring
+        this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
+        
+        await showVVPProgress(topLevelModuleName);
 
-            // 1. Verificar Compilação
-            if (!await window.electronAPI.fileExists(vvpFile)) {
-                throw new Error("project.vvp not found. Please compile first.");
+        const vvpCmd = `cd "${tempBaseDir}" && "${vvpPath}" "${topLevelModuleName}.vvp"`;
+        const vvpResult = await window.electronAPI.execCommand(vvpCmd);
+        this.terminalManager.processExecutableOutput('twave', vvpCmd);
+        
+        hideVVPProgress();
+
+        this.terminalManager.processExecutableOutput('twave', vvpResult);
+
+        if (vvpResult.code !== 0) {
+            throw new Error(`Simulation failed (Code: ${vvpResult.code})`);
+        }
+
+        // 7. Validate VCD Generation
+        if (!await window.electronAPI.fileExists(vcdFile)) {
+            throw new Error(`VCD file was not generated: ${vcdFile}`);
+        }
+
+        this.terminalManager.appendToTerminal('twave', 'Simulation completed successfully', 'success');
+
+        // 8. Restore Original Testbench
+        await this.restoreProjectTestbenchBackup();
+
+        // 9. Launch GTKWave with BOTH VCD files
+        let gtkwFileArg = `"${vcdFile}"`;
+        
+        // Check if user has a custom GTKWave config
+        const customGtkwFile = this.projectConfig.gtkwaveFile;
+        if (customGtkwFile && await window.electronAPI.fileExists(customGtkwFile)) {
+            gtkwFileArg = `"${customGtkwFile}"`;
+            this.terminalManager.appendToTerminal('twave', 'Using custom GTKWave configuration');
+        }
+
+        // GTKWave command with fix.vcd included
+        const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
+        const gtkwCmd = ` cd "${tempBaseDir}" && "${gtkwavePath}" --rcvar "hide_sst on" --fastload --dark ${gtkwFileArg} --script=${scriptPath}`;
+        this.terminalManager.appendToTerminal('twave', gtkwCmd);
+
+        this.terminalManager.appendToTerminal('twave', 'Launching GTKWave with VCD files...');
+
+        // Setup GTKWave output handler
+        gtkwaveOutputHandler = (event, payload) => {
+            switch (payload.type) {
+                case 'stdout':
+                case 'stderr':
+                    if (payload.data.trim()) {
+                        this.terminalManager.processStreamedLine('twave', payload.data.trim());
+                    }
+                    break;
+                case 'completion':
+                    this.terminalManager.appendToTerminal('twave', payload.message,
+                        payload.code === 0 ? 'success' : 'warning');
+                    break;
+                case 'error':
+                    this.terminalManager.appendToTerminal('twave', payload.data, 'error');
+                    break;
             }
+        };
 
-            // 2. Rodar Simulação (Gera VCD e progress.txt)
-            this.terminalManager.appendToTerminal('twave', 'Running Simulation...');
-            const vvpCmd = `cd "${tempBaseDir}" && "${vvpPath}" "project.vvp"`;
-            const vvpResult = await window.electronAPI.execCommand(vvpCmd);
-            this.terminalManager.processExecutableOutput('twave', vvpResult);
+        window.electronAPI.onGtkwaveOutput(gtkwaveOutputHandler);
 
-            if (vvpResult.code !== 0) throw new Error(`Simulation failed (Code: ${vvpResult.code})`);
-            if (!await window.electronAPI.fileExists(vcdFile)) throw new Error("'project.vcd' was not created.");
+        // Launch GTKWave (non-blocking)
+        window.electronAPI.execCommand(gtkwCmd).catch(err => {
+            console.error("GTKWave execution error:", err);
+        });
 
-            // 3. Preparar Ambiente TCL (tcl_infos.txt)
-            // Pegamos o nome do módulo do testbench para o TCL usar como referência de busca de sinais
-            const tbName = this.projectConfig.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-            const scriptsPath = await this.createTclInfos(tempBaseDir, tbName);
+        this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
+        statusUpdater.compilationSuccess('wave');
 
-            // 4. Copiar fix.vcd (Workaround para bug de refresh do GTKWave usado nos scripts Aurora)
-            // Tenta copiar da pasta Scripts, se não existir, cria um vazio.
-            try {
-                const fixSource = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
-                const fixDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
-                if (await window.electronAPI.fileExists(fixSource)) {
-                    await window.electronAPI.copyFile(fixSource, fixDest);
-                } else {
-                    await window.electronAPI.writeFile(fixDest, ""); // Cria vazio se não achar
-                }
-            } catch (e) { console.warn("Could not copy fix.vcd, skipping..."); }
-
-            // 5. Lançar GTKWave
-            this.terminalManager.appendToTerminal('twave', 'Launching GTKWave with TCL script...', 'success');
-
-            // Se o usuário tiver um arquivo de config salvo
-            let waveArgs = `"${vcdFile}"`;
-            if (this.projectConfig.gtkwaveFile && await window.electronAPI.fileExists(this.projectConfig.gtkwaveFile)) {
-                waveArgs = `"${this.projectConfig.gtkwaveFile}"`;
-            }
-
-            // Define qual script TCL usar. 
-            // Assume-se que 'gtk_proj_init.tcl' (o que você forneceu antes) ou 'gtk_proc_init.tcl' existe na pasta Scripts.
-            // Vou apontar para 'gtk_proj_init.tcl' conforme sua preferência de script de projeto.
-            const scriptFile = await window.electronAPI.joinPath(scriptsPath, 'gtk_proj_init.tcl');
-
-            // Verifica se o script existe, senão tenta o padrão do processador
-            let finalScript = scriptFile;
-            if (!await window.electronAPI.fileExists(scriptFile)) {
-                 this.terminalManager.appendToTerminal('twave', `Warning: ${scriptFile} not found. Trying gtk_proc_init.tcl`, 'warning');
-                 finalScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-            }
-
-            // Argumentos de lançamento otimizados
-            const gtkwCmd = `"${gtkwavePath}" --rcvar "hide_sst on" --fastload --dark "${waveArgs}" --script="${finalScript}"`;
-
-            // Executa (sem await para não travar UI)
-            window.electronAPI.execCommand(gtkwCmd).catch(err => {
-                console.error("GTKWave execution error:", err);
-            });
-
-        } catch (error) {
-            this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-            throw error;
+    } catch (error) {
+        hideVVPProgress();
+        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+        statusUpdater.compilationError('wave', error.message);
+        
+        // Restore backup on error
+        await this.restoreProjectTestbenchBackup();
+        
+        throw error;
+    } finally {
+        if (gtkwaveOutputHandler) {
+            window.electronAPI.removeGtkwaveOutputListener(gtkwaveOutputHandler);
         }
     }
+}
+
+/**
+ * Restore original testbench from backup after simulation
+ */
+async restoreProjectTestbenchBackup() {
+    if (!this.projectTestbenchBackup) return;
+    
+    try {
+        const backupExists = await window.electronAPI.fileExists(this.projectTestbenchBackup);
+        if (!backupExists) return;
+        
+        const originalPath = this.projectTestbenchBackup.replace('.aurora_backup', '');
+        
+        // Restore original file
+        await window.electronAPI.copyFile(this.projectTestbenchBackup, originalPath);
+        
+        // Delete backup
+        await window.electronAPI.deleteFileOrDirectory(this.projectTestbenchBackup);
+        
+        this.terminalManager.appendToTerminal('twave', 'Original testbench restored', 'success');
+        this.projectTestbenchBackup = null;
+        
+    } catch (error) {
+        console.error("Failed to restore testbench backup:", error);
+        this.terminalManager.appendToTerminal('twave', 
+            'Warning: Could not restore original testbench', 'warning');
+    }
+}
 
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');

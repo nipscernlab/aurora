@@ -1389,34 +1389,13 @@ async saveConfiguration() {
         const topLevelTestbench = this.testbenchFiles.find(file => file.isTopLevel);
         const topLevelGtkw = this.gtkwFiles.find(file => file.isTopLevel);
         
-        // Validation: Synthesizable files
-        if (this.synthesizableFiles.length === 0) {
-            this.showNotification('You must import at least one synthesizable file (.v, .sv).', 'error', 4000);
-            return;
-        }
-        
+        // Validation: Must have at least one synthesizable file with top-level marked
         if (!topLevelSynthesizable) {
             this.showNotification('You must mark one synthesizable file as top-level (star icon).', 'error', 4000);
             return;
         }
         
-        // Validation: Simulation files (only if simulation is enabled)
-        const simToggle = document.getElementById('Verilog Mode');
-        const isSimulationEnabled = simToggle ? simToggle.checked : false;
-        
-        if (isSimulationEnabled) {
-            if (this.testbenchFiles.length === 0) {
-                this.showNotification('To run simulation, you must import at least one testbench file (.v, .sv).', 'error', 4000);
-                return;
-            }
-            
-            if (!topLevelTestbench) {
-                this.showNotification('To run simulation, you must mark one file as the main testbench (star icon).', 'error', 4000);
-                return;
-            }
-        }
-        
-        // Collect Processors Configuration
+        // Collect Processors Configuration (optional now)
         const processors = [];
         const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
         
@@ -1428,6 +1407,7 @@ async saveConfiguration() {
                 const processorType = processorSelect.value;
                 const instanceName = instanceSelect.value;
                 
+                // Only add if BOTH type and instance are selected
                 if (processorType && processorType !== '' && instanceName && instanceName !== '') {
                     processors.push({
                         type: processorType,
@@ -1440,6 +1420,16 @@ async saveConfiguration() {
         const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
         const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
         const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
+        
+        // Check if simulation is enabled
+        const simToggle = document.getElementById('Verilog Mode');
+        const isSimulationEnabled = simToggle ? simToggle.checked : false;
+        
+        // If simulation is enabled, require testbench
+        if (isSimulationEnabled && !topLevelTestbench) {
+            this.showNotification('To run simulation, you must mark one file as the main testbench (star icon).', 'error', 4000);
+            return;
+        }
         
         // Construct the Configuration Object
         const config = {
@@ -1469,7 +1459,7 @@ async saveConfiguration() {
                 isTopLevel: file.isTopLevel || false
             })),
             
-            // Settings
+            // Settings (processors can be empty array now)
             processors: processors,
             iverilogFlags: iverilogFlagsValue,
             simuDelay: simuDelayValue,

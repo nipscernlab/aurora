@@ -307,11 +307,8 @@ class EditorManager {
                 key: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
                 action: () => editor.getAction('editor.action.quickCommand')
                     .run()
-            }, {
-                key: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
-                action: () => editor.getAction('workbench.action.showCommands')
-                    .run()
-            }, {
+            }, 
+                {
                 key: monaco.KeyCode.F12,
                 action: () => editor.getAction('editor.action.revealDefinition')
                     .run()

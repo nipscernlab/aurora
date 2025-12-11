@@ -63,7 +63,7 @@ class VerilogModeManager {
     }
 
     setupHierarchyToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;
         
         // Only enable toggle after successful compilation logic is handled elsewhere

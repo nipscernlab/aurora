@@ -27,6 +27,7 @@ function switchTerminal(targetId) {
 }
 
 function setCompilationButtonsState(disabled) {
+    /*
     const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp'];
     buttons.forEach(id => {
         const button = document.getElementById(id);
@@ -35,7 +36,7 @@ function setCompilationButtonsState(disabled) {
             button.style.cursor = disabled ? 'not-allowed' : 'pointer';
             button.style.opacity = disabled ? '0.6' : '1';
         }
-    });
+    }); */
 }
 
 function startCompilation() {
@@ -194,12 +195,14 @@ updateButtonStates() {
     
     // In Verilog Mode, compilation flow buttons are restricted
     if (mode === 'verilog') {
+        /*
         if (cmmBtn) cmmBtn.disabled = true;
         if (asmBtn) asmBtn.disabled = true;
         if (veriBtn) veriBtn.disabled = false;
         if (waveBtn) waveBtn.disabled = true;
         if (prismBtn) prismBtn.disabled = false;
         if (allBtn) allBtn.disabled = true;
+        */
     } else {
         // Processor/Project modes
         const hasProcessor = this.isProcessorConfigured();

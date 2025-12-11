@@ -64,6 +64,21 @@ class CommandPalette {
     overlay.querySelector('.aurora-command-palette').addEventListener('click', (e) => e.stopPropagation());
   }
 
+  _fuzzyMatch(query, target) {
+    if (!query) return true;
+    if (!target) return false;
+
+    const q = query.trim().toLowerCase();
+    const t = target.toLowerCase();
+
+    // Create a regular expression: 's' 't' 'n' 'g' -> /s.*t.*n.*g/
+    // The '.*' allows any characters between the query characters.
+    const pattern = q.split('').join('.*');
+    const regex = new RegExp(pattern);
+
+    return regex.test(t);
+  }
+
   /* -------------------- Commands (mapped to existing toolbar elements) -------------------- */
   _buildCommands() {
     const clickIfPossible = (selectorOrElement) => {
@@ -130,7 +145,7 @@ class CommandPalette {
       { id: 'refresh-button', label: 'Refresh File Tree', description: 'Reload file tree', category: 'Project', action: () => clickIfPossible('#refresh-button') },
       { id: 'open-hdl-button', label: 'Open HDL / Import Verilog', description: 'Open HDL or trigger import', category: 'Project', action: () => clickIfPossible('#open-hdl-button') },
       { id: 'toggle-file-tree', label: 'Toggle File Tree', description: 'Minimize / expand the file tree', category: 'Project', action: () => clickIfPossible('#toggle-file-tree') },
-      { id: 'hierarchy-tree-toggle', label: 'Toggle Hierarchical View', description: 'Switch hierarchical view', category: 'Project', action: () => clickIfPossible('hierarchy-tree-toggle') },
+      { id: 'alternate-tree-toggle', label: 'Toggle Hierarchical View', description: 'Switch hierarchical view', category: 'Project', action: () => clickIfPossible('alternate-tree-toggle') },
 
       { id: 'cmmcomp', label: 'Compile C± (CMM)', description: 'Run C± compiler', category: 'Compilation', action: () => clickIfPossible('cmmcomp') },
       { id: 'asmcomp', label: 'Compile ASM', description: 'Run ASM compilation', category: 'Compilation', action: () => clickIfPossible('asmcomp') },
@@ -299,19 +314,23 @@ class CommandPalette {
 
   /* -------------------- Filtering / Rendering -------------------- */
   _filter(q) {
-    const query = (q || '').trim().toLowerCase();
-    if (!query) {
-      this.filtered = Array.from(this.commands);
-    } else {
-      this.filtered = this.commands.filter(c =>
-        c.label.toLowerCase().includes(query) ||
-        (c.description && c.description.toLowerCase().includes(query)) ||
-        (c.category && c.category.toLowerCase().includes(query))
-      );
+      const query = (q || '').trim(); // The query is now normalized inside _fuzzyMatch
+      
+      // If the query is empty, show all commands
+      if (!query) {
+        this.filtered = Array.from(this.commands);
+      } else {
+        // Use _fuzzyMatch for dynamic, less restricted filtering
+        this.filtered = this.commands.filter(c =>
+          this._fuzzyMatch(query, c.label) ||
+          (c.description && this._fuzzyMatch(query, c.description)) ||
+          (c.category && this._fuzzyMatch(query, c.category))
+        );
+      }
+      
+      this.selectedIndex = 0;
+      this._renderList();
     }
-    this.selectedIndex = 0;
-    this._renderList();
-  }
 
   // find icon markup from existing toolbar element (does not clone the button)
 // find icon markup from existing toolbar element

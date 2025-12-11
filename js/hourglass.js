@@ -25,11 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedState === 'hidden') {
       elementsVisible = false;
       HIDE_ELEMENTS.buttons.forEach(id => {
+        /*
         const element = document.getElementById(id);
         if (element) {
           element.classList.add('ui-element-hidden');
           element.style.display = 'none';
-        }
+        } */
       });
       HIDE_ELEMENTS.tabs.forEach(tabId => {
         const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${tabId}"]`);

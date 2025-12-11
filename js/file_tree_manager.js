@@ -45,7 +45,7 @@ const TreeViewState = {
     },
 
     updateToggleButton() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;
 
         const icon = toggleButton.querySelector('i');
@@ -65,7 +65,7 @@ const TreeViewState = {
     },
 
     enableToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;
         toggleButton.classList.remove('disabled');
         toggleButton.disabled = false;
@@ -73,7 +73,7 @@ const TreeViewState = {
     },
 
     disableToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;
         toggleButton.classList.add('disabled');
         toggleButton.disabled = true;
@@ -468,7 +468,7 @@ class FileTreeManager {
         });
         
         // Hierarchy toggle button
-        document.getElementById('hierarchy-tree-toggle')?.addEventListener('click', () => {
+        document.getElementById('alternate-tree-toggle')?.addEventListener('click', () => {
             this.toggleHierarchyView();
         });
         
@@ -520,6 +520,24 @@ class FileTreeManager {
         refreshFileTree();
     }
 
+    renderStandardTree(files = this.files) {
+        if (TreeViewState.isHierarchical || FileTreeState.isRefreshing || !Array.isArray(files)) return;
+
+        const fileTree = document.getElementById('file-tree');
+        if (!fileTree) return;
+
+        // ... (resto da lógica de updateFileTree, mantendo a expansão de pastas)
+        const expandedPaths = Array.from(FileTreeState.expandedFolders);
+        fileTree.innerHTML = '';
+        fileTree.classList.remove('hierarchy-view'); // Garante que a classe de hierarquia esteja removida
+        renderFileTree(files, fileTree);
+        refreshFileTree();
+
+        expandedPaths.forEach(path => {
+            // ... (lógica de re-expansão)
+        });
+    }
+    
 /**
  * Get current mode
  */
@@ -549,7 +567,7 @@ getCurrentMode() {
 }
 
 toggleHierarchyView() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    const toggleButton = document.getElementById('alternate-tree-toggle');
     
     if (!toggleButton || toggleButton.disabled) {
         console.warn('⚠️ Toggle button is disabled');
@@ -606,7 +624,7 @@ toggleHierarchyView() {
  * Update toggle button appearance based on current state and mode
  */
 updateToggleButtonAppearance() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    const toggleButton = document.getElementById('alternate-tree-toggle');
     if (!toggleButton) return;
     
     const icon = toggleButton.querySelector('i');

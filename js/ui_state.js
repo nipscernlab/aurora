@@ -257,12 +257,13 @@ class UIStateManager {
         
         // Toolbar buttons to hide in Verilog Mode
         const toolbarButtonsToHide = [
+            /*
             'cmmcomp',
             'asmcomp',
             'wavecomp',
             'processorHub',
             'cancel-everything',
-            'allcomp'
+            'allcomp' */
         ];
 
         // Terminal tabs to hide
@@ -436,6 +437,7 @@ class UIStateManager {
     enableAllElements() {
         // All toolbar button IDs to enable
         const toolbarButtonIds = [
+            /*
             'cmmcomp',
             'asmcomp',
             'wavecomp',
@@ -449,7 +451,7 @@ class UIStateManager {
             'importBtn',
             'backupFolderBtn',
             'projectInfo',
-            'settings-project'
+            'settings-project' */
         ];
 
         // Enable and show toolbar buttons

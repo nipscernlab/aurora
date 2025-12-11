@@ -26,20 +26,20 @@
 
     <!-- Center Group - Compilation Tools -->
     <div class="toolbar-center">
-        <button id="cmmcomp" class="toolbar-button" disabled>
+        <button id="cmmcomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
             <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
         </button>
-        <button id="asmcomp" class="toolbar-button" disabled>
+        <button id="asmcomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
         </button>
-        <button id="vericomp" class="toolbar-button" disabled>
+        <button id="vericomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
         </button>
-        <button id="wavecomp" class="toolbar-button" disabled>
+        <button id="wavecomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
         </button>
-        <button id="prismcomp" class="toolbar-button" disabled>
+        <button id="prismcomp" class="toolbar-button" enabled>
             <img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit;">
             <span>PRISM</span>
         </button>
@@ -66,10 +66,10 @@
    
     <!-- Compile All Group -->
     <div class="compile-all-group">
-        <button id="cancel-everything" class="toolbar-button" disabled>
+        <button id="cancel-everything" class="toolbar-button" enabled>
             <i class="fa-solid fa-power-off" style="color: #00e9ff;"></i>
         </button>
-        <button id="allcomp" class="toolbar-button" disabled>
+        <button id="allcomp" class="toolbar-button" enabled>
             <i class="fa-brands fa-react fa-xl" style="color: #00e9ff;"></i>
             <span>Full Build</span>
         </button>
@@ -77,7 +77,7 @@
 
     <!-- Right Group - Settings & Tools -->
     <div class="toolbar-right">
-        <button id="settings" class="toolbar-button" disabled>
+        <button id="settings" class="toolbar-button" enabled>
             <i class="fa-solid fa-gears" style="color: #da70d6;"></i>
             <span>Settings</span>
         </button>
@@ -100,7 +100,7 @@
         <header class="modal-header">
             <h2 id="processor-modal-title" class="modal-title">
                 <i class="fa-solid fa-gears" aria-hidden="true"></i>
-                <span>Processor Oriented Settings</span>
+                <span>Processor Mode Settings</span>
             </h2>
             <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
                 <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -215,7 +215,7 @@
         <header class="modal-header">
             <h2 id="project-modal-title" class="modal-title">
                 <i class="fa-solid fa-folder-gear" aria-hidden="true"></i>
-                <span>Project Oriented Settings</span>
+                <span>Project Mode Settings</span>
             </h2>
             <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
                 <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -541,9 +541,9 @@
             </div>
             
         <div class="overlay-title">
-            <button id="hierarchy-tree-toggle" class="tree-toggle-btn" title="Toggle Hierarchical View">
+            <button id="alternate-tree-toggle" class="tree-toggle-btn" title="Toggle Tree View">
                 <i class="fa-solid fa-sitemap"></i>
-                <span class="toggle-text">Hierarchical</span>
+                <span class="toggle-text">Alternate Tree</span>
             </button>
             
             <span id="refresh-button" style="cursor: pointer;">

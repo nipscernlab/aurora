@@ -82,6 +82,7 @@ zoomStyles.textContent = `
     font-size: 12px;
     transition: all var(--transition-fast);
     flex-shrink: 0;
+    gap: 4px;
   }
 
   .zoom-btn:hover {
@@ -173,7 +174,7 @@ class ZoomControlManager {
         <i class="fa-solid fa-minus"></i>
       </button>
       <button class="zoom-btn reset-btn" data-action="reset" aria-label="Reset zoom">
-        <i class="fa-solid fa-rotate-left"></i> Reset
+         Reset <i class="fa-solid fa-rotate-left"></i>
       </button>
       <button class="zoom-btn" data-action="increase" aria-label="Increase zoom">
         <i class="fa-solid fa-plus"></i>

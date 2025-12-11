@@ -1170,7 +1170,7 @@ end
 }
 
     setupHierarchyToggle() {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) {
             console.warn('Hierarchy toggle button not found');
             return;
@@ -1979,7 +1979,7 @@ switchToHierarchicalView() {
     }, 200);
 }
         enableHierarchyToggle() {
-            const toggleButton = document.getElementById('hierarchy-tree-toggle');
+            const toggleButton = document.getElementById('alternate-tree-toggle');
             if (!toggleButton) return;
 
             toggleButton.classList.remove('disabled');
@@ -1996,7 +1996,7 @@ switchToHierarchicalView() {
  * Update toggle button text and icon based on current mode and view
  */
 updateToggleButtonForCurrentMode() {
-    const toggleButton = document.getElementById('hierarchy-tree-toggle');
+    const toggleButton = document.getElementById('alternate-tree-toggle');
     if (!toggleButton) return;
 
     const icon = toggleButton.querySelector('i');
@@ -2041,7 +2041,7 @@ getCurrentMode() {
 }
 
     updateToggleButton(isHierarchical) {
-        const toggleButton = document.getElementById('hierarchy-tree-toggle');
+        const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;
 
         const icon = toggleButton.querySelector('i');

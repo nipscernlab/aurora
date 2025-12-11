@@ -394,6 +394,7 @@ class AppInitializer {
      */
     updateButtonStates() {
         const buttons = {
+            /*
             cmmcomp: document.getElementById('cmmcomp'),
             asmcomp: document.getElementById('asmcomp'),
             vericomp: document.getElementById('vericomp'),
@@ -401,6 +402,7 @@ class AppInitializer {
             prismcomp: document.getElementById('prismcomp'),
             allcomp: document.getElementById('allcomp'),
             settings: document.getElementById('settings')
+            */
         };
         
         if (this.currentMode === 'processor') {

@@ -52,11 +52,12 @@ function enableCompileButtons() {
     const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'settings-project'];
     
     buttons.forEach(id => {
+        /*
         const button = document.getElementById(id);
         if (button) {
             button.disabled = false;
             button.style.cursor = 'pointer';
-        }
+        } */
     });
 
     const statusElement = document.getElementById('ready');

@@ -6,7 +6,7 @@ class TreeViewStateManager {
         this.compilationModule = null;
         this.hierarchyData = null;
         this.isToggleEnabled = false;
-        this.toggleButton = document.getElementById('hierarchy-tree-toggle');
+        this.toggleButton = document.getElementById('alternate-tree-toggle');
     }
 
     setCompilationModule(moduleInstance) {

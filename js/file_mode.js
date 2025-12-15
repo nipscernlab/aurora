@@ -470,8 +470,9 @@ class VerilogModeManager {
         console.log('✅ Rendered', this.verilogFiles.length, 'file items');
     }
     
+
 /**
- * Create file item with enhanced toggle and badges
+ * Enhanced createFileItem with two-state toggle and context menu
  */
 createFileItem(file, index) {
     const fileItem = document.createElement('div');
@@ -491,10 +492,10 @@ createFileItem(file, index) {
     
     let badgesHtml = '';
     if (file.isTopLevel) {
-        badgesHtml += '<span class="file-badge top-level-badge" title="Top Level Module"><i class="fa-solid fa-crown"></i> Top</span>';
+        badgesHtml += '<span class="file-badge top-level-badge">Top Level</span>';
     }
-    if (file.category === 'testbench') {
-        badgesHtml += '<span class="file-badge testbench-badge" title="Testbench File"><i class="fa-solid fa-vial"></i> TB</span>';
+    if (file.isMarkedTestbench) {
+        badgesHtml += '<span class="file-badge testbench-badge">Testbench</span>';
     }
     
     fileItem.innerHTML = `
@@ -505,44 +506,41 @@ createFileItem(file, index) {
                 ${badgesHtml}
             </div>
             <div class="verilog-file-actions">
-                <div class="category-toggle ${categoryClass}" 
-                     data-index="${index}"
-                     title="${isTestbench ? 'Switch to Synthesizable' : 'Switch to Testbench'}">
-                    <div class="toggle-track">
-                        <div class="toggle-thumb">
-                            <i class="fa-solid ${isTestbench ? 'fa-vial' : 'fa-microchip'}"></i>
-                        </div>
-                    </div>
+                <div class="category-toggle-wrapper">
+                    <button class="category-toggle ${categoryClass}" 
+                         data-index="${index}"
+                         title="${isTestbench ? 'Category: Testbench' : 'Category: Synthesizable'}">
+                        <span class="toggle-slider"></span>
+                    </button>
                 </div>
                 <button class="verilog-icon-btn delete-btn" 
                         data-index="${index}"
                         title="Remove file">
-                    <i class="fa-solid fa-trash"></i>
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
         </div>
     `;
     
     const contentDiv = fileItem.querySelector('.verilog-file-content');
-    const toggleSwitch = fileItem.querySelector('.category-toggle');
+    const toggleButton = fileItem.querySelector('.category-toggle');
     const deleteBtn = fileItem.querySelector('.delete-btn');
     
     contentDiv.addEventListener('click', async (e) => {
-        if (e.target.closest('.category-toggle') || e.target.closest('.delete-btn')) {
+        if (e.target.closest('.category-toggle-wrapper') || e.target.closest('.delete-btn')) {
             return;
         }
         
         try {
             const content = await window.electronAPI.readFile(file.path);
             TabManager.addTab(file.path, content);
-            console.log('Opened file in editor:', file.name);
         } catch (error) {
             console.error('Error opening file:', error);
             this.showNotification(`Error opening file: ${file.name}`, 'error', 3000);
         }
     });
     
-    toggleSwitch.addEventListener('click', async (e) => {
+    toggleButton.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         await this.handleCategoryToggle(index);
@@ -564,37 +562,29 @@ createFileItem(file, index) {
 }
 
 /**
- * Handle category toggle switch
+ * Handle category toggle between Synthesizable and Testbench
  */
 async handleCategoryToggle(index) {
     if (!this.verilogFiles[index]) return;
     
     const file = this.verilogFiles[index];
-    
-    if (file.isTopLevel && file.category === 'synthesizable') {
-        this.showNotification('Cannot change category of Top Level file. Remove Top Level first.', 'warning', 3000);
-        return;
-    }
-    
     const newCategory = file.category === 'testbench' ? 'synthesizable' : 'testbench';
     
-    if (newCategory === 'testbench') {
-        this.verilogFiles.forEach(f => {
-            if (f.category === 'testbench') {
-                f.category = 'synthesizable';
-            }
-        });
+    // When switching category, remove special marks
+    if (newCategory === 'synthesizable') {
+        file.isMarkedTestbench = false;
+    } else if (newCategory === 'testbench') {
+        file.isTopLevel = false;
     }
     
     file.category = newCategory;
-    file.isTopLevel = false;
     
     await this.saveConfiguration();
     this.renderVerilogTree();
     
     this.showNotification(
-        `"${file.name}" set as ${newCategory}`, 
-        'success', 
+        `"${file.name}" category changed to ${newCategory}`, 
+        'info', 
         2000
     );
 }
@@ -611,9 +601,9 @@ closeContextMenu() {
     }
 }
 
-    
+
 /**
- * Enhanced context menu with Top Level and Testbench options
+ * Enhanced context menu
  */
 showContextMenu(event, file, index) {
     this.closeContextMenu();
@@ -623,33 +613,49 @@ showContextMenu(event, file, index) {
     menu.id = 'verilog-context-menu';
     
     const isTopLevel = file.isTopLevel || false;
+    const isMarkedTestbench = file.isMarkedTestbench || false;
+    const isSynthesizable = file.category !== 'testbench';
     const isTestbench = file.category === 'testbench';
-    const isSynthesizable = !isTestbench;
     
-    const topLevelOption = isTopLevel
-        ? { text: 'Remove Top Level', icon: 'fa-crown', action: 'remove-top-level', disabled: false }
-        : { text: 'Set as Top Level', icon: 'fa-crown', action: 'set-top-level', disabled: isTestbench };
+    // Top Level option (only for synthesizable files)
+    const topLevelOption = isSynthesizable ? (
+        isTopLevel
+            ? { text: 'Remove Top Level', action: 'remove-top-level', disabled: false, show: true }
+            : { text: 'Set as Top Level', action: 'set-top-level', disabled: false, show: true }
+    ) : { show: false };
     
-    const testbenchOption = isTestbench
-        ? { text: 'Remove Testbench', icon: 'fa-vial', action: 'remove-testbench', disabled: false }
-        : { text: 'Set as Testbench', icon: 'fa-vial', action: 'set-testbench', disabled: isTopLevel };
+    // Testbench mark option (only for testbench files)
+    const testbenchOption = isTestbench ? (
+        isMarkedTestbench
+            ? { text: 'Unmark Testbench', action: 'remove-testbench', disabled: false, show: true }
+            : { text: 'Mark as Testbench', action: 'set-testbench', disabled: false, show: true }
+    ) : { show: false };
+    
+    let menuItems = '';
+    
+    if (topLevelOption.show) {
+        menuItems += `
+            <div class="context-menu-item" data-action="${topLevelOption.action}">
+                <span>${topLevelOption.text}</span>
+            </div>
+        `;
+    }
+    
+    if (testbenchOption.show) {
+        menuItems += `
+            <div class="context-menu-item" data-action="${testbenchOption.action}">
+                <span>${testbenchOption.text}</span>
+            </div>
+        `;
+    }
+    
+    if (menuItems) {
+        menuItems += '<div class="context-menu-divider"></div>';
+    }
     
     menu.innerHTML = `
-        <div class="context-menu-item ${topLevelOption.disabled ? 'disabled' : ''}" 
-             data-action="${topLevelOption.action}"
-             ${topLevelOption.disabled ? 'title="Cannot set Top Level on Testbench file"' : ''}>
-            <i class="fa-solid ${topLevelOption.icon}"></i>
-            <span>${topLevelOption.text}</span>
-        </div>
-        <div class="context-menu-item ${testbenchOption.disabled ? 'disabled' : ''}" 
-             data-action="${testbenchOption.action}"
-             ${testbenchOption.disabled ? 'title="Cannot set Testbench on Top Level file"' : ''}>
-            <i class="fa-solid ${testbenchOption.icon}"></i>
-            <span>${testbenchOption.text}</span>
-        </div>
-        <div class="context-menu-divider"></div>
+        ${menuItems}
         <div class="context-menu-item delete-item" data-action="delete">
-            <i class="fa-solid fa-trash"></i>
             <span>Remove File</span>
         </div>
     `;
@@ -683,6 +689,7 @@ showContextMenu(event, file, index) {
         document.addEventListener('click', this.closeContextMenu.bind(this), { once: true });
     }, 100);
 }
+
 
     async syncToProjectConfig() {
     try {
@@ -1057,48 +1064,42 @@ basename(filePath) {
     }
         
 /**
- * Enhanced context menu action handler
+ * Handle context menu actions
  */
 async handleContextMenuAction(action, file, index) {
     switch (action) {
         case 'set-top-level':
             if (file.category === 'testbench') {
-                this.showNotification('Cannot set Top Level on a Testbench file', 'warning', 3000);
+                this.showNotification('Cannot set Top Level on Testbench file', 'warning', 3000);
                 return;
             }
+            // Remove Top Level from all files
             this.verilogFiles.forEach(f => f.isTopLevel = false);
+            // Set this file as Top Level
             this.verilogFiles[index].isTopLevel = true;
-            this.verilogFiles[index].category = 'synthesizable';
-            console.log('Set as Top Level:', file.name);
             this.showNotification(`"${file.name}" set as Top Level`, 'success', 2000);
             break;
             
         case 'remove-top-level':
             this.verilogFiles[index].isTopLevel = false;
-            console.log('Removed Top Level:', file.name);
-            this.showNotification(`Removed Top Level from "${file.name}"`, 'success', 2000);
+            this.showNotification(`Top Level removed from "${file.name}"`, 'success', 2000);
             break;
             
         case 'set-testbench':
-            if (this.verilogFiles[index].isTopLevel) {
-                this.showNotification('Cannot set Testbench on Top Level file', 'warning', 3000);
+            if (file.category !== 'testbench') {
+                this.showNotification('File must have Testbench category', 'warning', 3000);
                 return;
             }
-            this.verilogFiles.forEach(f => {
-                if (f.category === 'testbench') {
-                    f.category = 'synthesizable';
-                }
-            });
-            this.verilogFiles[index].category = 'testbench';
-            this.verilogFiles[index].isTopLevel = false;
-            console.log('Set as Testbench:', file.name);
-            this.showNotification(`"${file.name}" set as Testbench`, 'success', 2000);
+            // Remove testbench mark from all files
+            this.verilogFiles.forEach(f => f.isMarkedTestbench = false);
+            // Mark this file as the testbench
+            this.verilogFiles[index].isMarkedTestbench = true;
+            this.showNotification(`"${file.name}" marked as Testbench`, 'success', 2000);
             break;
             
         case 'remove-testbench':
-            this.verilogFiles[index].category = 'synthesizable';
-            console.log('Removed Testbench:', file.name);
-            this.showNotification(`Removed Testbench from "${file.name}"`, 'success', 2000);
+            this.verilogFiles[index].isMarkedTestbench = false;
+            this.showNotification(`Testbench mark removed from "${file.name}"`, 'success', 2000);
             break;
             
         case 'delete':
@@ -1112,7 +1113,6 @@ async handleContextMenuAction(action, file, index) {
         this.renderVerilogTree();
     }
 }
-
     
 /**
  * Toggle file top level status with sync
@@ -1397,8 +1397,9 @@ async loadConfiguration() {
         this.showNotification('Verilog Mode refreshed', 'success', 2000);
     }
     
-   /**
- * Enhanced styles with improved toggle design
+
+/**
+ * Complete enhanced styles including file creation modals
  */
 injectStyles() {
     const styleId = 'verilog-mode-styles';
@@ -1411,6 +1412,9 @@ injectStyles() {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
+        /* ============================================================
+         * VERILOG MODE - BASE STYLES
+         * ============================================================ */
         .verilog-mode-active {
             position: relative;
             min-height: 200px;
@@ -1454,7 +1458,7 @@ injectStyles() {
         .verilog-empty-icon {
             font-size: 4rem;
             opacity: 0.4;
-            color: var(--accent-secondary);
+            color: var(--text-tertiary);
         }
         
         .verilog-empty-text {
@@ -1468,12 +1472,16 @@ injectStyles() {
             font-weight: var(--font-semibold);
         }
         
+        /* ============================================================
+         * FILE ITEMS
+         * ============================================================ */
         .verilog-file-item {
             display: flex;
             align-items: center;
             padding: var(--space-3) var(--space-4);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-primary);
+            /* REMOVED GRAY BACKGROUND */
+            background: transparent;
+            border: 1px solid transparent; 
             border-left: 3px solid var(--border-primary);
             border-radius: var(--radius-md);
             margin-bottom: var(--space-2);
@@ -1481,24 +1489,28 @@ injectStyles() {
             opacity: 0;
             transform: translateY(-10px);
             animation: verilogSlideIn var(--transition-normal) forwards;
+            cursor: pointer;
         }
         
         .verilog-file-item.synthesizable {
-            border-left-color: #4CAF50;
+            border-left-color: var(--text-secondary);
         }
         
         .verilog-file-item.testbench {
-            border-left-color: #2196F3;
+            border-left-color: var(--accent-primary);
         }
         
         .verilog-file-item.top-level-file {
-            background: linear-gradient(90deg, rgba(255, 215, 0, 0.08) 0%, var(--bg-tertiary) 100%);
-            box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2);
+            /* Keep subtle highlight for top level to distinguish it */
+            background: linear-gradient(90deg, var(--accent-subtle-bg) 0%, transparent 100%);
+            border-left-color: var(--accent-primary);
         }
         
+        /* Hover Effect: Show background and border subtly */
         .verilog-file-item:hover {
-            background: var(--bg-quaternary);
-            border-color: var(--accent-secondary);
+            background: var(--bg-tertiary);
+            border-color: var(--border-primary);
+            border-left-color: var(--accent-secondary);
             transform: translateX(4px);
         }
         
@@ -1542,7 +1554,7 @@ injectStyles() {
         
         .verilog-file-icon {
             font-size: var(--text-xl);
-            color: var(--accent-secondary);
+            color: var(--text-secondary);
             min-width: 24px;
             transition: color var(--transition-fast);
         }
@@ -1566,101 +1578,121 @@ injectStyles() {
             align-items: center;
         }
         
+        /* ============================================================
+         * FILE BADGES
+         * ============================================================ */
+        .file-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            margin-left: var(--space-2);
+            white-space: nowrap;
+            background: var(--accent-subtle-bg);
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-subtle-border);
+        }
+        
+        .top-level-badge {
+            background: var(--accent-subtle-bg);
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+        
+        .testbench-badge {
+            background: var(--accent-subtle-bg);
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+        
+        /* ============================================================
+         * CATEGORY TOGGLE (TWO-STATE SWITCH)
+         * ============================================================ */
+        .category-toggle-wrapper {
+            display: flex;
+            align-items: center;
+            /* Hidden by default */
+            opacity: 0;
+            transform: translateX(10px);
+            pointer-events: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Show on hover of the file item */
+        .verilog-file-item:hover .category-toggle-wrapper {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        
         .category-toggle {
             position: relative;
+            width: 44px;
+            height: 24px;
+            border: 1px solid transparent;
+            border-radius: 12px;
             cursor: pointer;
-            user-select: none;
-            padding: var(--space-1);
             transition: all var(--transition-fast);
-        }
-        
-        .category-toggle:hover {
-            transform: scale(1.05);
-        }
-        
-        .toggle-track {
-            position: relative;
-            width: 52px;
-            height: 26px;
-            background: var(--bg-primary);
-            border: 2px solid var(--border-primary);
-            border-radius: 13px;
-            transition: all var(--transition-fast);
+            padding: 0;
             overflow: hidden;
         }
         
-        .category-toggle.synthesizable .toggle-track {
-            background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
-            border-color: #4CAF50;
-            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        .category-toggle:hover {
+            box-shadow: 0 0 0 2px var(--accent-subtle-bg);
         }
         
-        .category-toggle.testbench .toggle-track {
-            background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
-            border-color: #2196F3;
-            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        /* Synthesizable State (Hardware Blue) */
+        .category-toggle.synthesizable {
+            background: #0ea5e9; /* Cyan/Ocean Blue */
         }
         
-        .toggle-thumb {
+        .category-toggle.synthesizable:hover {
+            background: #0284c7; /* Darker Cyan on hover */
+        }
+        
+        /* Testbench State (Purple) */
+        .category-toggle.testbench {
+            background: var(--accent-primary);
+        }
+        
+        .toggle-slider {
             position: absolute;
             top: 2px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all var(--transition-fast);
-        }
-        
-        .toggle-thumb i {
-            font-size: 10px;
-            transition: all var(--transition-fast);
-        }
-        
-        .category-toggle.synthesizable .toggle-thumb {
             left: 2px;
+            width: 18px;
+            height: 18px;
+            background: white; /* Always white for good contrast on colors */
+            border-radius: 50%;
+            transition: all var(--transition-fast);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        /* Left position for Synthesizable */
+        .category-toggle.synthesizable .toggle-slider {
             transform: translateX(0);
         }
         
-        .category-toggle.synthesizable .toggle-thumb i {
-            color: #4CAF50;
+        /* Right position for Testbench */
+        .category-toggle.testbench .toggle-slider {
+            transform: translateX(20px);
         }
         
-        .category-toggle.testbench .toggle-thumb {
-            left: 2px;
-            transform: translateX(26px);
-        }
-        
-        .category-toggle.testbench .toggle-thumb i {
-            color: #2196F3;
-        }
-        
-        .category-toggle:hover .toggle-track {
-            box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.15);
-        }
-        
-        .category-toggle.toggling .toggle-thumb {
-            animation: toggleBounce 0.3s ease-in-out;
-        }
-        
-        @keyframes toggleBounce {
-            0%, 100% { transform: scale(1) translateX(var(--toggle-x, 0)); }
-            50% { transform: scale(1.15) translateX(var(--toggle-x, 0)); }
-        }
-        
+        /* ============================================================
+         * DELETE BUTTON
+         * ============================================================ */
         .verilog-icon-btn {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
             background: transparent;
             border: none;
             border-radius: var(--radius-sm);
-            color: var(--text-secondary);
+            color: var(--text-tertiary);
             cursor: pointer;
             transition: all var(--transition-fast);
         }
@@ -1675,6 +1707,9 @@ injectStyles() {
             color: var(--status-error);
         }
         
+        /* ============================================================
+         * CONTEXT MENU
+         * ============================================================ */
         .verilog-context-menu {
             position: fixed;
             background: var(--bg-elevated);
@@ -1682,7 +1717,7 @@ injectStyles() {
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-xl);
             padding: var(--space-2);
-            min-width: 200px;
+            min-width: 180px;
             z-index: 10000;
             opacity: 0;
             transform: scale(0.95);
@@ -1697,7 +1732,6 @@ injectStyles() {
         .context-menu-item {
             display: flex;
             align-items: center;
-            gap: var(--space-3);
             padding: var(--space-3) var(--space-4);
             border-radius: var(--radius-sm);
             cursor: pointer;
@@ -1716,9 +1750,9 @@ injectStyles() {
             cursor: not-allowed;
         }
         
-        .context-menu-item i {
-            width: 16px;
-            font-size: var(--text-base);
+        .context-menu-item.delete-item:hover {
+            background: var(--status-error-bg);
+            color: var(--status-error);
         }
         
         .context-menu-divider {
@@ -1727,41 +1761,9 @@ injectStyles() {
             margin: var(--space-2) 0;
         }
         
-        .file-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            padding: 3px 8px;
-            border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
-            font-weight: var(--font-bold);
-            margin-left: var(--space-2);
-            white-space: nowrap;
-        }
-        
-        .top-level-badge {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #000;
-            box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
-            animation: badgePulse 2s infinite;
-        }
-        
-        .testbench-badge {
-            background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
-            color: white;
-            box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3);
-        }
-        
-        @keyframes badgePulse {
-            0%, 100% {
-                box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
-            }
-            50% {
-                box-shadow: 0 2px 12px rgba(255, 215, 0, 0.6);
-            }
-        }
-        
+        /* ============================================================
+         * CREATE MENU (Right-click on empty area)
+         * ============================================================ */
         .verilog-create-menu {
             position: fixed;
             background: var(--bg-elevated);
@@ -1803,6 +1805,9 @@ injectStyles() {
             font-size: var(--text-base);
         }
         
+        /* ============================================================
+         * FILE NAME MODAL (New file creation)
+         * ============================================================ */
         .file-name-modal {
             position: fixed;
             top: 0;
@@ -1824,6 +1829,7 @@ injectStyles() {
         
         .file-name-modal-content {
             background: var(--bg-elevated);
+            border: 1px solid var(--border-primary);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-xl);
             min-width: 400px;
@@ -1889,7 +1895,7 @@ injectStyles() {
             border: none;
             color: var(--text-primary);
             font-size: var(--text-base);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             outline: none;
         }
         
@@ -1897,7 +1903,7 @@ injectStyles() {
             padding-right: var(--space-3);
             color: var(--text-tertiary);
             font-size: var(--text-base);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             user-select: none;
         }
         
@@ -1937,7 +1943,11 @@ injectStyles() {
             background: var(--accent-secondary);
         }
         
-        .delete-confirm-modal {
+        /* ============================================================
+         * DELETE CONFIRMATION MODAL
+         * ============================================================ */
+        .delete-confirm-modal,
+        .confirm-modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -1952,25 +1962,72 @@ injectStyles() {
             transition: opacity var(--transition-normal);
         }
         
-        .delete-confirm-modal.show {
+        .delete-confirm-modal.show,
+        .confirm-modal.show {
             opacity: 1;
         }
         
-        .confirm-modal .delete-icon {
-            color: var(--status-error);
+        .confirm-modal-content {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            min-width: 400px;
+            max-width: 90%;
+            transform: scale(0.9);
+            transition: transform var(--transition-normal);
+        }
+        
+        .confirm-modal.show .confirm-modal-content,
+        .delete-confirm-modal.show .confirm-modal-content {
+            transform: scale(1);
+        }
+        
+        .confirm-modal-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-6);
+            border-bottom: 1px solid var(--border-primary);
+        }
+        
+        .confirm-modal-icon {
             font-size: 32px;
         }
         
-        .confirm-btn.delete {
-            background: var(--status-error);
-            color: white;
-            font-weight: 600;
+        .confirm-modal-icon.delete-icon {
+            color: var(--status-error);
         }
         
-        .confirm-btn.delete:hover {
-            background: #dc2626;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        .confirm-modal-title {
+            margin: 0;
+            font-size: var(--text-xl);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+        }
+        
+        .confirm-modal-message {
+            padding: var(--space-6);
+            color: var(--text-primary);
+            line-height: var(--leading-relaxed);
+        }
+        
+        .confirm-modal-actions {
+            display: flex;
+            gap: var(--space-3);
+            padding: var(--space-6);
+            border-top: 1px solid var(--border-primary);
+            justify-content: flex-end;
+        }
+        
+        .confirm-btn {
+            padding: var(--space-2) var(--space-4);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            transition: all var(--transition-fast);
         }
         
         .confirm-btn.cancel {
@@ -1981,12 +2038,21 @@ injectStyles() {
         .confirm-btn.cancel:hover {
             background: var(--bg-quaternary);
         }
+        
+        .confirm-btn.delete {
+            background: var(--status-error);
+            color: white;
+        }
+        
+        .confirm-btn.delete:hover {
+            background: #c0392b;
+        }
     `;
     
     document.head.appendChild(style);
-    console.log('Styles injected');
+    console.log('Complete styles injected successfully');
 }
-    
+
     /**
      * Show notification
      */

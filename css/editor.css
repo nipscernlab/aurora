@@ -4,20 +4,19 @@
  *       Filename:  editor.css
  *
  *    Description:  Styles for the main editor layout, tabs, resizers, and overlays.
- *                  Totalmente refatorado para se integrar ao sistema de design do 
- *                  theme_variables.css, criando uma experiência moderna, responsiva e
- *                  visualmente coesa.
+ *                  Completely refactored to integrate with the theme_variables.css 
+ *                  design system, creating a modern, responsive and visually cohesive 
+ *                  experience.
  *
  * =====================================================================================
  */
 
 /* ===================================================================================
  *  Main Layout Containers
- *  (Estrutura principal do layout, sem alterações de cor)
  * =================================================================================== */
 .main-container {
   display: flex;
-  height: calc(100vh - var(--space-8)); /* Ajustado para a barra de status fixa */
+  height: calc(100vh - var(--space-8));
   width: 100vw;
   overflow: hidden;
 }
@@ -35,7 +34,7 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: var(--bg-secondary); /* Fundo do editor */
+  background-color: var(--bg-secondary);
   bottom: 1vh;
 }
 
@@ -52,7 +51,7 @@
 }
 
 /* ===================================================================================
- *  Divisores Redimensionáveis (Resizers)
+ *  Resizers
  * =================================================================================== */
 .resizer-vertical {
   position: absolute;
@@ -72,7 +71,7 @@
 
 .resizer-horizontal {
   height: 6px;
-  background-color: var(--bg-tertiary); /* Cor mais sutil para o divisor */
+  background-color: var(--bg-tertiary);
   cursor: row-resize;
   transition: background-color var(--transition-fast);
   z-index: var(--z-0);
@@ -83,7 +82,7 @@
 }
 
 /* ===================================================================================
- *  Abas de Arquivos e Terminal
+ *  File and Terminal Tabs
  * =================================================================================== */
 .tabs-container,
 .terminal-tabs {
@@ -95,11 +94,11 @@
   align-items: flex-end;
 }
 
-/* Scrollbar customizado para as abas */
 .tabs-container::-webkit-scrollbar,
 .terminal-tabs::-webkit-scrollbar {
   height: 3px;
 }
+
 .tabs-container::-webkit-scrollbar-thumb,
 .terminal-tabs::-webkit-scrollbar-thumb {
   background-color: var(--accent-secondary);
@@ -134,11 +133,10 @@
 }
 
 .tab.active {
-  background-color: #26233d; /* Conecta a aba ao painel do editor */
+  background-color: #26233d;
   color: var(--text-primary);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
-
 
 .tab-title {
   flex: 1;
@@ -167,15 +165,8 @@
   color: var(--status-error);
 }
 
-/* Estilo específico para a aba do terminal ativa 
-.terminal-tabs .tab.active {
-  box-shadow: inset 0 2px 0 var(--status-info); /* Cor diferente para foco no terminal 
-} 
-
-*/
-
 /* ===================================================================================
- *  Tela de Boas-Vindas (Welcome Overlay) - COMPLETAMENTE REFEITA
+ *  Welcome Overlay - COMPLETELY REDESIGNED
  * =================================================================================== */
 #editor-overlay {
   position: absolute;
@@ -186,7 +177,7 @@
   pointer-events: none;
   transition: opacity var(--transition-normal);
   z-index: var(--z-20);
-  overflow: hidden; /* Controla o scroll dentro dos painéis */
+  overflow: hidden;
 }
 
 #editor-overlay.visible {
@@ -201,7 +192,6 @@
   animation: fadeIn var(--transition-slow) ease-out;
 }
 
-/* Sidebar de Projetos Recentes */
 .welcome-sidebar {
   width: 320px;
   flex-shrink: 0;
@@ -258,7 +248,6 @@
   margin-bottom: var(--space-4);
 }
 
-/* Conteúdo Principal da Tela de Boas-Vindas */
 .welcome-main-content {
   flex-grow: 1;
   flex-direction: column;
@@ -330,10 +319,10 @@
 }
 
 /* ===================================================================================
- *  Integração com Monaco Editor - Estilo Moderno
+ *  Monaco Editor Integration - Modern Style
  * =================================================================================== */
 
-/* Widget de Busca (Find) */
+/* Find Widget */
 .monaco-editor .find-widget {
   z-index: var(--z-50) !important;
   box-shadow: var(--shadow-lg) !important;
@@ -342,48 +331,144 @@
   background-color: var(--bg-elevated) !important;
 }
 
-/* Scrollbars Modernos do Monaco */
-.monaco-editor .monaco-scrollable-element .scrollbar .slider {
+/* ===================================================================================
+ *  MONACO SCROLLBAR FIX - REMOVE WHITE DOT
+ * =================================================================================== */
+
+/* Hide overview ruler (the white dot) */
+.monaco-editor .decorationsOverviewRuler {
+  display: none !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Hide minimap decorations */
+.monaco-editor .minimap-decorations-layer {
+  display: none !important;
+}
+
+/* Remove scrollbar decorations and artifacts */
+.monaco-scrollable-element > .scrollbar > .slider::before,
+.monaco-scrollable-element > .scrollbar > .slider::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Clean scrollbar slider styling */
+.monaco-editor .monaco-scrollable-element > .scrollbar {
+  background: transparent !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
   background: var(--accent-subtle-border) !important;
   border-radius: var(--radius-full) !important;
   transition: background-color var(--transition-fast) !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
-.monaco-editor .monaco-scrollable-element .scrollbar .slider:hover {
-  background: rgba(155, 89, 182, 0.6) !important; /* Versão um pouco mais opaca do accent */
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(155, 89, 182, 0.6) !important;
+  box-shadow: none !important;
 }
 
-.monaco-editor .monaco-scrollable-element .scrollbar .slider.active {
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
   background: var(--accent-primary) !important;
+  box-shadow: none !important;
 }
 
-/* Slider do Minimapa */
+/* Remove any scrollbar shadows */
+.monaco-editor .monaco-scrollable-element > .scrollbar.vertical,
+.monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Ensure no white elements appear on scrollbar track */
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider,
+.monaco-editor .monaco-scrollable-element > .scrollbar {
+  outline: none !important;
+}
+
+/* Hide the vertical scrollbar decoration ruler completely */
+.monaco-editor .vertical-scrollbar-decoration {
+  display: none !important;
+  width: 0 !important;
+}
+
+/* Remove any remaining decoration elements */
+.monaco-editor .decorations-overview-ruler,
+.monaco-editor .overview-ruler,
+.monaco-editor .scrollbar-decoration {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Minimap Slider - No white artifacts */
 .monaco-editor .minimap-slider {
-  background: rgba(155, 89, 182, 0.4) !important; /* Cor accent com opacidade balanceada */
+  background: rgba(155, 89, 182, 0.4) !important;
   border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+  border: none !important;
   z-index: 0;
 }
 
+.monaco-editor .minimap-slider:hover {
+  background: rgba(155, 89, 182, 0.6) !important;
+}
+
+/* Ensure scrollbar container has no white backgrounds */
+.monaco-editor .monaco-scrollable-element {
+  background: transparent !important;
+}
+
+/* Remove any glow or outline effects */
+.monaco-editor .monaco-scrollable-element > .scrollbar > * {
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
 
 /* ===================================================================================
- *  Ajustes Responsivos
+ *  Responsive Adjustments
  * =================================================================================== */
 @media (max-width: 768px) {
   .welcome-screen {
     flex-direction: column;
   }
+  
   .welcome-sidebar {
     width: 100%;
     height: 40%;
     border-right: none;
     border-bottom: 1px solid var(--border-primary);
   }
+  
   .tabs-container {
     height: 40px;
   }
+  
   .tab {
     min-width: 100px;
     height: 36px;
     padding: 0 var(--space-2);
+  }
+}
+
+/* ===================================================================================
+ *  Animation Keyframes
+ * =================================================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

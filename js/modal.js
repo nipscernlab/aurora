@@ -6,15 +6,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const newProjectBtn = document.getElementById("newProjectBtn");
     const newProjectBtnWelcome = document.getElementById("newProjectBtnWelcome");
     
-    // Input Elements
     const projectNameInput = document.getElementById('projectNameInput');
     const projectLocationInput = document.getElementById('projectLocationInput');
 
-    // --- Styling Helpers ---
+    const nameRegex = /^[a-zA-Z0-9_-]+$/;
+    const pathRegex = /^[a-zA-Z0-9_:\\/.-]+$/;
 
     const setErrorStyle = (element) => {
-        element.style.border = "1px solid rgba(255, 82, 82, 0.8)"; // Soft red
-        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)"; // Slight glow
+        element.style.border = "1px solid rgba(255, 82, 82, 0.8)"; 
+        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)"; 
         element.style.transition = "border 0.3s ease";
     };
 
@@ -23,38 +23,28 @@ document.addEventListener("DOMContentLoaded", () => {
         element.style.boxShadow = "";
     };
 
-    /**
-     * Checks if the input contains spaces.
-     * Applies error style if spaces are found, removes it otherwise.
-     * @param {HTMLElement} element - The input element to validate
-     * @returns {boolean} - Returns false if invalid (has spaces), true if valid.
-     */
-    const validateInput = (element) => {
+    const validateInput = (element, regex) => {
         const value = element.value;
-        const hasSpaceRegex = /\s/;
-
-        if (hasSpaceRegex.test(value)) {
+        
+        if (!regex.test(value)) {
             setErrorStyle(element);
-            return false; // Invalid
+            return false;
         } else {
             resetInputStyle(element);
-            return true; // Valid
+            return true;
         }
     };
 
-    // --- Event Listeners for Live Validation ---
-
-    // 1. Live check for Project Name (typing)
     projectNameInput.addEventListener('input', () => {
-        validateInput(projectNameInput);
+        validateInput(projectNameInput, nameRegex);
     });
 
-    // --- Modal Logic ---
+    projectLocationInput.addEventListener('input', () => {
+        validateInput(projectLocationInput, pathRegex);
+    });
 
-    // Open Modal Handlers
     const openModal = () => {
         newProjectModal.classList.remove("hidden");
-        // Reset styles and values when opening fresh
         resetInputStyle(projectNameInput);
         resetInputStyle(projectLocationInput);
     };
@@ -62,28 +52,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if(newProjectBtn) newProjectBtn.addEventListener("click", openModal);
     if(newProjectBtnWelcome) newProjectBtnWelcome.addEventListener("click", openModal);
 
-    // Handle "Browse" Button
     document.getElementById('browseBtn').addEventListener('click', async () => {
         try {
             const folderPath = await window.electronAPI.selectDirectory();
             
             if (folderPath) {
                 projectLocationInput.value = folderPath;
-                // Trigger live validation immediately after selection
-                validateInput(projectLocationInput);
+                validateInput(projectLocationInput, pathRegex);
             }
         } catch (error) {
-            console.error('Error selecting directory:', error);
+            console.error(error);
         }
     });
 
-    // Handle "Generate Project" Button
     document.getElementById('generateProjectBtn').addEventListener('click', async () => {
         try {
             const projectName = projectNameInput.value.trim();
             const projectLocation = projectLocationInput.value.trim();
 
-            // 1. Check for Empty Fields
             if (!projectName || !projectLocation) {
                 await showDialog({
                     title: 'Missing Information',
@@ -93,35 +79,28 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            // 2. Check for Spaces (Final Validation check before submission)
-            const isNameValid = validateInput(projectNameInput);
-            const isLocationValid = validateInput(projectLocationInput);
+            const isNameValid = validateInput(projectNameInput, nameRegex);
+            const isLocationValid = validateInput(projectLocationInput, pathRegex);
 
             if (!isNameValid || !isLocationValid) {
                 await showDialog({
                     title: 'Invalid Input',
-                    message: 'Spaces are not allowed in the Project Name or Project Location path.',
+                    message: 'Project Name and Location must not contain spaces or special symbols. Use only letters, numbers, underscores, or hyphens.',
                     buttons: [{ label: 'Understood', action: 'ok', type: 'save' }]
                 });
                 return; 
             }
 
-            // Define Paths
             const projectPath = `${projectLocation}\\${projectName}`;
             const spfPath = `${projectPath}\\${projectName}.spf`;
 
-            // Call API to create structure
             const result = await window.electronAPI.createProjectStructure(projectPath, spfPath, projectName);
 
             if (result.success) {
                 closeNewProjectModal();
 
-                // Wait briefly to ensure file system acts
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Load Project
-                // This call triggers enableCompileButtons() in project_manager.js
-                // which handles the UI transition (Not Ready -> Ready) automatically.
                 await projectManager.loadProject(spfPath);
 
             } else {
@@ -129,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
         } catch (error) {
-            console.error('Error generating project:', error);
+            console.error(error);
             await showDialog({
                 title: 'Generation Error',
                 message: 'Failed to create the project. Please check the console for details.',
@@ -138,7 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Close Modal Logic
     function closeNewProjectModal() {
         newProjectModal.classList.add('hidden');
         projectNameInput.value = '';

@@ -5,8 +5,8 @@ import { TabManager } from './tab_manager.js';
 const treeStyle = document.createElement('style');
 treeStyle.textContent = `
     .tree-delete-btn {
-        opacity: 0; /* Invisível por padrão */
-        pointer-events: none; /* Não clicável quando invisível */
+        opacity: 0;
+        pointer-events: none;
         transition: opacity 0.2s ease-in-out;
         padding: 4px 8px;
         color: #ff4444;
@@ -15,15 +15,30 @@ treeStyle.textContent = `
         justify-content: center;
     }
     
-    /* Quando passar o mouse sobre o item do arquivo, mostre o botão */
     .file-item:hover .tree-delete-btn {
         opacity: 1;
         pointer-events: auto;
     }
 
     .tree-delete-btn:hover {
-        color: #ff0000; /* Vermelho mais forte ao passar o mouse no ícone */
+        color: #ff0000;
         transform: scale(1.1);
+    }
+
+    /* --- Novo CSS para a Seta --- */
+    .folder-toggle-icon {
+        margin-right: 12px;
+        width: 12px;
+        text-align: center;
+        font-size: 10px;
+        color: #888;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* Animação suave */
+        display: inline-block;
+    }
+
+    /* Estado colapsado: aponta para a direita (-90 graus) */
+    .folder-toggle-icon.collapsed {
+        transform: rotate(-90deg);
     }
 `;
 document.head.appendChild(treeStyle);
@@ -196,7 +211,7 @@ function renderFileTree(files, container, level = 0) {
         return a.name.localeCompare(b.name);
     });
 
-    filteredFiles.forEach(file => {
+filteredFiles.forEach(file => {
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'file-tree-item';
         itemWrapper.setAttribute('data-path', file.path);
@@ -204,18 +219,32 @@ function renderFileTree(files, container, level = 0) {
         const item = document.createElement('div');
         item.className = 'file-item';
         
-        // --- CORREÇÃO DA HIERARQUIA ---
-        // Aqui usamos a variável 'level' para dar o espaçamento à esquerda.
-        // O valor 12px ou 20px é padrão, ajuste conforme necessário.
         const indentSize = 15; 
-        item.style.paddingLeft = `${level * indentSize + 10}px`; // +10px de padding base
+        item.style.paddingLeft = `${level * indentSize + 10}px`;
 
-        // Conteúdo (Ícone + Texto)
         const contentWrapper = document.createElement('div');
         contentWrapper.style.display = 'flex';
         contentWrapper.style.alignItems = 'center';
         contentWrapper.style.flexGrow = '1';
         contentWrapper.style.overflow = 'hidden';
+
+        // --- Adição da Seta (Caret) ---
+        if (file.type === 'directory') {
+            const toggleIcon = document.createElement('i');
+            toggleIcon.className = 'fa-solid fa-caret-down folder-toggle-icon';
+            
+            // Se NÃO estiver expandido, adiciona classe para rotacionar (-90deg)
+            if (!FileTreeState.isExpanded(file.path)) {
+                toggleIcon.classList.add('collapsed');
+            }
+            contentWrapper.appendChild(toggleIcon);
+        } else {
+            // Espaçador invisível para arquivos alinharem com pastas (largura da seta + margem)
+            const spacer = document.createElement('span');
+            spacer.style.display = 'inline-block';
+            spacer.style.minWidth = '18px'; 
+            contentWrapper.appendChild(spacer);
+        }
 
         const icon = document.createElement('i');
         icon.className = 'file-item-icon';
@@ -237,7 +266,6 @@ function renderFileTree(files, container, level = 0) {
 
         item.appendChild(contentWrapper);
 
-        // --- LÓGICA DO ÍCONE DA LIXEIRA (MANTIDA) ---
         const isProcessor = file.type === 'directory' && 
                             Array.isArray(window.availableProcessors) && 
                             window.availableProcessors.includes(file.name);
@@ -260,25 +288,27 @@ function renderFileTree(files, container, level = 0) {
             item.appendChild(deleteBtn);
         }
 
-        // Eventos de clique do item
         item.addEventListener('click', async (e) => {
             if (file.type === 'directory') {
                 const isExpanded = FileTreeState.isExpanded(file.path);
                 FileTreeState.toggleFolder(file.path, !isExpanded);
                 
-                // Atualização visual imediata
+                // --- Animação da Seta ao Clicar ---
+                const toggleArrow = item.querySelector('.folder-toggle-icon');
+                if (toggleArrow) {
+                    toggleArrow.classList.toggle('collapsed');
+                }
+
                 const folderIcon = item.querySelector('.fa-folder, .fa-folder-open');
                 if (folderIcon) {
                     folderIcon.classList.toggle('fa-folder');
                     folderIcon.classList.toggle('fa-folder-open');
                 }
                 
-                // Gerencia visibilidade dos filhos
                 let childContainer = itemWrapper.querySelector('.folder-content');
                 if (!childContainer && !isExpanded && file.children) {
                     childContainer = document.createElement('div');
                     childContainer.className = 'folder-content';
-                    // Passamos level + 1 na recursão
                     renderFileTree(file.children, childContainer, level + 1);
                     itemWrapper.appendChild(childContainer);
                 } else if (childContainer) {
@@ -296,11 +326,9 @@ function renderFileTree(files, container, level = 0) {
 
         itemWrapper.appendChild(item);
 
-        // Renderiza filhos se já estiver expandido (Carregamento inicial)
         if (file.type === 'directory' && FileTreeState.isExpanded(file.path) && file.children) {
             const childContainer = document.createElement('div');
             childContainer.className = 'folder-content';
-            // Passamos level + 1 na recursão
             renderFileTree(file.children, childContainer, level + 1);
             itemWrapper.appendChild(childContainer);
         }

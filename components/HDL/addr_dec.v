@@ -9,4 +9,4 @@ module addr_dec
 
 integer i; always @* for (i = 0; i < NPORT; i = i+1) valid_out[i] <= valid_in & (index == i);
 
-endmodule
+endmodule 

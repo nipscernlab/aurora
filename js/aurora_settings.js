@@ -1,3 +1,5 @@
+teste
+
 // aurora_settings.js
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');

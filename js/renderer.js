@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     uiComponentsManager.initialize();
     compilationFlowManager.initialize();
     
+    // ✅ Expor globalmente para o Command Palette
+    window.compilationFlowManager = compilationFlowManager;
+    
     // Initialize managers that depend on the DOM
     const recentProjectsManager = new RecentProjectsManager(projectManager.loadProject);
     window.recentProjectsManager = recentProjectsManager;

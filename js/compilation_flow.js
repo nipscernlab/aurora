@@ -364,9 +364,9 @@ async runSingleStep(step) {
                     await compiler.iverilogVerilogModeCompilation();
                     break;
 
-                case 'prism':
+case 'prism':
                     try {
-                        // Get current project path
+                        // Validar projeto aberto
                         let projectPath = window.currentProjectPath;
                         if (!projectPath && window.currentOpenProjectPath) {
                             projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
@@ -376,15 +376,18 @@ async runSingleStep(step) {
                             throw new Error('No project path available. Please open a project first.');
                         }
 
-                        // --- MUDANÇA CRÍTICA AQUI ---
-                        // 1. Pegamos o caminho ABSOLUTO da pasta components
+                        console.log('🚀 Starting PRISM compilation...');
+                        console.log('Project path:', projectPath);
+
+                        // Obter caminhos absolutos
                         const rawComponentsPath = await window.electronAPI.getComponentsPath();
+                        console.log('Components path:', rawComponentsPath);
                         
-                        // 2. Normalizamos os caminhos bases
+                        // Normalizar caminhos
                         const componentsPath = normalizePath(rawComponentsPath);
                         const projectPathNorm = normalizePath(projectPath);
 
-                        // 3. Construímos o objeto paths com caminhos absolutos e barras normais (/)
+                        // Construir objeto de caminhos
                         const compilationPaths = {
                             projectPath: projectPathNorm,
                             componentsPath: componentsPath,
@@ -397,19 +400,32 @@ async runSingleStep(step) {
                             topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'TopLevel'))
                         };
 
-                        console.log('Sending paths to PRISM:', compilationPaths); // Debug útil
+                        console.log('📦 Compilation paths:', compilationPaths);
 
-                        // Call main process to compile and open PRISM window
+                        // Verificar se os executáveis existem
+                        const yosysExists = await window.electronAPI.fileExists(compilationPaths.yosysPath);
+                        const netlistsvgExists = await window.electronAPI.fileExists(compilationPaths.netlistsvgPath);
+                        
+                        if (!yosysExists) {
+                            throw new Error(`Yosys not found at: ${compilationPaths.yosysPath}`);
+                        }
+                        if (!netlistsvgExists) {
+                            throw new Error(`Netlistsvg not found at: ${compilationPaths.netlistsvgPath}`);
+                        }
+
+                        console.log('✅ All executables found');
+
+                        // Chamar compilação PRISM no main process
                         const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
 
                         if (!result.success) {
                             throw new Error(result.message || 'PRISM compilation failed');
                         }
 
-                        console.log('PRISM compilation and window opened successfully');
+                        console.log('✅ PRISM compilation and window opened successfully');
 
                     } catch (error) {
-                        console.error('PRISM compilation error:', error);
+                        console.error('❌ PRISM compilation error:', error);
                         if (window.terminalManager) {
                             window.terminalManager.appendToTerminal('tveri',
                                 `PRISM Error: ${error.message}`, 'error');

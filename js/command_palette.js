@@ -126,7 +126,13 @@ class CommandPalette {
       { id: 'asmcomp', label: 'Compile ASM', description: 'Run ASM compilation', category: 'Compilation', action: () => clickIfPossible('asmcomp') },
       { id: 'vericomp', label: 'Compile Verilog', description: 'Run Verilog compilation', category: 'Compilation', action: () => clickIfPossible('vericomp') },
       { id: 'wavecomp', label: 'Open Waveform Viewer', description: 'Open waveform viewer', category: 'Compilation', action: () => clickIfPossible('wavecomp') },
-      { id: 'prismcomp', label: 'PRISM Compile', description: 'Run PRISM', category: 'Compilation', action: () => clickIfPossible('prismcomp') },
+      { id: 'prismcomp', label: 'PRISM Compile', description: 'Run PRISM', category: 'Compilation', action: async () => {
+        if (window.compilationFlowManager && typeof window.compilationFlowManager.runSingleStep === 'function') {
+          await window.compilationFlowManager.runSingleStep('prism');
+          return true;
+        }
+        return clickIfPossible('prismcomp');
+      } },
       { id: 'allcomp', label: 'Full Build', description: 'Execute complete build process', category: 'Compilation', shortcut: 'Ctrl+Shift+B', action: () => clickIfPossible('allcomp') },
       { id: 'cancel-everything', label: 'Cancel Build', description: 'Cancel all running compilations', category: 'Compilation', action: () => clickIfPossible('cancel-everything') },
 

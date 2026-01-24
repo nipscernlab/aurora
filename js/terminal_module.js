@@ -9,7 +9,6 @@ class TerminalManager {
             tasm: document.querySelector('#terminal-tasm .terminal-body'),
             tveri: document.querySelector('#terminal-tveri .terminal-body'),
             twave: document.querySelector('#terminal-twave .terminal-body'),
-            tprism: document.querySelector('#terminal-tprism .terminal-body'),
             tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
         };
 

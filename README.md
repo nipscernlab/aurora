@@ -1,136 +1,21 @@
-# Aurora IDE
+<p align="center">
+  <img src="https://github.com/nipscernlab/nipscernweb/blob/main/assets/icon-projects/aurora.svg"
+       alt="AURORA Icon"
+       width="160">
+</p>
 
-<div align="center">
-  <img src="https://github.com/nipscernlab/Aurora/blob/main/assets/icons/aurora_borealis_final.svg" alt="Aurora Logo" width="200"/>
-</div>
+# AURORA  
 
-## About
+**AURORA** was a powerful and modern **Windows-only IDE**, fully developed using **Electron**, created to support the **SAPHO** hardware development ecosystem.
 
-Aurora IDE is the official integrated development environment for SAPHO (Scalable Architecture Processor for Hardware Optimization) projects. Built with Electron, it provides a modern, feature-rich environment for processor design and implementation.
+The IDE provided tight integration with the SAPHO toolchain, enabling users to:
 
-## Key Features
+- Program custom processors using the **CMM language**
+- Compile designs through SAPHO compilers
+- Run hardware simulations using **Icarus Verilog**
+- Visualize signal waveforms via **GTKWave**
+- Inspect processor structure using the **PRISM RTL Viewer**
 
-### Core Functionality
-- Create and manage .spf projects
-- Design and implement custom processors
-- Implement algorithms (e.g., FFT, DTW)
-- One-click compilation and simulation
-- Integrated GTKWave visualization
+AURORA was designed as an **end-to-end development environment**, unifying code editing, compilation, simulation, and visualization into a single workflow.
 
-### Development Environment
-- Modern Monaco Editor
-- File tree navigation
-- Multiple dark/light themes
-- Five specialized terminals:
-  - TCMM: C± compilation
-  - TASM: Assembly compilation
-  - TIVERI: Verilog processing
-  - TWAVE: Waveform visualization
-  - TCMD: Command terminal
-
-### Advanced Features
-- GitHub integration
-- ChatGPT and Claude AI assistance
-- Line-by-line debugging
-- Automated project backup (7z compression)
-- Integrated bug reporting
-- Direct access to nipscern.com
-
-## Prerequisites
-
-- Node.js
-- Electron
-- Git
-- SAPHO Compilers suite
-- GTKWave
-- 7-Zip
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/nipscernlab/Aurora.git
-cd Aurora
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Launch Aurora:
-```bash
-npm start
-```
-
-## Project Structure
-
-```
-A lot of files!
-```
-
-## Usage Guide
-
-### Creating a New Project
-1. Click "New Project" and select .spf format
-2. Configure project settings
-3. Set up processor specifications
-
-### Development Workflow
-1. Write your implementation in the Monaco editor
-2. Use the file tree to navigate project files
-3. Configure compilation settings
-4. Click "Build & Run" for one-click compilation
-5. View simulation results in integrated GTKWave
-
-### Using AI Assistance
-- Access ChatGPT or Claude directly from the IDE
-- Get help with code implementation
-- Debug assistance
-- Best practices suggestions
-
-### Backup and Version Control
-- Automatic project backup with 7z
-- Direct GitHub integration for version control
-- Push/pull directly from the IDE
-
-## Contact
-
-For questions and support, contact us at:
-- Website: [nipscern.com](https://nipscern.com)
-- Email: contact@nipscern.com
-
-## Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Bug Reporting
-
-Use the integrated bug reporting feature in Aurora IDE or create an issue on GitHub with:
-- Bug description
-- Steps to reproduce
-- Expected behavior
-- Screenshots (if applicable)
-- System information
-
-## License
-
-Working on it!
-
-## Acknowledgments
-
-- NIPSCERN Lab
-- Federal University of Juiz de Fora (UFJF)
-- Monaco Editor team
-- Electron community
-- All contributors to this project
-
----
-
-Made with ❤️ by NIPSCERN Lab
+Although no longer the primary interface, AURORA played a key role in the evolution of the SAPHO ecosystem, laying the groundwork for more advanced and modular development tools such as **POLARIS**.

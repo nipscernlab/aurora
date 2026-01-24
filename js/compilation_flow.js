@@ -251,27 +251,27 @@ hasValidProjectConfig() {
         return el && !el.textContent.includes('No Processor Configured');
     }
 
-    async runPrismForCurrentMode() {
-        const currentMode = this.getCurrentMode();
-        const compiler = new CompilationModule(window.currentProjectPath);
-        
-        try {
-            if (currentMode === 'verilog') {
-                await compiler.prismVerilogModeCompilation();
-            } else if (currentMode === 'processor') {
-                await compiler.loadConfig();
-                const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-                if (!activeProcessor) throw new Error('No active processor found');
-                await compiler.prismProcessorCompilation(activeProcessor);
-            } else if (currentMode === 'project') {
-                await compiler.loadConfig();
-                await compiler.prismProjectCompilation();
-            }
-        } catch (error) {
-            console.error('PRISM compilation error:', error);
-            throw error;
-        }
+async runPrismForCurrentMode() {
+  const currentMode = this.getCurrentMode();
+  const compiler = new CompilationModule(window.currentProjectPath);
+  
+  try {
+    if (currentMode === 'verilog') {
+      await compiler.prismVerilogModeCompilation();
+    } else if (currentMode === 'processor') {
+      await compiler.loadConfig();
+      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+      if (!activeProcessor) throw new Error('No active processor found');
+      await compiler.prismProcessorCompilation(activeProcessor);
+    } else if (currentMode === 'project') {
+      await compiler.loadConfig();
+      await compiler.prismProjectCompilation();
     }
+  } catch (error) {
+    console.error('PRISM compilation error:', error);
+    throw error;
+  }
+}
 
 async runAll() {
     startCompilation();
@@ -337,7 +337,7 @@ getCurrentMode() {
 
 async runSingleStep(step) {
     const currentMode = this.getCurrentMode();
-    
+
     // For Verilog Mode, only certain steps are valid
     if (currentMode === 'verilog') {
         if (!['verilog', 'prism'].includes(step)) {
@@ -355,47 +355,97 @@ async runSingleStep(step) {
     startCompilation();
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
-        
+
         if (currentMode === 'verilog') {
             // Verilog Mode specific compilation
-            switch(step) {
+            switch (step) {
                 case 'verilog':
                     switchTerminal('terminal-tveri');
                     await compiler.iverilogVerilogModeCompilation();
                     break;
+
                 case 'prism':
-                    switchTerminal('terminal-tveri');
-                    await compiler.prismVerilogModeCompilation();
+                    try {
+                        // Get current project path
+                        let projectPath = window.currentProjectPath;
+                        if (!projectPath && window.currentOpenProjectPath) {
+                            projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
+                        }
+
+                        if (!projectPath) {
+                            throw new Error('No project path available. Please open a project first.');
+                        }
+
+                        // --- MUDANÇA CRÍTICA AQUI ---
+                        // 1. Pegamos o caminho ABSOLUTO da pasta components
+                        const rawComponentsPath = await window.electronAPI.getComponentsPath();
+                        
+                        // 2. Normalizamos os caminhos bases
+                        const componentsPath = normalizePath(rawComponentsPath);
+                        const projectPathNorm = normalizePath(projectPath);
+
+                        // 3. Construímos o objeto paths com caminhos absolutos e barras normais (/)
+                        const compilationPaths = {
+                            projectPath: projectPathNorm,
+                            componentsPath: componentsPath,
+                            hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
+                            tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
+                            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+                            netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
+                            processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'processorConfig.json')),
+                            projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'projectOriented.json')),
+                            topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'TopLevel'))
+                        };
+
+                        console.log('Sending paths to PRISM:', compilationPaths); // Debug útil
+
+                        // Call main process to compile and open PRISM window
+                        const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
+
+                        if (!result.success) {
+                            throw new Error(result.message || 'PRISM compilation failed');
+                        }
+
+                        console.log('PRISM compilation and window opened successfully');
+
+                    } catch (error) {
+                        console.error('PRISM compilation error:', error);
+                        if (window.terminalManager) {
+                            window.terminalManager.appendToTerminal('tveri',
+                                `PRISM Error: ${error.message}`, 'error');
+                        }
+                        throw error;
+                    }
                     break;
             }
         } else {
             // Processor/Project mode logic
             await compiler.loadConfig();
-            
+
             // FIXED: Use getCurrentMode() which checks radio buttons correctly
             const isProjectMode = currentMode === 'project';
-            
+
             // Check if processors are configured
-            const hasProcessors = compiler.config?.processors?.length > 0 && 
-                                 compiler.config.processors.some(p => p.isActive === true);
-            
+            const hasProcessors = compiler.config?.processors?.length > 0 &&
+                compiler.config.processors.some(p => p.isActive === true);
+
             // Load project config to check if we have valid files
             let hasProjectFiles = false;
             if (isProjectMode) {
                 try {
                     await compiler.loadConfig(); // This loads projectConfig
                     hasProjectFiles = compiler.projectConfig?.synthesizableFiles?.length > 0 &&
-                                     compiler.projectConfig?.testbenchFile;
+                        compiler.projectConfig?.testbenchFile;
                 } catch (err) {
                     console.warn('Could not load project config:', err);
                 }
             }
-            
+
             // Get active processor only if we have processors
-            const activeProcessor = hasProcessors ? 
+            const activeProcessor = hasProcessors ?
                 compiler.config.processors.find(p => p.isActive === true) : null;
 
-            switch(step) {
+            switch (step) {
                 case 'cmm':
                     if (!activeProcessor) {
                         throw new Error('CMM compilation requires an active processor');
@@ -403,7 +453,7 @@ async runSingleStep(step) {
                     switchTerminal('terminal-tcmm');
                     await compiler.cmmCompilation(activeProcessor);
                     break;
-                    
+
                 case 'asm':
                     if (!activeProcessor) {
                         throw new Error('ASM compilation requires an active processor');
@@ -411,45 +461,39 @@ async runSingleStep(step) {
                     switchTerminal('terminal-tasm');
                     await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
                     break;
-                    
+
                 case 'verilog':
                     switchTerminal('terminal-tveri');
                     if (isProjectMode && hasProjectFiles) {
-                        // Project Mode with valid files: Use project compilation
                         console.log('✅ Using Project Mode compilation (no processor required)');
                         await compiler.iverilogProjectCompilation();
                     } else if (isProjectMode && !hasProjectFiles) {
                         throw new Error('Project Mode requires synthesizable files and a testbench. Please configure them in Project Settings.');
                     } else if (activeProcessor) {
-                        // Processor Mode: Use processor compilation
                         console.log('✅ Using Processor Mode compilation');
                         await compiler.iverilogCompilation(activeProcessor);
                     } else {
                         throw new Error('Verilog compilation requires either Project Mode with valid files or Processor Mode with an active processor');
                     }
                     break;
-                    
+
                 case 'wave':
                     switchTerminal('terminal-twave');
                     if (isProjectMode && hasProjectFiles) {
-                        // Project Mode with valid files: Use project GTKWave
                         console.log('✅ Using Project Mode waveform viewing (no processor required)');
                         await compiler.runProjectGtkWave();
                     } else if (isProjectMode && !hasProjectFiles) {
                         throw new Error('Project Mode requires synthesizable files and a testbench. Please configure them in Project Settings.');
                     } else if (activeProcessor) {
-                        // Processor Mode: Use processor GTKWave
                         console.log('✅ Using Processor Mode waveform viewing');
                         await compiler.runGtkWave(activeProcessor);
                     } else {
                         throw new Error('Waveform viewing requires either Project Mode with valid files or Processor Mode with an active processor');
                     }
                     break;
-                    
-                case 'prism':
-                    switchTerminal('terminal-tveri');
-                    await this.runPrismForCurrentMode();
-                    break;
+                
+                // Nota: O caso PRISM também pode existir no modo Processor/Project se você desejar.
+                // Se sim, copie a mesma lógica robusta do bloco 'verilog' acima para aqui.
             }
         }
     } catch (error) {
@@ -505,24 +549,35 @@ async runSingleStep(step) {
         }
     }
 
-    async acquirePrismPaths() {
+async acquirePrismPaths() {
         const projectPath = window.currentProjectPath;
         if (!projectPath) throw new Error('No project path available.');
         
-        const componentsPath = await window.electronAPI.getComponentsPath();
+        // Ensure we get the absolute path from the API
+        const rawComponentsPath = await window.electronAPI.getComponentsPath();
         
+        // Normalize slashes immediately to avoid issues downstream
+        const componentsPath = normalizePath(rawComponentsPath);
+        const projectPathNorm = normalizePath(projectPath);
+
         return {
-            projectPath,
+            projectPath: projectPathNorm,
             componentsPath: componentsPath,
-            hdlPath: await window.electronAPI.joinPath(componentsPath, 'HDL'),
-            tempPath: await window.electronAPI.joinPath(componentsPath, 'Temp', 'PRISM'),
-            yosysPath: await window.electronAPI.joinPath(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
-            netlistsvgPath: await window.electronAPI.joinPath(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
-            processorConfigPath: await window.electronAPI.joinPath(projectPath, 'processorConfig.json'),
-            projectOrientedConfigPath: await window.electronAPI.joinPath(projectPath, 'projectOriented.json'),
-            topLevelPath: await window.electronAPI.joinPath(projectPath, 'TopLevel')
+            // Construct ABSOLUTE paths for all resources
+            hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
+            tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
+            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+            netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
+            // Project specific paths
+            processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
+            projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
+            topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel'))
         };
     }
+}
+
+function normalizePath(pathStr) {
+    return pathStr.replace(/\\/g, '/');
 }
 
 const compilationFlowManager = new CompilationFlowManager();

@@ -2308,7 +2308,7 @@ async function createPrismWindow(compilationData = null) {
     
     if (compilationData) {
       console.log('Updating existing PRISM window with new compilation data');
-      // CORREÇÃO: Aguardar a janela estar pronta antes de enviar dados
+      // Wait for window to be ready before sending data
       const sendData = () => {
         if (prismWindow && !prismWindow.isDestroyed()) {
           prismWindow.webContents.send('compilation-complete', compilationData);
@@ -2318,7 +2318,6 @@ async function createPrismWindow(compilationData = null) {
       if (prismWindow.webContents.isLoading()) {
         prismWindow.webContents.once('did-finish-load', sendData);
       } else {
-        // Pequeno delay para garantir que o DOM está pronto
         setTimeout(sendData, 100);
       }
     }
@@ -2328,7 +2327,7 @@ async function createPrismWindow(compilationData = null) {
   const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
   const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
   
-  // CORREÇÃO: Validar arquivos ANTES de criar a janela
+  // Validate files BEFORE creating window
   if (!require('fs').existsSync(preloadPath)) {
     throw new Error(`Preload script not found: ${preloadPath}`);
   }
@@ -2362,10 +2361,10 @@ async function createPrismWindow(compilationData = null) {
     await prismWindow.loadFile(prismHtmlPath);
     console.log('PRISM HTML loaded successfully');
     
-    // CORREÇÃO: Aguardar DOM estar pronto antes de mostrar
+    // Wait for DOM to be ready before showing
     await new Promise(resolve => {
       prismWindow.webContents.once('did-finish-load', () => {
-        setTimeout(resolve, 500); // Delay adicional para garantir DOM
+        setTimeout(resolve, 500);
       });
     });
     
@@ -2407,7 +2406,6 @@ async function createPrismWindow(compilationData = null) {
     }
   });
 
-  // Error handlers permanecem os mesmos
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
     dialog.showMessageBox({
@@ -2462,11 +2460,11 @@ function getExecutablePath(executableName) {
   console.log(`Main executable directory: ${__dirname}`);
   
   if (executableName === 'yosys') {
-    const yosysPath = path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    const yosysPath = path.join(__dirname, 'components', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
     console.log(`Yosys path: ${yosysPath}`);
     return yosysPath;
   } else if (executableName === 'netlistsvg') {
-    const netlistsvgPath = path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
+    const netlistsvgPath = path.join(__dirname, 'components', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
     console.log(`Netlistsvg path: ${netlistsvgPath}`);
     return netlistsvgPath;
   }
@@ -2657,72 +2655,6 @@ ipcMain.handle('open-prism-compile', async (event, compilationPaths) => {
   }
 });
 
-// Helper function to filter and group log messages
-function shouldLogMessage(message, source) {
-  const message_lower = message.toLowerCase();
-  
-  // Skip verbose parameter messages from Yosys
-  if (source === 'yosys' && message_lower.includes('parameter \\')) {
-    return false;
-  }
-  
-  // Skip repetitive module processing messages
-  if (source === 'yosys' && (
-    message_lower.includes('executing ') ||
-    message_lower.includes('found and queued') ||
-    message_lower.includes('queued cell') ||
-    message_lower.includes('updating $') ||
-    message_lower.includes('importing module')
-  )) {
-    return false;
-  }
-  
-  // Skip verbose netlistsvg output
-  if (source === 'netlistsvg' && (
-    message_lower.includes('processing') ||
-    message_lower.includes('node ') ||
-    message_lower.includes('edge ')
-  )) {
-    return false;
-  }
-  
-  return true;
-}
-
-// Function to get toggle state from main window
-async function getToggleUIStateFromMain() {
-  return new Promise((resolve) => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      console.warn('Main window not available, defaulting to false');
-      resolve(false);
-      return;
-    }
-    
-    const timeout = setTimeout(() => {
-      console.warn('Timeout getting toggle UI state, defaulting to false');
-      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-      resolve(false);
-    }, 5000);
-    
-    const responseHandler = (event, isActive) => {
-      clearTimeout(timeout);
-      console.log('Received toggle UI state:', isActive);
-      resolve(isActive);
-    };
-    
-    ipcMain.once('toggle-ui-state-response', responseHandler);
-    
-    try {
-      console.log('Requesting toggle UI state from main window');
-      mainWindow.webContents.send('get-toggle-ui-state');
-    } catch (error) {
-      clearTimeout(timeout);
-      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
-      console.error('Error requesting toggle UI state:', error);
-      resolve(false);
-    }
-  });
-}
 
 // Updated performPrismCompilation - only generates SVG once
 async function performPrismCompilationWithPaths(compilationPaths) {
@@ -2733,7 +2665,6 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
     }
     
-    // Use provided paths instead of resolving them here
     const projectPath = compilationPaths.projectPath;
     const tempDir = compilationPaths.tempPath;
     const netlistsvgPath = compilationPaths.netlistsvgPath;
@@ -2749,7 +2680,8 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     // Get toggle state from main window
     const isProjectOriented = await getToggleUIStateFromMain();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Mode: ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'}`, 'info');
+      mainWindow.webContents.send('terminal-log', 'tprism', 
+        `Mode: ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'}`, 'info');
     }
     
     let topLevelModule, configData;
@@ -2761,7 +2693,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       if (!await fse.pathExists(projectConfigPath)) {
         const errorMsg = 'projectOriented.json not found in project root';
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tprism', errorMsg, 'error');
         }
         throw new Error(errorMsg);
       }
@@ -2778,7 +2710,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       if (!await fse.pathExists(processorConfigPath)) {
         const errorMsg = 'processorConfig.json not found in project root';
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tprism', errorMsg, 'error');
         }
         throw new Error(errorMsg);
       }
@@ -2788,7 +2720,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       if (!activeProcessor) {
         const errorMsg = 'No active processor found in processorConfig.json';
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tprism', errorMsg, 'error');
         }
         throw new Error(errorMsg);
       }
@@ -2799,7 +2731,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       }
     }
     
-    // Run Yosys compilation with provided paths
+    // Run Yosys compilation to generate hierarchy.json
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Starting Yosys synthesis...', 'info');
     }
@@ -2810,19 +2742,19 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       isProjectOriented
     );
     
-    // Split JSON into individual module files
+    // Split hierarchy.json into individual module files
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'Processing module hierarchy...', 'info');
     }
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
     
-    // Generate SVG for the top level module
+    // Generate SVG for the top level module ONLY
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Generating SVG diagram...`, 'info');
+      mainWindow.webContents.send('terminal-log', 'tprism', 'Generating SVG diagram...', 'info');
     }
     const svgPath = await generateModuleSVGWithPaths(topLevelModule, tempDir, netlistsvgPath);
     
-    console.log('PRISM compilation with paths completed successfully');
+    console.log('PRISM compilation completed successfully');
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
     }
@@ -2837,7 +2769,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     };
     
   } catch (error) {
-    console.error('PRISM compilation with paths error:', error);
+    console.error('PRISM compilation error:', error);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error.message}`, 'error');
     }
@@ -2974,51 +2906,133 @@ ipcMain.handle('get-dirname', async (event, filePath) => {
 // Chamar debug na inicialização
 debugPaths();
 
-// Updated Yosys compilation function with optimized logging
-async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, _isProjectOriented) {
+async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented) {
   console.log('=== RUNNING YOSYS COMPILATION WITH PROVIDED PATHS ===');
   
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
+  const projectPath = compilationPaths.projectPath;
+  const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
   
-  // Get Verilog files from HDL directory
-  const hdlPath = compilationPaths.hdlPath;
-  const files = await fse.readdir(hdlPath);
-  const verilogFiles = files.filter(f => f.endsWith('.v'));
+  // Build file list for Yosys
+  let fileList = [];
+  let hdlFileCount = 0, processorFileCount = 0, topLevelFileCount = 0;
   
-  const readCommands = verilogFiles.map(file => {
-    const normalizedPath = path.normalize(path.join(hdlPath, file)).replace(/\\/g, '/');
+  // 1. Add HDL files
+  console.log('Scanning HDL directory:', hdlPath);
+  if (await fse.pathExists(hdlPath)) {
+    const hdlFiles = await fse.readdir(hdlPath);
+    const vFiles = hdlFiles.filter(file => 
+      file.endsWith('.v') && 
+      !file.includes('_tb') && 
+      !file.includes('_testbench') &&
+      !file.toLowerCase().includes('test')
+    );
+    fileList = fileList.concat(vFiles.map(file => path.join(hdlPath, file)));
+    hdlFileCount = vFiles.length;
+    console.log(`Found ${hdlFileCount} HDL files`);
+  }
+  
+  // 2. Add processor files from processorConfig.json
+  const processorConfigPath = compilationPaths.processorConfigPath;
+  if (await fse.pathExists(processorConfigPath)) {
+    const processorConfig = await fse.readJson(processorConfigPath);
+    
+    if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
+      for (const processor of processorConfig.processors) {
+        const processorName = processor.name;
+        const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
+        const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
+        
+        if (await fse.pathExists(processorVFile)) {
+          fileList.push(processorVFile);
+          processorFileCount++;
+        }
+        
+        // Add other Hardware files
+        if (await fse.pathExists(processorHardwareDir)) {
+          const hardwareFiles = await fse.readdir(processorHardwareDir);
+          const vFiles = hardwareFiles.filter(file => 
+            file.endsWith('.v') && 
+            !file.includes('_tb') && 
+            file !== `${processorName}.v`
+          );
+          fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+          processorFileCount += vFiles.length;
+        }
+      }
+    }
+  }
+  
+  // 3. Add TopLevel files if Project Oriented
+  if (isProjectOriented) {
+    const topLevelDir = compilationPaths.topLevelPath;
+    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
+    const projectConfig = await fse.readJson(projectConfigPath);
+    const topLevelFileName = path.basename(projectConfig.topLevelFile);
+    
+    if (await fse.pathExists(topLevelDir)) {
+      const topLevelFiles = await fse.readdir(topLevelDir);
+      const vFiles = topLevelFiles.filter(file => 
+        file.endsWith('.v') && 
+        !file.includes('_tb') && 
+        file !== topLevelFileName
+      );
+      fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+      
+      // Add top level file last
+      const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
+      if (await fse.pathExists(topLevelFilePath)) {
+        fileList.push(topLevelFilePath);
+      }
+      
+      topLevelFileCount = vFiles.length + 1;
+    }
+  }
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('terminal-log', 'tprism', 
+      `Files: ${hdlFileCount} HDL, ${processorFileCount} processor, ${topLevelFileCount} top-level (Total: ${fileList.length})`, 
+      'info');
+  }
+  
+  if (fileList.length === 0) {
+    throw new Error('No Verilog files found for compilation');
+  }
+  
+  // Build Yosys command with ALL files
+  const readCommands = fileList.map(file => {
+    const normalizedPath = path.normalize(file).replace(/\\/g, '/');
     return `read_verilog "${normalizedPath}"`;
   }).join('; ');
   
   const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
   
-  // Função auxiliar para executar Yosys
+  // Execute Yosys helper
   const executeYosys = (command, mode) => {
     return new Promise((resolve, reject) => {
       const yosysProcess = exec(command, { 
         shell: true, 
         maxBuffer: 1024 * 1024 * 10,
         cwd: tempDir,
-        timeout: 300000 // 5 minutos timeout
+        timeout: 300000
       }, (error, stdout, stderr) => {
-        // Processar output (código existente de filtragem)
         if (stdout) {
-          const yosysOutputBuffer = stdout.split('\n').filter(line => line.trim());
-          const importantLines = yosysOutputBuffer.filter(line => {
-            const lineLower = line.toLowerCase();
-            return lineLower.includes('warning') || 
-                   lineLower.includes('error') || 
-                   lineLower.includes('synthesizing') ||
-                   lineLower.includes('top module');
+          const lines = stdout.split('\n').filter(line => line.trim());
+          const important = lines.filter(line => {
+            const lower = line.toLowerCase();
+            return lower.includes('warning') || 
+                   lower.includes('error') || 
+                   lower.includes('synthesizing') ||
+                   lower.includes('top module');
           });
           
-          if (importantLines.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-            importantLines.slice(0, 5).forEach(line => {
+          if (important.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
+            important.slice(0, 5).forEach(line => {
               if (shouldLogMessage(line, 'yosys')) {
-                const logLevel = line.toLowerCase().includes('error') ? 'error' : 
-                               line.toLowerCase().includes('warning') ? 'warning' : 'info';
-                mainWindow.webContents.send('terminal-log', 'tprism', `Yosys: ${line.trim()}`, logLevel);
+                const level = line.toLowerCase().includes('error') ? 'error' : 
+                             line.toLowerCase().includes('warning') ? 'warning' : 'info';
+                mainWindow.webContents.send('terminal-log', 'tprism', `Yosys: ${line.trim()}`, level);
               }
             });
           }
@@ -3033,7 +3047,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
     });
   };
   
-  // Tentar com hierarchy check primeiro
+  // Try strict hierarchy check first
   const strictCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -check -top ${topLevelModule}; prep; setundef -undriven -zero; write_json \\"${normalizedOutputPath}\\""`;
   
   try {
@@ -3049,47 +3063,41 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
       mainWindow.webContents.send('terminal-log', 'tprism', 'Retrying without strict hierarchy check...', 'warning');
     }
     
-    // Tentar modo relaxado
+    // Try relaxed mode
     const relaxedCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
     
     try {
       await executeYosys(relaxedCommand, 'relaxed');
-      console.log('Yosys compilation succeeded with relaxed hierarchy checking');
+      console.log('Yosys compilation succeeded with relaxed mode');
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed (relaxed mode)', 'success');
       }
       return hierarchyJsonPath;
     } catch (relaxedError) {
-      console.error('Both Yosys attempts failed:', relaxedError);
+      console.error('Both Yosys attempts failed');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', `Yosys synthesis failed: ${relaxedError.error?.message || 'Unknown error'}`, 'error');
+        mainWindow.webContents.send('terminal-log', 'tprism', 
+          `Yosys synthesis failed: ${relaxedError.error?.message || 'Unknown error'}`, 'error');
       }
       throw new Error(`Yosys compilation failed: ${relaxedError.error?.message || 'Unknown error'}`);
     }
   }
 }
 
-
-// 2. Function to clean module names
+// Clean module names
 function cleanModuleName(moduleName) {
-  // Remove $paramod prefixes and hash suffixes
   let cleanName = moduleName;
   
-  // Handle $paramod patterns
   if (cleanName.startsWith('$paramod')) {
-    // Extract the actual module name from $paramod patterns
     if (cleanName.includes('\\\\')) {
-      // Pattern: $paramod$hash\\moduleName or $paramod\\moduleName\\params
       const parts = cleanName.split('\\\\');
       if (parts.length >= 2) {
         cleanName = parts[1];
-        // Remove parameter specifications if present
         if (cleanName.includes('\\')) {
           cleanName = cleanName.split('\\')[0];
         }
       }
     } else if (cleanName.includes('\\')) {
-      // Pattern: $paramod\moduleName\params
       const parts = cleanName.split('\\');
       if (parts.length >= 2) {
         cleanName = parts[1];
@@ -3097,61 +3105,75 @@ function cleanModuleName(moduleName) {
     }
   }
   
-  // Remove hash patterns like $747e370037f20148f8b166e3c93decd0b83cff70
   cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
-  
-  // Remove parameter specifications like NUBITS=s32'00000000000000000000000000100000
   cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
-  
-  // Clean up any remaining backslashes or dollar signs at the beginning
   cleanName = cleanName.replace(/^[$\\]+/, '');
   
   return cleanName;
 }
 
-// 3. Function to check if a module is clickable (actual module, not internal construct)
+// Check if module is clickable
 function isClickableModule(moduleName) {
-  // Skip internal Yosys constructs and primitives
   const skipPatterns = [
-    /^\$_/,           // Internal gates like $_AND_, $_OR_, etc.
-    /^\$dff/,         // Flip-flop primitives
-    /^\$mux/,         // Mux primitives
-    /^\$add/,         // Arithmetic primitives
-    /^\$sub/,         // Arithmetic primitives
-    /^\$mul/,         // Arithmetic primitives
-    /^\$div/,         // Arithmetic primitives
-    /^\$mod/,         // Arithmetic primitives
-    /^\$eq/,          // Comparison primitives
-    /^\$ne/,          // Comparison primitives
-    /^\$lt/,          // Comparison primitives
-    /^\$le/,          // Comparison primitives
-    /^\$gt/,          // Comparison primitives
-    /^\$ge/,          // Comparison primitives
-    /^\$and/,         // Logic primitives
-    /^\$or/,          // Logic primitives
-    /^\$xor/,         // Logic primitives
-    /^\$not/,         // Logic primitives
-    /^\$reduce/,      // Reduction operators
-    /^\$logic/,       // Logic operators
-    /^\$shift/,       // Shift operators
-    /^\$pmux/,        // Priority mux
-    /^\$lut/,         // LUT primitives
-    /^\$assert/,      // Assertion primitives
-    /^\$assume/,      // Assumption primitives
-    /^\$cover/,       // Coverage primitives
-    /^\$specify/      // Specify blocks
+    /^\$_/, /^\$dff/, /^\$mux/, /^\$add/, /^\$sub/, /^\$mul/, /^\$div/, /^\$mod/,
+    /^\$eq/, /^\$ne/, /^\$lt/, /^\$le/, /^\$gt/, /^\$ge/, /^\$and/, /^\$or/,
+    /^\$xor/, /^\$not/, /^\$reduce/, /^\$logic/, /^\$shift/, /^\$pmux/, /^\$lut/,
+    /^\$assert/, /^\$assume/, /^\$cover/, /^\$specify/
   ];
   
-  // Check if module name matches any skip pattern
   for (const pattern of skipPatterns) {
-    if (pattern.test(moduleName)) {
-      return false;
-    }
+    if (pattern.test(moduleName)) return false;
   }
   
-  // Module is clickable if it starts with $paramod or is a user-defined module name
   return moduleName.startsWith('$paramod') || 
          (!moduleName.startsWith('$') && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(moduleName));
+}
+
+// Sanitize file names
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
+}
+
+// Filter log messages
+function shouldLogMessage(message, source) {
+  const lower = message.toLowerCase();
+  
+  if (source === 'yosys' && lower.includes('parameter \\')) return false;
+  if (source === 'yosys' && (lower.includes('executing ') || lower.includes('found and queued') || 
+      lower.includes('queued cell') || lower.includes('updating $') || lower.includes('importing module'))) return false;
+  if (source === 'netlistsvg' && (lower.includes('processing') || lower.includes('node ') || lower.includes('edge '))) return false;
+  
+  return true;
+}
+
+// Get toggle state from main window
+async function getToggleUIStateFromMain() {
+  return new Promise((resolve) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      resolve(false);
+      return;
+    }
+    
+    const timeout = setTimeout(() => {
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+      resolve(false);
+    }, 5000);
+    
+    const responseHandler = (event, isActive) => {
+      clearTimeout(timeout);
+      resolve(isActive);
+    };
+    
+    ipcMain.once('toggle-ui-state-response', responseHandler);
+    
+    try {
+      mainWindow.webContents.send('get-toggle-ui-state');
+    } catch (error) {
+      clearTimeout(timeout);
+      ipcMain.removeListener('toggle-ui-state-response', responseHandler);
+      resolve(false);
+    }
+  });
 }
 
 // Function to analyze dependencies and create stub modules for missing ones
@@ -3281,22 +3303,7 @@ async function cleanupOldStubFiles(tempDir) {
   }
 }
 
-// Sanitize file names to remove invalid characters
-function sanitizeFileName(fileName) {
-  // Remove invalid characters: <, >, :, ", /, \, |, ?, * and control characters
-  // Using multiple regex replacements for clarity
-  let result = fileName
-    .replace(/[<>:"\\|?*]/g, '_');  // Remove invalid characters
-  
-  // Remove control characters (ASCII 0-31)
-  for (let i = 0; i < 32; i++) {
-    result = result.replace(new RegExp(String.fromCharCode(i), 'g'), '_');
-  }
-  
-  return result.replace(/\s+/g, '_'); // Replace whitespace
-}
 
-// 4. Updated split hierarchy function with module filtering
 async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
   console.log('Splitting hierarchy JSON into individual module files...');
   
@@ -3313,17 +3320,16 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
       const sanitizedName = sanitizeFileName(cleanName);
       const moduleFilePath = path.join(tempDir, `${sanitizedName}.json`);
       
-      // Create a clean module entry with cleaned names
+      // Create clean module entry
       const cleanModuleData = JSON.parse(JSON.stringify(moduleData));
       
-      // Clean cell names in the module data
+      // Clean cell names
       if (cleanModuleData.cells) {
         const cleanedCells = {};
         for (const [cellName, cellData] of Object.entries(cleanModuleData.cells)) {
           const cleanCellName = cleanModuleName(cellName);
           cleanedCells[cleanCellName] = cellData;
           
-          // Also clean the type if it's a module reference
           if (cellData.type && isClickableModule(cellData.type)) {
             cellData.type = cleanModuleName(cellData.type);
           }
@@ -3339,43 +3345,39 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
       };
       
       await fse.writeJson(moduleFilePath, moduleJson, { spaces: 2 });
-      console.log(`Created module file: ${moduleFilePath} (${cleanName})`);
-    } else {
-      console.log(`Skipped non-clickable module: ${moduleName}`);
+      console.log(`Created module file: ${moduleFilePath}`);
     }
   }
 }
 
 // Updated SVG generation function with optimized logging
-async function generateModuleSVGWithPaths(moduleName, tempDir) {
+async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
   console.log(`Generating SVG for module: ${moduleName}`);
   
-  const cleanModuleName = sanitizeFileName(moduleName);
-  const inputJsonPath = path.join(tempDir, `${cleanModuleName}.json`);
-  const outputSvgPath = path.join(tempDir, `${cleanModuleName}.svg`);
+  const cleanName = sanitizeFileName(moduleName);
+  const inputJsonPath = path.join(tempDir, `${cleanName}.json`);
+  const outputSvgPath = path.join(tempDir, `${cleanName}.svg`);
   
   if (!await fse.pathExists(inputJsonPath)) {
     const errorMsg = `Module JSON file not found: ${inputJsonPath}`;
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `${errorMsg}`, 'error');
+      mainWindow.webContents.send('terminal-log', 'tprism', errorMsg, 'error');
     }
     throw new Error(errorMsg);
   }
   
-  const netlistsvgExe = getExecutablePath('netlistsvg');
-  const netlistSvgCommand = `"${netlistsvgExe}" "${inputJsonPath}" -o "${outputSvgPath}"`;
+  const netlistSvgCommand = `"${netlistsvgPath}" "${inputJsonPath}" -o "${outputSvgPath}"`;
   
   return new Promise((resolve, reject) => {
     exec(netlistSvgCommand, { shell: true }, (error, stdout, stderr) => {
-      // Only log important netlistsvg messages
       if (stderr && stderr.toLowerCase().includes('error')) {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `SVG generation error: ${stderr}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tprism', `SVG error: ${stderr}`, 'error');
         }
       }
       
       if (error) {
-        console.error('netlistsvg execution error:', error);
+        console.error('netlistsvg error:', error);
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('terminal-log', 'tprism', `SVG generation failed: ${error.message}`, 'error');
         }
@@ -3385,7 +3387,7 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
       
       console.log(`SVG generated: ${outputSvgPath}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', `SVG diagram generated successfully`, 'success');
+        mainWindow.webContents.send('terminal-log', 'tprism', 'SVG diagram generated successfully', 'success');
       }
       
       resolve(outputSvgPath);

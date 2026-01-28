@@ -1815,7 +1815,8 @@ async runGtkWave(processor) {
 }
 
 /**
- * Run GTKWave for Project Mode with progress monitoring
+ * Run GTKWave for Project Mode
+ * Uses the same paths and method as processor mode
  */
 async runProjectGtkWave() {
     this.terminalManager.appendToTerminal('twave', 'Starting Simulation & GTKWave (Project Mode)...');
@@ -1824,6 +1825,25 @@ async runProjectGtkWave() {
         if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
         const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+
+        // ✅ Use CORRECT GTKWave path (same as processor mode)
+        const gtkwaveBin = await window.electronAPI.joinPath(
+            this.componentsPath, 
+            'Packages', 
+            'iverilog', 
+            'gtkwave', 
+            'bin', 
+            'gtkwave.exe'
+        );
+        
+        const vvpBin = await window.electronAPI.joinPath(
+            this.componentsPath, 
+            'Packages', 
+            'iverilog', 
+            'bin', 
+            'vvp.exe'
+        );
 
         const topLevelFile = this.projectConfig.topLevelFile;
         const testbenchFile = this.projectConfig.testbenchFile;
@@ -1835,7 +1855,43 @@ async runProjectGtkWave() {
         const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
 
         const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
-        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${testbenchModuleName}.vcd`); // ✅ VCD named after testbench
+        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${testbenchModuleName}.vcd`);
+
+        const procList = this.projectConfig.processors || [];
+        for (const proc of procList) {
+            const tempProcDir = await window.electronAPI.joinPath(tempBaseDir, proc.type);
+            const tbFile = await window.electronAPI.joinPath(tempProcDir, `${proc.type}_tb.v`);
+            const destDir = await window.electronAPI.joinPath(this.projectPath, proc.type, 'Simulation');
+            const destFile = await window.electronAPI.joinPath(destDir, `${proc.type}_tb.v`);
+            
+            try {
+                const tbExists = await window.electronAPI.fileExists(tbFile);
+                if (tbExists) {
+                    await window.electronAPI.copyFile(tbFile, destFile);
+                    this.terminalManager.appendToTerminal('tveri', 
+                        `Copied testbench for ${proc.type} to Simulation folder`);
+                    // FIXED: Use 'proc' instead of 'processor'
+                    await this.generateHierarchyAfterCompilation(proc);
+                }
+            } catch (copyError) {
+                this.terminalManager.appendToTerminal('tveri', 
+                    `Warning: Could not copy testbench for ${proc.type}: ${copyError.message}`, 'warning');
+            }
+        }
+
+        const binPath = await window.electronAPI.joinPath(this.componentsPath, 'bin');
+
+        // Create TCL info file
+        const instances = procList.map(p => p.instance).join(' ');
+        const processors = procList.map(p => p.type).join(' ');
+        const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
+        await window.electronAPI.writeFile(await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt'), tclContent);
+
+        await window.electronAPI.copyFile(
+            await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
+            await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
+        );
+
 
         if (!await window.electronAPI.fileExists(vvpFile)) {
             throw new Error(`Simulation file not found: ${vvpFile}. Please compile first.`);
@@ -1843,9 +1899,8 @@ async runProjectGtkWave() {
 
         this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
 
-        const vvpBin = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe');
+        // Run VVP simulation
         const vvpCmd = `cd "${tempBaseDir}" && "${vvpBin}" "${vvpFile}"`;
-        
         const result = await window.electronAPI.execCommand(vvpCmd);
         
         if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
@@ -1855,20 +1910,29 @@ async runProjectGtkWave() {
             throw new Error(`VVP simulation failed with exit code ${result.code}`);
         }
 
+        // Verify VCD file was generated
         if (!await window.electronAPI.fileExists(vcdFile)) {
             throw new Error(`VCD file was not generated at: ${vcdFile}`);
         }
 
         this.terminalManager.appendToTerminal('twave', 'Opening GTKWave...');
         
-        const gtkwaveBin = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'gtkwave', 'bin', 'gtkwave.exe');
-        const gtkwaveCmd = `"${gtkwaveBin}" "${vcdFile}"`;
+        const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
+        // Use the SAME method as processor mode
+        const gtkwaveCmd = `"${gtkwaveBin}" --rcvar "hide_sst on" --dark "${vcdFile}"  --script=${scriptPath}`;
         
-        await window.electronAPI.execCommand(gtkwaveCmd).catch(err => {
-            console.error("GTKWave closed or error:", err);
+        const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
+            gtkwCmd: gtkwaveCmd,
+            workingDir: tempBaseDir
         });
 
-        this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
+        if (gtkwaveResult.success) {
+            this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
+            this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
+            this.monitorGtkwaveProcess();
+        } else {
+            throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
+        }
 
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
@@ -1876,6 +1940,7 @@ async runProjectGtkWave() {
         throw error;
     }
 }
+
 /**
  * Restore original testbench from backup after simulation
  */
@@ -2410,8 +2475,8 @@ async compileAllProcessorsIndividually() {
         const processorConfig = this.config.processors.find(p => p.name === processorType);
         if (!processorConfig) {
             this.terminalManager.appendToTerminal('tcmm', 
-                `Warning: Processor configuration not found for ${processorType}`, 'warning');
-            continue;
+                `ERROR: Processor '${processorType}' not found in processorConfig.json`, 'error');
+            throw new Error(`Processor configuration not found for ${processorType}`);
         }
 
         try {
@@ -2423,32 +2488,36 @@ async compileAllProcessorsIndividually() {
 
             // CMM Compilation
             switchTerminal('terminal-tcmm');
+            this.terminalManager.appendToTerminal('tcmm', 
+                `CMM compilation for ${processorType}...`, 'info');
             await this.cmmCompilation(processorConfig);
             checkCancellation();
 
             // ASM Compilation (mode = 1 for project)
             switchTerminal('terminal-tasm');
+            this.terminalManager.appendToTerminal('tasm', 
+                `ASM compilation for ${processorType}...`, 'info');
             await this.asmCompilation(processorConfig, 1);
             checkCancellation();
 
             // CRITICAL: Compile processor Verilog to create temp directory and memory files
             switchTerminal('terminal-tveri');
             this.terminalManager.appendToTerminal('tveri', 
-                `Compiling ${processorType} (creating temp directory)...`, 'info');
+                `Verilog compilation for ${processorType} (creating temp directory)...`, 'info');
             await this.iverilogCompilationForProcessor(processorConfig);
             
             this.terminalManager.appendToTerminal('tcmm', 
-                `Processor ${processorType} compiled successfully`, 'success');
+                `✓ Processor ${processorType} compiled successfully`, 'success');
 
         } catch (error) {
             this.terminalManager.appendToTerminal('tcmm', 
-                `Error processing processor ${processorType}: ${error.message}`, 'error');
+                `✗ Error processing processor ${processorType}: ${error.message}`, 'error');
             throw error;
         }
     }
 
     this.terminalManager.appendToTerminal('tcmm', 
-        '--- All Processors Compiled ---', 'success');
+        `--- All ${processedTypes.size} Processors Compiled ---`, 'success');
 }
 
 async iverilogCompilationForProcessor(processor) {

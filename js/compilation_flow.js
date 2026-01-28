@@ -19,6 +19,11 @@ function checkCancellation() {
     }
 }
 
+// Make checkCancellation globally accessible for CompilationModule
+if (typeof window !== 'undefined') {
+    window.checkCancellation = checkCancellation;
+}
+
 function switchTerminal(targetId) {
     document.querySelectorAll('.terminal-content').forEach(c => c.classList.add('hidden'));
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -336,191 +341,93 @@ getCurrentMode() {
 }
 
 async runSingleStep(step) {
-    const currentMode = this.getCurrentMode();
+        // 1. Tratamento Especial para PRISM (Mantendo sua lógica nova que funciona)
+        if (step === 'prism') {
+            console.log("🚀 Trigger PRISM acionado via Command Palette");
+            startCompilation(); // Atualiza UI para estado "compilando"
+            
+            try {
+                const projectPath = window.currentProjectPath || await window.electronAPI.dirname(window.currentOpenProjectPath);
+                if (!projectPath) throw new Error("Abra um projeto primeiro.");
 
-    // For Verilog Mode, only certain steps are valid
-    if (currentMode === 'verilog') {
-        if (!['verilog', 'prism'].includes(step)) {
-            await showDialog({
-                title: 'Action Not Available',
-                message: 'This compilation step is not available in Verilog Mode (Compile & Simulate is disabled).',
-                buttons: [
-                    { label: 'OK', type: 'cancel', action: 'close' }
-                ]
-            });
+                const rawComponentsPath = await window.electronAPI.getComponentsPath();
+                const normalizePath = (p) => p.replace(/\\/g, '/');
+                
+                const compilationPaths = {
+                    projectPath: normalizePath(projectPath),
+                    componentsPath: normalizePath(rawComponentsPath),
+                    hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
+                    tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
+                    yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+                    netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
+                    processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
+                    projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
+                    topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel'))
+                };
+
+                const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
+                if (!result.success) throw new Error(result.message);
+                
+                console.log("✅ Trigger PRISM concluído com sucesso");
+            } catch (error) {
+                console.error("Erro no trigger PRISM:", error);
+                if(window.terminalManager) window.terminalManager.appendToTerminal('tveri', `Erro PRISM: ${error.message}`, 'error');
+            } finally {
+                endCompilation(); // Restaura UI
+            }
             return;
         }
-    }
 
-    startCompilation();
-    try {
-        const compiler = new CompilationModule(window.currentProjectPath);
-
-        if (currentMode === 'verilog') {
-            // Verilog Mode specific compilation
-            switch (step) {
-                case 'verilog':
-                    switchTerminal('terminal-tveri');
-                    await compiler.iverilogVerilogModeCompilation();
-                    break;
-
-case 'prism':
-                    try {
-                        // Validar projeto aberto
-                        let projectPath = window.currentProjectPath;
-                        if (!projectPath && window.currentOpenProjectPath) {
-                            projectPath = await window.electronAPI.dirname(window.currentOpenProjectPath);
-                        }
-
-                        if (!projectPath) {
-                            throw new Error('No project path available. Please open a project first.');
-                        }
-
-                        console.log('🚀 Starting PRISM compilation...');
-                        console.log('Project path:', projectPath);
-
-                        // Obter caminhos absolutos
-                        const rawComponentsPath = await window.electronAPI.getComponentsPath();
-                        console.log('Components path:', rawComponentsPath);
-                        
-                        // Normalizar caminhos
-                        const componentsPath = normalizePath(rawComponentsPath);
-                        const projectPathNorm = normalizePath(projectPath);
-
-                        // Construir objeto de caminhos
-                        const compilationPaths = {
-                            projectPath: projectPathNorm,
-                            componentsPath: componentsPath,
-                            hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
-                            tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
-                            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
-                            netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
-                            processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'processorConfig.json')),
-                            projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'projectOriented.json')),
-                            topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPathNorm, 'TopLevel'))
-                        };
-
-                        console.log('📦 Compilation paths:', compilationPaths);
-
-                        // Verificar se os executáveis existem
-                        const yosysExists = await window.electronAPI.fileExists(compilationPaths.yosysPath);
-                        const netlistsvgExists = await window.electronAPI.fileExists(compilationPaths.netlistsvgPath);
-                        
-                        if (!yosysExists) {
-                            throw new Error(`Yosys not found at: ${compilationPaths.yosysPath}`);
-                        }
-                        if (!netlistsvgExists) {
-                            throw new Error(`Netlistsvg not found at: ${compilationPaths.netlistsvgPath}`);
-                        }
-
-                        console.log('✅ All executables found');
-
-                        // Chamar compilação PRISM no main process
-                        const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
-
-                        if (!result.success) {
-                            throw new Error(result.message || 'PRISM compilation failed');
-                        }
-
-                        console.log('✅ PRISM compilation and window opened successfully');
-
-                    } catch (error) {
-                        console.error('❌ PRISM compilation error:', error);
-                        if (window.terminalManager) {
-                            window.terminalManager.appendToTerminal('tveri',
-                                `PRISM Error: ${error.message}`, 'error');
-                        }
-                        throw error;
-                    }
-                    break;
-            }
-        } else {
-            // Processor/Project mode logic
+        // 2. Tratamento para CMM, ASM, Verilog, Wave (A parte que estava faltando)
+        startCompilation();
+        try {
+            const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
-
-            // FIXED: Use getCurrentMode() which checks radio buttons correctly
-            const isProjectMode = currentMode === 'project';
-
-            // Check if processors are configured
-            const hasProcessors = compiler.config?.processors?.length > 0 &&
-                compiler.config.processors.some(p => p.isActive === true);
-
-            // Load project config to check if we have valid files
-            let hasProjectFiles = false;
-            if (isProjectMode) {
-                try {
-                    await compiler.loadConfig(); // This loads projectConfig
-                    hasProjectFiles = compiler.projectConfig?.synthesizableFiles?.length > 0 &&
-                        compiler.projectConfig?.testbenchFile;
-                } catch (err) {
-                    console.warn('Could not load project config:', err);
-                }
+            
+            // Precisamos do processador ativo para estas etapas
+            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
+            if (!activeProcessor) {
+                throw new Error("Nenhum processador ativo configurado. Selecione um processador no Processor Hub.");
             }
-
-            // Get active processor only if we have processors
-            const activeProcessor = hasProcessors ?
-                compiler.config.processors.find(p => p.isActive === true) : null;
 
             switch (step) {
                 case 'cmm':
-                    if (!activeProcessor) {
-                        throw new Error('CMM compilation requires an active processor');
-                    }
                     switchTerminal('terminal-tcmm');
+                    await compiler.ensureDirectories(activeProcessor.name);
                     await compiler.cmmCompilation(activeProcessor);
                     break;
-
+                
                 case 'asm':
-                    if (!activeProcessor) {
-                        throw new Error('ASM compilation requires an active processor');
-                    }
                     switchTerminal('terminal-tasm');
-                    await compiler.asmCompilation(activeProcessor, isProjectMode ? 1 : 0);
-                    break;
-
-                case 'verilog':
-                    switchTerminal('terminal-tveri');
-                    if (isProjectMode && hasProjectFiles) {
-                        console.log('✅ Using Project Mode compilation (no processor required)');
-                        await compiler.iverilogProjectCompilation();
-                    } else if (isProjectMode && !hasProjectFiles) {
-                        throw new Error('Project Mode requires synthesizable files and a testbench. Please configure them in Project Settings.');
-                    } else if (activeProcessor) {
-                        console.log('✅ Using Processor Mode compilation');
-                        await compiler.iverilogCompilation(activeProcessor);
-                    } else {
-                        throw new Error('Verilog compilation requires either Project Mode with valid files or Processor Mode with an active processor');
-                    }
-                    break;
-
-                case 'wave':
-                    switchTerminal('terminal-twave');
-                    if (isProjectMode && hasProjectFiles) {
-                        console.log('✅ Using Project Mode waveform viewing (no processor required)');
-                        await compiler.runProjectGtkWave();
-                    } else if (isProjectMode && !hasProjectFiles) {
-                        throw new Error('Project Mode requires synthesizable files and a testbench. Please configure them in Project Settings.');
-                    } else if (activeProcessor) {
-                        console.log('✅ Using Processor Mode waveform viewing');
-                        await compiler.runGtkWave(activeProcessor);
-                    } else {
-                        throw new Error('Waveform viewing requires either Project Mode with valid files or Processor Mode with an active processor');
-                    }
+                    // O segundo argumento '0' indica modo processador (padrão) vs projeto
+                    await compiler.asmCompilation(activeProcessor, 0); 
                     break;
                 
-                // Nota: O caso PRISM também pode existir no modo Processor/Project se você desejar.
-                // Se sim, copie a mesma lógica robusta do bloco 'verilog' acima para aqui.
+                case 'verilog':
+                    switchTerminal('terminal-tveri');
+                    await compiler.iverilogCompilation(activeProcessor);
+                    break;
+                
+                case 'wave':
+                    switchTerminal('terminal-twave');
+                    await compiler.runGtkWave(activeProcessor);
+                    break;
+                    
+                default:
+                    console.warn(`Passo desconhecido: ${step}`);
             }
+        } catch (error) {
+            console.error(`Erro na etapa ${step}:`, error);
+            // Tenta logar no terminal apropriado se possível
+            const termMap = { 'cmm': 'tcmm', 'asm': 'tasm', 'verilog': 'tveri', 'wave': 'twave' };
+            if (window.terminalManager) {
+                window.terminalManager.appendToTerminal(termMap[step] || 'tcmm', `Erro Fatal: ${error.message}`, 'error');
+            }
+        } finally {
+            endCompilation();
         }
-    } catch (error) {
-        console.error(`${step} compilation error:`, error);
-        if (this.terminalManager) {
-            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-        }
-    } finally {
-        endCompilation();
     }
-}
+
     cancelAll() {
         compilationCanceled = true;
         window.electronAPI.cancelVvpProcess();
@@ -597,4 +504,4 @@ function normalizePath(pathStr) {
 }
 
 const compilationFlowManager = new CompilationFlowManager();
-export { compilationFlowManager };
+export { compilationFlowManager, checkCancellation };

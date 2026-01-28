@@ -814,112 +814,128 @@ end
  * Compiles user files with instrumented testbench (using a temp file, preserving original)
  */
 async iverilogProjectCompilation() {
-    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification (Project Mode)...');
-    statusUpdater.startCompilation('verilog');
+        this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog verification (Project Mode)...');
+        statusUpdater.startCompilation('verilog');
 
-    try {
-        if (!this.projectConfig) throw new Error("Project configuration not loaded");
-
-        // 1. Setup Paths
-        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
-        const iveriCompPath = await window.electronAPI.joinPath(
-            this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe'
-        );
-
-        await window.electronAPI.mkdir(tempBaseDir);
-
-        // 2. Copy fix.vcd to Temp directory
-        const fixVcdSource = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
-        const fixVcdDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
-        
         try {
-            await window.electronAPI.copyFile(fixVcdSource, fixVcdDest);
-            this.terminalManager.appendToTerminal('tveri', 'fix.vcd copied to Temp directory');
-        } catch (e) {
-            this.terminalManager.appendToTerminal('tveri', 
-                'Warning: Could not copy fix.vcd (may not exist)', 'warning');
+            if (!this.projectConfig) throw new Error("Project configuration not loaded");
+
+            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+            const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+            const iveriCompPath = await window.electronAPI.joinPath(
+                this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe'
+            );
+
+            await window.electronAPI.mkdir(tempBaseDir);
+
+            // --- Cópia de Arquivos de Suporte e Memória ---
+            
+            // 1. fix.vcd
+            const fixVcdSource = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
+            const fixVcdDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
+            try {
+                await window.electronAPI.copyFile(fixVcdSource, fixVcdDest);
+                this.terminalManager.appendToTerminal('tveri', 'fix.vcd copied to Temp directory');
+            } catch (e) {
+                this.terminalManager.appendToTerminal('tveri', 'Warning: Could not copy fix.vcd', 'warning');
+            }
+
+            // 2. Copiar arquivos de memória (pc_*.txt) dos processadores configurados
+            if (this.projectConfig.processors && Array.isArray(this.projectConfig.processors)) {
+                this.terminalManager.appendToTerminal('tveri', 'Linking processor memory files...');
+                
+                for (const proc of this.projectConfig.processors) {
+                    try {
+                        // Caminho: components/Temp/<NomeDoProcessador>
+                        const procTempDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp', proc.name);
+                        const files = await window.electronAPI.readdir(procTempDir);
+
+                        for (const file of files) {
+                            // Filtro robusto: começa com pc_ e termina com .txt
+                            if (!file.isDirectory && file.name.startsWith('pc_') && file.name.endsWith('mem.txt')) {
+                                const src = await window.electronAPI.joinPath(procTempDir, file.name);
+                                const dest = await window.electronAPI.joinPath(tempBaseDir, file.name);
+                                await window.electronAPI.copyFile(src, dest);
+                            }
+                        }
+                    } catch (err) {
+                        // Ignora silenciosamente se a pasta do processador não existir (pode não ter sido compilado ainda)
+                        // Isso garante robustez sem quebrar o fluxo principal
+                    }
+                }
+            }
+
+            // --- Validação e Preparação do Testbench ---
+
+            const topLevelFile = this.projectConfig.topLevelFile;
+            const testbenchFile = this.projectConfig.testbenchFile;
+            
+            if (!topLevelFile) throw new Error("No top-level file specified in projectOriented.json");
+            if (!testbenchFile) throw new Error("No testbench file specified in projectOriented.json");
+
+            const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+            const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+            
+            const tempTbFileName = `tb_inst_${testbenchModuleName}.v`;
+            const tempTbPath = await window.electronAPI.joinPath(tempBaseDir, tempTbFileName);
+
+            const simuDelay = this.projectConfig.simuDelay || '200000';
+            
+            await this.instrumentProjectTestbench(
+                testbenchFile,
+                tempTbPath,
+                tempBaseDir,
+                testbenchModuleName, 
+                topLevelModuleName,
+                simuDelay
+            );
+
+            // --- Construção do Comando ---
+
+            const flags = this.projectConfig.iverilogFlags || '';
+            const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
+            
+            const userSourceFiles = (this.projectConfig.synthesizableFiles || [])
+                .map(f => `"${f.path}"`)
+                .join(' ');
+
+            const lastSeparatorIndex = Math.max(testbenchFile.lastIndexOf('/'), testbenchFile.lastIndexOf('\\'));
+            let originalTbDir = (lastSeparatorIndex !== -1) ? testbenchFile.substring(0, lastSeparatorIndex) : ".";
+            
+            const includeFlag = `-I "${originalTbDir}"`;
+            
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
+            const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
+
+            // Ordem: Executável -> Flags -> TopLevel(-s) -> Output(-o) -> Includes -> Sources
+            const cmd = `"${iveriCompPath}" ${flags} -s ${testbenchModuleName} -o "${outputFile}" ${includeFlag} ${verilogFilesString} "${tempTbPath}" ${userSourceFiles}`;
+
+            this.terminalManager.appendToTerminal('tveri', `Compiling with instrumented testbench (Temp file)...`);
+            this.terminalManager.appendToTerminal('tveri', cmd);
+
+            await TabManager.saveAllFiles();
+
+            // --- Execução ---
+
+            const result = await window.electronAPI.execCommand(cmd);
+            this.terminalManager.processExecutableOutput('tveri', result);
+
+            if (result.code !== 0) {
+                throw new Error(`Compilation failed with code ${result.code}`);
+            }
+
+            this.terminalManager.appendToTerminal('tveri', 'Project verification compiled successfully.', 'success');
+            statusUpdater.compilationSuccess('verilog');
+
+            await this.generateProjectHierarchy();
+
+        } catch (error) {
+            this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+            statusUpdater.compilationError('verilog', error.message);
+            throw error;
         }
-
-        // 3. Validate Files
-        const topLevelFile = this.projectConfig.topLevelFile;
-        const testbenchFile = this.projectConfig.testbenchFile;
-        
-        if (!topLevelFile) throw new Error("No top-level file specified in projectOriented.json");
-        if (!testbenchFile) throw new Error("No testbench file specified in projectOriented.json");
-
-        // 4. Determine Module Names and Paths
-        const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        
-        // Define path for the temporary instrumented testbench
-        const tempTbFileName = `tb_inst_${testbenchModuleName}.v`;
-        const tempTbPath = await window.electronAPI.joinPath(tempBaseDir, tempTbFileName);
-
-        // 5. Instrument Testbench (Create temp file, do NOT overwrite original)
-        const simuDelay = this.projectConfig.simuDelay || '200000';
-        
-        await this.instrumentProjectTestbench(
-            testbenchFile,      // Source (Original)
-            tempTbPath,         // Destination (Temp)
-            tempBaseDir,        // Temp Dir for aux files
-            testbenchModuleName, 
-            topLevelModuleName,
-            simuDelay
-        );
-
-        // 6. Build Compilation Command
-        const flags = this.projectConfig.iverilogFlags || '';
-        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
-        
-        const userSourceFiles = (this.projectConfig.synthesizableFiles || [])
-            .map(f => `"${f.path}"`)
-            .join(' ');
-
-        // --- CORREÇÃO DO INCLUDE PATH ---
-        // Encontra a última ocorrência de '/' OU '\' para garantir que pega o diretório
-        // independentemente de como o OS formatou a string.
-        const lastSeparatorIndex = Math.max(testbenchFile.lastIndexOf('/'), testbenchFile.lastIndexOf('\\'));
-        
-        let originalTbDir;
-        if (lastSeparatorIndex !== -1) {
-            originalTbDir = testbenchFile.substring(0, lastSeparatorIndex);
-        } else {
-            // Se não encontrar nenhuma barra, assume que está no diretório atual (ou trata como erro)
-            originalTbDir = "."; 
-        }
-        
-        const includeFlag = `-I "${originalTbDir}"`;
-        // --------------------------------
-
-        // Use tempTbPath instead of testbenchFile in the command
-        const cmd = `"${iveriCompPath}" ${flags} ${includeFlag} -s ${testbenchModuleName} -o "${outputFile}" "${tempTbPath}" ${userSourceFiles}`;
-
-        this.terminalManager.appendToTerminal('tveri', `Compiling with instrumented testbench (Temp file)...`);
-        this.terminalManager.appendToTerminal('tveri', cmd);
-
-        await TabManager.saveAllFiles();
-
-        // 7. Execute Compilation
-        const result = await window.electronAPI.execCommand(cmd);
-        this.terminalManager.processExecutableOutput('tveri', result);
-
-        if (result.code !== 0) {
-            throw new Error(`Compilation failed with code ${result.code}`);
-        }
-
-        this.terminalManager.appendToTerminal('tveri', 'Project verification compiled successfully.', 'success');
-        statusUpdater.compilationSuccess('verilog');
-
-        // 8. Generate Hierarchy
-        await this.generateProjectHierarchy();
-
-    } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-        statusUpdater.compilationError('verilog', error.message);
-        throw error;
     }
-}
 
 /**
  * Instrument testbench for Project Mode with progress tracking and VCD generation

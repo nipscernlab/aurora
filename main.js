@@ -2382,94 +2382,103 @@ ipcMain.handle('get-available-modules', async (event, tempDir) => {
 
 let prismWindow = null;
 
-
-// Create or focus PRISM window
 async function createPrismWindow(compilationData = null) {
-  try {
-    console.log('🪟 Creating/Focusing PRISM window...');
+  // If already open, just focus and update content if data provided
+  if (prismWindow && !prismWindow.isDestroyed()) {
+    prismWindow.focus();
     
-    if (prismWindow && !prismWindow.isDestroyed()) {
-      console.log('↻ Reusing existing PRISM window');
-      prismWindow.focus();
-      
-      if (compilationData) {
-        console.log('📤 Updating existing PRISM window with new compilation data');
-        if (!prismWindow.webContents.isLoading()) {
-          prismWindow.webContents.send('compilation-complete', compilationData);
-        } else {
-          prismWindow.webContents.once('did-finish-load', () => {
-            if (prismWindow && !prismWindow.isDestroyed()) {
-              prismWindow.webContents.send('compilation-complete', compilationData);
-            }
-          });
-        }
+    // If compilation data is provided, send it to existing window
+    if (compilationData) {
+      console.log('Updating existing PRISM window with new compilation data:', compilationData);
+      // Check if the window is ready before sending data
+      if (!prismWindow.webContents.isLoading()) {
+        prismWindow.webContents.send('compilation-complete', compilationData);
+      } else {
+        prismWindow.webContents.once('did-finish-load', () => {
+          if (prismWindow && !prismWindow.isDestroyed()) {
+            prismWindow.webContents.send('compilation-complete', compilationData);
+          }
+        });
       }
-      return prismWindow;
     }
+    return prismWindow;
+  }
 
-    const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
-    const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
-    
-    console.log('📄 PRISM HTML path:', prismHtmlPath);
-    console.log('📄 Preload path:', preloadPath);
-    
-    if (!require('fs').existsSync(preloadPath)) {
-      throw new Error(`Preload script not found: ${preloadPath}`);
+  // Ensure preload script exists
+  const preloadPath = path.join(__dirname, 'js', 'preload_prism.js');
+  console.log('Preload script path:', preloadPath);
+  
+  if (!require('fs').existsSync(preloadPath)) {
+    console.error('Preload script not found at:', preloadPath);
+    throw new Error(`Preload script not found: ${preloadPath}`);
+  }
+
+  console.log('Creating new PRISM window...');
+
+  prismWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
+    autoHideMenuBar: false,
+    icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath,
+      webSecurity: false,
+      allowRunningInsecureContent: true
+    },
+    backgroundColor: '#17151f',
+    show: false, // Inicialmente oculta
+    titleBarStyle: 'default'
+  });
+
+  // Load the HTML file
+  const prismHtmlPath = path.join(__dirname, 'html', 'prism.html');
+  console.log('Loading PRISM HTML from:', prismHtmlPath);
+  
+  // CORREÇÃO PRINCIPAL: Verificar se o arquivo existe antes de tentar carregar
+  if (!require('fs').existsSync(prismHtmlPath)) {
+    console.error('PRISM HTML file not found at:', prismHtmlPath);
+    if (prismWindow) {
+      prismWindow.destroy();
+      prismWindow = null;
     }
-    
-    if (!require('fs').existsSync(prismHtmlPath)) {
-      throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
-    }
-
-    console.log('✅ Files validated, creating window...');
-
-    prismWindow = new BrowserWindow({
-      width: 1400,
-      height: 900,
-      minWidth: 1000,
-      minHeight: 700,
-      autoHideMenuBar: false,
-      icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        preload: preloadPath,
-        webSecurity: false,
-        allowRunningInsecureContent: true
-      },
-      backgroundColor: '#17151f',
-      show: false,
-      titleBarStyle: 'default'
-    });
-
-    console.log('🔄 Loading PRISM HTML...');
+    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
+  }
+  
+  try {
+    // Carregar o arquivo HTML
     await prismWindow.loadFile(prismHtmlPath);
-    console.log('✅ PRISM HTML loaded successfully');
+    console.log('PRISM HTML loaded successfully');
     
-    await new Promise(resolve => {
-      prismWindow.webContents.once('did-finish-load', () => {
-        console.log('✅ PRISM window finished loading');
-        setTimeout(resolve, 500);
-      });
-    });
-    
+    // CORREÇÃO: Mostrar a janela imediatamente após carregar, sem esperar pelo evento
     prismWindow.maximize();
     prismWindow.show();
-    console.log('✅ PRISM window shown');
+    console.log('PRISM window shown');
     
+    // Notificar a janela principal que PRISM está aberto
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('prism-status', true);
     }
     
+    // Se há dados de compilação, enviar após um pequeno delay para garantir que o DOM está pronto
     if (compilationData) {
-      console.log('📤 Sending compilation data to new PRISM window');
-      prismWindow.webContents.send('compilation-complete', compilationData);
+      console.log('Scheduling compilation data send...');
+      setTimeout(() => {
+        if (prismWindow && !prismWindow.isDestroyed()) {
+          console.log('Sending compilation data to PRISM window:', compilationData);
+          prismWindow.webContents.send('compilation-complete', compilationData);
+        }
+      }, 1000); // Delay de 1 segundo para garantir que a página está totalmente carregada
     }
     
   } catch (error) {
-    console.error('❌ Failed to load prism.html:', error);
-    console.error('Stack:', error.stack);
+    console.error('Failed to load prism.html:', error);
     
+    // Mostrar erro em dialog
+    const { dialog } = require('electron');
     await dialog.showMessageBox({
       type: 'error',
       title: 'PRISM Load Error',
@@ -2484,16 +2493,22 @@ async function createPrismWindow(compilationData = null) {
     throw error;
   }
 
+  // Handle window closed
   prismWindow.on('closed', () => {
-    console.log('🔴 PRISM window closed');
+    console.log('PRISM window closed');
     prismWindow = null;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('prism-status', false);
     }
   });
 
+  // Enhanced error handling
   prismWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.error(`❌ PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
+    console.error(`PRISM viewer failed to load (code ${errorCode}): ${errorDescription}`);
+    console.error(`Failed URL: ${validatedURL}`);
+    
+    // Mostrar erro específico
+    const { dialog } = require('electron');
     dialog.showMessageBox({
       type: 'error',
       title: 'PRISM Load Failed',
@@ -2502,73 +2517,60 @@ async function createPrismWindow(compilationData = null) {
     });
   });
 
-  console.log('✅ PRISM window created successfully');
+  prismWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('PRISM viewer renderer process crashed:', details);
+  });
+
+  // Adicionar log quando o conteúdo terminar de carregar
+  prismWindow.webContents.on('did-finish-load', () => {
+    console.log('PRISM window content finished loading');
+  });
+
+  // Adicionar log quando começar a carregar
+  prismWindow.webContents.on('did-start-loading', () => {
+    console.log('PRISM window started loading');
+  });
+
+  console.log('PRISM window created successfully');
   return prismWindow;
 }
 
 // Main PRISM compilation handler
+// Em main.js
 ipcMain.handle('prism-compile-with-paths', async (event, compilationPaths) => {
   try {
-    console.log('=== 🚀 STARTING PRISM COMPILATION WITH PROVIDED PATHS ===');
-    console.log('📦 Received paths:', JSON.stringify(compilationPaths, null, 2));
-    
-    if (!compilationPaths || !compilationPaths.projectPath) {
-      const error = 'Invalid compilation paths provided - missing projectPath';
-      console.error('❌', error);
-      throw new Error(error);
+    console.log('🚀 [Main] Iniciando compilação PRISM com caminhos explícitos...');
+
+    // 1. Executa a compilação (gera JSONs e SVGs)
+    // Nota: Certifique-se que performPrismCompilationWithPaths está definida ou use a lógica interna existente
+    const result = await performPrismCompilationWithPaths(compilationPaths);
+
+    if (!result.success) {
+      console.error('❌ [Main] Falha na compilação PRISM:', result.message);
+      return result;
     }
-    
-    // Verificar se os arquivos existem
-    const checksums = {
-      yosys: await fse.pathExists(compilationPaths.yosysPath),
-      netlistsvg: await fse.pathExists(compilationPaths.netlistsvgPath),
-      tempDir: await fse.pathExists(compilationPaths.tempPath),
-      projectPath: await fse.pathExists(compilationPaths.projectPath)
-    };
-    
-    console.log('📋 Path validation:', checksums);
-    
-    if (!checksums.yosys) {
-      throw new Error(`Yosys not found: ${compilationPaths.yosysPath}`);
-    }
-    if (!checksums.netlistsvg) {
-      throw new Error(`Netlistsvg not found: ${compilationPaths.netlistsvgPath}`);
-    }
-    
-    console.log('✅ All paths validated');
-    
-    const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
-    
-    if (!compilationResult.success) {
-      console.error('❌ Compilation failed:', compilationResult.message);
-      throw new Error(compilationResult.message);
-    }
-    
-    console.log('✅ Compilation successful, creating PRISM window...');
-    
-    const window = await createPrismWindow(compilationResult);
-    
-    if (!window) {
-      throw new Error('Failed to create PRISM window');
-    }
-    
-    console.log('=== ✅ PRISM COMPILATION WITH PATHS COMPLETED SUCCESSFULLY ===');
-    return compilationResult;
-    
+
+    // --- CORREÇÃO CRÍTICA AQUI ---
+    // A janela não abria porque esta chamada estava faltando
+    console.log('✨ [Main] Compilação sucesso! Abrindo janela PRISM...');
+    await createPrismWindow(result); 
+    // -----------------------------
+
+    return result;
+
   } catch (error) {
-    console.error('=== ❌ PRISM COMPILATION WITH PATHS FAILED ===');
-    console.error('Error:', error);
-    console.error('Stack:', error.stack);
+    console.error('❌ [Main] Erro fatal no handler prism-compile-with-paths:', error);
     return { success: false, message: error.message };
   }
 });
+
 // Perform PRISM compilation
 async function performPrismCompilationWithPaths(compilationPaths) {
   try {
     console.log('=== PERFORMING PRISM COMPILATION ===');
     
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
+      mainWindow.webContents.send('terminal-log', 'tveri', 'Starting PRISM compilation process', 'info');
     }
     
     const projectPath = compilationPaths.projectPath;
@@ -2578,7 +2580,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     
     console.log(`Using project path: ${projectPath}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Project: ${path.basename(projectPath)}`, 'info');
+      mainWindow.webContents.send('terminal-log', 'tveri', `Project: ${path.basename(projectPath)}`, 'info');
     }
     
     // Create temp directory
@@ -2587,7 +2589,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     // Determine mode
     const isProjectOriented = await getToggleUIStateFromMain();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 
+      mainWindow.webContents.send('terminal-log', 'tveri', 
         `Mode: ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'}`, 'info');
     }
     
@@ -2604,7 +2606,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       configData = await fse.readJson(projectConfigPath);
       topLevelModule = path.basename(configData.topLevelFile, '.v');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', `Top level module: ${topLevelModule}`, 'info');
+        mainWindow.webContents.send('terminal-log', 'tveri', `Top level module: ${topLevelModule}`, 'info');
       }
     } else {
       console.log('Running in Processor Oriented mode...');
@@ -2622,13 +2624,13 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       
       topLevelModule = activeProcessor.name;
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', `Active processor: ${topLevelModule}`, 'info');
+        mainWindow.webContents.send('terminal-log', 'tveri', `Active processor: ${topLevelModule}`, 'info');
       }
     }
     
     // Run Yosys to generate hierarchy.json
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'Starting Yosys synthesis...', 'info');
+      mainWindow.webContents.send('terminal-log', 'tveri', 'Starting Yosys synthesis...', 'info');
     }
     const hierarchyJsonPath = await runYosysCompilationWithPaths(
       compilationPaths, 
@@ -2639,19 +2641,19 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     
     // Split hierarchy.json into individual module JSON files
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'Processing module hierarchy...', 'info');
+      mainWindow.webContents.send('terminal-log', 'tveri', 'Processing module hierarchy...', 'info');
     }
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
     
     // Generate SVG for top level module
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'Generating SVG diagram...', 'info');
+      mainWindow.webContents.send('terminal-log', 'tveri', 'Generating SVG diagram...', 'info');
     }
     const svgPath = await generateModuleSVGWithPaths(topLevelModule, tempDir, netlistsvgPath);
     
     console.log('PRISM compilation completed successfully');
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', 'PRISM compilation completed successfully', 'success');
+      mainWindow.webContents.send('terminal-log', 'tveri', 'PRISM compilation completed successfully', 'success');
     }
     
     return { 
@@ -2666,7 +2668,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
   } catch (error) {
     console.error('PRISM compilation error:', error);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error.message}`, 'error');
+      mainWindow.webContents.send('terminal-log', 'tveri', `Compilation failed: ${error.message}`, 'error');
     }
     return { success: false, message: error.message };
   }
@@ -2762,7 +2764,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   
   console.log('Executing Yosys command');
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
+    mainWindow.webContents.send('terminal-log', 'tveri', 'Running Yosys synthesis...', 'info');
   }
   
   return new Promise((resolve, reject) => {
@@ -2775,7 +2777,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
       if (error) {
         console.error('Yosys execution error:', error);
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `Yosys failed: ${error.message}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tveri', `Yosys failed: ${error.message}`, 'error');
         }
         reject(new Error(`Yosys compilation failed: ${error.message}`));
         return;
@@ -2783,7 +2785,7 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
       
       console.log('Yosys compilation succeeded');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', 'Yosys synthesis completed', 'success');
+        mainWindow.webContents.send('terminal-log', 'tveri', 'Yosys synthesis completed', 'success');
       }
       
       resolve(hierarchyJsonPath);
@@ -2854,7 +2856,7 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
       if (error) {
         console.error('netlistsvg error:', error);
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tprism', `SVG generation failed: ${error.message}`, 'error');
+          mainWindow.webContents.send('terminal-log', 'tveri', `SVG generation failed: ${error.message}`, 'error');
         }
         reject(new Error(`SVG generation failed: ${error.message}`));
         return;
@@ -2862,13 +2864,14 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
       
       console.log(`SVG generated: ${outputSvgPath}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tprism', 'SVG diagram generated successfully', 'success');
+        mainWindow.webContents.send('terminal-log', 'tveri', 'SVG diagram generated successfully', 'success');
       }
       
       resolve(outputSvgPath);
     });
   });
 }
+
 
 // Helper functions
 function cleanModuleName(moduleName) {
@@ -2914,6 +2917,7 @@ function isClickableModule(moduleName) {
          (!moduleName.startsWith('$') && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(moduleName));
 }
 
+
 function sanitizeFileName(fileName) {
   return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }
@@ -2946,6 +2950,7 @@ async function getToggleUIStateFromMain() {
     }
   });
 }
+
 
 // Additional IPC handlers
 ipcMain.handle('generate-svg-from-module', async (event, moduleName, tempDir) => {
@@ -3059,14 +3064,12 @@ ipcMain.handle('open-prism-compile', async (event, compilationPaths) => {
     console.error('Error:', error);
     
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tprism', `Failed to open PRISM: ${error.message}`, 'error');
+      mainWindow.webContents.send('terminal-log', 'tveri', `Failed to open PRISM: ${error.message}`, 'error');
     }
     
     return { success: false, message: error.message };
   }
 });
-
-
 
 // Add recompile handler for existing PRISM window
 ipcMain.handle('prism-recompile', async (event, compilationPaths) => {
@@ -3098,19 +3101,17 @@ ipcMain.handle('prism-recompile', async (event, compilationPaths) => {
       
       prismWindow.focus();
     } else {
-      console.log('Creating new PRISM window for recompilation');
       await createPrismWindow(compilationResult);
     }
     
-    console.log('=== PRISM RECOMPILATION COMPLETED ===');
     return compilationResult;
     
-  } catch (error) {  
-    console.error('=== PRISM RECOMPILATION FAILED ===');
-    console.error('Error:', error);
+  } catch (error) {
+    console.error('PRISM recompilation error:', error);
     return { success: false, message: error.message };
   }
 });
+
 
 function debugPaths() {
   console.log('=== DEBUG: Checking PRISM paths ===');

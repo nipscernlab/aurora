@@ -2685,65 +2685,96 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
   
   let fileList = [];
   
-  // Add HDL files
-  console.log('Scanning HDL directory:', hdlPath);
-  if (await fse.pathExists(hdlPath)) {
-    const hdlFiles = await fse.readdir(hdlPath);
-    const vFiles = hdlFiles.filter(file => 
-      file.endsWith('.v') && 
-      !file.includes('_tb') && 
-      !file.toLowerCase().includes('test')
-    );
-    fileList = fileList.concat(vFiles.map(file => path.join(hdlPath, file)));
-    console.log(`Found ${vFiles.length} HDL files`);
-  }
+  // CHECK FOR VERILOG-ONLY MODE
+  const isVerilogOnlyMode = await isVerilogOnlyModeActive();
   
-  // Add processor files
-  const processorConfigPath = compilationPaths.processorConfigPath;
-  if (await fse.pathExists(processorConfigPath)) {
-    const processorConfig = await fse.readJson(processorConfigPath);
+  if (isVerilogOnlyMode && isProjectOriented) {
+    // VERILOG-ONLY MODE: Use synthesizableFiles from projectOriented.json
+    console.log('=== VERILOG-ONLY MODE DETECTED ===');
     
-    if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
-      for (const processor of processorConfig.processors) {
-        const processorName = processor.name;
-        const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
-        const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
-        
-        if (await fse.pathExists(processorVFile)) {
-          fileList.push(processorVFile);
-        }
-        
-        if (await fse.pathExists(processorHardwareDir)) {
-          const hardwareFiles = await fse.readdir(processorHardwareDir);
-          const vFiles = hardwareFiles.filter(file => 
-            file.endsWith('.v') && 
-            !file.includes('_tb') && 
-            file !== `${processorName}.v`
-          );
-          fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
+    if (!await fse.pathExists(projectConfigPath)) {
+      throw new Error('projectOriented.json not found');
+    }
+    
+    const projectConfig = await fse.readJson(projectConfigPath);
+    
+    if (!projectConfig.synthesizableFiles || projectConfig.synthesizableFiles.length === 0) {
+      throw new Error('No synthesizable files found in projectOriented.json');
+    }
+    
+    // Add all synthesizable files
+    fileList = projectConfig.synthesizableFiles.map(file => file.path);
+    
+    console.log(`Verilog-only mode: Using ${fileList.length} synthesizable files`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal-log', 'tveri', 
+        `Verilog-only mode: ${fileList.length} files for synthesis`, 'info');
+    }
+    
+  } else {
+    // ORIGINAL BEHAVIOR: Include HDL, processors, and TopLevel files
+    
+    // Add HDL files
+    console.log('Scanning HDL directory:', hdlPath);
+    if (await fse.pathExists(hdlPath)) {
+      const hdlFiles = await fse.readdir(hdlPath);
+      const vFiles = hdlFiles.filter(file => 
+        file.endsWith('.v') && 
+        !file.includes('_tb') && 
+        !file.toLowerCase().includes('test')
+      );
+      fileList = fileList.concat(vFiles.map(file => path.join(hdlPath, file)));
+      console.log(`Found ${vFiles.length} HDL files`);
+    }
+    
+    // Add processor files
+    const processorConfigPath = compilationPaths.processorConfigPath;
+    if (await fse.pathExists(processorConfigPath)) {
+      const processorConfig = await fse.readJson(processorConfigPath);
+      
+      if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
+        for (const processor of processorConfig.processors) {
+          const processorName = processor.name;
+          const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
+          const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
+          
+          if (await fse.pathExists(processorVFile)) {
+            fileList.push(processorVFile);
+          }
+          
+          if (await fse.pathExists(processorHardwareDir)) {
+            const hardwareFiles = await fse.readdir(processorHardwareDir);
+            const vFiles = hardwareFiles.filter(file => 
+              file.endsWith('.v') && 
+              !file.includes('_tb') && 
+              file !== `${processorName}.v`
+            );
+            fileList = fileList.concat(vFiles.map(file => path.join(processorHardwareDir, file)));
+          }
         }
       }
     }
-  }
-  
-  // Add TopLevel files if Project Oriented
-  if (isProjectOriented) {
-    const topLevelDir = compilationPaths.topLevelPath;
-    const projectConfig = await fse.readJson(compilationPaths.projectOrientedConfigPath);
-    const topLevelFileName = path.basename(projectConfig.topLevelFile);
     
-    if (await fse.pathExists(topLevelDir)) {
-      const topLevelFiles = await fse.readdir(topLevelDir);
-      const vFiles = topLevelFiles.filter(file => 
-        file.endsWith('.v') && 
-        !file.includes('_tb') && 
-        file !== topLevelFileName
-      );
-      fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+    // Add TopLevel files if Project Oriented
+    if (isProjectOriented) {
+      const topLevelDir = compilationPaths.topLevelPath;
+      const projectConfig = await fse.readJson(compilationPaths.projectOrientedConfigPath);
+      const topLevelFileName = path.basename(projectConfig.topLevelFile);
       
-      const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
-      if (await fse.pathExists(topLevelFilePath)) {
-        fileList.push(topLevelFilePath);
+      if (await fse.pathExists(topLevelDir)) {
+        const topLevelFiles = await fse.readdir(topLevelDir);
+        const vFiles = topLevelFiles.filter(file => 
+          file.endsWith('.v') && 
+          !file.includes('_tb') && 
+          file !== topLevelFileName
+        );
+        fileList = fileList.concat(vFiles.map(file => path.join(topLevelDir, file)));
+        
+        const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
+        if (await fse.pathExists(topLevelFilePath)) {
+          fileList.push(topLevelFilePath);
+        }
       }
     }
   }
@@ -2752,44 +2783,89 @@ async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, te
     throw new Error('No Verilog files found for compilation');
   }
   
-  // Build Yosys command
-  const readCommands = fileList.map(file => {
-    const normalizedPath = path.normalize(file).replace(/\\/g, '/');
-    return `read_verilog "${normalizedPath}"`;
-  }).join('; ');
+  console.log(`Total files for Yosys: ${fileList.length}`);
+  fileList.forEach((file, idx) => {
+    console.log(`  ${idx + 1}. ${path.basename(file)}`);
+  });
   
-  const normalizedOutputPath = path.normalize(hierarchyJsonPath).replace(/\\/g, '/');
+  // Create Yosys script
+  const readCommands = fileList.map(file => `read_verilog "${file}"`).join('\n');
   
-  const yosysCommand = `"${yosysExe}" -p "${readCommands}; hierarchy -top ${topLevelModule}; proc; write_json \\"${normalizedOutputPath}\\""`;
+  const yosysScript = `
+${readCommands}
+hierarchy -top ${topLevelModule}
+proc
+write_json "${hierarchyJsonPath}"
+`;
   
-  console.log('Executing Yosys command');
+  const yosysScriptPath = path.join(tempDir, 'yosys_script.ys');
+  await fse.writeFile(yosysScriptPath, yosysScript);
+  
+  console.log('Yosys script created:', yosysScriptPath);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('terminal-log', 'tveri', 'Running Yosys synthesis...', 'info');
   }
   
+  // Run Yosys
   return new Promise((resolve, reject) => {
-    exec(yosysCommand, { 
-      shell: true, 
-      maxBuffer: 1024 * 1024 * 10,
+    const yosysProcess = spawn(yosysExe, ['-s', yosysScriptPath], {
       cwd: tempDir,
-      timeout: 300000
-    }, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Yosys execution error:', error);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('terminal-log', 'tveri', `Yosys failed: ${error.message}`, 'error');
-        }
-        reject(new Error(`Yosys compilation failed: ${error.message}`));
-        return;
-      }
-      
-      console.log('Yosys compilation succeeded');
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('terminal-log', 'tveri', 'Yosys synthesis completed', 'success');
-      }
-      
-      resolve(hierarchyJsonPath);
+      windowsHide: true
     });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    yosysProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    yosysProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    yosysProcess.on('close', async (code) => {
+      if (code !== 0) {
+        console.error('Yosys failed:', stderr);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('terminal-log', 'tveri', `Yosys error: ${stderr}`, 'error');
+        }
+        reject(new Error(`Yosys exited with code ${code}`));
+      } else {
+        if (await fse.pathExists(hierarchyJsonPath)) {
+          console.log('Hierarchy JSON created successfully');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('terminal-log', 'tveri', 'Hierarchy JSON generated', 'success');
+          }
+          resolve(hierarchyJsonPath);
+        } else {
+          reject(new Error('hierarchy.json was not created'));
+        }
+      }
+    });
+    
+    yosysProcess.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+async function isVerilogOnlyModeActive() {
+  return new Promise((resolve) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(`
+        (function() {
+          const verilogModeRadio = document.getElementById('Verilog Mode');
+          return verilogModeRadio ? verilogModeRadio.checked : false;
+        })();
+      `).then(isActive => {
+        resolve(isActive);
+      }).catch(() => {
+        resolve(false);
+      });
+    } else {
+      resolve(false);
+    }
   });
 }
 

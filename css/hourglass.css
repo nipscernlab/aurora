@@ -20,7 +20,7 @@
   justify-content: center;
   width: 36px;  /* Slightly larger for a better click target */
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   border: 1px solid var(--border-primary);
   background-color: var(--bg-secondary);
   color: var(--accent-primary); /* Use accent color for this special button */

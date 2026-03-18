@@ -26,7 +26,7 @@
   left: 1%;
   top: 2%;
   padding: 2vh 1vh;
-  border-radius: 16px 16px 16px 16px;
+  border-radius: 0;
 }
 
   .file-tree-item.active {
@@ -65,7 +65,7 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   color: var(--text-secondary);
   cursor: pointer;
   transition: background-color var(--transition-fast), color var(--transition-fast);
@@ -107,7 +107,7 @@
 }
 .file-tree-actions::-webkit-scrollbar-thumb {
   background-color: var(--bg-quaternary);
-  border-radius: var(--radius-full);
+  border-radius: 0;
   border: 2px solid var(--bg-secondary);
 }
 .file-tree-actions::-webkit-scrollbar-thumb:hover {
@@ -132,7 +132,7 @@
   display: flex;
   align-items: center;
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   cursor: pointer;
   transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
@@ -200,7 +200,7 @@
   color: var(--text-primary);
   cursor: pointer;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   border: 1px solid var(--border-primary);
   background-color: var(--bg-tertiary);
   transition: all var(--transition-fast);
@@ -327,7 +327,7 @@
   align-items: center;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -397,7 +397,7 @@
 
   background-color: transparent;
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   color: var(--text-tertiary);
   cursor: pointer;
   
@@ -453,14 +453,14 @@
 /* Item que corresponde à busca */
 .file-tree-item.search-match > .file-item {
   background-color: var(--accent-subtle-bg);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 /* Destaque no texto correspondente */
 .search-highlight {
   background-color: var(--accent-primary);
   color: var(--text-on-accent);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-weight: var(--font-semibold);
   padding: 0 2px;
 }
@@ -505,7 +505,7 @@
 
 .file-tree.verilog-mode-active {
   border: 2px dashed var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   transition: border-color var(--transition-normal), background-color var(--transition-normal);
   padding: var(--space-4);
 }
@@ -530,7 +530,7 @@
   right: 0;
   bottom: 0;
   pointer-events: none;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   transition: box-shadow var(--transition-normal);
   z-index: -1;
 }
@@ -609,7 +609,7 @@
   justify-content: center;
   background-color: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text-tertiary);
   cursor: pointer;
   opacity: 0;
@@ -645,7 +645,7 @@
   padding: var(--space-3) var(--space-4);
   background-color: var(--bg-elevated);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   font-size: var(--text-sm);

@@ -31,7 +31,7 @@
   max-width: 96vw;
   max-height: 68vh;
   background: var(--bg-elevated, rgba(34,31,55,0.94));
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: var(--shadow-xl, 0 15px 30px rgba(0,0,0,0.6));
   overflow: hidden;
   display: flex;
@@ -70,7 +70,7 @@
   cursor: pointer;
   color: var(--text-secondary);
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .cp-close-btn:hover { background: var(--overlay-hover); }
 
@@ -105,7 +105,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 0;
   margin-bottom: 6px;
   cursor: pointer;
   transition: background 120ms ease;
@@ -135,7 +135,7 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
@@ -176,7 +176,7 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border-secondary);
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
   font-size: 12px;

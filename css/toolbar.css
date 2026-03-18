@@ -40,7 +40,7 @@
   align-items: center;
   background-color: #2f2b4994;
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden; 
   box-shadow: var(--shadow-sm);
   max-width: 50vh;
@@ -116,7 +116,7 @@
   justify-content: center;
   height: 38px; /* Match height of other buttons */
   width: 38px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   color: var(--text-secondary);
@@ -140,7 +140,7 @@
   transform: translate(-50%, -50%);
   background-color: var(--bg-elevated);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   padding: var(--space-6);
   max-width: 500px;
   z-index: var(--z-40);
@@ -184,7 +184,7 @@
   gap: var(--space-3);
   padding: var(--space-3);
   background-color: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }

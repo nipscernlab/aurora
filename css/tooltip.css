@@ -3,7 +3,7 @@
     position: fixed;
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
-    border-radius: 0.5rem;
+    border-radius: 0;
     box-shadow: var(--shadow-md);
     font-family: var(--font-sans);
     font-size: 0.875rem;
@@ -218,7 +218,7 @@ body:not(.theme-light) .custom-tooltip {
     background-color: var(--hover-overlay);
     transition: color var(--transition-normal), transform var(--transition-fast);
     cursor: pointer;
-    border-radius: var(--radius-md);
+    border-radius: 0;
     top: 8rem;
     left: 1rem;
 }

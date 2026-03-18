@@ -10,7 +10,7 @@
     padding: var(--space-2) var(--space-3);
     background: var(--bg-tertiary);
     border: 1px solid var(--border-primary);
-    border-radius: var(--radius-sm);
+    border-radius: 0;
     color: var(--text-secondary);
     font-size: 11px;
     font-weight: var(--font-medium);
@@ -86,7 +86,7 @@
     align-items: center;
     gap: var(--space-2);
     padding: 7px var(--space-3);
-    border-radius: var(--radius-sm);
+    border-radius: 0;
     transition: background-color var(--transition-fast);
     cursor: pointer;
     position: relative;
@@ -224,12 +224,12 @@
 
 .hierarchy-container::-webkit-scrollbar-track {
     background: var(--bg-primary);
-    border-radius: var(--radius-sm);
+    border-radius: 0;
 }
 
 .hierarchy-container::-webkit-scrollbar-thumb {
     background: var(--bg-quaternary);
-    border-radius: var(--radius-full);
+    border-radius: 0;
     border: 2px solid var(--bg-primary);
 }
 
@@ -305,7 +305,7 @@
 .hierarchy-item-content:focus-visible {
     outline: 2px solid var(--accent-focus-ring);
     outline-offset: 2px;
-    border-radius: var(--radius-sm);
+    border-radius: 0;
 }
 
 .tree-toggle-btn:focus-visible {
@@ -316,7 +316,7 @@
 .hierarchy-item[data-type="top-level"] > .hierarchy-item-content {
     background: linear-gradient(90deg, rgba(155, 89, 182, 0.08) 0%, transparent 100%);
     border-left: 2px solid #9b59b6 !important;
-    border-radius: 8px;
+    border-radius: 0;
     margin: 6px 0;
     padding: 10px var(--space-4);
 }
@@ -346,7 +346,7 @@
   align-items: center;
   justify-content: space-between;
   color: var(--text-secondary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   margin: var(--space-3);
   gap: 6px;
   z-index: 0;
@@ -368,7 +368,7 @@
   background: var(--accent-subtle-bg);
   color: var(--accent-primary);
   border: 1px solid var(--accent-subtle-border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   cursor: pointer;

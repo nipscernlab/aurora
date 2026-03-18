@@ -47,7 +47,7 @@
     position: relative; /* To be on top of the overlay */
     background-color: var(--bg-elevated);
     border: 1px solid var(--border-primary);
-    border-radius: var(--radius-lg);
+    border-radius: 0;
     padding: var(--space-8);
     box-shadow: var(--shadow-xl), var(--shadow-glow);
     width: 90%;
@@ -100,7 +100,7 @@
     font-size: var(--text-base);
     padding: var(--space-3);
     border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
+    border-radius: 0;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -162,7 +162,7 @@
     font-size: var(--text-base);
     font-weight: var(--font-semibold);
     padding: var(--space-3) var(--space-5);
-    border-radius: var(--radius-md);
+    border-radius: 0;
     border: none;
     cursor: pointer;
     transition: all var(--transition-fast);

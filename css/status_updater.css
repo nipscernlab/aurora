@@ -52,7 +52,7 @@ body {
   margin-right: var(--space-6);
   padding: var(--space-1) var(--space-3);
   color: var(--text-secondary);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

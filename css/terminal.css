@@ -20,7 +20,7 @@
   background-color: var(--bg-quaternary);
   padding: 0;
   margin: 0;
-  border-radius: 16px 16px 0px 0px; /* Rounded top corners */
+  border-radius: 0; /* Rounded top corners */
   overflow: hidden;
   padding: 1px;
   user-select: none;
@@ -66,33 +66,33 @@
   overflow: auto;
   word-wrap: break-word;
   white-space: pre-wrap;
-  border-radius: 0px 0px 16px 16px; /* Rounded top corners */
+  border-radius: 0; /* Rounded top corners */
 }
 
 .terminal-body {
   padding: 0.5rem;
-  border-radius: 0 0 8px 8px; /* Rounded bottom corners */
+  border-radius: 0; /* Rounded bottom corners */
 }
 
 /* Terminal Types */
 .terminal-content.cmd { 
   background-color: var(--bg-tertiary);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
 }
 .terminal-content.cmm { 
   background-color: rgba(87, 0, 43, 0.3);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
 }
 .terminal-content.asm { 
   background-color: rgba(71, 14, 0, 0.3);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
 }
 
 /* Log Entries */
 .log-entry {
   margin-bottom: 0.75rem;
   padding: 0.75rem;
-  border-radius: 6px; /* Increased border radius */
+  border-radius: 0; /* Increased border radius */
   border: 1px solid transparent;
   transition: all 0.2s ease;
   max-width: 100%;
@@ -170,7 +170,7 @@
 .stdout, .stderr {
   margin-top: 0.5rem;
   padding: 0.5rem;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-family: var(--font-mono);
   background-color: rgba(0, 0, 0, 0.2);
@@ -196,12 +196,12 @@
 
 .terminal-container::-webkit-scrollbar-track {
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .terminal-container::-webkit-scrollbar-thumb {
   background: var(--border-primary);
-  border-radius: 4px;
+  border-radius: 0;
   transition: background 0.2s ease;
 }
 
@@ -214,7 +214,7 @@
   flex-direction: column;
   height: 96%;
   width: 100%;
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
   margin: 28px;
 }
@@ -278,7 +278,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -297,7 +297,7 @@
   flex-direction: column;
   height: 100%;
   background-color: #1e1e1e;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -313,7 +313,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 8px 8px 0 0;
+  border-radius: 0;
 }
 
 /* TCMD Terminal Body */
@@ -323,7 +323,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
 }
 
 /* Real Terminal Container */
@@ -370,7 +370,7 @@
   color: #f48771;
   background-color: rgba(244, 135, 113, 0.1);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   border-left: 3px solid #f48771;
   margin: 2px 0;
 }
@@ -379,7 +379,7 @@
   color: #4ec9b0;
   background-color: rgba(78, 201, 176, 0.1);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   border-left: 3px solid #4ec9b0;
   margin: 2px 0;
 }
@@ -388,7 +388,7 @@
   color: #ffb86c;
   background-color: rgba(255, 184, 108, 0.1);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   border-left: 3px solid #ffb86c;
   margin: 2px 0;
 }
@@ -397,7 +397,7 @@
   color: #82aaff;
   background-color: rgba(130, 170, 255, 0.1);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   border-left: 3px solid #82aaff;
   margin: 2px 0;
 }
@@ -408,7 +408,7 @@
   align-items: center;
   margin-bottom: 8px;
   background-color: #252525;
-  border-radius: 6px;
+  border-radius: 0;
   padding: 6px 8px;
   border: 1px solid rgba(78, 201, 176, 0.2);
   transition: border-color 0.2s ease;
@@ -450,7 +450,7 @@
   color: var(--text-primary);
   font-weight: bold;
   padding: 10px 10px;
-  border-radius: 8px 8px 0 0;
+  border-radius: 0;
 }
 
 .terminal-body {
@@ -467,7 +467,7 @@
   text-underline-offset: 2px;
   font-weight: bold;
   transition: color 0.2s ease;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 1px 3px;
 }
 
@@ -481,7 +481,7 @@
   color: var(--success);
   font-weight: bold;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 1px 3px;
   transition: background-color 0.2s ease;
 }
@@ -504,7 +504,7 @@
   filter: saturate(1.5) brightness(1.1);
   background-color: rgba(0, 170, 255, 0.1);
   backdrop-filter: blur(2px);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* Animated background effect when active */
@@ -517,7 +517,7 @@
     transparent 40%,
     transparent 60%,
     var(--accent-primary) 100%);
-  border-radius: 8px;
+  border-radius: 0;
   z-index: -1;
   opacity: 0.8;
   animation: highlight-pulse 2s ease-in-out infinite;
@@ -528,7 +528,7 @@
   background: transparent;
   border: none;
   padding: var(--space-2);
-  border-radius: 6px;
+  border-radius: 0;
   transition: background var(--transition-normal), filter var(--transition-normal);
   cursor: pointer;
 }
@@ -549,7 +549,7 @@
 /* Quick hover/active */
 .filter-btn:hover {
   background: var(--hover-overlay);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* ACTIVE state (clicked) smoother and gradient behind icon */
@@ -562,7 +562,7 @@
     rgba(255, 126, 182, 0.05) 100%
   );
   transition: background 0.2s ease;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .filter-error.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -577,7 +577,7 @@
     rgba(255, 184, 108, 0.05) 100%
   );
   transition: background 0.2s ease;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .filter-warning.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -592,7 +592,7 @@
     rgba(165, 224, 117, 0.05) 100%
   );
   transition: background 0.2s ease;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .filter-success.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -607,7 +607,7 @@
     rgba(130, 207, 251, 0.05) 100%
   );
   transition: background 0.2s ease;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .filter-tip.active i {
   filter: saturate(1.2) brightness(1.1);
@@ -619,19 +619,19 @@
 .log-entry.error {
   border-left: 3px solid #ff4444;
   background: rgba(255, 68, 68, 0.1);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .log-entry.warning {
   border-left: 3px solid #ffaa00;
   background: rgba(255, 170, 0, 0.1);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .log-entry.tips {
   border-left: 3px solid #00aaff;
   background: rgba(0, 170, 255, 0.1);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .log-entry.hidden {
@@ -655,12 +655,12 @@
 
 #terminal-tcmd #terminal-container::-webkit-scrollbar-track {
   background: #2d2d2d;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 #terminal-tcmd #terminal-container::-webkit-scrollbar-thumb {
   background: #4a4a4a;
-  border-radius: 4px;
+  border-radius: 0;
   transition: background 0.2s ease;
 }
 
@@ -687,7 +687,7 @@
   }
   
   .terminal-container {
-    border-radius: 6px;
+    border-radius: 0;
   }
 }
 
@@ -845,7 +845,7 @@
   font-weight: bold;
   margin-right: 8px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -891,7 +891,7 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  border-radius: 50%;
+  border-radius: 0;
   min-width: 18px;
   height: 18px;
   display: flex;

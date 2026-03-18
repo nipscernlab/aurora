@@ -183,7 +183,7 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 /* Custom Scrollbar Styling */
@@ -196,7 +196,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background-color: var(--bg-quaternary);
-  border-radius: var(--radius-full);
+  border-radius: 0;
   border: 3px solid var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb:hover {

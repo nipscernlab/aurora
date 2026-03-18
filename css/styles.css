@@ -82,7 +82,7 @@ body {
   border: 1px solid var(--border-primary);
   box-shadow: var(--shadow-lg);
   padding: var(--space-1) 0;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   z-index: var(--z-max); /* Use z-index from design system */
 }
 

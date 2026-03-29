@@ -25,8 +25,8 @@ body {
 .status-bar {
   display: flex;
   align-items: center;
-  background-color: var(--bg-secondary);
-  border-top: 1px solid var(--border-primary);
+  background-color: #1A1640;
+  border-top: 1px solid #2D2A4A;
   padding: var(--space-1) var(--space-3);
   font-family: var(--font-sans);
   font-size: var(--text-sm);

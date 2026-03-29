@@ -78,11 +78,11 @@
 .vvp-progress-title .icon-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--bg-tertiary);
+  border: 2px solid var(--border-primary);
   border-top-color: var(--accent-primary);
-  border-right-color: var(--accent-secondary);
-  border-radius: 0;
-  animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {

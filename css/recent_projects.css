@@ -29,7 +29,7 @@
   flex-shrink: 0;
   width: 280px;
   height: 100%;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  background: var(--bg-secondary);
   border-right: 1px solid var(--border-primary);
   z-index: 2;
 }
@@ -259,12 +259,15 @@
  * =================================================================================== */
 .welcome-main-content {
   flex: 1;
-  display: block;
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--space-12);
-  background: radial-gradient(ellipse at center, rgba(155, 89, 182, 0.05) 0%, transparent 70%);
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(123, 94, 167, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(52, 211, 153, 0.06) 0%, transparent 50%),
+    var(--bg-primary);
   position: relative;
 }
 
@@ -323,6 +326,7 @@
   display: flex;
   gap: var(--space-4);
   margin-bottom: var(--space-12);
+  justify-content: center;
 }
 
 .action-card {
@@ -339,7 +343,6 @@
   position: relative;
   overflow: hidden;
   min-width: 160px;
-  left: 30%;
 }
 
 .action-card::before {
@@ -367,7 +370,6 @@
 .action-card.primary-action {
   border-color: var(--accent-subtle-border);
   background: var(--accent-subtle-bg);
-  left: 30%;
 }
 
 .action-card i {

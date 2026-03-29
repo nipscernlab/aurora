@@ -16,8 +16,8 @@
  * =================================================================================== */
 .main-container {
   display: flex;
-  height: calc(100vh - var(--space-8));
-  width: 100vw;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -35,7 +35,6 @@
   overflow: hidden;
   position: relative;
   background-color: var(--bg-secondary);
-  bottom: 1vh;
 }
 
 .monaco-editor {
@@ -133,9 +132,10 @@
 }
 
 .tab.active {
-  background-color: #26233d;
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
   border-radius: 0;
+  border-top: 1px solid var(--accent-primary);
 }
 
 .tab-title {

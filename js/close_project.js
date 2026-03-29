@@ -71,8 +71,8 @@ function clearProjectInterface() {
 
     const projectActionButtons = document.querySelectorAll('.project-action-button');
     projectActionButtons.forEach(button => {
-        button.disabled = true;
-        button.style.cursor = 'not-allowed';
+        button.disabled = false;
+        button.style.cursor = 'pointer';
     });
 }
 

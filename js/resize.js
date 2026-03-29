@@ -1,13 +1,8 @@
 /**
- * Panel Resizer - Smooth, responsive resizing for panels.
- *
- * This module standardizes the logic for vertical and horizontal panel resizing.
- * It uses requestAnimationFrame for smooth visual updates and defers expensive
- * operations like writing to localStorage until the resize operation is complete,
- * preventing UI stuttering.
+ * Panel Resizer - Smooth resizing for file tree (vertical) and terminal (horizontal).
+ * Also supports simultaneous corner resize by dragging the intersection point.
  */
 
-// Cache DOM elements for better performance.
 const verticalResizer = document.querySelector('.resizer-vertical');
 const horizontalResizer = document.querySelector('.resizer-horizontal');
 const fileTreeContainer = document.querySelector('.file-tree-container');
@@ -15,231 +10,234 @@ const terminalContainer = document.querySelector('.terminal-container');
 const editorContainer = document.querySelector('.editor-container');
 const tabsContainer = document.querySelector('#tabs-container');
 
-// Minimum panel sizes.
-const MIN_FILE_TREE_WIDTH = 10; // px
-const MIN_TERMINAL_HEIGHT = 30; // px
+const MIN_FILE_TREE_WIDTH = 10;
+const MIN_TERMINAL_HEIGHT = 30;
+const MAX_FILE_TREE_RATIO = 0.5;
+const MAX_TERMINAL_RATIO = 0.75;
 
-// --- Inject CSS for cursor styles and to prevent text selection during resize ---
+// Inject global resize CSS
 const style = document.createElement('style');
 style.textContent = `
-  /* Add a class to the body to apply global styles during resize */
-  body.resizing, body.resizing * {
-    cursor: inherit; /* Ensure all children inherit the resize cursor */
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  body.resizing-vertical {
-    cursor: col-resize !important;
-  }
-  body.resizing-horizontal {
-    cursor: row-resize !important;
-  }
-  .resizer-vertical, .resizer-horizontal {
-    transition: background-color 0.2s ease;
-  }
-  .resizer-vertical:hover, .resizer-horizontal:hover {
-    background-color: var(--accent-primary, #007acc);
-    opacity: 0.6;
-  }
+  body.resizing-vertical { cursor: col-resize !important; }
+  body.resizing-vertical * { cursor: col-resize !important; user-select: none !important; }
+  body.resizing-horizontal { cursor: row-resize !important; }
+  body.resizing-horizontal * { cursor: row-resize !important; user-select: none !important; }
+  body.resizing-corner { cursor: nwse-resize !important; }
+  body.resizing-corner * { cursor: nwse-resize !important; user-select: none !important; }
+
   .resizer-vertical {
+    width: 5px;
     cursor: col-resize;
-  }
-  .resizer-horizontal {
-    cursor: row-resize;
-    background-color: var(--bg-secondary);
-    width: 100%;
-    left: 50%; 
-    transform: translateX(-50%);
+    background: transparent;
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;
     position: relative;
-    border-radius: 16px;
+    z-index: 10;
+  }
+  .resizer-vertical:hover { background-color: var(--accent-primary); opacity: 0.7; }
+
+  .resizer-horizontal {
+    height: 5px;
+    cursor: row-resize;
+    background: transparent;
+    transition: background-color 0.15s ease;
+    position: relative;
+    z-index: 10;
+    width: 100%;
+  }
+  .resizer-horizontal:hover { background-color: var(--accent-primary); opacity: 0.7; }
+
+  /* Corner handle at the intersection */
+  #resize-corner-handle {
+    position: fixed;
+    width: 14px;
+    height: 14px;
+    background: transparent;
+    cursor: nwse-resize;
+    z-index: 100;
+    border-radius: 0;
+  }
+  #resize-corner-handle:hover {
+    background: var(--accent-primary);
+    opacity: 0.5;
   }
 `;
 document.head.appendChild(style);
 
+function clamp(val, min, max) { return Math.max(min, Math.min(val, max)); }
 
-/**
- * Constrains a given width for the file tree within reasonable minimum and maximum bounds.
- * @param {number} width - The target width.
- * @returns {number} The constrained width.
- */
-function constrainFileTreeWidth(width) {
-  const maxWidth = window.innerWidth * 0.5; // Do not allow file tree to be more than 50% of window
-  return Math.max(MIN_FILE_TREE_WIDTH, Math.min(width, maxWidth));
+function constrainFileTreeWidth(w) {
+  return clamp(w, MIN_FILE_TREE_WIDTH, window.innerWidth * MAX_FILE_TREE_RATIO);
+}
+function constrainTerminalHeight(h) {
+  return clamp(h, MIN_TERMINAL_HEIGHT, window.innerHeight * MAX_TERMINAL_RATIO);
 }
 
-/**
- * Constrains a given height for the terminal within reasonable minimum and maximum bounds.
- * @param {number} height - The target height.
- * @returns {number} The constrained height.
- */
-function constrainTerminalHeight(height) {
-  const maxHeight = window.innerHeight * 0.95; // Do not allow terminal to be more than 80% of window
-  return Math.max(MIN_TERMINAL_HEIGHT, Math.min(height, maxHeight));
-}
-
-/**
- * Adjusts the editor container's height to fill the available space.
- * This is called after the terminal is resized or the window is resized.
- */
 function adjustEditorHeight() {
-  if (!editorContainer || !terminalContainer || !tabsContainer) return;
-  
-  const tabsHeight = tabsContainer.offsetHeight;
-  const terminalHeight = terminalContainer.offsetHeight;
-  const newEditorHeight = window.innerHeight - terminalHeight - tabsHeight;
-
-  editorContainer.style.height = `${newEditorHeight}px`;
+  if (!editorContainer || !terminalContainer) return;
+  const termH = terminalContainer.offsetHeight;
+  const tabH = tabsContainer ? tabsContainer.offsetHeight : 0;
+  const available = window.innerHeight - termH - tabH;
+  editorContainer.style.height = `${Math.max(80, available)}px`;
 }
 
-/**
- * A unified and optimized function to handle panel resizing logic.
- * @param {object} options - Configuration for the resizer.
- * @param {HTMLElement} options.resizerEl - The resizer handle element.
- * @param {HTMLElement} options.panelEl - The panel element to be resized.
- * @param {'vertical' | 'horizontal'} options.orientation - The resize direction.
- * @param {function(number): number} options.constrainFn - Function to constrain the new size.
- * @param {function(number): void} options.applySizeFn - Function to apply the new size to the DOM.
- * @param {function(number): void} options.persistFn - Function to save the final size.
- * @param {function(): void} [options.onResizeCallback] - Optional callback to run during resize.
- */
-function setupSmoothResizer({
-  resizerEl,
-  panelEl,
-  orientation,
-  constrainFn,
-  applySizeFn,
-  persistFn,
-  onResizeCallback = () => {}
-}) {
-  let isResizing = false;
-  let startPos = 0;
-  let initialSize = 0;
-  let lastConstrainedSize = 0; // Store the last valid size
-  let rafId = null;
+// ── Vertical (file tree width) ────────────────────────────────────────────────
+function setupVerticalResizer() {
+  let active = false, startX = 0, startW = 0, raf = null;
 
-  const mouseMoveHandler = (e) => {
-    if (!isResizing) return;
-
-    // Calculate the difference in mouse position
-    const delta = (orientation === 'vertical') ? e.clientX - startPos : e.clientY - startPos;
-    
-    // For horizontal resizing, a downward drag (positive delta) should decrease height, so we subtract.
-    const newSize = (orientation === 'vertical') ? initialSize + delta : initialSize - delta;
-
-    // Use requestAnimationFrame to batch DOM updates for a smoother experience.
-    if (rafId) cancelAnimationFrame(rafId);
-    
-    rafId = requestAnimationFrame(() => {
-      lastConstrainedSize = constrainFn(newSize);
-      applySizeFn(lastConstrainedSize);
-      onResizeCallback(); // Execute any additional visual updates (like adjusting editor height).
-    });
-  };
-
-  const mouseUpHandler = () => {
-    if (!isResizing) return;
-    
-    // --- The key optimization: persist to localStorage only ONCE on mouse up ---
-    persistFn(lastConstrainedSize);
-
-    // Clean up state and event listeners
-    isResizing = false;
-    document.removeEventListener('mousemove', mouseMoveHandler);
-    document.removeEventListener('mouseup', mouseUpHandler);
-    document.body.classList.remove('resizing', `resizing-${orientation}`);
-    if (rafId) cancelAnimationFrame(rafId);
-  };
-
-  resizerEl.addEventListener('mousedown', (e) => {
-    e.preventDefault(); // Prevent text selection
-    isResizing = true;
-
-    if (orientation === 'vertical') {
-      startPos = e.clientX;
-      initialSize = panelEl.offsetWidth;
-    } else {
-      startPos = e.clientY;
-      initialSize = panelEl.offsetHeight;
-    }
-    
-    lastConstrainedSize = initialSize;
-
-    document.body.classList.add('resizing', `resizing-${orientation}`);
-    document.addEventListener('mousemove', mouseMoveHandler);
-    document.addEventListener('mouseup', mouseUpHandler);
+  verticalResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    active = true;
+    startX = e.clientX;
+    startW = fileTreeContainer.offsetWidth;
+    document.body.classList.add('resizing-vertical');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
+
+  function onMove(e) {
+    if (!active) return;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const w = constrainFileTreeWidth(startW + (e.clientX - startX));
+      fileTreeContainer.style.width = w + 'px';
+    });
+  }
+
+  function onUp() {
+    if (!active) return;
+    active = false;
+    localStorage.setItem('fileTreeWidth', fileTreeContainer.offsetWidth);
+    document.body.classList.remove('resizing-vertical');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    if (raf) cancelAnimationFrame(raf);
+  }
 }
 
-/**
- * Initializes panel sizes from localStorage on application start.
- */
+// ── Horizontal (terminal height) ──────────────────────────────────────────────
+function setupHorizontalResizer() {
+  let active = false, startY = 0, startH = 0, raf = null;
+
+  horizontalResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    active = true;
+    startY = e.clientY;
+    startH = terminalContainer.offsetHeight;
+    document.body.classList.add('resizing-horizontal');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!active) return;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const h = constrainTerminalHeight(startH - (e.clientY - startY));
+      terminalContainer.style.height = h + 'px';
+      adjustEditorHeight();
+    });
+  }
+
+  function onUp() {
+    if (!active) return;
+    active = false;
+    localStorage.setItem('terminalHeight', terminalContainer.offsetHeight);
+    document.body.classList.remove('resizing-horizontal');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    if (raf) cancelAnimationFrame(raf);
+  }
+}
+
+// ── Corner handle (both axes simultaneously) ─────────────────────────────────
+function setupCornerHandle() {
+  const corner = document.createElement('div');
+  corner.id = 'resize-corner-handle';
+  document.body.appendChild(corner);
+
+  function positionCorner() {
+    const ftRect = fileTreeContainer.getBoundingClientRect();
+    const termRect = terminalContainer.getBoundingClientRect();
+    corner.style.left = (ftRect.right - 7) + 'px';
+    corner.style.top = (termRect.top - 7) + 'px';
+  }
+
+  let active = false, startX = 0, startY = 0, startW = 0, startH = 0, raf = null;
+
+  corner.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    active = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = fileTreeContainer.offsetWidth;
+    startH = terminalContainer.offsetHeight;
+    document.body.classList.add('resizing-corner');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!active) return;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const w = constrainFileTreeWidth(startW + (e.clientX - startX));
+      const h = constrainTerminalHeight(startH - (e.clientY - startY));
+      fileTreeContainer.style.width = w + 'px';
+      terminalContainer.style.height = h + 'px';
+      adjustEditorHeight();
+      positionCorner();
+    });
+  }
+
+  function onUp() {
+    if (!active) return;
+    active = false;
+    localStorage.setItem('fileTreeWidth', fileTreeContainer.offsetWidth);
+    localStorage.setItem('terminalHeight', terminalContainer.offsetHeight);
+    document.body.classList.remove('resizing-corner');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    if (raf) cancelAnimationFrame(raf);
+  }
+
+  // Update corner position on any resize
+  const observer = new MutationObserver(positionCorner);
+  if (fileTreeContainer) observer.observe(fileTreeContainer, { attributes: true, attributeFilter: ['style'] });
+  if (terminalContainer) observer.observe(terminalContainer, { attributes: true, attributeFilter: ['style'] });
+  window.addEventListener('resize', positionCorner);
+  positionCorner();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 function initPanelSizes() {
-  const savedFileTreeWidth = parseInt(localStorage.getItem('fileTreeWidth'), 10);
-  if (!isNaN(savedFileTreeWidth)) {
-    fileTreeContainer.style.width = `${constrainFileTreeWidth(savedFileTreeWidth)}px`;
+  const savedW = parseInt(localStorage.getItem('fileTreeWidth'), 10);
+  if (!isNaN(savedW) && fileTreeContainer) {
+    fileTreeContainer.style.width = constrainFileTreeWidth(savedW) + 'px';
   }
-
-  const savedTerminalHeight = parseInt(localStorage.getItem('terminalHeight'), 10);
-  if (!isNaN(savedTerminalHeight)) {
-    terminalContainer.style.height = `${constrainTerminalHeight(savedTerminalHeight)}px`;
+  const savedH = parseInt(localStorage.getItem('terminalHeight'), 10);
+  if (!isNaN(savedH) && terminalContainer) {
+    terminalContainer.style.height = constrainTerminalHeight(savedH) + 'px';
   }
-
   adjustEditorHeight();
 }
 
-// --- Setup the resizers ---
+if (verticalResizer && fileTreeContainer) setupVerticalResizer();
+if (horizontalResizer && terminalContainer) setupHorizontalResizer();
+if (fileTreeContainer && terminalContainer) setupCornerHandle();
 
-// Vertical (File Tree) Resizer
-setupSmoothResizer({
-  resizerEl: verticalResizer,
-  panelEl: fileTreeContainer,
-  orientation: 'vertical',
-  constrainFn: constrainFileTreeWidth,
-  applySizeFn: (width) => { fileTreeContainer.style.width = `${width}px`; },
-  persistFn: (width) => { localStorage.setItem('fileTreeWidth', width); },
-});
-
-// Horizontal (Terminal) Resizer
-setupSmoothResizer({
-  resizerEl: horizontalResizer,
-  panelEl: terminalContainer,
-  orientation: 'horizontal',
-  constrainFn: constrainTerminalHeight,
-  applySizeFn: (height) => { terminalContainer.style.height = `${height}px`; },
-  persistFn: (height) => { localStorage.setItem('terminalHeight', height); },
-  onResizeCallback: adjustEditorHeight // Adjust editor height in real-time
-});
-
-// --- Global Event Listeners ---
-
-// Handle window resize to ensure panels stay within valid constraints.
 window.addEventListener('resize', () => {
-  // Constrain file tree width
-  const currentFileTreeWidth = fileTreeContainer.offsetWidth;
-  const newConstrainedWidth = constrainFileTreeWidth(currentFileTreeWidth);
-  if (currentFileTreeWidth !== newConstrainedWidth) {
-    fileTreeContainer.style.width = `${newConstrainedWidth}px`;
-    localStorage.setItem('fileTreeWidth', newConstrainedWidth);
+  if (fileTreeContainer) {
+    const w = constrainFileTreeWidth(fileTreeContainer.offsetWidth);
+    fileTreeContainer.style.width = w + 'px';
   }
-
-  // Constrain terminal height
-  const currentTerminalHeight = terminalContainer.offsetHeight;
-  const newConstrainedHeight = constrainTerminalHeight(currentTerminalHeight);
-  if (currentTerminalHeight !== newConstrainedHeight) {
-    terminalContainer.style.height = `${newConstrainedHeight}px`;
-    localStorage.setItem('terminalHeight', newConstrainedHeight);
+  if (terminalContainer) {
+    const h = constrainTerminalHeight(terminalContainer.offsetHeight);
+    terminalContainer.style.height = h + 'px';
   }
-
-  // Always readjust editor height after a window resize
   adjustEditorHeight();
 });
 
-// Initialize panels when the document is ready.
 document.addEventListener('DOMContentLoaded', initPanelSizes);
 
-// Export functions for potential use in other modules or for testing.
-export {
-  adjustEditorHeight,
-  constrainFileTreeWidth,
-  constrainTerminalHeight
-};
+export { adjustEditorHeight, constrainFileTreeWidth, constrainTerminalHeight };

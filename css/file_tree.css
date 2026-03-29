@@ -16,17 +16,14 @@
   display: flex;
   flex-direction: column;
   width: 250px;
-  min-width: 10px; /* Sensible minimum width */
+  min-width: 10px;
   position: relative;
-  height: 96%;
-  background-color: var(--bg-tertiary);
-  transition: width var(--transition-normal), transform var(--transition-normal);
+  height: 100%;
+  background-color: var(--bg-secondary);
+  transition: width var(--transition-normal);
   user-select: none;
   overflow: hidden;
-  left: 1%;
-  top: 2%;
-  padding: 2vh 1vh;
-  border-radius: 0;
+  border-right: 1px solid var(--border-primary);
 }
 
   .file-tree-item.active {

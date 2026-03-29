@@ -209,30 +209,18 @@ updateButtonStates() {
         if (allBtn) allBtn.disabled = true;
         */
     } else {
-        // Processor/Project modes
-        const hasProcessor = this.isProcessorConfigured();
-        
-        // CMM and ASM always need processor
-        if (cmmBtn) cmmBtn.disabled = !hasProcessor;
-        if (asmBtn) asmBtn.disabled = !hasProcessor;
-        
-        // In Project Mode, Verilog and Wave can work without processors IF project has files
-        // In Processor Mode, they need a processor
-        if (mode === 'project') {
-            // Project Mode: Enable Verilog/Wave/PRISM even without processors
-            // (they'll fail gracefully if files aren't configured)
-            if (veriBtn) veriBtn.disabled = false;
-            if (waveBtn) waveBtn.disabled = false;
-            if (prismBtn) prismBtn.disabled = false;
-        } else {
-            // Processor Mode: Need processor
-            if (veriBtn) veriBtn.disabled = !hasProcessor;
-            if (waveBtn) waveBtn.disabled = !hasProcessor;
-            if (prismBtn) prismBtn.disabled = !hasProcessor;
-        }
-        
-        // Run All always needs processor (full pipeline)
-        if (allBtn) allBtn.disabled = !hasProcessor;
+        // Processor/Project modes — all buttons always enabled
+        // CMM and ASM
+        if (cmmBtn) cmmBtn.disabled = false;
+        if (asmBtn) asmBtn.disabled = false;
+
+        // Verilog, Wave, PRISM
+        if (veriBtn) veriBtn.disabled = false;
+        if (waveBtn) waveBtn.disabled = false;
+        if (prismBtn) prismBtn.disabled = false;
+
+        // Run All
+        if (allBtn) allBtn.disabled = false;
     }
 }
 
@@ -439,9 +427,7 @@ async runSingleStep(step) {
         if (!prismButton) return;
 
         prismButton.addEventListener('click', async () => {
-            if (prismButton.disabled) return;
-            
-            prismButton.disabled = true;
+            // Buttons are always enabled — compilation state is shown via terminal feedback only
             const originalHTML = prismButton.innerHTML;
             prismButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Compiling...</span>';
             

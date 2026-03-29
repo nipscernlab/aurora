@@ -209,3 +209,46 @@ textarea:focus-visible,
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* File tree action bar */
+.overlay-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+}
+
+.overlay-title span,
+.overlay-title .tree-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 0;
+  background: none;
+  border: none;
+  font-size: var(--text-sm);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+  gap: var(--space-2);
+}
+
+.overlay-title span:hover,
+.overlay-title .tree-toggle-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--overlay-hover);
+}
+
+.tree-toggle-btn .toggle-text {
+  display: none;
+}
+
+.file-tree-actions {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

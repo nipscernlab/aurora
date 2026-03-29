@@ -12,14 +12,14 @@
     <!-- Left Group - Project Management -->
     <div class="toolbar-left">
         <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
-            <i class="fa-solid fa-compass"></i>
+            <i class="fa-solid fa-table-columns"></i>
         </button>
         <button id="newProjectBtn" class="toolbar-button">
             <i class="fas fa-folder-plus"></i>
             <span>New Project</span>
         </button>
         <button id="openProjectBtn" class="toolbar-button">
-            <i class="fa-solid fa-box-open"></i>
+            <i class="fa-solid fa-folder-open"></i>
             <span>Open Project</span>
         </button>
     </div>
@@ -31,13 +31,16 @@
             <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
         </button>
         <button id="asmcomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+            <i class="fa-solid fa-microchip" style="color: rgb(180, 100, 210);"></i>
         </button>
         <button id="vericomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+            <i class="fa-solid fa-feather" style="color: #FF5555;"></i>
         </button>
         <button id="wavecomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+        </button>
+        <button id="new-verilog-file" class="toolbar-button" enabled>
+            <i class="fa-solid fa-file-plus" style="color: #FF5555;"></i>
         </button>
         <button id="prismcomp" class="toolbar-button" enabled>
             <img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit;">
@@ -54,12 +57,14 @@
     <!-- Processor Mode -->
     <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
     <label for="Processor Mode">
-        <i class="fa-solid fa-microchip" title="Processor Mode"></i>
+        <i class="fa-solid fa-cpu"></i>
+        <span style="font-size:10px;margin-left:4px;font-family:var(--font-sans)">PROC</span>
     </label>
     <!-- Project Mode -->
     <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
     <label for="Project Mode">
-        <i class="fa-solid fa-compass-drafting"></i>
+        <i class="fa-solid fa-diagram-project"></i>
+        <span style="font-size:10px;margin-left:4px;font-family:var(--font-sans)">PROJ</span>
     </label>
     </div>
 
@@ -67,10 +72,10 @@
     <!-- Compile All Group -->
     <div class="compile-all-group">
         <button id="cancel-everything" class="toolbar-button" enabled>
-            <i class="fa-solid fa-power-off" style="color: #00e9ff;"></i>
+            <i class="fa-solid fa-stop-circle" style="color: #F87171;"></i>
         </button>
         <button id="allcomp" class="toolbar-button" enabled>
-            <i class="fa-brands fa-react fa-xl" style="color: #00e9ff;"></i>
+            <i class="fa-solid fa-hammer" style="color: #60A5FA;"></i>
             <span>Full Build</span>
         </button>
     </div>
@@ -78,11 +83,11 @@
     <!-- Right Group - Settings & Tools -->
     <div class="toolbar-right">
         <button id="settings" class="toolbar-button" enabled>
-            <i class="fa-solid fa-gears" style="color: #da70d6;"></i>
+            <i class="fa-solid fa-gears" style="color: #9B7DC4;"></i>
             <span>Settings</span>
         </button>
         <button id="processorHub" class="toolbar-button">
-            <i class="fa-solid fa-star-of-life"></i>
+            <i class="fa-solid fa-circle-nodes" style="color: #9B7DC4;"></i>
             <span>Processor Hub</span>
         </button>
         <button id="aurora-settings" class="toolbar-button">
@@ -561,8 +566,8 @@
                 <span id="toggle-file-tree" style="cursor: pointer;">
                         <i class="fa-solid fa-square-minus"></i>
                 </span>
-                <span id="backup-project" style="cursor: pointer;">
-                        <i class="fa-solid fa-hard-drive"></i>
+                <span id="backup-project" style="cursor: pointer;" title="Backup Project">
+                        <i class="fa-solid fa-floppy-disk"></i>
                 </span>
             </div>
             
@@ -670,11 +675,11 @@
             TCMM
         </button>
         <button class="tab" data-terminal="tasm">
-            <i class="fa-solid fa-cube" style="color: rgb(189, 67, 189);"></i>
+            <i class="fa-solid fa-microchip" style="color: rgb(180, 100, 210);"></i>
             TASM
         </button>
         <button class="tab" data-terminal="tveri">
-            <i class="fa-solid fa-feather" style="color: #FF3131;"></i>
+            <i class="fa-solid fa-file-code" style="color: #FF5555;"></i>
             TVERI
         </button>
         <button class="tab" data-terminal="twave">
@@ -691,7 +696,7 @@
             <i class="fa-solid fa-file-export"></i>
         </button>
         <button id="reload-everything-terminal" class="toolbar-button">
-            <i class="fa-solid fa-hourglass"></i>
+            <i class="fa-solid fa-rotate-right"></i>
         </button>
     </div>
         <div class="terminal-content" id="terminal-tcmm">
@@ -813,7 +818,7 @@
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item" id="ready">
-            <i class="fa-solid fa-plug-circle-xmark"></i>
+            <i class="fa-solid fa-circle" style="color: var(--status-error); font-size: 8px;"></i>
             <span id="status-text">Not Ready</span>
         </div>
         <div class="status-item" id="compmode">

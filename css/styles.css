@@ -31,9 +31,9 @@ body {
  * =================================================================================== */
 .main-container {
   display: flex;
-  flex-grow: 1; /* Occupy remaining vertical space */
+  flex: 1;
   overflow: hidden;
-  height: calc(100% - var(--space-8)); /* Adjust based on status bar height */
+  min-height: 0; /* Required for flex children to shrink properly */
 }
 
 /* Fallback for editor container if needed separately */

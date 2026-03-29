@@ -24,7 +24,8 @@
   overflow-y: hidden;
   scroll-behavior: smooth;
   border-radius: 0;
-  background-color: #1e1c30;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
   user-select: none;
   position: relative;
 }
@@ -47,16 +48,15 @@
   min-width: 100px;
   max-width: 200px;
   height: 35px;
-  background-color: #333; /* fallback */
   background-color: var(--bg-secondary);
-  color: #969696;
-  color: var(--text-color-secondary);
-  border-right: 1px solid var(--border-color);
+  color: var(--text-tertiary);
+  border-right: 1px solid var(--border-primary);
   font-size: 13px;
+  font-family: var(--font-sans);
   cursor: pointer;
   position: relative;
   white-space: nowrap;
-  transition: background-color 0.3s ease, transform 0.2s cubic-bezier(0.2,0,0.2,1);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 .tab .tab-name, .tab .tab-title {
   flex: 1;
@@ -97,7 +97,8 @@
   background-color: var(--hover-color);
 }
 .tab.active {
-  color: var(--text-color-on-accent);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 .tab.modified .tab-name::after, .tab.modified .tab-title::after {
   content: '●';

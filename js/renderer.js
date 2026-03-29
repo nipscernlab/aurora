@@ -57,6 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = () => {
     initMonaco();
     aiAssistantManager.initialize();
+
+    const aiBtn = document.getElementById('aiButton');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', () => aiAssistantManager.toggle());
+    }
 };
 
 // --- Global Keyboard Shortcuts ---

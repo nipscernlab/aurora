@@ -14,71 +14,72 @@
  *  FONT IMPORTS - A refined and modern typographic scale
  * =================================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
 
 :root {
   /* ===================================================================================
    *  CORE THEME: ELEGANT PURPLE DARK MODE
    * =================================================================================== */
   
-  /* Base Palette - Deep, nuanced darks with a cool undertone */
-  --bg-primary: #221f37;        /* Deepest background, almost black */
-  --bg-secondary: #221f37;      /* Panels, sidebars, secondary surfaces */
-  --bg-tertiary: #1a192b;       /* UI elements like input fields, list items */
-  --bg-quaternary: #1c1a2f;    /* Subtle dividers, inactive elements */
-  --bg-elevated: #221f3594;      /* Modals, popovers, floating elements */
+  /* Base Palette - Aurora night sky, deep and refined */
+  --bg-primary: #0E0D1A;        /* Deepest background — aurora night sky */
+  --bg-secondary: #13122A;      /* Panels, sidebars, secondary surfaces */
+  --bg-tertiary: #1A1835;       /* UI elements like input fields, list items */
+  --bg-quaternary: #211F40;     /* Subtle lift for active/selected states */
+  --bg-elevated: rgba(28, 26, 56, 0.98); /* Modals, popovers, floating elements */
 
-  /* Accent Palette (Amethyst Purple) - Saturated and dynamic */
-  --accent-primary: #9b59b6;   /* Main interactive elements, buttons, links */
-  --accent-secondary: #8e44ad;  /* A deeper shade for secondary actions */
-  --accent-hover: #af7ac5;      /* Lighter accent for hover states */
-  --accent-active: #7d3c98;     /* Darker accent for active/pressed states */
-  --accent-focus-ring: #c39bd3; /* For focus outlines, ensuring visibility */
-  --accent-subtle-bg: rgba(155, 89, 182, 0.1);  /* Subtle background for highlighted areas */
-  --accent-subtle-border: rgba(155, 89, 182, 0.2); /* Subtle borders for accented elements */
+  /* Accent Palette (Aurora Violet) - Elegant and restrained */
+  --accent-primary: #7B5EA7;   /* Main interactive elements, buttons, links */
+  --accent-secondary: #6A4D96;  /* A deeper shade for secondary actions */
+  --accent-hover: #9B7DC4;      /* Lighter accent for hover states */
+  --accent-active: #5A3D86;     /* Darker accent for active/pressed states */
+  --accent-focus-ring: #B89ED8; /* For focus outlines, ensuring visibility */
+  --accent-subtle-bg: rgba(123, 94, 167, 0.12); /* Subtle background for highlighted areas */
+  --accent-subtle-border: rgba(123, 94, 167, 0.25); /* Subtle borders for accented elements */
 
-  /* Text & Content - Clear hierarchy with high readability */
-  --text-primary: #EAEAEA;      /* Main text, headings */
-  --text-secondary: #C0C0C0;    /* Secondary text, labels, metadata */
-  --text-tertiary: #8F8F8F;     /* Placeholder text, less important info */
-  --text-disabled: #5E5E5E;    /* Disabled text and controls */
-  --text-on-accent: #FFFFFF;   /* Text on top of accent-colored backgrounds */
-  --text-link: #9b59b6;         /* Standard link color */
-  --text-link-hover: #af7ac5;   /* Link hover color */
+  /* Text & Content - Aurora-tinted text hierarchy */
+  --text-primary: #E8E6F0;      /* Warm white with subtle purple tint */
+  --text-secondary: #A09CBD;    /* Muted aurora purple-gray */
+  --text-tertiary: #6B6885;     /* Subtle, for de-emphasized content */
+  --text-muted: #6B6885;        /* Alias for text-tertiary — used in terminal/file tree */
+  --text-disabled: #4A4760;     /* Very muted, for disabled elements */
+  --text-on-accent: #FFFFFF;    /* Text on top of accent-colored backgrounds */
+  --text-link: #9B7DC4;         /* Standard link color */
+  --text-link-hover: #B89ED8;   /* Link hover color */
 
-  /* Borders & Dividers - Subtle but effective separation */
-  --border-primary: #3A3842;    /* Main borders, component outlines */
-  --border-secondary: #2A2831;  /* Subtle inner borders */
-  --border-focus: #9b59b6;      /* Focus ring color for components */
-  --border-divider: #3A3842;    /* For horizontal or vertical rules */
+  /* Borders & Dividers - Deep aurora night separation */
+  --border-primary: #2D2A4A;    /* Main borders, component outlines */
+  --border-secondary: #231F3D;  /* Subtle inner borders */
+  --border-focus: #7B5EA7;      /* Focus ring color for components */
+  --border-divider: #2D2A4A;    /* For horizontal or vertical rules */
 
-  /* Status Colors - WCAG-compliant and visually distinct */
-  --status-success: #27ae60;
-  --status-warning: #f39c12;
-  --status-error: #e74c3c;
-  --status-info: #3498db;
-  --status-success-bg: rgba(39, 174, 96, 0.15);
-  --status-warning-bg: rgba(243, 156, 18, 0.15);
-  --status-error-bg: rgba(231, 76, 60, 0.15);
-  --status-info-bg: rgba(52, 152, 219, 0.15);
+  /* Status Colors - Semantic accents (green, amber, red, sky — used sparingly) */
+  --status-success: #34D399;    /* Aurora teal-green */
+  --status-warning: #FBBF24;    /* Aurora amber */
+  --status-error: #F87171;      /* Coral red */
+  --status-info: #60A5FA;       /* Aurora sky blue */
+  --status-success-bg: rgba(52, 211, 153, 0.12);
+  --status-warning-bg: rgba(251, 191, 36, 0.12);
+  --status-error-bg: rgba(248, 113, 113, 0.12);
+  --status-info-bg: rgba(96, 165, 250, 0.12);
 
   /* Overlays - For interactive states on complex components */
-  --overlay-hover: rgba(255, 255, 255, 0.07);
-  --overlay-active: rgba(255, 255, 255, 0.12);
-  --overlay-disabled: rgba(34, 32, 41, 0.5);
+  --overlay-hover: rgba(255, 255, 255, 0.06);
+  --overlay-active: rgba(255, 255, 255, 0.10);
+  --overlay-disabled: rgba(14, 13, 26, 0.5);
 
-  /* Shadows - Layered for depth and realism */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
-  --shadow-focus-outline: 0 0 0 3px rgba(155, 89, 182, 0.6);
-  --shadow-glow: 0 0 15px rgba(155, 89, 182, 0.25);
+  /* Shadows - Deeper and more dramatic for the aurora night theme */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-focus-outline: 0 0 0 3px rgba(123, 94, 167, 0.5);
+  --shadow-glow: 0 0 20px rgba(123, 94, 167, 0.35);
 
-  /* Gradients - Smooth, sophisticated transitions */
-  --gradient-primary: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-  --gradient-secondary: linear-gradient(135deg, #1C1B22 0%, #111015 100%);
-  --gradient-accent-text: linear-gradient(90deg, #9b59b6, #af7ac5);
+  /* Gradients - Aurora-inspired transitions */
+  --gradient-primary: linear-gradient(135deg, #7B5EA7 0%, #6A4D96 100%);
+  --gradient-secondary: linear-gradient(135deg, #13122A 0%, #0E0D1A 100%);
+  --gradient-accent-text: linear-gradient(90deg, #9B7DC4, #B89ED8);
+  --gradient-aurora: linear-gradient(135deg, #7B5EA7 0%, #4E85C5 50%, #34D399 100%);
 
   /* ===================================================================================
    *  DESIGN SYSTEM TOKENS
@@ -107,8 +108,8 @@
   --radius-full: 9999px;
   
   /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'Fira Code', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   
   /* Font Sizes */
   --text-xs: 0.75rem;    /* 12px */
@@ -227,11 +228,11 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.7); 
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(123, 94, 167, 0.7);
   }
-  70% { 
-    box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); 
+  70% {
+    box-shadow: 0 0 0 10px rgba(123, 94, 167, 0);
   }
 }
 

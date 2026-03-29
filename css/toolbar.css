@@ -38,13 +38,11 @@
 .compile-all-group {
   display: flex;
   align-items: center;
-  background-color: #2f2b4994;
+  background-color: rgba(19, 18, 42, 0.8);
   border: 1px solid var(--border-primary);
   border-radius: 0;
-  overflow: hidden; 
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
-  max-width: 50vh;
-
   flex-shrink: 0;
 }
 
@@ -78,10 +76,29 @@
 .toolbar-button:hover {
   background-color: var(--overlay-hover);
   color: var(--text-primary);
+  position: relative;
+}
+
+.toolbar-button:hover::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent-primary);
+  opacity: 0.6;
 }
 
 .toolbar-button:active {
   background-color: var(--overlay-active);
+  transform: scale(0.97);
+}
+
+.toolbar-button.active-tool {
+  background-color: var(--accent-subtle-bg);
+  color: var(--accent-hover);
+  border-bottom: 2px solid var(--accent-primary);
 }
 
 .toolbar-button:disabled {

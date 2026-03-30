@@ -161,8 +161,14 @@
   justify-content: center;
   flex-direction: column;
   gap: var(--space-4);
-  transition: opacity var(--transition-normal);
+  transition: opacity var(--transition-normal), pointer-events var(--transition-normal);
   z-index: var(--z-10);
+  pointer-events: auto;
+}
+
+.ai-loading-overlay[style*="opacity: 0"],
+.ai-loading-overlay.hidden {
+  pointer-events: none !important;
 }
 
 .ai-loading-spinner {

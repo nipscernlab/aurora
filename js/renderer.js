@@ -11,6 +11,7 @@ import { projectManager } from './project_manager.js';
 import { aiAssistantManager } from './ai_assistant_manager.js';
 import { uiComponentsManager } from './ui_components.js';
 import { compilationFlowManager } from './compilation_flow.js';
+import { SplitEditorManager } from './split_editor.js';
 
 // --- Global State ---
 let currentProjectPath = null;
@@ -44,6 +45,24 @@ document.addEventListener('DOMContentLoaded', () => {
     projectManager.initialize();
     uiComponentsManager.initialize();
     compilationFlowManager.initialize();
+
+    // Split editor: initialize layout
+    SplitEditorManager.initialize();
+    window.SplitEditorManager = SplitEditorManager;
+
+    // Keep split button enabled/disabled in sync with active tab state
+    const _origActivate = TabManager.activateTab.bind(TabManager);
+    TabManager.activateTab = function(filePath) {
+        _origActivate(filePath);
+        SplitEditorManager._updateButton();
+    };
+    const _origClose = TabManager._closePreviewSilently?.bind(TabManager);
+    if (_origClose) {
+        TabManager._closePreviewSilently = function(filePath) {
+            _origClose(filePath);
+            SplitEditorManager._updateButton();
+        };
+    }
     
     // ✅ Expor globalmente para o Command Palette
     window.compilationFlowManager = compilationFlowManager;

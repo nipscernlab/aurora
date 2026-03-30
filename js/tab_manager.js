@@ -4,6 +4,7 @@ import { showCardNotification } from './notification.js';
 export class TabManager {
     static tabs = new Map();
     static activeTab = null;
+    static previewTab = null; // path of current preview (italic) tab, or null
     static editorStates = new Map();
     static unsavedChanges = new Set();
     static closedTabsStack = [];
@@ -1476,12 +1477,32 @@ export class TabManager {
         return iconMap[extension] || 'fas fa-file';
     }
 
+    // Promote preview tab to permanent (remove italic, keep tab)
+    static promotePreviewToPermanent(filePath) {
+        if (this.previewTab !== filePath) return;
+        this.previewTab = null;
+        const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+        if (tab) tab.classList.remove('preview');
+    }
+
     // Enhanced addTab method with binary file support
-    static addTab(filePath, content = null) {
+    // options: { preview: false }  — preview=true opens as italic preview tab (VS Code style)
+    static addTab(filePath, content = null, options = {}) {
+        const isPreview = options.preview === true;
+
         // Check if tab already exists
         if (this.tabs.has(filePath)) {
+            // If file is currently a preview tab and we want permanent, promote it
+            if (this.previewTab === filePath && !isPreview) {
+                this.promotePreviewToPermanent(filePath);
+            }
             this.activateTab(filePath);
             return;
+        }
+
+        // If opening as preview, silently close the existing preview tab first
+        if (isPreview && this.previewTab && this.previewTab !== filePath) {
+            this._closePreviewSilently(this.previewTab);
         }
 
         // Create tab element
@@ -1509,8 +1530,25 @@ export class TabManager {
       <button class="close-tab" title="Close">×</button>
     `;
 
+        // Mark as preview if needed
+        if (isPreview) {
+            tab.classList.add('preview');
+            this.previewTab = filePath;
+        }
+
         // Add event listeners
-        tab.addEventListener('click', () => this.activateTab(filePath));
+        tab.addEventListener('click', () => {
+            // Clicking a preview tab permanently promotes it
+            if (this.previewTab === filePath) {
+                this.promotePreviewToPermanent(filePath);
+            }
+            this.activateTab(filePath);
+        });
+        tab.addEventListener('dblclick', () => {
+            // Double-click always promotes preview to permanent
+            this.promotePreviewToPermanent(filePath);
+            this.activateTab(filePath);
+        });
         const closeBtn = tab.querySelector('.close-tab');
         closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1769,6 +1807,34 @@ export class TabManager {
         }
     }
 
+    // Silently close preview tab without dialogs
+    static _closePreviewSilently(filePath) {
+        if (!this.tabs.has(filePath)) return;
+        // Remove from UI
+        const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+        if (tab) tab.remove();
+        // Cleanup editor
+        if (!this.isBinaryFile(filePath)) {
+            EditorManager.closeEditor(filePath);
+        }
+        this.tabs.delete(filePath);
+        this.unsavedChanges.delete(filePath);
+        this.editorStates.delete(filePath);
+        this.stopWatchingFile(filePath);
+        this.previewTab = null;
+        this.updateTabsContainerVisibility();
+        // If this was the active tab, show overlay or activate another
+        if (this.activeTab === filePath) {
+            const remaining = Array.from(this.tabs.keys());
+            if (remaining.length > 0) {
+                this.activateTab(remaining[remaining.length - 1]);
+            } else {
+                this.activeTab = null;
+                this.showOverlay();
+            }
+        }
+    }
+
     // Add listener for content changes
     static setupContentChangeListener(filePath, editor) {
         editor.onDidChangeModelContent(() => {
@@ -1777,6 +1843,10 @@ export class TabManager {
 
             if (currentContent !== originalContent) {
                 this.markFileAsModified(filePath);
+                // Auto-promote preview tab to permanent the moment user starts typing
+                if (this.previewTab === filePath) {
+                    this.promotePreviewToPermanent(filePath);
+                }
             } else {
                 this.markFileAsSaved(filePath);
             }
@@ -1858,6 +1928,7 @@ export class TabManager {
             this.tabs.delete(filePath);
             this.unsavedChanges.delete(filePath);
             this.editorStates.delete(filePath);
+            if (this.previewTab === filePath) this.previewTab = null;
             this.updateTabsContainerVisibility();
 
             // Handle active tab switching
@@ -2185,9 +2256,9 @@ function initTabs() {
         editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
     }
 
-    if (!document.getElementById('context-path')) {
-        initContextPath();
-    }
+    // if (!document.getElementById('context-path')) {
+    //     initContextPath();  // temporarily disabled — context-path bar hidden
+    // }
 }
 
 window.addEventListener('load', () => {

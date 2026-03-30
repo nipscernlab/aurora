@@ -65,6 +65,8 @@ class AIAssistantManager {
         providerSelect.addEventListener('change', (e) => {
             this.currentProvider = e.target.value;
             loadingOverlay.style.opacity = '1';
+            loadingOverlay.style.pointerEvents = 'auto';
+            loadingOverlay.classList.remove('hidden');
             providerIcon.style.opacity = '0';
             
             const urlMap = { chatgpt: 'https://chatgpt.com/?model=auto', claude: 'https://claude.ai', gemini: 'https://gemini.google.com/', deepseek: 'https://www.deepseek.com/' };
@@ -78,7 +80,11 @@ class AIAssistantManager {
         });
 
         webview.addEventListener('dom-ready', () => {
-            setTimeout(() => loadingOverlay.style.opacity = '0', 500);
+            setTimeout(() => {
+                loadingOverlay.style.opacity = '0';
+                loadingOverlay.style.pointerEvents = 'none';
+                loadingOverlay.classList.add('hidden');
+            }, 500);
         });
         
         this.setupResize(resizeHandle, this.container);

@@ -173,13 +173,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 7. Modal Interaction ---
 
     document.getElementById('cancelProcessorHub')?.addEventListener('click', () => {
-        if (modalContainer) modalContainer.classList.add('hidden');
+        if (modalContainer) {
+            modalContainer.classList.remove('hidden');
+            modalContainer.setAttribute('aria-hidden', 'true');
+            modalContainer.classList.remove('show');
+        }
         if (form) form.reset();
-        
+
         Object.values(inputs).forEach(input => resetInputStyle(input));
-        
+
         // Reset button state based on default values
-        setTimeout(validateAll, 50); 
+        setTimeout(validateAll, 50);
     });
 
 

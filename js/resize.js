@@ -7,8 +7,6 @@ const verticalResizer = document.querySelector('.resizer-vertical');
 const horizontalResizer = document.querySelector('.resizer-horizontal');
 const fileTreeContainer = document.querySelector('.file-tree-container');
 const terminalContainer = document.querySelector('.terminal-container');
-const editorContainer = document.querySelector('.editor-container');
-const tabsContainer = document.querySelector('#tabs-container');
 
 const MIN_FILE_TREE_WIDTH = 10;
 const MIN_TERMINAL_HEIGHT = 30;
@@ -75,14 +73,6 @@ function constrainTerminalHeight(h) {
   return clamp(h, MIN_TERMINAL_HEIGHT, window.innerHeight * MAX_TERMINAL_RATIO);
 }
 
-function adjustEditorHeight() {
-  if (!editorContainer || !terminalContainer) return;
-  const termH = terminalContainer.offsetHeight;
-  const tabH = tabsContainer ? tabsContainer.offsetHeight : 0;
-  const available = window.innerHeight - termH - tabH;
-  editorContainer.style.height = `${Math.max(80, available)}px`;
-}
-
 // ── Vertical (file tree width) ────────────────────────────────────────────────
 function setupVerticalResizer() {
   let active = false, startX = 0, startW = 0, raf = null;
@@ -137,7 +127,6 @@ function setupHorizontalResizer() {
     raf = requestAnimationFrame(() => {
       const h = constrainTerminalHeight(startH - (e.clientY - startY));
       terminalContainer.style.height = h + 'px';
-      adjustEditorHeight();
     });
   }
 
@@ -187,7 +176,6 @@ function setupCornerHandle() {
       const h = constrainTerminalHeight(startH - (e.clientY - startY));
       fileTreeContainer.style.width = w + 'px';
       terminalContainer.style.height = h + 'px';
-      adjustEditorHeight();
       positionCorner();
     });
   }
@@ -221,7 +209,6 @@ function initPanelSizes() {
   if (!isNaN(savedH) && terminalContainer) {
     terminalContainer.style.height = constrainTerminalHeight(savedH) + 'px';
   }
-  adjustEditorHeight();
 }
 
 if (verticalResizer && fileTreeContainer) setupVerticalResizer();
@@ -237,9 +224,8 @@ window.addEventListener('resize', () => {
     const h = constrainTerminalHeight(terminalContainer.offsetHeight);
     terminalContainer.style.height = h + 'px';
   }
-  adjustEditorHeight();
 });
 
 document.addEventListener('DOMContentLoaded', initPanelSizes);
 
-export { adjustEditorHeight, constrainFileTreeWidth, constrainTerminalHeight };
+export { constrainFileTreeWidth, constrainTerminalHeight };

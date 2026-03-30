@@ -864,7 +864,8 @@ class VVPProgressManager {
         this.interpolationSpeed = 0.08;
         this.readIntervalMs = 1000;
         this.autoMinimizeDelayMs = 5000;
-        this.completionDelayMs = 3000;
+        this.completionDelayMs = 500;
+        this._hideRequested = false;
     }
 
     async resolveProgressPath(name) {
@@ -905,6 +906,7 @@ class VVPProgressManager {
             this.startTime = Date.now();
             this.isMinimized = false;
             this.isComplete = false;
+            this._hideRequested = false;
             this.overlay.querySelector('.vvp-progress-info').classList.remove('vvp-complete');
             this.updateUI();
 
@@ -924,7 +926,22 @@ class VVPProgressManager {
 
     hide() {
         if (!this.isVisible) return;
+
+        // If bar hasn't reached 100% yet, queue the hide — completion will trigger it
+        if (!this.isComplete) {
+            this._hideRequested = true;
+            // Force the bar to target 100% so it finishes visually
+            this.targetProgress = 100;
+            return;
+        }
+
+        this._doHide();
+    }
+
+    _doHide() {
+        if (!this.isVisible) return;
         this.isVisible = false;
+        this._hideRequested = false;
 
         clearTimeout(this.minimizeTimeout);
         clearInterval(this.readInterval);
@@ -1089,8 +1106,9 @@ class VVPProgressManager {
         clearTimeout(this.minimizeTimeout);
         clearInterval(this.timeUpdateInterval);
 
+        // Stay at 100% for completionDelayMs (500ms), then fade out
         setTimeout(() => {
-            this.hide();
+            this._doHide();
         }, this.completionDelayMs);
     }
 

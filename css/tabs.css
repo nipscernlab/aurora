@@ -289,3 +289,32 @@
     transform: translateY(0);
   }
 }
+
+/* Split editor button inside context-path bar */
+.context-split-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  color: #a78bfa;
+  opacity: 0.65;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.context-split-btn:hover:not(:disabled) {
+  opacity: 1;
+  background-color: var(--overlay-hover);
+}
+
+.context-split-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}

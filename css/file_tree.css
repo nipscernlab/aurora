@@ -24,6 +24,7 @@
   user-select: none;
   overflow: hidden;
   border-right: 1px solid var(--border-primary);
+  z-index: 1;
 }
 
   .file-tree-item.active {

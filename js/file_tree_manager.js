@@ -167,6 +167,10 @@ async function refreshFileTree() {
                         }
                     }
                 });
+                // Re-apply active file highlight after tree rebuild
+                if (typeof TabManager !== 'undefined' && TabManager.activeTab) {
+                    TabManager.highlightFileInTree(TabManager.activeTab);
+                }
                 fileTree.style.opacity = '1';
             }, 200);
         }
@@ -288,23 +292,23 @@ filteredFiles.forEach(file => {
             item.appendChild(deleteBtn);
         }
 
+        // Single-click timer for distinguishing single vs double click
+        let _singleClickTimer = null;
+
         item.addEventListener('click', async (e) => {
             if (file.type === 'directory') {
                 const isExpanded = FileTreeState.isExpanded(file.path);
                 FileTreeState.toggleFolder(file.path, !isExpanded);
-                
-                // --- Animação da Seta ao Clicar ---
+
                 const toggleArrow = item.querySelector('.folder-toggle-icon');
-                if (toggleArrow) {
-                    toggleArrow.classList.toggle('collapsed');
-                }
+                if (toggleArrow) toggleArrow.classList.toggle('collapsed');
 
                 const folderIcon = item.querySelector('.fa-folder, .fa-folder-open');
                 if (folderIcon) {
                     folderIcon.classList.toggle('fa-folder');
                     folderIcon.classList.toggle('fa-folder-open');
                 }
-                
+
                 let childContainer = itemWrapper.querySelector('.folder-content');
                 if (!childContainer && !isExpanded && file.children) {
                     childContainer = document.createElement('div');
@@ -314,13 +318,47 @@ filteredFiles.forEach(file => {
                 } else if (childContainer) {
                     childContainer.classList.toggle('hidden', isExpanded);
                 }
-            } else {
+                return;
+            }
+
+            // Files: single click = preview (italic tab), timer to detect double click
+            if (_singleClickTimer) {
+                clearTimeout(_singleClickTimer);
+                _singleClickTimer = null;
+            }
+            _singleClickTimer = setTimeout(async () => {
+                _singleClickTimer = null;
                 try {
                     const content = await window.electronAPI.readFile(file.path);
-                    TabManager.addTab(file.path, content);
+                    const sem = window.SplitEditorManager;
+                    if (sem && sem.focusedPane > 0) {
+                        await sem.openInFocusedPane(file.path, content);
+                    } else {
+                        TabManager.addTab(file.path, content, { preview: true });
+                    }
                 } catch (error) {
                     console.error('Error opening file:', error);
                 }
+            }, 220);
+        });
+
+        item.addEventListener('dblclick', async (e) => {
+            if (file.type === 'directory') return;
+            // Cancel pending single-click
+            if (_singleClickTimer) {
+                clearTimeout(_singleClickTimer);
+                _singleClickTimer = null;
+            }
+            try {
+                const content = await window.electronAPI.readFile(file.path);
+                const sem = window.SplitEditorManager;
+                if (sem && sem.focusedPane > 0) {
+                    await sem.openInFocusedPane(file.path, content);
+                } else {
+                    TabManager.addTab(file.path, content, { preview: false });
+                }
+            } catch (error) {
+                console.error('Error opening file (dblclick):', error);
             }
         });
 

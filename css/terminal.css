@@ -7,7 +7,6 @@
   flex-direction: column;
   overflow-y: auto;
   scroll-behavior: smooth;
-  transition: height 0.4s ease;
   font-size: 14px;
   line-height: 1.5;
   z-index: 0;
@@ -216,10 +215,10 @@
   height: 250px;
   max-height: 80vh;
   min-height: 58px;
+  flex-shrink: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  transition: height 0.4s ease;
   padding: 0;
 }
 

@@ -178,14 +178,15 @@ body.glow-fading::after {
                 transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Cole este CSS atualizado no seu arquivo */
-
 .toggle-group {
   border: 1px solid var(--border-primary);
   border-radius: 0;
   display: inline-flex;
   overflow: hidden;
-  background-color: var(--bg-tertiary);
+  background-color: rgba(19, 18, 42, 0.8);
+  box-shadow: var(--shadow-sm);
+  height: 100%;
+  align-items: stretch;
 }
 
 .toggle-group input[type="radio"] {
@@ -193,41 +194,57 @@ body.glow-fading::after {
   position: absolute;
   width: 0;
   height: 0;
+  pointer-events: none;
 }
 
-.toggle-group label {
-  /* ADIÇÃO CRÍTICA ABAIXO */
-  position: relative; /* Essencial para o posicionamento do brilho */
-
+.mode-label {
+  position: relative;
   cursor: pointer;
-  padding: var(--space-2) var(--space-4);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-  color: var(--text-secondary);
+  padding: 0 var(--space-3);
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  border-bottom: 2px solid transparent;
+  min-width: 38px;
 }
 
-.toggle-group input[type="radio"]:not(:checked) + label:hover {
+.mode-label-icon {
+  font-size: 13px;
+  transition: transform var(--transition-fast);
+}
+
+
+.mode-label:hover {
   background-color: var(--overlay-hover);
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
-.toggle-group input[type="radio"]:checked + label {
-  background-color: var(--accent-subtle-bg);
-}
-
-
-.toggle-group input[id="Processor Mode"]:checked + label {
+/* PROC active state */
+.toggle-group input[id="Processor Mode"]:checked + .mode-label-proc {
+  background-color: rgba(103, 182, 213, 0.12);
   color: #67b6d5;
+  border-bottom-color: #67b6d5;
 }
 
-.toggle-group input[id="Project Mode"]:checked + label {
-  color: #a92218;
+.toggle-group input[id="Processor Mode"]:checked + .mode-label-proc .mode-label-icon {
+  transform: scale(1.15);
 }
 
-.toggle-group label:not(:last-of-type) {
+/* PROJ active state */
+.toggle-group input[id="Project Mode"]:checked + .mode-label-proj {
+  background-color: rgba(200, 60, 40, 0.12);
+  color: #e05a4a;
+  border-bottom-color: #e05a4a;
+}
+
+.toggle-group input[id="Project Mode"]:checked + .mode-label-proj .mode-label-icon {
+  transform: scale(1.15);
+}
+
+.mode-label:not(:last-of-type) {
     border-right: 1px solid var(--border-primary);
 }
 

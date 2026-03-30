@@ -265,9 +265,10 @@
   justify-content: center;
   padding: var(--space-12);
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(123, 94, 167, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(52, 211, 153, 0.06) 0%, transparent 50%),
-    var(--bg-primary);
+    radial-gradient(ellipse at 30% 20%, rgba(155, 89, 182, 0.24) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(103, 182, 213, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(100, 65, 150, 0.08) 0%, transparent 70%),
+    #0C0B1E;
   position: relative;
 }
 

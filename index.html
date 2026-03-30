@@ -39,9 +39,6 @@
         <button id="wavecomp" class="toolbar-button" enabled>
             <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
         </button>
-        <button id="new-verilog-file" class="toolbar-button" enabled>
-            <i class="fa-solid fa-file-plus" style="color: #FF5555;"></i>
-        </button>
         <button id="prismcomp" class="toolbar-button" enabled>
             <img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit;">
             <span>PRISM</span>
@@ -49,22 +46,15 @@
     </div>
 
     <div class="toggle-group">
-    <!-- UI Toggle Button 
-    <button id="toggle-ui" class="toolbar-toggle-ui">
-        <i class="fa-solid fa-fan"></i>
-    </button> -->
-
     <!-- Processor Mode -->
     <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
-    <label for="Processor Mode">
-        <i class="fa-solid fa-cpu"></i>
-        <span style="font-size:10px;margin-left:4px;font-family:var(--font-sans)">PROC</span>
+    <label for="Processor Mode" class="mode-label mode-label-proc" title="Processor Mode">
+        <i class="fa-solid fa-cpu mode-label-icon"></i>
     </label>
     <!-- Project Mode -->
     <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
-    <label for="Project Mode">
-        <i class="fa-solid fa-diagram-project"></i>
-        <span style="font-size:10px;margin-left:4px;font-family:var(--font-sans)">PROJ</span>
+    <label for="Project Mode" class="mode-label mode-label-proj" title="Project Mode">
+        <i class="fa-solid fa-diagram-project mode-label-icon"></i>
     </label>
     </div>
 
@@ -551,6 +541,9 @@
                 <span class="toggle-text">Alternate Tree</span>
             </button>
             
+            <span id="new-verilog-file" style="cursor: pointer;" title="New Verilog File">
+                <i class="fa-solid fa-file-circle-plus" style="color: #FF5555;"></i>
+            </span>
             <span id="refresh-button" style="cursor: pointer;">
                 <i class="fa-solid fa-arrows-rotate"></i>
             </span>
@@ -679,7 +672,7 @@
             TASM
         </button>
         <button class="tab" data-terminal="tveri">
-            <i class="fa-solid fa-file-code" style="color: #FF5555;"></i>
+            <i class="fa-solid fa-feather" style="color: #FF5555;"></i>
             TVERI
         </button>
         <button class="tab" data-terminal="twave">
@@ -867,6 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openModal(modalId) {
         const modal = modals[modalId];
         if (!modal) return console.error('openModal: modal not registered:', modalId);
+        modal.classList.remove('hidden'); // clear any stray hidden class
         modal.setAttribute('aria-hidden', 'false');
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -886,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!anyOpen) document.body.style.overflow = '';
     }
 
-    // Wire click handlers on your triggers. If a trigger is disabled, enable it (so clicks work).
+    // Wire click handlers on your triggers using capture phase so disabled state never blocks them.
     Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
         const btn = document.getElementById(triggerId);
         if (!btn) {
@@ -894,18 +888,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // If the button is intentionally disabled in markup, enable it so it opens the modal.
-        // (If you don't want this behavior, remove the next two lines.)
-        if (btn.disabled) {
-            console.info(`Trigger "${triggerId}" was disabled in markup — enabling it so the modal can open.`);
-            btn.disabled = false;
-            btn.classList.remove('disabled');
-        }
+        // Ensure button is always enabled
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+        btn.removeAttribute('disabled');
 
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal(modalId);
-        });
+        // Use capture phase so click fires even if something tries to disable the button
+        document.addEventListener('click', (e) => {
+            if (e.target === btn || btn.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Re-enable in case something disabled it
+                btn.disabled = false;
+                openModal(modalId);
+            }
+        }, true);
     });
 
 

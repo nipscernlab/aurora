@@ -261,7 +261,8 @@
   display: flex;
   flex-shrink: 0;
   overflow-x: auto;
-  height: 42px;
+  overflow-y: hidden;
+  /*height: 50px;*/
   background-color: var(--bg-primary);
   align-items: flex-end;
   border-bottom: 1px solid var(--border-primary);

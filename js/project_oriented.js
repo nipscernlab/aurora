@@ -220,7 +220,6 @@ setupEventListeners() {
       
       .drop-zone {
         border: 2px dashed var(--border-primary);
-        border-radius: var(--radius-lg);
         padding: var(--space-8);
         text-align: center;
         background: var(--bg-tertiary);

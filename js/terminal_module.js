@@ -864,7 +864,7 @@ class VVPProgressManager {
         this.interpolationSpeed = 0.08;
         this.readIntervalMs = 1000;
         this.autoMinimizeDelayMs = 5000;
-        this.completionDelayMs = 500;
+        this.completionDelayMs = 2000;
         this._hideRequested = false;
     }
 

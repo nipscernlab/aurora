@@ -214,7 +214,7 @@
 .terminal-container {
   height: 250px;
   max-height: 80vh;
-  min-height: 58px;
+  min-height: 42px;
   flex-shrink: 0;
   overflow-y: auto;
   display: flex;

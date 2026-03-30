@@ -99,7 +99,8 @@
     font-size: 12px;
     color: var(--text-secondary);
     justify-content: space-between;
-
+    position: relative;
+    z-index: 25; /* above welcome overlay (z-18) */
   }
   
   .status-item {
@@ -110,6 +111,15 @@
   .file-tree-container {
     background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-primary);
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .file-tree-container.sidebar-collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    border-right-width: 0;
   }
   
   .file-tree-header {

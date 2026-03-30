@@ -172,19 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 7. Modal Interaction ---
 
-    document.getElementById('cancelProcessorHub')?.addEventListener('click', () => {
+    const closeProcessorHubModal = () => {
         if (modalContainer) {
-            modalContainer.classList.remove('hidden');
-            modalContainer.setAttribute('aria-hidden', 'true');
             modalContainer.classList.remove('show');
+            modalContainer.setAttribute('aria-hidden', 'true');
         }
         if (form) form.reset();
-
         Object.values(inputs).forEach(input => resetInputStyle(input));
-
-        // Reset button state based on default values
         setTimeout(validateAll, 50);
-    });
+    };
+
+    document.getElementById('cancelProcessorHub')?.addEventListener('click', closeProcessorHubModal);
+    document.getElementById('closeProcessorHub')?.addEventListener('click', closeProcessorHubModal);
 
 
     // --- 8. Submit Handler ---

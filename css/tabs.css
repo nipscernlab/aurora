@@ -30,14 +30,21 @@
   position: relative;
 }
 
-/* Hide native scrollbars */
+/* Thin scrollbar for tab overflow */
 .tabs-container {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) transparent;
   overscroll-behavior-y: contain;
 }
 .tabs-container::-webkit-scrollbar {
-  display: none;
+  height: 2px;
+}
+.tabs-container::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 0;
+}
+.tabs-container::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Individual tab styling */

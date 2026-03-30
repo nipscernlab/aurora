@@ -218,16 +218,15 @@ export class RecentProjectsManager {
       return;
     }
 
-    this.countElement.textContent = `${this.projects.length} project${this.projects.length !== 1 ? 's' : ''}`;
+    this.countElement.textContent = this.projects.length > 0 ? this.projects.length : '';
     this.listElement.innerHTML = '';
 
     if (this.projects.length === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
       emptyState.innerHTML = `
-        <i class="fa-solid fa-folder-open empty-state-icon"></i>
-        <p class="empty-state-text">No recent projects</p>
-        <p class="empty-state-subtext">Open a project to see it appear here</p>
+        <i class="fa-solid fa-folder-open"></i>
+        <p>No recent projects</p>
       `;
       this.listElement.appendChild(emptyState);
     } else {

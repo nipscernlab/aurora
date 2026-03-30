@@ -28,12 +28,14 @@ window.initializeGlobalTerminalManager = function() {
 window.toggleSidebar = function() {
     const fileTreeContainer = document.querySelector('.file-tree-container');
     if (!fileTreeContainer) return;
-    const isHidden = fileTreeContainer.style.display === 'none' || fileTreeContainer.offsetWidth === 0;
-    if (isHidden) {
-        fileTreeContainer.style.display = '';
-        fileTreeContainer.style.width = localStorage.getItem('fileTreeWidth') ? localStorage.getItem('fileTreeWidth') + 'px' : '250px';
+    const isCollapsed = fileTreeContainer.classList.contains('sidebar-collapsed');
+    if (isCollapsed) {
+        fileTreeContainer.classList.remove('sidebar-collapsed');
+        const saved = localStorage.getItem('fileTreeWidth');
+        fileTreeContainer.style.width = saved ? saved + 'px' : '250px';
     } else {
-        fileTreeContainer.style.display = 'none';
+        localStorage.setItem('fileTreeWidth', fileTreeContainer.offsetWidth);
+        fileTreeContainer.classList.add('sidebar-collapsed');
     }
 };
 

@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const openModal = () => {
-        newProjectModal.classList.remove("hidden");
+        newProjectModal.setAttribute('aria-hidden', 'false');
         resetInputStyle(projectNameInput);
         resetInputStyle(projectLocationInput);
     };
@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     function closeNewProjectModal() {
-        newProjectModal.classList.add('hidden');
+        newProjectModal.setAttribute('aria-hidden', 'true');
         projectNameInput.value = '';
         projectLocationInput.value = '';
         resetInputStyle(projectNameInput);

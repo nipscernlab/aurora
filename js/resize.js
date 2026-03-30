@@ -11,7 +11,6 @@ const terminalContainer = document.querySelector('.terminal-container');
 const MIN_FILE_TREE_WIDTH = 10;
 const MIN_TERMINAL_HEIGHT = 30;
 const MAX_FILE_TREE_RATIO = 0.5;
-const MAX_TERMINAL_RATIO = 0.75;
 
 // Inject global resize CSS
 const style = document.createElement('style');
@@ -69,8 +68,16 @@ function clamp(val, min, max) { return Math.max(min, Math.min(val, max)); }
 function constrainFileTreeWidth(w) {
   return clamp(w, MIN_FILE_TREE_WIDTH, window.innerWidth * MAX_FILE_TREE_RATIO);
 }
+function getMaxTerminalHeight() {
+  const toolbar = document.querySelector('.toolbar');
+  const statusBar = document.querySelector('.status-bar');
+  const toolbarH = toolbar ? toolbar.offsetHeight : 44;
+  const statusH = statusBar ? statusBar.offsetHeight : 22;
+  const resizerH = 6; // resizer bar itself
+  return window.innerHeight - toolbarH - statusH - resizerH;
+}
 function constrainTerminalHeight(h) {
-  return clamp(h, MIN_TERMINAL_HEIGHT, window.innerHeight * MAX_TERMINAL_RATIO);
+  return clamp(h, MIN_TERMINAL_HEIGHT, getMaxTerminalHeight());
 }
 
 // ── Vertical (file tree width) ────────────────────────────────────────────────

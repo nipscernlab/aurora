@@ -61,7 +61,6 @@ body {
 
 .status-item i {
   margin-right: var(--space-2);
-  font-size: var(--text-base);
 }
 
 /* ===================================================================================

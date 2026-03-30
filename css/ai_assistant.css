@@ -31,11 +31,9 @@
   width: 480px;
   height: 100vh;
   background-color: var(--bg-secondary); /* Use secondary for the base panel */
-  border-left: 1px solid var(--border-primary);
   overflow: hidden;
   z-index: var(--z-50);
   transition: transform var(--transition-normal);
-  box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
   min-width: 320px;
@@ -54,7 +52,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3) var(--space-4);
   background-color: var(--bg-elevated);
   border-bottom: 1px solid var(--border-primary);
   flex-shrink: 0;
@@ -75,6 +72,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  margin-left: 10px;
 }
 
 .ai-assistant-title {
@@ -127,6 +125,7 @@
   transition: all var(--transition-fast);
   color: var(--text-tertiary);
   font-size: var(--text-lg);
+  margin-left: 20px;
 }
 
 .ai-assistant-close:hover {

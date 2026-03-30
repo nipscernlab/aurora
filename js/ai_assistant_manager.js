@@ -91,26 +91,34 @@ class AIAssistantManager {
     }
 
     setupResize(handle, container) {
-        let isResizing = false;
         handle.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            let startX = e.clientX;
-            let startWidth = parseInt(document.defaultView.getComputedStyle(container).width, 10);
-            
-            const doDrag = (e) => {
-                if (!isResizing) return;
-                const newWidth = Math.max(320, startWidth + (startX - e.clientX));
-                container.style.width = newWidth + 'px';
-            };
-            
-            const stopDrag = () => {
-                isResizing = false;
-                document.removeEventListener('mousemove', doDrag);
-                document.removeEventListener('mouseup', stopDrag);
+            e.preventDefault();
+            let active = true;
+            let raf = null;
+            const startX = e.clientX;
+            const startWidth = parseInt(document.defaultView.getComputedStyle(container).width, 10);
+
+            document.body.classList.add('resizing-vertical');
+
+            const onMove = (ev) => {
+                if (!active) return;
+                if (raf) cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(() => {
+                    const newWidth = Math.max(320, Math.min(startWidth + (startX - ev.clientX), window.innerWidth * 0.6));
+                    container.style.width = newWidth + 'px';
+                });
             };
 
-            document.addEventListener('mousemove', doDrag);
-            document.addEventListener('mouseup', stopDrag);
+            const onUp = () => {
+                active = false;
+                document.body.classList.remove('resizing-vertical');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                if (raf) cancelAnimationFrame(raf);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
         });
     }
 }

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Extended descriptions for each element
     const extendedDescriptions = {
         /* (mantive seu mapa) */
-        'sidebarMenu': 'Opens the main navigation panel to access the website, report bugs, view GitHub repository, read update news, check keyboard shortcuts, and exit the program.',
+        'sidebarMenu': 'Toggles file tree panel',
         'refresh-button': 'Refreshes the file tree and reloads project structure.',
         'newProjectBtn': 'Creates a new AURORA .spf project with the complete folder structure and initial configuration files.',
         'backupFolderBtn': 'Creates a .zip backup of the entire project, making it easy to share or safeguard your work.',

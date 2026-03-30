@@ -26,25 +26,33 @@ class SplitResizer {
 
         el.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            const startX     = e.clientX;
-            const startLeftW = this.leftEl.offsetWidth;
+            let active = true;
+            let raf = null;
+            const startX      = e.clientX;
+            const startLeftW  = this.leftEl.offsetWidth;
             const startRightW = this.rightEl.offsetWidth;
-            const total      = startLeftW + startRightW;
+            const total       = startLeftW + startRightW;
 
             document.body.classList.add('resizing-vertical');
 
             const onMove = (ev) => {
-                const delta    = ev.clientX - startX;
-                const newLeft  = Math.max(MIN_PANE_WIDTH, Math.min(startLeftW + delta, total - MIN_PANE_WIDTH));
-                const newRight = total - newLeft;
-                this.leftEl.style.flex  = `0 0 ${newLeft}px`;
-                this.rightEl.style.flex = `0 0 ${newRight}px`;
+                if (!active) return;
+                if (raf) cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(() => {
+                    const delta    = ev.clientX - startX;
+                    const newLeft  = Math.max(MIN_PANE_WIDTH, Math.min(startLeftW + delta, total - MIN_PANE_WIDTH));
+                    const newRight = total - newLeft;
+                    this.leftEl.style.flex  = `0 0 ${newLeft}px`;
+                    this.rightEl.style.flex = `0 0 ${newRight}px`;
+                });
             };
 
             const onUp = () => {
+                active = false;
                 document.body.classList.remove('resizing-vertical');
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
+                if (raf) cancelAnimationFrame(raf);
             };
 
             document.addEventListener('mousemove', onMove);
@@ -264,28 +272,9 @@ const SplitEditorManager = {
 
         this.mainShell.addEventListener('mousedown', () => this.setFocus(0));
 
-        // Inject VSCode-style split button into the tab bar actions area
-        this._injectActionButton(editorContainer);
-    },
-
-    /** Inject the split button into the top-right of the editor area */
-    _injectActionButton(editorContainer) {
-        let actionsBar = document.getElementById('editor-tab-actions');
-        if (!actionsBar) {
-            actionsBar = document.createElement('div');
-            actionsBar.id = 'editor-tab-actions';
-            actionsBar.className = 'editor-tab-actions';
-            editorContainer.appendChild(actionsBar);
-        }
-
-        const btn = document.createElement('button');
-        btn.id = 'split-editor-btn';
-        btn.className = 'editor-action-btn';
-        btn.disabled = true;
-        btn.title = 'Open a file first to enable split';
-        btn.innerHTML = '<i class="fa-solid fa-table-columns"></i>';
-        btn.addEventListener('click', () => this.createSplit());
-        actionsBar.appendChild(btn);
+        // Wire up the fixed split button in the toolbar
+        const btn = document.getElementById('split-editor-btn');
+        if (btn) btn.addEventListener('click', () => this.createSplit());
     },
 
     canSplit() {

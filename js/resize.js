@@ -26,12 +26,14 @@ style.textContent = `
   body.resizing-corner * { cursor: nwse-resize !important; user-select: none !important; }
 
   .resizer-vertical {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
     width: 5px;
     cursor: col-resize;
     background: transparent;
     transition: background-color 0.15s ease;
-    flex-shrink: 0;
-    position: relative;
     z-index: 10;
   }
   .resizer-vertical:hover { background-color: var(--accent-primary); opacity: 0.7; }

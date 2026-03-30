@@ -24,6 +24,18 @@ window.initializeGlobalTerminalManager = function() {
     return globalTerminalManager;
 };
 
+window.toggleSidebar = function() {
+    const fileTreeContainer = document.querySelector('.file-tree-container');
+    if (!fileTreeContainer) return;
+    const isHidden = fileTreeContainer.style.display === 'none' || fileTreeContainer.offsetWidth === 0;
+    if (isHidden) {
+        fileTreeContainer.style.display = '';
+        fileTreeContainer.style.width = localStorage.getItem('fileTreeWidth') ? localStorage.getItem('fileTreeWidth') + 'px' : '250px';
+    } else {
+        fileTreeContainer.style.display = 'none';
+    }
+};
+
 // --- Initialization on DOM Ready ---
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize core components first
@@ -49,7 +61,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize global terminal manager
     window.initializeGlobalTerminalManager();
-    
+
+    // New Verilog file button
+    const newVerilogBtn = document.getElementById('new-verilog-file');
+    if (newVerilogBtn) {
+        newVerilogBtn.addEventListener('click', async () => {
+            const projectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+            const result = await window.electronAPI.showSaveDialog({
+                defaultPath: projectPath || undefined,
+                filters: [{ name: 'Verilog', extensions: ['v'] }]
+            });
+            if (!result || result.canceled || !result.filePath) return;
+            await window.electronAPI.writeFile(result.filePath, '');
+            if (typeof window.refreshFileTree === 'function') window.refreshFileTree();
+        });
+    }
+
     // ✅ Command Palette is auto-initialized via its own DOMContentLoaded listener
 });
 

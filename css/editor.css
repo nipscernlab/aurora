@@ -343,16 +343,28 @@
   min-width: 120px;
   overflow: hidden;
   position: relative;
-  border-right: 1px solid var(--border-primary);
-  transition: flex 0.2s ease;
-}
-
-.split-pane:last-child {
-  border-right: none;
+  /* no border — resizer handles the visual gap */
 }
 
 .split-pane-main {
-  flex: 1.4; /* Main pane slightly wider */
+  /* main pane starts equal; JS can set explicit flex-basis when dragging */
+}
+
+/* ── Drag resizer between split panes ── */
+.split-pane-resizer {
+  flex: 0 0 4px;
+  width: 4px;
+  cursor: col-resize;
+  background-color: var(--border-primary);
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 10;
+  user-select: none;
+}
+
+.split-pane-resizer:hover,
+.split-pane-resizer:active {
+  background-color: var(--accent-primary);
 }
 
 .split-pane-dim {
@@ -449,6 +461,52 @@
 }
 
 .split-tab .close-tab:hover { color: var(--status-error); background: var(--status-error-bg); }
+
+/* ── VSCode-style editor tab actions (top-right overlay) ── */
+.editor-tab-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  /* gradient so action buttons don't clash with tab text */
+  background: linear-gradient(to right, transparent 0%, var(--bg-primary) 28px);
+  z-index: 6;
+  pointer-events: none; /* let the tab bar remain hoverable underneath */
+  gap: 2px;
+}
+
+.editor-tab-actions > * {
+  pointer-events: auto;
+}
+
+.editor-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+  padding: 0;
+}
+
+.editor-action-btn:hover:not(:disabled) {
+  color: #a78bfa;
+  background-color: var(--overlay-hover);
+}
+
+.editor-action-btn:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
 
 /* ===================================================================================
  *  Monaco Editor Integration - Modern Style

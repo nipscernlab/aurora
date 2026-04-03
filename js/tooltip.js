@@ -55,10 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'backupFolderBtn': 'Creates a .zip backup of the entire project, making it easy to share or safeguard your work.',
         'openProjectBtn': 'Opens an existing .spf project and loads it into the workspace.',
         'projectInfo': 'Displays detailed information and properties about the currently loaded .spf project.',
-        'cmmcomp': 'Compiles the project\'s C+- (.cmm) source files into low-level assembly (.asm) code.',
-        'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for hardware simulation.',
+        'cmmcomp': 'Compiles the project\'s C± (.cmm) source files into low-level assembly (.asm) code.',
+        'asmcomp': 'Converts assembly (.asm) files into Verilog (.v) code, preparing them for FPGA implementation.',
         'vericomp': 'Compiles Verilog (.v) files using Icarus Verilog (iverilog) to generate simulation binaries.',
-        'wavecomp': 'Analyzes Verilog output using VVP, generates VCD waveforms, and opens GTKWave to visualize signal behavior.',
+        'wavecomp': 'Analyzes Verilog output simulation.',
         'prismcomp': 'Launches the RTL interactive visualizer to explore processor architectures and signal relationships.',
         'allcomp': 'Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.',
         'fractalcomp': 'Performs a full compilation workflow and launches the Fractal Processor Simulator, allowing you to run and test your processor design interactively.',
@@ -181,6 +181,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let rawText = null;
         const elementId = element.id;
+ 
+        // Capture native title text first so the browser tooltip does not compete with Aurora's custom tooltip.
+        if (element.title) {
+            const titleText = element.title;
+            element.removeAttribute('title');
+            element.dataset.originalTitle = titleText;
+        }
 
         if (elementId && extendedDescriptions[elementId]) {
             rawText = extendedDescriptions[elementId];
@@ -188,11 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             rawText = element.dataset.tooltip;
         } else if (element.dataset.originalTitle) {
             rawText = element.dataset.originalTitle;
-        } else if (element.title) {
-            const titleText = element.title;
-            element.removeAttribute('title');
-            element.dataset.originalTitle = titleText;
-            rawText = titleText;
         } else {
             return null; 
         }

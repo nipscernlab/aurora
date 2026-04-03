@@ -376,6 +376,11 @@ class TerminalManager {
             success: successBtn.cloneNode(true)
         };
 
+        // Cloned nodes inherit the marker attribute but not the tooltip listeners. Clearing it lets tooltip.js bind listeners again.
+        Object.values(buttons).forEach((button) => {
+            button.removeAttribute('data-tooltip-initialized');
+        });
+
         errorBtn.parentNode.replaceChild(buttons.error, errorBtn);
         warningBtn.parentNode.replaceChild(buttons.warning, warningBtn);
         infoBtn.parentNode.replaceChild(buttons.tips, infoBtn);

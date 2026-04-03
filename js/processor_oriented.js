@@ -737,17 +737,21 @@ closeModal.addEventListener("click", () => {
 // Correção do saveCurrentProcessorToTemp para incluir o arquivo CMM
 function saveCurrentProcessorToTemp() {
   if (selectedProcessor) {
+    const DEFAULT_CLK = 100; // Default value of frequency
+    const DEFAULT_NUM_CLOCKS = 2000; // Default value of number of clocks
     const clk = processorClkInput.value.trim();
     const numClocks = processorNumClocksInput.value.trim();
+    const normalizedClk = clk === '' ? DEFAULT_CLK : Number(clk);
+    const normalizedNumClocks = numClocks === '' ? DEFAULT_NUM_CLOCKS : Number(numClocks);
     const testbenchFile = testbenchSelect ? testbenchSelect.value : "standard";
     const gtkwFile = gtkwSelect ? gtkwSelect.value : "standard";
     const cmmFile = cmmFileSelect ? cmmFileSelect.value : ""; // ADICIONADO
     const showArrays = showArraysCheckbox.checked ? 1 : 0;
-
+    
     tempProcessorConfigs[selectedProcessor] = {
       name: selectedProcessor,
-      clk: clk ? Number(clk) : null,
-      numClocks: numClocks ? Number(numClocks) : null,
+      clk: normalizedClk, 
+      numClocks: normalizedNumClocks,
       testbenchFile: testbenchFile,
       gtkwFile: gtkwFile,
       cmmFile: cmmFile, // ADICIONADO

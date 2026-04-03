@@ -550,16 +550,16 @@
             <span id="new-verilog-file" style="cursor: pointer;" title="New Verilog File">
                 <i class="fa-solid fa-file-circle-plus" style="color: #FF5555;"></i>
             </span>
-            <span id="refresh-button" style="cursor: pointer;">
+            <span id="refresh-button" style="cursor: pointer;" title="Refreshes the file tree and reloads project structure.">
                 <i class="fa-solid fa-arrows-rotate"></i>
             </span>
-                <span id="open-hdl-button" style="cursor: pointer;">
+                <span id="open-hdl-button" style="cursor: pointer;" title="Open HDL files viewer for hardware description language files.">
                     <i class="fa-solid fa-hashtag"></i>
                 </span>
-                <span id="open-folder-button" style="cursor: pointer;">
+                <span id="open-folder-button" style="cursor: pointer;" title="Open the current project folder in the system file explorer.">
                     <i class="fa-solid fa-folder-open"></i>
                 </span>
-                <span id="close-button" style="cursor: pointer;">
+                <span id="close-button" style="cursor: pointer;" title="Close the current project and return to the welcome screen.">
                     <i class="fa-solid fa-circle-xmark"></i>
                 </span>
                 <span id="toggle-file-tree" style="cursor: pointer;">
@@ -634,56 +634,56 @@
     <!-- O contêiner do terminal e todo o seu conteúdo permanecem exatamente os mesmos -->
 <div id="terminal-container" class="terminal-container">
     <div class="terminal-tabs">
-        <button id="clear-terminal" class="toolbar-button">
+        <button id="clear-terminal" class="toolbar-button" data-tooltip="Clear all content from the current terminal tab.">
             <i class="fa-solid fa-trash-can"></i>
         </button>
 
         <!-- MODIFIED FILTER BUTTONS -->
-        <button id="filter-error" class="toolbar-button filter-btn filter-error">
+        <button id="filter-error" class="toolbar-button filter-btn filter-error" data-tooltip="Toggle visibility of error messages in the terminal output.">
             <i class="fa-solid fa-circle-xmark"></i>
             <span id="error-count" class="message-count hidden">0</span>
         </button>
-        <button id="filter-warning" class="toolbar-button filter-btn filter-warning">
+        <button id="filter-warning" class="toolbar-button filter-btn filter-warning" data-tooltip="Toggle visibility of warning messages in the terminal output.">
             <i class="fa-solid fa-circle-exclamation"></i>
             <span id="warning-count" class="message-count hidden">0</span>
         </button>
-        <button id="filter-success" class="toolbar-button filter-btn filter-success">
+        <button id="filter-success" class="toolbar-button filter-btn filter-success" data-tooltip="Toggle visibility of success messages in the terminal output.">
             <i class="fa-solid fa-circle-check"></i>
             <span id="success-count" class="message-count hidden">0</span>
         </button>
-        <button id="filter-tip" class="toolbar-button filter-btn filter-tip">
+        <button id="filter-tip" class="toolbar-button filter-btn filter-tip" data-tooltip="Toggle visibility of tip messages in the terminal output.">
             <i class="fa-solid fa-circle-info"></i>
             <span id="tip-count" class="message-count hidden">0</span>
         </button>
         <!-- END OF MODIFICATIONS -->
 
-        <button class="tab active" data-terminal="tcmm">
+        <button class="tab active" data-terminal="tcmm" data-tooltip="Open TCMM terminal">
             <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
             <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
             TCMM
         </button>
-        <button class="tab" data-terminal="tasm">
+        <button class="tab" data-terminal="tasm" data-tooltip="Open TASM terminal">
             <i class="fa-solid fa-microchip" style="color: rgb(180, 100, 210);"></i>
             TASM
         </button>
-        <button class="tab" data-terminal="tveri">
+        <button class="tab" data-terminal="tveri" data-tooltip="Open TVERI terminal">
             <i class="fa-solid fa-feather" style="color: #FF5555;"></i>
             TVERI
         </button>
-        <button class="tab" data-terminal="twave">
+        <button class="tab" data-terminal="twave" data-tooltip="Open TWAVE terminal">
             <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
             TWAVE
         </button>
-        <button id="goup-terminal" class="toolbar-button">
+        <button id="goup-terminal" class="toolbar-button" data-tooltip="Scroll up in the terminal output.">
             <i class="fa-solid fa-chevron-up"></i>
         </button>
-        <button id="godown-terminal" class="toolbar-button">
+        <button id="godown-terminal" class="toolbar-button" data-tooltip="Scroll down in the terminal output.">
             <i class="fa-solid fa-chevron-down"></i>
         </button>
-        <button id="export-log" class="toolbar-button">
+        <button id="export-log" class="toolbar-button" data-tooltip="Export the current terminal log to a file.">
             <i class="fa-solid fa-file-export"></i>
         </button>
-        <button id="reload-everything-terminal" class="toolbar-button">
+        <button id="reload-everything-terminal" class="toolbar-button" data-tooltip="Reload the entire application and refresh all components.">
             <i class="fa-solid fa-rotate-right"></i>
         </button>
     </div>

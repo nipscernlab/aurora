@@ -76,7 +76,7 @@ async function createMainWindow() {
     mainWindow = new BrowserWindow({
       width: 1200,
       height: 800,
-      autoHideMenuBar: false,
+      autoHideMenuBar: true,
       icon: path.join(__dirname, 'assets/icons/sapho_aurora_icon.ico'),
       webPreferences: {
         contextIsolation: true,

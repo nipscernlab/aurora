@@ -2420,7 +2420,7 @@ async function createPrismWindow(compilationData = null) {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icons', 'sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,

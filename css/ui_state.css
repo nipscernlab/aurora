@@ -1,375 +1,74 @@
-/**
+/*
  * =====================================================================================
- * Aurora IDE - UI State Styling
- * Smooth transitions and mode-specific visual effects
+ *  ui_state.css  —  Body glow per mode + transition states.
  * =====================================================================================
  */
 
-/* ===================================================================================
- * BODY GLOW EFFECTS - Temporary animated gradient borders for mode changes
- * =================================================================================== */
+body { position: relative; }
 
-body {
-    position: relative;
-}
-
-/* Glow effect layer */
 body::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-    border-radius: 0;
-    filter: blur(40px);
-    opacity: 0;
-    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: animateGlow 3s linear infinite;
-    background-size: 300% 300%;
-    pointer-events: none;
-    transform: scale(1.1);
-}
-
-/* Verilog Mode - Green/Cyan gradient glow */
-body.verilog-mode-active::after {
-    opacity: 0.4;
-    background: linear-gradient(
-        to right,
-        #2CFF05,
-        #00e9ff,
-        #3498db,
-        #00e9ff,
-        #2CFF05
-    );
-    background-size: 200% 200%;
-}
-
-/* Processor Mode - Aurora violet glow */
-body.processor-mode-active::after {
-    opacity: 0.5;
-    background: linear-gradient(
-        to right,
-        var(--accent-primary),
-        var(--accent-hover),
-        #B89ED8,
-        var(--accent-hover),
-        var(--accent-primary)
-    );
-    background-size: 300% 300%;
-}
-
-/* Project Mode - Multi-color gradient glow */
-body.project-mode-active::after {
-    opacity: 0.4;
-    background: linear-gradient(
-        to right,
-        #ff5770,
-        #e4428d,
-        #c42da8,
-        #9e16c3,
-        var(--accent-primary),
-        #9e16c3,
-        #c42da8,
-        #e4428d,
-        #ff5770
-    );
-    background-size: 200% 200%;
-}
-
-/* Fading state - smooth disappearance */
-body.glow-fading::after {
-    opacity: 0;
-}
-
-/* Glow animation */
-@keyframes animateGlow {
-    0% {
-        background-position: 0% 50%;
-    }
-    100% {
-        background-position: 200% 50%;
-    }
-}
-
-/* ===================================================================================
- * SMOOTH HIDE/SHOW ANIMATIONS
- * =================================================================================== */
-
-/* Hiding: Fade out opacity */
-.ui-state-hiding {
-    opacity: 0 !important;
-    transition: opacity 0.2s cubic-bezier(0.4, 0, 1, 1) !important;
-}
-
-/* Collapsing: Reduce height */
-.ui-state-collapsing {
-    overflow: hidden !important;
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                margin 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                padding 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Hidden: Completely hidden */
-.ui-state-hidden {
-    display: none !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
-}
-
-/* Expanding: Increase height */
-.ui-state-expanding {
-    overflow: hidden !important;
-    opacity: 0 !important;
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s cubic-bezier(0, 0, 0.2, 1) 0.1s !important;
-}
-
-/* Showing: Fade in opacity */
-.ui-state-showing {
-    opacity: 1 !important;
-}
-
-/* ===================================================================================
- * TERMINAL TABS - Smooth transitions
- * =================================================================================== */
-
-.terminal-tabs {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    transition: all var(--transition-normal);
-}
-
-.terminal-tabs button.tab {
-    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ===================================================================================
- * TERMINAL CONTENT - Smooth transitions
- * =================================================================================== */
-
-.terminal-content {
-    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.terminal-content.hidden {
-    display: none;
-}
-
-/* ===================================================================================
- * TOOLBAR BUTTONS - Preserve original styling
- * =================================================================================== */
-
-/* No changes to toolbar button base styles */
-/* Transitions are only for show/hide animations */
-
-/* ===================================================================================
- * COMPILE ALL GROUP - Smooth transitions
- * =================================================================================== */
-
-.compile-all-group {
-    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.toggle-group {
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
-  display: inline-flex;
-  overflow: hidden;
-  background-color: rgba(19, 18, 42, 0.8);
-  box-shadow: var(--shadow-sm);
-  height: 100%;
-  align-items: stretch;
-}
-
-.toggle-group input[type="radio"] {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  filter: blur(80px);
   opacity: 0;
-  position: absolute;
-  width: 0;
-  height: 0;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+  transform: scale(1.1);
 }
 
-.mode-label {
-  position: relative;
-  cursor: pointer;
-  padding: 0 var(--space-3);
-  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  border-bottom: 2px solid transparent;
-  min-width: 38px;
+body.verilog-mode-active::after {
+  opacity: 0.18;
+  background: radial-gradient(ellipse 60% 40% at 30% 0%, rgba(95, 224, 176, 0.25), transparent 70%),
+              radial-gradient(ellipse 60% 40% at 70% 100%, rgba(91, 184, 232, 0.20), transparent 70%);
 }
 
-.mode-label-icon {
-  font-size: 13px;
-  transition: transform var(--transition-fast);
+body.processor-mode-active::after {
+  opacity: 0.20;
+  background: radial-gradient(ellipse 60% 40% at 30% 0%, rgba(142, 131, 232, 0.30), transparent 70%),
+              radial-gradient(ellipse 60% 40% at 70% 100%, rgba(185, 138, 224, 0.22), transparent 70%);
 }
 
-
-.mode-label:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text-secondary);
+body.project-mode-active::after {
+  opacity: 0.18;
+  background: radial-gradient(ellipse 60% 40% at 30% 0%, rgba(91, 184, 232, 0.28), transparent 70%),
+              radial-gradient(ellipse 60% 40% at 70% 100%, rgba(79, 211, 194, 0.22), transparent 70%);
 }
 
-/* PROC active state */
-.toggle-group input[id="Processor Mode"]:checked + .mode-label-proc {
-  background-color: rgba(103, 182, 213, 0.12);
-  color: #67b6d5;
-  border-bottom-color: #67b6d5;
+body.glow-fading::after { opacity: 0; }
+
+/* Transition states */
+.ui-state-hiding {
+  opacity: 0 !important;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
 
-.toggle-group input[id="Processor Mode"]:checked + .mode-label-proc .mode-label-icon {
-  transform: scale(1.15);
+.ui-state-collapsing {
+  overflow: hidden !important;
+  transition:
+    height 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    margin 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    padding 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* PROJ active state */
-.toggle-group input[id="Project Mode"]:checked + .mode-label-proj {
-  background-color: rgba(200, 60, 40, 0.12);
-  color: #e05a4a;
-  border-bottom-color: #e05a4a;
+.ui-state-hidden {
+  display: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
 }
 
-.toggle-group input[id="Project Mode"]:checked + .mode-label-proj .mode-label-icon {
-  transform: scale(1.15);
+.ui-state-expanding {
+  overflow: hidden !important;
+  opacity: 0 !important;
+  transition:
+    height 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 280ms cubic-bezier(0, 0, 0.2, 1) 80ms !important;
 }
 
-.mode-label:not(:last-of-type) {
-    border-right: 1px solid var(--border-primary);
-}
-
-/* ===================================================================================
- * TOGGLE BUTTON & SIMULATION VISIBILITY CONTROL
- * =================================================================================== */
-
-/* 1. Logic: Hide/Show Section based on Checkbox */
-/* We assume the section comes AFTER the input in HTML structure */
-
-/* Hide the actual checkbox input */
-input.simulation-toggle-control {
-    display: none;
-}
-
-/* When Toggle is UNCHECKED (Off) -> Hide the Section */
-input.simulation-toggle-control:not(:checked) ~ .simulation-settings-container {
-    max-height: 0;
-    opacity: 0;
-    margin-top: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    overflow: hidden;
-    transform: translateY(-10px);
-    pointer-events: none; /* Prevents clicking while hidden */
-    transition: 
-        max-height 0.5s cubic-bezier(0, 1, 0, 1),
-        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        margin 0.3s ease,
-        transform 0.3s ease;
-}
-
-/* When Toggle is CHECKED (On) -> Show the Section */
-input.simulation-toggle-control:checked ~ .simulation-settings-container {
-    max-height: 1500px; /* Arbitrary large height to fit content */
-    opacity: 1;
-    transform: translateY(0);
-    transition: 
-        max-height 0.8s ease-in-out,
-        opacity 0.4s ease-in,
-        transform 0.4s ease;
-}
-
-
-/* 2. Visual Styling of the Toggle Button */
-
-.simulation-toggle-visual {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-2);
-    margin: var(--space-4) 0;
-    cursor: pointer;
-    border-radius: 0;
-    transition: background-color 0.2s ease;
-    user-select: none;
-}
-
-.simulation-toggle-visual:hover {
-    background-color: var(--bg-tertiary);
-}
-
-/* Switch Track (Background) */
-.toggle-switch-wrapper {
-    position: relative;
-    width: 48px;
-    height: 26px;
-    flex-shrink: 0; /* Prevent shrinking */
-}
-
-.toggle-track {
-    width: 100%;
-    height: 100%;
-    background-color: var(--bg-quaternary);
-    border: 1px solid var(--border-primary);
-    border-radius: 34px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-
-/* Switch Thumb (Circle) */
-.toggle-thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 20px;
-    height: 20px;
-    background-color: var(--text-tertiary);
-    border-radius: 50%;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-}
-
-/* Text Styling */
-.toggle-text-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.toggle-title {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 1rem;
-}
-
-.toggle-description {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    margin-top: 2px;
-}
-
-/* 3. Active State Styling (Controlled by Sibling Selector) */
-
-/* When Checked: Color the Track */
-input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-track {
-    background-color: var(--accent-primary);
-    border-color: var(--accent-primary);
-}
-
-/* When Checked: Move and Color the Thumb */
-input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-thumb {
-    transform: translateX(22px);
-    background-color: #ffffff;
-}
-
-/* When Checked: Highlight Title */
-input.simulation-toggle-control:checked + .simulation-toggle-visual .toggle-title {
-    color: var(--accent-primary);
+.ui-state-showing {
+  opacity: 1 !important;
 }

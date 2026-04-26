@@ -1,151 +1,270 @@
 /*
  * =====================================================================================
+ *  theme_variables.css — AURORA Design Tokens v3
  *
- *       Filename:  theme_variables.css
+ *  Inspired by the aurora borealis: deep night-sky base, soft cyan/violet/mint accents.
+ *  Strict scale, semantic naming, aliases for legacy CSS preserved.
  *
- *    Description:  A modern and elegant dark theme with a sophisticated purple accent.
- *                  This file establishes a complete design system for a singular,
- *                  focused dark mode experience.
- *
+ *  Type:    Inter (sans), JetBrains Mono (mono), Geist (display fallback).
+ *  Spacing: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 48.
+ *  Radius:  4 / 6 / 8 / 12.
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  FONT IMPORTS - A refined and modern typographic scale
- * =================================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* ===================================================================================
-   *  CORE THEME: ELEGANT PURPLE DARK MODE
-   * =================================================================================== */
-  
-  /* Base Palette - Aurora night sky, deep and refined */
-  --bg-primary: #0E0D1A;        /* Deepest background — aurora night sky */
-  --bg-secondary: #13122A;      /* Panels, sidebars, secondary surfaces */
-  --bg-tertiary: #1A1835;       /* UI elements like input fields, list items */
-  --bg-quaternary: #211F40;     /* Subtle lift for active/selected states */
-  --bg-elevated: rgba(28, 26, 56, 0.98); /* Modals, popovers, floating elements */
+  /* =========================================================================
+   *  Surface — night sky depths
+   * ======================================================================= */
+  --bg:           #0A0D14;   /* canvas */
+  --bg-elev:      #0F131C;   /* sidebars, status bar */
+  --bg-elev-2:    #151A25;   /* hover, popovers */
+  --bg-elev-3:    #1B2130;   /* modals, active rows */
+  --bg-overlay:   rgba(6, 8, 12, 0.72);
 
-  /* Accent Palette (Aurora Violet) - Elegant and restrained */
-  --accent-primary: #7B5EA7;   /* Main interactive elements, buttons, links */
-  --accent-secondary: #6A4D96;  /* A deeper shade for secondary actions */
-  --accent-hover: #9B7DC4;      /* Lighter accent for hover states */
-  --accent-active: #5A3D86;     /* Darker accent for active/pressed states */
-  --accent-focus-ring: #B89ED8; /* For focus outlines, ensuring visibility */
-  --accent-subtle-bg: rgba(123, 94, 167, 0.12); /* Subtle background for highlighted areas */
-  --accent-subtle-border: rgba(123, 94, 167, 0.25); /* Subtle borders for accented elements */
+  /* Borders — barely there */
+  --border-subtle: #161A23;
+  --border:        #1F2532;
+  --border-strong: #2A3040;
 
-  /* Text & Content - Aurora-tinted text hierarchy */
-  --text-primary: #E8E6F0;      /* Warm white with subtle purple tint */
-  --text-secondary: #A09CBD;    /* Muted aurora purple-gray */
-  --text-tertiary: #6B6885;     /* Subtle, for de-emphasized content */
-  --text-muted: #6B6885;        /* Alias for text-tertiary — used in terminal/file tree */
-  --text-disabled: #4A4760;     /* Very muted, for disabled elements */
-  --text-on-accent: #FFFFFF;    /* Text on top of accent-colored backgrounds */
-  --text-link: #9B7DC4;         /* Standard link color */
-  --text-link-hover: #B89ED8;   /* Link hover color */
+  /* Text — 4 stops */
+  --text:           #E8ECF3;
+  --text-secondary: #9CA1AE;
+  --text-muted:     #6A6F7C;
+  --text-disabled:  #3F434E;
 
-  /* Borders & Dividers - Deep aurora night separation */
-  --border-primary: #2D2A4A;    /* Main borders, component outlines */
-  --border-secondary: #231F3D;  /* Subtle inner borders */
-  --border-focus: #7B5EA7;      /* Focus ring color for components */
-  --border-divider: #2D2A4A;    /* For horizontal or vertical rules */
+  /* Aurora palette — calibrated for dark UI */
+  --aurora-mint:   #5FE0B0;   /* greenish white */
+  --aurora-teal:   #4FD3C2;   /* turquoise */
+  --aurora-cyan:   #5BB8E8;   /* electric blue */
+  --aurora-violet: #8E83E8;   /* primary aurora */
+  --aurora-purple: #B98AE0;   /* magenta corona */
+  --aurora-pink:   #E68FB8;   /* sub-storm pink */
+  --aurora-night:  #1E2440;   /* dawn glow */
 
-  /* Status Colors - Semantic accents (green, amber, red, sky — used sparingly) */
-  --status-success: #34D399;    /* Aurora teal-green */
-  --status-warning: #FBBF24;    /* Aurora amber */
-  --status-error: #F87171;      /* Coral red */
-  --status-info: #60A5FA;       /* Aurora sky blue */
-  --status-success-bg: rgba(52, 211, 153, 0.12);
-  --status-warning-bg: rgba(251, 191, 36, 0.12);
-  --status-error-bg: rgba(248, 113, 113, 0.12);
-  --status-info-bg: rgba(96, 165, 250, 0.12);
+  /* Accent — single source of truth */
+  --accent:        #8E83E8;
+  --accent-hover:  #A89EF0;
+  --accent-active: #6E63C8;
+  --accent-soft:   rgba(142, 131, 232, 0.10);
+  --accent-strong: rgba(142, 131, 232, 0.18);
+  --accent-border: rgba(142, 131, 232, 0.28);
+  --accent-glow:   rgba(142, 131, 232, 0.42);
 
-  /* Overlays - For interactive states on complex components */
-  --overlay-hover: rgba(255, 255, 255, 0.06);
-  --overlay-active: rgba(255, 255, 255, 0.10);
-  --overlay-disabled: rgba(14, 13, 26, 0.5);
+  /* Status — desaturated, not loud */
+  --status-success: #5DD4A8;
+  --status-warning: #E8B86C;
+  --status-error:   #E26C6C;
+  --status-info:    #5BB8E8;
 
-  /* Shadows - Deeper and more dramatic for the aurora night theme */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  --shadow-focus-outline: 0 0 0 3px rgba(123, 94, 167, 0.5);
-  --shadow-glow: 0 0 20px rgba(123, 94, 167, 0.35);
+  --status-success-bg: rgba(93, 212, 168, 0.08);
+  --status-warning-bg: rgba(232, 184, 108, 0.08);
+  --status-error-bg:   rgba(226, 108, 108, 0.08);
+  --status-info-bg:    rgba(91, 184, 232, 0.08);
 
-  /* Gradients - Aurora-inspired transitions */
-  --gradient-primary: linear-gradient(135deg, #7B5EA7 0%, #6A4D96 100%);
-  --gradient-secondary: linear-gradient(135deg, #13122A 0%, #0E0D1A 100%);
-  --gradient-accent-text: linear-gradient(90deg, #9B7DC4, #B89ED8);
-  --gradient-aurora: linear-gradient(135deg, #7B5EA7 0%, #4E85C5 50%, #34D399 100%);
+  /* Overlays — used everywhere for hover/active */
+  --overlay-hover:  rgba(255, 255, 255, 0.035);
+  --overlay-active: rgba(255, 255, 255, 0.07);
+  --overlay-selected: rgba(142, 131, 232, 0.12);
 
-  /* ===================================================================================
-   *  DESIGN SYSTEM TOKENS
-   * =================================================================================== */
-  
-  /* Transitions & Animations */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* =========================================================================
+   *  Aurora gradients — used pontualmente
+   * ======================================================================= */
+  --gradient-aurora:
+      linear-gradient(90deg, #5FE0B0 0%, #4FD3C2 22%, #5BB8E8 50%, #8E83E8 78%, #B98AE0 100%);
+  --gradient-aurora-vertical:
+      linear-gradient(180deg, rgba(95, 224, 176, 0.18) 0%, rgba(91, 184, 232, 0.14) 40%, rgba(142, 131, 232, 0.10) 100%);
+  --gradient-night:
+      radial-gradient(ellipse at 50% 0%, #131826 0%, #0A0D14 60%);
+  --gradient-accent:
+      linear-gradient(135deg, #8E83E8 0%, #6E63C8 100%);
+  --gradient-text:
+      linear-gradient(90deg, #5FE0B0, #5BB8E8, #8E83E8);
 
-  /* Spacing Scale (4px base) */
-  --space-1: 0.25rem;  /* 4px */
-  --space-2: 0.5rem;   /* 8px */
-  --space-3: 0.75rem;  /* 12px */
-  --space-4: 1rem;     /* 16px */
-  --space-5: 1.25rem;  /* 20px */
-  --space-6: 1.5rem;   /* 24px */
-  --space-8: 2rem;     /* 32px */
-  --space-12: 3rem;    /* 48px */
-  --space-16: 4rem;    /* 64px */
-  
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
+  /* =========================================================================
+   *  Shadows
+   * ======================================================================= */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 28px 60px rgba(0, 0, 0, 0.65);
+
+  --shadow-glow:        0 0 16px rgba(142, 131, 232, 0.32);
+  --shadow-glow-mint:   0 0 16px rgba(95, 224, 176, 0.28);
+  --shadow-focus:       0 0 0 2px rgba(142, 131, 232, 0.32);
+  --shadow-inset-line:  inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+  /* =========================================================================
+   *  Spacing — 4px scale
+   * ======================================================================= */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-7-rem: 1.75rem;
+
+  /* =========================================================================
+   *  Radius
+   * ======================================================================= */
+  --radius-none: 0;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
   --radius-full: 9999px;
-  
-  /* Typography */
-  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  
-  /* Font Sizes */
-  --text-xs: 0.75rem;    /* 12px */
-  --text-sm: 0.875rem;   /* 14px */
-  --text-base: 1rem;     /* 16px */
-  --text-lg: 1.125rem;   /* 18px */
-  --text-xl: 1.25rem;    /* 20px */
-  --text-2xl: 1.5rem;    /* 24px */
-  --text-3xl: 2rem;      /* 32px */
-  
-  /* Font Weights */
-  --font-light: 300;
-  --font-normal: 400;
-  --font-medium: 500;
+
+  /* =========================================================================
+   *  Typography
+   * ======================================================================= */
+  --font-sans:    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: 'Inter', system-ui, sans-serif;
+
+  --text-2xs:  10px;
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   16px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  32px;
+
+  --font-normal:   400;
+  --font-medium:   500;
   --font-semibold: 600;
-  --font-bold: 700;
-  
-  /* Line Heights */
-  --leading-none: 1;
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.75;
-  
-  /* Z-Index Scale */
-  --z-1:0;
-  --z-1:1;
-  --z-10: 10;  /* Tooltips, popovers */
-  --z-20: 20;  /* Dropdowns */
-  --z-30: 30;  /* Sticky elements */
-  --z-40: 40;  /* Overlays, modals */
-  --z-50: 50;  /* Highest-level elements */
+  --font-bold:     700;
+  --font-light:    400;
+
+  --leading-none:    1;
+  --leading-tight:   1.25;
+  --leading-snug:    1.4;
+  --leading-normal:  1.55;
+  --leading-relaxed: 1.7;
+
+  --tracking-tighter: -0.02em;
+  --tracking-tight:   -0.01em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.025em;
+  --tracking-wider:   0.06em;
+  --tracking-widest:  0.14em;
+
+  /* =========================================================================
+   *  Heights — control rhythm
+   * ======================================================================= */
+  --h-toolbar:    40px;
+  --h-statusbar:  24px;
+  --h-tab:        34px;
+  --h-tab-term:   30px;
+  --h-button:     28px;
+  --h-button-sm:  24px;
+  --h-button-lg:  32px;
+  --h-input:      30px;
+  --h-tree-item:  24px;
+
+  /* =========================================================================
+   *  Motion
+   * ======================================================================= */
+  --transition-fast:   140ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-quart:    cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-expo:     cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-spring:       cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bounce: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* =========================================================================
+   *  Z-index
+   * ======================================================================= */
+  --z-base:         0;
+  --z-0:            0;
+  --z-1:            1;
+  --z-10:           10;
+  --z-20:           20;
+  --z-30:           30;
+  --z-40:           40;
+  --z-50:           50;
+  --z-modal:        80;
+  --z-tooltip:      90;
+  --z-notification: 95;
+  --z-max:          100;
+
+  /* =========================================================================
+   *  LEGACY ALIASES — preserva compat com CSS antigos
+   * ======================================================================= */
+  --bg-primary:     var(--bg);
+  --bg-secondary:   var(--bg-elev);
+  --bg-tertiary:    var(--bg-elev-2);
+  --bg-quaternary:  var(--bg-elev-3);
+  --bg-elevated:    var(--bg-elev-2);
+  --bg-hover:       var(--bg-elev-2);
+  --bg-active:      var(--bg-elev-3);
+  --background-color:        var(--bg-elev);
+  --background-lighter:      var(--bg-elev-2);
+  --background-lighter-hover: var(--border);
+  --hover-color:             var(--bg-elev-2);
+  --hover-overlay:           var(--overlay-hover);
+  --active-overlay:          var(--overlay-active);
+
+  --accent-primary:        var(--accent);
+  --accent-secondary:      var(--accent-active);
+  --accent-focus-ring:     var(--accent-hover);
+  --accent-subtle-bg:      var(--accent-soft);
+  --accent-subtle-border:  var(--accent-border);
+  --accent-muted:          var(--accent-active);
+  --accent-focus:          var(--accent-hover);
+  --primary:               var(--accent);
+
+  --text-primary:    var(--text);
+  --text-tertiary:   var(--text-muted);
+  --text-on-accent:  #FFFFFF;
+  --text-link:       var(--accent-hover);
+  --text-link-hover: var(--accent-hover);
+  --text-color:               var(--text);
+  --text-color-secondary:     var(--text-secondary);
+  --icon-primary:    var(--text);
+  --icon-secondary:  var(--text-secondary);
+  --icon-muted:      var(--text-muted);
+
+  --border-primary:   var(--border);
+  --border-secondary: var(--border-subtle);
+  --border-divider:   var(--border);
+  --border-focus:     var(--accent);
+  --border-color:     var(--border);
+
+  --error:            var(--status-error);
+  --warning:          var(--status-warning);
+  --info:             var(--status-info);
+  --success:          var(--status-success);
+  --success-color:    var(--status-success);
+  --overlay-disabled: rgba(8, 10, 14, 0.55);
+
+  --shadow-focus-outline: var(--shadow-focus);
+  --shadow-glow-teal:     0 0 16px rgba(95, 224, 176, 0.30);
+  --gradient-primary:     var(--gradient-accent);
+  --gradient-secondary:   linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 100%);
+  --gradient-accent-text: var(--gradient-text);
+  --gradient-aurora-soft: linear-gradient(180deg,
+      rgba(95, 224, 176, 0.05) 0%,
+      rgba(142, 131, 232, 0.05) 50%,
+      rgba(91, 184, 232, 0.04) 100%);
 }
 
-/* ===================================================================================
- *  GLOBAL & BASE STYLES
- * =================================================================================== */
+/* ===========================================================================
+ *  GLOBAL & BASE
+ * ========================================================================= */
 
 *,
 *::before,
@@ -155,7 +274,7 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 13px;
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -167,79 +286,223 @@ html {
 body {
   margin: 0;
   padding: 0;
+  font-family: var(--font-sans);
   font-size: var(--text-base);
   font-weight: var(--font-normal);
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+  background-color: var(--bg);
+  font-feature-settings: 'cv11', 'ss01';
 }
 
-/* Selection Styling */
 ::selection {
-  background-color: var(--accent-primary);
-  color: var(--text-on-accent);
+  background-color: rgba(142, 131, 232, 0.32);
+  color: #FFFFFF;
 }
 
-/* Focus Styling for Accessibility */
 :focus-visible {
-  outline: 2px solid var(--accent-focus-ring);
-  outline-offset: 2px;
-  border-radius: 0;
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
 }
 
-/* Custom Scrollbar Styling */
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: var(--bg-quaternary);
-  border-radius: 0;
-  border: 3px solid var(--bg-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-primary);
+  background-color: rgba(255, 255, 255, 0.16);
+  background-clip: padding-box;
 }
+::-webkit-scrollbar-corner { background: transparent; }
 
-/* ===================================================================================
- *  UTILITY CLASSES & ANIMATIONS
- * =================================================================================== */
-
+/* ===========================================================================
+ *  UTILITIES
+ * ========================================================================= */
+.text-aurora,
 .gradient-text {
-  background: var(--gradient-accent-text);
+  background: var(--gradient-text);
+  background-size: 200% 100%;
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
-/* Keyframe Animations */
+/* ===========================================================================
+ *  ANIMATIONS
+ * ========================================================================= */
 @keyframes fadeIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(var(--space-2));
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0);
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes auroraShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-fade-in     { animation: fadeIn var(--transition-normal) var(--ease-out-quart) both; }
+.animate-fade-scale  { animation: fadeInScale var(--transition-normal) var(--ease-out-quart) both; }
+.animate-slide-up    { animation: slideInUp var(--transition-normal) var(--ease-out-quart) both; }
+.animate-slide-right { animation: slideInRight var(--transition-normal) var(--ease-out-quart) both; }
+.animate-spin        { animation: spin 1s linear infinite; }
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(123, 94, 167, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(123, 94, 167, 0);
-  }
+/* ===========================================================================
+ *  ICON NORMALIZATION
+ *  Phosphor (.ph, .ph-bold) is the canonical icon set everywhere.
+ * ========================================================================= */
+.ph,
+.ph-bold,
+.ph-fill,
+.fa-solid,
+.fa-regular,
+.fas,
+.far {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-style: normal;
+  vertical-align: middle;
 }
 
-.animate-fade-in {
-  animation: fadeIn var(--transition-slow) ease-out forwards;
+.toolbar-button > .ph,
+.toolbar-button > .ph-bold,
+.toolbar-button > .fa-solid,
+.toolbar-button > .fas {
+  font-size: 16px;
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2.5s infinite;
+.toolbar-button > .ph + .ph,
+.toolbar-button > .ph-bold + .ph-bold,
+.toolbar-button > .fa-solid + .fa-solid {
+  margin-left: -3px;
+}
+
+.tree-action > .ph,
+.tree-action > .ph-bold,
+.overlay-title .tree-toggle-btn > .ph,
+.tree-action > .fa-solid {
+  font-size: 14px;
+}
+
+.status-item > .ph,
+.status-item > .ph-bold,
+.status-item > .fa-solid { font-size: 12px; }
+
+.tab > .ph,
+.tab > .ph-bold,
+.tab > .fa-solid { font-size: 13px; }
+
+.modal-title > .ph,
+.modal-title > .ph-bold,
+.modal-title > .fa-solid { font-size: 14px; }
+
+.section-title > .ph,
+.section-title > .ph-bold,
+.section-title > .fa-solid { font-size: 12px; }
+
+.form-label > .ph,
+.form-label > .ph-bold,
+.form-label > .fa-solid { font-size: 11px; }
+
+.ph { font-weight: normal; }
+
+/* ===========================================================================
+ *  Custom Aurora Compile Glyphs
+ *  Self-contained SVG marks used in toolbar / terminal tabs / status bar.
+ *  No FontAwesome dependency.
+ * ========================================================================= */
+.aglyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.aglyph svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+.aglyph-c svg circle,
+.aglyph-c svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+/* C± composite — letter C followed by a stacked + / - WITHOUT divider bar */
+.aglyph-cpm {
+  width: 1.6em;
+  height: 1em;
+}
+
+.aglyph-cpm svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
 }

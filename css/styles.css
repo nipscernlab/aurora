@@ -1,89 +1,194 @@
 /*
  * =====================================================================================
+ *  styles.css  —  Aurora IDE shell
  *
- *       Filename:  styles.css
+ *  Single source of truth for the application skeleton:
+ *    body
+ *    └─ .app-shell  (toolbar + main-container, flex-column, fills above status bar)
+ *    └─ .status-bar (independent, full-width footer)
  *
- *    Description:  Core layout styles for the Aurora IDE, defining the main structure,
- *                  body, containers, and resizers. Fully integrated with the
- *                  elegant purple dark theme.
- *
+ *  This file only handles structural concerns. Component skin lives in their
+ *  respective files (toolbar.css, file_tree.css, terminal.css, etc).
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  Global Body & Base Styles
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Body & shell — frameless window
+ * ------------------------------------------------------------------------- */
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--bg);
+  color: var(--text);
   height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: var(--font-sans);
+  font-size: var(--text-base);
 }
 
-/* ===================================================================================
- *  Main Layout Structure
- * =================================================================================== */
-.main-container {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  min-height: 0; /* Required for flex children to shrink properly */
+/* Frameless window: drop default OS chrome offsets when maximized so Aero
+   snap fills cleanly. */
+body.window-maximized {
+  border-radius: 0;
 }
 
-/* Fallback for editor container if needed separately */
-.editor-container {
-  flex: 1;
+.app-shell {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
-.monaco-editor {
-  flex: 1;
+/* ---------------------------------------------------------------------------
+ *  Main row (file-tree | editor+terminal)
+ * ------------------------------------------------------------------------- */
+.main-container {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--bg);
+  position: relative;
+}
+
+.editor-terminal-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
-/* ===================================================================================
- *  Resizable Dividers
- * =================================================================================== */
+.editor-container {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  background-color: var(--bg);
+  position: relative;
+}
+
+.monaco-editor {
+  flex: 1 1 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Resizers — discrete, hit area generous
+ * ------------------------------------------------------------------------- */
 .resizer-vertical {
-  width: 5px;
-  cursor: ew-resize; /* East-West resize */
-  background-color: transparent;
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 14;
   transition: background-color var(--transition-fast);
 }
 
-.resizer-vertical:hover {
-  background-color: var(--accent-primary);
+/* When the file tree is collapsed to 0, the resizer would also collapse out
+   of reach. Force it to stay grabbable so the user can drag it back open. */
+.file-tree-container.is-collapsed .resizer-vertical {
+  right: -8px;
+  width: 12px;
+}
+
+.resizer-vertical::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transition: background var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.resizer-vertical:hover::after,
+body.resizing-vertical .resizer-vertical::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
 
 .resizer-horizontal {
-  height: 5px;
-  cursor: ns-resize; /* North-South resize */
-  background-color: var(--bg-secondary);
+  position: relative;
+  height: 6px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: transparent;
+  z-index: 14;
   transition: background-color var(--transition-fast);
 }
 
-.resizer-horizontal:hover {
-  background-color: var(--accent-primary);
+.resizer-horizontal::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1px;
+  background: var(--border);
+  transition: background var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
-/* ===================================================================================
- *  Context Menu
- * =================================================================================== */
+.resizer-horizontal:hover::after,
+body.resizing-horizontal .resizer-horizontal::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
+}
+
+/* During drag — disable transitions on resizable containers */
+body.resizing-vertical,
+body.resizing-horizontal,
+body.resizing-corner {
+  cursor: inherit;
+}
+body.resizing-vertical *,
+body.resizing-horizontal *,
+body.resizing-corner * {
+  user-select: none !important;
+  pointer-events: none;
+}
+body.resizing-vertical .resizer-vertical,
+body.resizing-horizontal .resizer-horizontal {
+  pointer-events: auto;
+}
+body.resizing-vertical .file-tree-container,
+body.resizing-corner .file-tree-container {
+  transition: none !important;
+}
+body.resizing-horizontal .terminal-container,
+body.resizing-corner .terminal-container {
+  transition: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Context menu
+ * ------------------------------------------------------------------------- */
 .context-menu {
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-1) 0;
-  border-radius: 0;
-  z-index: var(--z-max); /* Use z-index from design system */
+  background-color: var(--bg-elev-2);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg), var(--shadow-inset-line);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  z-index: var(--z-max);
+  min-width: 180px;
+  animation: fadeInScale 140ms var(--ease-out-quart) both;
 }
 
 .context-menu-item {
@@ -91,38 +196,52 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
 }
 
 .context-menu-item:hover {
-  background-color: var(--accent-subtle-bg);
-  color: var(--text-primary);
+  background-color: var(--accent-soft);
+  color: var(--text);
 }
 
-/* ===================================================================================
- *  Side Panels (e.g., News Sidebar)
- * =================================================================================== */
+.context-menu-item i {
+  width: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.context-menu-item:hover i { color: var(--accent-hover); }
+
+.context-menu-separator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Side panels (news webview)
+ * ------------------------------------------------------------------------- */
 .news-sidebar {
   position: fixed;
   top: 0;
-  right: -400px; /* Start off-screen */
+  right: -400px;
   width: 400px;
   max-width: 90vw;
   height: 100%;
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-elev);
   box-shadow: var(--shadow-xl);
-  transition: right var(--transition-normal);
+  transition: right var(--transition-normal) var(--ease-out-quart);
   z-index: var(--z-40);
-  border-left: 1px solid var(--border-primary);
+  border-left: 1px solid var(--border);
   overflow-y: auto;
 }
 
-.news-sidebar.active {
-  right: 0;
-}
+.news-sidebar.active { right: 0; }
 
 .news-webview {
   width: 100%;
@@ -130,34 +249,70 @@ body {
   border: none;
 }
 
-/* ===================================================================================
- *  General Utility & Overrides
- * =================================================================================== */
-/* General scrollbar styling can be placed in a global file like theme_variables.css */
-/* For specific overrides: */
-#tabs::-webkit-scrollbar {
-  height: 4px;
-}
-#tabs::-webkit-scrollbar-track {
-  background-color: var(--bg-primary);
-}
-#tabs::-webkit-scrollbar-thumb {
-  background-color: var(--bg-quaternary);
-}
-#tabs::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-secondary);
-}
+/* ---------------------------------------------------------------------------
+ *  Tabs container scrollbar refinement
+ * ------------------------------------------------------------------------- */
+#tabs-container::-webkit-scrollbar,
+#tabs::-webkit-scrollbar { height: 3px; }
 
-/* Disabled state for buttons if not covered elsewhere */
+#tabs-container::-webkit-scrollbar-track,
+#tabs::-webkit-scrollbar-track { background-color: transparent; }
+
+#tabs-container::-webkit-scrollbar-thumb,
+#tabs::-webkit-scrollbar-thumb { background-color: rgba(142, 131, 232, 0.30); }
+
+#tabs-container::-webkit-scrollbar-thumb:hover,
+#tabs::-webkit-scrollbar-thumb:hover { background-color: rgba(142, 131, 232, 0.55); }
+
+/* ---------------------------------------------------------------------------
+ *  Disabled buttons baseline
+ * ------------------------------------------------------------------------- */
+button:disabled,
 .toolbar-button:disabled {
-  opacity: 0.5;
+  opacity: 0.40;
   cursor: not-allowed;
   background-color: transparent !important;
 }
 
-/* Styles for status bar text elements */
+/* ---------------------------------------------------------------------------
+ *  Status text transitions
+ * ------------------------------------------------------------------------- */
 #processorName,
 #compmode,
-#processorNameID {
-  transition: opacity var(--transition-normal);
+#processorNameID,
+#editorStatus,
+#status-text {
+  transition: color var(--transition-fast), opacity var(--transition-fast);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Utility helpers
+ * ------------------------------------------------------------------------- */
+.hidden     { display: none !important; }
+.invisible  { visibility: hidden; }
+
+.flex          { display: flex; }
+.flex-col      { flex-direction: column; }
+.items-center  { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center  { justify-content: center; }
+.gap-2         { gap: var(--space-2); }
+.gap-3         { gap: var(--space-3); }
+
+.theme-light #fractalcomp img {
+  filter: invert(0%) !important;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Focus ring
+ * ------------------------------------------------------------------------- */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--accent-hover);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }

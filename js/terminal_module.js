@@ -66,26 +66,6 @@ class TerminalManager {
                 const badge = document.createElement('span');
                 badge.className = `message-counter counter-${type}`;
                 badge.textContent = '0';
-                badge.style.cssText = `
-                    position: absolute;
-                    top: -4px;
-                    right: -4px;
-                    background: var(--${type === 'tips' ? 'info' : type});
-                    color: white;
-                    border-radius: 50%;
-                    min-width: 18px;
-                    height: 18px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 10px;
-                    font-weight: bold;
-                    padding: 2px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                    transition: all 0.2s ease;
-                    pointer-events: none;
-                `;
-                button.style.position = 'relative';
                 button.appendChild(badge);
             }
         });
@@ -153,26 +133,28 @@ class TerminalManager {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
-        this.messageCounts[terminalId] = {
-            error: 0,
-            warning: 0,
-            success: 0,
-            tips: 0
-        };
+        const counts = { error: 0, warning: 0, success: 0, tips: 0 };
 
         const entries = terminal.querySelectorAll('.log-entry');
         entries.forEach(entry => {
-            if (entry.classList.contains('error')) {
-                this.messageCounts[terminalId].error++;
-            } else if (entry.classList.contains('warning')) {
-                this.messageCounts[terminalId].warning++;
-            } else if (entry.classList.contains('success')) {
-                this.messageCounts[terminalId].success++;
-            } else if (entry.classList.contains('tips') || entry.classList.contains('info')) {
-                this.messageCounts[terminalId].tips++;
+            // Determine the type of this entry from its classes.
+            let type = null;
+            if (entry.classList.contains('error'))   type = 'error';
+            else if (entry.classList.contains('warning')) type = 'warning';
+            else if (entry.classList.contains('success')) type = 'success';
+            else if (entry.classList.contains('tips') || entry.classList.contains('info')) type = 'tips';
+            if (!type) return;
+
+            // Grouped card: count each child message individually.
+            const grouped = entry.querySelectorAll('.grouped-message');
+            if (grouped.length > 0) {
+                counts[type] += grouped.length;
+            } else {
+                counts[type] += 1;
             }
         });
 
+        this.messageCounts[terminalId] = counts;
         this.updateCounterDisplay();
     }
 
@@ -249,23 +231,47 @@ class TerminalManager {
         this.scrollToBottom(terminalId);
     }
 
-    appendToTerminal(terminalId, content, type = 'info') {
+    appendToTerminal(terminalId, content, type = 'info', options = {}) {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
 
+        // Anything that comes through appendToTerminal is, by definition,
+        // an Aurora wrapper message (compiler output uses processStreamedLine /
+        // processExecutableOutput). When verbose is OFF, only show entries
+        // whose CONTENT carries a semantic marker (Erro/Atenção/Sucesso/Info).
+        const explicitInternal = options.internal === true;
+
         const lines = text.split('\n').filter(line => line.trim());
 
         lines.forEach(line => {
             const detectedType = this.detectMessageType(line);
 
-            if (detectedType !== 'plain' || this.verboseMode) {
-                const timestamp = new Date().toLocaleString('pt-BR', {
-                    hour12: false
-                });
-                this.createLogEntry(terminal, line.trim(), type, timestamp);
+            // Detected semantic type wins. Else: keep the caller's type but
+            // mark it as plain when no semantic marker exists, so it can be
+            // hidden by verbose filter.
+            let effectiveType;
+            if (detectedType !== 'plain') {
+                effectiveType = detectedType;
+            } else if (explicitInternal) {
+                effectiveType = 'plain';
+            } else {
+                // Default path: type without a semantic marker → treat as plain
+                // for verbose-filter purposes, but visually keep the requested type.
+                effectiveType = type === 'info' ? 'plain' : type;
+            }
+
+            // Verbose-off: only show messages with a real semantic marker.
+            if (!this.verboseMode && effectiveType === 'plain') return;
+
+            const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
+            this.createLogEntry(terminal, line.trim(), effectiveType, timestamp);
+
+            // Counter increments per real user-facing category.
+            if (['error', 'warning', 'success', 'tips'].includes(effectiveType)) {
+                this.incrementMessageCount(terminalId, effectiveType);
             }
         });
 
@@ -448,13 +454,14 @@ class TerminalManager {
             });
             card = this.createGroupedCard(terminal, type, timestamp);
             this.currentSessionCards[terminalId][type] = card;
-
-            if (['error', 'warning', 'success', 'tips'].includes(type)) {
-                this.incrementMessageCount(terminalId, type);
-            }
         }
 
         this.addMessageToCard(card, text, type);
+
+        // Counter increments per individual message, not per group card.
+        if (['error', 'warning', 'success', 'tips'].includes(type)) {
+            this.incrementMessageCount(terminalId, type);
+        }
     }
 
    createGroupedCard(terminal, type, timestamp) {

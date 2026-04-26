@@ -242,17 +242,28 @@ class ImportModal {
     this.showNotification('File removed', 'info');
   }
   
-  clearAllFiles() {
+  async clearAllFiles() {
     if (this.importedFiles.length === 0) return;
-    
-    if (confirm('Are you sure you want to remove all imported files?')) {
-      this.importedFiles = [];
-      this.filterFiles('');
-      this.updateStatistics();
-      this.saveConfiguration();
-      
-      this.showNotification('All files cleared', 'info');
+
+    const dlg = window.AuroraUI?.confirm;
+    let ok;
+    if (typeof dlg === 'function') {
+      ok = await dlg(
+        'Remove all files?',
+        'This will clear every imported file from the project. This action cannot be undone.',
+        { variant: 'warning', confirmLabel: 'Remove all', danger: true }
+      );
+    } else {
+      ok = window.confirm('Are you sure you want to remove all imported files?');
     }
+
+    if (!ok) return;
+
+    this.importedFiles = [];
+    this.filterFiles('');
+    this.updateStatistics();
+    this.saveConfiguration();
+    this.showNotification('All files cleared', 'info');
   }
   
   filterFiles(searchTerm) {

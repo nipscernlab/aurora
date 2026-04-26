@@ -1,35 +1,32 @@
-/* Enhanced tooltip styling with dynamic arrow positioning */
-.custom-tooltip {
-    position: fixed;
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-radius: 0;
-    box-shadow: var(--shadow-md);
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    line-height: 1.4;
-    max-width: 20rem;
-    z-index: 9999;
-    opacity: 0;
-    transform: translateY(5px);
-    pointer-events: none;
-    border: 1px solid var(--border-primary);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    
-    /* Add subtle glass effect */
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    
-    /* Hide by default */
-    display: none;
-}
+/*
+ * =====================================================================================
+ *  tooltip.css  —  AURORA tooltip
+ * =====================================================================================
+ */
 
 .custom-tooltip {
-  /* ... other styles ... */
-  max-width: 350px;      /* Prevent it from becoming too wide */
-  white-space: normal;   /* Allow text to wrap naturally */
-  overflow-wrap: break-word; /* Break long words if necessary */
-  width: max-content;    /* Crucial: makes the box fit the content */
+    position: fixed;
+    background-color: var(--bg-elev-3);
+    color: var(--text);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md), var(--shadow-inset-line);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+    max-width: 280px;
+    z-index: var(--z-tooltip);
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
+    border: 1px solid var(--border);
+    transition: opacity 160ms ease, transform 160ms ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: none;
+    white-space: normal;
+    overflow-wrap: break-word;
+    width: max-content;
+    letter-spacing: var(--tracking-tight);
 }
 
 .custom-tooltip.visible {
@@ -39,23 +36,22 @@
 }
 
 .tooltip-content {
-    padding: 0.75rem 1rem;
+    padding: var(--space-2) var(--space-3);
 }
 
-/* Tooltip arrows with dynamic positioning */
+/* Arrows */
 .tooltip-arrow {
     position: absolute;
     width: 0;
     height: 0;
     border-style: solid;
-    z-index: 10000;
+    z-index: calc(var(--z-tooltip) + 1);
 }
 
-/* Top arrow (tooltip below cursor) */
 .tooltip-arrow.arrow-top {
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid var(--bg-tertiary);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid var(--bg-elev-3);
     border-top: none;
 }
 
@@ -63,194 +59,89 @@
     content: '';
     position: absolute;
     top: 1px;
-    left: -6px;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid var(--border-primary);
+    left: -5px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid var(--border);
     border-top: none;
 }
 
-/* Bottom arrow (tooltip above cursor) */
 .tooltip-arrow.arrow-bottom {
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--bg-tertiary);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--bg-elev-3);
     border-bottom: none;
 }
 
 .tooltip-arrow.arrow-bottom::before {
     content: '';
     position: absolute;
-    top: -7px;
-    left: -6px;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--border-primary);
+    top: -6px;
+    left: -5px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--border);
     border-bottom: none;
 }
 
-/* Left arrow (tooltip to the right of cursor) */
 .tooltip-arrow.arrow-left {
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-right: 6px solid var(--bg-tertiary);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-right: 5px solid var(--bg-elev-3);
     border-left: none;
 }
 
 .tooltip-arrow.arrow-left::before {
     content: '';
     position: absolute;
-    top: -6px;
+    top: -5px;
     left: 1px;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-right: 6px solid var(--border-primary);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-right: 5px solid var(--border);
     border-left: none;
 }
 
-/* Right arrow (tooltip to the left of cursor) */
 .tooltip-arrow.arrow-right {
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-left: 6px solid var(--bg-tertiary);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 5px solid var(--bg-elev-3);
     border-right: none;
 }
 
 .tooltip-arrow.arrow-right::before {
     content: '';
     position: absolute;
-    top: -6px;
-    left: -7px;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-left: 6px solid var(--border-primary);
+    top: -5px;
+    left: -6px;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 5px solid var(--border);
     border-right: none;
 }
 
-/* Enhanced styling for buttons when tooltips are shown */
-.toolbar-button:hover {
-    transform: translateY(-1px);
-    transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-/* Style the button text */
-.toolbar-button span {
-    margin-left: 0.5rem;
-    vertical-align: middle;
-}
-
-/* Animation for when tooltip appears */
 @keyframes tooltip-appear {
-    0% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    0%   { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .custom-tooltip {
-        max-width: 15rem;
-        font-size: 0.8rem;
+        max-width: 14rem;
+        font-size: 10.5px;
     }
-    
     .tooltip-content {
-        padding: 0.5rem 0.75rem;
+        padding: 6px 10px;
     }
-    
     .tooltip-arrow,
-    .tooltip-arrow::before {
-        border-width: 4px;
-    }
+    .tooltip-arrow::before { border-width: 4px; }
 }
 
 @media (max-width: 480px) {
-    .custom-tooltip {
-        max-width: 12rem;
-    }
+    .custom-tooltip { max-width: 12rem; }
 }
 
-/* Dark mode specific adjustments */
-body:not(.theme-light) .custom-tooltip {
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-/* Light mode specific adjustments */
-body.theme-light .custom-tooltip {
-    background-color: rgba(255, 255, 255, 0.95);
-}
-
-body.theme-light .tooltip-arrow.arrow-top {
-    border-bottom-color: rgba(255, 255, 255, 0.95);
-}
-
-body.theme-light .tooltip-arrow.arrow-bottom {
-    border-top-color: rgba(255, 255, 255, 0.95);
-}
-
-body.theme-light .tooltip-arrow.arrow-left {
-    border-right-color: rgba(255, 255, 255, 0.95);
-}
-
-body.theme-light .tooltip-arrow.arrow-right {
-    border-left-color: rgba(255, 255, 255, 0.95);
-}
-
-/* Boost readability based on theme */
-body.theme-light .custom-tooltip {
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-body:not(.theme-light) .custom-tooltip {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-/* Change icon button specific styling */
-.change-icon-btn {
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    font-size: var(--text-xl);
-    color: var(--icon-secondary);
-    background-color: var(--hover-overlay);
-    transition: color var(--transition-normal), transform var(--transition-fast);
-    cursor: pointer;
-    border-radius: 0;
-    top: 8rem;
-    left: 1rem;
-}
-
-.change-icon-btn:hover {
-    color: var(--icon-primary);
-    background-color: var(--hover-overlay);
-    transform: scale(1.05);
-}
-
-.change-icon-btn:active {
-    color: var(--icon-muted);
-    background-color: var(--active-overlay);
-    transform: scale(0.95);
-}
-
-/* Special handling for modal elements */
-.modalConfig input:focus,
-.modalConfig select:focus,
-.modalConfig textarea:focus {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-}
-
-/* Processor hub specific elements */
-.processor-hub-form input:focus,
-.processor-hub-form select:focus {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-}
-
-/* Ensure tooltips appear above modals */
+/* Modal-aware tooltip layering */
 .modalConfig.show ~ .custom-tooltip,
 .npmodal-overlay:not(.hidden) ~ .custom-tooltip,
 .processor-hub-container ~ .custom-tooltip {

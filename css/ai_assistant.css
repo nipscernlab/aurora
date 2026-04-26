@@ -1,28 +1,17 @@
 /*
  * =====================================================================================
+ *  ai_assistant.css — AURORA AI Assistant side panel v2
  *
- *       Filename:  ai_assistant.css
- *
- *    Description:  Styles for the AI Assistant slide-out panel, fully integrated
- *                  with the elegant purple dark theme.
- *
+ *  Design intent:
+ *    • No backdrop, no blur — user keeps coding while panel is open.
+ *    • Sliding panel anchored to the right, resizable from the left edge.
+ *    • Header is compact, blends with the toolbar palette.
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  Backdrop & Main Container
- * =================================================================================== */
-.ai-assistant-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(17, 16, 21, 0.5); /* --bg-primary with alpha */
-  backdrop-filter: blur(4px);
-  z-index: var(--z-40);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--transition-normal), visibility var(--transition-normal);
-}
-
+/* ---------------------------------------------------------------------------
+ *  Container
+ * ------------------------------------------------------------------------- */
 .ai-assistant-container {
   position: fixed;
   top: 0;
@@ -30,10 +19,12 @@
   transform: translateX(100%);
   width: 480px;
   height: 100vh;
-  background-color: var(--bg-secondary); /* Use secondary for the base panel */
+  background-color: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
   overflow: hidden;
-  z-index: var(--z-50);
-  transition: transform var(--transition-normal);
+  z-index: var(--z-40);
+  transition: transform 240ms var(--ease-out-quart);
   display: flex;
   flex-direction: column;
   min-width: 320px;
@@ -45,15 +36,22 @@
   transform: translateX(0);
 }
 
-/* ===================================================================================
+/* While open: nudge nothing — the user keeps editing freely */
+body.ai-assistant-open {
+  /* intentionally empty: no overflow lock, no shift */
+}
+
+/* ---------------------------------------------------------------------------
  *  Header
- * =================================================================================== */
+ * ------------------------------------------------------------------------- */
 .ai-assistant-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-primary);
+  height: 44px;
+  padding: 0 var(--space-3);
+  background-color: var(--bg-elev);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   position: relative;
 }
@@ -64,83 +62,113 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: var(--gradient-primary);
+  height: 1px;
+  background: var(--gradient-aurora);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
-.ai-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: 10px;
-}
-
-.ai-assistant-title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-
-/* AI Provider Selection Dropdown */
-.ai-provider-section {
-  display: flex;
+.ai-header-left,
+.ai-header-right {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  background-color: var(--bg-tertiary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: 0;
-  border: 1px solid var(--border-primary);
+}
+
+.ai-assistant-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  flex-shrink: 0;
 }
 
 .ai-provider-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  transition: opacity var(--transition-fast);
+}
+
+.ai-assistant-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+
+/* Provider dropdown */
+.ai-provider-section {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  position: relative;
 }
 
 .ai-provider-select {
   appearance: none;
   background: transparent;
-  color: var(--text-secondary);
-  border: none;
+  color: var(--text);
+  border: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   cursor: pointer;
   outline: none;
-  padding-right: var(--space-2); /* For custom arrow spacing if needed */
+  padding-right: var(--space-4);
+  height: 24px;
 }
 
-/* Close Button */
+.ai-provider-caret {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Close button */
 .ai-assistant-close {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: transparent;
-  border: none;
-  border-radius: 0;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 13px;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  color: var(--text-tertiary);
-  font-size: var(--text-lg);
-  margin-left: 20px;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
 }
 
 .ai-assistant-close:hover {
   background-color: var(--overlay-hover);
-  color: var(--text-primary);
-  transform: rotate(90deg);
+  color: var(--text);
 }
 
-/* ===================================================================================
- *  Content & Loading State
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Content
+ * ------------------------------------------------------------------------- */
 .ai-assistant-content {
-  flex: 1;
+  flex: 1 1 0;
   position: relative;
-  background-color: var(--bg-primary); /* Use primary for the content area */
+  background-color: var(--bg);
   overflow: hidden;
 }
 
@@ -148,21 +176,20 @@
   width: 100%;
   height: 100%;
   border: none;
-  background-color: var(--bg-primary);
+  background-color: var(--bg);
 }
 
 .ai-loading-overlay {
   position: absolute;
   inset: 0;
-  background-color: var(--bg-primary);
+  background-color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: var(--space-4);
-  transition: opacity var(--transition-normal), pointer-events var(--transition-normal);
+  gap: var(--space-3);
+  transition: opacity var(--transition-normal);
   z-index: var(--z-10);
-  pointer-events: auto;
 }
 
 .ai-loading-overlay[style*="opacity: 0"],
@@ -171,74 +198,63 @@
 }
 
 .ai-loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border-primary);
-  border-top-color: var(--accent-primary);
-  border-radius: 0;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
   animation: ai-spin 1s linear infinite;
 }
 
 .ai-loading-text {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-tight);
 }
 
 @keyframes ai-spin {
   to { transform: rotate(360deg); }
 }
 
-/* ===================================================================================
- *  Resize Handle
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Resize handle
+ * ------------------------------------------------------------------------- */
 .ai-resize-handle {
   position: absolute;
   top: 0;
-  left: -3px; /* Overlap slightly for easier grabbing */
+  left: -3px;
   width: 6px;
   height: 100%;
   cursor: ew-resize;
-  background-color: transparent;
-  transition: background-color var(--transition-fast);
+  background: transparent;
   z-index: var(--z-20);
+  transition: background-color var(--transition-fast);
 }
 
-.ai-resize-handle:hover {
-  background-color: var(--accent-primary);
+.ai-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transition: background var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
-/* ===================================================================================
- *  Responsive Design
- * =================================================================================== */
+.ai-resize-handle:hover::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Responsive
+ * ------------------------------------------------------------------------- */
 @media (max-width: 640px) {
   .ai-assistant-container {
-    width: 95vw;
-    top: auto;
-    bottom: 0;
-    height: 85vh; /* Adjust height for mobile */
-    border-radius: 0;
-    border-left: none;
-    border-top: 1px solid var(--border-primary);
+    width: 100vw;
+    max-width: 100vw;
   }
-
-  .ai-assistant-container.open {
-    transform: translateY(0);
-  }
-  
-  .ai-assistant-container:not(.open) {
-    transform: translateY(100%);
-  }
-
-  .ai-assistant-header {
-    padding: var(--space-3);
-  }
-
-  .ai-assistant-title {
-    font-size: var(--text-base);
-  }
-  
-  .ai-resize-handle {
-    display: none; /* Resizing is not practical on touch devices */
-  }
+  .ai-resize-handle { display: none; }
 }
-

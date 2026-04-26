@@ -1356,125 +1356,120 @@ export class TabManager {
         }
     }
 
-    // Enhanced getFileIcon method with more file types and better icons
+    // getFileIcon — returns Phosphor classes (no FA dependency)
     static getFileIcon(filename) {
-        const extension = filename.split('.')
-            .pop()
-            .toLowerCase();
+        const extension = filename.split('.').pop().toLowerCase();
 
-        // Image file icons
+        // Images
         if (this.imageExtensions.has(extension)) {
-            const imageIconMap = {
-                'jpg': 'fas fa-file-image',
-                'jpeg': 'fas fa-file-image',
-                'png': 'fas fa-file-image',
-                'gif': 'fas fa-file-image',
-                'bmp': 'fas fa-file-image',
-                'webp': 'fas fa-file-image',
-                'svg': 'fas fa-file-code',
-                'ico': 'fas fa-file-image'
-            };
-            return imageIconMap[extension] || 'fas fa-file-image';
+            return extension === 'svg' ? 'ph ph-file-svg' : 'ph ph-file-image';
         }
 
-        // PDF file icons
-        if (extension === 'pdf') {
-            return 'fas fa-file-pdf';
-        }
+        if (extension === 'pdf') return 'ph ph-file-pdf';
 
-        // Enhanced text file icons
         const iconMap = {
-            // JavaScript/TypeScript
-            'js': 'fab fa-js-square',
-            'jsx': 'fab fa-react',
-            'ts': 'fab fa-js-square',
-            'tsx': 'fab fa-react',
-            'mjs': 'fab fa-js-square',
-            'vue': 'fab fa-vuejs',
+            // SAPHO/AURORA file types
+            'cmm':       'ph ph-file-code',
+            'asm':       'ph ph-file-code',
+            'v':         'ph ph-file-code',
+            'vh':        'ph ph-file-code',
+            'sv':        'ph ph-file-code',
+            'gtkw':      'ph ph-waveform',
+            'vcd':       'ph ph-waveform',
+            'mif':       'ph ph-database',
+            'spf':       'ph ph-package',
 
-            // Web technologies
-            'html': 'fab fa-html5',
-            'htm': 'fab fa-html5',
-            'css': 'fab fa-css3-alt',
-            'scss': 'fab fa-sass',
-            'sass': 'fab fa-sass',
-            'less': 'fas fa-file-code',
+            // JS/TS
+            'js':   'ph ph-file-js',
+            'jsx':  'ph ph-file-jsx',
+            'ts':   'ph ph-file-ts',
+            'tsx':  'ph ph-file-tsx',
+            'mjs':  'ph ph-file-js',
+            'vue':  'ph ph-file-vue',
 
-            // Data formats
-            'json': 'fas fa-file-code',
-            'xml': 'fas fa-file-code',
-            'yaml': 'fas fa-file-code',
-            'yml': 'fas fa-file-code',
-            'toml': 'fas fa-file-code',
+            // Web
+            'html': 'ph ph-file-html',
+            'htm':  'ph ph-file-html',
+            'css':  'ph ph-file-css',
+            'scss': 'ph ph-file-css',
+            'sass': 'ph ph-file-css',
+            'less': 'ph ph-file-css',
 
-            // Documentation
-            'md': 'fab fa-markdown',
-            'markdown': 'fab fa-markdown',
-            'txt': 'fas fa-file-alt',
-            'rtf': 'fas fa-file-alt',
+            // Data
+            'json': 'ph ph-brackets-curly',
+            'xml':  'ph ph-file-code',
+            'yaml': 'ph ph-file-code',
+            'yml':  'ph ph-file-code',
+            'toml': 'ph ph-file-code',
 
-            // Programming languages
-            'py': 'fab fa-python',
-            'java': 'fab fa-java',
-            'c': 'fas fa-file-code',
-            'cpp': 'fas fa-file-code',
-            'cc': 'fas fa-file-code',
-            'cxx': 'fas fa-file-code',
-            'h': 'fas fa-file-code',
-            'hpp': 'fas fa-file-code',
-            'cs': 'fas fa-file-code',
-            'php': 'fab fa-php',
-            'rb': 'fas fa-file-code',
-            'go': 'fas fa-file-code',
-            'rs': 'fas fa-file-code',
-            'swift': 'fab fa-swift',
-            'kt': 'fas fa-file-code',
-            'scala': 'fas fa-file-code',
+            // Docs
+            'md':       'ph ph-file-md',
+            'markdown': 'ph ph-file-md',
+            'txt':      'ph ph-file-text',
+            'rtf':      'ph ph-file-text',
 
-            // Shell scripts
-            'sh': 'fas fa-terminal',
-            'bash': 'fas fa-terminal',
-            'zsh': 'fas fa-terminal',
-            'fish': 'fas fa-terminal',
-            'ps1': 'fas fa-terminal',
-            'bat': 'fas fa-terminal',
-            'cmd': 'fas fa-terminal',
+            // Other languages
+            'py':    'ph ph-file-py',
+            'java':  'ph ph-file-code',
+            'c':     'ph ph-file-c',
+            'cpp':   'ph ph-file-cpp',
+            'cc':    'ph ph-file-cpp',
+            'cxx':   'ph ph-file-cpp',
+            'h':     'ph ph-file-h',
+            'hpp':   'ph ph-file-h',
+            'cs':    'ph ph-file-c-sharp',
+            'php':   'ph ph-file-code',
+            'rb':    'ph ph-file-code',
+            'go':    'ph ph-file-code',
+            'rs':    'ph ph-file-rs',
+            'swift': 'ph ph-file-code',
+            'kt':    'ph ph-file-code',
+            'scala': 'ph ph-file-code',
 
-            // Configuration files
-            'ini': 'fas fa-cog',
-            'conf': 'fas fa-cog',
-            'config': 'fas fa-cog',
-            'env': 'fas fa-cog',
+            // Shell
+            'sh':   'ph ph-terminal',
+            'bash': 'ph ph-terminal',
+            'zsh':  'ph ph-terminal',
+            'fish': 'ph ph-terminal',
+            'ps1':  'ph ph-terminal',
+            'bat':  'ph ph-terminal',
+            'cmd':  'ph ph-terminal',
 
-            // Archive files
-            'zip': 'fas fa-file-archive',
-            'rar': 'fas fa-file-archive',
-            '7z': 'fas fa-file-archive',
-            'tar': 'fas fa-file-archive',
-            'gz': 'fas fa-file-archive',
+            // Config
+            'ini':    'ph ph-gear',
+            'conf':   'ph ph-gear',
+            'config': 'ph ph-gear',
+            'env':    'ph ph-gear',
 
-            // Audio files
-            'mp3': 'fas fa-file-audio',
-            'wav': 'fas fa-file-audio',
-            'flac': 'fas fa-file-audio',
-            'ogg': 'fas fa-file-audio',
+            // Archive
+            'zip': 'ph ph-file-zip',
+            'rar': 'ph ph-file-zip',
+            '7z':  'ph ph-file-zip',
+            'tar': 'ph ph-file-zip',
+            'gz':  'ph ph-file-zip',
 
-            // Video files
-            'mp4': 'fas fa-file-video',
-            'avi': 'fas fa-file-video',
-            'mkv': 'fas fa-file-video',
-            'mov': 'fas fa-file-video',
+            // Audio
+            'mp3':  'ph ph-file-audio',
+            'wav':  'ph ph-file-audio',
+            'flac': 'ph ph-file-audio',
+            'ogg':  'ph ph-file-audio',
 
-            // Office documents
-            'doc': 'fas fa-file-word',
-            'docx': 'fas fa-file-word',
-            'xls': 'fas fa-file-excel',
-            'xlsx': 'fas fa-file-excel',
-            'ppt': 'fas fa-file-powerpoint',
-            'pptx': 'fas fa-file-powerpoint'
+            // Video
+            'mp4': 'ph ph-file-video',
+            'avi': 'ph ph-file-video',
+            'mkv': 'ph ph-file-video',
+            'mov': 'ph ph-file-video',
+
+            // Office
+            'doc':  'ph ph-file-doc',
+            'docx': 'ph ph-file-doc',
+            'xls':  'ph ph-file-xls',
+            'xlsx': 'ph ph-file-xls',
+            'ppt':  'ph ph-file-ppt',
+            'pptx': 'ph ph-file-ppt'
         };
 
-        return iconMap[extension] || 'fas fa-file';
+        return iconMap[extension] || 'ph ph-file';
     }
 
     // Promote preview tab to permanent (remove italic, keep tab)

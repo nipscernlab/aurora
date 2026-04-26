@@ -95,7 +95,7 @@ class FileTreeController {
     const icon = this.refreshButton.querySelector('i');
     if (!icon) return;
 
-    icon.classList.add('fa-spin');
+    icon.classList.add('spinning');
     this.refreshButton.disabled = true;
 
     try {
@@ -110,7 +110,7 @@ class FileTreeController {
       showCardNotification('Error triggering file tree refresh.', 'error', 3000);
     } finally {
       setTimeout(() => {
-        icon.classList.remove('fa-spin');
+        icon.classList.remove('spinning');
         this.refreshButton.disabled = false;
       }, 1000);
     }
@@ -121,14 +121,17 @@ class FileTreeController {
    */
   collapseAll() {
     const expandedFolders = this.fileTreeContainer.querySelectorAll('.folder-content:not(.hidden)');
-    const folderToggles = this.fileTreeContainer.querySelectorAll('.folder-toggle.rotated');
-    const folderIcons = this.fileTreeContainer.querySelectorAll('.fa-folder-open');
-    
+    const folderToggles = this.fileTreeContainer.querySelectorAll('.folder-toggle.rotated, .folder-toggle-icon');
+    const folderIcons = this.fileTreeContainer.querySelectorAll('.ph-folder-open, .fa-folder-open');
+
     expandedFolders.forEach(folder => folder.classList.add('hidden'));
-    folderToggles.forEach(toggle => toggle.classList.remove('rotated'));
+    folderToggles.forEach(toggle => {
+      toggle.classList.remove('rotated');
+      toggle.classList.add('collapsed');
+    });
     folderIcons.forEach(icon => {
-      icon.classList.remove('fa-folder-open');
-      icon.classList.add('fa-folder');
+      icon.classList.replace('ph-folder-open', 'ph-folder');
+      icon.classList.replace('fa-folder-open', 'fa-folder');
     });
     
     if (typeof FileTreeState !== 'undefined') {
@@ -161,7 +164,7 @@ class FileTreeController {
     if (!this.collapseButton) return;
     const icon = this.collapseButton.querySelector('i');
     if (icon) {
-      icon.className = 'fa-solid fa-square-minus';
+      icon.className = 'ph ph-rows';
       this.collapseButton.title = 'Collapse All';
       this.collapseButton.setAttribute('data-i18n-title', 'ui.fileTree.collapse');
     }

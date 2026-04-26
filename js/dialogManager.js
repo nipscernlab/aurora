@@ -1,81 +1,148 @@
-export function showDialog({ title, message, buttons }) {
-    return new Promise((resolve) => {
-        // 1. Clean up any existing modals to prevent stacking
-        const existingModal = document.querySelector('.confirm-modal');
-        if (existingModal) {
-            existingModal.remove();
-        }
+/**
+ * @file Centralized confirm/alert dialog — one of TWO canonical UI surfaces.
+ *       Shape:
+ *         await showDialog({
+ *           title:   'Close Project',
+ *           message: 'Are you sure?',
+ *           variant: 'warning',  // optional: info | warning | error | success
+ *           buttons: [
+ *             { label: 'Cancel',        action: 'cancel',  type: 'cancel' },
+ *             { label: 'Close Project', action: 'confirm', type: 'save'   }
+ *           ]
+ *         });
+ *       Returns the action string of whichever button was pressed (or 'cancel'
+ *       on Esc / backdrop click).
+ *
+ *       Allowed `type` values: cancel | save | dont-save | danger
+ *       Allowed `variant` values: info | warning | error | success
+ */
 
-        // 2. Generate Buttons HTML
-        // Note: 'type' maps to your CSS classes like 'save', 'dont-save', 'cancel'
-        const buttonsHTML = buttons.map(btn => {
-            return `<button class="confirm-btn ${btn.type}" data-action="${btn.action}">${btn.label}</button>`;
+const VARIANT_ICONS = {
+    info:    'ph ph-info',
+    warning: 'ph ph-warning',
+    error:   'ph ph-x-circle',
+    success: 'ph ph-check-circle'
+};
+
+function inferVariant(buttons) {
+    if (buttons?.some(b => b.type === 'danger')) return 'warning';
+    return 'info';
+}
+
+export function showDialog({ title, message, buttons, variant }) {
+    return new Promise((resolve) => {
+        // Replace any existing dialog
+        document.querySelectorAll('.confirm-modal').forEach(el => el.remove());
+
+        const v = variant || inferVariant(buttons);
+        const iconClass = VARIANT_ICONS[v] || VARIANT_ICONS.info;
+
+        const buttonsHTML = (buttons || []).map(btn => {
+            const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(btn.type)
+                ? btn.type : 'cancel';
+            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}">${btn.label}</button>`;
         }).join('');
 
-        // 3. Create Modal HTML
-        const modalHTML = `
-            <div class="confirm-modal" id="custom-dialog-modal">
-                <div class="confirm-modal-content">
-                    <div class="confirm-modal-header">
-                        <div class="confirm-modal-icon">⚠</div>
-                        <h3 class="confirm-modal-title">${title}</h3>
-                    </div>
-                    <div class="confirm-modal-message">
-                        ${message}
-                    </div>
-                    <div class="confirm-modal-actions">
-                        ${buttonsHTML}
-                    </div>
-                </div>
+        const modal = document.createElement('div');
+        modal.className = 'confirm-modal';
+        modal.id = 'custom-dialog-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.dataset.variant = v;
+        modal.innerHTML = `
+            <div class="confirm-modal-content" role="document">
+                <header class="confirm-modal-header">
+                    <span class="confirm-modal-icon" aria-hidden="true"><i class="${iconClass}"></i></span>
+                    <h3 class="confirm-modal-title">${title || ''}</h3>
+                </header>
+                <div class="confirm-modal-message">${message || ''}</div>
+                <footer class="confirm-modal-actions">${buttonsHTML}</footer>
             </div>
         `;
+        document.body.appendChild(modal);
 
-        // 4. Inject into DOM
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        const modal = document.getElementById('custom-dialog-modal');
-
-        // 5. Cleanup and Resolve Helper
-        function closeModal(resultAction) {
-            document.removeEventListener('keydown', handleEscape);
+        const cleanup = (action) => {
+            document.removeEventListener('keydown', onKey);
             modal.classList.remove('show');
-            
-            // Wait for CSS animation
             setTimeout(() => {
                 modal.remove();
-                resolve(resultAction);
-            }, 300);
-        }
+                resolve(action);
+            }, 220);
+        };
 
-        // 6. Event Listeners
-        modal.addEventListener('click', (e) => {
-            // Check if a button with data-action was clicked
-            if (e.target.matches('button[data-action]')) {
-                const action = e.target.getAttribute('data-action');
-                closeModal(action);
-            }
-        });
-
-        // Handle Escape Key
-        const handleEscape = (e) => {
+        const onKey = (e) => {
             if (e.key === 'Escape') {
-                // Default to 'cancel' or the first available action if cancel isn't present
-                closeModal('cancel');
+                cleanup('cancel');
+            } else if (e.key === 'Enter') {
+                const primary = modal.querySelector('.confirm-btn.save, .confirm-btn.danger');
+                if (primary) {
+                    cleanup(primary.getAttribute('data-action'));
+                }
             }
         };
-        document.addEventListener('keydown', handleEscape);
 
-        // 7. Show with Animation & Focus
-        setTimeout(() => {
-            modal.classList.add('show');
-            
-            // Focus the last button (usually the primary action) or the first one
-            const buttonsEl = modal.querySelectorAll('.confirm-btn');
-            if (buttonsEl.length > 0) {
-                // Determine which button to focus. 
-                // Prioritize 'save' (primary) or fall back to the last one.
-                const primaryBtn = modal.querySelector('.confirm-btn.save') || buttonsEl[buttonsEl.length - 1];
-                primaryBtn.focus();
+        modal.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (btn) {
+                cleanup(btn.getAttribute('data-action'));
+                return;
             }
-        }, 10);
+            // Click on backdrop
+            if (e.target === modal) {
+                cleanup('cancel');
+            }
+        });
+        document.addEventListener('keydown', onKey);
+
+        // Trigger transition
+        requestAnimationFrame(() => {
+            modal.classList.add('show');
+            const primary = modal.querySelector('.confirm-btn.save, .confirm-btn.danger') ||
+                            modal.querySelector('.confirm-btn');
+            primary?.focus();
+        });
     });
+}
+
+/**
+ * Convenience: simple OK alert dialog.
+ *   await showAlert('Build complete', 'success');
+ */
+export function showAlert(message, variant = 'info', title) {
+    const titleMap = {
+        info: 'Notice',
+        warning: 'Warning',
+        error: 'Error',
+        success: 'Done'
+    };
+    return showDialog({
+        title: title || titleMap[variant] || 'Notice',
+        message,
+        variant,
+        buttons: [{ label: 'OK', action: 'ok', type: 'cancel' }]
+    });
+}
+
+/**
+ * Convenience: yes/no confirm dialog.
+ *   const yes = await showConfirm('Delete?', 'This cannot be undone.', { variant: 'warning' });
+ */
+export function showConfirm(title, message, { variant = 'info', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+    return showDialog({
+        title,
+        message,
+        variant,
+        buttons: [
+            { label: cancelLabel,  action: 'cancel',  type: 'cancel' },
+            { label: confirmLabel, action: 'confirm', type: danger ? 'danger' : 'save' }
+        ]
+    }).then(action => action === 'confirm');
+}
+
+// Global bridge for non-module callers
+if (typeof window !== 'undefined') {
+    window.AuroraUI = window.AuroraUI || {};
+    window.AuroraUI.dialog  = showDialog;
+    window.AuroraUI.alert   = showAlert;
+    window.AuroraUI.confirm = showConfirm;
 }

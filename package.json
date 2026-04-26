@@ -1,9 +1,9 @@
 {
-    "name": "aurora-ide",
-    "productName": "Aurora IDE",
-    "description": "Aurora IDE",
+    "name": "sapho",
+    "productName": "SAPHO",
+    "description": "Scalable Architecture for Hardware Optimization",
     "author": "NIPSCERN",
-    "version": "v4.1.12+25",
+    "version": "4.1.13",
     "win": {
         "icon": "./assets/icons/sapho_aurora_icon.ico"
     },

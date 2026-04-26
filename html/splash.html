@@ -3,154 +3,493 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AURORA IDE - Splash</title>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <title>SAPHO — Initializing</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* Theme variables (root) */
     :root {
-      /* Dark theme (default) - Elegant Purple */
-      /* Base colors */
-      --bg-primary: #17151f;
-      --bg-secondary: #1e1b2c;
-      --bg-tertiary: #252236;
-      --bg-hover: #2d2a40;
-      --bg-active: #363150;
-      
-      /* Purple accent palette */
-      --accent-primary: #9d7fff;
-      --accent-secondary: #7b5cd6;
-      --accent-hover: #b18fff;
-      --accent-focus: #cbb2ff;
-      --accent-muted: #6842c2;
-      
-      /* Text colors */
-      --text-primary: #e2dcff;
-      --text-secondary: #bbb2e0;
-      --text-muted: #776f97;
-      
-      /* Shadows */
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
-      --shadow-glow: 0 0 30px rgba(157,127,255,0.6);
-      
-      /* Font families */
-      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --bg-deep:        #06080F;
+      --bg-mid:         #0B0F1A;
+      --bg-soft:        #131826;
+      --text:           #E8ECF3;
+      --text-secondary: #9CA1AE;
+      --text-muted:     #6A6F7C;
+      --aurora-mint:    #5FE0B0;
+      --aurora-teal:    #4FD3C2;
+      --aurora-cyan:    #5BB8E8;
+      --aurora-violet:  #8E83E8;
+      --aurora-purple:  #B98AE0;
+      --border:         rgba(142, 131, 232, 0.12);
+      --font-sans:      'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono:      'JetBrains Mono', ui-monospace, Consolas, monospace;
     }
 
-    /* Reset & base */
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      width: 100vw; height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--font-sans);
-      color: var(--text-primary);
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
+      background: transparent;
+      font-family: var(--font-sans);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
+      -webkit-app-region: drag;
+      letter-spacing: -0.01em;
     }
 
-    /* Splash container */
-    .splash {
-      position: relative;
-      text-align: center;
-      padding: 2rem;
-      background: var(--bg-secondary);
-      border-radius: 1rem;
-      box-shadow: var(--shadow-md);
-      max-width: 400px;
-      width: 90%;
+    /* ============================================================
+       Stage — full canvas with night sky and aurora curtains
+       ============================================================ */
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 110%, #1A2238 0%, #0A0F1B 50%, #050810 100%);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.65),
+        inset 0 0 0 1px rgba(142, 131, 232, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
-    .splash::before {
+
+    /* Stars layer */
+    .stars {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    /* Aurora canvas */
+    canvas#aurora {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      mix-blend-mode: screen;
+      opacity: 0.85;
+    }
+
+    /* Top vignette */
+    .stage::before {
       content: '';
       position: absolute;
-      top: -50%; left: -50%; right: -50%; bottom: -50%;
-      filter: blur(100px);
-      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0, 0, 0, 0.5) 0%, transparent 60%);
     }
 
-    /* Logo */
-    .logo {
-      width: 120px; height: auto;
-      margin-bottom: 1.5rem;
-      filter: drop-shadow(var(--shadow-glow));
+    /* Subtle noise overlay */
+    .stage::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.5;
+      mix-blend-mode: overlay;
     }
 
-    /* Title */
-    .title {
-      font-size: 2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    /* ============================================================
+       Content
+       ============================================================ */
+    .content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 48px;
+      text-align: center;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: fadeUp 600ms cubic-bezier(0.19, 1, 0.22, 1) both;
+    }
+
+    .brand-mark {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(142, 131, 232, 0.16), rgba(95, 224, 176, 0.10));
+      border: 1px solid rgba(142, 131, 232, 0.20);
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      position: relative;
+    }
+
+    .brand-mark img {
+      width: 38px;
+      height: 38px;
+      filter: drop-shadow(0 0 12px rgba(142, 131, 232, 0.45));
+    }
+
+    .brand-title {
+      font-size: 36px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      line-height: 1;
+      background: linear-gradient(
+        90deg,
+        var(--aurora-mint) 0%,
+        var(--aurora-cyan) 35%,
+        var(--aurora-violet) 65%,
+        var(--aurora-purple) 100%
+      );
+      background-size: 200% 100%;
       -webkit-background-clip: text;
       background-clip: text;
-      color: transparent;
-      margin-bottom: 1rem;
-      animation: shine 2s ease-in-out infinite;
+      -webkit-text-fill-color: transparent;
+      animation: auroraShift 6s ease-in-out infinite;
+      padding-bottom: 2px;
     }
 
-    /* Subtitle */
-    .subtitle {
-      font-size: 1rem;
-      font-weight: 300;
-      color: var(--text-secondary);
-      margin-bottom: 2rem;
-      letter-spacing: 0.5px;
+    .brand-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.32em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      max-width: 360px;
+      line-height: 1.6;
     }
 
-    /* Progress bar wrapper */
+    .brand-pillars {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.36em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .brand-pillars .dot {
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: var(--aurora-violet);
+      box-shadow: 0 0 6px rgba(142, 131, 232, 0.7);
+    }
+
+    /* ============================================================
+       Footer — status / progress / meta
+       ============================================================ */
+    .footer {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 0 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      animation: fadeUp 800ms 200ms cubic-bezier(0.19, 1, 0.22, 1) both;
+    }
+
     .progress {
-      width: 100%; height: 8px;
-      background: var(--bg-tertiary);
-      border-radius: 4px;
+      position: relative;
+      width: 100%;
+      height: 1.5px;
+      background: rgba(142, 131, 232, 0.10);
+      border-radius: 1px;
       overflow: hidden;
     }
+
     .progress-bar {
-      width: 0%; height: 100%;
-      background: linear-gradient(90deg, var(--accent-primary), var(--accent-focus));
-      border-radius: 4px;
-      animation: load 3s forwards;
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 38%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--aurora-mint) 28%,
+        var(--aurora-cyan) 50%,
+        var(--aurora-violet) 72%,
+        transparent 100%
+      );
+      filter: blur(0.4px);
+      animation: progressSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
 
-    /* Version */
-    .version {
-      font-size: 0.75rem;
+    .meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
       color: var(--text-muted);
-      margin-top: 1.5rem;
     }
 
-    /* Animations */
-    @keyframes load {
-      0% { width: 0%; }
-      80% { width: 80%; }
-      100% { width: 100%; }
+    .meta-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
-    @keyframes shine {
-      0%,100% { filter: brightness(1); }
-      50% { filter: brightness(1.2); }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--aurora-mint);
+      box-shadow: 0 0 8px rgba(95, 224, 176, 0.7);
+      animation: pulseDot 1.4s ease-in-out infinite;
+    }
+
+    #status-text {
+      color: var(--text-secondary);
+      transition: opacity 200ms ease;
+      font-feature-settings: 'tnum';
+    }
+
+    .meta-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .meta-right .org {
+      color: var(--text-muted);
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+    }
+
+    .meta-right #version-label {
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .meta-right .sep {
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    /* ============================================================
+       Animations
+       ============================================================ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1;  transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    @keyframes auroraShift {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    @keyframes progressSweep {
+      0%   { left: -38%; }
+      100% { left: 100%; }
     }
   </style>
 </head>
 <body>
-  <div class="splash">
-    <img class="logo" src="../assets/icons/sapho_aurora_icon.svg" style="width: 50%;" alt="Aurora IDE Logo">
-    <h1 class="title">SAPHO & AURORA</h1>
-    <p class="subtitle">Empowering your next-gen projects</p>
-    <div class="progress"><div class="progress-bar"></div></div>
-    <div class="version">v4.1.12</div>
+  <div class="stage">
+    <svg class="stars" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+    <canvas id="aurora"></canvas>
+
+    <div class="content">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="../assets/icons/sapho_aurora_icon.svg" alt="SAPHO">
+        </div>
+        <h1 class="brand-title">SAPHO</h1>
+        <p class="brand-subtitle">Scalable Architecture for Hardware Optimization</p>
+        <div class="brand-pillars">
+          <span>AURORA</span>
+          <span class="dot"></span>
+          <span>NIPSCERN</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="progress"><div class="progress-bar"></div></div>
+      <div class="meta">
+        <div class="meta-left">
+          <span class="status-dot"></span>
+          <span id="status-text">Initializing platform</span>
+        </div>
+        <div class="meta-right">
+          <span class="org">NIPSCERN Lab</span>
+          <span class="sep"></span>
+          <span id="version-label">v0.0.0</span>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Optional: JS to loop subtitle hints -->
   <script>
-    const hints = [
-      'Welcome to AURORA IDE!',
-      'Initializing modules...',
-      'Loading interface...',
-      'Preparing environment...',
-      'Almost there...'
+    // ============================================================
+    //  Stars layer
+    // ============================================================
+    (function generateStars() {
+      const svg = document.querySelector('.stars');
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+
+      const count = 80;
+      for (let i = 0; i < count; i++) {
+        const cx = Math.random() * w;
+        const cy = Math.random() * h * 0.65;
+        const r = Math.random() * 0.9 + 0.2;
+        const opacity = Math.random() * 0.55 + 0.15;
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', cx);
+        c.setAttribute('cy', cy);
+        c.setAttribute('r', r);
+        c.setAttribute('fill', '#E8ECF3');
+        c.setAttribute('opacity', opacity);
+        if (Math.random() > 0.85) {
+          const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+          anim.setAttribute('attributeName', 'opacity');
+          anim.setAttribute('values', `${opacity};${opacity * 0.2};${opacity}`);
+          anim.setAttribute('dur', `${Math.random() * 4 + 3}s`);
+          anim.setAttribute('repeatCount', 'indefinite');
+          c.appendChild(anim);
+        }
+        svg.appendChild(c);
+      }
+    })();
+
+    // ============================================================
+    //  Aurora curtains canvas
+    // ============================================================
+    (function aurora() {
+      const canvas = document.getElementById('aurora');
+      const ctx = canvas.getContext('2d');
+      let W = 0, H = 0;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resize() {
+        W = canvas.clientWidth;
+        H = canvas.clientHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      const curtains = [
+        { hue1: '#5FE0B0', hue2: '#4FD3C2', amp: 36, freq: 0.0050, speed: 0.00045, y: 0.58, height: 0.42, alpha: 0.50, phase: 0 },
+        { hue1: '#5BB8E8', hue2: '#4FD3C2', amp: 50, freq: 0.0034, speed: 0.00032, y: 0.65, height: 0.50, alpha: 0.42, phase: Math.PI * 0.6 },
+        { hue1: '#8E83E8', hue2: '#5BB8E8', amp: 58, freq: 0.0028, speed: 0.00028, y: 0.72, height: 0.48, alpha: 0.38, phase: Math.PI * 1.3 },
+        { hue1: '#B98AE0', hue2: '#8E83E8', amp: 26, freq: 0.0058, speed: 0.00052, y: 0.55, height: 0.30, alpha: 0.28, phase: Math.PI * 0.2 }
+      ];
+
+      function drawCurtain(c, t) {
+        const baseY = H * c.y;
+        const bandH = H * c.height;
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (let x = 0; x <= W; x += 4) {
+          const w1 = Math.sin(x * c.freq + t * c.speed + c.phase) * c.amp;
+          const w2 = Math.sin(x * c.freq * 0.4 + t * c.speed * 0.7 + c.phase) * c.amp * 0.6;
+          ctx.lineTo(x, baseY + w1 + w2);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, baseY - bandH, 0, baseY + 30);
+        grad.addColorStop(0, hexA(c.hue1, 0));
+        grad.addColorStop(0.45, hexA(c.hue1, c.alpha * 0.8));
+        grad.addColorStop(0.7, hexA(c.hue2, c.alpha));
+        grad.addColorStop(1, hexA(c.hue2, c.alpha * 0.15));
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      function hexA(hex, a) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${a})`;
+      }
+
+      function loop(t) {
+        ctx.clearRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'lighter';
+        for (const c of curtains) drawCurtain(c, t);
+        ctx.globalCompositeOperation = 'source-over';
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+
+    // ============================================================
+    //  Status messages cycle
+    // ============================================================
+    const statusText = document.getElementById('status-text');
+    const versionEl  = document.getElementById('version-label');
+
+    const phases = [
+      'Initializing platform',
+      'Loading AURORA modules',
+      'Loading YANC compiler',
+      'Preparing workspace',
+      'Almost ready'
     ];
-    let idx = 0;
-    const subtitle = document.querySelector('.subtitle');
+
+    let phaseIdx = 0;
     setInterval(() => {
-      subtitle.textContent = hints[idx++ % hints.length];
-    }, 2000);
+      phaseIdx = (phaseIdx + 1) % phases.length;
+      statusText.style.opacity = '0';
+      setTimeout(() => {
+        statusText.textContent = phases[phaseIdx];
+        statusText.style.opacity = '1';
+      }, 180);
+    }, 1100);
+
+    (async function loadVersion() {
+      try {
+        if (window.electronAPI && window.electronAPI.getAppVersion) {
+          const v = await window.electronAPI.getAppVersion();
+          if (v) versionEl.textContent = v.startsWith('v') ? v : `v${v}`;
+          return;
+        }
+      } catch (_) {}
+      try {
+        const res = await fetch('../package.json');
+        const pkg = await res.json();
+        versionEl.textContent = pkg.version.startsWith('v') ? pkg.version : `v${pkg.version}`;
+      } catch (_) {
+        versionEl.textContent = 'v—';
+      }
+    })();
   </script>
 </body>
 </html>

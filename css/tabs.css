@@ -1,299 +1,219 @@
-/* ===== Full CSS (original styles) with consolidated Drag & Drop only ===== */
+/*
+ * =====================================================================================
+ *  tabs.css  —  Editor tabs AURORA v3
+ *
+ *  34px tabs with subtle dividers, accent indicator on active, dirty dot,
+ *  drag/drop support, and clean preview state.
+ * =====================================================================================
+ */
 
-/* Tab container and scrollbars */
-#editor-tabs {
-  height: 0px;
-}
-#editor-tabs::-webkit-scrollbar {
-  height: 5px;
-}
-#editor-tabs::-webkit-scrollbar-track {
-  background: #1e1e1e;
-}
-#editor-tabs::-webkit-scrollbar-thumb {
-  background: #424242;
-  border-radius: 0;
-}
-
-/* Core tab and container styles */
-.tabs-container, #tabs-container,
+.tabs-container,
+#tabs-container,
 .tabs {
   display: flex;
   flex-direction: row;
+  align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
-  border-radius: 0;
-  background-color: var(--bg-primary);
-  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border);
   user-select: none;
   position: relative;
+  height: var(--h-tab);
+  flex-shrink: 0;
 }
 
-/* Thin scrollbar for tab overflow */
-.tabs-container {
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-primary) transparent;
-  overscroll-behavior-y: contain;
-}
-.tabs-container::-webkit-scrollbar {
-  height: 2px;
-}
-.tabs-container::-webkit-scrollbar-thumb {
-  background: var(--accent-primary);
-  border-radius: 0;
-}
-.tabs-container::-webkit-scrollbar-track {
-  background: transparent;
-}
+.tabs-container { scrollbar-width: thin; }
 
-/* Individual tab styling */
+.tabs-container::-webkit-scrollbar       { height: 2px; }
+.tabs-container::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 1px; }
+.tabs-container::-webkit-scrollbar-track { background: transparent; }
+
+#editor-tabs                          { height: 0; }
+#editor-tabs::-webkit-scrollbar       { height: 3px; }
+#editor-tabs::-webkit-scrollbar-track { background: var(--bg); }
+#editor-tabs::-webkit-scrollbar-thumb { background: var(--accent-border); }
+
+/* ---------------------------------------------------------------------------
+ *  Tab base
+ * ------------------------------------------------------------------------- */
 .tab {
   display: inline-flex;
   align-items: center;
-  padding: 8px 16px;
-  min-width: 100px;
-  max-width: 200px;
-  height: 35px;
-  background-color: var(--bg-secondary);
-  color: var(--text-tertiary);
-  border-right: 1px solid var(--border-primary);
-  font-size: 13px;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  min-width: 110px;
+  max-width: 220px;
+  height: 100%;
+  background: transparent;
+  color: var(--text-muted);
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
   font-family: var(--font-sans);
+  font-weight: var(--font-normal);
+  letter-spacing: var(--tracking-tight);
   cursor: pointer;
   position: relative;
   white-space: nowrap;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
 }
-.tab .tab-name, .tab .tab-title {
-  flex: 1;
+
+.tab:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-secondary);
+}
+
+.tab.active {
+  background-color: var(--bg-elev);
+  color: var(--text);
+  font-weight: var(--font-medium);
+}
+
+/* No accent border on active tab — relies only on background contrast */
+.tab.active::before { content: none; }
+
+/* Dirty marker */
+.tab.dirty::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--accent-hover);
+  box-shadow: 0 0 4px rgba(142, 131, 232, 0.5);
+}
+
+/* Tab name + icon */
+.tab .tab-name,
+.tab .tab-title {
+  flex: 1 1 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tab i {
-  margin-right: 8px;
-  font-size: 14px;
+
+.tab > i:first-of-type {
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
-/* Close button */
-.tab-close, .close-tab {
-  margin-left: 8px;
-  padding: 0 4px;
-  width: auto;
-  height: auto;
-  display: flex;
+.tab.active > i:first-of-type {
+  color: var(--accent-hover);
+}
+
+/* Preview tab (italic) */
+.tab.preview .tab-name,
+.tab.preview .tab-title {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Close button
+ * ------------------------------------------------------------------------- */
+.tab-close,
+.close-tab {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
   border: none;
-  font-size: 16px;
-  color: var(--text-color-secondary);
-  opacity: 0.7;
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 0;
-  transition: opacity 0.2s;
+  font-size: 10px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast),
+              background-color var(--transition-fast),
+              color var(--transition-fast);
 }
-.tab-close:hover, .close-tab:hover {
+
+.tab:hover .tab-close,
+.tab:hover .close-tab,
+.tab.active .tab-close,
+.tab.active .close-tab {
   opacity: 1;
-  background: rgba(255,255,255,0.1);
 }
 
-/* Hover and active states */
-.tab:hover {
-  background-color: var(--hover-color);
-}
-.tab.active {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-}
-.tab.modified .tab-name::after, .tab.modified .tab-title::after {
-  content: '●';
-  margin-left: 4px;
-  color: var(--accent-secondary);
-}
-
-/* Animation for new tabs */
-@keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.tab { animation: tabFadeIn 0.2s ease; }
-
-/* Confirm and conflict dialogs (unchanged) */
-.confirm-dialog {
-  padding: 20px;
-  background: var(--background-color);
-  color: var(--text-color);
-}
-.dialog-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-.dialog-buttons button {
-  padding: 5px 15px;
-  cursor: pointer;
-  background: var(--background-lighter);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-  border-radius: 0;
-}
-.dialog-buttons button:hover {
-  background: var(--background-lighter-hover);
-}
-.conflict-modal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
+.tab.dirty .tab-close,
+.tab.dirty .close-tab {
   opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.conflict-modal.show { opacity: 1; }
-.conflict-modal-content {
-  background: var(--bg-secondary);
-  border-radius: 0;
-  padding: 24px;
-  max-width: 480px;
-  width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-.conflict-modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.conflict-modal-icon { font-size: 24px; }
-.conflict-modal-title { color: var(--text-primary); margin: 0; font-size: 18px; font-weight: 600; }
-.conflict-modal-message { color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; }
-.conflict-modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
-.conflict-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-.conflict-btn.keep-editor { background: var(--accent-primary); color: white; }
-.conflict-btn.use-disk { background: var(--bg-tertiary); color: var(--text-primary); }
-.conflict-btn.save-and-reload { background: var(--success-color); color: white; }
-.conflict-btn:hover { opacity: 0.9; }
-
-/* ===== Consolidated Drag & Drop Styles ===== */
-.tab.dragging {
-  opacity: 0.5;
-  pointer-events: none;
-  transition: none;
-}
-.tabs-container.dragging-active, #tabs-container.dragging-active {
-  user-select: none;
-}
-.drop-indicator {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-  z-index: 1001;
-  pointer-events: none;
-  opacity: 0;
-  transform: scaleY(0);
-  transition: opacity 0.15s, transform 0.15s;
-}
-.drop-indicator.active { opacity: 1; transform: scaleY(1); }
-.tab.drag-over::before,
-.tab.drag-over-right::before {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 3px;
-  background: var(--accent-primary);
-  border-radius: 0;
-  z-index: 1002;
-  animation: dragIndicatorPulse 0.6s ease-in-out infinite alternate;
-}
-.tab.drag-over::before { left: -2px; }
-.tab.drag-over-right::before { right: -2px; }
-
-@keyframes dragIndicatorPulse {
-  from { opacity: 0.6; transform: scaleY(0.8); }
-  to   { opacity: 1; transform: scaleY(1); }
 }
 
-/* --- Container Principal --- */
-.context-path-container {
-  /* Layout e Posicionamento */
-  display: flex;
-  align-items: center;
-  gap: var(--space-2); /* 8px de espaçamento entre os elementos */
-  height: 38px; /* Altura consistente com outros elementos de UI */
-  padding: var(--space-2) var(--space-3); /* 8px vertical, 12px horizontal */
-  
-  /* Aparência */
-  background-color: var(--bg-secondary);
-  color: var(--text-secondary); /* Cor de texto padrão para os segmentos */
-
-  /* Tipografia */
-  font-family: var(--font-sans);
-  font-size: var(--text-sm); /* 14px */
-  
-  /* Comportamento */
-  overflow: hidden; /* Evita que o conteúdo vaze */
-  white-space: nowrap; /* Impede a quebra de linha dos segmentos */
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+.tab.dirty:hover .tab-close,
+.tab.dirty:hover .close-tab {
+  opacity: 1;
 }
 
-/* --- Estado Vazio: Oculta a barra quando não há arquivo ativo --- */
-.context-path-container.empty {
+.tab.dirty:hover::after {
   display: none;
 }
 
-/* --- Ícone (Pasta) --- */
-.context-path-container i {
-  font-size: var(--text-base); /* 16px, para um ícone ligeiramente maior que o texto */
-  color: var(--text-tertiary); /* Cor mais sutil para o ícone */
+.tab-close:hover,
+.close-tab:hover {
+  background: var(--overlay-active);
+  color: var(--text);
 }
 
-/* --- Segmentos do Caminho (Pastas) --- */
-.context-path-segment {
+/* ---------------------------------------------------------------------------
+ *  Drag and drop
+ * ------------------------------------------------------------------------- */
+.tab.dragging {
+  opacity: 0.5;
+  background: var(--bg-elev-2);
+}
+
+.tab.drag-over::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Split editor variant
+ * ------------------------------------------------------------------------- */
+.split-pane-tabs {
+  display: flex;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border);
+  height: var(--h-tab);
+}
+
+.split-tab {
+  padding: 0 var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  border-right: 1px solid var(--border-subtle);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.split-tab:hover {
+  background-color: var(--overlay-hover);
   color: var(--text-secondary);
-  transition: color var(--transition-fast);
-  cursor: default; /* Geralmente não são clicáveis, mas pode mudar */
 }
 
-.context-path-segment:hover {
-  color: var(--text-primary); /* Destaque no hover */
+.split-tab.active {
+  background-color: var(--bg-elev);
+  color: var(--text);
 }
-
-/* --- Separador (>) --- */
-.context-path-separator {
-  color: var(--text-tertiary); /* Cor sutil para não chamar atenção */
-  margin: 0 var(--space-1); /* 4px de margem lateral */
-  user-select: none; /* Impede que o separador seja selecionado */
-}
-
-/* --- Nome do Arquivo (Segmento Ativo) --- */
-.context-path-filename {
-  color: var(--text-primary); /* Cor de destaque para o arquivo atual */
-  font-weight: var(--font-medium); /* Levemente em negrito para ênfase */
-}
-
-/* --- Animação de Entrada --- */
-.context-path-container:not(.empty) {
-  /* Ativa a animação quando a barra aparece */
-  animation: contextPathFadeIn var(--transition-normal) ease-out;
-}
-
-@keyframes contextPathFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-

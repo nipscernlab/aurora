@@ -25,22 +25,7 @@ treeStyle.textContent = `
         transform: scale(1.1);
     }
 
-    /* --- Novo CSS para a Seta --- */
-    .folder-toggle-icon {
-        margin-right: 12px;
-        width: 12px;
-        text-align: center;
-        font-size: 10px;
-        color: #888;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* Animação suave */
-        display: inline-block;
-    }
-
-    /* Estado colapsado: aponta para a direita (-90 graus) */
-    .folder-toggle-icon.collapsed {
-        transform: rotate(-90deg);
-    }
-`;
+/* file-tree visuals are owned by css/file_tree.css */`;
 document.head.appendChild(treeStyle);
 
 // --- Tree View State (Standard vs. Hierarchical) ---
@@ -67,12 +52,12 @@ const TreeViewState = {
         const text = toggleButton.querySelector('.toggle-text');
 
         if (this.isHierarchical) {
-            icon.className = 'fa-solid fa-list-ul';
+            icon.className = 'ph ph-list-bullets';
             text.textContent = 'Standard';
             toggleButton.classList.add('active');
             toggleButton.title = 'Switch to standard file tree';
         } else {
-            icon.className = 'fa-solid fa-sitemap';
+            icon.className = 'ph ph-tree-structure';
             text.textContent = 'Hierarchical';
             toggleButton.classList.remove('active');
             toggleButton.title = 'Switch to hierarchical module view';
@@ -161,8 +146,8 @@ async function refreshFileTree() {
                             folderContent.classList.remove('hidden');
                             folderToggle.classList.add('rotated');
                             if (icon) {
-                                icon.classList.remove('fa-folder');
-                                icon.classList.add('fa-folder-open');
+                                icon.classList.remove('ph-folder', 'fa-folder');
+                                icon.classList.add('ph-folder-open');
                             }
                         }
                     }
@@ -219,53 +204,49 @@ filteredFiles.forEach(file => {
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'file-tree-item';
         itemWrapper.setAttribute('data-path', file.path);
+        itemWrapper.style.setProperty('--depth', String(level));
 
         const item = document.createElement('div');
         item.className = 'file-item';
-        
-        const indentSize = 15; 
-        item.style.paddingLeft = `${level * indentSize + 10}px`;
+        // VSCode-exact hierarchy: indent comes from CSS (--depth * 8px), no
+        // inline padding-left here. Files and folders share the SAME starting
+        // X coordinate at any given depth — chevron/spacer width is identical.
 
         const contentWrapper = document.createElement('div');
-        contentWrapper.style.display = 'flex';
-        contentWrapper.style.alignItems = 'center';
-        contentWrapper.style.flexGrow = '1';
-        contentWrapper.style.overflow = 'hidden';
+        contentWrapper.className = 'file-item-row';
 
-        // --- Adição da Seta (Caret) ---
+        // Chevron (folders) or invisible spacer (files) — same width, so the
+        // file name lines up with where the folder name starts inside its
+        // parent. This is exactly how VSCode does it.
         if (file.type === 'directory') {
             const toggleIcon = document.createElement('i');
-            toggleIcon.className = 'fa-solid fa-caret-down folder-toggle-icon';
-            
-            // Se NÃO estiver expandido, adiciona classe para rotacionar (-90deg)
+            toggleIcon.className = 'ph ph-caret-down folder-toggle-icon';
             if (!FileTreeState.isExpanded(file.path)) {
                 toggleIcon.classList.add('collapsed');
             }
             contentWrapper.appendChild(toggleIcon);
         } else {
-            // Espaçador invisível para arquivos alinharem com pastas (largura da seta + margem)
             const spacer = document.createElement('span');
-            spacer.style.display = 'inline-block';
-            spacer.style.minWidth = '18px'; 
+            spacer.className = 'folder-toggle-spacer';
             contentWrapper.appendChild(spacer);
         }
 
+        // Type/icon
         const icon = document.createElement('i');
-        icon.className = 'file-item-icon';
         if (file.type === 'directory') {
             const isExpanded = FileTreeState.isExpanded(file.path);
-            icon.classList.add('fa-solid', isExpanded ? 'fa-folder-open' : 'fa-folder');
+            icon.className = `file-item-icon ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'}`;
         } else {
-            icon.className = TabManager.getFileIcon(file.name);
+            icon.className = `${TabManager.getFileIcon(file.name)} file-item-icon`;
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            if (ext) itemWrapper.setAttribute('data-ext', ext);
         }
         contentWrapper.appendChild(icon);
 
+        // Name
         const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-item-name';
         nameSpan.textContent = file.name;
-        nameSpan.style.marginLeft = '8px';
-        nameSpan.style.whiteSpace = 'nowrap';
-        nameSpan.style.overflow = 'hidden';
-        nameSpan.style.textOverflow = 'ellipsis';
         contentWrapper.appendChild(nameSpan);
 
         item.appendChild(contentWrapper);
@@ -277,7 +258,7 @@ filteredFiles.forEach(file => {
         if (isProcessor) {
             const deleteBtn = document.createElement('div');
             deleteBtn.className = 'tree-delete-btn';
-            deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+            deleteBtn.innerHTML = '<i class="ph ph-trash"></i>';
             deleteBtn.title = 'Delete Processor';
             
             deleteBtn.addEventListener('click', (e) => {
@@ -303,8 +284,11 @@ filteredFiles.forEach(file => {
                 const toggleArrow = item.querySelector('.folder-toggle-icon');
                 if (toggleArrow) toggleArrow.classList.toggle('collapsed');
 
-                const folderIcon = item.querySelector('.fa-folder, .fa-folder-open');
+                const folderIcon = item.querySelector('.ph-folder, .ph-folder-open, .fa-folder, .fa-folder-open');
                 if (folderIcon) {
+                    folderIcon.classList.toggle('ph-folder');
+                    folderIcon.classList.toggle('ph-folder-open');
+                    // Legacy FA fallback support
                     folderIcon.classList.toggle('fa-folder');
                     folderIcon.classList.toggle('fa-folder-open');
                 }
@@ -437,8 +421,11 @@ class FileTreeSearch {
                 parent.classList.remove('hidden');
                 const toggle = folderContainer.querySelector('.folder-toggle');
                 toggle?.classList.add('rotated');
-                const icon = folderContainer.querySelector('.file-item-icon.fa-folder');
-                icon?.classList.replace('fa-folder', 'fa-folder-open');
+                const icon = folderContainer.querySelector('.file-item-icon.ph-folder, .file-item-icon.fa-folder');
+                if (icon) {
+                    icon.classList.replace('ph-folder', 'ph-folder-open');
+                    icon.classList.replace('fa-folder', 'fa-folder-open');
+                }
             }
             parent = folderContainer.parentElement;
         }
@@ -700,20 +687,18 @@ updateToggleButtonAppearance() {
     const currentMode = this.getCurrentMode();
     
     if (TreeViewState.isHierarchical) {
-        // Currently showing hierarchical view
         if (currentMode === 'verilog') {
-            icon.className = 'fa-solid fa-file-code';
+            icon.className = 'ph ph-file-code';
             text.textContent = 'File Mode';
             toggleButton.title = 'Switch to Verilog File Mode';
         } else {
-            icon.className = 'fa-solid fa-folder-tree';
+            icon.className = 'ph ph-folder-notch';
             text.textContent = 'File Tree';
             toggleButton.title = 'Switch to Standard File Tree';
         }
         toggleButton.classList.add('active');
     } else {
-        // Currently showing standard/file mode view
-        icon.className = 'fa-solid fa-sitemap';
+        icon.className = 'ph ph-tree-structure';
         text.textContent = 'Hierarchical';
         toggleButton.title = 'Switch to Hierarchical Module View';
         toggleButton.classList.remove('active');
@@ -753,8 +738,11 @@ renderHierarchicalTreeFromData() {
             if (folderItem) {
                 folderItem.querySelector('.folder-content')?.classList.remove('hidden');
                 folderItem.querySelector('.folder-toggle')?.classList.add('rotated');
-                const icon = folderItem.querySelector('.file-item-icon.fa-folder');
-                icon?.classList.replace('fa-folder', 'fa-folder-open');
+                const icon = folderItem.querySelector('.file-item-icon.ph-folder, .file-item-icon.fa-folder');
+                if (icon) {
+                    icon.classList.replace('ph-folder', 'ph-folder-open');
+                    icon.classList.replace('fa-folder', 'fa-folder-open');
+                }
             }
         });
     }

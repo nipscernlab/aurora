@@ -3,115 +3,421 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURORA IDE</title>
+    <title>SAPHO</title>
+    <!-- Phosphor Icons (canonical, used everywhere visible) -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+    <!-- FontAwesome (legacy fallback for JS-injected icons in 24 modules — gradually being replaced) -->
     <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
     <link rel="stylesheet" href="./css/import.css">
+    <!-- Inline SVG sprite for compile glyphs (replaces FontAwesome) -->
+    <style>
+      .glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1em;
+        height: 1em;
+        flex-shrink: 0;
+        line-height: 1;
+        vertical-align: middle;
+      }
+      .glyph svg {
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        display: block;
+        overflow: visible;
+      }
+      .glyph-cpm svg { stroke-width: 1.7; }
+    </style>
 </head>
 <body class="theme-dark">
-   <div class="toolbar">
-    <!-- Left Group - Project Management -->
+
+<!-- ============================================================
+     APP SHELL — toolbar + main pane stack on top, status bar below
+     ============================================================ -->
+<div class="app-shell">
+
+  <!-- Toolbar = custom title bar (drag region + tools + traffic lights) -->
+  <div class="toolbar" id="custom-titlebar">
     <div class="toolbar-left">
-        <button id="sidebarMenu" class="toolbar-button" onclick="toggleSidebar()">
-            <i class="fa-solid fa-table-columns"></i>
+        <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar">
+            <i class="ph ph-sidebar-simple"></i>
         </button>
         <button id="newProjectBtn" class="toolbar-button">
-            <i class="fas fa-folder-plus"></i>
+            <i class="ph ph-folder-plus"></i>
             <span>New Project</span>
         </button>
         <button id="openProjectBtn" class="toolbar-button">
-            <i class="fa-solid fa-folder-open"></i>
+            <i class="ph ph-folder-open"></i>
             <span>Open Project</span>
         </button>
     </div>
 
     <!-- Center Group - Compilation Tools -->
     <div class="toolbar-center">
-        <button id="cmmcomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
-            <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
+        <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±">
+            <span class="glyph glyph-cpm" aria-hidden="true">
+              <svg viewBox="0 0 24 16">
+                <!-- C arc: open to the right, centred on x=7 y=8 -->
+                <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                <!-- Plus sign, centred on x=18 y=6 -->
+                <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                <!-- Minus sign, centred on x=18 y=11.2 (no divider between them) -->
+                <path d="M16.2 11.2 h3.6"/>
+              </svg>
+            </span>
         </button>
-        <button id="asmcomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-microchip" style="color: rgb(180, 100, 210);"></i>
+        <button id="asmcomp" class="toolbar-button compile-btn" data-tool="asm" data-tooltip="Assemble ASM">
+            <span class="glyph glyph-asm" aria-hidden="true">
+              <svg viewBox="0 0 16 16">
+                <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
+                <path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M5 1.5v3M11 1.5v3M5 11.5v3M11 11.5v3M1.5 5h3M1.5 11h3M11.5 5h3M11.5 11h3"/>
+                <path d="M7 7h2v2H7z" fill="currentColor" stroke="none"/>
+              </svg>
+            </span>
         </button>
-        <button id="vericomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-feather" style="color: #FF5555;"></i>
+        <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog">
+            <span class="glyph glyph-veri" aria-hidden="true">
+              <svg viewBox="0 0 16 16">
+                <path d="M3 13.5 L9 7.5 a4 4 0 0 0 4-4 V2 h-1.5 a4 4 0 0 0-4 4 L1.5 12 z"/>
+                <path d="M5 11h4"/>
+              </svg>
+            </span>
         </button>
-        <button id="wavecomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
+        <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="View waveform">
+            <span class="glyph glyph-wave" aria-hidden="true">
+              <svg viewBox="0 0 16 16">
+                <path d="M1.5 8 H4 V3 H7 V13 H10 V8 H12.5 V5 H14.5"/>
+              </svg>
+            </span>
         </button>
-        <button id="prismcomp" class="toolbar-button" enabled>
-            <img src="./assets/icons/aurora_prism.svg" style="width: 35px; height: inherit;">
+        <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
+            <img src="./assets/icons/aurora_prism.svg" alt="">
             <span>PRISM</span>
         </button>
     </div>
 
+    <!-- Mode toggle -->
     <div class="toggle-group">
-    <!-- Processor Mode -->
-    <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
-    <label for="Processor Mode" class="mode-label mode-label-proc" title="Processor Mode">
-        <i class="fa-solid fa-microchip mode-label-icon"></i>
-    </label>
-    <!-- Project Mode -->
-    <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
-    <label for="Project Mode" class="mode-label mode-label-proj" title="Project Mode">
-        <i class="fa-solid fa-sitemap mode-label-icon"></i>
-    </label>
+      <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
+      <label for="Processor Mode" class="mode-label mode-label-proc" data-tooltip="Processor Mode">
+          <i class="ph ph-cpu mode-label-icon"></i>
+      </label>
+      <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
+      <label for="Project Mode" class="mode-label mode-label-proj" data-tooltip="Project Mode">
+          <i class="ph ph-tree-structure mode-label-icon"></i>
+      </label>
     </div>
 
-   
-    <!-- Compile All Group -->
     <div class="compile-all-group">
-        <button id="cancel-everything" class="toolbar-button" enabled>
-            <i class="fa-solid fa-stop-circle" style="color: #F87171;"></i>
+        <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
+            <i class="ph ph-stop-circle"></i>
         </button>
-        <button id="allcomp" class="toolbar-button" enabled>
-            <i class="fa-solid fa-hammer" style="color: #60A5FA;"></i>
+        <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build">
+            <i class="ph ph-hammer"></i>
             <span>Full Build</span>
         </button>
     </div>
 
-    <!-- Right Group - Settings & Tools -->
     <div class="toolbar-right">
-        <button id="settings" class="toolbar-button" enabled>
-            <i class="fa-solid fa-gears" style="color: #9B7DC4;"></i>
+        <button id="settings" class="toolbar-button btn-settings">
+            <i class="ph ph-gear-six"></i>
             <span>Settings</span>
         </button>
-        <button id="processorHub" class="toolbar-button">
-            <i class="fa-solid fa-circle-nodes" style="color: #9B7DC4;"></i>
+        <button id="processorHub" class="toolbar-button btn-hub">
+            <i class="ph ph-graph"></i>
             <span>Processor Hub</span>
         </button>
-        <button id="aurora-settings" class="toolbar-button">
-            <i class="fa-solid fa-sliders"></i>
+        <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
+            <i class="ph ph-sliders-horizontal"></i>
         </button>
-        <button id="split-editor-btn" class="toolbar-button" disabled title="Open a file first to enable split">
-            <i class="fa-solid fa-table-columns"></i>
+        <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split">
+            <i class="ph ph-columns"></i>
         </button>
-        <button id="aiButton" class="toolbar-button">
-            <img src="./assets/icons/ai_gemini.webp" alt="AI" style="width: 22px; height: 22px;">
+        <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant">
+            <i class="ph ph-sparkle"></i>
         </button>
+    </div>
+
+    <!-- Traffic-light window controls (yellow / green / red) — pinned right -->
+    <div class="window-controls" data-no-tooltip>
+        <button class="window-dot dot-min" id="win-min" aria-label="Minimize" data-no-tooltip>
+            <i class="ph-bold ph-minus"></i>
+        </button>
+        <button class="window-dot dot-max" id="win-max" aria-label="Maximize" data-no-tooltip>
+            <i class="ph-bold ph-square"></i>
+            <i class="ph-bold ph-corners-in ph-restore"></i>
+        </button>
+        <button class="window-dot dot-close" id="win-close" aria-label="Close" data-no-tooltip>
+            <i class="ph-bold ph-x"></i>
+        </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MAIN — file tree + editor/terminal stack
+       ============================================================ -->
+  <div class="main-container">
+    <div class="file-tree-container">
+        <div class="resizer-vertical"></div>
+        <div class="file-tree-header">
+            <span class="file-tree-label">FILE TREE</span>
+            <span id="current-spf-name">No project open</span>
+        </div>
+
+        <div class="overlay-title">
+            <button id="alternate-tree-toggle" class="tree-toggle-btn" data-tooltip="Toggle hierarchy view">
+                <i class="ph ph-tree-structure"></i>
+                <span class="toggle-text">Alternate</span>
+            </button>
+
+            <span id="new-verilog-file" class="tree-action tree-action-new" data-tooltip="New Verilog file">
+                <i class="ph ph-file-plus"></i>
+            </span>
+            <span id="refresh-button" class="tree-action" data-tooltip="Refresh file tree">
+                <i class="ph ph-arrows-clockwise"></i>
+            </span>
+            <span id="open-hdl-button" class="tree-action" data-tooltip="HDL viewer">
+                <i class="ph ph-hash"></i>
+            </span>
+            <span id="open-folder-button" class="tree-action" data-tooltip="Open in system explorer">
+                <i class="ph ph-folder-notch-open"></i>
+            </span>
+            <span id="close-button" class="tree-action tree-action-danger" data-tooltip="Close project">
+                <i class="ph ph-x-circle"></i>
+            </span>
+            <span id="toggle-file-tree" class="tree-action" data-tooltip="Collapse all">
+                <i class="ph ph-rows"></i>
+            </span>
+            <span id="backup-project" class="tree-action" data-tooltip="Backup project">
+                <i class="ph ph-floppy-disk"></i>
+            </span>
+        </div>
+
+        <div class="file-tree-actions">
+            <div id="file-tree" class="file-tree"></div>
+        </div>
+    </div>
+
+    <div class="editor-terminal-container">
+        <!-- Welcome overlay sits HERE (sibling of editor + terminal) so the
+             horizontal resizer cannot affect its layout. -->
+        <div id="editor-overlay" class="visible">
+            <div class="welcome-screen">
+                <div class="welcome-content">
+                    <div class="welcome-hero">
+                        <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" alt="SAPHO" />
+                        <h1 class="welcome-title">SAPHO</h1>
+                        <p class="welcome-subtitle">Scalable Architecture for Hardware Optimization</p>
+                        <div class="pillars">
+                            <span>AURORA</span>
+                            <span class="dot"></span>
+                            <span>YANC</span>
+                        </div>
+                    </div>
+
+                    <div class="welcome-actions">
+                        <button class="action-card primary-action" id="openProjectBtnWelcome">
+                            <i class="ph ph-folder-open"></i>
+                            <span class="action-label">Open Project</span>
+                        </button>
+                        <button class="action-card" id="newProjectBtnWelcome">
+                            <i class="ph ph-folder-plus"></i>
+                            <span class="action-label">New Project</span>
+                        </button>
+                    </div>
+
+                    <div class="welcome-recents">
+                        <div class="recents-header">
+                            <span class="recents-label">Recent</span>
+                            <span class="recent-projects-count" id="projects-count"></span>
+                        </div>
+                        <div class="recent-projects-list" id="recent-projects-list">
+                            <div class="empty-state" id="empty-state">
+                                <i class="ph ph-folder-open"></i>
+                                <p>No recent projects</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <footer class="welcome-footer">
+                        <a href="#" class="footer-link" id="website-link">nipscern.com</a>
+                        <span class="footer-divider">·</span>
+                        <span class="footer-version">v4.1.13</span>
+                    </footer>
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-container">
+            <div id="tabs-container" class="tabs-container"></div>
+            <div id="monaco-editor" class="monaco-editor"></div>
+        </div>
+        <div class="resizer-horizontal"></div>
+
+        <div id="terminal-container" class="terminal-container">
+            <div class="terminal-tabs">
+                <div class="terminal-tabs-actions">
+                  <button id="clear-terminal" class="toolbar-button icon-only" data-tooltip="Clear current terminal tab">
+                      <i class="ph ph-trash"></i>
+                  </button>
+
+                  <button id="filter-error" class="toolbar-button filter-btn filter-error icon-only" data-tooltip="Toggle errors">
+                      <i class="ph ph-x-circle"></i>
+                      <span id="error-count" class="message-count hidden">0</span>
+                  </button>
+                  <button id="filter-warning" class="toolbar-button filter-btn filter-warning icon-only" data-tooltip="Toggle warnings">
+                      <i class="ph ph-warning-circle"></i>
+                      <span id="warning-count" class="message-count hidden">0</span>
+                  </button>
+                  <button id="filter-success" class="toolbar-button filter-btn filter-success icon-only" data-tooltip="Toggle successes">
+                      <i class="ph ph-check-circle"></i>
+                      <span id="success-count" class="message-count hidden">0</span>
+                  </button>
+                  <button id="filter-tip" class="toolbar-button filter-btn filter-tip icon-only" data-tooltip="Toggle tips">
+                      <i class="ph ph-info"></i>
+                      <span id="tip-count" class="message-count hidden">0</span>
+                  </button>
+                </div>
+
+                <div class="terminal-tabs-list">
+                  <button class="tab active" data-terminal="tcmm" data-tooltip="C± terminal">
+                      <span class="glyph glyph-cpm" aria-hidden="true">
+                        <svg viewBox="0 0 24 16">
+                          <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                          <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                          <path d="M16.2 11.2 h3.6"/>
+                        </svg>
+                      </span>
+                      TCMM
+                  </button>
+                  <button class="tab" data-terminal="tasm" data-tooltip="ASM terminal">
+                      <span class="glyph glyph-asm" aria-hidden="true">
+                        <svg viewBox="0 0 16 16">
+                          <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
+                          <path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M5 1.5v3M11 1.5v3M5 11.5v3M11 11.5v3M1.5 5h3M1.5 11h3M11.5 5h3M11.5 11h3"/>
+                          <path d="M7 7h2v2H7z" fill="currentColor" stroke="none"/>
+                        </svg>
+                      </span>
+                      TASM
+                  </button>
+                  <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal">
+                      <span class="glyph glyph-veri" aria-hidden="true">
+                        <svg viewBox="0 0 16 16">
+                          <path d="M3 13.5 L9 7.5 a4 4 0 0 0 4-4 V2 h-1.5 a4 4 0 0 0-4 4 L1.5 12 z"/>
+                          <path d="M5 11h4"/>
+                        </svg>
+                      </span>
+                      TVERI
+                  </button>
+                  <button class="tab" data-terminal="twave" data-tooltip="Wave terminal">
+                      <span class="glyph glyph-wave" aria-hidden="true">
+                        <svg viewBox="0 0 16 16">
+                          <path d="M1.5 8 H4 V3 H7 V13 H10 V8 H12.5 V5 H14.5"/>
+                        </svg>
+                      </span>
+                      TWAVE
+                  </button>
+                </div>
+
+                <div class="terminal-tabs-actions">
+                  <button id="goup-terminal" class="toolbar-button icon-only" data-tooltip="Scroll up">
+                      <i class="ph ph-caret-up"></i>
+                  </button>
+                  <button id="godown-terminal" class="toolbar-button icon-only" data-tooltip="Scroll down">
+                      <i class="ph ph-caret-down"></i>
+                  </button>
+                  <button id="export-log" class="toolbar-button icon-only" data-tooltip="Export log">
+                      <i class="ph ph-export"></i>
+                  </button>
+                  <button id="reload-everything-terminal" class="toolbar-button icon-only" data-tooltip="Reload application">
+                      <i class="ph ph-arrow-clockwise"></i>
+                  </button>
+                </div>
+            </div>
+            <div class="terminal-content" id="terminal-tcmm">
+                <div class="terminal-header">TCMM Terminal</div>
+                <div class="terminal-body">Welcome to the terminal TCMM!</div>
+            </div>
+            <div class="terminal-content hidden" id="terminal-tasm">
+                <div class="terminal-header">TASM Terminal</div>
+                <div class="terminal-body">Welcome to the terminal TASM!</div>
+            </div>
+            <div class="terminal-content hidden" id="terminal-tveri">
+                <div class="terminal-header">TVERI Terminal</div>
+                <div class="terminal-body">Welcome to the terminal TVERI!</div>
+            </div>
+            <div class="terminal-content hidden" id="terminal-twave">
+                <div class="terminal-header">TWAVE Terminal</div>
+                <div class="terminal-body">Welcome to the terminal TWAVE!</div>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     STATUS BAR — independent footer, full width edge-to-edge
+     ============================================================ -->
+<div class="status-bar">
+    <div class="status-zone status-zone-left">
+        <div class="status-item" id="ready">
+            <span class="status-dot status-dot-error"></span>
+            <span id="status-text">Not Ready</span>
+        </div>
+        <div class="status-item" id="compmode">
+            <i class="ph ph-code"></i>
+            <span id="compmode-text">Verilog Mode</span>
+        </div>
+    </div>
+    <div class="status-zone status-zone-center">
+        <div class="status-item" id="statusUpdater">
+            <i class="ph ph-lightning status-icon-bolt"></i>
+            <span>Start Compilation</span>
+        </div>
+    </div>
+    <div class="status-zone status-zone-right">
+        <div class="status-item" id="processorNameID">
+            <i class="ph ph-x status-icon-error"></i>
+            <span>No Processor Configured</span>
+        </div>
+        <div class="status-item" id="editorStatus">
+            <i class="ph ph-text-align-left"></i>
+            <span>Ln 3, Col 3</span>
+        </div>
     </div>
 </div>
 
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
 <!-- Processor Configuration Modal -->
 <div id="modalProcessorConfig" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
+    <div class="modal-container large" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
         <header class="modal-header">
             <h2 id="processor-modal-title" class="modal-title">
-                <i class="fa-solid fa-gears" aria-hidden="true"></i>
+                <i class="ph ph-gear-six" aria-hidden="true"></i>
                 <span>Processor Mode Settings</span>
             </h2>
             <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                <i class="ph ph-x" aria-hidden="true"></i>
             </button>
         </header>
-        
+
         <main class="modal-body">
             <section class="config-section">
                 <h3 class="section-title">
-                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    <i class="ph ph-magic-wand" aria-hidden="true"></i>
                     Synthesis Configuration
                 </h3>
-                
+
                 <div class="form-group">
                     <label for="processorSelect" class="form-label">Select Processor</label>
                     <div class="select-with-actions">
@@ -121,7 +427,7 @@
                             </select>
                         </div>
                         <button id="deleteProcessor" class="icon-btn danger" aria-label="Delete Selected Processor">
-                            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                            <i class="ph ph-trash" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -138,10 +444,10 @@
 
             <section class="config-section">
                 <h3 class="section-title">
-                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    <i class="ph ph-chart-line-up" aria-hidden="true"></i>
                     Simulation Configuration
                 </h3>
-                
+
                 <div class="form-group">
                     <label for="processortestbenchSelect" class="form-label">Testbench File</label>
                     <div class="select-container">
@@ -157,12 +463,12 @@
                         <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000" value="100">
                         <small class="form-hint">Maximum of 1000MHz</small>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="processorNumClocks" class="form-label">Number of Clocks</label>
                         <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="2000">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="processorSimulTime" class="form-label">Simulation Time (ps)</label>
                         <input type="text" id="processorSimulTime" class="form-input" placeholder="e.g., 200000" value="200000">
@@ -195,12 +501,11 @@
         <footer class="modal-footer">
             <div class="footer-actions">
                 <button id="cancelConfig" class="btn btn-secondary">
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     <span>Cancel</span>
                 </button>
                 <button id="saveConfig" class="btn btn-primary">
-                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                    <span>Save Configuration</span>
+                    <i class="ph ph-floppy-disk" aria-hidden="true"></i>
+                    <span>Save</span>
                 </button>
             </div>
         </footer>
@@ -209,48 +514,46 @@
 
 <!-- Project Configuration Modal -->
 <div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container large" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
+    <div class="modal-container medium" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
         <header class="modal-header">
             <h2 id="project-modal-title" class="modal-title">
-                <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                <i class="ph ph-gear" aria-hidden="true"></i>
                 <span>Project Mode Settings</span>
             </h2>
             <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                <i class="ph ph-x" aria-hidden="true"></i>
             </button>
         </header>
-        
+
         <main class="modal-body">
-            <!-- Synthesis Configuration Section -->
             <section class="config-section">
                 <h3 class="section-title">
-                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    <i class="ph ph-magic-wand" aria-hidden="true"></i>
                     Synthesis Configuration
                 </h3>
-                
-                <!-- Synthesizable Files -->
+
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="fa-solid fa-file-code" aria-hidden="true"></i>
+                        <i class="ph ph-file-code" aria-hidden="true"></i>
                         Synthesizable Files (.v)
                     </label>
-                    
+
                     <div class="file-drop-area" id="synthesizableDropArea">
                         <div class="drop-zone">
                             <div class="drop-zone-content">
-                                <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                <i class="ph ph-cloud-arrow-up drop-icon" aria-hidden="true"></i>
                                 <h4>Import Verilog Files</h4>
-                                <p>Drag & drop .v files here or click to browse</p>
+                                <p>Drag &amp; drop .v files here or click to browse</p>
                                 <button id="importSynthesizableBtn" class="btn btn-outline">
-                                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                    <i class="ph ph-file-arrow-down" aria-hidden="true"></i>
                                     <span>Browse Files</span>
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div class="file-list" id="synthesizableFileList">
                             <div class="empty-state" id="synthesizableEmptyState">
-                                <i class="fa-solid fa-file-code empty-icon" aria-hidden="true"></i>
+                                <i class="ph ph-file-code empty-icon" aria-hidden="true"></i>
                                 <span>No synthesizable files imported yet</span>
                             </div>
                         </div>
@@ -258,82 +561,73 @@
                 </div>
             </section>
 
-           <input type="checkbox" id="Verilog Mode" class="simulation-toggle-control" checked />
+            <input type="checkbox" id="Verilog Mode" class="simulation-toggle-control" checked />
 
-            <!-- 2. O Visual do Toggle (O que o usuário clica) -->
             <label for="Verilog Mode" class="simulation-toggle-visual">
                 <div class="toggle-switch-wrapper">
                     <div class="toggle-track"></div>
                     <div class="toggle-thumb"></div>
                 </div>
                 <div class="toggle-text-content">
-                    <span class="toggle-title">Compile & Simulate</span>
+                    <span class="toggle-title">Compile &amp; Simulate</span>
                     <small class="toggle-description">Enable to run processor simulation after synthesis. Disable for synthesis only.</small>
                 </div>
             </label>
-            
-            <!-- 3. Simulation Configuration Section (Controlada pelo input acima) -->
+
             <section class="config-section simulation-settings-container">
                 <h3 class="section-title">
-                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    <i class="ph ph-chart-line-up" aria-hidden="true"></i>
                     Simulation Configuration
                 </h3>
-                
-                <!-- ... O conteúdo interno da simulação continua aqui ... -->
-                
-                <!-- Testbench & GTKW Files -->
+
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="fa-solid fa-vial" aria-hidden="true"></i>
-                        Testbench & GTKW Files
+                        <i class="ph ph-test-tube" aria-hidden="true"></i>
+                        Testbench &amp; GTKW Files
                     </label>
-                    
+
                     <div class="file-drop-area" id="testbenchDropArea">
                         <div class="drop-zone">
                             <div class="drop-zone-content">
-                                <i class="fa-solid fa-cloud-arrow-up drop-icon" aria-hidden="true"></i>
+                                <i class="ph ph-cloud-arrow-up drop-icon" aria-hidden="true"></i>
                                 <h4>Import Testbench Files</h4>
-                                <p>Drag & drop .v and .gtkw files here or click to browse</p>
+                                <p>Drag &amp; drop .v and .gtkw files here or click to browse</p>
                                 <button id="importTestbenchBtn" class="btn btn-outline">
-                                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                                    <i class="ph ph-file-arrow-down" aria-hidden="true"></i>
                                     <span>Browse Files</span>
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div class="file-list" id="testbenchFileList">
                             <div class="empty-state" id="testbenchEmptyState">
-                                <i class="fa-solid fa-vial empty-icon" aria-hidden="true"></i>
+                                <i class="ph ph-test-tube empty-icon" aria-hidden="true"></i>
                                 <span>No testbench or GTKW files imported yet</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Processors Management -->
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="fa-solid fa-microchip" aria-hidden="true"></i>
+                        <i class="ph ph-cpu" aria-hidden="true"></i>
                         Processors Management
                     </label>
-                    
-                    <div id="processorsList" class="processors-list">
-                        <!-- Processor rows will be dynamically added here -->
-                    </div>
-                    
-                    <button id="addProcessor" class="btn btn-primary">
-                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+
+                    <div id="processorsList" class="processors-list"></div>
+
+                    <button id="addProcessor" class="btn btn-outline">
+                        <i class="ph ph-plus" aria-hidden="true"></i>
                         <span>Add Processor</span>
                     </button>
                 </div>
-                
-                <!-- Simulation Settings -->
+
                 <div class="form-group">
                     <label for="projectSimuDelay" class="form-label">Simulation Time</label>
                     <input type="text" id="projectSimuDelay" class="form-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
                     <small class="form-hint">Simulation time value used in testbench timing</small>
                 </div>
-                
+
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="showArraysInGtkwave-project" class="form-checkbox">
@@ -342,7 +636,7 @@
                         </label>
                     </div>
                     <small class="form-hint">
-                        <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                        <i class="ph ph-info" aria-hidden="true"></i>
                         Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
                     </small>
                 </div>
@@ -352,11 +646,10 @@
         <footer class="modal-footer">
             <div class="footer-actions">
                 <button id="cancelProjectConfig" class="btn btn-secondary">
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     <span>Cancel</span>
                 </button>
                 <button id="saveProjectConfig" class="btn btn-primary">
-                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                    <i class="ph ph-floppy-disk" aria-hidden="true"></i>
                     <span>Save Project</span>
                 </button>
             </div>
@@ -364,140 +657,148 @@
     </div>
 </div>
 
-<!-- Hidden file inputs -->
-<input type="file" id="synthesizableFileInput" style="display: none" multiple accept=".v">
-<input type="file" id="testbenchFileInput" style="display: none" multiple accept=".v,.gtkw">
-    
-    <!-- New Project Modal -->
-    <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
-        <div class="modal-container" role="dialog" aria-labelledby="new-project-title" aria-modal="true">
-            <header class="modal-header">
-                <h2 id="new-project-title" class="modal-title">
-                    <i class="fa-solid fa-folder-plus" aria-hidden="true"></i>
-                    <span>Create New Project</span>
-                </h2>
-            </header>
-            
-            <main class="modal-body">
-                <form class="project-form" id="newProjectForm">
-                    <div class="form-group">
-                        <label for="projectNameInput" class="form-label">Project Name</label>
-                        <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="projectLocationInput" class="form-label">Project Location</label>
-                        <div class="input-with-action">
-                            <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" readonly required>
-                            <button type="button" id="browseBtn" class="btn btn-outline">
-                                <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
-                                <span>Browse</span>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </main>
-            
-            <footer class="modal-footer">
-                <div class="footer-actions">
-                    <button id="cancelProjectBtn" class="btn btn-secondary">
-                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                        <span>Cancel</span>
-                    </button>
-                    <button id="generateProjectBtn" class="btn btn-primary">
-                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                        <span>Generate Project</span>
-                    </button>
-                </div>
-            </footer>
-        </div>
-    </div>
+<input type="file" id="synthesizableFileInput" class="hidden" multiple accept=".v">
+<input type="file" id="testbenchFileInput" class="hidden" multiple accept=".v,.gtkw">
 
-<div id="modalContainer" class="modal-overlay" >
-  <div class="modal-container large" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
+<!-- New Project Modal -->
+<div id="newProjectModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-container" role="dialog" aria-labelledby="new-project-title" aria-modal="true">
+        <header class="modal-header">
+            <h2 id="new-project-title" class="modal-title">
+                <i class="ph ph-folder-plus" aria-hidden="true"></i>
+                <span>Create New Project</span>
+            </h2>
+        </header>
+
+        <main class="modal-body">
+            <form class="project-form" id="newProjectForm">
+                <div class="form-group">
+                    <label for="projectNameInput" class="form-label">Project Name</label>
+                    <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="projectLocationInput" class="form-label">Project Location</label>
+                    <div class="input-with-action">
+                        <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" readonly required>
+                        <button type="button" id="browseBtn" class="btn btn-outline">
+                            <i class="ph ph-folder-open" aria-hidden="true"></i>
+                            <span>Browse</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </main>
+
+        <footer class="modal-footer">
+            <div class="footer-actions">
+                <button id="cancelProjectBtn" class="btn btn-secondary">
+                    <span>Cancel</span>
+                </button>
+                <button id="generateProjectBtn" class="btn btn-primary">
+                    <i class="ph ph-plus" aria-hidden="true"></i>
+                    <span>Generate Project</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- Processor Hub Modal -->
+<div id="modalContainer" class="modal-overlay">
+  <div class="modal-container xl" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
     <header class="modal-header">
       <h2 id="processor-hub-title" class="modal-title">
-        <i class="fa-solid fa-star-of-life" aria-hidden="true"></i>
+        <i class="ph ph-graph" aria-hidden="true"></i>
         <span>Create Processor Hub</span>
       </h2>
       <button id="closeProcessorHub" class="modal-close-btn" aria-label="Close">
-        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        <i class="ph ph-x" aria-hidden="true"></i>
       </button>
     </header>
 
     <main class="modal-body">
       <form class="processor-form" id="processorHubForm" novalidate>
         <div class="form-group full-width">
-            <label for="processorName" class="form-label">Processor Name</label>
-            <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00" />
-          </div>
-        <!-- Processor name (full width) -->
-        <div class="form-grid">
-          <!-- Row: Total Number of Bits (left) | Gain (right) -->
-          <div class="form-group">
-            <label for="nBits" class="form-label">
-              Total Number of Bits
-              <span class="tooltip" title="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
-                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
-              </span>
-            </label>
-            <input type="number" id="nBits" name="nBits" class="form-input" required min="1" value="23" />
-          </div>
-
-          <div class="form-group">
-            <label for="gain" class="form-label">
-              Gain
-              <span class="tooltip" title="Gain must be a power of 2">
-                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
-              </span>
-            </label>
-            <input type="number" id="gain" name="gain" class="form-input" required step="any" value="128" />
-          </div>
-
-          <!-- Row: Mantissa (left) | Exponent (right) -->
-          <div class="form-group">
-            <label for="nbMantissa" class="form-label">Mantissa Bit Number</label>
-            <input type="number" id="nbMantissa" name="nbMantissa" class="form-input" min="1" value="16" />
-          </div>
-
-          <div class="form-group">
-            <label for="nbExponent" class="form-label">Exponent Bit Number</label>
-            <input type="number" id="nbExponent" name="nbExponent" class="form-input" min="1" value="6" />
-          </div>
-
-          <!-- Row: Instruction Stack Size (left) | Data Stack Size (right) -->
-          <div class="form-group">
-            <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
-            <input type="number" id="instructionStackSize" name="instructionStackSize" class="form-input" required min="1" value="5" />
-          </div>
-
-          <div class="form-group">
-            <label for="dataStackSize" class="form-label">Data Stack Size</label>
-            <input type="number" id="dataStackSize" name="dataStackSize" class="form-input" required min="1" value="5" />
-          </div>
-
-          <!-- Row: Input Ports (left) | Output Ports (right) -->
-          <div class="form-group">
-            <label for="inputPorts" class="form-label">Number of Input Ports</label>
-            <input type="number" id="inputPorts" name="inputPorts" class="form-input" required min="0" value="1" />
-          </div>
-
-          <div class="form-group">
-            <label for="outputPorts" class="form-label">Number of Output Ports</label>
-            <input type="number" id="outputPorts" name="outputPorts" class="form-input" required min="0" value="1" />
-          </div>
+          <label for="processorName" class="form-label">Processor Name</label>
+          <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00" />
         </div>
+
+        <section class="config-section">
+          <h3 class="section-title">
+            <i class="ph ph-binary" aria-hidden="true"></i>
+            Numeric Format
+          </h3>
+          <div class="form-cols-2">
+            <div class="form-group">
+              <label for="nBits" class="form-label">
+                <span>Total Number of Bits</span>
+                <span class="info-tip" data-tooltip="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </span>
+              </label>
+              <input type="number" id="nBits" name="nBits" class="form-input" required min="1" value="23" />
+            </div>
+
+            <div class="form-group">
+              <label for="gain" class="form-label">
+                <span>Gain</span>
+                <span class="info-tip" data-tooltip="Gain must be a power of 2">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </span>
+              </label>
+              <input type="number" id="gain" name="gain" class="form-input" required step="any" value="128" />
+            </div>
+
+            <div class="form-group">
+              <label for="nbMantissa" class="form-label">Mantissa Bits</label>
+              <input type="number" id="nbMantissa" name="nbMantissa" class="form-input" min="1" value="16" />
+            </div>
+
+            <div class="form-group">
+              <label for="nbExponent" class="form-label">Exponent Bits</label>
+              <input type="number" id="nbExponent" name="nbExponent" class="form-input" min="1" value="6" />
+            </div>
+          </div>
+        </section>
+
+        <section class="config-section">
+          <h3 class="section-title">
+            <i class="ph ph-stack" aria-hidden="true"></i>
+            Stacks &amp; Ports
+          </h3>
+          <div class="form-cols-2">
+            <div class="form-group">
+              <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
+              <input type="number" id="instructionStackSize" name="instructionStackSize" class="form-input" required min="1" value="5" />
+            </div>
+
+            <div class="form-group">
+              <label for="dataStackSize" class="form-label">Data Stack Size</label>
+              <input type="number" id="dataStackSize" name="dataStackSize" class="form-input" required min="1" value="5" />
+            </div>
+
+            <div class="form-group">
+              <label for="inputPorts" class="form-label">Input Ports</label>
+              <input type="number" id="inputPorts" name="inputPorts" class="form-input" required min="0" value="1" />
+            </div>
+
+            <div class="form-group">
+              <label for="outputPorts" class="form-label">Output Ports</label>
+              <input type="number" id="outputPorts" name="outputPorts" class="form-input" required min="0" value="1" />
+            </div>
+          </div>
+        </section>
       </form>
     </main>
 
     <footer class="modal-footer">
       <div class="footer-actions">
         <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           <span>Cancel</span>
         </button>
         <button type="submit" form="processorHubForm" id="generateProcessor" class="btn btn-primary" disabled>
-          <i class="fa-solid fa-cogs" aria-hidden="true"></i>
+          <i class="ph ph-gear-six" aria-hidden="true"></i>
           <span>Generate Processor</span>
         </button>
       </div>
@@ -505,220 +806,21 @@
   </div>
 </div>
 
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- File Tree Section -->
-        <div class="file-tree-container">
-            <div class="resizer-vertical"></div>
-            <div class="file-tree-header">
-                <span>FILE TREE</span>
-                <span id="current-spf-name">No project open</span>
-                
-                <!--
-   
-                <div class="file-search-container">
-      
-                <div class="search-input-wrapper">
-       
-                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
-
-                    <input 
-                        type="text" 
-                        id="file-search-input" 
-                        class="search-input" 
-                        placeholder="Search files and folders..."
-                        aria-label="Search file tree"
-                    >
-
-                    <button id="clear-search" class="clear-search-btn" aria-label="Clear search">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <div class="search-results-info">
-                    <span id="search-results-count"></span>
-                </div>
-            </div> -->
-            </div>
-            
-        <div class="overlay-title">
-            <button id="alternate-tree-toggle" class="tree-toggle-btn" title="Toggle Tree View">
-                <i class="fa-solid fa-sitemap"></i>
-                <span class="toggle-text">Alternate Tree</span>
+<!-- Settings Modal — standardized to modal-container -->
+<div id="settings-modal" class="modal-overlay">
+    <div class="modal-container medium" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
+        <header class="modal-header">
+            <h2 id="settings-modal-title" class="modal-title">
+                <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+                <span>Aurora Settings</span>
+            </h2>
+            <button id="close-modal-btn" class="modal-close-btn" aria-label="Close settings">
+                <i class="ph ph-x" aria-hidden="true"></i>
             </button>
-            
-            <span id="new-verilog-file" style="cursor: pointer;" title="New Verilog File">
-                <i class="fa-solid fa-file-circle-plus" style="color: #FF5555;"></i>
-            </span>
-            <span id="refresh-button" style="cursor: pointer;" title="Refreshes the file tree and reloads project structure.">
-                <i class="fa-solid fa-arrows-rotate"></i>
-            </span>
-                <span id="open-hdl-button" style="cursor: pointer;" title="Open HDL files viewer for hardware description language files.">
-                    <i class="fa-solid fa-hashtag"></i>
-                </span>
-                <span id="open-folder-button" style="cursor: pointer;" title="Open the current project folder in the system file explorer.">
-                    <i class="fa-solid fa-folder-open"></i>
-                </span>
-                <span id="close-button" style="cursor: pointer;" title="Close the current project and return to the welcome screen.">
-                    <i class="fa-solid fa-circle-xmark"></i>
-                </span>
-                <span id="toggle-file-tree" style="cursor: pointer;">
-                        <i class="fa-solid fa-square-minus"></i>
-                </span>
-                <span id="backup-project" style="cursor: pointer;" title="Backup Project">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                </span>
-            </div>
-            
-            <div class="file-tree-actions">
-                <div id="file-tree" class="file-tree"></div>
-            </div>
-        </div>
+        </header>
 
-        <div class="editor-terminal-container">
-            <div class="editor-container">
-                <div id="tabs-container" class="tabs-container">
-                    <!-- Tabs will be dynamically inserted here -->
-                </div>
-                <div id="monaco-editor" class="monaco-editor">
-                    <div id="editor-overlay" class="visible">
-                        <div class="welcome-screen">
-                            <div class="welcome-content">
-                                <!-- Hero -->
-                                <div class="welcome-hero">
-                                    <img class="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="72" style="border-radius: 8px" alt="Aurora" />
-                                    <h1 class="welcome-title">SAPHO & AURORA IDE</h1>
-                                    <p class="welcome-subtitle">Hardware optimization platform</p>
-                                </div>
-
-                                <!-- Actions -->
-                                <div class="welcome-actions">
-                                    <button class="action-card primary-action" id="openProjectBtnWelcome">
-                                        <i class="fa-solid fa-folder-open"></i>
-                                        <span class="action-label">Open Project</span>
-                                    </button>
-                                    <button class="action-card" id="newProjectBtnWelcome">
-                                        <i class="fas fa-folder-plus"></i>
-                                        <span class="action-label">New Project</span>
-                                    </button>
-                                </div>
-
-                                <!-- Recent Projects -->
-                                <div class="welcome-recents">
-                                    <div class="recents-header">
-                                        <span class="recents-label">Recent</span>
-                                        <span class="recent-projects-count" id="projects-count"></span>
-                                    </div>
-                                    <div class="recent-projects-list" id="recent-projects-list">
-                                        <div class="empty-state" id="empty-state">
-                                            <i class="fa-solid fa-folder-open"></i>
-                                            <p>No recent projects</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Footer -->
-                                <footer class="welcome-footer">
-                                    <a href="#" class="footer-link" id="website-link">nipscern.com</a>
-                                    <span class="footer-divider">·</span>
-                                    <span class="footer-version">v4.1.12</span>
-                                </footer>
-                            </div><!-- /.welcome-content -->
-                        </div><!-- /.welcome-screen -->
-                    </div><!-- /#editor-overlay -->
-                </div><!-- /#monaco-editor -->
-            </div>
-            <div class="resizer-horizontal"></div>
-        
-
-    <!-- O contêiner do terminal e todo o seu conteúdo permanecem exatamente os mesmos -->
-<div id="terminal-container" class="terminal-container">
-    <div class="terminal-tabs">
-        <button id="clear-terminal" class="toolbar-button" data-tooltip="Clear all content from the current terminal tab.">
-            <i class="fa-solid fa-trash-can"></i>
-        </button>
-
-        <!-- MODIFIED FILTER BUTTONS -->
-        <button id="filter-error" class="toolbar-button filter-btn filter-error" data-tooltip="Toggle visibility of error messages in the terminal output.">
-            <i class="fa-solid fa-circle-xmark"></i>
-            <span id="error-count" class="message-count hidden">0</span>
-        </button>
-        <button id="filter-warning" class="toolbar-button filter-btn filter-warning" data-tooltip="Toggle visibility of warning messages in the terminal output.">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <span id="warning-count" class="message-count hidden">0</span>
-        </button>
-        <button id="filter-success" class="toolbar-button filter-btn filter-success" data-tooltip="Toggle visibility of success messages in the terminal output.">
-            <i class="fa-solid fa-circle-check"></i>
-            <span id="success-count" class="message-count hidden">0</span>
-        </button>
-        <button id="filter-tip" class="toolbar-button filter-btn filter-tip" data-tooltip="Toggle visibility of tip messages in the terminal output.">
-            <i class="fa-solid fa-circle-info"></i>
-            <span id="tip-count" class="message-count hidden">0</span>
-        </button>
-        <!-- END OF MODIFICATIONS -->
-
-        <button class="tab active" data-terminal="tcmm" data-tooltip="Open TCMM terminal">
-            <i class="fa-solid fa-c" style="color: lightskyblue;"></i>
-            <i class="fa-solid fa-plus-minus" style="color: #FFD700;"></i>
-            TCMM
-        </button>
-        <button class="tab" data-terminal="tasm" data-tooltip="Open TASM terminal">
-            <i class="fa-solid fa-microchip" style="color: rgb(180, 100, 210);"></i>
-            TASM
-        </button>
-        <button class="tab" data-terminal="tveri" data-tooltip="Open TVERI terminal">
-            <i class="fa-solid fa-feather" style="color: #FF5555;"></i>
-            TVERI
-        </button>
-        <button class="tab" data-terminal="twave" data-tooltip="Open TWAVE terminal">
-            <i class="fa-solid fa-wave-square" style="color: #2CFF05;"></i>
-            TWAVE
-        </button>
-        <button id="goup-terminal" class="toolbar-button" data-tooltip="Scroll up in the terminal output.">
-            <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button id="godown-terminal" class="toolbar-button" data-tooltip="Scroll down in the terminal output.">
-            <i class="fa-solid fa-chevron-down"></i>
-        </button>
-        <button id="export-log" class="toolbar-button" data-tooltip="Export the current terminal log to a file.">
-            <i class="fa-solid fa-file-export"></i>
-        </button>
-        <button id="reload-everything-terminal" class="toolbar-button" data-tooltip="Reload the entire application and refresh all components.">
-            <i class="fa-solid fa-rotate-right"></i>
-        </button>
-    </div>
-        <div class="terminal-content" id="terminal-tcmm">
-            <div class="terminal-header">TCMM Terminal</div>
-            <div class="terminal-body">Welcome to the terminal TCMM!</div>
-        </div>
-        <div class="terminal-content hidden" id="terminal-tasm">
-            <div class="terminal-header">TASM Terminal</div>
-            <div class="terminal-body">Welcome to the terminal TASM!</div>
-        </div>
-        <div class="terminal-content hidden" id="terminal-tveri">
-            <div class="terminal-header">TVERI Terminal</div>
-            <div class="terminal-body">Welcome to the terminal TVERI!</div>
-        </div>
-        <div class="terminal-content hidden" id="terminal-twave">
-            <div class="terminal-header">TWAVE Terminal</div>
-            <div class="terminal-body">Welcome to the terminal TWAVE!</div>
-        </div>
-    </div>
-
-    <div id="settings-modal" class="modal-overlay">
-    <div class="modal-content animate-fade-in">
-
-        <!-- Modal Header -->
-        <div class="modal-header">
-            <h2>Settings</h2>
-            <button id="close-modal-btn" class="close-button" aria-label="Close settings">&times;</button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="modal-body">
-
-            <!-- Section: General -->
-            <div class="settings-section">
+        <main class="modal-body">
+            <section class="settings-section">
                 <h3>General</h3>
                 <div class="setting-item">
                     <label for="tooltips-toggle">Enable Tooltips</label>
@@ -727,11 +829,9 @@
                         <span class="slider"></span>
                     </label>
                     <div class="setting-description">
-                        When enabled, tooltips are shown throughout the IDE for all buttons and inputs. 
-                        When disabled, no tooltips will appear.
+                        Show tooltips on hover throughout the IDE.
                     </div>
                 </div>
-                <!-- Add this in the "General" section -->
                 <div class="setting-item">
                     <label for="compilation-mode-toggle">Parallel Simulation Mode</label>
                     <label class="switch">
@@ -739,8 +839,7 @@
                         <span class="slider"></span>
                     </label>
                     <div class="setting-description">
-                        When enabled, GTKWave opens immediately as VCD is being generated. 
-                        When disabled, GTKWave waits until VCD generation is 100% complete.
+                        Open GTKWave immediately as VCD generates. Disable to wait for full generation.
                     </div>
                 </div>
                 <div class="setting-item">
@@ -750,10 +849,9 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-            </div>
+            </section>
 
-            <!-- Section: Terminal -->
-            <div class="settings-section">
+            <section class="settings-section">
                 <h3>Terminal</h3>
                 <div class="setting-item">
                     <label for="verbose-toggle">Verbose Mode</label>
@@ -762,88 +860,56 @@
                         <span class="slider"></span>
                     </label>
                     <div class="setting-description">
-                        Show all compilation messages. When disabled, only filtered messages (errors, warnings, success, info) are displayed.
+                        Show all compilation messages. Disable to filter (errors, warnings, success, info).
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Section: Appearance -->
-            <div class="settings-section">
+            <section class="settings-section">
                 <h3>Appearance</h3>
-                <div id="icon-container">
-                    <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" width="100px" alt="Aurora" class="overlay-icon" />
-                    <i id="fallback-icon" class="fa-solid fa-notdef"></i>
+                <div id="icon-container" class="icon-container">
+                    <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" alt="Aurora" class="overlay-icon aurora-icon" />
+                    <i id="fallback-icon" class="ph ph-image-broken fallback-icon"></i>
                     <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon">
-                        <i class="fa-solid fa-image"></i>
+                        <i class="ph ph-image"></i>
                     </button>
-                    <input type="file" id="icon-upload" accept="image/*" />
+                    <input type="file" id="icon-upload" accept="image/*" class="hidden" />
                 </div>
-            </div>
+            </section>
 
-            <!-- Section: Shortcuts -->
-            <div class="settings-section">
+            <section class="settings-section">
                 <h3>Keyboard Shortcuts</h3>
-                <div id="shortcut-list">
-                    <!-- Shortcuts will be injected here via JS -->
-                </div>
+                <div id="shortcut-list"></div>
                 <div class="shortcut-warning" id="shortcut-warning">
                     This shortcut is already in use.
                 </div>
+            </section>
+        </main>
+
+        <footer class="modal-footer">
+            <div class="footer-actions">
+                <button id="reset-settings-btn" class="btn btn-secondary">Reset to Defaults</button>
+                <button id="save-settings-btn" class="btn btn-primary">Save Changes</button>
             </div>
-
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="modal-footer">
-            <button id="reset-settings-btn" class="modal-button secondary">Reset to Defaults</button>
-            <button id="save-settings-btn" class="modal-button primary">Save Changes</button>
-        </div>
+        </footer>
     </div>
 </div>
 
-<input type="file" id="icon-upload" accept="image/*" style="display: none;" />
-
-    <!-- Status Bar -->
-    <div class="status-bar">
-        <div class="status-item" id="ready">
-            <i class="fa-solid fa-circle" style="color: var(--status-error); font-size: 14px;"></i>
-            <span id="status-text">Not Ready</span>
-        </div>
-        <div class="status-item" id="compmode">
-            <i class="fa-solid fa-v fa-sm"></i>
-            <span id="compmode-text">Verilog Mode</span>
-        </div>
-        <div class="status-item" id="statusUpdater">
-            <i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation
-        </div>
-        <div class="status-item" id="processorNameID">
-            <i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured
-        </div>
-        <div class="status-item" id="editorStatus">
-            <i class="fa-solid fa-align-left"></i> Ln 3, Col 3
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script>
-    
+<!-- Inline scripts (modal wiring + interactions) -->
+<script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Map your toolbar trigger IDs -> modal IDs
     const triggerToModal = {
-        newProjectBtn: 'newProjectModal', // New Project -> New Project modal
-        processorHub: 'modalContainer', // Processor Hub -> Processor Hub modal
+        newProjectBtn: 'newProjectModal',
+        processorHub: 'modalContainer',
         newProjectBtnWelcome: 'newProjectModal',
     };
 
-    // Collect modal elements
     const modalIds = Array.from(new Set(Object.values(triggerToModal)));
     const modals = {};
     modalIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            // ensure aria-hidden exists (string)
             if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true');
-            // allow focusing container for accessibility
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
             modals[id] = el;
         } else {
@@ -851,57 +917,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Utility: open modal
     function openModal(modalId) {
         const modal = modals[modalId];
         if (!modal) return console.error('openModal: modal not registered:', modalId);
-        modal.classList.remove('hidden'); // clear any stray hidden class
+        modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
-        // focus first focusable element inside modal (or modal itself)
         const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
         (focusable || modal).focus();
     }
 
-    // Utility: close modal
     function closeModal(modalId) {
         const modal = modals[modalId];
         if (!modal) return console.error('closeModal: modal not registered:', modalId);
         modal.setAttribute('aria-hidden', 'true');
         modal.classList.remove('show');
-        // restore scroll only if no other modal open
         const anyOpen = Object.values(modals).some(m => m.getAttribute('aria-hidden') === 'false');
         if (!anyOpen) document.body.style.overflow = '';
     }
 
-    // Wire click handlers on your triggers using capture phase so disabled state never blocks them.
     Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
         const btn = document.getElementById(triggerId);
-        if (!btn) {
-            console.warn('Trigger button not found:', triggerId);
-            return;
-        }
-
-        // Ensure button is always enabled
+        if (!btn) return;
         btn.disabled = false;
         btn.classList.remove('disabled');
         btn.removeAttribute('disabled');
-
-        // Use capture phase so click fires even if something tries to disable the button
         document.addEventListener('click', (e) => {
             if (e.target === btn || btn.contains(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
-                // Re-enable in case something disabled it
                 btn.disabled = false;
                 openModal(modalId);
             }
         }, true);
     });
 
-
-    // Escape key closes any open modal
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             Object.keys(modals).forEach(id => {
@@ -910,176 +961,154 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Wire all known close/cancel buttons to their respective modals (IDs from your HTML)
     document.getElementById('cancelProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
     document.getElementById('generateProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
-
     document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
     document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
 
-    // Debug helper (expose to console)
     window.__modalHelpers = {
         openModalById: openModal,
         closeModalById: closeModal
     };
-    console.info('Modal system initialized. Use __modalHelpers.openModalById("modalId") from console to open a modal manually.');
 });
 
-document.getElementById('reload-everything-terminal').addEventListener('click', () => {
-    window.electronAPI.reloadApp();
+document.getElementById('reload-everything-terminal')?.addEventListener('click', () => {
+    if (window.electronAPI?.reloadApp) window.electronAPI.reloadApp();
 });
 
-// Function to activate buttons based on their IDs
 function activateButton(buttonId) {
-    console.log(`Activating button: ${buttonId}`);
     const button = document.getElementById(buttonId);
     if (button) {
         button.click();
     } else if (buttonId === 'open-folder-button') {
-        const folderButton = document.querySelector('#open-folder-button');
-        if (folderButton) {
-            folderButton.click();
-        } else {
-            console.error(`Button with ID ${buttonId} not found`);
-        }
-    } else {
-        console.error(`Button with ID ${buttonId} not found`);
+        document.querySelector('#open-folder-button')?.click();
     }
 }
 
-// Function to activate terminals based on their data-terminal attribute
 function activateTerminal(terminalId) {
-    console.log(`Activating terminal: ${terminalId}`);
     const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-    if (terminal) {
-        terminal.click();
-    } else {
-        console.error(`Terminal with data-terminal="${terminalId}" not found`);
-    }
+    if (terminal) terminal.click();
 }
 
-// Add highlight effects
 document.addEventListener('DOMContentLoaded', function() {
     const buttons = ['newProjectBtn', 'newProjectBtnWelcome', 'processorHub', 'openProjectBtn', 'openProjectBtnWelcome', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
-
     buttons.forEach(id => {
         const button = document.getElementById(id);
-        if (button) {
-            button.classList.add('button-highlight');
-        }
+        if (button) button.classList.add('button-highlight');
     });
-
-    const folderBtn = document.getElementById('open-folder-button');
-    if (folderBtn) {
-        folderBtn.classList.add('button-highlight');
-    }
+    document.getElementById('open-folder-button')?.classList.add('button-highlight');
 
     const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
     terminals.forEach(id => {
         const terminal = document.querySelector(`[data-terminal="${id}"]`);
-        if (terminal) {
-            terminal.classList.add('button-highlight');
-        }
+        if (terminal) terminal.classList.add('button-highlight');
     });
 
-    // Set up mouseover events for keywords
-    const keywords = document.querySelectorAll('.keyword');
-    keywords.forEach(keyword => {
+    document.querySelectorAll('.keyword').forEach(keyword => {
         keyword.addEventListener('mouseover', function() {
-            const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const button = document.getElementById(buttonId);
-            if (button) {
-                button.classList.add('button-highlight-active');
-            } else if (buttonId === 'open-folder-button') {
-                const folderButton = document.querySelector('#open-folder-button');
-                if (folderButton) {
-                    folderButton.classList.add('button-highlight-active');
-                }
-            }
+            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
+            if (!m) return;
+            const button = document.getElementById(m[1]) || document.querySelector(`#${m[1]}`);
+            button?.classList.add('button-highlight-active');
         });
-
         keyword.addEventListener('mouseout', function() {
-            const buttonId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const button = document.getElementById(buttonId);
-            if (button) {
-                button.classList.remove('button-highlight-active');
-            } else if (buttonId === 'open-folder-button') {
-                const folderButton = document.querySelector('#open-folder-button');
-                if (folderButton) {
-                    folderButton.classList.remove('button-highlight-active');
-                }
-            }
+            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
+            if (!m) return;
+            const button = document.getElementById(m[1]) || document.querySelector(`#${m[1]}`);
+            button?.classList.remove('button-highlight-active');
         });
     });
 
-    // Set up mouseover events for terminal keywords
-    const termKeywords = document.querySelectorAll('.terminal-keyword');
-    termKeywords.forEach(keyword => {
+    document.querySelectorAll('.terminal-keyword').forEach(keyword => {
         keyword.addEventListener('mouseover', function() {
-            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-            if (terminal) {
-                terminal.classList.add('button-highlight-active');
-            }
+            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
+            if (!m) return;
+            document.querySelector(`[data-terminal="${m[1]}"]`)?.classList.add('button-highlight-active');
         });
         keyword.addEventListener('mouseout', function() {
-            const terminalId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-            if (terminal) {
-                terminal.classList.remove('button-highlight-active');
-            }
+            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
+            if (!m) return;
+            document.querySelector(`[data-terminal="${m[1]}"]`)?.classList.remove('button-highlight-active');
         });
     });
 });
 
 function openAuroraAboutModal() {
-    document.getElementById("auroraAboutModal").classList.remove("aurora-about-hidden");
+    document.getElementById("auroraAboutModal")?.classList.remove("aurora-about-hidden");
 }
 
 function closeAuroraAboutModal() {
-    document.getElementById("auroraAboutModal").classList.add("aurora-about-hidden");
+    document.getElementById("auroraAboutModal")?.classList.add("aurora-about-hidden");
 }
-    </script>
-    <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-    <script>
-      require.config({
-        paths: {
-          vs: 'node_modules/monaco-editor/min/vs'
-        }
-      });
-    </script>
-    <script src="./js/aurora_settings.js"></script>
-    <script src="./js/renderer.js" type="module"></script>
-    <script src="./js/processor_oriented.js" type="module"></script>
-    <script src="./js/project_oriented.js" type="module"></script>
-    <script src="./js/hourglass.js"></script>
-    <script src="./js/icon_aurora.js" type="module"></script>
-    <script src="./js/import_file.js"></script>
-    <script src="./js/modal.js" type="module"></script>
-    <script src="./js/recent_projects.js" type="module"></script>
-    <script src="./js/resize.js" type="module"></script>
-    <script src="./js/shortcut_manager.js"></script>
-    <script src="./js/status_updater.js"></script>
-    <script src="./js/terminal.js"></script>
-    <script src="./js/tooltip.js"></script>
-    <script src="./js/zoom.js"></script>
-    <script src="./js/ui_state.js"></script>
-    <script src="./js/command_palette.js" type="module"></script>
 
+/* ----------------------------------------------------------------------
+ *  Custom title bar wiring
+ *  - traffic-light buttons: minimize / maximize-toggle / close via IPC
+ *  - double-click on toolbar drag area: maximize-toggle
+ *  - listen to window state to swap the [□] / [❐] glyph
+ * ---------------------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+    const api = window.electronAPI;
+    if (!api) return;
 
-    <script src="./js/notification.js" type="module"></script>
-    <script src="./js/close_project.js" type="module"></script>
-    <script src="./js/monaco_editor.js" type="module"></script>
-    <script src="./js/tab_manager.js" type="module"></script>
-    <script src="./js/compilation_module.js" type="module"></script>
-    <script src="./js/terminal_module.js" type="module"></script>
-    <script src="./js/file_mode.js" type="module"></script>
-    <script src="./js/dialogManager.js" type="module"></script>
-    <script src="./js/processor_hub.js" type="module"></script>
-    <script src="./js/file_tree_toggler.js" type="module"></script>
-    <script src="./js/app_initializer.js" type="module"></script>
+    document.getElementById('win-min')?.addEventListener('click', () => api.windowMinimize?.());
+    document.getElementById('win-max')?.addEventListener('click', () => api.windowMaximizeToggle?.());
+    document.getElementById('win-close')?.addEventListener('click', () => api.windowClose?.());
 
+    const titlebar = document.getElementById('custom-titlebar');
+    if (titlebar) {
+        titlebar.addEventListener('dblclick', (e) => {
+            // Only trigger when the dblclick happened on the drag region itself,
+            // not on a nested button/select/etc.
+            if (e.target.closest('button, input, select, textarea, label, .glyph, .window-dot')) return;
+            api.windowMaximizeToggle?.();
+        });
+    }
 
-    </script>
-  </body>
+    function applyMaximizedClass(state) {
+        document.body.classList.toggle('window-maximized', !!state?.isMaximized);
+        document.body.classList.toggle('window-fullscreen', !!state?.isFullScreen);
+    }
+
+    if (api.windowGetState) {
+        api.windowGetState().then(applyMaximizedClass).catch(() => {});
+    }
+    api.onWindowState?.(applyMaximizedClass);
+});
+</script>
+
+<script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+<script>
+  require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
+</script>
+<script src="./js/modal_system.js"></script>
+<script src="./js/aurora_settings.js"></script>
+<script src="./js/renderer.js" type="module"></script>
+<script src="./js/processor_oriented.js" type="module"></script>
+<script src="./js/project_oriented.js" type="module"></script>
+<script src="./js/hourglass.js"></script>
+<script src="./js/icon_aurora.js" type="module"></script>
+<script src="./js/import_file.js"></script>
+<script src="./js/modal.js" type="module"></script>
+<script src="./js/recent_projects.js" type="module"></script>
+<script src="./js/resize.js" type="module"></script>
+<script src="./js/shortcut_manager.js"></script>
+<script src="./js/status_updater.js"></script>
+<script src="./js/terminal.js"></script>
+<script src="./js/tooltip.js"></script>
+<script src="./js/zoom.js"></script>
+<script src="./js/ui_state.js"></script>
+<script src="./js/command_palette.js" type="module"></script>
+<script src="./js/notification.js" type="module"></script>
+<script src="./js/close_project.js" type="module"></script>
+<script src="./js/monaco_editor.js" type="module"></script>
+<script src="./js/tab_manager.js" type="module"></script>
+<script src="./js/compilation_module.js" type="module"></script>
+<script src="./js/terminal_module.js" type="module"></script>
+<script src="./js/file_mode.js" type="module"></script>
+<script src="./js/dialogManager.js" type="module"></script>
+<script src="./js/processor_hub.js" type="module"></script>
+<script src="./js/file_tree_toggler.js" type="module"></script>
+<script src="./js/app_initializer.js" type="module"></script>
+</body>
 </html>

@@ -1,977 +1,503 @@
-/* Terminal Container */
+/*
+ * =====================================================================================
+ *  terminal.css  —  Terminal panel AURORA v3
+ *
+ *  Generous typography, clear semantic coloring, polished tabs.
+ *  Layout:
+ *    .terminal-tabs (toolbar) — left actions │ tabs list │ right actions
+ *    .terminal-content        — full-width log area (one per terminal)
+ * =====================================================================================
+ */
+
+/* ---------------------------------------------------------------------------
+ *  Container
+ * ------------------------------------------------------------------------- */
 .terminal-container {
-  background-color: var(--bg-secondary);
-  /* border-top: 1px solid var(--border-primary); */
-  min-height: 58px;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  font-size: 14px;
-  line-height: 1.5;
+  height: 240px;
+  max-height: 80vh;
+  min-height: 40px;
+  flex-shrink: 0;
+  background-color: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: var(--font-mono);
+  overflow: hidden;
   z-index: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  position: relative;
+  transition: height 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Terminal Tabs */
+/* ---------------------------------------------------------------------------
+ *  Terminal Tabs (toolbar)
+ * ------------------------------------------------------------------------- */
 .terminal-tabs {
   display: flex;
-  background-color: var(--bg-quaternary);
-  padding: 0;
-  margin: 0;
-  border-radius: 0; /* Rounded top corners */
-  overflow: hidden;
-  padding: 1px;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-2);
+  background-color: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
   user-select: none;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
-.terminal-tab {
-  padding: 0.5rem 1rem;
-  color: var(--text-secondary);
+.terminal-tabs::-webkit-scrollbar       { height: 2px; }
+.terminal-tabs::-webkit-scrollbar-thumb { background: var(--accent-border); }
+
+.terminal-tabs-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.terminal-tabs-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex: 1 1 auto;
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border);
+  height: 22px;
+}
+
+/* Tab pills */
+.terminal-tabs .tab,
+.terminal-tabs button.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: 24px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-tight);
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  background: none;
-  font-size: 0.9rem;
+  white-space: nowrap;
   position: relative;
-  user-select: none;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
 }
 
-.terminal-tab.active {
-  color: var(--text-primary);
-  background-color: var(--bg-tertiary);
+.terminal-tabs .tab .glyph {
+  font-size: 14px;
+  color: currentColor;
+  flex-shrink: 0;
 }
 
-.terminal-tab.active::after {
+.terminal-tabs .tab .glyph.glyph-cpm {
+  width: 21px;
+  height: 14px;
+}
+
+/* Semantic color when not active */
+.terminal-tabs .tab[data-terminal="tcmm"] .glyph    { color: #5BB8E8; }
+.terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: #B98AE0; }
+.terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: #E68FB8; }
+.terminal-tabs .tab[data-terminal="twave"] .glyph   { color: #5FE0B0; }
+
+.terminal-tabs .tab:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text-secondary);
+}
+
+.terminal-tabs .tab.active {
+  background-color: var(--bg);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border) inset;
+}
+
+.terminal-tabs .tab.active::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--primary);
+  left: 8px;
+  right: 8px;
+  bottom: -7px;
+  height: 1.5px;
+  background: var(--accent);
+  border-radius: 1px;
 }
 
-.terminal-tab:hover {
-  background-color: var(--bg-hover);
+/* Action buttons inside terminal-tabs (smaller variant) */
+.terminal-tabs .toolbar-button {
+  height: 24px;
+  min-width: 24px;
+  width: 24px;
+  padding: 0;
+  border-radius: var(--radius-sm);
 }
 
-/* Terminal Content */
-.terminal-content {
-  flex: 1;
-  padding: 1rem;
+.terminal-tabs .toolbar-button > i {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.terminal-tabs .toolbar-button:hover > i {
+  color: var(--text);
+}
+
+/* Filter buttons cor por estado */
+.filter-btn { color: var(--text-muted); }
+.filter-error.has-messages,
+.filter-error.active     { color: var(--status-error); }
+.filter-warning.has-messages,
+.filter-warning.active   { color: var(--status-warning); }
+.filter-success.has-messages,
+.filter-success.active   { color: var(--status-success); }
+.filter-tip.has-messages,
+.filter-tip.active       { color: var(--status-info); }
+
+.filter-btn.active {
+  background-color: var(--overlay-active);
+}
+
+.filter-btn .message-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  background: var(--bg-elev-3);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
   font-family: var(--font-mono);
-  color: var(--text-primary);
-  overflow: auto;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  border-radius: 0; /* Rounded top corners */
+  border-radius: 7px;
+  line-height: 1;
+}
+
+.filter-btn .message-count.hidden { display: none; }
+
+.message-counter {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 14px;
+  height: 12px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+  color: var(--text);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.counter-error    { color: var(--status-error);   border-color: var(--status-error); }
+.counter-warning  { color: var(--status-warning); border-color: var(--status-warning); }
+.counter-success  { color: var(--status-success); border-color: var(--status-success); }
+.counter-tips     { color: var(--status-info);    border-color: var(--status-info); }
+
+/* ---------------------------------------------------------------------------
+ *  Content + Body
+ * ------------------------------------------------------------------------- */
+.terminal-content {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+  color: var(--text-secondary);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.terminal-content.hidden { display: none; }
+
+.terminal-header {
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 9.5px;
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  flex-shrink: 0;
 }
 
 .terminal-body {
-  padding: 0.5rem;
-  border-radius: 0; /* Rounded bottom corners */
-}
-
-/* Terminal Types */
-.terminal-content.cmd { 
-  background-color: var(--bg-tertiary);
-  border-radius: 0;
-}
-.terminal-content.cmm { 
-  background-color: rgba(87, 0, 43, 0.3);
-  border-radius: 0;
-}
-.terminal-content.asm { 
-  background-color: rgba(71, 14, 0, 0.3);
-  border-radius: 0;
-}
-
-/* Log Entries */
-.log-entry {
-  margin-bottom: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 0; /* Increased border radius */
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
-  max-width: 100%;
-  overflow-x: auto;
-  position: relative;
+  flex: 1 1 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-secondary);
+  overflow-y: auto;
+  scroll-behavior: smooth;
   font-family: var(--font-mono);
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.6;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* Enhanced Error Handling */
+/* ---------------------------------------------------------------------------
+ *  Log entries — card-style with breathing room
+ * ------------------------------------------------------------------------- */
+.log-entry {
+  margin: 0;
+  padding: 8px 12px 8px 14px;
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  transition: background-color var(--transition-fast);
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.log-entry:hover {
+  background-color: var(--overlay-hover);
+}
+
+/* Animation when a card lands in the terminal */
+.log-entry.animating-in {
+  animation: logEntryIn 220ms var(--ease-out-quart) both;
+}
+
+@keyframes logEntryIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Compiler messages — semantic color */
 .log-entry.error {
-  background-color: transparent;
-  border-left: 3px solid var(--status-error);
-  color: var(--status-error);
+  border-left-color: var(--status-error);
+  color: #F08585;
+  background-color: rgba(226, 108, 108, 0.06);
 }
 
 .log-entry.warning {
-  background-color: transparent;
-  border-left: 3px solid var(--status-warning);
-  color: var(--status-warning);
+  border-left-color: var(--status-warning);
+  color: #F0C880;
+  background-color: rgba(232, 184, 108, 0.06);
 }
 
-/*
-.log-entry.info {
-  background-color: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
-  border-left: 4px solid #3b82f6;
-  color: #93c5fd;
-}
-*/
 .log-entry.success {
-  background-color: transparent;
-  border-left: 3px solid var(--status-success);
-  color: var(--status-success);
+  border-left-color: var(--status-success);
+  color: #80E2B8;
+  background-color: rgba(93, 212, 168, 0.06);
 }
 
 .log-entry.tips {
-  background-color: transparent;
-  border-left: 3px solid var(--accent-primary);
-  color: var(--accent-hover);
+  border-left-color: var(--status-info);
+  color: #80C8F0;
+  background-color: rgba(91, 184, 232, 0.06);
 }
 
-/* Plain Text Styling - Enhanced */
+/* Internal messages: muted, no card */
+.log-entry.info,
 .log-entry.plain,
-.log-entry:not(.error):not(.warning):not(.info):not(.success):not(.tips) {
-  /*background-color: rgba(107, 114, 128, 0.05);
-  border-color: rgba(107, 114, 128, 0.15);*/
-  border-left: 3px solid rgba(107, 114, 128, 0.3);
-  /*color: var(--text-primary); */
-  font-weight: 400;
-  opacity: 0.95;
+.log-entry:not(.error):not(.warning):not(.success):not(.tips) {
+  border-left-color: transparent;
+  color: var(--text-muted);
+  background-color: transparent;
+  padding: 4px 12px;
 }
 
-.log-entry.plain:hover,
-.log-entry:not(.error):not(.warning):not(.info):not(.success):not(.tips):hover {
-  background-color: rgba(107, 114, 128, 0.08);
-  border-color: rgba(107, 114, 128, 0.25);
-  transform: translateX(2px);
+.log-entry.info:hover,
+.log-entry.plain:hover {
+  border-left-color: var(--border-subtle);
 }
 
-/* Timestamp */
+/* Inside grouped cards */
+.log-entry .messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.grouped-message {
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: inherit;
+}
+
+.log-entry strong {
+  font-weight: var(--font-bold);
+  color: inherit;
+}
+
 .timestamp {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 10.5px;
   font-family: var(--font-mono);
-  opacity: 0.7;
-  font-weight: 500;
+  opacity: 0.6;
+  margin-right: var(--space-2);
 }
 
-/* Code Output */
 .stdout, .stderr {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 0;
-  font-size: 0.9rem;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: 11.5px;
   font-family: var(--font-mono);
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
 }
 
 .stderr {
-  color: #f87171;
-  background-color: rgba(248, 113, 113, 0.1);
-  border-left: 3px solid #f87171;
+  color: #C58787;
+  border-left: 2px solid var(--status-error);
 }
 
 .stdout {
-  color: #a3a3a3;
-  background-color: rgba(163, 163, 163, 0.05);
-  border-left: 3px solid rgba(163, 163, 163, 0.3);
+  color: var(--text-muted);
+  border-left: 2px solid var(--border-subtle);
 }
 
-/* Scrollbar Styling */
-.terminal-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.terminal-container::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 0;
-}
-
-.terminal-container::-webkit-scrollbar-thumb {
-  background: var(--border-primary);
-  border-radius: 0;
-  transition: background 0.2s ease;
-}
-
-.terminal-container::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.editor-terminal-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
-.terminal-container {
-  height: 250px;
-  max-height: 80vh;
-  min-height: 42px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
-
-/* Editor below tabs */
-.monaco-editor {
-  flex: 1; /* Fill remaining space */
-  overflow: hidden;
-}
-
-/* SCROLLING */
-.terminal-body {
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  position: relative;
-}
-
-.terminal-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.log-entry {
-  opacity: 0;
-  animation: fadeIn 0.3s ease forwards;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* TERMINAL CMD */
-#terminal-tcmd {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border-radius: 0;
-  overflow: hidden;
-}
-
-/* CMD Terminal Container */
-#terminal-tcmd .cmd-terminal-container {
-  flex: 1;
-  padding: 10px;
-  background-color: #1e1e1e;
-  color: #f0f0f0;
-  font-family: 'Consolas', 'Courier New', monospace;
-  overflow-y: auto;
-}
-
-#terminal-tcmd {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background-color: #1e1e1e;
-  border-radius: 0;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* TCMD Terminal Header */
-#terminal-tcmd .terminal-header {
-  background: linear-gradient(to right, #2d2d2d, #252525);
-  color: #dbdbdb;
-  padding: 10px 15px;
-  font-size: 14px;
-  font-weight: 600;
-  border-bottom: 1px solid #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-radius: 0;
-}
-
-/* TCMD Terminal Body */
-#terminal-tcmd .terminal-body {
-  flex: 1;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border-radius: 0;
-}
-
-/* Real Terminal Container */
-#terminal-tcmd #terminal-container {
-  flex: 1;
-  padding: 10px;
-  overflow-y: auto;
-  background-color: #1e1e1e;
-}
-
-/* Terminal Element */
-#terminal-tcmd .terminal {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-/* Terminal Output */
-#terminal-tcmd .terminal-output {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 8px;
-  color: #e0e0e0;
-}
-
-/* Terminal Lines */
-#terminal-tcmd .terminal-line {
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 2px 0;
-  transition: opacity 0.2s ease;
-}
-
-/* Enhanced Terminal Line Types */
-#terminal-tcmd .terminal-line.command {
-  color: #9cdcfe;
-  font-weight: 500;
-}
-
-#terminal-tcmd .terminal-line.error {
-  color: #f48771;
-  background-color: rgba(244, 135, 113, 0.1);
-  padding: 4px 8px;
-  border-radius: 0;
-  border-left: 3px solid #f48771;
-  margin: 2px 0;
-}
-
-#terminal-tcmd .terminal-line.success {
-  color: #4ec9b0;
-  background-color: rgba(78, 201, 176, 0.1);
-  padding: 4px 8px;
-  border-radius: 0;
-  border-left: 3px solid #4ec9b0;
-  margin: 2px 0;
-}
-
-#terminal-tcmd .terminal-line.warning {
-  color: #ffb86c;
-  background-color: rgba(255, 184, 108, 0.1);
-  padding: 4px 8px;
-  border-radius: 0;
-  border-left: 3px solid #ffb86c;
-  margin: 2px 0;
-}
-
-#terminal-tcmd .terminal-line.info {
-  color: #82aaff;
-  background-color: rgba(130, 170, 255, 0.1);
-  padding: 4px 8px;
-  border-radius: 0;
-  border-left: 3px solid #82aaff;
-  margin: 2px 0;
-}
-
-/* Input Line */
-#terminal-tcmd .terminal-input-line {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-  background-color: #252525;
-  border-radius: 0;
-  padding: 6px 8px;
-  border: 1px solid rgba(78, 201, 176, 0.2);
-  transition: border-color 0.2s ease;
-}
-
-#terminal-tcmd .terminal-input-line:focus-within {
-  border-color: rgba(78, 201, 176, 0.5);
-  box-shadow: 0 0 0 2px rgba(78, 201, 176, 0.1);
-}
-
-/* Prompt */
-#terminal-tcmd .terminal-prompt {
-  color: #4ec9b0;
-  margin-right: 8px;
-  user-select: none;
-  font-weight: 600;
-}
-
-/* Input Field */
-#terminal-tcmd .terminal-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #f0f0f0;
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 14px;
-  outline: none;
-  caret-color: #4ec9b0;
-}
-
-/* Terminal styles */
-.terminal-content {
-  background-color: var(--bg-tertiary);
-  overflow: hidden;
-  font-family: var(--font-mono);
-}
-
-.terminal-header {
-  color: var(--text-primary);
-  font-weight: bold;
-  padding: 10px 10px;
-  border-radius: 0;
-}
-
-.terminal-body {
-  padding: 12px;
-  color: var(--text-muted);;
-  line-height: 1.5;
-}
-
-/* Clickable keyword styles */
+/* ---------------------------------------------------------------------------
+ *  Keywords + line links
+ * ------------------------------------------------------------------------- */
 .keyword {
-  color: var(--accent-primary);
+  color: var(--accent-hover);
   cursor: pointer;
   text-decoration: underline;
+  text-decoration-color: var(--accent-border);
   text-underline-offset: 2px;
-  font-weight: bold;
-  transition: color 0.2s ease;
-  border-radius: 0;
-  padding: 1px 3px;
+  font-weight: var(--font-medium);
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast);
+  padding: 0 3px;
+  border-radius: var(--radius-sm);
 }
 
 .keyword:hover {
-  color: var(--accent-hover);
-  background-color: rgba(var(--accent-primary), 0.1);
+  color: var(--text);
+  background-color: var(--accent-soft);
 }
 
-/* Terminal keyword styles */
 .terminal-keyword {
-  color: var(--success);
-  font-weight: bold;
+  color: var(--aurora-mint);
   cursor: pointer;
-  border-radius: 0;
-  padding: 1px 3px;
-  transition: background-color 0.2s ease;
+  font-weight: var(--font-medium);
+  padding: 0 3px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
 }
 
 .terminal-keyword:hover {
-  background-color: rgba(var(--success), 0.1);
+  background-color: rgba(95, 224, 176, 0.10);
 }
 
-/* Button highlight effect */
-.button-highlight {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 1;
-}
-
-/* Active button on click: more saturated and highlighted */
-.button-highlight-active {
-  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary) !important;
-  transform: translateY(-1px);
-  filter: saturate(1.5) brightness(1.1);
-  background-color: rgba(0, 170, 255, 0.1);
-  backdrop-filter: blur(2px);
-  border-radius: 0;
-}
-
-/* Animated background effect when active */
-.button-highlight-active::before {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  background: linear-gradient(45deg, 
-    var(--accent-primary) 0%, 
-    transparent 40%,
-    transparent 60%,
-    var(--accent-primary) 100%);
-  border-radius: 0;
-  z-index: -1;
-  opacity: 0.8;
-  animation: highlight-pulse 2s ease-in-out infinite;
-}
-
-/* Default button state */
-.filter-btn {
-  background: transparent;
-  border: none;
-  padding: var(--space-2);
-  border-radius: 0;
-  transition: background var(--transition-normal), filter var(--transition-normal);
+.line-link {
+  color: var(--status-info);
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
 }
 
-/* Default icon */
-.filter-btn i {
-  color: currentColor;
-  font-size: 1rem;
-  transition: color var(--transition-normal), filter var(--transition-normal);
+.line-link:hover { color: var(--text); }
+
+/* ---------------------------------------------------------------------------
+ *  Specific buttons
+ * ------------------------------------------------------------------------- */
+#clear-terminal:hover i        { color: var(--status-warning); }
+#export-log:hover i            { color: var(--aurora-mint); }
+#reload-everything-terminal:hover i {
+  color: var(--accent-hover);
+  animation: spin 0.6s var(--ease-out-quart);
 }
 
-/* Colors by type */
-.filter-error   { color: var(--error); }
-.filter-warning { color: var(--warning); }
-.filter-success { color: var(--success); }
-.filter-tip     { color: var(--info); }
-
-/* Quick hover/active */
-.filter-btn:hover {
-  background: var(--hover-overlay);
-  border-radius: 0;
+/* ---------------------------------------------------------------------------
+ *  CMD terminal
+ * ------------------------------------------------------------------------- */
+#terminal-tcmd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg);
+  overflow: hidden;
 }
 
-/* ACTIVE state (clicked) smoother and gradient behind icon */
-
-/* Error (#ff7eb6 → rgb(255,126,182)) */
-.filter-error.active {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 126, 182, 0.20) 0%,
-    rgba(255, 126, 182, 0.05) 100%
-  );
-  transition: background 0.2s ease;
-  border-radius: 0;
-}
-.filter-error.active i {
-  filter: saturate(1.2) brightness(1.1);
-  transition: filter 0.2s ease;
-}
-
-/* Warning (#ffb86c → rgb(255,184,108)) */
-.filter-warning.active {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 184, 108, 0.20) 0%,
-    rgba(255, 184, 108, 0.05) 100%
-  );
-  transition: background 0.2s ease;
-  border-radius: 0;
-}
-.filter-warning.active i {
-  filter: saturate(1.2) brightness(1.1);
-  transition: filter 0.2s ease;
-}
-
-/* Success (#a5e075 → rgb(165,224,117)) */
-.filter-success.active {
-  background: linear-gradient(
-    135deg,
-    rgba(165, 224, 117, 0.20) 0%,
-    rgba(165, 224, 117, 0.05) 100%
-  );
-  transition: background 0.2s ease;
-  border-radius: 0;
-}
-.filter-success.active i {
-  filter: saturate(1.2) brightness(1.1);
-  transition: filter 0.2s ease;
-}
-
-/* Tip (#82cffb → rgb(130,207,251)) */
-.filter-tip.active {
-  background: linear-gradient(
-    135deg,
-    rgba(130, 207, 251, 0.20) 0%,
-    rgba(130, 207, 251, 0.05) 100%
-  );
-  transition: background 0.2s ease;
-  border-radius: 0;
-}
-.filter-tip.active i {
-  filter: saturate(1.2) brightness(1.1);
-  transition: filter 0.2s ease;
-}
-
-
-/* Message type styles */
-.log-entry.error {
-  border-left: 3px solid var(--status-error);
-  background: transparent;
-}
-
-.log-entry.warning {
-  border-left: 3px solid var(--status-warning);
-  background: transparent;
-}
-
-.log-entry.tips {
-  border-left: 3px solid var(--accent-primary);
-  background: transparent;
-}
-
-.log-entry.hidden {
-  display: none !important;
-}
-
-.log-entry.filtered-out {
-  display: none !important;
-}
-
-@keyframes highlight-pulse {
-  0% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-  100% { opacity: 0.3; }
-}
-
-/* Custom scrollbar */
-#terminal-tcmd #terminal-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-#terminal-tcmd #terminal-container::-webkit-scrollbar-track {
-  background: #2d2d2d;
-  border-radius: 0;
-}
-
-#terminal-tcmd #terminal-container::-webkit-scrollbar-thumb {
-  background: #4a4a4a;
-  border-radius: 0;
-  transition: background 0.2s ease;
-}
-
-#terminal-tcmd #terminal-container::-webkit-scrollbar-thumb:hover {
-  background: #5a5a5a;
-}
-
-/* Input focus effect */
-#terminal-tcmd .terminal-input:focus {
-  box-shadow: 0 0 0 1px rgba(78, 201, 176, 0.3);
-}
-
-
-/* Responsiveness */
-@media (max-width: 768px) {
-  #terminal-tcmd .terminal-header {
-    font-size: 12px;
-    padding: 8px 12px;
-  }
-  
-  #terminal-tcmd .terminal-input,
-  #terminal-tcmd .terminal-line {
-    font-size: 12px;
-  }
-  
-  .terminal-container {
-    border-radius: 0;
-  }
-}
-
-
-/* --- EFEITO DE MATERIALIZAÇÃO (AI STYLE) --- */
-
-/* Classe base para o item ao ser criado (invisível inicialmente) */
-.log-entry {
-  opacity: 0;
-  filter: blur(4px); /* Começa levemente borrado */
-  transition: opacity 0.4s ease-out, filter 0.4s ease-out;
-  will-change: opacity, filter;
-}
-
-/* Estado visível (aplicado logo após a criação) */
-.log-entry.visible {
-  opacity: 1;
-  filter: blur(0);
-}
-
-/* --- EFEITO DE DISSOLUÇÃO (CLEAR) --- */
-
-/* Classe aplicada para remover itens */
-.log-entry.dissolve {
-  opacity: 0;
-  filter: blur(8px); /* Borra enquanto some */
-  transition: opacity 0.3s ease-in, filter 0.3s ease-in;
-}
-
-/* terminal.css */
-
-/* Aplica a máscara de desvanecimento nas bordas (efeito esfumaçado) */
-.terminal-body {
-  /* O gradiente define onde o conteúdo é visível (black) e invisível (transparent) */
-  /* Topo (fade curto), Meio (visível), Fundo (fade curto) */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
-  
-  /* Garante transição suave de opacidade para o container inteiro */
-  transition: opacity 0.3s ease-in-out;
-  opacity: 1; /* Estado padrão visível */
-  will-change: opacity;
-}
-
-/* Classe para esconder o terminal inteiro (Fade Out) */
-.terminal-body.faded-out {
-  opacity: 0;
-  transition: opacity 0.2s ease-in-out; /* Saída um pouco mais rápida */
-}
-
-/* Ajuste nos cards para remover qualquer resquício de animação individual */
-.log-entry {
-  opacity: 1;
-  transform: none;
-  filter: none;
-  animation: none !important;
-  transition: none !important;
-}
-
-/* Garante que o container pai tenha fundo sólido para o fade funcionar bem visualmente */
-.terminal-container {
-  background-color: var(--bg-secondary); /* Mantém sua cor original */
-  overflow: hidden; /* Importante para a mask funcionar bem com scrollbar customizada se houver */
-}
-
-/* Opcional: Garante que o scroll seja suave */
-.terminal-container {
-  scroll-behavior: smooth;
-}
-
-.filter-btn i {
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-
-/* Filter Button Colors */
-.filter-btn.filter-error {
-  color: #ff7eb6;
-}
-
-.filter-btn.filter-warning {
-  color: #ffb86c;
-}
-
-.filter-btn.filter-info {
-  color: #82cffb;
-}
-
-.filter-btn.filter-success {
-  color: #a5e075;
-}
-
-/* Hover Effects */
-.filter-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.filter-btn.filter-error:hover {
-  background: rgba(255, 126, 182, 0.1);
-}
-
-.filter-btn.filter-warning:hover {
-  background: rgba(255, 184, 108, 0.1);
-}
-
-.filter-btn.filter-info:hover {
-  background: rgba(130, 207, 251, 0.1);
-}
-
-.filter-btn.filter-success:hover {
-  background: rgba(165, 224, 117, 0.1);
-}
-
-/* Active States */
-.filter-btn.active {
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
-}
-
-.filter-btn.filter-error.active {
-  background: linear-gradient(135deg, rgba(255, 126, 182, 0.25) 0%, rgba(255, 126, 182, 0.1) 100%);
-  box-shadow: 0 0 0 2px rgba(255, 126, 182, 0.3);
-}
-
-.filter-btn.filter-warning.active {
-  background: linear-gradient(135deg, rgba(255, 184, 108, 0.25) 0%, rgba(255, 184, 108, 0.1) 100%);
-  box-shadow: 0 0 0 2px rgba(255, 184, 108, 0.3);
-}
-
-.filter-btn.filter-info.active {
-  background: linear-gradient(135deg, rgba(130, 207, 251, 0.25) 0%, rgba(130, 207, 251, 0.1) 100%);
-  box-shadow: 0 0 0 2px rgba(130, 207, 251, 0.3);
-}
-
-.filter-btn.filter-success.active {
-  background: linear-gradient(135deg, rgba(165, 224, 117, 0.25) 0%, rgba(165, 224, 117, 0.1) 100%);
-  box-shadow: 0 0 0 2px rgba(165, 224, 117, 0.3);
-}
-
-.filter-btn.active i {
-  filter: saturate(1.3) brightness(1.2);
-}
-
-
-/* Filtered Out Styling */
-.log-entry.filtered-out {
-  display: none !important;
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-/* Special Message Styling for TCMM/TASM */
-.log-entry.special-message .message-identifier {
-  font-weight: bold;
-  margin-right: 8px;
-  padding: 2px 6px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.log-entry.special-message .message-text {
-  margin-left: 8px;
-}
-
-/* Timestamp Styling */
-.timestamp {
+#terminal-tcmd .terminal-header {
+  background-color: var(--bg);
   color: var(--text-muted);
-  font-size: 0.75rem;
+  padding: var(--space-2) var(--space-4);
+  font-size: 9.5px;
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+#terminal-tcmd .terminal-body,
+#terminal-tcmd #terminal-container {
+  flex: 1 1 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
-  opacity: 0.7;
-  margin-right: 8px;
+  font-size: 12.5px;
+  overflow-y: auto;
 }
 
-/* Smooth line transitions */
-#editorStatus {
-  transition: all 0.15s ease-out;
-  transform: translateZ(0); /* Hardware acceleration */
+#terminal-tcmd .terminal-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0;
 }
 
-/* Optional: Add subtle highlight effect when cursor moves */
-#editorStatus.updating {
-  opacity: 0.8;
+#terminal-tcmd .terminal-line.command {
+  color: var(--accent-hover);
+  font-weight: var(--font-medium);
 }
 
-/* Alternative smooth transition for entire status bar */
-.status-item {
-  transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
-}
+#terminal-tcmd .terminal-line.error    { color: #E08080; }
+#terminal-tcmd .terminal-line.success  { color: #80D6A8; }
+#terminal-tcmd .terminal-line.warning  { color: #E0C080; }
+#terminal-tcmd .terminal-line.info     { color: #98C0D8; }
 
-/* For even smoother text changes */
-#editorStatus {
-  will-change: contents;
-  backface-visibility: hidden;
-}
-
-
-
-/* Message Counter Badge Styles */
-.message-counter {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  border-radius: 0;
-  min-width: 18px;
-  height: 18px;
+#terminal-tcmd .terminal-input-line {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px;
-  box-shadow: 0 0 0 2px rgba(255, 184, 108, 0.3);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-elev);
+  border-top: 1px solid var(--border);
 }
 
-/* Counter colors based on type */
-.counter-error {
-  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
-  border: 2px solid rgba(255, 68, 68, 0.3);
-}
-
-.counter-warning {
-  background: linear-gradient(135deg, #ffaa00 0%, #ff8800 100%);
-  border: 2px solid rgba(255, 170, 0, 0.3);
-}
-
-.counter-success {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  border: 2px solid rgba(34, 197, 94, 0.3);
-}
-
-.counter-tips {
-  background: linear-gradient(135deg, #00aaff 0%, #0088cc 100%);
-  border: 2px solid rgba(0, 170, 255, 0.3);
-}
-
-/* Ensure filter buttons have relative positioning */
-.filter-btn {
-  position: relative !important;
-}
-
-/* Hide counter when zero */
-.message-counter[style*="display: none"] {
-  opacity: 0;
-  transform: scale(0);
-}
-
-/* Pulse animation for new messages */
-@keyframes counter-pulse {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  }
-  50% {
-    transform: scale(1.15);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  }
-}
-
-.message-counter.pulse {
-  animation: counter-pulse 0.3s ease-in-out;
-}
-
-/* Enhanced filter button states with counters */
-.filter-btn.active .message-counter {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0,0,0,0.4);
-}
-
-/* Hover effects for filter buttons */
-.filter-btn:hover .message-counter {
-  transform: scale(1.1);
-  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-}
-
-/* Make sure counter stays visible above button effects */
-.filter-btn::before {
-  z-index: 1;
-}
-
-.message-counter {
-  z-index: 10;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .message-counter {
-    min-width: 16px;
-    height: 16px;
-    font-size: 9px;
-    top: -3px;
-    right: -3px;
-  }
-}
-
-/* Timestamp */
-.timestamp {
-  color: var(--text-muted);
-  font-size: 0.75rem;
+#terminal-tcmd .terminal-prompt {
+  color: var(--accent-hover);
+  font-weight: var(--font-semibold);
   font-family: var(--font-mono);
-  opacity: 0.7;
-  font-weight: 500;
+  user-select: none;
+}
+
+#terminal-tcmd .terminal-input {
+  flex: 1 1 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  outline: none;
+  caret-color: var(--accent);
 }

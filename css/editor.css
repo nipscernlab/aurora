@@ -1,44 +1,23 @@
 /*
  * =====================================================================================
- *
- *       Filename:  editor.css
- *
- *    Description:  Styles for the main editor layout, tabs, resizers, and overlays.
- *                  Completely refactored to integrate with the theme_variables.css 
- *                  design system, creating a modern, responsive and visually cohesive 
- *                  experience.
- *
+ *  editor.css  —  Editor area, welcome overlay, split panes, Monaco refinements
  * =====================================================================================
  */
 
 /* ===================================================================================
- *  Main Layout Containers
+ *  Containers (canonical layout lives in styles.css)
  * =================================================================================== */
-.main-container {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.editor-terminal-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
 .editor-container {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: var(--bg-secondary);
+  background-color: var(--bg);
 }
 
 .monaco-editor {
-  flex: 1;
+  flex: 1 1 0;
   width: 100%;
   overflow: hidden;
 }
@@ -50,164 +29,54 @@
 }
 
 /* ===================================================================================
- *  Resizers
+ *  Welcome overlay — sibling of .editor-container + .terminal-container.
+ *
+ *  When .visible:
+ *    - covers the entire vertical area
+ *    - completely hides the resizer-horizontal AND the terminal so the user
+ *      sees a clean, full-area welcome screen with no leftover layout chrome.
  * =================================================================================== */
-.resizer-vertical {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  background-color: transparent;
-  cursor: col-resize;
-  transition: background-color var(--transition-fast);
-  z-index: var(--z-10);
-}
+.editor-terminal-container { position: relative; }
 
-.resizer-vertical:hover {
-  background-color: var(--accent-primary);
-}
-
-.resizer-horizontal {
-  height: 6px;
-  background-color: var(--bg-tertiary);
-  cursor: row-resize;
-  transition: background-color var(--transition-fast);
-  z-index: var(--z-0);
-}
-
-.resizer-horizontal:hover {
-  background-color: var(--accent-primary);
-}
-
-/* ===================================================================================
- *  File and Terminal Tabs
- * =================================================================================== */
-.tabs-container,
-.terminal-tabs {
-  display: flex;
-  flex-shrink: 0;
-  overflow-x: auto;
-  height: 42px;
-  background-color: var(--bg-primary);
-  align-items: flex-end;
-}
-
-.tabs-container::-webkit-scrollbar,
-.terminal-tabs::-webkit-scrollbar {
-  height: 3px;
-}
-
-.tabs-container::-webkit-scrollbar-thumb,
-.terminal-tabs::-webkit-scrollbar-thumb {
-  background-color: var(--accent-secondary);
-  border-radius: 0;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  height: 38px;
-  margin-left: 4px;
-  background-color: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 0;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  min-width: 120px;
-  max-width: 200px;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-  position: relative;
-  bottom: -1px;
-}
-
-.tab:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text-primary);
-}
-
-.tab.active {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border-radius: 0;
-  border-top: 1px solid var(--accent-primary);
-}
-
-.tab-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Preview (single-click) tab — italic title, VS Code style */
-.tab.preview .tab-name,
-.tab.preview .tab-title {
-  font-style: italic;
-  opacity: 0.85;
-}
-
-.tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 0;
-  color: var(--text-tertiary);
-  transition: all var(--transition-fast);
-}
-
-.tab:hover .tab-close {
-  color: var(--text-secondary);
-}
-
-.tab-close:hover {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-}
-
-/* ===================================================================================
- *  Welcome Overlay - COMPLETELY REDESIGNED
- * =================================================================================== */
 #editor-overlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  background-color: #0C0B1E;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-normal);
+  display: none;
+  background-color: var(--bg);
   z-index: var(--z-20);
   overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
-/* When visible, fix it to the viewport so resizers cannot affect it */
 #editor-overlay.visible {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  display: flex;
   opacity: 1;
   pointer-events: all;
-  z-index: 18; /* below toolbar (z-30) and status-bar (z-25) */
 }
 
-/* Welcome screen styles are in recent_projects.css */
+#editor-overlay.visible .welcome-screen {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* While the welcome is visible, hide the editor area, the horizontal resizer
+   and the terminal so nothing peeks through. */
+#editor-overlay.visible ~ .editor-container,
+#editor-overlay.visible ~ .resizer-horizontal,
+#editor-overlay.visible ~ #terminal-container {
+  display: none !important;
+}
 
 /* ===================================================================================
- *  Split Editor Layout
+ *  Split editor
  * =================================================================================== */
 .split-editor-wrapper {
   display: flex;
   flex-direction: row;
-  flex: 1;
+  flex: 1 1 0;
   overflow: hidden;
   min-width: 0;
 }
@@ -215,23 +84,17 @@
 .split-pane {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 120px;
   overflow: hidden;
   position: relative;
-  /* no border — resizer handles the visual gap */
 }
 
-.split-pane-main {
-  /* main pane starts equal; JS can set explicit flex-basis when dragging */
-}
-
-/* ── Drag resizer between split panes ── */
 .split-pane-resizer {
   flex: 0 0 4px;
   width: 4px;
   cursor: col-resize;
-  background-color: var(--border-primary);
+  background-color: var(--border);
   transition: background-color 0.15s ease;
   position: relative;
   z-index: 10;
@@ -240,7 +103,7 @@
 
 .split-pane-resizer:hover,
 .split-pane-resizer:active {
-  background-color: var(--accent-primary);
+  background-color: var(--accent);
 }
 
 .split-pane-dim {
@@ -253,70 +116,64 @@
   z-index: 5;
 }
 
-.split-pane-dimmed .split-pane-dim {
-  opacity: 1;
-}
+.split-pane-dimmed .split-pane-dim { opacity: 1; }
 
 .split-pane-tabs {
   display: flex;
   flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  /*height: 50px;*/
-  background-color: var(--bg-primary);
+  background-color: var(--bg);
   align-items: flex-end;
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: 1px solid var(--border);
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-primary) transparent;
 }
 
 .split-pane-tabs::-webkit-scrollbar { height: 2px; }
-.split-pane-tabs::-webkit-scrollbar-thumb { background: var(--accent-primary); }
+.split-pane-tabs::-webkit-scrollbar-thumb { background: var(--accent); }
 .split-pane-tabs::-webkit-scrollbar-track { background: transparent; }
 
 .split-pane-editor-area {
-  flex: 1;
+  flex: 1 1 0;
   position: relative;
   overflow: hidden;
 }
 
-.split-editor-instance {
-  position: absolute;
-  inset: 0;
-}
+.split-editor-instance { position: absolute; inset: 0; }
 
 .split-tab {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  height: 38px;
-  margin-left: 4px;
+  height: var(--h-tab);
+  margin-left: 0;
   background-color: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  color: var(--text-tertiary);
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-muted);
   font-size: var(--text-sm);
   font-family: var(--font-sans);
   cursor: pointer;
   min-width: 120px;
   max-width: 200px;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
   position: relative;
-  bottom: -1px;
   user-select: none;
 }
 
-.split-tab:hover { background-color: var(--overlay-hover); color: var(--text-primary); }
+.split-tab:hover { background-color: var(--overlay-hover); color: var(--text-secondary); }
 
 .split-tab.active {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border-top: 1px solid var(--accent-secondary);
+  background-color: var(--bg-elev);
+  color: var(--text);
 }
 
+.split-tab.active::before { content: none; }
+
 .split-tab .tab-name {
-  flex: 1;
+  flex: 1 1 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -328,145 +185,80 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
-  font-size: 14px;
-  line-height: 1;
+  font-size: 10px;
   background: none;
   border: none;
   padding: 0;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-.split-tab .close-tab:hover { color: var(--status-error); background: var(--status-error-bg); }
+.split-tab .close-tab:hover {
+  color: var(--text);
+  background: var(--overlay-active);
+}
 
-/* ── VSCode-style editor tab actions (top-right overlay) ── */
+/* Editor tab actions overlay — top-right */
 .editor-tab-actions {
   position: absolute;
   top: 0;
   right: 0;
-  height: 35px;
+  height: var(--h-tab);
   display: flex;
   align-items: center;
   padding: 0 4px;
-  /* gradient so action buttons don't clash with tab text */
-  background: linear-gradient(to right, transparent 0%, var(--bg-primary) 28px);
+  background: linear-gradient(to right, transparent 0%, var(--bg) 28px);
   z-index: 6;
-  pointer-events: none; /* let the tab bar remain hoverable underneath */
+  pointer-events: none;
   gap: 2px;
 }
 
-.editor-tab-actions > * {
-  pointer-events: auto;
-}
+.editor-tab-actions > * { pointer-events: auto; }
 
 .editor-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   background: none;
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-size: 12px;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast);
   padding: 0;
 }
 
 .editor-action-btn:hover:not(:disabled) {
-  color: #a78bfa;
+  color: var(--accent-hover);
   background-color: var(--overlay-hover);
 }
 
 .editor-action-btn:disabled {
-  opacity: 0.28;
+  opacity: 0.30;
   cursor: not-allowed;
 }
 
 /* ===================================================================================
- *  Monaco Editor Integration - Modern Style
+ *  Monaco refinements — clean scrollbar, hide ruler dots
  * =================================================================================== */
-
-/* Find Widget */
 .monaco-editor .find-widget {
   z-index: var(--z-50) !important;
   box-shadow: var(--shadow-lg) !important;
-  border-radius: 0;
-  border: 1px solid var(--border-primary) !important;
-  background-color: var(--bg-elevated) !important;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border) !important;
+  background-color: var(--bg-elev-2) !important;
 }
 
-/* ===================================================================================
- *  MONACO SCROLLBAR FIX - REMOVE WHITE DOT
- * =================================================================================== */
-
-/* Hide overview ruler (the white dot) */
-.monaco-editor .decorationsOverviewRuler {
-  display: none !important;
-  width: 0 !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-/* Hide minimap decorations */
-.monaco-editor .minimap-decorations-layer {
-  display: none !important;
-}
-
-/* Remove scrollbar decorations and artifacts */
-.monaco-scrollable-element > .scrollbar > .slider::before,
-.monaco-scrollable-element > .scrollbar > .slider::after {
-  display: none !important;
-  content: none !important;
-}
-
-/* Clean scrollbar slider styling */
-.monaco-editor .monaco-scrollable-element > .scrollbar {
-  background: transparent !important;
-}
-
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
-  background: var(--accent-subtle-border) !important;
-  border-radius: 0;
-  transition: background-color var(--transition-fast) !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(155, 89, 182, 0.6) !important;
-  box-shadow: none !important;
-}
-
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
-  background: var(--accent-primary) !important;
-  box-shadow: none !important;
-}
-
-/* Remove any scrollbar shadows */
-.monaco-editor .monaco-scrollable-element > .scrollbar.vertical,
-.monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-/* Ensure no white elements appear on scrollbar track */
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider,
-.monaco-editor .monaco-scrollable-element > .scrollbar {
-  outline: none !important;
-}
-
-/* Hide the vertical scrollbar decoration ruler completely */
-.monaco-editor .vertical-scrollbar-decoration {
-  display: none !important;
-  width: 0 !important;
-}
-
-/* Remove any remaining decoration elements */
+.monaco-editor .decorationsOverviewRuler,
+.monaco-editor .minimap-decorations-layer,
+.monaco-editor .vertical-scrollbar-decoration,
 .monaco-editor .decorations-overview-ruler,
 .monaco-editor .overview-ruler,
 .monaco-editor .scrollbar-decoration {
@@ -477,25 +269,48 @@
   visibility: hidden !important;
 }
 
-/* Minimap Slider - No white artifacts */
-.monaco-editor .minimap-slider {
-  background: rgba(155, 89, 182, 0.4) !important;
-  border-radius: 0;
+.monaco-scrollable-element > .scrollbar > .slider::before,
+.monaco-scrollable-element > .scrollbar > .slider::after {
+  display: none !important;
+  content: none !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(142, 131, 232, 0.22) !important;
+  border-radius: 4px !important;
+  transition: background-color var(--transition-fast) !important;
   box-shadow: none !important;
   border: none !important;
-  z-index: 0;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(142, 131, 232, 0.45) !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
+  background: var(--accent) !important;
+}
+
+.monaco-editor .minimap-slider {
+  background: rgba(142, 131, 232, 0.22) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .monaco-editor .minimap-slider:hover {
-  background: rgba(155, 89, 182, 0.6) !important;
+  background: rgba(142, 131, 232, 0.4) !important;
 }
 
-/* Ensure scrollbar container has no white backgrounds */
 .monaco-editor .monaco-scrollable-element {
   background: transparent !important;
 }
 
-/* Remove any glow or outline effects */
 .monaco-editor .monaco-scrollable-element > .scrollbar > * {
   box-shadow: none !important;
   outline: none !important;
@@ -503,41 +318,21 @@
 }
 
 /* ===================================================================================
- *  Responsive Adjustments
+ *  Responsive
  * =================================================================================== */
 @media (max-width: 768px) {
-  .welcome-screen {
-    flex-direction: column;
-  }
-  
+  .welcome-screen { flex-direction: column; }
   .welcome-sidebar {
     width: 100%;
     height: 40%;
     border-right: none;
-    border-bottom: 1px solid var(--border-primary);
+    border-bottom: 1px solid var(--border);
   }
-  
-  .tabs-container {
-    height: 40px;
-  }
-  
-  .tab {
-    min-width: 100px;
-    height: 36px;
-    padding: 0 var(--space-2);
-  }
+  .tabs-container { height: var(--h-tab); }
+  .tab { min-width: 100px; padding: 0 var(--space-2); }
 }
 
-/* ===================================================================================
- *  Animation Keyframes
- * =================================================================================== */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes editorFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

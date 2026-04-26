@@ -91,8 +91,10 @@ export class RecentProjectsManager {
   // Check if project file exists and remove if not
   async checkProjectExists(project) {
     try {
-      if (window.electronAPI && window.electronAPI.checkFileExists) {
-        const exists = await window.electronAPI.checkFileExists(project.path);
+      // electronAPI expõe `fileExists` / `pathExists` (não `checkFileExists`).
+      const probe = window.electronAPI?.fileExists ?? window.electronAPI?.pathExists;
+      if (probe) {
+        const exists = await probe(project.path);
         if (!exists) {
           this.removeProject(project.path);
           return false;
@@ -254,7 +256,7 @@ export class RecentProjectsManager {
   setVisible(visible) {
     const section = document.querySelector('.recent-projects-section');
     if (section) {
-      section.style.display = visible ? 'flex' : 'none';
+      section.classList.toggle('hidden', !visible);
     }
   }
   

@@ -1,198 +1,558 @@
 /*
  * =====================================================================================
+ *  toolbar.css  —  AURORA toolbar v4
  *
- *       Filename:  toolbar.css
+ *  Cursor/Linear-style flat toolbar. Subtle separators, generous breathing,
+ *  uniform 28px buttons, accent on hover only.
  *
- *    Description:  Modern toolbar styles, fully integrated with the elegant purple
- *                  dark theme design system. Features grouped button containers
- *                  for a clean and organized UI.
- *
+ *  Layout:
+ *    [left]  ─sep─  [center: compile]  ─sep─  [mode] [build] │ [right]
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  Toolbar Container
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Container — also serves as the custom title bar (drag region).
+ *  All interactive children flip back to no-drag below.
+ * ------------------------------------------------------------------------- */
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3); /* Gap between button groups */
-  position: sticky;
-  top: 0;
-  z-index: var(--z-30);
+  gap: var(--space-1);
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
+  height: var(--h-toolbar);
+  padding: 0 var(--space-3);
+  background-color: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
   box-sizing: border-box;
   user-select: none;
-}
-
-/* ===================================================================================
- *  Toolbar Button Groups
- * =================================================================================== */
-.toolbar-left,
-.toolbar-center,
-.toolbar-right,
-.compile-all-group {
-  display: flex;
-  align-items: center;
-  background-color: rgba(19, 18, 42, 0.8);
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
   flex-shrink: 0;
+  position: relative;
+  z-index: var(--z-30);
+  -webkit-app-region: drag;
 }
 
-/* ===================================================================================
- *  Individual Toolbar Buttons
- * =================================================================================== */
-.toolbar-button {
-  display: flex;
+/* Re-enable interaction on every interactive descendant */
+.toolbar button,
+.toolbar input,
+.toolbar select,
+.toolbar label,
+.toolbar .toolbar-button,
+.toolbar .compile-btn,
+.toolbar .toggle-group,
+.toolbar .window-controls,
+.toolbar .window-dot {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Window controls — three traffic-light dots, pinned to the right edge.
+ *  Order (left → right): yellow (minimize), green (maximize), red (close)
+ * ------------------------------------------------------------------------- */
+.window-controls {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin: 0.18rem;
-  padding: var(--space-2) var(--space-3);
-  background-color: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-  white-space: nowrap; /* Prevents text wrapping */
-}
-
-/* Remove the border from the last button in each group 
-.toolbar-left > .toolbar-button:last-child,
-.toolbar-center > .toolbar-button:last-child,
-.toolbar-right > .toolbar-button:last-child,
-.compile-all-group > .toolbar-button:last-child {
-  border-right: none;
-}
-*/
-
-.toolbar-button:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text-primary);
+  gap: 6px;
+  height: 100%;
+  padding-left: var(--space-3);
+  margin-left: var(--space-2);
+  flex-shrink: 0;
   position: relative;
 }
 
-.toolbar-button:hover::after {
+.window-controls::before {
   content: '';
   position: absolute;
-  bottom: 0;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.6;
+}
+
+.window-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: filter 140ms ease, transform 80ms ease;
+  outline: none;
+}
+
+.window-dot > i {
+  font-size: 7.5px;
+  color: rgba(0, 0, 0, 0);
+  line-height: 1;
+  transition: color 140ms ease;
+}
+
+.window-controls:hover .window-dot > i {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.window-dot:active { transform: scale(0.90); }
+
+/* Variants */
+.dot-min   { background: #F5BF4D; box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18); }
+.dot-max   { background: #5BC95B; box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18); }
+.dot-close { background: #E25C5C; box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18); }
+
+.dot-min:hover   { filter: brightness(1.05); }
+.dot-max:hover   { filter: brightness(1.05); }
+.dot-close:hover { filter: brightness(1.08); }
+
+/* Maximize button: [□] when not maximized, [restore] when maximized */
+.dot-max .ph-restore { display: none; }
+body.window-maximized .dot-max .ph-square  { display: none; }
+body.window-maximized .dot-max .ph-restore { display: inline-flex; }
+
+/* Focus ring for keyboard nav */
+.window-dot:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Resize edges — shown only when frame is removed.
+ *  thickFrame: true on the BrowserWindow keeps native edge resize, but we
+ *  also expose explicit hit zones so it works on every Windows version
+ *  (Win7 falls back to manual hit-test inside webContents).
+ * ------------------------------------------------------------------------- */
+.window-resize-edge {
+  position: fixed;
+  z-index: 999;
+  -webkit-app-region: no-drag;
+  pointer-events: none; /* edge resize is handled by the OS frame */
+}
+
+/* Aurora hairline at the bottom of the toolbar */
+.toolbar::after {
+  content: '';
+  position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  background-color: var(--accent-primary);
-  opacity: 0.6;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(95, 224, 176, 0.10) 25%,
+    rgba(91, 184, 232, 0.14) 50%,
+    rgba(142, 131, 232, 0.16) 75%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Groups
+ * ------------------------------------------------------------------------- */
+.toolbar-left,
+.toolbar-center,
+.toolbar-right,
+.compile-all-group,
+.toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  background: transparent;
+  border: 0;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.toolbar-left { gap: 1px; margin-right: var(--space-2); }
+
+.toolbar-center {
+  position: relative;
+  padding: 0 var(--space-3);
+  margin: 0 auto;
+  gap: 1px;
+}
+
+.toolbar-center::before,
+.toolbar-center::after {
+  content: '';
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  display: block;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.toolbar-center::before { left: 0; }
+.toolbar-center::after  { right: 0; }
+
+.compile-all-group { gap: 1px; margin-left: var(--space-2); }
+.toggle-group      { margin: 0 var(--space-2); }
+
+.toolbar-right { margin-left: auto; gap: 1px; }
+
+/* ---------------------------------------------------------------------------
+ *  Button base — 28px, consistent rhythm
+ * ------------------------------------------------------------------------- */
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--h-button);
+  min-width: var(--h-button);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  position: relative;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast),
+              transform 80ms var(--ease-out-quart);
+}
+
+.toolbar-button.icon-only {
+  padding: 0;
+  width: var(--h-button);
+  min-width: var(--h-button);
+}
+
+.toolbar-button:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
 }
 
 .toolbar-button:active {
   background-color: var(--overlay-active);
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
-.toolbar-button.active-tool {
-  background-color: var(--accent-subtle-bg);
-  color: var(--accent-hover);
-  border-bottom: 2px solid var(--accent-primary);
+.toolbar-button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .toolbar-button:disabled {
   color: var(--text-disabled);
-  background-color: transparent;
+  background: transparent;
   cursor: not-allowed;
 }
 
-.toolbar-button i,
-.toolbar-button img {
+.toolbar-button:disabled:hover {
+  background: transparent;
+  color: var(--text-disabled);
+  transform: none;
+}
+
+.toolbar-button.active-tool,
+.toolbar-button.active {
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.toolbar-button > i,
+.toolbar-button > svg {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.toolbar-button > img {
+  height: 14px;
+  width: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.toolbar-button > span {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: inherit;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* When two phosphor icons are stacked (legacy) */
+.toolbar-button > i + i { margin-left: -2px; }
+
+/* ---------------------------------------------------------------------------
+ *  Compile buttons (centro)
+ * ------------------------------------------------------------------------- */
+.compile-btn {
+  height: var(--h-button);
+  min-width: var(--h-button);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  position: relative;
+}
+
+.compile-btn .glyph {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+.compile-btn .glyph.glyph-cpm {
+  width: 24px;
+  height: 16px;
+}
+
+/* Semantic color per tool */
+#cmmcomp .glyph    { color: #5BB8E8; }   /* C±  — cyan */
+#asmcomp .glyph    { color: #B98AE0; }   /* ASM — purple */
+#vericomp .glyph   { color: #E68FB8; }   /* VERI — pink */
+#wavecomp .glyph   { color: #5FE0B0; }   /* WAVE — mint */
+
+.compile-btn:hover .glyph {
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+/* PRISM — text + img */
+.prism-btn {
+  padding: 0 var(--space-3);
+  gap: var(--space-2);
+}
+
+.prism-btn img,
+#prismcomp img {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+  transition: filter var(--transition-fast);
+}
+
+.prism-btn:hover img,
+#prismcomp:hover img {
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.prism-btn span {
+  background: var(--gradient-aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
   font-size: var(--text-sm);
 }
 
-.toolbar-button img {
-  height: 20px;
-  width: 20px;
+/* Active state — accent indicator at the bottom */
+.compile-btn.active-tool::after,
+.compile-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: -8px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
 }
 
-/* Special active state for PRISM button */
-#prismcomp.active {
-  background-color: var(--accent-subtle-bg);
-  box-shadow: inset 0 -2px 0 var(--accent-primary);
-  color: var(--text-primary);
+/* ---------------------------------------------------------------------------
+ *  Mode toggle (Processor/Project) — segmented control
+ * ------------------------------------------------------------------------- */
+.toggle-group {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  height: 26px;
+  gap: 2px;
 }
 
-/* ===================================================================================
- *  Standalone UI Toggle Button (not in a group)
- * =================================================================================== */
-.toolbar-toggle-ui {
-  display: flex;
+.toggle-group input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+.mode-label {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 38px; /* Match height of other buttons */
-  width: 38px;
-  border-radius: 0;
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  color: var(--text-secondary);
+  height: 20px;
+  min-width: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+  font-size: 11px;
 }
 
-.toolbar-toggle-ui:hover {
-  background-color: var(--accent-primary);
-  color: var(--text-on-accent);
+.mode-label:hover { color: var(--text); background-color: var(--overlay-hover); }
+.mode-label-icon  { font-size: 13px; }
+
+.toggle-group input[type="radio"]:checked + .mode-label {
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+  box-shadow: 0 0 0 1px rgba(142, 131, 232, 0.18) inset;
 }
 
-/* ===================================================================================
- *  Legacy & Other Component Styling
- * =================================================================================== */
+.toggle-group input[type="radio"]:focus-visible + .mode-label {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
 
+/* ---------------------------------------------------------------------------
+ *  Build / Cancel / Right group
+ * ------------------------------------------------------------------------- */
+.btn-stop i {
+  color: var(--status-error);
+  transition: filter var(--transition-fast);
+}
+
+.btn-stop:hover i {
+  filter: drop-shadow(0 0 4px rgba(226, 108, 108, 0.55));
+}
+
+.btn-build {
+  padding: 0 var(--space-3);
+}
+
+.btn-build i { color: var(--accent-hover); }
+
+.btn-build:hover {
+  background-color: var(--accent-soft);
+  color: var(--text);
+}
+
+.btn-build:hover i {
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.btn-settings i,
+.btn-hub i,
+#aurora-settings i,
+#sidebarMenu i,
+#newProjectBtn i,
+#openProjectBtn i,
+#split-editor-btn i,
+.btn-ai i {
+  color: var(--text-secondary);
+  transition: color var(--transition-fast),
+              filter var(--transition-fast);
+}
+
+.toolbar-button:hover i { color: var(--text); }
+
+.btn-hub:hover i,
+.btn-settings:hover i {
+  color: var(--accent-hover);
+}
+
+.btn-ai:hover i {
+  color: var(--aurora-mint);
+  filter: drop-shadow(0 0 5px rgba(95, 224, 176, 0.55));
+}
+
+#sidebarMenu { margin-right: var(--space-1); }
+
+/* ---------------------------------------------------------------------------
+ *  Highlight (compat com hover de keyword)
+ * ------------------------------------------------------------------------- */
+.button-highlight {
+  position: relative;
+  transition: box-shadow var(--transition-fast);
+}
+
+.button-highlight-active {
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+  background-color: var(--accent-soft) !important;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Filter buttons (terminal toolbar — uses .toolbar-button)
+ * ------------------------------------------------------------------------- */
+.filter-btn {
+  position: relative;
+  color: var(--text-muted);
+}
+
+.filter-btn .message-count {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  background: var(--bg-elev-3);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.filter-btn .message-count.hidden { display: none; }
+
+.filter-error.has-messages,
+.filter-error.active     { color: var(--status-error); }
+.filter-warning.has-messages,
+.filter-warning.active   { color: var(--status-warning); }
+.filter-success.has-messages,
+.filter-success.active   { color: var(--status-success); }
+.filter-tip.has-messages,
+.filter-tip.active       { color: var(--status-info); }
+
+/* ---------------------------------------------------------------------------
+ *  Info-box / checkbox-item legados
+ * ------------------------------------------------------------------------- */
 .info-box {
   position: fixed;
-  top: 50%;
-  left: 50%;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
+  background-color: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
-  max-width: 500px;
+  max-width: 480px;
   z-index: var(--z-40);
   box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: fadeInScale var(--transition-normal) var(--ease-out-quart) both;
 }
 
 .info-box h3 {
-  margin-top: 0;
-  margin-bottom: var(--space-4);
-  color: var(--text-primary);
-  font-size: var(--text-xl);
+  margin: 0 0 var(--space-3) 0;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
 }
 
-.info-box ul {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-
-.info-box li {
-  margin-bottom: var(--space-2);
-  color: var(--text-secondary);
-}
+.info-box ul { margin: 0; padding-left: var(--space-5); }
+.info-box li { margin-bottom: var(--space-2); color: var(--text-secondary); }
 
 .info-box-close {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  color: var(--text-tertiary);
+  top: var(--space-3); right: var(--space-3);
+  color: var(--text-muted);
   cursor: pointer;
   transition: color var(--transition-fast);
 }
 
-.info-box-close:hover {
-  color: var(--text-primary);
-}
+.info-box-close:hover { color: var(--text); }
 
 .checkbox-item,
 .standard-simulation {
@@ -200,71 +560,48 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  background-color: var(--bg-secondary);
-  border-radius: 0;
+  background-color: var(--bg-elev);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 
 .checkbox-item:hover,
 .standard-simulation:hover {
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-elev-2);
 }
 
 .standard-simulation i {
-  color: var(--accent-primary);
-  font-size: var(--text-xl);
+  color: var(--accent);
+  font-size: var(--text-lg);
 }
 
-/* ===================================================================================
- *  Responsive Adjustments (VERSÃO CORRIGIDA)
- * =================================================================================== */
-
-/* -----------------------------------------------------------------------------------
- * Breakpoint 1: Telas de Desktop Padrão (até 1400px)
- * - Começa a ocultar texto para evitar que a barra fique apertada muito cedo.
- * ----------------------------------------------------------------------------------- */
-@media screen and (max-width: 1400px) {
+/* ---------------------------------------------------------------------------
+ *  Responsive
+ * ------------------------------------------------------------------------- */
+@media screen and (max-width: 1280px) {
   #newProjectBtn span,
   #openProjectBtn span,
   #settings span,
-  #processorHub span {
-    display: none;
-  }
-}
-
-/* -----------------------------------------------------------------------------------
- * Breakpoint 2: Laptops e Tablets Grandes (até 1280px)
- * - O espaço é insuficiente. Ativa a quebra de linha (wrap) para os grupos.
- * ----------------------------------------------------------------------------------- */
-@media screen and (max-width: 1280px) {
-  .toolbar {
-    /* Permite que os grupos de botões quebrem para a próxima linha */
-    flex-wrap: wrap;
-    /* Alinha os grupos no centro para um visual mais organizado quando quebram a linha */
-    justify-content: center;
-    /* Adiciona um espaçamento vertical entre as linhas de botões */
-    row-gap: var(--space-2);
-  }
-}
-
-/* -----------------------------------------------------------------------------------
- * Breakpoint 3: Tablets e Celulares (até 768px)
- * - Otimiza para telas verticais, ocultando a maioria dos textos.
- * ----------------------------------------------------------------------------------- */
-@media screen and (max-width: 768px) {
-  /* Oculta todos os textos para maximizar o espaço para os ícones... */
-  .toolbar-button span {
-    display: none;
-  }
-
-  /* ...mas mantém visíveis os textos de ações mais importantes (exceções) */
-  #prismcomp span,
+  #processorHub span,
   #allcomp span {
-    display: inline;
+    display: none;
   }
-  
-  .toolbar-button {
-    padding: var(--space-2); /* Reduz o padding para botões mais compactos */
+  .toolbar-button:not(.icon-only) {
+    width: var(--h-button);
+    min-width: var(--h-button);
+    padding: 0;
   }
+}
+
+@media screen and (max-width: 1100px) {
+  .prism-btn span { display: none; }
+  .toggle-group { display: none; }
+}
+
+@media screen and (max-width: 880px) {
+  .toolbar { padding: 0 var(--space-2); gap: 0; }
+  .toolbar-center { padding: 0 var(--space-2); }
+  .toolbar-left,
+  .toolbar-right { gap: 0; }
 }

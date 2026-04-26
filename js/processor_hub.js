@@ -231,14 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         await window.electronAPI.triggerFileTreeRefresh();
                     } catch (err) { console.error(err); }
 
-                    document.getElementById('cancelProcessorHub').click(); 
-                    /*
-                    await showDialog({
-                        title: 'Success',
-                        message: `Processor "${formData.processorName}" created successfully!`,
-                        buttons: [{ label: 'Great', action: 'ok', type: 'save' }]
-                    });
-                    */
+                    document.getElementById('cancelProcessorHub').click();
                 } else {
                     throw new Error(result.message || 'Unknown error');
                 }

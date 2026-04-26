@@ -1,264 +1,263 @@
-/* layout.css */
-.toolbar {
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-primary);
-    padding: 0.5rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .toolbar-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0;
-    background-color: transparent;
-    border: 0px solid var(--border-primary);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .toolbar-button:hover {
-    background-color: var(--bg-hover);
-    border-color: var(--accent-primary);
-  }
+/*
+ * =====================================================================================
+ *  layout.css  —  File tree container + status bar
+ *
+ *  The status bar lives at the BODY level (sibling of .app-shell) so it spans
+ *  edge-to-edge horizontally and is never affected by any inner resizer.
+ * =====================================================================================
+ */
 
-  .toolbar-left,
-  .toolbar-center,
-  .toolbar-right {
-    display: flex;
-    gap: 18px;
-  }
-
-  .toolbar-center {
-    flex-grow: 1;
-    justify-content: right;
-  }
-
-
-  .toolbar-center {
-    border-left: 1px solid var(--accent-primary);
-    border-right: 1px solid var(--accent-primary);
-    padding: 0 10px;
-    flex-grow: 1; 
-    justify-content: center;
-  }
-
-  /* Sidebar styles */
-  .sidebar {
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-primary);
-    width: 60px;
-    /* transition: width 0.3s ease; */
-  }
-  
-  .sidebar-menu {
-    padding: 0.75rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .sidebar-item {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    margin: 0 auto;
-    border-radius: 0;
-    color: var(--icon-secondary);
-    transition: all 0.1s ease;
-  }
-  
-  .sidebar-item:hover {
-    background-color: var(--bg-hover);
-    color: var(--icon-primary);
-  }
-  
-  .status-bar {
-    background-color: var(--bg-secondary);
-    border-top: 1px solid var(--border-primary);
-    padding: 0.25rem 1rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  
-  .status-bar {
-    height: 22px;
-    background-color: var(--bg-tertiary);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    justify-content: space-between;
-    position: relative;
-    z-index: 25; /* above welcome overlay (z-18) */
-  }
-  
-  .status-item {
-    padding: 0 8px;
-    border-right: 1px solid var(--border-color);
-  }
-  
-  .file-tree-container {
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-primary);
-    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .file-tree-container.sidebar-collapsed {
-    width: 0 !important;
-    min-width: 0 !important;
-    border-right-width: 0;
-  }
-  
-  .file-tree-header {
-    padding: 0.75rem 1rem;
-    font-size: 0.70rem;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border-primary);
-  }
-  
-  .file-item {
-    padding: 0.375rem 0.75rem;
-    border-radius: 0;
-    margin: 0.125rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .file-item:hover {
-    background-color: var(--bg-hover);
-  }
-  
-  .file-item i {
-    color: var(--icon-secondary);
-    font-size: 1rem;
-  }
-
-  /* base.css */
-body {
-    margin: 0;
-    font-family: var(--font-sans);
-    background-color: transparent;
-    color: var(--text-primary);
-    line-height: 1.5;
-  }
-  
-  button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid #9b5de5;
-  outline-offset: 2px;
-  border-radius: 0;
-  transition: outline 0.2s ease-in-out;
-}
-.theme-light #fractalcomp img {
-  filter: invert(0%) !important;
+/* ---------------------------------------------------------------------------
+ *  Status Bar — independent footer
+ *
+ *  HTML (index.html):
+ *    <body>
+ *      <div class="app-shell">           ← toolbar + main pane
+ *      <div class="status-bar">          ← FOOTER (this)
+ *    </body>
+ *
+ *  Because body is `display: flex; flex-direction: column`, the status bar
+ *  is structurally below everything and naturally spans the full viewport
+ *  width. The vertical resizer lives inside .file-tree-container and cannot
+ *  reach this element.
+ * ------------------------------------------------------------------------- */
+.status-bar {
+  flex-shrink: 0;
+  height: var(--h-statusbar);
+  width: 100%;
+  background-color: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+  z-index: 25;
+  user-select: none;
+  position: relative;
 }
 
-
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: var(--bg-active);
-    border-radius: 0;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-secondary);
-  }
-  
-  .hidden {
-    display: none !important;
-  }
-  
-  .flex {
-    display: flex;
-  }
-  
-  .flex-col {
-    flex-direction: column;
-  }
-  
-  .items-center {
-    align-items: center;
-  }
-  
-  .justify-between {
-    justify-content: space-between;
-  }
-
-  #processorHub i {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* Aurora line above status bar — purely decorative */
+.status-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(142, 131, 232, 0.18) 35%,
+    rgba(95, 224, 176, 0.16) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
-/* File tree action bar */
+.status-zone {
+  display: inline-flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.status-zone-left   { justify-self: start; }
+.status-zone-center { justify-self: center; }
+.status-zone-right  { justify-self: end; }
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: 100%;
+  color: var(--text-secondary);
+  cursor: default;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  position: relative;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  border: 0;
+}
+
+.status-item:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+.status-item i {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.status-item span {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-tight);
+}
+
+#statusUpdater { cursor: pointer; }
+#statusUpdater:hover {
+  color: var(--accent-hover);
+  background-color: var(--accent-soft);
+}
+
+#editorStatus {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+#compmode-text { font-weight: var(--font-medium); }
+
+.status-icon-bolt    { color: var(--accent); }
+.status-icon-error   { color: var(--status-error); }
+.status-icon-success { color: var(--status-success); }
+
+/* Indicator dot for #ready */
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.status-dot-error {
+  background: var(--status-error);
+  box-shadow: 0 0 6px rgba(226, 108, 108, 0.45);
+}
+
+.status-dot-success {
+  background: var(--status-success);
+  box-shadow: 0 0 6px rgba(93, 212, 168, 0.45);
+}
+
+#ready.is-ready .status-dot {
+  background: var(--status-success);
+  box-shadow: 0 0 6px rgba(93, 212, 168, 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Sidebar legacy
+ * ------------------------------------------------------------------------- */
+.sidebar {
+  background-color: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  width: 48px;
+}
+
+.sidebar-menu {
+  padding: var(--space-2) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.sidebar-item:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+ *  File Tree Container
+ *  Width controlled by resize.js. Transition is suspended in
+ *  body.resizing-* (see styles.css).
+ * ------------------------------------------------------------------------- */
+.file-tree-container {
+  background-color: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.file-tree-container.sidebar-collapsed,
+.file-tree-container.is-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right-width: 0;
+}
+
+/* Action bar (overlay-title) sits between header and tree */
 .overlay-title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-primary);
-  background-color: var(--bg-secondary);
+  gap: 1px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-elev);
+  height: 30px;
+  flex-shrink: 0;
 }
 
 .overlay-title span,
 .overlay-title .tree-toggle-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   background: none;
   border: none;
-  font-size: var(--text-sm);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-  gap: var(--space-2);
+  font-size: 12px;
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast),
+              transform 80ms var(--ease-out-quart);
 }
+
+.overlay-title span i,
+.overlay-title .tree-toggle-btn i { font-size: 12px; }
 
 .overlay-title span:hover,
 .overlay-title .tree-toggle-btn:hover {
-  color: var(--text-primary);
+  color: var(--text);
   background-color: var(--overlay-hover);
 }
 
-.tree-toggle-btn .toggle-text {
-  display: none;
+.overlay-title span:active,
+.overlay-title .tree-toggle-btn:active {
+  transform: scale(0.92);
 }
 
+.tree-toggle-btn .toggle-text { display: none; }
+
+.tree-toggle-btn.active {
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.overlay-title .tree-action          { cursor: pointer; }
+.overlay-title .tree-action-new:hover    { color: var(--accent-hover); }
+.overlay-title .tree-action-danger:hover { color: var(--status-error); }
+
 .file-tree-actions {
-  flex: 1;
+  flex: 1 1 0;
   overflow-y: auto;
   overflow-x: hidden;
+  min-height: 0;
 }

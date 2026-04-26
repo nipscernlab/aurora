@@ -31,17 +31,9 @@ function switchTerminal(targetId) {
     document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`)?.classList.add('active');
 }
 
-function setCompilationButtonsState(disabled) {
-    /*
-    const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'fractalcomp'];
-    buttons.forEach(id => {
-        const button = document.getElementById(id);
-        if (button) {
-            button.disabled = disabled;
-            button.style.cursor = disabled ? 'not-allowed' : 'pointer';
-            button.style.opacity = disabled ? '0.6' : '1';
-        }
-    }); */
+function setCompilationButtonsState(_disabled) {
+    // Botões de compilação ficam sempre habilitados; o gating de comportamento
+    // acontece em modo (Verilog/Processor/Project) — ver setCompilationModeButtons.
 }
 
 function startCompilation() {
@@ -198,16 +190,9 @@ updateButtonStates() {
     const prismBtn = document.getElementById('prismcomp');
     const allBtn = document.getElementById('allcomp');
     
-    // In Verilog Mode, compilation flow buttons are restricted
+    // In Verilog Mode, compilation flow buttons remain enabled (no-op).
     if (mode === 'verilog') {
-        /*
-        if (cmmBtn) cmmBtn.disabled = true;
-        if (asmBtn) asmBtn.disabled = true;
-        if (veriBtn) veriBtn.disabled = false;
-        if (waveBtn) waveBtn.disabled = true;
-        if (prismBtn) prismBtn.disabled = false;
-        if (allBtn) allBtn.disabled = true;
-        */
+        // Intencionalmente vazio.
     } else {
         // Processor/Project modes — all buttons always enabled
         // CMM and ASM
@@ -418,7 +403,8 @@ async runSingleStep(step) {
 
     cancelAll() {
         compilationCanceled = true;
-        window.electronAPI.cancelVvpProcess();
+        window.electronAPI.cancelVvpProcess()
+            .catch(err => console.warn('cancelVvpProcess failed:', err?.message ?? err));
         setCompilationButtonsState(false);
     }
 

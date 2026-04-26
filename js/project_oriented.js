@@ -1521,124 +1521,30 @@ async saveConfiguration() {
    * Show notification
    */
   showNotification(message, type = 'info', duration = 3000) {
+    // Centralized: always delegate to the canonical AuroraUI toast.
     if (typeof window.showNotification === 'function') {
       window.showNotification(message, type, duration);
-      return;
+    } else {
+      console.log(`[Notification ${type}] ${message}`);
     }
-    
-    let notificationContainer = document.getElementById('notification-container');
-    if (!notificationContainer) {
-      notificationContainer = document.createElement('div');
-      notificationContainer.id = 'notification-container';
-      notificationContainer.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        max-width: 100%;
-        width: 350px;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-3);
-      `;
-      document.body.appendChild(notificationContainer);
-    }
-    
-    const iconMap = {
-      error: { icon: 'fa-circle-exclamation', color: 'var(--status-error)' },
-      success: { icon: 'fa-circle-check', color: 'var(--status-success)' },
-      warning: { icon: 'fa-triangle-exclamation', color: 'var(--status-warning)' },
-      info: { icon: 'fa-circle-info', color: 'var(--accent-primary)' }
-    };
-    
-    const { icon, color } = iconMap[type] || iconMap.info;
-    
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      background-color: var(--bg-elevated);
-      border-left: 4px solid ${color};
-      color: var(--text-primary);
-      padding: var(--space-4);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-lg);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-      opacity: 0;
-      transform: translateX(20px);
-      transition: all var(--transition-normal);
-    `;
-    
-    notification.innerHTML = `
-      <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
-        <i class="fa-solid ${icon}" style="color: ${color}; font-size: var(--text-xl);"></i>
-        <div style="flex-grow: 1;">
-          <div style="font-weight: var(--font-semibold); font-size: var(--text-base);">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-        </div>
-        <div class="close-btn" style="cursor: pointer; font-size: var(--text-lg);">
-          <i class="fa-solid fa-xmark" style="opacity: 0.7;"></i>
-        </div>
-      </div>
-      <div style="padding-left: calc(var(--text-xl) + var(--space-3)); font-size: var(--text-sm);">
-        ${message}
-      </div>
-      <div class="progress-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background-color: ${color}; transform-origin: left; transform: scaleX(1);"></div>
-    `;
-    
-    notificationContainer.prepend(notification);
-    
-    requestAnimationFrame(() => {
-      notification.style.opacity = '1';
-      notification.style.transform = 'translateX(0)';
-    });
-    
-    const progressBar = notification.querySelector('.progress-bar');
-    progressBar.style.transition = `transform ${duration}ms linear`;
-    
-    setTimeout(() => {
-      progressBar.style.transform = 'scaleX(0)';
-    }, 10);
-    
-    const closeBtn = notification.querySelector('.close-btn');
-    closeBtn.addEventListener('click', () => this.closeNotification(notification));
-    
-    const timeoutId = setTimeout(() => this.closeNotification(notification), duration);
-    
-    notification.addEventListener('mouseenter', () => {
-      progressBar.style.transitionProperty = 'none';
-      clearTimeout(timeoutId);
-    });
-    
-    notification.addEventListener('mouseleave', () => {
-      const remainingTime = duration * (parseFloat(getComputedStyle(progressBar).transform.split(', ')[0].split('(')[1]) || 0);
-      if (remainingTime > 0) {
-        progressBar.style.transition = `transform ${remainingTime}ms linear`;
-        progressBar.style.transform = 'scaleX(0)';
-        setTimeout(() => this.closeNotification(notification), remainingTime);
-      } else {
-        this.closeNotification(notification);
-      }
-    });
   }
   
   /**
    * Close notification
    */
   closeNotification(element) {
-    element.style.opacity = '0';
-    element.style.transform = 'translateX(20px)';
-    
+    element.classList.remove('is-visible');
+
     setTimeout(() => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
-        
+
         const container = document.getElementById('notification-container');
         if (container && container.children.length === 0) {
           container.remove();
         }
       }
-    }, 300);
+    }, 280);
   }
 }
 

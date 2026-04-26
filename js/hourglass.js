@@ -15,10 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsButton = document.getElementById(SETTINGS_BUTTON_ID); // Adicionado
   const importBtn = document.getElementById(IMPORT_BTN_ID);
 
-  if (!toggleButton) {
-    console.error('Toggle button not found!');
-    return;
-  }
+  // Toggle UI button is optional (não está mais na toolbar v3).
+  // Sai silenciosamente se ele não existir — sem poluir o console.
+  if (!toggleButton) return;
   
   function init() {
     const savedState = localStorage.getItem('uiToggleState');
@@ -111,15 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log(`UI elements are now ${elementsVisible ? 'visible' : 'hidden'}`);
   }
 
-  // openProcessorModal is defined but not used in current code
-  // function openProcessorModal() {
-  //   const modal = document.getElementById('modalProcessorConfig');
-  //   if (modal) {
-  //       modal.setAttribute('aria-hidden', 'false');
-  //       modal.classList.add('show');
-  //       document.body.style.overflow = 'hidden';
-  //   }
-  // }  
   function updateElementsVisibility() {
     HIDE_ELEMENTS.buttons.forEach(id => {
       const element = document.getElementById(id);

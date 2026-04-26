@@ -1,729 +1,406 @@
 /*
  * =====================================================================================
+ *  file_tree.css — Explorer SAPHO v4 (VSCode-exact)
  *
- *       Filename:  file_tree.css
+ *  Layout per row (single line, 22px):
  *
- *    Description:  Modern and responsive styles for the file tree explorer,
- *                  fully aligned with the elegant purple dark theme.
+ *      [indent guides | chevron-or-spacer | icon | name]
  *
+ *    • Each item carries `--depth` (0, 1, 2, …) on the wrapper.
+ *    • `padding-left = 8px + var(--depth) * 8px` (true VSCode step).
+ *    • Chevron and spacer are exactly 16px wide → files align with folder names.
+ *    • Indent guides drawn as 1px verticals via background-image so they don't
+ *      shift on scroll.
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  Main Container & Header
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Container
+ * ------------------------------------------------------------------------- */
 .file-tree-container {
   display: flex;
   flex-direction: column;
-  width: 250px;
-  min-width: 10px;
+  width: 260px;
+  min-width: 0;
   position: relative;
   height: 100%;
-  background-color: var(--bg-secondary);
-  transition: width var(--transition-normal);
+  background-color: var(--bg-elev);
   user-select: none;
   overflow: hidden;
-  border-right: 1px solid var(--border-primary);
+  border-right: 1px solid var(--border);
   z-index: 1;
 }
 
-  .file-tree-item.active {
-    border-left: 3px solid var(--accent-primary);
-  }
-  
-  .file-tree-item.active span {
-    font-weight: 600;
-  }
-
 .file-tree-header {
   flex-shrink: 0;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.file-tree-header > span:first-child {
-  font-size: var(--text-xs);
-  font-weight: var(--font-bold);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Header Action Buttons */
-.file-tree-header .header-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: var(--space-3);
-}
-
-.file-tree-header .header-actions > * {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
   height: 32px;
-  border-radius: 0;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  padding: 0 var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background-color: var(--bg-elev);
 }
 
-.file-tree-header .header-actions > *:hover {
-  color: var(--accent-primary);
-  background-color: var(--overlay-hover);
+.file-tree-header .file-tree-label,
+.file-tree-header > span:first-child {
+  font-size: 9.5px;
+  font-weight: var(--font-bold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  flex-shrink: 0;
 }
 
-/* Current Project Name */
 #current-spf-name {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  color: var(--text-primary);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: var(--space-3);
+  margin: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  letter-spacing: var(--tracking-tight);
 }
 
-/* ===================================================================================
- *  File Tree Content & Scrollbar
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Content
+ * ------------------------------------------------------------------------- */
 .file-tree-actions {
-  flex-grow: 1;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
-}
-
-/* Custom Scrollbar */
-.file-tree-actions::-webkit-scrollbar {
-  width: 10px;
-}
-.file-tree-actions::-webkit-scrollbar-track {
-  background: transparent;
-}
-.file-tree-actions::-webkit-scrollbar-thumb {
-  background-color: var(--bg-quaternary);
-  border-radius: 0;
-  border: 2px solid var(--bg-secondary);
-}
-.file-tree-actions::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent-primary);
+  min-height: 0;
 }
 
 #file-tree {
-  flex-grow: 1;
-  padding: var(--space-2);
+  flex: 1 1 0;
+  padding: 4px 0;
   overflow-x: hidden;
 }
 
-/* ===================================================================================
- *  File & Folder Items
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Tree item — wrapper carries --depth
+ * ------------------------------------------------------------------------- */
 .file-tree-item {
   position: relative;
   width: 100%;
+  --depth: 0;
 }
 
+/* The clickable row */
 .file-item {
   display: flex;
   align-items: center;
-  padding: var(--space-2);
-  border-radius: 0;
+  height: 22px;
+  margin: 0;
+  padding: 0 var(--space-2) 0 calc(8px + var(--depth, 0) * 8px);
   cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  transition: background-color 100ms linear, color 100ms linear;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  letter-spacing: var(--tracking-tight);
+  position: relative;
+}
+
+/* Inner row keeps icon + name flowing in a single line */
+.file-item-row {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
 }
 
 .file-item:hover {
   background-color: var(--overlay-hover);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
-/* Active and Selected States */
+/* Active selection */
 .file-tree-item.active > .file-item {
-  background-color: var(--accent-subtle-bg);
-  color: var(--accent-hover);
+  background-color: var(--accent-soft);
+  color: var(--text);
   font-weight: var(--font-medium);
-  margin-left: 5px;
+}
+
+.file-tree-item.active > .file-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 1px 1px 0;
 }
 
 .file-tree-item.multi-selected > .file-item {
-  background-color: var(--accent-subtle-bg);
-  border: 1px solid var(--accent-subtle-border);
+  background-color: var(--overlay-selected);
 }
 
 .file-tree-item.disabled > .file-item {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Folder Toggle Arrow */
-.folder-toggle {
-  width: 20px;
-  height: 20px;
-  display: flex;
+/* Folder rows have stronger weight */
+.file-tree-item[data-type="folder"] > .file-item,
+.file-tree-item.folder > .file-item {
+  font-weight: var(--font-medium);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Chevron / spacer — VSCode uses 16px wide
+ * ------------------------------------------------------------------------- */
+.folder-toggle-icon,
+.folder-toggle-spacer {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-right: var(--space-1);
-  color: var(--text-tertiary);
-  transition: transform var(--transition-normal);
-}
-
-.folder-toggle.rotated {
-  transform: rotate(90deg);
-}
-
-/* Item Icons */
-.file-item-icon {
-  margin-right: var(--space-2);
-  font-size: var(--text-base);
   width: 16px;
-  text-align: center;
+  height: 22px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 140ms ease;
 }
 
-/* ===================================================================================
- *  Hierarchy View Styles
- * =================================================================================== */
+.folder-toggle-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+.file-tree-item:hover .folder-toggle-icon {
+  color: var(--text-secondary);
+}
+
+.file-tree-item.active .folder-toggle-icon {
+  color: var(--accent-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ *  File icon — 16px, sits between chevron and name
+ * ------------------------------------------------------------------------- */
+.file-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0 4px 0 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.file-tree-item.active .file-item-icon {
+  color: var(--accent-hover);
+}
+
+.file-item-icon.ph-folder,
+.file-item-icon.ph-folder-open,
+.file-item-icon.fa-folder,
+.file-item-icon.fa-folder-open {
+  color: var(--aurora-cyan);
+}
+
+/* Type-aware coloring */
+.file-tree-item[data-ext="cmm"]   .file-item-icon { color: var(--aurora-cyan); }
+.file-tree-item[data-ext="asm"]   .file-item-icon { color: var(--aurora-purple); }
+.file-tree-item[data-ext="v"]     .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="vh"]    .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="sv"]    .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="gtkw"]  .file-item-icon { color: var(--aurora-mint); }
+.file-tree-item[data-ext="vcd"]   .file-item-icon { color: var(--aurora-mint); }
+.file-tree-item[data-ext="mif"]   .file-item-icon { color: var(--text-secondary); }
+.file-tree-item[data-ext="txt"]   .file-item-icon { color: var(--text-muted); }
+.file-tree-item[data-ext="md"]    .file-item-icon { color: var(--text-secondary); }
+.file-tree-item[data-ext="json"]  .file-item-icon { color: var(--status-warning); }
+
+/* ---------------------------------------------------------------------------
+ *  Name
+ * ------------------------------------------------------------------------- */
+.file-item-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Legacy nested span fallback (TabManager-injected file icons might wrap one) */
+.file-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Folder content container
+ *  No padding/margin here — children carry their own indent via --depth.
+ * ------------------------------------------------------------------------- */
+.folder-content {
+  position: relative;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 240ms var(--ease-out-quart),
+              opacity 140ms;
+}
+
+.folder-content:not(.hidden) {
+  max-height: 10000px;
+  opacity: 1;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.folder-content:not(.hidden) > .file-tree-item {
+  opacity: 0;
+  animation: fadeInDown 180ms var(--ease-out-quart) forwards;
+  animation-delay: calc(var(--index, 0) * 12ms);
+}
+
+#refresh-button.spinning i { animation: spin 1s linear infinite; }
+
+/* ---------------------------------------------------------------------------
+ *  Hierarchy view (legado) — same look & feel
+ * ------------------------------------------------------------------------- */
 #hierarchy-tree {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: var(--text);
   cursor: pointer;
-  padding: var(--space-2) var(--space-3);
-  border-radius: 0;
-  border: 1px solid var(--border-primary);
-  background-color: var(--bg-tertiary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--bg-elev-2);
   transition: all var(--transition-fast);
 }
 
 #hierarchy-tree:hover:not(.disabled) {
-  background-color: var(--bg-quaternary);
-  border-color: var(--accent-primary);
+  background-color: var(--border);
+  border-color: var(--accent-border);
 }
 
 #hierarchy-tree.active {
-  background-color: var(--accent-primary);
-  color: var(--text-on-accent);
-  border-color: var(--accent-primary);
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+  border-color: var(--accent);
 }
 
-/* Hierarchy Item Specific Icons */
-.hierarchy-item[data-type="top-level"] .file-item-icon i { color: var(--status-error); font-size: 1.1em; }
-.hierarchy-item[data-type="module"] .file-item-icon i { color: var(--status-info); }
-.hierarchy-item[data-type="instance"] .file-item-icon i { color: var(--status-success); }
-.hierarchy-item[data-type="primitive"] .file-item-icon i { color: var(--text-tertiary); }
+.hierarchy-item[data-type="top-level"] .file-item-icon i { color: var(--status-error); }
+.hierarchy-item[data-type="module"]    .file-item-icon i { color: var(--status-info); }
+.hierarchy-item[data-type="instance"]  .file-item-icon i { color: var(--status-success); }
+.hierarchy-item[data-type="primitive"] .file-item-icon i { color: var(--text-muted); }
 
-/* Hierarchy Item Labels */
 .hierarchy-item[data-type="top-level"] .hierarchy-label { font-weight: var(--font-bold); color: var(--accent-hover); }
-.hierarchy-item[data-type="module"] .hierarchy-label { font-weight: var(--font-semibold); color: var(--text-primary); }
-.hierarchy-item[data-type="instance"] .hierarchy-label { font-weight: var(--font-medium); color: var(--text-primary); }
-.hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-tertiary); }
+.hierarchy-item[data-type="module"]    .hierarchy-label { font-weight: var(--font-semibold); color: var(--text); }
+.hierarchy-item[data-type="instance"]  .hierarchy-label { font-weight: var(--font-medium); color: var(--text); }
+.hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-muted); }
 
-/* Nesting Lines */
 .hierarchy-item .hierarchy-item {
   margin-left: var(--space-4);
   position: relative;
 }
 
-.hierarchy-item .hierarchy-item::before {
-  content: '';
-  position: absolute;
-  left: calc(-1 * var(--space-3)); /* Position line correctly */
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background-color: var(--border-primary);
-}
-
+.hierarchy-item .hierarchy-item::before,
 .hierarchy-item .hierarchy-item::after {
-  content: '';
-  position: absolute;
-  left: calc(-1 * var(--space-3));
-  top: 16px; /* Center of a standard item */
-  width: var(--space-2);
-  height: 1px;
-  background-color: var(--border-primary);
+  display: none;
 }
 
-/* ===================================================================================
- *  Animations & Transitions (Folder Unfold Restored)
- * =================================================================================== */
+/* ---------------------------------------------------------------------------
+ *  Optional file search (oculto por default)
+ * ------------------------------------------------------------------------- */
+.file-search-container { padding: var(--space-2); }
 
-/* Item Enter Animation (Restored from original) */
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Folder Content Container (Restored from original) */
-.folder-content {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition:
-    max-height var(--transition-normal),
-    opacity var(--transition-normal);
-}
-
-.folder-content:not(.hidden) {
-  max-height: 10000px; /* Large value to allow for many files */
-  opacity: 1;
-}
-
-/* Staggered animation for each item as it appears (Restored from original) */
-.folder-content:not(.hidden) > .file-tree-item {
-  opacity: 0;
-  animation: fadeInDown var(--transition-normal) forwards;
-  /* Assumes a --index CSS variable is set on each item via JS */
-  animation-delay: calc(var(--index) * 50ms);
-}
-
-
-/* Refresh Spinning Animation */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-#refresh-button.spinning i {
-  animation: spin 1s linear infinite;
-}
-
-
-/* =====================================================================================
- *
- *    Component:  File Tree Search
- *  Description:  Styles for the file and folder search input, fully integrated
- *                with the elegant purple dark theme.
- *
- * ===================================================================================== */
-
-/* --- Container Principal --- */
-.file-search-container {
-  padding: 0 var(--space-3) var(--space-3) var(--space-3);
-  margin-top: var(--space-2);
-}
-
-/* --- Wrapper do Input de Pesquisa --- */
 .search-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  height: var(--h-input);
+  transition: border-color var(--transition-fast);
 }
 
-/* Estado de Foco */
-.search-input-wrapper:focus-within {
-  border-color: var(--border-focus);
-  box-shadow: var(--shadow-focus-outline);
-}
+.search-input-wrapper:focus-within { border-color: var(--accent); }
 
-/* --- Ícone de Pesquisa --- */
 .search-icon {
   position: absolute;
-  left: var(--space-3); /* 12px */
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-  pointer-events: none; /* Permite clicar através do ícone */
-  z-index: var(--z-10);
-  transition: color var(--transition-fast), transform var(--transition-normal);
+  left: var(--space-2);
+  color: var(--text-muted);
+  font-size: 11px;
+  pointer-events: none;
 }
 
-.search-input-wrapper:focus-within .search-icon {
-  color: var(--accent-primary);
-}
-
-/* Estado de Carregamento (girando) */
-.search-input-wrapper.searching .search-icon {
-  animation: searchSpin 1s linear infinite;
-}
-
-@keyframes searchSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* --- Input de Texto --- */
 .search-input {
-  flex-grow: 1;
+  flex: 1 1 0;
   width: 100%;
-  padding: var(--space-2) var(--space-8) var(--space-2) 38px; /* Espaço para ícone e botão */
-  background-color: transparent;
+  padding: 0 var(--space-7) 0 var(--space-7);
+  height: 100%;
+  background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-sm);
   font-family: var(--font-sans);
 }
 
-.search-input::placeholder {
-  color: var(--text-tertiary);
-  transition: color var(--transition-fast);
-}
+.search-input::placeholder { color: var(--text-muted); }
 
-.search-input:focus::placeholder {
-  color: var(--text-disabled);
-}
-
-/* --- Botão de Limpar --- */
 .clear-search-btn {
   position: absolute;
-  right: var(--space-2); /* 8px */
-  width: var(--space-6); /* 24px */
-  height: var(--space-6); /* 24px */
-  
+  right: var(--space-1);
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  background-color: transparent;
+  background: transparent;
   border: none;
-  border-radius: 0;
-  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
   cursor: pointer;
-  
-  /* Oculto por padrão, aparece com JS */
-  opacity: 0;
-  transform: scale(0.7);
-  transition: opacity var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
+  font-size: 10px;
 }
 
 .clear-search-btn:hover {
   background-color: var(--overlay-hover);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
-/* Classe adicionada via JS quando o input tem conteúdo */
-.search-input-wrapper.has-content .clear-search-btn {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* --- Feedback de Resultados --- */
 .search-results-info {
-  margin-top: var(--space-2);
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-align: center;
-  min-height: 1.5em; /* Evita "pulos" no layout */
-  transition: color var(--transition-fast);
+  padding: var(--space-1) var(--space-2);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
-.search-results-info.active {
-  color: var(--text-secondary);
+.file-tree.searching .file-item.match {
+  background-color: rgba(142, 131, 232, 0.10);
+  color: var(--text);
 }
 
-/* --- Estilos Aplicados na Árvore de Arquivos --- */
-/* Styling for the trash button inside the file tree */
-.file-tree-item .tree-delete-btn {
-    color: #ff4444; /* Standard Red */
-    opacity: 0;
-    transition: opacity 0.2s ease, transform 0.1s ease;
-}
-
-.file-tree-item:hover .tree-delete-btn {
-    opacity: 1;
-}
-
-.file-tree-item .tree-delete-btn:hover {
-    transform: scale(1.1);
-    color: #ff0000; /* Brighter Red on hover */
-}
-
-/* Item que corresponde à busca */
-.file-tree-item.search-match > .file-item {
-  background-color: var(--accent-subtle-bg);
-  border-radius: 0;
-}
-
-/* Destaque no texto correspondente */
-.search-highlight {
-  background-color: var(--accent-primary);
-  color: var(--text-on-accent);
-  border-radius: 0;
-  font-weight: var(--font-semibold);
-  padding: 0 2px;
-}
-
-/* Item que não corresponde e está oculto */
-.file-tree-item.search-hidden {
-  display: none !important;
-}
-
-/* --- Estado de "Nenhum Resultado" --- */
-.search-empty-state {
-  text-align: center;
-  padding: var(--space-8) var(--space-4);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-.search-empty-state i {
-  display: block;
-  font-size: var(--text-2xl);
-  margin-bottom: var(--space-3);
-  opacity: 0.6;
-}
-
-/*
- * =====================================================================================
- *
- *       Filename:  file_mode.css
- *
- *    Description:  Styles for Verilog Mode file manager with drag & drop support
- *
- * =====================================================================================
- */
-
-/* ===================================================================================
- *  Verilog Mode Tree Container
- * =================================================================================== */
-.file-tree.verilog-mode-tree {
-  min-height: 200px;
-  position: relative;
-}
-
-.file-tree.verilog-mode-active {
-  border: 2px dashed var(--border-primary);
-  border-radius: 0;
-  transition: border-color var(--transition-normal), background-color var(--transition-normal);
-  padding: var(--space-4);
-}
-
-/* Drag over state */
-.file-tree.drag-over {
-  border-color: var(--accent-primary);
-  background-color: var(--accent-subtle-bg);
-  box-shadow: var(--shadow-glow);
-}
-
-/* Visual feedback during drag */
-.file-tree-container.verilog-mode-active {
-  position: relative;
-}
-
-.file-tree-container.verilog-mode-active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  border-radius: 0;
-  transition: box-shadow var(--transition-normal);
-  z-index: -1;
-}
-
-/* ===================================================================================
- *  Empty State
- * =================================================================================== */
-.file-mode-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-16) var(--space-8);
-  text-align: center;
-  color: var(--text-tertiary);
-  user-select: none;
-}
-
-.file-mode-empty-state i {
-  font-size: var(--text-3xl);
-  margin-bottom: var(--space-4);
-  color: var(--accent-primary);
-  opacity: 0.5;
-}
-
-.file-mode-empty-state p {
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-2) 0;
-}
-
-.file-mode-empty-state span {
-  font-size: var(--text-sm);
-  color: var(--text-tertiary);
-}
-
-/* ===================================================================================
- *  File Mode Items
- * =================================================================================== */
-.file-mode-item {
-  animation: fadeInSlide var(--transition-normal) ease-out;
-}
-
-@keyframes fadeInSlide {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.file-mode-item .file-item {
-  position: relative;
-  padding-right: var(--space-8);
-}
-
-.file-mode-item .file-name {
-  flex-grow: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Delete Button */
-.file-mode-delete-btn {
-  position: absolute;
-  right: var(--space-2);
-  width: var(--space-5);
-  height: var(--space-5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: transparent;
-  border: none;
-  border-radius: 0;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity var(--transition-fast), transform var(--transition-fast), 
-              background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.file-mode-item:hover .file-mode-delete-btn {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.file-mode-delete-btn:hover {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-}
-
-.file-mode-delete-btn:active {
-  transform: scale(0.9);
-}
-
-/* ===================================================================================
- *  Notifications
- * =================================================================================== */
-.file-mode-notification {
-  position: fixed;
-  top: var(--space-8);
-  right: var(--space-8);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  z-index: var(--z-50);
-  opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity var(--transition-normal), transform var(--transition-normal);
-  max-width: 400px;
-}
-
-.file-mode-notification.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.file-mode-notification i {
-  font-size: var(--text-lg);
-  flex-shrink: 0;
-}
-
-/* Notification types */
-.notification-success {
-  border-color: var(--status-success);
-}
-
-.notification-success i {
-  color: var(--status-success);
-}
-
-.notification-error {
-  border-color: var(--status-error);
-}
-
-.notification-error i {
-  color: var(--status-error);
-}
-
-.notification-warning {
-  border-color: var(--status-warning);
-}
-
-.notification-warning i {
-  color: var(--status-warning);
-}
-
-.notification-info {
-  border-color: var(--status-info);
-}
-
-.notification-info i {
-  color: var(--status-info);
-}
-
-/* ===================================================================================
- *  File Type Icons
- * =================================================================================== */
-.file-mode-item .fa-microchip {
-  color: var(--accent-primary);
-}
-
-.file-mode-item .fa-file-lines {
-  color: var(--text-secondary);
-}
-
-.file-mode-item .fa-file-image {
-  color: var(--status-info);
-}
-
-/* ===================================================================================
- *  Responsive Adjustments
- * =================================================================================== */
-@media (max-width: 768px) {
-  .file-mode-notification {
-    top: var(--space-4);
-    right: var(--space-4);
-    left: var(--space-4);
-    max-width: none;
-  }
-  
-  .file-mode-empty-state {
-    padding: var(--space-12) var(--space-4);
-  }
+.file-tree.searching .file-item:not(.match):not(.parent-of-match) {
+  opacity: 0.30;
 }

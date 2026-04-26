@@ -1,169 +1,81 @@
 /*
  * =====================================================================================
- *
- *       Filename:  status_updater.css
- *
- *    Description:  Modern styling for compilation status indicators, fully integrated
- *                  with the elegant purple dark theme.
- *
+ *  status_updater.css  —  Animations applied by statusUpdater.js
+ *  Base styles for .status-bar / .status-item live in layout.css.
  * =====================================================================================
  */
 
-/* ===================================================================================
- *  Body Adjustment
- *  ADICIONADO: Garante que o conteúdo principal não fique escondido atrás da 
- *  barra de status fixa, adicionando um preenchimento na parte inferior.
- * =================================================================================== */
-body {
-  /* A altura da barra de status é var(--space-8), então adicionamos esse espaço */
-  padding-bottom: var(--space-8); 
-}
-
-/* ===================================================================================
- *  Status Bar Container
- * =================================================================================== */
-.status-bar {
-  display: flex;
-  align-items: center;
-  background-color: #1A1640;
-  border-top: 1px solid #2D2A4A;
-  padding: var(--space-1) var(--space-3);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  height: var(--space-8);
-  overflow: hidden;
-  flex-shrink: 0;
-  user-select: none;
-  
-  /* --- ALTERAÇÕES PRINCIPAIS --- */
-  position: fixed; /* Fixa a barra de status em relação à janela de visualização */
-  bottom: 0;       /* Alinha na parte inferior */
-  left: 0;         /* Alinha à esquerda */
-  width: 100%;     /* Faz com que ocupe toda a largura */
- /* z-index: 999;     Garante que fique acima de outros conteúdos, mas abaixo de modais */
-}
-
-/* ===================================================================================
- *  Individual Status Items
- * =================================================================================== */
-.status-item {
-  display: flex;
-  align-items: center;
-  margin-right: var(--space-6);
-  padding: var(--space-1) var(--space-3);
-  color: var(--text-secondary);
-  border-radius: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: all var(--transition-normal);
-}
-
-.status-item i {
-  margin-right: var(--space-2);
-}
-
-/* ===================================================================================
- *  Status States & Colors
- * =================================================================================== */
-
-/* Compiling State */
 .status-compiling {
   color: var(--status-info);
   background-color: var(--status-info-bg);
   font-weight: var(--font-medium);
   position: relative;
-  animation: fadeIn 0.5s ease-out;
+  overflow: hidden;
+  animation: statusFadeIn 240ms var(--ease-out-quart);
 }
-.status-compiling i.fa-spinner {
-  animation: modern-spin 1.5s infinite cubic-bezier(0.45, 0, 0.55, 1);
+
+.status-compiling .ph-spinner,
+.status-compiling .fa-spinner {
+  animation: spin 1.4s linear infinite;
 }
+
 .status-compiling::before {
   content: '';
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--status-info), transparent);
-  animation: progress-line 2s infinite ease-in-out;
+  height: 1.5px;
   width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--aurora-cyan) 50%,
+    transparent 100%
+  );
+  animation: statusProgressLine 1.6s ease-in-out infinite;
 }
 
-/* Success State */
 .status-success {
   color: var(--status-success);
   background-color: var(--status-success-bg);
   font-weight: var(--font-medium);
-  animation: fadeIn 0.5s ease-out;
-}
-.status-success i {
-  animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: statusFadeIn 240ms var(--ease-out-quart);
 }
 
-/* Error State */
+.status-success i {
+  animation: statusScaleIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 .status-error {
   color: var(--status-error);
   background-color: var(--status-error-bg);
   font-weight: var(--font-medium);
-  animation: fadeIn 0.5s ease-out;
+  animation: statusFadeIn 240ms var(--ease-out-quart);
 }
+
 .status-error i {
-  animation: shake 0.6s cubic-bezier(.36,.07,.19,.97);
+  animation: statusShake 460ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
-/* ===================================================================================
- *  Animations (Preserved from original)
- * =================================================================================== */
-
-@keyframes modern-spin {
-  to { transform: rotate(360deg); }
+@keyframes statusFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes scale-in {
-  0% { transform: scale(0); }
-  70% { transform: scale(1.2); }
+@keyframes statusScaleIn {
+  0%   { transform: scale(0); }
+  70%  { transform: scale(1.18); }
   100% { transform: scale(1); }
 }
 
-@keyframes shake {
+@keyframes statusShake {
   10%, 90% { transform: translateX(-1px); }
-  20%, 80% { transform: translateX(2px); }
+  20%, 80% { transform: translateX(1px); }
   30%, 50%, 70% { transform: translateX(-2px); }
-  40%, 60% { transform: translateX(1px); }
+  40%, 60% { transform: translateX(2px); }
 }
 
-@keyframes progress-line {
+@keyframes statusProgressLine {
   from { transform: translateX(-100%); }
-  to { transform: translateX(100%); }
-}
-
-/* ===================================================================================
- *  Responsive Adjustments
- * =================================================================================== */
-@media (max-width: 768px) {
-  .status-item {
-    font-size: var(--text-xs);
-    margin-right: var(--space-4);
-  }
-}
-
-@media (max-width: 480px) {
-  .status-bar {
-    padding: var(--space-1) var(--space-2);
-  }
-  .status-item {
-    max-width: 150px;
-    margin-right: var(--space-2);
-  }
+  to   { transform: translateX(100%); }
 }

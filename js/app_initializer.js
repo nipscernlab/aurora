@@ -393,17 +393,7 @@ class AppInitializer {
      * Update button states based on mode
      */
     updateButtonStates() {
-        const buttons = {
-            /*
-            cmmcomp: document.getElementById('cmmcomp'),
-            asmcomp: document.getElementById('asmcomp'),
-            vericomp: document.getElementById('vericomp'),
-            wavecomp: document.getElementById('wavecomp'),
-            prismcomp: document.getElementById('prismcomp'),
-            allcomp: document.getElementById('allcomp'),
-            settings: document.getElementById('settings')
-            */
-        };
+        const buttons = {};
         
         if (this.currentMode === 'processor') {
             // Processor Mode - All buttons enabled

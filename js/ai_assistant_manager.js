@@ -11,40 +11,43 @@ class AIAssistantManager {
         if (!this.container) this.initialize();
 
         const isOpen = this.container.classList.toggle('open');
-        this.backdrop.classList.toggle('open');
-        document.body.style.overflow = isOpen ? 'hidden' : '';
+        // No backdrop, no body scroll lock — user keeps coding while panel is open.
+        document.body.classList.toggle('ai-assistant-open', isOpen);
     }
 
     initialize() {
-        this.backdrop = document.createElement('div');
-        this.backdrop.id = 'ai-assistant-backdrop';
-        this.backdrop.className = 'ai-assistant-backdrop';
-        this.backdrop.addEventListener('click', () => this.toggle());
-        document.body.appendChild(this.backdrop);
-
         this.container = document.createElement('div');
         this.container.className = 'ai-assistant-container';
         this.container.innerHTML = `
             <div class="ai-assistant-header">
                 <div class="ai-header-left">
-                    <img style="width:30px" src="./assets/icons/ai_gemini.webp" alt="AI Toggle" class="ai-toggle-icon">
+                    <span class="ai-assistant-mark">
+                        <img id="ai-provider-icon" src="./assets/icons/ai_chatgpt.svg" alt="" class="ai-provider-icon">
+                    </span>
                     <h3 class="ai-assistant-title">AI Assistant</h3>
+                </div>
+                <div class="ai-header-right">
                     <div class="ai-provider-section">
-                        <img id="ai-provider-icon" src="./assets/icons/ai_chatgpt.svg" alt="Provider Icon" class="ai-provider-icon">
                         <select id="ai-provider-select" class="ai-provider-select">
                             <option value="chatgpt">ChatGPT</option>
                             <option value="claude">Claude</option>
                             <option value="gemini">Gemini</option>
                             <option value="deepseek">DeepSeek</option>
                         </select>
+                        <i class="ph ph-caret-down ai-provider-caret" aria-hidden="true"></i>
                     </div>
+                    <button class="ai-assistant-close" aria-label="Close AI Assistant">
+                        <i class="ph ph-x"></i>
+                    </button>
                 </div>
-                <button class="ai-assistant-close" aria-label="Close AI Assistant"><i class="fas fa-times"></i></button>
             </div>
             <div class="ai-assistant-content">
-                <div class="ai-loading-overlay"><div class="ai-loading-spinner"></div></div>
+                <div class="ai-loading-overlay">
+                    <div class="ai-loading-spinner"></div>
+                    <span class="ai-loading-text">Loading conversation…</span>
+                </div>
                 <webview class="ai-assistant-webview" src="https://chatgpt.com/?model=auto" nodeintegration="false" webSecurity="true"></webview>
-                <div class="ai-resize-handle"></div>
+                <div class="ai-resize-handle" aria-label="Resize AI panel"></div>
             </div>`;
         document.body.appendChild(this.container);
 

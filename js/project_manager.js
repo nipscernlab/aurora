@@ -2,6 +2,7 @@
 
 import { TabManager } from './tab_manager.js';
 import { fileTreeManager } from './file_tree_manager.js';
+import { showDialog } from './dialogManager.js';
 
 function updateProjectNameUI(projectData) {
     const spfNameElement = document.getElementById('current-spf-name');
@@ -91,23 +92,46 @@ function enableCompileButtons() {
 async function loadProject(spfPath) {
     try {
         const result = await window.electronAPI.openProject(spfPath);
-        window.currentProjectPath = result.projectData.structure.basePath;
+
+        if (!result || result.success === false) {
+            const msg = (result && result.message) || 'Could not open project.';
+            throw new Error(msg);
+        }
+
+        // Tolerância: result.projectData pode vir com forma variável dependendo
+        // da versão do main.js. Tenta múltiplos caminhos antes de falhar.
+        const projectData = result.projectData || result.data || {};
+        const basePath =
+            projectData.structure?.basePath ||
+            projectData.basePath ||
+            projectData.metadata?.projectPath ||
+            (typeof spfPath === 'string' ? spfPath.replace(/[\\/][^\\/]+\.spf$/i, '') : null);
+
+        if (!basePath) {
+            throw new Error('Project base path could not be determined.');
+        }
+
+        window.currentProjectPath = basePath;
         window.currentSpfPath = spfPath;
-        
-        updateProjectNameUI(result.projectData);
+
+        updateProjectNameUI(projectData);
         await TabManager.closeAllTabs();
-        
-        // Update file tree
-        fileTreeManager.updateFileTree(result.files);
-        fileTreeManager.watcher.startWatching(window.currentProjectPath);
+
+        // Update file tree (defensive — files may be missing on partial result)
+        if (Array.isArray(result.files)) {
+            fileTreeManager.updateFileTree(result.files);
+        }
+        fileTreeManager.watcher?.startWatching?.(window.currentProjectPath);
 
         if (window.recentProjectsManager) {
             window.recentProjectsManager.addProject(spfPath);
         }
 
         // Enable buttons and update status
-        enableCompileButtons();
-        
+        if (typeof enableCompileButtons === 'function') {
+            enableCompileButtons();
+        }
+
         // Save as last opened project
         if (window.appInitializer) {
             window.appInitializer.saveCurrentProject(spfPath);
@@ -115,11 +139,15 @@ async function loadProject(spfPath) {
 
     } catch (error) {
         console.error('Error loading project:', error);
-        await showDialog({
-            title: 'Error Loading Project',
-            message: `Failed to load project: ${error.message}`,
-            buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
-        });
+        try {
+            await showDialog({
+                title: 'Error Loading Project',
+                message: `Failed to load project: ${error.message}`,
+                buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+            });
+        } catch (dialogErr) {
+            console.error('showDialog failed:', dialogErr);
+        }
     }
 }
 

@@ -38,6 +38,14 @@
  * =================================================================================== */
 .editor-terminal-container { position: relative; }
 
+/*
+ * editor-overlay state model (set by tab_manager.js):
+ *   class="visible"           → welcome is shown (startup, no project)
+ *   class="visible hidden"    → welcome is suppressed (a file is open)
+ *
+ * Only when `.visible` AND NOT `.hidden` do we want the welcome to fill the
+ * area and replace the editor / resizer / terminal.
+ */
 #editor-overlay {
   position: absolute;
   inset: 0;
@@ -50,23 +58,23 @@
   transition: opacity var(--transition-normal);
 }
 
-#editor-overlay.visible {
+#editor-overlay.visible:not(.hidden) {
   display: flex;
   opacity: 1;
   pointer-events: all;
 }
 
-#editor-overlay.visible .welcome-screen {
+#editor-overlay.visible:not(.hidden) .welcome-screen {
   width: 100%;
   height: 100%;
   overflow-y: auto;
 }
 
-/* While the welcome is visible, hide the editor area, the horizontal resizer
-   and the terminal so nothing peeks through. */
-#editor-overlay.visible ~ .editor-container,
-#editor-overlay.visible ~ .resizer-horizontal,
-#editor-overlay.visible ~ #terminal-container {
+/* While the welcome is actually showing, hide the editor area, the horizontal
+   resizer and the terminal so nothing peeks through. */
+#editor-overlay.visible:not(.hidden) ~ .editor-container,
+#editor-overlay.visible:not(.hidden) ~ .resizer-horizontal,
+#editor-overlay.visible:not(.hidden) ~ #terminal-container {
   display: none !important;
 }
 

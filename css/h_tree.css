@@ -12,7 +12,7 @@
     border: 1px solid var(--border-primary);
     border-radius: 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: var(--text-xs);
     font-weight: var(--font-medium);
     font-family: var(--font-sans);
     cursor: pointer;
@@ -47,11 +47,11 @@
 }
 
 .tree-toggle-btn i {
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .tree-toggle-btn .toggle-text {
-    font-size: 11px;
+    font-size: var(--text-xs);
     letter-spacing: 0.02em;
     font-weight: var(--font-medium);
 }
@@ -122,7 +122,7 @@
 }
 
 .hierarchy-toggle i {
-    font-size: 16px;
+    font-size: var(--text-lg);
 }
 
 .hierarchy-spacer {
@@ -150,15 +150,15 @@
 }
 
 .hierarchy-item[data-type="module"] .hierarchy-icon {
-    color: #60a5fa;
+    color: var(--aurora-cyan);
 }
 
 .hierarchy-item[data-type="instance"] .hierarchy-icon {
-    color: #34d399;
+    color: var(--aurora-mint);
 }
 
 .hierarchy-icon i {
-    font-size: 13px;
+    font-size: var(--icon-md);
 }
 
 /* ===================================================================================
@@ -167,19 +167,19 @@
 
 .hierarchy-label {
     flex: 1;
-    font-size: 12.5px;
+    font-size: var(--text-sm);
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-family: 'Inter', var(--font-sans);
+    font-family: var(--font-sans);
     font-weight: var(--font-normal);
-    letter-spacing: -0.01em;
-    line-height: 1.4;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
 }
 
 .hierarchy-item[data-type="top-level"] .hierarchy-label {
-    font-size: 13.5px;
+    font-size: var(--text-md);
     letter-spacing: 0;
 }
 
@@ -284,17 +284,17 @@
     }
     
     .hierarchy-label {
-        font-size: 11.5px;
+        font-size: var(--text-xs);
     }
-    
+
     .hierarchy-children {
         padding-left: 18px;
         margin-left: var(--space-2);
     }
-    
+
     .tree-toggle-btn {
         padding: var(--space-1) var(--space-2);
-        font-size: 10px;
+        font-size: var(--text-2xs);
     }
 }
 
@@ -314,31 +314,30 @@
 }
 
 .hierarchy-item[data-type="top-level"] > .hierarchy-item-content {
-    background: linear-gradient(90deg, rgba(155, 89, 182, 0.08) 0%, transparent 100%);
-    border-left: 2px solid #9b59b6 !important;
+    background: linear-gradient(90deg, var(--accent-soft) 0%, transparent 100%);
+    border-left: 2px solid var(--accent) !important;
     border-radius: 0;
     margin: 6px 0;
     padding: 10px var(--space-4);
 }
 
 .hierarchy-item[data-type="top-level"] > .hierarchy-item-content:hover {
-    background: linear-gradient(90deg, rgba(155, 89, 182, 0.12) 0%, transparent 100%);
-    border-color: #af7ac5 !important;
-    
+    background: linear-gradient(90deg, var(--accent-strong) 0%, transparent 100%);
+    border-color: var(--accent-hover) !important;
 }
 
 .hierarchy-item[data-type="top-level"] .hierarchy-label {
-    background: linear-gradient(90deg, #ffffff 0%, #af7ac5 100%);
+    background: linear-gradient(90deg, var(--text) 0%, var(--accent-hover) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-md);
 }
 
 .hierarchy-item[data-type="top-level"] .hierarchy-icon {
-    color: #9b59b6;
-    filter: drop-shadow(0 0 4px rgba(155, 89, 182, 0.6));
+    color: var(--accent);
+    filter: drop-shadow(0 0 4px var(--accent-glow));
 }
 
 .overlay-title {

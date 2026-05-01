@@ -2099,10 +2099,14 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     // Create temp directory
     await fse.ensureDir(tempDir);
     
-    // Determine mode
-    const isProjectOriented = await getToggleUIStateFromMain();
+    // Determine mode from renderer-supplied compilationMode
+    // ('processor' | 'project-simulation' | 'project-verilog-only').
+    // Falls back to 'processor' for compatibility with older callers.
+    const compilationMode = compilationPaths.compilationMode || 'processor';
+    const isProjectOriented = compilationMode === 'project-simulation' || compilationMode === 'project-verilog-only';
+    const isProjectVerilogOnly = compilationMode === 'project-verilog-only';
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-log', 'tveri', 
+      mainWindow.webContents.send('terminal-log', 'tveri',
         `Mode: ${isProjectOriented ? 'Project Oriented' : 'Processor Oriented'}`, 'info');
     }
     
@@ -2146,10 +2150,11 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       mainWindow.webContents.send('terminal-log', 'tveri', 'Starting Yosys synthesis...', 'info');
     }
     const hierarchyJsonPath = await runYosysCompilationWithPaths(
-      compilationPaths, 
-      topLevelModule, 
-      tempDir, 
-      isProjectOriented
+      compilationPaths,
+      topLevelModule,
+      tempDir,
+      isProjectOriented,
+      isProjectVerilogOnly
     );
     
     // Split hierarchy.json into individual module JSON files
@@ -2188,20 +2193,17 @@ async function performPrismCompilationWithPaths(compilationPaths) {
 }
 
 // Run Yosys compilation
-async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented) {
+async function runYosysCompilationWithPaths(compilationPaths, topLevelModule, tempDir, isProjectOriented, isProjectVerilogOnly) {
   console.log('=== RUNNING YOSYS COMPILATION ===');
-  
+
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   const projectPath = compilationPaths.projectPath;
   const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
-  
+
   let fileList = [];
-  
-  // CHECK FOR VERILOG-ONLY MODE
-  const isVerilogOnlyMode = await isVerilogOnlyModeActive();
-  
-  if (isVerilogOnlyMode && isProjectOriented) {
+
+  if (isProjectVerilogOnly && isProjectOriented) {
     // VERILOG-ONLY MODE: Use synthesizableFiles from projectOriented.json
     console.log('=== VERILOG-ONLY MODE DETECTED ===');
     
@@ -2360,25 +2362,6 @@ write_json "${hierarchyJsonPath}"
     yosysProcess.on('error', (error) => {
       reject(error);
     });
-  });
-}
-
-async function isVerilogOnlyModeActive() {
-  return new Promise((resolve) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.executeJavaScript(`
-        (function() {
-          const verilogModeRadio = document.getElementById('Verilog Mode');
-          return verilogModeRadio ? verilogModeRadio.checked : false;
-        })();
-      `).then(isActive => {
-        resolve(isActive);
-      }).catch(() => {
-        resolve(false);
-      });
-    } else {
-      resolve(false);
-    }
   });
 }
 

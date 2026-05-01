@@ -47,18 +47,7 @@
               padding var(--transition-normal);
 }
 
-/* Aurora hairline at the top */
-.vvp-progress-info::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gradient-aurora);
-  opacity: 0.55;
-  pointer-events: none;
-}
+/* (Aurora hairline removed.) */
 
 /* ---------------------------------------------------------------------------
  *  Header
@@ -113,7 +102,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--icon-sm);
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
 }

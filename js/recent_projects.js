@@ -1,9 +1,9 @@
 // ADDED: Export the class to make it importable
 export class RecentProjectsManager {
-  // MODIFIED: The constructor now accepts the functions it needs
   constructor(loadProjectCallback, showErrorDialogCallback) {
-    // These functions are now stored as properties of the class instance
-    this.loadProject = loadProjectCallback;
+    // openProject = injected function that actually opens a .spf in the IDE.
+    // Kept under a distinct name so it does not shadow loadFromStorage().
+    this.openProject = loadProjectCallback;
     this.showErrorDialog = showErrorDialogCallback;
 
     this.projects = [];
@@ -12,15 +12,13 @@ export class RecentProjectsManager {
     this.listElement = document.getElementById('recent-projects-list');
     this.countElement = document.getElementById('projects-count');
     this.emptyState = document.getElementById('empty-state');
-    
-    // MODIFIED: The method name was incorrect in your original code (loadProject vs loadProject)
-    this.loadProject(); 
+
+    this.loadFromStorage();
     this.render();
   }
 
-  // Load projects from localStorage
-  // RENAMED: from loadProject to loadProject to be clearer
-  loadProject() {
+  // Load the recent-projects list from localStorage.
+  loadFromStorage() {
     try {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
@@ -126,8 +124,7 @@ export class RecentProjectsManager {
         await TabManager.closeAllTabs();
       }
 
-      // MODIFIED: Use the injected function
-      await this.loadProject(project.path);
+      await this.openProject(project.path);
       
       console.log(`Opened recent project: ${project.name}`);
     } catch (error) {
@@ -161,18 +158,15 @@ export class RecentProjectsManager {
   createProjectItem(project) {
     const item = document.createElement('div');
     item.className = 'project-item';
-    
+    item.title = project.path;
+
+    // VS Code-style: project name as primary link text, full path muted to
+    // its right. Date and icon dropped; the path itself is enough context.
     item.innerHTML = `
-      <div class="project-icon">
-        <i class="fa-solid fa-up-right-from-square"></i>
-      </div>
-      <div class="project-details">
-        <div class="project-name">${this.escapeHtml(project.name)}</div>
-        <div class="project-path">${this.escapeHtml(this.truncatePath(project.path))}</div>
-      </div>
-      <div class="project-date">${this.formatDate(project.lastOpened)}</div>
-      <button class="project-remove" title="Remove from recent projects">
-        <i class="fa-solid fa-times"></i>
+      <span class="project-name">${this.escapeHtml(project.name)}</span>
+      <span class="project-path">${this.escapeHtml(this.truncatePath(project.path))}</span>
+      <button class="project-remove" title="Remove from recent projects" aria-label="Remove from recent projects">
+        <i class="ph ph-x"></i>
       </button>
     `;
 
@@ -201,17 +195,20 @@ export class RecentProjectsManager {
     return div.innerHTML;
   }
 
-  // Truncate path for display
+  // Truncate path for display. Returns the parent directory of the .spf,
+  // collapsing the home directory to ~ on Unix. Visual overflow is also
+  // handled by CSS (text-overflow: ellipsis), so this keeps the textual
+  // form readable but doesn't have to be ultra-short.
   truncatePath(path) {
-    const maxLength = 50;
-    if (path.length <= maxLength) return path;
-    
-    const parts = path.split(/[/\\]/);
-    if (parts.length > 3) {
-      return `.../${parts.slice(-2).join('/')}`;
+    if (!path) return '';
+    // Drop the .spf filename — VS Code shows the parent folder, not the file.
+    let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
+    // Collapse the user's home dir to ~ for compactness.
+    const home = (typeof window !== 'undefined' && window.electronAPI?.homePath) || null;
+    if (home && display.startsWith(home)) {
+      display = '~' + display.slice(home.length);
     }
-    
-    return path.substring(0, maxLength - 3) + '...';
+    return display;
   }
 
   // Render the projects list
@@ -226,10 +223,7 @@ export class RecentProjectsManager {
     if (this.projects.length === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
-      emptyState.innerHTML = `
-        <i class="fa-solid fa-folder-open"></i>
-        <p>No recent projects</p>
-      `;
+      emptyState.innerHTML = `<p>No recent projects</p>`;
       this.listElement.appendChild(emptyState);
     } else {
       this.projects.forEach((project, index) => {

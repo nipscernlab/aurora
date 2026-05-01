@@ -99,7 +99,7 @@
 }
 
 .tab > i:first-of-type {
-  font-size: 12px;
+  font-size: var(--icon-sm);
   flex-shrink: 0;
   color: var(--text-muted);
 }
@@ -130,7 +130,7 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast),

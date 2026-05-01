@@ -162,6 +162,36 @@
   --tracking-widest:  0.14em;
 
   /* =========================================================================
+   *  Semantic icon sizes — keep .ph/.fa-solid in toolbar/tree/etc consistent.
+   *  Pulled out so individual components don't have to remember magic numbers.
+   * ======================================================================= */
+  --icon-2xs:  10px;
+  --icon-xs:   11px;
+  --icon-sm:   12px;
+  --icon-md:   13px;
+  --icon-base: 14px;
+  --icon-lg:   16px;
+  --icon-xl:   20px;
+  --icon-2xl:  24px;
+
+  /* =========================================================================
+   *  Semantic colors — compile-tool palette (mapped to the Aurora ribbon).
+   *  Used by .toolbar-button glyphs and matching terminal-tab glyphs so the
+   *  two surfaces stay in lock-step.
+   * ======================================================================= */
+  --color-cmm:    var(--aurora-cyan);    /* C±   — cyan */
+  --color-asm:    var(--aurora-purple);  /* ASM  — purple */
+  --color-veri:   var(--aurora-pink);    /* VERI — pink */
+  --color-wave:   var(--aurora-mint);    /* WAVE — mint */
+
+  /* Terminal log line colors — desaturated variants of the status palette
+   * so a streaming log stays readable at length. */
+  --term-error:   #F08585;
+  --term-warn:    #F0C880;
+  --term-success: #80E2B8;
+  --term-info:    #80C8F0;
+
+  /* =========================================================================
    *  Heights — control rhythm
    * ======================================================================= */
   --h-toolbar:    40px;
@@ -274,7 +304,7 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -424,7 +454,7 @@ body {
 .toolbar-button > .ph-bold,
 .toolbar-button > .fa-solid,
 .toolbar-button > .fas {
-  font-size: 16px;
+  font-size: var(--icon-lg);
 }
 
 .toolbar-button > .ph + .ph,
@@ -437,28 +467,28 @@ body {
 .tree-action > .ph-bold,
 .overlay-title .tree-toggle-btn > .ph,
 .tree-action > .fa-solid {
-  font-size: 14px;
+  font-size: var(--icon-base);
 }
 
 .status-item > .ph,
 .status-item > .ph-bold,
-.status-item > .fa-solid { font-size: 12px; }
+.status-item > .fa-solid { font-size: var(--icon-sm); }
 
 .tab > .ph,
 .tab > .ph-bold,
-.tab > .fa-solid { font-size: 13px; }
+.tab > .fa-solid { font-size: var(--icon-md); }
 
 .modal-title > .ph,
 .modal-title > .ph-bold,
-.modal-title > .fa-solid { font-size: 14px; }
+.modal-title > .fa-solid { font-size: var(--icon-base); }
 
 .section-title > .ph,
 .section-title > .ph-bold,
-.section-title > .fa-solid { font-size: 12px; }
+.section-title > .fa-solid { font-size: var(--icon-sm); }
 
 .form-label > .ph,
 .form-label > .ph-bold,
-.form-label > .fa-solid { font-size: 11px; }
+.form-label > .fa-solid { font-size: var(--icon-xs); }
 
 .ph { font-weight: normal; }
 

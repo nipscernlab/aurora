@@ -89,7 +89,7 @@
 }
 
 .status-item i {
-  font-size: 11px;
+  font-size: var(--icon-xs);
   line-height: 1;
 }
 
@@ -224,14 +224,14 @@
   border-radius: var(--radius-sm);
   background: none;
   border: none;
-  font-size: 12px;
+  font-size: var(--icon-sm);
   transition: color var(--transition-fast),
               background-color var(--transition-fast),
               transform 80ms var(--ease-out-quart);
 }
 
 .overlay-title span i,
-.overlay-title .tree-toggle-btn i { font-size: 12px; }
+.overlay-title .tree-toggle-btn i { font-size: var(--icon-sm); }
 
 .overlay-title span:hover,
 .overlay-title .tree-toggle-btn:hover {

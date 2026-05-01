@@ -48,25 +48,17 @@ body.ai-assistant-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 44px;
+  /* Match the toolbar height so the AI panel header lines up perfectly
+     with the main toolbar across the top of the window. */
+  height: var(--h-toolbar);
   padding: 0 var(--space-3);
   background-color: var(--bg-elev);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
 }
 
-.ai-assistant-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gradient-aurora);
-  opacity: 0.55;
-  pointer-events: none;
-}
+/* (Aurora hairline removed.) */
 
 .ai-header-left,
 .ai-header-right {
@@ -135,7 +127,7 @@ body.ai-assistant-open {
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: var(--icon-2xs);
   color: var(--text-muted);
   pointer-events: none;
 }
@@ -151,7 +143,7 @@ body.ai-assistant-open {
   border: 0;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--icon-md);
   cursor: pointer;
   transition: background-color var(--transition-fast),
               color var(--transition-fast);

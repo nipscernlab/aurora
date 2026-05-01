@@ -21,14 +21,16 @@ class ImportModal {
   async getProjectPath() {
     if (!this.projectPath && window.electronAPI) {
       try {
-        // currentProjectPath is a global variable set by the main app
-        this.projectPath = typeof currentProjectPath !== 'undefined' ? currentProjectPath : null;
+        // currentProjectPath is a global set by the main app once a .spf is open.
+        const candidate = (typeof window !== 'undefined' && window.currentProjectPath) ||
+                          (typeof currentProjectPath !== 'undefined' ? currentProjectPath : null);
+        this.projectPath = candidate || null;
       } catch (_error) {
         console.warn('Could not get project path');
-        this.projectPath = './'; // Fallback
+        this.projectPath = null;
       }
     }
-    return this.projectPath || './';
+    return this.projectPath || null;
   }
   
   bindEvents() {
@@ -536,7 +538,11 @@ class ImportModal {
   async saveConfiguration() {
     try {
       const projectPath = await this.getProjectPath();
-      const importFilePath = window.electronAPI ? 
+      if (window.electronAPI && !projectPath) {
+        this.showNotification('Open a project before saving import configuration.', 'warning');
+        return;
+      }
+      const importFilePath = window.electronAPI ?
         await window.electronAPI.joinPath(projectPath, 'importConfig.json') :
         './importConfig.json';
       
@@ -579,14 +585,22 @@ class ImportModal {
       
       if (window.electronAPI) {
         const projectPath = await this.getProjectPath();
+        if (!projectPath) {
+          // No project open yet → nothing to load. Avoids a spurious
+          // ENOENT for ./importConfig.json during boot.
+          return;
+        }
         const importFilePath = await window.electronAPI.joinPath(projectPath, 'importConfig.json');
-        
+        const exists = await window.electronAPI.fileExists?.(importFilePath);
+        if (!exists) {
+          return;
+        }
         try {
           const configData = await window.electronAPI.readFile(importFilePath, 'utf8');
           config = JSON.parse(configData);
         } catch {
-          // File doesn't exist yet, which is fine
-          console.log('No existing import config found');
+          // File present but unreadable/corrupt — start clean.
+          console.warn('Import config exists but could not be parsed; starting fresh.');
         }
       } else {
         // Browser fallback

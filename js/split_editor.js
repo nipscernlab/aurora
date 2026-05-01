@@ -130,7 +130,7 @@ class SplitPane {
             automaticLayout: true,
             fontFamily: "'JetBrains Mono', monospace",
             fontLigatures: true,
-            fontSize: 14,
+            fontSize: 12,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             cursorSmoothCaretAnimation: 'on',
@@ -275,6 +275,33 @@ const SplitEditorManager = {
         // Wire up the fixed split button in the toolbar
         const btn = document.getElementById('split-editor-btn');
         if (btn) btn.addEventListener('click', () => this.createSplit());
+
+        // Expose globally so tab_manager (which already imports us indirectly
+        // via monaco_editor) can call refreshLayout without a hard import cycle.
+        if (typeof window !== 'undefined') window.SplitEditorManager = this;
+        this._patchTabManagerOverlay();
+    },
+
+    /**
+     * Wrap TabManager.showOverlay / hideOverlay so that:
+     *  - Welcome only appears when ALL panes (main + splits) are empty.
+     *  - Empty panes are hidden and resizers are rebuilt cleanly.
+     */
+    _patchTabManagerOverlay() {
+        if (this._patched) return;
+        this._patched = true;
+
+        const origShow = TabManager.showOverlay.bind(TabManager);
+        const origHide = TabManager.hideOverlay.bind(TabManager);
+
+        TabManager.showOverlay = () => {
+            // Defer to refreshLayout which decides whether the welcome overlay
+            // should actually be shown based on the global pane state.
+            this.refreshLayout(origShow, origHide);
+        };
+        TabManager.hideOverlay = () => {
+            this.refreshLayout(origShow, origHide);
+        };
     },
 
     canSplit() {
@@ -310,21 +337,11 @@ const SplitEditorManager = {
         const newPane  = new SplitPane(newIndex);
         this.panes.push(newPane);
 
-        // Determine the left element for the resizer
-        const leftEl = newIndex === 1
-            ? this.mainShell
-            : this.panes[this.panes.length - 2].element;
-
-        // Append resizer then new pane
-        const resizer = new SplitResizer(leftEl, newPane.element);
-        this.resizers.push(resizer);
-        this.wrapper.appendChild(resizer.element);
+        // Append the new pane; refreshLayout will (re)build resizers cleanly.
         this.wrapper.appendChild(newPane.element);
 
-        // Reset all panes to equal flex so layout is clean
-        this._equalizeWidths();
-
         await newPane.openFile(filePath, content);
+        this.refreshLayout();
         this.setFocus(newIndex);
         this._updateButton();
     },
@@ -333,27 +350,92 @@ const SplitEditorManager = {
         const pane = this.panes.find(p => p.paneIndex === paneIndex);
         if (!pane) return;
 
-        // Remove the resizer associated with this pane (the one whose right side is this pane)
-        const resizerIdx = this.resizers.findIndex(r => r.rightEl === pane.element);
-        if (resizerIdx !== -1) {
-            this.resizers[resizerIdx].destroy();
-            this.resizers.splice(resizerIdx, 1);
-        }
-
         pane.destroy();
         this.panes = this.panes.filter(p => p.paneIndex !== paneIndex);
 
         if (this.focusedPane === paneIndex) this.setFocus(0);
 
-        // Reset remaining panes to equal flex
-        this._equalizeWidths();
+        this.refreshLayout();
         this._updateButton();
     },
 
-    /** Reset all panes (main + splits) to equal flex-basis */
-    _equalizeWidths() {
-        this.mainShell.style.flex = '1';
-        this.panes.forEach(p => { p.element.style.flex = '1'; });
+    /**
+     * Single source of truth for split layout. Responsibilities:
+     *  1. Hide panes that have no tabs (main shell included).
+     *  2. Tear down ALL existing resizers and rebuild fresh ones between
+     *     consecutive visible panes — this kills any orphan resizer left
+     *     behind when a middle pane was removed.
+     *  3. Equalize visible panes via flex:1.
+     *  4. Show the welcome overlay only when EVERY pane is empty;
+     *     otherwise keep it hidden so visible panes can be used.
+     */
+    refreshLayout(origShowOverlay, origHideOverlay) {
+        if (!this.wrapper || !this.mainShell) return;
+
+        const mainHasContent = this._mainHasContent();
+        const splitsWithContent = this.panes.filter(p => p.tabs.size > 0);
+        const anyContent = mainHasContent || splitsWithContent.length > 0;
+
+        // Main shell: hide only if it's empty AND splits still exist (so the
+        // splits can fill the wrapper). If everything is empty, leave it
+        // visible so the welcome overlay sits in its natural spot.
+        if (!mainHasContent && splitsWithContent.length > 0) {
+            this.mainShell.style.display = 'none';
+        } else {
+            this.mainShell.style.display = '';
+            this.mainShell.style.flex = '1';
+        }
+
+        // Empty split panes get hidden (they may still be in this.panes if a
+        // close hasn't fully propagated yet — defensive).
+        this.panes.forEach(p => {
+            if (p.tabs.size === 0) {
+                p.element.style.display = 'none';
+            } else {
+                p.element.style.display = '';
+                p.element.style.flex = '1';
+            }
+        });
+
+        // Rebuild resizers from scratch — cheap and avoids orphan-pointer bugs.
+        this.resizers.forEach(r => r.destroy());
+        this.resizers = [];
+
+        const visibleEls = [];
+        if (this.mainShell.style.display !== 'none') visibleEls.push(this.mainShell);
+        this.panes.forEach(p => {
+            if (p.element.style.display !== 'none') visibleEls.push(p.element);
+        });
+
+        for (let i = 0; i < visibleEls.length - 1; i++) {
+            const left = visibleEls[i];
+            const right = visibleEls[i + 1];
+            const resizer = new SplitResizer(left, right);
+            this.resizers.push(resizer);
+            this.wrapper.insertBefore(resizer.element, right);
+        }
+
+        // Welcome overlay rules:
+        //  - If any pane has a file open → hide.
+        //  - If a project is loaded but no files are open → still hide;
+        //    the empty editor area is fine. Welcome is reserved for the
+        //    "no project at all" state.
+        //  - Otherwise → show welcome.
+        const projectLoaded = !!(typeof window !== 'undefined' && window.currentProjectPath);
+        const overlay = document.getElementById('editor-overlay');
+        if (overlay) {
+            if (anyContent || projectLoaded) {
+                overlay.classList.add('hidden');
+            } else {
+                overlay.classList.remove('hidden');
+                overlay.classList.add('visible');
+            }
+        }
+    },
+
+    _mainHasContent() {
+        // TabManager.tabs is the source of truth for the main pane.
+        return TabManager?.tabs?.size > 0;
     },
 
     setFocus(paneIndex) {

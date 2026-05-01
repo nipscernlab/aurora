@@ -136,10 +136,17 @@ function updateProcessorSelect() {
         processorSelect.appendChild(option);
     });
 
+    const deleteBtn = document.getElementById("deleteProcessor");
+
     if (availableProcessors.includes(currentSelection)) {
         processorSelect.value = currentSelection;
-        const deleteBtn = document.getElementById("deleteProcessor");
         if (deleteBtn) deleteBtn.disabled = false;
+    } else if (availableProcessors.length === 1) {
+        // Auto-select the only processor available so the user does not need
+        // to open the dropdown just to pick the obvious choice.
+        processorSelect.value = availableProcessors[0];
+        if (deleteBtn) deleteBtn.disabled = false;
+        processorSelect.dispatchEvent(new Event('change'));
     }
 }
 
@@ -343,13 +350,26 @@ async function loadSimulationFiles(processorName) {
       // Select this option if it matches saved configuration
       if (currentConfig.gtkwFile === file) {
         option.selected = true;
-      } else if (tempProcessorConfigs[processorName] && 
+      } else if (tempProcessorConfigs[processorName] &&
                 tempProcessorConfigs[processorName].gtkwFile === file) {
         option.selected = true;
       }
       gtkwSelect.appendChild(option);
     });
-    
+
+    // Auto-select the only custom file when there is exactly one and the user
+    // has no prior choice saved — the obvious pick is just made for them.
+    const tbHasUserChoice = (currentConfig.testbenchFile && currentConfig.testbenchFile !== 'standard') ||
+                            (tempProcessorConfigs[processorName] && tempProcessorConfigs[processorName].testbenchFile && tempProcessorConfigs[processorName].testbenchFile !== 'standard');
+    if (verilogFiles.length === 1 && !tbHasUserChoice) {
+      testbenchSelect.value = verilogFiles[0];
+    }
+    const gtkwHasUserChoice = (currentConfig.gtkwFile && currentConfig.gtkwFile !== 'standard') ||
+                              (tempProcessorConfigs[processorName] && tempProcessorConfigs[processorName].gtkwFile && tempProcessorConfigs[processorName].gtkwFile !== 'standard');
+    if (gtkwFiles.length === 1 && !gtkwHasUserChoice) {
+      gtkwSelect.value = gtkwFiles[0];
+    }
+
     // Enable selects
     testbenchSelect.disabled = false;
     gtkwSelect.disabled = false;
@@ -743,8 +763,45 @@ function saveCurrentProcessorToTemp() {
   }
 }
 
+// Validate numeric fields used by the Processor Mode settings modal.
+// Returns { ok: true } or { ok: false, errors: [string] }.
+function validateProcessorNumericFields() {
+  const errors = [];
+  const clkVal       = (processorClkInput?.value || '').trim();
+  const numClocksVal = (processorNumClocksInput?.value || '').trim();
+  const simulTimeEl  = document.getElementById('processorSimulTime');
+  const simulTimeVal = (simulTimeEl?.value || '').trim();
+
+  const isPositiveInt = (v) => v !== '' && /^\d+$/.test(v) && Number(v) > 0;
+
+  if (!isPositiveInt(clkVal)) {
+    errors.push('CLK Frequency must be a positive integer.');
+  } else if (Number(clkVal) > 1000) {
+    errors.push('CLK Frequency must be at most 1000 MHz.');
+  }
+  if (!isPositiveInt(numClocksVal)) {
+    errors.push('Number of Clocks must be a positive integer.');
+  }
+  if (!isPositiveInt(simulTimeVal)) {
+    errors.push('Simulation Time must be a positive integer (in ps).');
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 // Correção do event listener do saveConfigButton para incluir CMM file na configuração
-saveConfigButton.addEventListener("click", async () => {
+saveConfigButton.addEventListener("click", async (event) => {
+  const validation = validateProcessorNumericFields();
+  if (!validation.ok) {
+    event.preventDefault?.();
+    event.stopImmediatePropagation?.();
+    await showDialog({
+      title: 'Invalid configuration',
+      message: 'Please fix the following before saving:<br><br>• ' +
+               validation.errors.join('<br>• '),
+      buttons: [{ label: 'OK', action: 'ok', type: 'cancel' }]
+    });
+    return;
+  }
   saveCurrentProcessorToTemp();
 
   // Convert temporary processor configs to an array
@@ -941,11 +998,33 @@ styleElement.textContent = `
 `;
 document.head.appendChild(styleElement);
 
+// Strict integer-only filter: blocks letters, spaces, dots, commas, signs,
+// scientific notation, and any other junk users may try to type or paste.
+// Used by the Processor Mode settings numeric fields below.
+function restrictToPositiveInteger(input) {
+  if (!input) return;
+  // Block invalid keypresses BEFORE the value changes — gives instant feedback.
+  input.addEventListener('beforeinput', (e) => {
+    if (!e.inputType || !e.inputType.startsWith('insert')) return;
+    const data = e.data || '';
+    if (!/^\d+$/.test(data)) e.preventDefault();
+  });
+  // Paste / IME / programmatic value changes still need a sanitization pass.
+  input.addEventListener('input', () => {
+    const cleaned = input.value.replace(/[^\d]/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Get references to the DOM elements once the document is ready
   const clkInput = document.getElementById("processorClk");
   const numClocksInput = document.getElementById("processorNumClocks");
   const simulTimeInput = document.getElementById("processorSimulTime");
+
+  restrictToPositiveInteger(clkInput);
+  restrictToPositiveInteger(numClocksInput);
+  restrictToPositiveInteger(simulTimeInput);
 const deleteProcessorButton = document.getElementById("deleteProcessor");
     const processorSelect = document.getElementById("processorSelect");
 

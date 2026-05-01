@@ -137,21 +137,26 @@ class EditorManager {
                 renderCharacters: true,
                 maxColumn: 120
             },
-            fontSize: window.innerWidth < 768 ? 12 : 14,
+            // Default text smaller and tighter — matches the rest of the IDE
+            // (status bar, file tree). Mobile breakpoint scales down further.
+            fontSize: window.innerWidth < 768 ? 11 : 12,
             lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
             folding: window.innerWidth > 768,
 
             // FONT SETTINGS
             fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
             fontLigatures: true,
-            
+
             // EDITOR BEHAVIOR
             scrollBeyondLastLine: true,
             renderWhitespace: 'selection',
-            mouseWheelZoom: true,
+            // mouseWheelZoom disabled — accidental Ctrl+wheel was blowing up the
+            // font and breaking the just-set defaults. Window-level zoom (zoom.js)
+            // is still available as the intentional path.
+            mouseWheelZoom: false,
             padding: {
-                top: 16,
-                bottom: 16
+                top: 12,
+                bottom: 12
             },
             renderLineHighlight: 'all',
             lineNumbersMinChars: 4,
@@ -221,8 +226,16 @@ class EditorManager {
         this.updateOverlayVisibility();
         this.setupCursorListener(editor);
 
+        // Debounce bra-ket re-decoration: it scans the whole model with a
+        // regex, so running it on every keystroke stutters typing in large
+        // Verilog files. 150 ms feels live but avoids per-character scans.
+        let braKetTimer = null;
         editor.onDidChangeModelContent(() => {
-            this.decorateBraKet(editor);
+            if (braKetTimer) clearTimeout(braKetTimer);
+            braKetTimer = setTimeout(() => {
+                braKetTimer = null;
+                this.decorateBraKet(editor);
+            }, 150);
         });
 
         return editor;
@@ -681,92 +694,137 @@ async function initMonaco() {
             setupCMMLanguage();
             setupASMLanguage();
 
-            // Define enhanced dark theme
+            // Aurora dark theme — colors mirror theme_variables.css so the
+            // editor surface blends with the rest of the IDE chrome.
+            // Surfaces: --bg #0A0D14, --bg-elev #0F131C, --border #1F2532
+            // Accent:   --accent #8E83E8, --accent-hover #A89EF0
+            // Aurora syntax palette — calmer than VS Code defaults, tuned for
+            // long-session legibility on the night-sky background.
             monaco.editor.defineTheme('cmm-dark', {
                 base: 'vs-dark',
                 inherit: true,
                 rules: [
-                    { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
-                    { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
-                    { token: 'keyword.directive.cmm', foreground: '569CD6' },
-                    { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: 'DCDCAA' },
-                    { token: 'string', foreground: 'CE9178' },
-                    { token: 'number', foreground: 'B5CEA8' },
-                    { token: 'number.complex.imaginary.cmm', foreground: 'FF5555', fontStyle: 'bold' },
-                    { token: 'operator', foreground: 'D4D4D4' },
-                    { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: 'D4D4D4' },
-                    { token: 'delimiter', foreground: 'D4D4D4' },
-                    { token: 'delimiter.square.inverted', foreground: 'CE9178' },
-                    { token: 'dirac.bracket', fontStyle: 'bold', foreground: '8B5CF6' },
-                    { token: 'dirac.bar', fontStyle: 'bold', foreground: '8B5CF6' },
-                    { token: 'keyword.special.dirac', fontStyle: 'bold', foreground: 'A855F7' }
+                    { token: 'comment',                          foreground: '6A6F7C', fontStyle: 'italic' },
+                    { token: 'keyword',                          foreground: '8E83E8', fontStyle: 'bold' },
+                    { token: 'keyword.directive.cmm',            foreground: 'B98AE0' },
+                    { token: 'keyword.function.stdlib.cmm',      foreground: '5BB8E8', fontStyle: 'bold' },
+                    { token: 'string',                           foreground: 'E68FB8' },
+                    { token: 'number',                           foreground: '5FE0B0' },
+                    { token: 'number.complex.imaginary.cmm',     foreground: 'E26C6C', fontStyle: 'bold' },
+                    { token: 'operator',                         foreground: '9CA1AE' },
+                    { token: 'operator.shift.arithmetic',        foreground: 'A89EF0', fontStyle: 'bold' },
+                    { token: 'delimiter',                        foreground: '9CA1AE' },
+                    { token: 'delimiter.square.inverted',        foreground: 'E68FB8' },
+                    { token: 'dirac.bracket',                    foreground: 'A89EF0', fontStyle: 'bold' },
+                    { token: 'dirac.bar',                        foreground: 'A89EF0', fontStyle: 'bold' },
+                    { token: 'keyword.special.dirac',            foreground: 'B98AE0', fontStyle: 'bold' }
                 ],
                 colors: {
-                    'editor.background': '#0E0D1A',
-                    'editor.foreground': '#E8E6F0',
-                    'editorLineNumber.foreground': '#4A4760',
-                    'editorLineNumber.activeForeground': '#9B7DC4',
-                    'editor.selectionBackground': '#2D2A4A',
-                    'editor.selectionHighlightBackground': '#211F40',
-                    'editor.lineHighlightBackground': '#13122A',
-                    'editorCursor.foreground': '#9B7DC4',
-                    'editorWhitespace.foreground': '#2D2A4A',
-                    'editorIndentGuide.background1': '#2D2A4A',
-                    'editorIndentGuide.activeBackground1': '#7B5EA7',
-                    'editor.findMatchBackground': '#4A3570',
-                    'editor.findMatchHighlightBackground': '#2D1F4A',
-                    'editorBracketMatch.background': '#4A3570',
-                    'editorBracketMatch.border': '#9B7DC4',
-                    'scrollbar.shadow': '#00000000',
-                    'scrollbarSlider.background': '#2D2A4A40',
-                    'scrollbarSlider.hoverBackground': '#2D2A4A70',
-                    'scrollbarSlider.activeBackground': '#7B5EA750',
-                    'minimap.background': '#0E0D1A',
-                    'editorGutter.background': '#0E0D1A'
+                    // Surface — match the IDE canvas so the editor disappears into the chrome
+                    'editor.background':                  '#0A0D14',
+                    'editor.foreground':                  '#E8ECF3',
+                    'editorGutter.background':            '#0A0D14',
+                    'minimap.background':                 '#0A0D14',
+                    // Line numbers
+                    'editorLineNumber.foreground':        '#3F434E',
+                    'editorLineNumber.activeForeground':  '#A89EF0',
+                    // Selection (uses --accent-strong rgba)
+                    'editor.selectionBackground':         '#8E83E830',
+                    'editor.selectionHighlightBackground':'#8E83E81C',
+                    'editor.inactiveSelectionBackground': '#8E83E820',
+                    // Current line — matches --bg-elev
+                    'editor.lineHighlightBackground':     '#0F131C',
+                    'editor.lineHighlightBorder':         '#0F131C',
+                    // Cursor
+                    'editorCursor.foreground':            '#8E83E8',
+                    // Whitespace + indent guides
+                    'editorWhitespace.foreground':        '#1F2532',
+                    'editorIndentGuide.background1':      '#161A23',
+                    'editorIndentGuide.activeBackground1':'#8E83E8',
+                    // Find / search
+                    'editor.findMatchBackground':         '#8E83E866',
+                    'editor.findMatchHighlightBackground':'#8E83E833',
+                    'editor.findMatchBorder':             '#A89EF0',
+                    // Bracket matching
+                    'editorBracketMatch.background':      '#8E83E833',
+                    'editorBracketMatch.border':          '#8E83E8',
+                    // Bracket pair colorization (Aurora ribbon, calmer)
+                    'editorBracketHighlight.foreground1': '#5FE0B0',
+                    'editorBracketHighlight.foreground2': '#5BB8E8',
+                    'editorBracketHighlight.foreground3': '#8E83E8',
+                    'editorBracketHighlight.foreground4': '#B98AE0',
+                    'editorBracketHighlight.foreground5': '#E68FB8',
+                    'editorBracketHighlight.foreground6': '#4FD3C2',
+                    'editorBracketHighlight.unexpectedBracket.foreground': '#E26C6C',
+                    // Scrollbar
+                    'scrollbar.shadow':                   '#00000000',
+                    'scrollbarSlider.background':         '#1F253260',
+                    'scrollbarSlider.hoverBackground':    '#2A3040A0',
+                    'scrollbarSlider.activeBackground':   '#8E83E866',
+                    // Minimap selection echoes accent
+                    'minimap.selectionHighlight':         '#8E83E844',
+                    'minimap.findMatchHighlight':         '#8E83E866',
+                    // Status / errors / warnings
+                    'editorError.foreground':             '#E26C6C',
+                    'editorWarning.foreground':           '#E8B86C',
+                    'editorInfo.foreground':              '#5BB8E8'
                 }
             });
 
-            // Define enhanced light theme
+            // Aurora light theme — same Aurora hue family but inverted for
+            // a soft daytime surface. Accent stays the same violet.
             monaco.editor.defineTheme('cmm-light', {
                 base: 'vs',
                 inherit: true,
                 rules: [
-                    { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
-                    { token: 'keyword', foreground: '7c4dff', fontStyle: 'bold' },
-                    { token: 'keyword.directive.cmm', fontStyle: 'bold', foreground: '0000FF' },
-                    { token: 'keyword.function.stdlib.cmm', fontStyle: 'bold', foreground: '795E26' },
-                    { token: 'string', foreground: 'A31515' },
-                    { token: 'number', foreground: '098658' },
-                    { token: 'number.complex.imaginary.cmm', foreground: 'D32F2F', fontStyle: 'bold' },
-                    { token: 'operator', foreground: '000000' },
-                    { token: 'operator.shift.arithmetic', fontStyle: 'bold', foreground: '000000' },
-                    { token: 'delimiter', foreground: '000000' },
-                    { token: 'delimiter.square.inverted', foreground: 'A31515' },
-                    { token: 'dirac.bracket', fontStyle: 'bold', foreground: '7C3AED' },
-                    { token: 'dirac.bar', fontStyle: 'bold', foreground: '7C3AED' },
-                    { token: 'keyword.special.dirac', fontStyle: 'bold', foreground: '8B5CF6' }
+                    { token: 'comment',                          foreground: '7B7F8B', fontStyle: 'italic' },
+                    { token: 'keyword',                          foreground: '6E63C8', fontStyle: 'bold' },
+                    { token: 'keyword.directive.cmm',            foreground: '8B5CB8' },
+                    { token: 'keyword.function.stdlib.cmm',      foreground: '2A7AB0', fontStyle: 'bold' },
+                    { token: 'string',                           foreground: 'B8568C' },
+                    { token: 'number',                           foreground: '3A9D6E' },
+                    { token: 'number.complex.imaginary.cmm',     foreground: 'C5453F', fontStyle: 'bold' },
+                    { token: 'operator',                         foreground: '545A6B' },
+                    { token: 'operator.shift.arithmetic',        foreground: '6E63C8', fontStyle: 'bold' },
+                    { token: 'delimiter',                        foreground: '545A6B' },
+                    { token: 'delimiter.square.inverted',        foreground: 'B8568C' },
+                    { token: 'dirac.bracket',                    foreground: '6E63C8', fontStyle: 'bold' },
+                    { token: 'dirac.bar',                        foreground: '6E63C8', fontStyle: 'bold' },
+                    { token: 'keyword.special.dirac',            foreground: '8B5CB8', fontStyle: 'bold' }
                 ],
                 colors: {
-                    'editor.background': '#faf9ff',
-                    'editor.foreground': '#2d2150',
-                    'editorLineNumber.foreground': '#7c6da9',
-                    'editorLineNumber.activeForeground': '#7c4dff',
-                    'editor.selectionBackground': '#d5cbf2',
-                    'editor.selectionHighlightBackground': '#e2dbfa',
-                    'editor.lineHighlightBackground': '#f4f1ff',
-                    'editorCursor.foreground': '#7c4dff',
-                    'editorWhitespace.foreground': '#aaa2c3',
-                    'editorIndentGuide.background': '#ded7f3',
-                    'editorIndentGuide.activeBackground': '#7c4dff',
-                    'editor.findMatchBackground': '#b9a3ff',
-                    'editor.findMatchHighlightBackground': '#d2c7f0',
-                    'editorBracketMatch.background': '#b9a3ff',
-                    'editorBracketMatch.border': '#7c4dff',
-                    'scrollbar.shadow': '#00000000',
-                    'scrollbarSlider.background': '#7c6da920',
-                    'scrollbarSlider.hoverBackground': '#7c6da940',
-                    'scrollbarSlider.activeBackground': '#7c4dff60',
-                    'minimap.background': '#f4f1ff'
+                    'editor.background':                  '#FAFAFC',
+                    'editor.foreground':                  '#2A2D38',
+                    'editorGutter.background':            '#FAFAFC',
+                    'minimap.background':                 '#FAFAFC',
+                    'editorLineNumber.foreground':        '#B5B8C2',
+                    'editorLineNumber.activeForeground':  '#6E63C8',
+                    'editor.selectionBackground':         '#8E83E830',
+                    'editor.selectionHighlightBackground':'#8E83E81C',
+                    'editor.lineHighlightBackground':     '#F1F1F5',
+                    'editor.lineHighlightBorder':         '#F1F1F5',
+                    'editorCursor.foreground':            '#6E63C8',
+                    'editorWhitespace.foreground':        '#DDDDE3',
+                    'editorIndentGuide.background1':      '#EAEAEF',
+                    'editorIndentGuide.activeBackground1':'#6E63C8',
+                    'editor.findMatchBackground':         '#8E83E866',
+                    'editor.findMatchHighlightBackground':'#8E83E833',
+                    'editorBracketMatch.background':      '#8E83E833',
+                    'editorBracketMatch.border':          '#6E63C8',
+                    'editorBracketHighlight.foreground1': '#3A9D6E',
+                    'editorBracketHighlight.foreground2': '#2A7AB0',
+                    'editorBracketHighlight.foreground3': '#6E63C8',
+                    'editorBracketHighlight.foreground4': '#8B5CB8',
+                    'editorBracketHighlight.foreground5': '#B8568C',
+                    'editorBracketHighlight.foreground6': '#3FB0A0',
+                    'editorBracketHighlight.unexpectedBracket.foreground': '#C5453F',
+                    'scrollbar.shadow':                   '#00000000',
+                    'scrollbarSlider.background':         '#0000001A',
+                    'scrollbarSlider.hoverBackground':    '#00000033',
+                    'scrollbarSlider.activeBackground':   '#6E63C866',
+                    'editorError.foreground':             '#C5453F',
+                    'editorWarning.foreground':           '#C49344',
+                    'editorInfo.foreground':              '#2A7AB0'
                 }
             });
 
@@ -845,51 +903,83 @@ function setupASMLanguage() {
         }
     });
 
-    // ASM Dark Theme
+    // Aurora ASM Dark — same surfaces as cmm-dark for visual consistency.
     monaco.editor.defineTheme('asm-dark', {
         base: 'vs-dark',
         inherit: true,
         rules: [
-            { token: 'keyword.instruction', foreground: '569CD6', fontStyle: 'bold' },
-            { token: 'keyword.jumpInstruction', foreground: 'FFDD00', fontStyle: 'bold' },
-            { token: 'keyword.directive', foreground: 'C586C0', fontStyle: 'bold' },
-            { token: 'type.identifier', foreground: '56B6C2' },
-            { token: 'comment', foreground: '7EC699' },
-            { token: 'number', foreground: 'D19A66' },
-            { token: 'string', foreground: 'E5C07B' },
-            { token: 'operator', foreground: 'ABB2BF' },
-            { token: 'delimiter', foreground: '89DDFF' }
+            { token: 'keyword.instruction',     foreground: '8E83E8', fontStyle: 'bold' },
+            { token: 'keyword.jumpInstruction', foreground: 'E8B86C', fontStyle: 'bold' },
+            { token: 'keyword.directive',       foreground: 'B98AE0', fontStyle: 'bold' },
+            { token: 'type.identifier',         foreground: '5FE0B0' },
+            { token: 'comment',                 foreground: '6A6F7C', fontStyle: 'italic' },
+            { token: 'number',                  foreground: '5FE0B0' },
+            { token: 'number.hex',              foreground: '5BB8E8' },
+            { token: 'number.binary',           foreground: '4FD3C2' },
+            { token: 'string',                  foreground: 'E68FB8' },
+            { token: 'operator',                foreground: '9CA1AE' },
+            { token: 'delimiter',               foreground: '9CA1AE' },
+            { token: 'annotation.asm',          foreground: 'A89EF0', fontStyle: 'italic' }
         ],
         colors: {
-            'editor.background': '#282C34',
-            'editor.foreground': '#ABB2BF',
-            'editor.lineHighlightBackground': '#2C313A',
-            'editor.selectionBackground': '#3E4451',
-            'editorCursor.foreground': '#528BFF'
+            'editor.background':                  '#0A0D14',
+            'editor.foreground':                  '#E8ECF3',
+            'editorGutter.background':            '#0A0D14',
+            'minimap.background':                 '#0A0D14',
+            'editorLineNumber.foreground':        '#3F434E',
+            'editorLineNumber.activeForeground':  '#A89EF0',
+            'editor.selectionBackground':         '#8E83E830',
+            'editor.selectionHighlightBackground':'#8E83E81C',
+            'editor.lineHighlightBackground':     '#0F131C',
+            'editor.lineHighlightBorder':         '#0F131C',
+            'editorCursor.foreground':            '#8E83E8',
+            'editorWhitespace.foreground':        '#1F2532',
+            'editorIndentGuide.background1':      '#161A23',
+            'editorIndentGuide.activeBackground1':'#8E83E8',
+            'editor.findMatchBackground':         '#8E83E866',
+            'editor.findMatchHighlightBackground':'#8E83E833',
+            'editorBracketMatch.background':      '#8E83E833',
+            'editorBracketMatch.border':          '#8E83E8',
+            'scrollbar.shadow':                   '#00000000',
+            'scrollbarSlider.background':         '#1F253260',
+            'scrollbarSlider.hoverBackground':    '#2A3040A0',
+            'scrollbarSlider.activeBackground':   '#8E83E866'
         }
     });
 
-    // ASM Light Theme
+    // Aurora ASM Light — same surfaces as cmm-light for visual consistency.
     monaco.editor.defineTheme('asm-light', {
         base: 'vs',
         inherit: true,
         rules: [
-            { token: 'keyword.instruction', foreground: '0550AE', fontStyle: 'bold' },
-            { token: 'keyword.jumpInstruction', foreground: 'B58B00', fontStyle: 'bold' },
-            { token: 'keyword.directive', foreground: '098658', fontStyle: 'bold' },
-            { token: 'type.identifier', foreground: '229DB5' },
-            { token: 'comment', foreground: '098658' },
-            { token: 'number', foreground: 'CC6633' },
-            { token: 'string', foreground: 'A31515' },
-            { token: 'operator', foreground: '444444' },
-            { token: 'delimiter', foreground: '0076C4' }
+            { token: 'keyword.instruction',     foreground: '6E63C8', fontStyle: 'bold' },
+            { token: 'keyword.jumpInstruction', foreground: 'C49344', fontStyle: 'bold' },
+            { token: 'keyword.directive',       foreground: '8B5CB8', fontStyle: 'bold' },
+            { token: 'type.identifier',         foreground: '3A9D6E' },
+            { token: 'comment',                 foreground: '7B7F8B', fontStyle: 'italic' },
+            { token: 'number',                  foreground: '3A9D6E' },
+            { token: 'number.hex',              foreground: '2A7AB0' },
+            { token: 'number.binary',           foreground: '3FB0A0' },
+            { token: 'string',                  foreground: 'B8568C' },
+            { token: 'operator',                foreground: '545A6B' },
+            { token: 'delimiter',               foreground: '545A6B' },
+            { token: 'annotation.asm',          foreground: '6E63C8', fontStyle: 'italic' }
         ],
         colors: {
-            'editor.background': '#FFFFFF',
-            'editor.foreground': '#000000',
-            'editor.lineHighlightBackground': '#F7F7F7',
-            'editor.selectionBackground': '#ADD6FF',
-            'editorCursor.foreground': '#000000'
+            'editor.background':                  '#FAFAFC',
+            'editor.foreground':                  '#2A2D38',
+            'editorGutter.background':            '#FAFAFC',
+            'minimap.background':                 '#FAFAFC',
+            'editorLineNumber.foreground':        '#B5B8C2',
+            'editorLineNumber.activeForeground':  '#6E63C8',
+            'editor.selectionBackground':         '#8E83E830',
+            'editor.selectionHighlightBackground':'#8E83E81C',
+            'editor.lineHighlightBackground':     '#F1F1F5',
+            'editor.lineHighlightBorder':         '#F1F1F5',
+            'editorCursor.foreground':            '#6E63C8',
+            'editorWhitespace.foreground':        '#DDDDE3',
+            'editorIndentGuide.background1':      '#EAEAEF',
+            'editorIndentGuide.activeBackground1':'#6E63C8'
         }
     });
 }

@@ -128,7 +128,7 @@
 @media (max-width: 768px) {
     .custom-tooltip {
         max-width: 14rem;
-        font-size: 10.5px;
+        font-size: var(--text-2xs);
     }
     .tooltip-content {
         padding: 6px 10px;

@@ -1,8 +1,10 @@
 /*
  * =====================================================================================
- *  recent_projects.css  —  Welcome screen + Recent Projects v3
+ *  recent_projects.css  —  Welcome screen v4 (VS Code-style, sober)
  *
- *  Centered hero, recent list compactos, subtle aurora ambience.
+ *  Two-column "Start" + "Recent" layout. No hero, no big logo, no gradients.
+ *  Quiet typography, accent only on hover. Project items are link-style:
+ *  name in foreground, path muted to the right, remove button on hover.
  * =====================================================================================
  */
 
@@ -13,15 +15,12 @@
   display: flex;
   width: 100%;
   height: 100%;
-  align-items: center;
+  /* align-items defaults to `stretch`, so .welcome-content fills the height
+     and `margin-top: auto` on the footer can push it to the bottom. */
   justify-content: center;
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 25%, rgba(142, 131, 232, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(95, 224, 176, 0.04) 0%, transparent 70%),
-    var(--bg);
-  animation: welcomeFadeIn 320ms var(--ease-out-quart) both;
+  background: var(--bg);
+  overflow-y: auto;
+  animation: welcomeFadeIn 200ms var(--ease-out-quart) both;
 }
 
 @keyframes welcomeFadeIn {
@@ -29,242 +28,188 @@
   to   { opacity: 1; }
 }
 
-/* ---------------------------------------------------------------------------
- *  Centered content column
- * ------------------------------------------------------------------------- */
+/* Centered, generous content column with a max width. */
 .welcome-content {
-  position: relative;
-  z-index: 1;
+  width: 100%;
+  max-width: 880px;
+  padding: clamp(48px, 8vh, 96px) clamp(32px, 6vw, 96px) var(--space-6);
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-7);
-  width: 100%;
-  max-width: 480px;
-  padding: var(--space-7);
   user-select: none;
 }
 
 /* ---------------------------------------------------------------------------
- *  Hero
+ *  Topbar — small wordmark + tagline
  * ------------------------------------------------------------------------- */
-.welcome-hero {
+.welcome-topbar {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-3);
-  text-align: center;
-  animation: heroEnter 380ms var(--ease-out-quart) both;
-  position: relative;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-@keyframes heroEnter {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.welcome-hero .aurora-icon {
-  display: block;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  margin-bottom: var(--space-2);
-  filter: drop-shadow(0 0 18px rgba(142, 131, 232, 0.22));
-}
-
-.welcome-title {
-  font-size: var(--text-3xl);
+.welcome-mark {
+  font-size: var(--text-lg);
   font-weight: var(--font-semibold);
-  letter-spacing: 0.20em;
-  line-height: 1;
-  margin: 0;
-  background: var(--gradient-aurora);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  padding-bottom: 2px;
-}
-
-.welcome-subtitle {
-  font-size: var(--text-xs);
-  font-weight: var(--font-normal);
-  color: var(--text-muted);
-  margin: 0;
-  letter-spacing: var(--tracking-wider);
-  text-transform: uppercase;
-  max-width: 340px;
-}
-
-.welcome-hero .pillars {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.32em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.welcome-hero .pillars .dot {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 4px rgba(142, 131, 232, 0.6);
-}
-
-/* ---------------------------------------------------------------------------
- *  Action buttons
- * ------------------------------------------------------------------------- */
-.welcome-actions {
-  display: flex;
-  gap: var(--space-2);
-  animation: heroEnter 460ms 60ms var(--ease-out-quart) both;
-}
-
-.action-card {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  height: 34px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  font-family: var(--font-sans);
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  transition: background-color var(--transition-fast),
-              border-color var(--transition-fast),
-              color var(--transition-fast),
-              transform 80ms var(--ease-out-quart),
-              box-shadow var(--transition-fast);
-  white-space: nowrap;
-}
-
-.action-card i {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.action-card:hover {
-  background: var(--overlay-hover);
-  border-color: var(--border-strong);
   color: var(--text);
+  letter-spacing: 0.18em;
 }
 
-.action-card:hover i { color: var(--accent-hover); }
-
-.action-card:active { transform: scale(0.98); }
-
-.action-card.primary-action {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset,
-              0 4px 12px rgba(142, 131, 232, 0.30);
+.welcome-tagline {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-tight);
 }
-
-.action-card.primary-action i { color: white; }
-
-.action-card.primary-action:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset,
-              0 6px 18px rgba(142, 131, 232, 0.40),
-              0 0 0 3px rgba(142, 131, 232, 0.16);
-}
-
-.action-card.primary-action:hover i { color: white; }
 
 /* ---------------------------------------------------------------------------
- *  Recent Projects
+ *  Two-column grid
  * ------------------------------------------------------------------------- */
-.welcome-recents,
-.recent-projects-section {
-  width: 100%;
+.welcome-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.6fr);
+  gap: clamp(32px, 5vw, 72px);
+}
+
+@media (max-width: 700px) {
+  .welcome-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+.welcome-col {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  animation: heroEnter 540ms 120ms var(--ease-out-quart) both;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.recents-header {
-  display: flex;
+.welcome-section-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  letter-spacing: var(--tracking-tight);
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-1);
+  gap: var(--space-2);
 }
 
-.recents-label {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-bold);
-  letter-spacing: var(--tracking-widest);
-  text-transform: uppercase;
+/* ---------------------------------------------------------------------------
+ *  Start: link-style action list
+ * ------------------------------------------------------------------------- */
+.welcome-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.welcome-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: 0;
+  color: var(--accent-hover);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  letter-spacing: var(--tracking-tight);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.welcome-link i {
+  font-size: var(--icon-base);
   color: var(--text-muted);
+  transition: color var(--transition-fast);
 }
 
-.recent-projects-count,
-#projects-count {
+.welcome-link:hover {
+  color: var(--accent);
+}
+
+.welcome-link:hover i {
+  color: var(--accent);
+}
+
+.welcome-link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.welcome-link-dim {
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Recent: link-style list
+ * ------------------------------------------------------------------------- */
+.recent-projects-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 18px;
   height: 16px;
   padding: 0 5px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
-  font-size: 9.5px;
-  font-weight: var(--font-semibold);
   font-family: var(--font-mono);
-  color: var(--text-secondary);
+  letter-spacing: 0;
 }
 
-#projects-count:empty { display: none; }
+.recent-projects-count:empty { display: none; }
 
 .recent-projects-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  max-height: 280px;
+  gap: 0;
+  max-height: 360px;
   overflow-y: auto;
-  padding: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-elev);
+  padding: 0;
+  margin: 0;
+  /* No card background, no border — pure list, like VS Code. */
 }
 
-.recent-projects-list::-webkit-scrollbar { width: 4px; }
+.recent-projects-list::-webkit-scrollbar       { width: 6px; }
+.recent-projects-list::-webkit-scrollbar-track { background: transparent; }
 .recent-projects-list::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 /* ---------------------------------------------------------------------------
- *  .project-item
+ *  Project item — link-style, name + path inline
  * ------------------------------------------------------------------------- */
 .project-item {
   display: grid;
-  grid-template-columns: 28px 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
   position: relative;
   transition: background-color var(--transition-fast),
-              transform 80ms var(--ease-out-quart),
-              opacity 200ms var(--ease-out-quart);
+              opacity 200ms var(--ease-out-quart),
+              transform 200ms var(--ease-out-quart);
   opacity: 0;
   transform: translateY(2px);
-  min-height: 38px;
+  min-height: 28px;
 }
 
 .project-item.new-item {
@@ -276,63 +221,36 @@
   background-color: var(--overlay-hover);
 }
 
-.project-item:active { transform: scale(0.995); }
-
 .project-item.removing {
   opacity: 0;
   transform: translateX(-12px);
   pointer-events: none;
 }
 
-.project-item .project-icon {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-sm);
-  color: var(--accent-hover);
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.project-item .project-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
 .project-item .project-name {
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  color: var(--text);
+  font-weight: var(--font-normal);
+  color: var(--accent-hover);
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
+  padding-left: var(--space-2);
+  transition: color var(--transition-fast);
+}
+
+.project-item:hover .project-name {
+  color: var(--accent);
 }
 
 .project-item .project-path {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
-}
-
-.project-item .project-date {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 .project-item .project-remove {
@@ -345,7 +263,7 @@
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--icon-xs);
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--transition-fast),
@@ -361,27 +279,19 @@
   color: var(--status-error);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Empty state
+ * ------------------------------------------------------------------------- */
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6) var(--space-4);
-  gap: var(--space-2);
+  padding: var(--space-3) 0;
   color: var(--text-muted);
-  text-align: center;
-}
-
-.empty-state i {
-  font-size: 18px;
-  color: var(--text-muted);
-  opacity: 0.6;
 }
 
 .empty-state p {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ---------------------------------------------------------------------------
@@ -391,43 +301,25 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   letter-spacing: var(--tracking-tight);
-  margin-top: var(--space-3);
-  animation: heroEnter 620ms 180ms var(--ease-out-quart) both;
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .welcome-footer .footer-link {
-  color: var(--text-secondary);
+  color: var(--text-muted);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 .welcome-footer .footer-link:hover { color: var(--accent-hover); }
 
-.footer-divider { opacity: 0.4; }
+.footer-divider { opacity: 0.5; }
 
 .footer-version {
   font-variant-numeric: tabular-nums;
-  letter-spacing: var(--tracking-wide);
 }
-
-.star-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
-  font-size: 11px;
-}
-
-.star-btn:hover { color: var(--status-warning); }
-.star-btn.starred { color: var(--status-warning); }

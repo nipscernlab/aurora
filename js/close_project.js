@@ -112,6 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 clearProjectInterface();
+
+                // Clear project state and bring the welcome screen back.
+                window.currentProjectPath = null;
+                window.currentSpfPath = null;
+                window.SplitEditorManager?.refreshLayout?.();
             } else {
                 console.error('Failed to close project:', result.error);
                 

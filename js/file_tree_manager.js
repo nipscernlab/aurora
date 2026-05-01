@@ -273,9 +273,6 @@ filteredFiles.forEach(file => {
             item.appendChild(deleteBtn);
         }
 
-        // Single-click timer for distinguishing single vs double click
-        let _singleClickTimer = null;
-
         item.addEventListener('click', async (e) => {
             if (file.type === 'directory') {
                 const isExpanded = FileTreeState.isExpanded(file.path);
@@ -305,13 +302,12 @@ filteredFiles.forEach(file => {
                 return;
             }
 
-            // Files: single click = preview (italic tab), timer to detect double click
-            if (_singleClickTimer) {
-                clearTimeout(_singleClickTimer);
-                _singleClickTimer = null;
-            }
-            _singleClickTimer = setTimeout(async () => {
-                _singleClickTimer = null;
+            // Files: single click opens IMMEDIATELY as preview (italic tab) —
+            // VS Code style. Dblclick promotes the same tab to permanent;
+            // there is no need to defer the first click waiting for a
+            // possible second one (that wait was the source of ~220ms of
+            // perceived file-open lag).
+            (async () => {
                 try {
                     const content = await window.electronAPI.readFile(file.path);
                     const sem = window.SplitEditorManager;
@@ -323,22 +319,19 @@ filteredFiles.forEach(file => {
                 } catch (error) {
                     console.error('Error opening file:', error);
                 }
-            }, 220);
+            })();
         });
 
         item.addEventListener('dblclick', async (e) => {
             if (file.type === 'directory') return;
-            // Cancel pending single-click
-            if (_singleClickTimer) {
-                clearTimeout(_singleClickTimer);
-                _singleClickTimer = null;
-            }
+            // The single click already opened (or activated) the tab as preview.
+            // Just promote the existing tab to permanent — no second readFile.
             try {
-                const content = await window.electronAPI.readFile(file.path);
-                const sem = window.SplitEditorManager;
-                if (sem && sem.focusedPane > 0) {
-                    await sem.openInFocusedPane(file.path, content);
+                if (TabManager.tabs.has(file.path)) {
+                    TabManager.promotePreviewToPermanent(file.path);
+                    TabManager.activateTab(file.path);
                 } else {
+                    const content = await window.electronAPI.readFile(file.path);
                     TabManager.addTab(file.path, content, { preview: false });
                 }
             } catch (error) {

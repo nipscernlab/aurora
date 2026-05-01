@@ -458,6 +458,14 @@ setupEventListeners() {
         color: var(--status-error);
       }
 
+      /* Validation error state on a processor row (partial selection or
+         duplicate instance). Cleared the next time the user opens the
+         modal or fixes the row and saves. */
+      .modalConfig-processor-row.has-error .modalConfig-select {
+        border-color: var(--status-error);
+        box-shadow: 0 0 0 1px var(--status-error-bg);
+      }
+
     `;
     document.head.appendChild(style);
   }
@@ -1051,20 +1059,25 @@ async importFiles(files, type) {
     processorSelect.addEventListener('change', () => {
       const previousValue = processorSelect.dataset.previousValue || '';
       const newValue = processorSelect.value;
-      
+
       if (previousValue && previousValue !== '') {
         this.selectedProcessors.delete(previousValue);
       }
-      
+
       if (newValue && newValue !== '') {
         this.selectedProcessors.add(newValue);
         processorSelect.dataset.previousValue = newValue;
       }
-      
+
       this.updateInstanceSelect(newValue, instanceSelect);
       this.refreshAllProcessorSelects();
+      newRow.classList.remove('has-error');
     });
-    
+
+    instanceSelect.addEventListener('change', () => {
+      newRow.classList.remove('has-error');
+    });
+
     this.elements.processorsList.appendChild(newRow);
   }
   
@@ -1394,36 +1407,100 @@ async saveConfiguration() {
             return;
         }
         
-        // Collect Processors Configuration (optional now)
+        // Collect Processors Configuration (optional now). A row that has
+        // exactly one of {type, instance} filled is treated as an error so
+        // the user notices, instead of silently dropping the half-configured
+        // row on save. Fully empty rows are still ignored — they're a
+        // common artifact of "Add Processor" then changing your mind.
         const processors = [];
         const processorRows = this.elements.processorsList.querySelectorAll('.modalConfig-processor-row');
-        
-        processorRows.forEach(row => {
+        const seenInstances = new Set();
+        let hasPartialRow = false;
+        let hasDuplicateInstance = false;
+
+        for (const row of processorRows) {
             const processorSelect = row.querySelector('.processor-select');
             const instanceSelect = row.querySelector('.processor-instance');
-            
-            if (processorSelect && instanceSelect) {
-                const processorType = processorSelect.value;
-                const instanceName = instanceSelect.value;
-                
-                // Only add if BOTH type and instance are selected
-                if (processorType && processorType !== '' && instanceName && instanceName !== '') {
-                    processors.push({
-                        type: processorType,
-                        instance: instanceName
-                    });
-                }
+            if (!processorSelect || !instanceSelect) continue;
+
+            const processorType = (processorSelect.value || '').trim();
+            const instanceName = (instanceSelect.value || '').trim();
+
+            if (!processorType && !instanceName) continue; // empty row, skip
+
+            if (!processorType || !instanceName) {
+                hasPartialRow = true;
+                row.classList.add('has-error');
+                continue;
             }
-        });
+            row.classList.remove('has-error');
+
+            if (seenInstances.has(instanceName)) {
+                hasDuplicateInstance = true;
+                row.classList.add('has-error');
+                continue;
+            }
+            seenInstances.add(instanceName);
+
+            processors.push({ type: processorType, instance: instanceName });
+        }
+
+        if (hasPartialRow) {
+            this.showNotification(
+                'Each processor row needs both a type and an instance selected.',
+                'error',
+                4000,
+            );
+            return;
+        }
+        if (hasDuplicateInstance) {
+            this.showNotification(
+                'Two processor rows are using the same instance name. Each instance must be unique.',
+                'error',
+                4000,
+            );
+            return;
+        }
         
         const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
-        const simuDelayValue = this.elements.projectSimuDelay ? this.elements.projectSimuDelay.value : '200000';
         const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
-        
+
         // Check if simulation is enabled
         const simToggle = document.getElementById('Verilog Mode');
         const isSimulationEnabled = simToggle ? simToggle.checked : false;
-        
+
+        // Validate Simulation Time. The HTML attributes (min/max/step/required)
+        // catch most cases, but Iverilog treats non-positive integers as a hard
+        // failure during simulation, so we re-validate before writing the
+        // config to disk and show the offending field inline.
+        const SIMU_DELAY_MIN = 1;
+        const SIMU_DELAY_MAX = 100_000_000;
+        const simuDelayInput = this.elements.projectSimuDelay;
+        const simuDelayRaw = simuDelayInput ? String(simuDelayInput.value).trim() : '200000';
+        const simuDelayNumber = Number(simuDelayRaw);
+
+        const simuDelayInvalid =
+            simuDelayRaw === '' ||
+            !Number.isFinite(simuDelayNumber) ||
+            !Number.isInteger(simuDelayNumber) ||
+            simuDelayNumber < SIMU_DELAY_MIN ||
+            simuDelayNumber > SIMU_DELAY_MAX;
+
+        if (simuDelayInvalid) {
+            this.showNotification(
+                `Simulation Time must be an integer between ${SIMU_DELAY_MIN} and ${SIMU_DELAY_MAX.toLocaleString('en-US')} ps.`,
+                'error',
+                4000,
+            );
+            if (simuDelayInput) {
+                simuDelayInput.focus();
+                simuDelayInput.select?.();
+            }
+            return;
+        }
+
+        const simuDelayValue = String(simuDelayNumber);
+
         // If simulation is enabled, require testbench
         if (isSimulationEnabled && !topLevelTestbench) {
             this.showNotification('To run simulation, you must mark one file as the main testbench (star icon).', 'error', 4000);

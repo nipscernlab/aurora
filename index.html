@@ -641,9 +641,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="projectSimuDelay" class="form-label">Simulation Time</label>
-                    <input type="text" id="projectSimuDelay" class="form-input" name="simuDelay" placeholder="e.g., 200000" value="200000">
-                    <small class="form-hint">Simulation time value used in testbench timing</small>
+                    <label for="projectSimuDelay" class="form-label">Simulation Time (ps)</label>
+                    <input type="number" id="projectSimuDelay" class="form-input" name="simuDelay"
+                           placeholder="e.g., 200000" value="200000"
+                           min="1" max="100000000" step="1" required>
+                    <small class="form-hint">Positive integer between 1 and 100,000,000 ps. Used as the simulation duration in the testbench.</small>
                 </div>
 
                 <div class="form-group">

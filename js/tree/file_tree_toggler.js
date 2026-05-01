@@ -4,8 +4,8 @@
 
 /* eslint-disable no-undef */
 
-import { showCardNotification } from './notification.js';
-import { TreeViewState, fileTreeManager } from './file_tree_manager.js'
+import { showCardNotification } from '../ui/notification.js';
+import { TreeViewState, fileTreeManager } from './file_tree_manager.js';
 
 class FileTreeController {
   constructor() {

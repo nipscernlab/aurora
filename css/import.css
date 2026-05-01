@@ -1,39 +1,56 @@
 /*
  * import.css — single CSS entrypoint
  *
- * Order matters:
- *   1. theme_variables (tokens + base reset)
- *   2. styles + layout (shell)
- *   3. components (toolbar, file tree, tabs, terminal, modal, etc.)
- *   4. specifics (settings, ai, command palette, etc.)
+ * Files are grouped by domain. Order matters:
+ *   1. base       — design tokens + reset + global layout
+ *   2. shell      — toolbar, status bar, top-level UI state
+ *   3. editor     — Monaco editor + tabs
+ *   4. tree       — file tree + hierarchy tree
+ *   5. terminal   — terminal panel + progress + hourglass
+ *   6. modals     — overlays/dialogs
+ *   7. panels     — side/auxiliary panels
+ *   8. feedback   — notifications + tooltips
  */
-@import url("../css/theme_variables.css");
 
-@import url("../css/styles.css");
-@import url("../css/layout.css");
+/* 1. base */
+@import url("./base/theme_variables.css");
+@import url("./base/styles.css");
+@import url("./base/layout.css");
+@import url("./base/rainbow.css");
 
-@import url("../css/toolbar.css");
-@import url("../css/file_tree.css");
-@import url("../css/tabs.css");
-@import url("../css/editor.css");
-@import url("../css/terminal.css");
+/* 2. shell */
+@import url("./shell/toolbar.css");
+@import url("./shell/status_updater.css");
+@import url("./shell/ui_state.css");
 
-@import url("../css/modal_config.css");
-@import url("../css/processor_hub.css");
-@import url("../css/recent_projects.css");
-@import url("../css/import_file.css");
-@import url("../css/close_project.css");
-@import url("../css/aurora_settings.css");
-@import url("../css/save_first.css");
-@import url("../css/project_info.css");
-@import url("../css/h_tree.css");
+/* 3. editor */
+@import url("./editor/editor.css");
+@import url("./editor/tabs.css");
 
-@import url("../css/tooltip.css");
-@import url("../css/notification.css");
-@import url("../css/status_updater.css");
-@import url("../css/hourglass.css");
-@import url("../css/vvp_progress.css");
-@import url("../css/pdf_image.css");
-@import url("../css/command_palette.css");
-@import url("../css/ai_assistant.css");
-@import url("../css/ui_state.css");
+/* 4. tree */
+@import url("./tree/file_tree.css");
+@import url("./tree/h_tree.css");
+
+/* 5. terminal */
+@import url("./terminal/terminal.css");
+@import url("./terminal/vvp_progress.css");
+@import url("./terminal/hourglass.css");
+
+/* 6. modals */
+@import url("./modals/modal_config.css");
+@import url("./modals/save_first.css");
+@import url("./modals/command_palette.css");
+@import url("./modals/recent_projects.css");
+@import url("./modals/close_project.css");
+@import url("./modals/project_info.css");
+@import url("./modals/import_file.css");
+@import url("./modals/pdf_image.css");
+
+/* 7. panels */
+@import url("./panels/processor_hub.css");
+@import url("./panels/aurora_settings.css");
+@import url("./panels/ai_assistant.css");
+
+/* 8. feedback */
+@import url("./feedback/notification.css");
+@import url("./feedback/tooltip.css");

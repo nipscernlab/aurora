@@ -6,7 +6,7 @@
  * Drag resizers sit between each pane pair.
  */
 
-import { TabManager } from './tab_manager.js';
+import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 
 const MIN_PANE_WIDTH = 120;

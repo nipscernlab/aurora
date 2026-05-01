@@ -1,7 +1,7 @@
 // compilation_flow.js
 
 import { CompilationModule } from './compilation_module.js';
-import { showDialog } from './dialogManager.js';
+import { showDialog } from '../ui/dialog_manager.js';
 
 let compilationCanceled = false;
 

@@ -1,6 +1,6 @@
 // file_tree_manager.js
 
-import { TabManager } from './tab_manager.js';
+import { TabManager } from '../tabs/tab_manager.js';
 
 const treeStyle = document.createElement('style');
 treeStyle.textContent = `
@@ -25,7 +25,7 @@ treeStyle.textContent = `
         transform: scale(1.1);
     }
 
-/* file-tree visuals are owned by css/file_tree.css */`;
+/* file-tree visuals are owned by css/tree/file_tree.css */`;
 document.head.appendChild(treeStyle);
 
 // --- Tree View State (Standard vs. Hierarchical) ---

@@ -1,17 +1,17 @@
 // renderer.js
 
 // --- Module Imports ---
-import { initMonaco } from './monaco_editor.js';
-import { RecentProjectsManager } from './recent_projects.js';
-import { TabManager } from './tab_manager.js';
-import { TerminalManager } from './terminal_module.js';
-import { CompilationModule } from './compilation_module.js';
-import { fileTreeManager, TreeViewState } from './file_tree_manager.js';
-import { projectManager } from './project_manager.js';
-import { aiAssistantManager } from './ai_assistant_manager.js';
-import { uiComponentsManager } from './ui_components.js';
-import { compilationFlowManager } from './compilation_flow.js';
-import { SplitEditorManager } from './split_editor.js';
+import { initMonaco } from '../editor/monaco_editor.js';
+import { RecentProjectsManager } from '../project/recent_projects.js';
+import { TabManager } from '../tabs/tab_manager.js';
+import { TerminalManager } from '../terminal/terminal_module.js';
+import { CompilationModule } from '../compilation/compilation_module.js';
+import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
+import { projectManager } from '../project/project_manager.js';
+import { aiAssistantManager } from '../services/ai_assistant_manager.js';
+import { uiComponentsManager } from '../ui/ui_components.js';
+import { compilationFlowManager } from '../compilation/compilation_flow.js';
+import { SplitEditorManager } from '../editor/split_editor.js';
 
 // --- Global State ---
 let currentProjectPath = null;

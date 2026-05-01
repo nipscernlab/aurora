@@ -4,9 +4,8 @@
  * @date November 12, 2025
  */
 
-// Import the generic dialog module
-import { showDialog } from './dialogManager.js'; // Adjust path as necessary
-import { TabManager } from './tab_manager.js';
+import { showDialog } from '../ui/dialog_manager.js';
+import { TabManager } from '../tabs/tab_manager.js';
 
 function disableCompileButtons() {
     const buttonIds = [

@@ -1,4 +1,4 @@
-import { showDialog } from './dialogManager.js';
+import { showDialog } from '../ui/dialog_manager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 

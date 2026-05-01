@@ -1,9 +1,9 @@
 /* eslint-disable no-undef */
 // statusUpdater, refreshFileTree, checkCancellation, startCompilation, endCompilation are global
-import { TabManager } from './tab_manager.js';
-import { EditorManager } from './monaco_editor.js';
-import { TerminalManager, showVVPProgress, hideVVPProgress} from './terminal_module.js';
-import { TreeViewState } from './tree_view_state_module.js';
+import { TabManager } from '../tabs/tab_manager.js';
+import { EditorManager } from '../editor/monaco_editor.js';
+import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
+import { TreeViewState } from '../tree/tree_view_state_module.js';
 
 class CompilationModule {
     constructor(projectPath) {

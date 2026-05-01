@@ -5,9 +5,9 @@
  * =====================================================================================
  */
 
-import { showDialog } from './dialogManager.js';
-import { projectManager } from './project_manager.js';
-import { fileTreeManager, TreeViewState } from './file_tree_manager.js';
+import { showDialog } from '../ui/dialog_manager.js';
+import { projectManager } from '../project/project_manager.js';
+import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
 
 class AppInitializer {
     constructor() {

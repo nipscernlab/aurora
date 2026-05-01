@@ -6,7 +6,7 @@
  */
 
 /* eslint-disable no-undef */
-import { TabManager } from './tab_manager.js';
+import { TabManager } from '../tabs/tab_manager.js';
 
 const pathUtils = {
     basename: (filePath) => {

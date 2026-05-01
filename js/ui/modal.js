@@ -1,5 +1,5 @@
-import { projectManager } from './project_manager.js';
-import { showDialog } from './dialogManager.js';
+import { projectManager } from '../project/project_manager.js';
+import { showDialog } from './dialog_manager.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     const newProjectModal = document.getElementById("newProjectModal");

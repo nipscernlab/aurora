@@ -1,5 +1,5 @@
 //modalProcessorConfig.js Modal configuration Processor Oriented Configuration
-import { showDialog } from './dialogManager.js';
+import { showDialog } from '../ui/dialog_manager.js';
 
 const settingsButton = document.getElementById("settings");
 const modal = document.getElementById("modalProcessorConfig");

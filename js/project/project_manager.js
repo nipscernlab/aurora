@@ -1,8 +1,8 @@
 // project_manager.js
 
-import { TabManager } from './tab_manager.js';
-import { fileTreeManager } from './file_tree_manager.js';
-import { showDialog } from './dialogManager.js';
+import { TabManager } from '../tabs/tab_manager.js';
+import { fileTreeManager } from '../tree/file_tree_manager.js';
+import { showDialog } from '../ui/dialog_manager.js';
 
 function updateProjectNameUI(projectData) {
     const spfNameElement = document.getElementById('current-spf-name');

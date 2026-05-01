@@ -151,13 +151,14 @@ class AppInitializer {
             if (!exists) {
                 console.warn('⚠️ Last project file not found');
                 localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
-                
+                this._resetProjectNameLabel();
+
                 await showDialog({
                     title: 'Project Not Found',
                     message: 'The previously opened project could not be found.',
                     buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
                 });
-                
+
                 this.currentMode = lastMode;
                 this.activateModeUI(lastMode);
                 return;
@@ -176,13 +177,24 @@ class AppInitializer {
         } catch (error) {
             console.error('❌ Failed to restore session:', error);
             localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
-            
+            this._resetProjectNameLabel();
+
             await showDialog({
                 title: 'Error Restoring Session',
                 message: `Could not restore your previous session: ${error.message}`,
                 buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
             });
         }
+    }
+
+    /**
+     * Reset the file-tree project name label back to "No project open".
+     * Called when an auto-load attempt fails so the synchronous "Loading…"
+     * placeholder set in index.html doesn't get stuck on screen.
+     */
+    _resetProjectNameLabel() {
+        const el = document.getElementById('current-spf-name');
+        if (el) el.textContent = 'No project open';
     }
 
     /**

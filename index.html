@@ -169,6 +169,22 @@
         <div class="file-tree-header">
             <span class="file-tree-label">FILE TREE</span>
             <span id="current-spf-name">No project open</span>
+            <script>
+              // Avoid the "No project open" flash on cold start when a project
+              // is about to be auto-restored. This runs synchronously during
+              // HTML parse (before first paint), so the user only sees the
+              // final state — either the loading placeholder or the eventual
+              // project name. AppInitializer.restoreLastSession() will replace
+              // this with the actual project name once the IPC roundtrip lands.
+              (function () {
+                try {
+                  if (localStorage.getItem('aurora-last-project-path')) {
+                    var el = document.getElementById('current-spf-name');
+                    if (el) el.textContent = 'Loading…';
+                  }
+                } catch (_) { /* localStorage unavailable */ }
+              })();
+            </script>
         </div>
 
         <div class="overlay-title">

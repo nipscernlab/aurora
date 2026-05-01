@@ -16,7 +16,6 @@
 @import url("./base/theme_variables.css");
 @import url("./base/styles.css");
 @import url("./base/layout.css");
-@import url("./base/rainbow.css");
 
 /* 2. shell */
 @import url("./shell/toolbar.css");

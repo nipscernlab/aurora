@@ -287,28 +287,30 @@ async runAll() {
 
 getCurrentMode() {
     // Check radio buttons for mode
-    const verilogModeToggle = document.getElementById('Verilog Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
     const projectModeRadio = document.getElementById('Project Mode');
+    const processorModeRadio = document.getElementById('Processor Mode');
+    const compileAndSimulateToggle = document.getElementById('Verilog Mode');
+
+    const isProjectMode = projectModeRadio?.checked === true;
+    const isProcessorMode = processorModeRadio?.checked === true;
+    const isCompileAndSimulateEnabled = compileAndSimulateToggle?.checked === true;
     
     // Priority: Check which radio is actually checked
-    if (projectModeRadio?.checked) {
+    if (isProjectMode && !isCompileAndSimulateEnabled) {
+        console.log('🎯 Current mode detected: VERILOG');
+        return 'project-verilog-only';
+    }
+
+    if (isProjectMode && isCompileAndSimulateEnabled) {
         console.log('🎯 Current mode detected: PROJECT');
-        return 'project';
+        return 'project-simulation';
     }
     
-    if (processorModeRadio?.checked) {
+    if (isProcessorMode) {
         console.log('🎯 Current mode detected: PROCESSOR');
         return 'processor';
     }
-    
-    // Verilog Mode: Toggle unchecked means Verilog Mode is active
-    if (verilogModeToggle && !verilogModeToggle.checked) {
-        console.log('🎯 Current mode detected: VERILOG');
-        return 'verilog';
-    }
-    
-    // Default fallback
+
     console.log('⚠️ No mode detected, defaulting to PROCESSOR');
     return 'processor';
 }
@@ -335,7 +337,8 @@ async runSingleStep(step) {
                     netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
                     processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
                     projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
-                    topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel'))
+                    topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
+                    compilationMode: this.getCurrentMode()
                 };
 
                 const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
@@ -356,8 +359,40 @@ async runSingleStep(step) {
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
-            
-            // Precisamos do processador ativo para estas etapas
+            const currentMode = this.getCurrentMode();
+
+            if (currentMode === 'project-verilog-only') {
+                if (step === 'verilog') {
+                    switchTerminal('terminal-tveri');
+                    await compiler.iverilogVerilogOnlyCompilation();
+                    return;
+                }
+
+                if (step === 'wave') {
+                    switchTerminal('terminal-twave');
+                    await compiler.runVerilogOnlyGtkWave();
+                    return;
+                }
+
+                if (step === 'cmm' || step === 'asm') {
+                    throw new Error('CMM e ASM não estão disponíveis no modo Verilog-only.');
+                }
+            }
+
+            if (currentMode === 'project-simulation') {
+                if (step === 'verilog') {
+                    switchTerminal('terminal-tveri');
+                    await compiler.iverilogProjectCompilation();
+                    return;
+                }
+
+                if (step === 'wave') {
+                    switchTerminal('terminal-twave');
+                    await compiler.runProjectGtkWave();
+                    return;
+                }
+            }
+
             const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
             if (!activeProcessor) {
                 throw new Error("Nenhum processador ativo configurado. Selecione um processador no Processor Hub.");

@@ -318,20 +318,32 @@ const SplitEditorManager = {
     async createSplit() {
         if (!this.canSplit()) return;
 
-        let filePath, content;
+        // Resolve the source file + content from whichever pane currently has
+        // focus. We require an actual Monaco editor — splitting a binary
+        // viewer (image/PDF) or a tab whose editor hasn't been instantiated
+        // yet would otherwise produce a blank pane.
+        let filePath = null;
+        let editor = null;
 
         if (this.focusedPane === 0) {
             filePath = TabManager.activeTab;
-            if (!filePath) return;
-            const editor = EditorManager.getEditorForFile?.(filePath);
-            content = editor ? editor.getValue() : '';
+            if (filePath) editor = EditorManager.getEditorForFile?.(filePath) ?? null;
         } else {
             const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
-            if (!pane?.activeFile) return;
-            filePath = pane.activeFile;
-            const info = pane.tabs.get(filePath);
-            content = info ? info.editor.getValue() : '';
+            if (pane?.activeFile) {
+                filePath = pane.activeFile;
+                editor = pane.tabs.get(filePath)?.editor ?? null;
+            }
         }
+
+        if (!filePath || !editor || typeof editor.getValue !== 'function') {
+            // No usable source — bail instead of opening an empty pane.
+            // Re-sync the button so its tooltip reflects current state.
+            this._updateButton();
+            return;
+        }
+
+        const content = editor.getValue();
 
         const newIndex = this.panes.length + 1; // 1 or 2
         const newPane  = new SplitPane(newIndex);
@@ -415,17 +427,15 @@ const SplitEditorManager = {
             this.wrapper.insertBefore(resizer.element, right);
         }
 
-        // Welcome overlay rules:
-        //  - If any pane has a file open → hide.
-        //  - If a project is loaded but no files are open → still hide;
-        //    the empty editor area is fine. Welcome is reserved for the
-        //    "no project at all" state.
-        //  - Otherwise → show welcome.
-        const projectLoaded = !!(typeof window !== 'undefined' && window.currentProjectPath);
+        // Welcome overlay: show whenever no pane has any tab open. This
+        // mirrors the original (pre-split) behaviour where the welcome
+        // screen is the empty-editor state, regardless of whether a project
+        // is loaded — closing the last file should always bring it back.
         const overlay = document.getElementById('editor-overlay');
         if (overlay) {
-            if (anyContent || projectLoaded) {
+            if (anyContent) {
                 overlay.classList.add('hidden');
+                overlay.classList.remove('visible');
             } else {
                 overlay.classList.remove('hidden');
                 overlay.classList.add('visible');

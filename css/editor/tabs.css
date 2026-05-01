@@ -167,12 +167,71 @@
 
 /* ---------------------------------------------------------------------------
  *  Drag and drop
+ *  ----
+ *  Behaviour during a tab drag:
+ *    - The dragged tab dims and tilts slightly so the user can see they
+ *      grabbed it (the native drag image is suppressed in JS).
+ *    - The container darkens its background just enough to read as "in
+ *      drop mode" without flashing the eye.
+ *    - A 2px accent bar (`.drop-indicator`) snaps to the gap where the
+ *      tab will land — left edge when before a tab, right edge when after
+ *      the last one. The bar pulses softly so it's discoverable on the
+ *      darker theme.
  * ------------------------------------------------------------------------- */
 .tab.dragging {
-  opacity: 0.5;
+  opacity: 0.55;
   background: var(--bg-elev-2);
+  transform: scale(0.97);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: grabbing;
+  transition: opacity var(--transition-fast),
+              transform var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
+.tabs-container.dragging-active {
+  background-color: var(--bg-elev);
+  cursor: grabbing;
+}
+
+.tabs-container.dragging-active .tab:not(.dragging) {
+  cursor: grabbing;
+}
+
+/* Drop indicator: positioned by JS via inline `left:`. Anchored to the
+   container so it spans the full tab height. */
+.drop-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  box-shadow: 0 0 6px var(--accent),
+              0 0 14px rgba(142, 131, 232, 0.45);
+  transition: left 80ms ease, opacity var(--transition-fast);
+}
+
+.drop-indicator.active {
+  opacity: 1;
+  animation: drop-indicator-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes drop-indicator-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px var(--accent),
+                0 0 14px rgba(142, 131, 232, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--accent),
+                0 0 22px rgba(142, 131, 232, 0.7);
+  }
+}
+
+/* Legacy drag-over accent (kept for any path that still adds the class) */
 .tab.drag-over::before {
   content: '';
   position: absolute;

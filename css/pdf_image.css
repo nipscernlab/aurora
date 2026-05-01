@@ -199,12 +199,12 @@
   .pdf-control-btn {
     width: 32px;
     height: 32px;
-    font-size: 12px;
+    font-size: var(--icon-sm);
   }
-  
+
   .image-info span,
   .pdf-info span {
-    font-size: 12px;
+    font-size: var(--text-sm);
     padding: var(--space-1) var(--space-2);
   }
 }

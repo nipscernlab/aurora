@@ -71,8 +71,11 @@
 }
 
 /* While the welcome is actually showing, hide the editor area, the horizontal
-   resizer and the terminal so nothing peeks through. */
+   resizer and the terminal so nothing peeks through. After SplitEditorManager
+   initializes, .editor-container is wrapped inside .split-editor-wrapper —
+   target both so the rule survives either layout. */
 #editor-overlay.visible:not(.hidden) ~ .editor-container,
+#editor-overlay.visible:not(.hidden) ~ .split-editor-wrapper,
 #editor-overlay.visible:not(.hidden) ~ .resizer-horizontal,
 #editor-overlay.visible:not(.hidden) ~ #terminal-container {
   display: none !important;
@@ -197,7 +200,7 @@
   cursor: pointer;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   background: none;
   border: none;
   padding: 0;
@@ -237,7 +240,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--icon-sm);
   transition: color var(--transition-fast),
               background-color var(--transition-fast);
   padding: 0;

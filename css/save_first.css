@@ -41,10 +41,10 @@
 .confirm-modal-content {
   background-color: var(--bg-elevated);
   border: 1px solid var(--border-primary);
-  border-radius: 0;
-  padding: var(--space-6);
-  min-width: 420px;
-  max-width: 500px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  min-width: 280px;
+  max-width: 380px;
   box-shadow: var(--shadow-xl);
   /* Original transition and transform logic */
   transform: scale(0.95);
@@ -61,25 +61,25 @@
 .confirm-modal-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .confirm-modal-icon {
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   background: var(--status-warning-bg);
   color: var(--status-warning);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
 }
 
 .confirm-modal-title {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
   margin: 0;
@@ -87,9 +87,9 @@
 
 .confirm-modal-message {
   color: var(--text-secondary);
-  line-height: var(--leading-relaxed);
-  margin-bottom: var(--space-6);
-  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-xs);
 }
 
 /* ===================================================================================
@@ -97,19 +97,20 @@
  * =================================================================================== */
 .confirm-modal-actions {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   justify-content: flex-end;
 }
 
 .confirm-btn {
-  padding: var(--space-2) var(--space-4);
+  padding: 0 var(--space-3);
+  height: var(--h-button);
   border: none;
-  border-radius: 0;
-  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
-  min-width: 90px;
+  min-width: 72px;
   border: 1px solid transparent;
 }
 

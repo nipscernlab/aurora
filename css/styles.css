@@ -116,7 +116,9 @@ body.window-maximized {
 }
 
 .resizer-vertical:hover::after,
-body.resizing-vertical .resizer-vertical::after {
+body.resizing-vertical .resizer-vertical::after,
+body.corner-hovering  .resizer-vertical::after,
+body.resizing-corner  .resizer-vertical::after {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
@@ -145,7 +147,9 @@ body.resizing-vertical .resizer-vertical::after {
 }
 
 .resizer-horizontal:hover::after,
-body.resizing-horizontal .resizer-horizontal::after {
+body.resizing-horizontal .resizer-horizontal::after,
+body.corner-hovering    .resizer-horizontal::after,
+body.resizing-corner    .resizer-horizontal::after {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
@@ -211,7 +215,7 @@ body.resizing-corner .terminal-container {
 
 .context-menu-item i {
   width: 14px;
-  font-size: 12px;
+  font-size: var(--icon-sm);
   color: var(--text-muted);
 }
 

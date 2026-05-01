@@ -12,15 +12,15 @@
 }
 
 .notification.success {
-  background-color: #28a745;
+  background-color: var(--status-success);
 }
 
 .notification.error {
-  background-color: #dc3545;
+  background-color: var(--status-error);
 }
 
 .notification.info {
-  background-color: #17a2b8;
+  background-color: var(--status-info);
 }
 
 @keyframes slideIn {
@@ -42,14 +42,14 @@
 
 /* Estilo para indicador de projeto fechado */
 #project-title.no-project {
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
 }
 
 /* Estilo para área de arquivo vazia */
 #file-tree-container:empty::before {
   content: "Nenhum projeto aberto";
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
   display: block;
   text-align: center;

@@ -219,9 +219,12 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;
   position: relative;
+  /* The longer transform transition + back-out cubic gives the rebound
+     after the user releases the click. */
   transition: background-color var(--transition-fast),
               color var(--transition-fast),
-              transform 80ms var(--ease-out-quart);
+              box-shadow 220ms var(--ease-out-quart),
+              transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .toolbar-button.icon-only {
@@ -237,7 +240,14 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
 
 .toolbar-button:active {
   background-color: var(--overlay-active);
-  transform: scale(0.96);
+  /* Snap down + outward accent ring for a tactile press. The ring sits
+     OUTSIDE the button so it never covers the icon/label inside. */
+  transform: scale(0.90);
+  box-shadow: 0 0 0 4px rgba(142, 131, 232, 0.20);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast),
+              box-shadow 60ms ease-out,
+              transform 60ms ease-out;
 }
 
 .toolbar-button:focus-visible {
@@ -265,7 +275,7 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
 
 .toolbar-button > i,
 .toolbar-button > svg {
-  font-size: 16px;
+  font-size: var(--icon-lg);
   line-height: 1;
   flex-shrink: 0;
 }
@@ -299,9 +309,9 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
 }
 
 .compile-btn .glyph {
-  font-size: 17px;
-  width: 17px;
-  height: 17px;
+  font-size: var(--icon-lg);
+  width: var(--icon-lg);
+  height: var(--icon-lg);
 }
 
 .compile-btn .glyph.glyph-cpm {
@@ -309,11 +319,11 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
   height: 16px;
 }
 
-/* Semantic color per tool */
-#cmmcomp .glyph    { color: #5BB8E8; }   /* C±  — cyan */
-#asmcomp .glyph    { color: #B98AE0; }   /* ASM — purple */
-#vericomp .glyph   { color: #E68FB8; }   /* VERI — pink */
-#wavecomp .glyph   { color: #5FE0B0; }   /* WAVE — mint */
+/* Semantic color per tool — single source of truth in theme_variables.css. */
+#cmmcomp .glyph    { color: var(--color-cmm); }
+#asmcomp .glyph    { color: var(--color-asm); }
+#vericomp .glyph   { color: var(--color-veri); }
+#wavecomp .glyph   { color: var(--color-wave); }
 
 .compile-btn:hover .glyph {
   filter: drop-shadow(0 0 5px currentColor);
@@ -327,15 +337,17 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
 
 .prism-btn img,
 #prismcomp img {
-  width: 18px;
-  height: 18px;
-  filter: drop-shadow(0 0 4px var(--accent-glow));
-  transition: filter var(--transition-fast);
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+  transition: filter var(--transition-fast),
+              transform 200ms var(--ease-out-quart);
 }
 
 .prism-btn:hover img,
 #prismcomp:hover img {
-  filter: drop-shadow(0 0 6px var(--accent-glow));
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+  transform: scale(1.05);
 }
 
 .prism-btn span {
@@ -393,11 +405,11 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
   cursor: pointer;
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .mode-label:hover { color: var(--text); background-color: var(--overlay-hover); }
-.mode-label-icon  { font-size: 13px; }
+.mode-label-icon  { font-size: var(--icon-md); }
 
 .toggle-group input[type="radio"]:checked + .mode-label {
   background-color: var(--accent-soft);
@@ -494,7 +506,7 @@ body.window-maximized .dot-max .ph-restore { display: inline-flex; }
   padding: 0 3px;
   background: var(--bg-elev-3);
   color: var(--text);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-semibold);
   font-family: var(--font-mono);
   border-radius: 7px;

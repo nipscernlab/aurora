@@ -33,14 +33,17 @@ style.textContent = `
   body.resizing-horizontal,
   body.resizing-horizontal * { cursor: row-resize !important; user-select: none !important; }
   body.resizing-corner,
-  body.resizing-corner * { cursor: nwse-resize !important; user-select: none !important; }
+  body.resizing-corner * { cursor: all-scroll !important; user-select: none !important; }
 
   #resize-corner-handle {
     position: fixed;
-    width: 14px;
-    height: 14px;
+    /* Generous invisible hit area so the meeting point of the two resizers
+       is easy to grab. Visual highlighting of the resizers on hover/active
+       gives the user the discovery cue. */
+    width: 22px;
+    height: 22px;
     background: transparent;
-    cursor: nwse-resize;
+    cursor: all-scroll;
     z-index: 100;
   }
 `;
@@ -189,9 +192,21 @@ function setupCornerHandle() {
   function positionCorner() {
     const ftRect   = fileTreeContainer.getBoundingClientRect();
     const termRect = terminalContainer.getBoundingClientRect();
-    corner.style.left = (ftRect.right - 7) + 'px';
-    corner.style.top  = (termRect.top - 7) + 'px';
+    // Center the (now larger) handle on the resizer junction.
+    const size = corner.offsetWidth || 22;
+    const half = size / 2;
+    corner.style.left = (ftRect.right - half) + 'px';
+    corner.style.top  = (termRect.top   - half) + 'px';
   }
+
+  // Hover discovery: lighting up both resizers when the user grazes the
+  // junction is the cue that this corner is grabbable.
+  corner.addEventListener('mouseenter', () => {
+    document.body.classList.add('corner-hovering');
+  });
+  corner.addEventListener('mouseleave', () => {
+    document.body.classList.remove('corner-hovering');
+  });
 
   let active = false, startX = 0, startY = 0, startW = 0, startH = 0, raf = null;
 

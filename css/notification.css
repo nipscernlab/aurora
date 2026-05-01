@@ -52,18 +52,7 @@
 }
 
 /* Aurora hairline at the top */
-.notification-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gradient-aurora);
-  opacity: 0.5;
-  z-index: 1;
-  pointer-events: none;
-}
+/* (Aurora hairline removed.) */
 
 .notification-card:not(.enter-start):not(.exit) {
   transform: translateX(0) scale(1);
@@ -108,7 +97,7 @@
   height: 18px;
   margin-top: 1px;
   font-family: 'Phosphor';
-  font-size: 18px;
+  font-size: var(--icon-xl);
   line-height: 1;
 }
 
@@ -154,7 +143,7 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--icon-xs);
   color: var(--text-muted);
   background: transparent;
   border: 0;
@@ -262,17 +251,7 @@
               opacity 160ms var(--ease-out-quart);
 }
 
-.confirm-modal-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gradient-aurora);
-  opacity: 0.5;
-  z-index: 1;
-}
+/* (Aurora hairline removed.) */
 
 .confirm-modal.show .confirm-modal-content {
   transform: scale(1) translateY(0);
@@ -296,7 +275,7 @@
   border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent-hover);
-  font-size: 16px;
+  font-size: var(--icon-lg);
   flex-shrink: 0;
   border: 1px solid var(--accent-border);
 }
@@ -409,8 +388,8 @@
   color: white;
 }
 .confirm-btn.danger:hover {
-  background-color: #C75555;
-  border-color: #C75555;
+  /* Slightly darker shade of --status-error for the pressed state. */
+  filter: brightness(0.9);
 }
 
 /* ===========================================================================

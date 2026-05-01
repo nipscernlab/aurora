@@ -137,6 +137,10 @@ async function loadProject(spfPath) {
             window.appInitializer.saveCurrentProject(spfPath);
         }
 
+        // Tell the split/welcome layout that a project is now active so the
+        // welcome overlay disappears even when no file has been auto-opened.
+        window.SplitEditorManager?.refreshLayout?.();
+
     } catch (error) {
         console.error('Error loading project:', error);
         try {

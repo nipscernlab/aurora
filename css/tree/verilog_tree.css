@@ -142,11 +142,15 @@
 }
 
 .verilog-file-icon {
-  font-size: var(--text-base);
-  color: var(--aurora-pink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
-  text-align: center;
+  height: 22px;
   flex-shrink: 0;
+  margin: 0 4px 0 2px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
 }
 
 .verilog-file-item.top-level-file .verilog-file-icon {

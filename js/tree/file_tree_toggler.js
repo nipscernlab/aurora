@@ -118,24 +118,36 @@ class FileTreeController {
 
   /**
    * Collapses all currently expanded folders in the file tree.
+   *
+   * The previous version mutated DOM classes directly — it kept dead
+   * references to a `.folder-toggle.rotated` legacy class that the current
+   * renderer no longer produces, and it didn't always converge on the right
+   * chevron rotation when expanded folders had been re-rendered. The clean
+   * fix: drop FileTreeState first, then ask the manager to re-render. The
+   * renderer is the single source of truth for chevron orientation
+   * (`.collapsed` ⇒ rotated -90°), so all chevrons end up consistent with
+   * the post-collapse model state.
    */
   collapseAll() {
-    const expandedFolders = this.fileTreeContainer.querySelectorAll('.folder-content:not(.hidden)');
-    const folderToggles = this.fileTreeContainer.querySelectorAll('.folder-toggle.rotated, .folder-toggle-icon');
-    const folderIcons = this.fileTreeContainer.querySelectorAll('.ph-folder-open, .fa-folder-open');
-
-    expandedFolders.forEach(folder => folder.classList.add('hidden'));
-    folderToggles.forEach(toggle => {
-      toggle.classList.remove('rotated');
-      toggle.classList.add('collapsed');
-    });
-    folderIcons.forEach(icon => {
-      icon.classList.replace('ph-folder-open', 'ph-folder');
-      icon.classList.replace('fa-folder-open', 'fa-folder');
-    });
-    
     if (typeof FileTreeState !== 'undefined') {
       FileTreeState.expandedFolders.clear();
+    }
+
+    // Re-render so every chevron + folder icon picks up its collapsed
+    // state from a fresh pass through renderFileTree.
+    if (fileTreeManager && typeof fileTreeManager.refresh === 'function') {
+      fileTreeManager.refresh();
+    } else {
+      // Defensive fallback: if the manager isn't available, at least hide
+      // every folder-content + add `.collapsed` to every chevron in DOM.
+      this.fileTreeContainer.querySelectorAll('.folder-content')
+        .forEach(content => content.classList.add('hidden'));
+      this.fileTreeContainer.querySelectorAll('.folder-toggle-icon')
+        .forEach(toggle => toggle.classList.add('collapsed'));
+      this.fileTreeContainer.querySelectorAll('.file-item-icon.ph-folder-open')
+        .forEach(icon => icon.classList.replace('ph-folder-open', 'ph-folder'));
+      this.fileTreeContainer.querySelectorAll('.file-item-icon.fa-folder-open')
+        .forEach(icon => icon.classList.replace('fa-folder-open', 'fa-folder'));
     }
 
     this.showCollapseEffect();

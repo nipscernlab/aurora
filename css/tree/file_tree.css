@@ -226,6 +226,14 @@
 .file-tree-item[data-ext="md"]    .file-item-icon { color: var(--text-secondary); }
 .file-tree-item[data-ext="json"]  .file-item-icon { color: var(--status-warning); }
 
+/* Processor coloring: every file/folder under a processor folder shares
+   that processor's color slot. Wins over the extension/folder defaults
+   above thanks to source order — `--processor-color` is set inline on
+   the `.file-tree-item` wrapper from file_tree_manager.js. */
+.file-tree-item[data-processor] .file-item-icon {
+  color: var(--processor-color);
+}
+
 /* ---------------------------------------------------------------------------
  *  Name
  * ------------------------------------------------------------------------- */

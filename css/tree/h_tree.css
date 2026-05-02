@@ -191,9 +191,16 @@
   color: var(--text-muted);
 }
 
-.hierarchy-item[data-type="top-level"] .hierarchy-icon { color: var(--accent-hover); }
-.hierarchy-item[data-type="module"]    .hierarchy-icon { color: var(--aurora-cyan); }
-.hierarchy-item[data-type="instance"]  .hierarchy-icon { color: var(--aurora-mint); }
+/* Top-level processor (microchip) → vivid accent purple, slight glow.
+ * Module (cube) → aurora-mint so it reads distinctly from the processor.
+ * Instance (cube) → aurora-cyan, the colder companion of mint.
+ * Primitive → muted gray, intentionally low-emphasis. */
+.hierarchy-item[data-type="top-level"] .hierarchy-icon {
+  color: var(--accent-hover);
+  filter: drop-shadow(0 0 3px rgba(142, 131, 232, 0.55));
+}
+.hierarchy-item[data-type="module"]    .hierarchy-icon { color: var(--aurora-mint); }
+.hierarchy-item[data-type="instance"]  .hierarchy-icon { color: var(--aurora-cyan); }
 .hierarchy-item[data-type="primitive"] .hierarchy-icon { color: var(--text-muted); }
 
 .hierarchy-item.active .hierarchy-icon { color: var(--accent-hover); }
@@ -217,9 +224,12 @@
 .hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-muted); }
 
 /* ---------------------------------------------------------------------------
- *  Children container — no border-left guides, depth carried by padding
+ *  Children container — depth carried by left padding so each nested level
+ *  cascades 14px deeper. The compilation hierarchy renderer doesn't set a
+ *  --depth variable per item, so we lean on CSS containment instead.
  * ------------------------------------------------------------------------- */
 .hierarchy-children {
+  padding-left: 14px;
   overflow: hidden;
   transition: max-height 240ms var(--ease-out-quart),
               opacity 140ms;

@@ -104,7 +104,7 @@
 .split-pane-resizer {
   flex: 0 0 4px;
   width: 4px;
-  cursor: col-resize;
+  cursor: ew-resize;
   background-color: var(--border);
   transition: background-color 0.15s ease;
   position: relative;

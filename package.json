@@ -72,11 +72,8 @@
                 "to": "bin/netlistsvg.exe"
             },
             {
-                "from": "components/Packages/PRISM/yosys.exe",
-                "to": "bin/yosys.exe",
-                "filter": [
-                    "**/*"
-                ]
+                "from": "components/Packages/PRISM/yosys/yosys.exe",
+                "to": "bin/yosys.exe"
             }
         ],
         "directories": {

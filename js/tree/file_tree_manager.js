@@ -174,7 +174,17 @@ async function refreshFileTree() {
     }
 }
 
-function renderFileTree(files, container, level = 0) {
+// Stable djb2 hash → 0..15 slot. Same processor name always lands in the
+// same color across reloads (no localStorage state needed).
+function processorColorSlot(name) {
+    let hash = 5381;
+    for (let i = 0; i < name.length; i++) {
+        hash = ((hash << 5) + hash + name.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash) % 16;
+}
+
+function renderFileTree(files, container, level = 0, processor = null) {
     if (!files || files.length === 0) {
         if (level === 0) {
             container.innerHTML = '<div class="empty-tree">No files found</div>';
@@ -205,6 +215,26 @@ filteredFiles.forEach(file => {
         itemWrapper.className = 'file-tree-item';
         itemWrapper.setAttribute('data-path', file.path);
         itemWrapper.style.setProperty('--depth', String(level));
+
+        // Processor color propagation. At level 0 we detect a processor
+        // folder by name; that name is then carried into every recursive
+        // descent so all nested files/folders pick up the same color slot.
+        let itemProcessor = processor;
+        if (
+            level === 0 &&
+            file.type === 'directory' &&
+            Array.isArray(window.availableProcessors) &&
+            window.availableProcessors.includes(file.name)
+        ) {
+            itemProcessor = file.name;
+        }
+        if (itemProcessor) {
+            itemWrapper.setAttribute('data-processor', itemProcessor);
+            itemWrapper.style.setProperty(
+                '--processor-color',
+                `var(--proc-color-${processorColorSlot(itemProcessor)})`,
+            );
+        }
 
         const item = document.createElement('div');
         item.className = 'file-item';
@@ -294,7 +324,7 @@ filteredFiles.forEach(file => {
                 if (!childContainer && !isExpanded && file.children) {
                     childContainer = document.createElement('div');
                     childContainer.className = 'folder-content';
-                    renderFileTree(file.children, childContainer, level + 1);
+                    renderFileTree(file.children, childContainer, level + 1, itemProcessor);
                     itemWrapper.appendChild(childContainer);
                 } else if (childContainer) {
                     childContainer.classList.toggle('hidden', isExpanded);
@@ -344,7 +374,7 @@ filteredFiles.forEach(file => {
         if (file.type === 'directory' && FileTreeState.isExpanded(file.path) && file.children) {
             const childContainer = document.createElement('div');
             childContainer.className = 'folder-content';
-            renderFileTree(file.children, childContainer, level + 1);
+            renderFileTree(file.children, childContainer, level + 1, itemProcessor);
             itemWrapper.appendChild(childContainer);
         }
 

@@ -44,6 +44,29 @@
   --aurora-pink:   #E68FB8;   /* sub-storm pink */
   --aurora-night:  #1E2440;   /* dawn glow */
 
+  /* Processor palette — 16 mid-saturation hues with good contrast against
+   * --bg-elev (#0F131C) and against each other. Each processor folder in
+   * the file tree is assigned one of these slots based on a stable hash of
+   * its name; all files/folders nested under that processor share the slot.
+   * If a project has more than 16 processors, slots wrap around.
+   */
+  --proc-color-0:  #E68FB8;   /* pink */
+  --proc-color-1:  #5BB8E8;   /* cyan */
+  --proc-color-2:  #5FE0B0;   /* mint */
+  --proc-color-3:  #B98AE0;   /* purple */
+  --proc-color-4:  #FFA94D;   /* orange */
+  --proc-color-5:  #F4D35E;   /* gold */
+  --proc-color-6:  #A8E063;   /* lime */
+  --proc-color-7:  #FF8A65;   /* coral */
+  --proc-color-8:  #80DEEA;   /* sky */
+  --proc-color-9:  #C792EA;   /* lavender */
+  --proc-color-10: #8ECF7C;   /* sage */
+  --proc-color-11: #4FD3C2;   /* teal */
+  --proc-color-12: #FFCB6B;   /* amber */
+  --proc-color-13: #BD93F9;   /* violet */
+  --proc-color-14: #50FA7B;   /* bright green */
+  --proc-color-15: #FF79C6;   /* rose */
+
   /* Accent — single source of truth */
   --accent:        #8E83E8;
   --accent-hover:  #A89EF0;

@@ -1,0 +1,37 @@
+name: Release
+
+# Builds the Windows installer when a version tag is pushed and publishes
+# it to a GitHub Release. The auto-updater (electron-updater) consumes
+# the Release artefacts (latest.yml + .exe) directly.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build & publish (windows-latest)
+    runs-on: windows-latest
+
+    permissions:
+      contents: write   # required to create the GitHub Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & publish
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          # electron-builder uses GH_TOKEN to create the release and upload assets
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

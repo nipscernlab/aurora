@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and discussions
+    url: https://github.com/nipscernlab/Aurora/discussions
+    about: For general questions, please use Discussions instead of Issues.
+  - name: Security disclosure
+    url: https://github.com/nipscernlab/Aurora/security/policy
+    about: Please report security issues privately, not as a public issue.

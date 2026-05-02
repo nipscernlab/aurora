@@ -117,16 +117,16 @@ class SplitPane {
 
         const lang = this._langFromPath(filePath);
 
-        // Try to share model with main pane for live sync
-        let model = null;
-        try {
-            const mainEditor = EditorManager?.getEditorForFile?.(filePath);
-            if (mainEditor) model = mainEditor.getModel();
-        } catch (_) { /* ignore */ }
-
+        // Each pane owns its own Monaco model. We used to reuse the main
+        // pane's model for "live sync", but that meant the main pane closing
+        // its tab (and Monaco auto-disposing its model) left every split with
+        // a dead reference and a blank editor. The trade-off is that edits
+        // in one pane don't propagate to another in real time — that's fine
+        // for now; users can save and reload to sync.
         const editorOptions = {
             theme: EditorManager?.currentTheme ?? 'vs-dark',
             language: lang,
+            value: content || '',
             automaticLayout: true,
             fontFamily: "'JetBrains Mono', monospace",
             fontLigatures: true,
@@ -137,11 +137,7 @@ class SplitPane {
             cursorBlinking: 'smooth',
         };
 
-        const editor = model
-            ? monaco.editor.create(editorDiv, { ...editorOptions, model })
-            : monaco.editor.create(editorDiv, editorOptions);
-
-        if (!model) editor.setValue(content || '');
+        const editor = monaco.editor.create(editorDiv, editorOptions);
 
         this.tabs.set(filePath, { editor, editorDiv });
         this._addTabElement(filePath);

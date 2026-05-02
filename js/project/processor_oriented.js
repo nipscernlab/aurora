@@ -949,10 +949,19 @@ window.electronAPI.onProjectOpen((data) => {
 // Listen for processor list updates
 window.electronAPI.onProcessorsUpdated((data) => {
   console.log("Processors updated event received:", data);
-  
-  if (data && data.processors) {
+
+  if (data && Array.isArray(data.processors)) {
     availableProcessors = data.processors;
+    // Keep the global mirror in sync so the file tree's processor coloring
+    // and trash-icon detection work without a manual refresh. Without this,
+    // colors only appeared after the user opened Settings (which calls
+    // loadAvailableProcessors() and then refreshFileTree()).
+    window.availableProcessors = data.processors;
     updateProcessorSelect();
+
+    if (typeof window.refreshFileTree === 'function') {
+      window.refreshFileTree();
+    }
   }
 });
 

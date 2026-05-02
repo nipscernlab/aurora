@@ -15,7 +15,6 @@ const moment = require('moment');
 const { exec } = require('child_process');
 
 const state = require('../state');
-const { sevenZipPath } = require('../paths');
 const { debounce, getMimeType } = require('../utils');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
@@ -350,42 +349,56 @@ function register() {
     const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
     const tempBackupFolderName = `backup_${timestamp}`;
     const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
-    const zipFileName = `${folderName}_${timestamp}.7z`;
+    // .zip via PowerShell's Compress-Archive — ships natively on every
+    // supported Windows build, so the backup no longer depends on a 7-Zip
+    // install on PATH (the previous default `7z` command was almost never
+    // present, which left the temp folder behind with no archive next to it).
+    const zipFileName = `${folderName}_${timestamp}.zip`;
     const zipFilePath = path.join(backupFolderPath, zipFileName);
 
     try {
       await fse.ensureDir(backupFolderPath);
       await fse.ensureDir(tempBackupFolderPath);
 
-      const files = await fse.readdir(folderPath);
-      for (const file of files) {
-        const sourcePath = path.join(folderPath, file);
-        const destPath = path.join(tempBackupFolderPath, file);
-        if (file !== 'Backup' && file !== tempBackupFolderName) {
-          await fse.copy(sourcePath, destPath);
-        }
+      const entries = await fse.readdir(folderPath);
+      for (const entry of entries) {
+        if (entry === 'Backup' || entry === tempBackupFolderName) continue;
+        await fse.copy(path.join(folderPath, entry), path.join(tempBackupFolderPath, entry));
       }
 
-      const command = `"${sevenZipPath}" a "${zipFilePath}" "${tempBackupFolderName}"`;
+      // Quote escaping for PowerShell single-quoted strings: ' → ''.
+      const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
+      const psCommand =
+        `Compress-Archive -Path ${psQuote(path.join(tempBackupFolderPath, '*'))} ` +
+        `-DestinationPath ${psQuote(zipFilePath)} -Force`;
+      const command = `powershell -NoProfile -NonInteractive -Command "${psCommand.replace(/"/g, '\\"')}"`;
 
       return await new Promise((resolve) => {
-        exec(command, { cwd: folderPath }, async (error, _stdout, stderr) => {
+        exec(command, { cwd: folderPath, windowsHide: true }, async (error, _stdout, stderr) => {
+          // Always try to clean the staging folder, success or failure, so
+          // we don't leave the user with a dangling backup_<timestamp>/.
+          try {
+            await fse.remove(tempBackupFolderPath);
+          } catch (deleteError) {
+            log.error('Error deleting temporary backup folder:', deleteError);
+          }
+
           if (error) {
-            log.error('Error creating backup:', stderr);
-            resolve({ success: false, message: 'Error creating backup.' });
+            log.error('Error creating backup:', stderr || error.message);
+            resolve({
+              success: false,
+              message: `Could not create archive: ${error.message}`,
+            });
           } else {
-            try {
-              await fse.remove(tempBackupFolderPath);
-            } catch (deleteError) {
-              log.error('Error deleting temporary backup folder:', deleteError);
-            }
             resolve({ success: true, message: `Backup created at: ${zipFilePath}` });
           }
         });
       });
     } catch (error) {
+      // Best-effort cleanup of the staging folder on any failure path.
+      try { await fse.remove(tempBackupFolderPath); } catch (_) { /* ignore */ }
       log.error('Error creating backup:', error);
-      return { success: false, message: 'Error creating backup.' };
+      return { success: false, message: `Error creating backup: ${error.message}` };
     }
   });
 

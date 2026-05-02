@@ -5,7 +5,7 @@
 /* eslint-disable no-undef */
 
 import { showCardNotification } from '../ui/notification.js';
-import { TreeViewState, fileTreeManager } from './file_tree_manager.js';
+import { TreeViewState, fileTreeManager, FileTreeState } from './file_tree_manager.js';
 
 class FileTreeController {
   constructor() {
@@ -129,26 +129,29 @@ class FileTreeController {
    * the post-collapse model state.
    */
   collapseAll() {
-    if (typeof FileTreeState !== 'undefined') {
-      FileTreeState.expandedFolders.clear();
-    }
+    // Clear the model first. FileTreeState was previously not exported, so
+    // `typeof FileTreeState !== 'undefined'` resolved to false and the
+    // expanded-folder set survived the re-render — the tree just bounced
+    // back to its previous shape, which the user perceived as "Collapse All
+    // is just Refresh". Importing FileTreeState fixes that.
+    FileTreeState?.expandedFolders?.clear?.();
 
     // Re-render so every chevron + folder icon picks up its collapsed
     // state from a fresh pass through renderFileTree.
     if (fileTreeManager && typeof fileTreeManager.refresh === 'function') {
       fileTreeManager.refresh();
-    } else {
-      // Defensive fallback: if the manager isn't available, at least hide
-      // every folder-content + add `.collapsed` to every chevron in DOM.
-      this.fileTreeContainer.querySelectorAll('.folder-content')
-        .forEach(content => content.classList.add('hidden'));
-      this.fileTreeContainer.querySelectorAll('.folder-toggle-icon')
-        .forEach(toggle => toggle.classList.add('collapsed'));
-      this.fileTreeContainer.querySelectorAll('.file-item-icon.ph-folder-open')
-        .forEach(icon => icon.classList.replace('ph-folder-open', 'ph-folder'));
-      this.fileTreeContainer.querySelectorAll('.file-item-icon.fa-folder-open')
-        .forEach(icon => icon.classList.replace('fa-folder-open', 'fa-folder'));
     }
+
+    // Defensive DOM sweep. Runs on top of the model reset above so even if
+    // the renderer is mid-flight (200ms fade) the user sees instant feedback.
+    this.fileTreeContainer.querySelectorAll('.folder-content')
+      .forEach(content => content.classList.add('hidden'));
+    this.fileTreeContainer.querySelectorAll('.folder-toggle-icon')
+      .forEach(toggle => toggle.classList.add('collapsed'));
+    this.fileTreeContainer.querySelectorAll('.file-item-icon.ph-folder-open')
+      .forEach(icon => icon.classList.replace('ph-folder-open', 'ph-folder'));
+    this.fileTreeContainer.querySelectorAll('.file-item-icon.fa-folder-open')
+      .forEach(icon => icon.classList.replace('fa-folder-open', 'fa-folder'));
 
     this.showCollapseEffect();
   }

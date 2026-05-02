@@ -193,6 +193,13 @@ const updateOperations = {
   getComponentsPath: () => ipcRenderer.invoke('get-components-path'),
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
   getSystemPerformance: () => ipcRenderer.invoke('get-system-performance'),
+
+  // Manual control for the in-app "Check for updates" affordance. The
+  // silent startup check still runs ~10 s after launch — these are for
+  // explicit user-driven flows (e.g. settings panel, About dialog).
+  checkForUpdates:  () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate:   () => ipcRenderer.invoke('download-update'),
+  quitAndInstall:   () => ipcRenderer.invoke('quit-and-install'),
 };
 
 /* ============================================================================

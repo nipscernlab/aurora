@@ -195,8 +195,68 @@ function startUpdateDownload() {
   });
 }
 
+/**
+ * Manually triggered update check. `interactive=true` shows the
+ * "you're up to date" dialog when no update is found; the silent
+ * background check on launch suppresses it.
+ */
+function checkForUpdates(interactive = false) {
+  if (isDev) {
+    log.info('Skipping update check — running in dev mode');
+    if (interactive) {
+      dialog.showMessageBox(state.mainWindow, {
+        type: 'info',
+        title: 'Updates Disabled',
+        message: 'Update checks are disabled in development mode.',
+        buttons: ['OK'],
+      });
+    }
+    return;
+  }
+  if (state.updateCheckInProgress) {
+    log.info('Update check already in progress');
+    return;
+  }
+  autoUpdater.showNoUpdateDialog = !!interactive;
+  autoUpdater.checkForUpdates().catch((err) => {
+    state.updateCheckInProgress = false;
+    log.error('Failed to start update check:', err);
+    if (interactive) {
+      dialog.showMessageBox(state.mainWindow, {
+        type: 'error',
+        title: 'Update Check Failed',
+        message: 'Could not check for updates.',
+        detail: err.message,
+        buttons: ['OK'],
+      });
+    }
+  });
+}
+
 function registerIpc() {
   ipcMain.handle('get-app-version', () => app.getVersion());
+
+  // Renderer can request a manual check (e.g. from a "Check for updates"
+  // menu item or settings panel). `interactive=true` makes the no-update
+  // dialog visible so the user gets visible feedback.
+  ipcMain.handle('check-for-updates', () => {
+    checkForUpdates(true);
+    return { ok: true };
+  });
+
+  // Renderer can kick off the download once an update is known to be
+  // available (e.g. user clicked "Download" in a custom in-app banner
+  // instead of the native dialog).
+  ipcMain.handle('download-update', () => {
+    startUpdateDownload();
+    return { ok: true };
+  });
+
+  // Renderer can request an immediate install once the download finished.
+  ipcMain.handle('quit-and-install', () => {
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return { ok: true };
+  });
 }
 
 function initializeUpdateSystem() {
@@ -210,6 +270,9 @@ function initializeUpdateSystem() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 
+  // Feed URL is also picked up from package.json#build.publish, but we
+  // set it explicitly so the check works even if the packaged app's
+  // app-update.yml gets out of sync.
   autoUpdater.setFeedURL({
     provider: 'github',
     owner: 'nipscernlab',
@@ -220,14 +283,21 @@ function initializeUpdateSystem() {
   setupAutoUpdaterEvents();
   registerIpc();
 
+  // Silent background check 10s after launch (gives the renderer time to
+  // settle so the eventual "update available" dialog isn't competing with
+  // the splash → main window transition).
   setTimeout(() => {
-    if (!isDev && !state.updateCheckInProgress) {
-      log.info('Starting initial update check...');
-      // checkForUpdates(false);  // intentionally disabled in original main.js
-    } else {
-      log.info('Skipping update check - dev mode or already in progress');
+    if (isDev) {
+      log.info('Skipping startup update check — dev mode');
+      return;
     }
-  }, 5000);
+    if (state.updateCheckInProgress) {
+      log.info('Skipping startup update check — already in progress');
+      return;
+    }
+    log.info('Starting silent startup update check...');
+    checkForUpdates(false);
+  }, 10000);
 }
 
 module.exports = {
@@ -235,4 +305,5 @@ module.exports = {
   startUpdateDownload,
   initializeUpdateSystem,
   registerIpc,
+  checkForUpdates,
 };

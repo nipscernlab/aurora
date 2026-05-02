@@ -4,13 +4,25 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
 
-function updateProjectNameUI(projectData) {
+function updateProjectNameUI(projectData, spfPath) {
     const spfNameElement = document.getElementById('current-spf-name');
-    if (projectData && projectData.metadata && projectData.metadata.projectName) {
-        spfNameElement.textContent = `${projectData.metadata.projectName}.spf`;
-    } else {
-        spfNameElement.textContent = 'No project open';
+    if (!spfNameElement) return;
+
+    const metaName = projectData?.metadata?.projectName;
+    if (metaName) {
+        spfNameElement.textContent = `${metaName}.spf`;
+        return;
     }
+
+    // Fallback: derive the name from the .spf path so the label never gets
+    // stuck on "No project open" after a successful load with sparse metadata.
+    if (typeof spfPath === 'string' && spfPath.trim()) {
+        const base = spfPath.split(/[\\/]/).pop() || spfPath;
+        spfNameElement.textContent = base.endsWith('.spf') ? base : `${base}.spf`;
+        return;
+    }
+
+    spfNameElement.textContent = 'No project open';
 }
 
 function showProjectInfoDialog(projectData) {
@@ -114,7 +126,21 @@ async function loadProject(spfPath) {
         window.currentProjectPath = basePath;
         window.currentSpfPath = spfPath;
 
-        updateProjectNameUI(projectData);
+        // Seed the global processor list from the IPC payload BEFORE the file
+        // tree renders. Without this, processor folders render as plain
+        // directories and only pick up their per-processor color/trash icon
+        // after a manual refresh (e.g. opening Settings). Tolerant to either
+        // shape: array of { name } objects or array of strings.
+        const procFromSpf = projectData?.structure?.processors;
+        if (Array.isArray(procFromSpf)) {
+            window.availableProcessors = procFromSpf
+                .map(p => (typeof p === 'string' ? p : p?.name))
+                .filter(Boolean);
+        } else {
+            window.availableProcessors = [];
+        }
+
+        updateProjectNameUI(projectData, spfPath);
         await TabManager.closeAllTabs();
 
         // Update file tree (defensive — files may be missing on partial result)

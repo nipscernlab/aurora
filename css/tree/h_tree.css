@@ -137,7 +137,6 @@
 
 .hierarchy-item.active > .hierarchy-item-content {
   background-color: var(--accent-soft);
-  color: var(--text);
 }
 
 .hierarchy-item.active > .hierarchy-item-content::before {
@@ -218,10 +217,9 @@
   line-height: var(--leading-snug);
 }
 
-.hierarchy-item[data-type="top-level"] .hierarchy-label { font-weight: var(--font-semibold); color: var(--text); }
-.hierarchy-item[data-type="module"]    .hierarchy-label { font-weight: var(--font-medium);   color: var(--text); }
-.hierarchy-item[data-type="instance"]  .hierarchy-label { font-weight: var(--font-normal);   color: var(--text); }
-.hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-muted); }
+/* Uniform typography across hierarchy rows — type info is carried by the
+   icon color (see above), not by font weight or color. Keeps every tree
+   visually consistent with the standard file tree. */
 
 /* ---------------------------------------------------------------------------
  *  Children container — depth carried by left padding so each nested level

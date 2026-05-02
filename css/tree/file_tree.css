@@ -124,11 +124,10 @@
   color: var(--text);
 }
 
-/* Active selection */
+/* Active selection — only the background changes, never the size or weight,
+   so the row height stays stable as the user clicks around. */
 .file-tree-item.active > .file-item {
   background-color: var(--accent-soft);
-  color: var(--text);
-  font-weight: var(--font-medium);
 }
 
 .file-tree-item.active > .file-item::before {
@@ -151,12 +150,9 @@
   cursor: not-allowed;
 }
 
-/* Folder rows have stronger weight */
-.file-tree-item[data-type="folder"] > .file-item,
-.file-tree-item.folder > .file-item {
-  font-weight: var(--font-medium);
-  color: var(--text);
-}
+/* All rows share the same text size, weight, and color across trees so the
+   explorer reads as a single uniform list. (Folder/processor differentiation
+   is carried by icon color and the chevron, not by typography.) */
 
 /* ---------------------------------------------------------------------------
  *  Chevron / spacer — VSCode uses 16px wide

@@ -1361,25 +1361,43 @@ async runVerilogOnlyGtkWave() {
 
         this.terminalManager.appendToTerminal('twave', `VCD file created: ${vcdFile}`, 'success');
 
+        // Always stage fix.vcd alongside the VCD output. GTKWave under GTK3
+        // needs that companion file opened in a second tab to refresh the
+        // view — the same workaround used by processor and project modes.
+        try {
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
+                await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
+            );
+        } catch (copyErr) {
+            this.terminalManager.appendToTerminal('twave',
+                `Warning: could not stage fix.vcd — ${copyErr.message}`, 'warning');
+        }
+
         // Check for custom GTKWave save file
         let gtkwSaveFile = null;
         if (this.projectConfig.gtkwFiles && this.projectConfig.gtkwFiles.length > 0) {
             const gtkwFile = this.projectConfig.gtkwFiles.find(f => f.isTopLevel === true);
             if (gtkwFile) {
                 gtkwSaveFile = gtkwFile.path;
-                this.terminalManager.appendToTerminal('twave', 
+                this.terminalManager.appendToTerminal('twave',
                     `Using GTKWave save file: ${gtkwSaveFile.split(/[\\\/]/).pop()}`, 'info');
             }
         }
 
         this.terminalManager.appendToTerminal('twave', 'Launching GTKWave...', 'info');
 
+        // Generic init script: zooms, then opens fix.vcd in a second tab.
+        const fixScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
+
         // Build GTKWave command
         let gtkwaveCmd = `"${gtkwaveBin}" --rcvar "hide_sst on" --dark "${vcdFile}"`;
-        
+
         if (gtkwSaveFile) {
             gtkwaveCmd += ` -a "${gtkwSaveFile}"`;
         }
+
+        gtkwaveCmd += ` --script="${fixScript}"`;
 
         const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
             gtkwCmd: gtkwaveCmd,

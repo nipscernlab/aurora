@@ -174,9 +174,17 @@ async function refreshFileTree() {
     }
 }
 
-// Stable djb2 hash → 0..15 slot. Same processor name always lands in the
-// same color across reloads (no localStorage state needed).
+// 16 distinct color slots, one per processor in declaration order. With ≤16
+// processors every processor gets a unique color (no hash collisions); with
+// more than 16 the palette simply wraps. Order is taken from
+// `window.availableProcessors`, which mirrors the .spf processor list, so the
+// mapping is stable across reloads of the same project.
 function processorColorSlot(name) {
+    const list = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+    const idx = list.indexOf(name);
+    if (idx >= 0) return idx % 16;
+    // Fallback for an unknown name: keep colours deterministic via djb2 so
+    // the tree never throws while the processor list is still loading.
     let hash = 5381;
     for (let i = 0; i < name.length; i++) {
         hash = ((hash << 5) + hash + name.charCodeAt(i)) | 0;
@@ -776,6 +784,6 @@ renderHierarchicalTreeFromData() {
 }
 
 const fileTreeManager = new FileTreeManager();
-export { fileTreeManager, TreeViewState };
+export { fileTreeManager, TreeViewState, FileTreeState };
 
 window.refreshFileTree = refreshFileTree;

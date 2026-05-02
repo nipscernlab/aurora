@@ -82,7 +82,7 @@
 .verilog-file-item {
   display: flex;
   align-items: center;
-  height: 26px;
+  height: 22px;
   padding: 0 var(--space-2) 0 var(--space-3);
   margin: 0;
   background: transparent;
@@ -90,7 +90,7 @@
   border-left: 2px solid transparent;
   border-radius: 0;
   cursor: pointer;
-  transition: background-color 100ms linear, color 100ms linear, border-color 100ms linear;
+  transition: background-color 100ms linear, border-color 100ms linear;
 }
 
 .verilog-file-item.synthesizable {
@@ -169,14 +169,9 @@
   min-width: 0;
 }
 
-.verilog-file-item:hover .verilog-file-name,
-.verilog-file-item.top-level-file .verilog-file-name {
-  color: var(--text);
-}
-
-.verilog-file-item.top-level-file .verilog-file-name {
-  font-weight: var(--font-medium);
-}
+/* Uniform typography across all tree rows — top-level/hover differentiation
+   is carried by the row background and the colored left border, not by
+   font weight or text color. */
 
 /* ---------------------------------------------------------------------------
  *  Inline badges (Top Level, Testbench)

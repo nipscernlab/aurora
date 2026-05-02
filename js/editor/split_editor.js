@@ -8,6 +8,7 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
+import { SharedModelRegistry } from './shared_models.js';
 
 const MIN_PANE_WIDTH = 120;
 
@@ -117,16 +118,15 @@ class SplitPane {
 
         const lang = this._langFromPath(filePath);
 
-        // Each pane owns its own Monaco model. We used to reuse the main
-        // pane's model for "live sync", but that meant the main pane closing
-        // its tab (and Monaco auto-disposing its model) left every split with
-        // a dead reference and a blank editor. The trade-off is that edits
-        // in one pane don't propagate to another in real time — that's fine
-        // for now; users can save and reload to sync.
-        const editorOptions = {
+        // Attach to the file's shared model. Every pane (main + splits) that
+        // shows this file points to the same `ITextModel`, so typing here
+        // appears in every other pane in real time, undo/redo is a single
+        // shared stack, and the dirty marker fires once for the file.
+        const model = SharedModelRegistry.acquire(filePath, content || '', lang);
+
+        const editor = monaco.editor.create(editorDiv, {
             theme: EditorManager?.currentTheme ?? 'vs-dark',
-            language: lang,
-            value: content || '',
+            model,
             automaticLayout: true,
             fontFamily: "'JetBrains Mono', monospace",
             fontLigatures: true,
@@ -135,9 +135,27 @@ class SplitPane {
             scrollBeyondLastLine: false,
             cursorSmoothCaretAnimation: 'on',
             cursorBlinking: 'smooth',
-        };
+        });
 
-        const editor = monaco.editor.create(editorDiv, editorOptions);
+        // Cursor in this editor → activate this pane's tab + take pane focus.
+        editor.onDidFocusEditorWidget(() => {
+            SplitEditorManager.setFocus(this.paneIndex);
+            if (this.activeFile !== filePath) {
+                this._activateFile(filePath);
+            }
+        });
+
+        // Mirror typing into the dirty marker. The shared model already
+        // notifies every editor's listeners on change; we go through
+        // TabManager so the (single) main-tab close-button dot and the
+        // unsavedChanges set stay coherent regardless of where the edit
+        // originated.
+        editor.onDidChangeModelContent(() => {
+            const stored = TabManager.tabs.get(filePath);
+            if (typeof stored === 'string' && model.getValue() !== stored) {
+                TabManager.markFileAsModified(filePath);
+            }
+        });
 
         this.tabs.set(filePath, { editor, editorDiv });
         this._addTabElement(filePath);
@@ -195,8 +213,12 @@ class SplitPane {
         const info = this.tabs.get(filePath);
         if (!info) return;
 
+        // Dispose the editor view, then release our hold on the shared
+        // model. The model only goes away once every pane (main + splits)
+        // has released it.
         info.editor.dispose();
         info.editorDiv.remove();
+        SharedModelRegistry.release(filePath);
         this.tabs.delete(filePath);
 
         const tabEl = this.element.querySelector(`.split-tab[data-path="${CSS.escape(filePath)}"]`);
@@ -228,7 +250,10 @@ class SplitPane {
     }
 
     destroy() {
-        this.tabs.forEach(({ editor }) => { try { editor.dispose(); } catch (_) {} });
+        this.tabs.forEach(({ editor }, filePath) => {
+            try { editor.dispose(); } catch (_) { /* ignore */ }
+            SharedModelRegistry.release(filePath);
+        });
         this.tabs.clear();
         this.element.remove();
     }
@@ -448,6 +473,18 @@ const SplitEditorManager = {
         this.focusedPane = paneIndex;
         this.mainShell?.classList.toggle('split-pane-dimmed', paneIndex !== 0);
         this.panes.forEach(p => p.setDimmed(p.paneIndex !== paneIndex));
+    },
+
+    /**
+     * Returns the file currently being edited in the focused pane. Used by
+     * Ctrl+S so saving works the same regardless of which pane has the
+     * cursor: main pane → TabManager.activeTab, split pane → that pane's
+     * activeFile.
+     */
+    getFocusedFile() {
+        if (this.focusedPane === 0) return TabManager.activeTab;
+        const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
+        return pane?.activeFile ?? TabManager.activeTab;
     },
 
     _updateButton() {

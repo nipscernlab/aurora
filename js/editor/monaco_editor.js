@@ -2,6 +2,8 @@
 // monaco is loaded globally via index.html
 // require is the AMD loader from monaco-editor/min/vs/loader.js
 
+import { SharedModelRegistry } from './shared_models.js';
+
 class EditorManager {
     static editors = new Map();
     static activeEditor = null;
@@ -28,7 +30,7 @@ class EditorManager {
         }
     }
 
-    static createEditorInstance(filePath) {
+    static createEditorInstance(filePath, initialContent = '') {
         if (!this.editorContainer) {
             console.error('EditorManager has not been initialized. Please call EditorManager.initialize() on DOMContentLoaded.');
             return;
@@ -37,6 +39,7 @@ class EditorManager {
         const editorDiv = document.createElement('div');
         editorDiv.className = 'editor-instance';
         editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        editorDiv.dataset.filePath = filePath;
         editorDiv.style.cssText = `
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -48,9 +51,15 @@ class EditorManager {
         const language = this.getLanguageFromPath(filePath);
         const theme = language === 'cmm' ? (this.currentTheme === 'cmm-dark' ? 'cmm-dark' : 'cmm-light') : this.currentTheme;
 
+        // Shared model: every editor showing this file (main pane + any split
+        // panes) attaches to the same `ITextModel`, so edits propagate
+        // automatically and the dirty marker fires once for the file rather
+        // than once per pane.
+        const model = SharedModelRegistry.acquire(filePath, initialContent, language);
+
         const editor = monaco.editor.create(editorDiv, {
             theme: theme,
-            language: language,
+            model,
             automaticLayout: true,
 
             // SMOOTH CURSOR ANIMATION - Enhancement #2
@@ -219,6 +228,16 @@ class EditorManager {
         this.editors.set(filePath, {
             editor: editor,
             container: editorDiv
+        });
+
+        // Auto-activate the file's tab whenever the editor gains focus
+        // (mouse click *or* keyboard navigation). Dispatched as a custom
+        // event so this module doesn't have to import TabManager and risk
+        // a circular dependency.
+        editor.onDidFocusEditorWidget(() => {
+            document.dispatchEvent(new CustomEvent('aurora-editor-focused', {
+                detail: { filePath, paneIndex: 0 },
+            }));
         });
 
         this.decorateVerticalBar(editor);
@@ -527,11 +546,12 @@ class EditorManager {
             this.resizeObserver.disconnect();
             this.resizeObserver = null;
         }
-        
-        this.editors.forEach(({ editor }) => {
+
+        this.editors.forEach(({ editor }, filePath) => {
             editor.dispose();
+            SharedModelRegistry.release(filePath);
         });
-        
+
         this.editors.clear();
         this.findStates.clear();
         this.decorationCollections.clear();
@@ -641,11 +661,15 @@ class EditorManager {
     static closeEditor(filePath) {
         const editorData = this.editors.get(filePath);
         if (editorData) {
+            // Dispose the editor view but NOT the model — that's the
+            // registry's job. If a split pane is still showing this file,
+            // the model has to outlive the main editor.
             editorData.editor.dispose();
             this.editorContainer.removeChild(editorData.container);
             this.editors.delete(filePath);
             this.findStates.delete(filePath);
             this.decorationCollections.delete(filePath);
+            SharedModelRegistry.release(filePath);
         }
         this.updateOverlayVisibility();
     }

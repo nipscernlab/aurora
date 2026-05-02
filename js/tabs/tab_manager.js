@@ -567,9 +567,12 @@ export class TabManager {
             this.tabs.set(filePath, content || '');
 
             try {
-                // Create editor and set content
-                const editor = EditorManager.createEditorInstance(filePath);
-                editor.setValue(content || '');
+                // Pass content through to the model factory so the registry
+                // can seed the shared model on first acquire. This avoids the
+                // old `setValue` after-create call, which would reset the
+                // model and silently wipe edits made by other panes that
+                // already attached to it.
+                const editor = EditorManager.createEditorInstance(filePath, content || '');
 
                 // Setup change listener
                 this.setupContentChangeListener(filePath, editor);
@@ -670,16 +673,32 @@ export class TabManager {
             }
         }
     }
-    // Comprehensive save method
+    // Resolve "the file the user is currently editing" — main pane uses
+    // TabManager.activeTab, splits override with their own focused file.
+    // Falls back to the main active tab if no split is focused.
+    static getEditingFilePath() {
+        const split = window.SplitEditorManager;
+        if (split && typeof split.getFocusedFile === 'function') {
+            const focused = split.getFocusedFile();
+            if (focused) return focused;
+        }
+        return this.activeTab;
+    }
+
+    // Comprehensive save method. Reads from the shared model rather than
+    // a specific editor, so saving works the same whether the user typed
+    // in the main pane or in a split.
     static async saveCurrentFile() {
-        const currentPath = this.activeTab;
+        const currentPath = this.getEditingFilePath();
         if (!currentPath) return;
+        if (this.isBinaryFile(currentPath)) return;
 
         try {
-            const currentEditor = EditorManager.getEditorForFile(currentPath);
-            if (!currentEditor) return;
+            const model = window.SharedModelRegistry?.getModel?.(currentPath)
+                ?? EditorManager.getEditorForFile(currentPath)?.getModel();
+            if (!model) return;
 
-            const content = currentEditor.getValue();
+            const content = model.getValue();
 
             // Update stored content first
             this.tabs.set(currentPath, content);
@@ -707,10 +726,11 @@ export class TabManager {
             // Skip binary files
             if (this.isBinaryFile(filePath)) continue;
 
-            const editor = EditorManager.getEditorForFile(filePath);
-            if (!editor) continue;
+            const model = window.SharedModelRegistry?.getModel?.(filePath)
+                ?? EditorManager.getEditorForFile(filePath)?.getModel();
+            if (!model) continue;
 
-            const currentContent = editor.getValue();
+            const currentContent = model.getValue();
 
             // Only save if modified
             if (currentContent !== originalContent) {
@@ -975,19 +995,20 @@ export class TabManager {
 
     // Enhanced saveFile method with undo history preservation
     static async saveFile(filePath = null) {
-        const currentPath = filePath || this.activeTab;
+        const currentPath = filePath || this.getEditingFilePath();
         if (!currentPath) return;
 
         // Don't save binary files
         if (this.isBinaryFile(currentPath)) return;
 
         try {
-            const currentEditor = EditorManager.getEditorForFile(currentPath);
-            if (!currentEditor) {
-                throw new Error('Editor not found for file');
+            const model = window.SharedModelRegistry?.getModel?.(currentPath)
+                ?? EditorManager.getEditorForFile(currentPath)?.getModel();
+            if (!model) {
+                throw new Error('Editor model not found for file');
             }
 
-            const content = currentEditor.getValue();
+            const content = model.getValue();
 
             // IMPORTANT: Update our stored content BEFORE writing to disk
             // This helps the external change handler recognize this as our own save
@@ -1118,12 +1139,40 @@ export class TabManager {
             console.error(`No content found for ${filePath}`);
         }
     }
+    // Whenever a Monaco editor (main or split) gets keyboard focus, it
+    // dispatches `aurora-editor-focused` with the file path it's showing.
+    // We use that to keep the tab UI in sync with where the cursor really
+    // lives — the user shouldn't have to click the tab manually after
+    // tabbing through panes or focusing a split via the keyboard.
+    static _bindEditorFocusActivation() {
+        if (this._editorFocusBound) return;
+        this._editorFocusBound = true;
+        document.addEventListener('aurora-editor-focused', (e) => {
+            const detail = e.detail || {};
+            const { filePath, paneIndex } = detail;
+            if (!filePath) return;
+
+            if (paneIndex === 0) {
+                // Main pane — promote preview if needed and activate.
+                if (this.activeTab !== filePath) {
+                    if (this.previewTab === filePath) {
+                        this.promotePreviewToPermanent(filePath);
+                    }
+                    this.activateTab(filePath);
+                }
+            }
+            // Split panes are handled inside SplitEditorManager so they can
+            // reach into their own pane's tab bar without going through us.
+        });
+    }
+
     // Initialize on script load
     static initialize() {
         this.initSortableTabs();
         this.restoreTabOrder();
         this.initFileChangeListeners();
         this.updateTabsContainerVisibility();
+        this._bindEditorFocusActivation();
 
         // Add event listener to save tab order when tabs change
         const tabContainer = document.getElementById('tabs-container');

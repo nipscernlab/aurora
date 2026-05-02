@@ -73,20 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Rule B: Positive Integers (> 0)
+    // Rule B: Positive Integers (> 0). Empty strings are rejected explicitly
+    // — `Number("")` is 0 which would otherwise pass the >0 guard for fields
+    // whose JS check is non-negative; we don't want any field accepting empty.
     const checkPositiveInteger = (element) => {
         return validateField(element, (val) => {
+            if (val === '' || val == null) return false;
             const num = Number(val);
-            // Must be number, integer, and strictly greater than 0
             return !isNaN(num) && Number.isInteger(num) && num > 0;
-        });
-    };
-
-    // Rule C: Non-Negative Integers (>= 0)
-    const checkNonNegativeInteger = (element) => {
-        return validateField(element, (val) => {
-            const num = Number(val);
-            return !isNaN(num) && Number.isInteger(num) && num >= 0;
         });
     };
 
@@ -128,8 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!checkGain()) isValid = false;
         if (!checkPositiveInteger(inputs.iStack)) isValid = false;
         if (!checkPositiveInteger(inputs.dStack)) isValid = false;
-        if (!checkNonNegativeInteger(inputs.inPorts)) isValid = false;
-        if (!checkNonNegativeInteger(inputs.outPorts)) isValid = false;
+        // Ports must be a positive integer like every other numeric field —
+        // we used to accept 0 (and silently empty) which let users submit
+        // a half-blank Processor Hub form.
+        if (!checkPositiveInteger(inputs.inPorts)) isValid = false;
+        if (!checkPositiveInteger(inputs.outPorts)) isValid = false;
 
         // Logical Check (Must be last to override style if needed)
         if (!checkBitConsistency()) isValid = false;

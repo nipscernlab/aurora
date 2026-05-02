@@ -278,54 +278,7 @@
 
 #refresh-button.spinning i { animation: spin 1s linear infinite; }
 
-/* ---------------------------------------------------------------------------
- *  Hierarchy view (legado) — same look & feel
- * ------------------------------------------------------------------------- */
-#hierarchy-tree {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--text);
-  cursor: pointer;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background-color: var(--bg-elev-2);
-  transition: all var(--transition-fast);
-}
-
-#hierarchy-tree:hover:not(.disabled) {
-  background-color: var(--border);
-  border-color: var(--accent-border);
-}
-
-#hierarchy-tree.active {
-  background-color: var(--accent-soft);
-  color: var(--accent-hover);
-  border-color: var(--accent);
-}
-
-.hierarchy-item[data-type="top-level"] .file-item-icon i { color: var(--status-error); }
-.hierarchy-item[data-type="module"]    .file-item-icon i { color: var(--status-info); }
-.hierarchy-item[data-type="instance"]  .file-item-icon i { color: var(--status-success); }
-.hierarchy-item[data-type="primitive"] .file-item-icon i { color: var(--text-muted); }
-
-.hierarchy-item[data-type="top-level"] .hierarchy-label { font-weight: var(--font-bold); color: var(--accent-hover); }
-.hierarchy-item[data-type="module"]    .hierarchy-label { font-weight: var(--font-semibold); color: var(--text); }
-.hierarchy-item[data-type="instance"]  .hierarchy-label { font-weight: var(--font-medium); color: var(--text); }
-.hierarchy-item[data-type="primitive"] .hierarchy-label { font-style: italic; color: var(--text-muted); }
-
-.hierarchy-item .hierarchy-item {
-  margin-left: var(--space-4);
-  position: relative;
-}
-
-.hierarchy-item .hierarchy-item::before,
-.hierarchy-item .hierarchy-item::after {
-  display: none;
-}
+/* Hierarchy-tree styles live in css/tree/h_tree.css now. */
 
 /* ---------------------------------------------------------------------------
  *  Optional file search (oculto por default)

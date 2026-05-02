@@ -1,0 +1,520 @@
+/*
+ * =====================================================================================
+ *  verilog_tree.css — Verilog file mode tree
+ *
+ *  Visible when the user is in Project Mode + simulation OFF, or when
+ *  explicitly switched to Verilog Mode. Lists imported .v / .gtkw / .vh files
+ *  flat (no folders), with badges for top-level and testbench, plus a hover
+ *  toggle to flip a file between synthesizable and testbench category.
+ *
+ *  Visual language matches file_tree.css: 26px row, dense, no card-like
+ *  borders, hover via overlay tint, accent bar on the active row. The
+ *  category toggle and badge live inline so the row stays a single line.
+ * =====================================================================================
+ */
+
+/* ---------------------------------------------------------------------------
+ *  Drop zone (drag-over hint shown over the entire .file-tree container)
+ * ------------------------------------------------------------------------- */
+.verilog-mode-active {
+  position: relative;
+  min-height: 200px;
+}
+
+.file-tree.verilog-dragover {
+  background: var(--accent-soft);
+  outline: 1px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+.file-tree.verilog-dragover::after {
+  content: 'Drop files here (.v, .vh, .gtkw)';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--accent-hover);
+  background: var(--bg-elev-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Empty state
+ * ------------------------------------------------------------------------- */
+.verilog-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  gap: var(--space-3);
+  min-height: 200px;
+}
+
+.verilog-empty-icon {
+  font-size: 2rem;
+  opacity: 0.45;
+  color: var(--text-muted);
+}
+
+.verilog-empty-text {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  max-width: 240px;
+}
+
+.verilog-empty-text strong {
+  color: var(--text);
+  font-weight: var(--font-semibold);
+}
+
+/* ---------------------------------------------------------------------------
+ *  File rows — match the regular file tree's row metrics
+ * ------------------------------------------------------------------------- */
+.verilog-file-item {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 100ms linear, color 100ms linear, border-color 100ms linear;
+}
+
+.verilog-file-item.synthesizable {
+  border-left-color: var(--aurora-cyan);
+}
+
+.verilog-file-item.testbench {
+  border-left-color: var(--aurora-purple);
+}
+
+.verilog-file-item.top-level-file {
+  background-color: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+
+.verilog-file-item:hover {
+  background-color: var(--overlay-hover);
+}
+
+.verilog-file-item.top-level-file:hover {
+  background-color: var(--accent-strong);
+}
+
+.verilog-file-item.verilog-file-animate-out {
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: opacity 180ms var(--ease-out-quart),
+              transform 180ms var(--ease-out-quart);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Row contents
+ * ------------------------------------------------------------------------- */
+.verilog-file-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+}
+
+.verilog-file-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.verilog-file-icon {
+  font-size: var(--text-base);
+  color: var(--aurora-pink);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.verilog-file-item.top-level-file .verilog-file-icon {
+  color: var(--accent-hover);
+}
+
+.verilog-file-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.verilog-file-item:hover .verilog-file-name,
+.verilog-file-item.top-level-file .verilog-file-name {
+  color: var(--text);
+}
+
+.verilog-file-item.top-level-file .verilog-file-name {
+  font-weight: var(--font-medium);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Inline badges (Top Level, Testbench)
+ * ------------------------------------------------------------------------- */
+.file-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent-border);
+  flex-shrink: 0;
+}
+
+.top-level-badge {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-color: var(--accent);
+}
+
+.testbench-badge {
+  background: rgba(0, 0, 0, 0); /* let the row's purple border-left carry meaning */
+  color: var(--aurora-purple);
+  border-color: var(--aurora-purple);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Row actions (toggle + delete) — appear on hover
+ * ------------------------------------------------------------------------- */
+.verilog-file-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.category-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateX(4px);
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.verilog-file-item:hover .category-toggle-wrapper {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.category-toggle {
+  position: relative;
+  width: 32px;
+  height: 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: background-color var(--transition-fast);
+}
+
+.category-toggle.synthesizable { background: var(--aurora-cyan); }
+.category-toggle.testbench    { background: var(--aurora-purple); }
+
+.category-toggle:hover { filter: brightness(1.1); }
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.category-toggle.synthesizable .toggle-slider { transform: translateX(0); }
+.category-toggle.testbench    .toggle-slider { transform: translateX(16px); }
+
+.verilog-icon-btn {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  opacity: 0;
+  transition: opacity var(--transition-fast),
+              background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.verilog-file-item:hover .verilog-icon-btn {
+  opacity: 1;
+}
+
+.verilog-icon-btn:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+.verilog-icon-btn.delete-btn:hover {
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Context menus (right-click on row, right-click on empty area)
+ * ------------------------------------------------------------------------- */
+.verilog-context-menu,
+.verilog-create-menu {
+  position: fixed;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  padding: var(--space-1);
+  min-width: 180px;
+  z-index: 10000;
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 120ms var(--ease-out-quart),
+              transform 120ms var(--ease-out-quart);
+}
+
+.verilog-context-menu.show,
+.verilog-create-menu.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.context-menu-item,
+.create-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.context-menu-item:hover:not(.disabled),
+.create-menu-item:hover {
+  background: var(--overlay-hover);
+  color: var(--text);
+}
+
+.context-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-menu-item.delete-item:hover {
+  background: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: var(--space-1) 0;
+}
+
+.context-menu-item i,
+.create-menu-item i {
+  width: 14px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ *  "New file" inline dialog (text input — kept as a thin bespoke modal
+ *  because the canonical showDialog only handles confirm-style choices).
+ * ------------------------------------------------------------------------- */
+.file-name-modal {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out-quart);
+}
+
+.file-name-modal.show { opacity: 1; }
+
+.file-name-modal-content {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  width: 360px;
+  max-width: 90%;
+  transform: scale(0.96) translateY(4px);
+  transition: transform 180ms var(--ease-out-quart);
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name-modal.show .file-name-modal-content {
+  transform: scale(1) translateY(0);
+}
+
+.file-name-modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.file-name-modal-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: var(--text-md);
+}
+
+.file-name-modal-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  letter-spacing: var(--tracking-tight);
+}
+
+.file-name-modal-body {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.file-name-modal-body label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.file-name-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  height: var(--h-input);
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.file-name-input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.file-name-input {
+  flex: 1;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  outline: none;
+}
+
+.file-extension {
+  padding-right: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+.file-name-modal-actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.file-name-btn {
+  height: var(--h-button);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.file-name-btn.cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.file-name-btn.cancel:hover {
+  background: var(--overlay-hover);
+  color: var(--text);
+}
+
+.file-name-btn.create {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.file-name-btn.create:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}

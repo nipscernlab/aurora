@@ -29,6 +29,7 @@
 /* 4. tree */
 @import url("./tree/file_tree.css");
 @import url("./tree/h_tree.css");
+@import url("./tree/verilog_tree.css");
 
 /* 5. terminal */
 @import url("./terminal/terminal.css");

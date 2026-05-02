@@ -1,0 +1,52 @@
+# Force LF on text files; bring Windows tools into line.
+* text=auto eol=lf
+
+# Sources
+*.js     text eol=lf
+*.css    text eol=lf
+*.html   text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+
+# Hardware sources kept as plain text
+*.v      text eol=lf
+*.vh     text eol=lf
+*.sv     text eol=lf
+*.cmm    text eol=lf
+*.asm    text eol=lf
+*.tcl    text eol=lf
+*.gtkw   text eol=lf
+*.spf    text eol=lf
+
+# Windows-only batch / shell scripts
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+*.ps1    text eol=crlf
+
+# Treat binaries as binary, never diff
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.wav    binary
+*.mp3    binary
+*.zip    binary
+*.7z     binary
+*.tar    binary
+*.gz     binary
+*.exe    binary
+*.dll    binary
+*.vcd    binary
+*.mif    binary
+*.tgt    binary
+*.vpi    binary
+
+# GitHub language stats: don't count bundled vendor code or generated dirs
+components/**       linguist-vendored
+node_modules/**     linguist-vendored
+dist/**             linguist-generated
+build/**            linguist-generated

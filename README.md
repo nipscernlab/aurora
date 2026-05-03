@@ -122,6 +122,99 @@ together pick the pipeline:
   testbench-driven simulation.
 - **Project + Compile only** — Verilog-only synthesis; no CMM/ASM steps.
 
+## Releasing
+
+Releases produce two GitHub artefacts: the **app installer** that end
+users download and the **toolchain bundle** the build pipeline depends
+on. Both flow through GitHub Releases so the auto-updater
+([`main/updater.js`](main/updater.js)) and the CI workflow
+([`.github/workflows/release.yml`](.github/workflows/release.yml)) can
+read them directly.
+
+### One-time setup — toolchain bundle
+
+The bundled SAPHO toolchain (Icarus Verilog, GTKWave, Yosys,
+netlistsvg, 7-Zip) lives in its own GitHub Release rather than in the
+source tree. Cut a new toolchain release whenever any of those binaries
+changes.
+
+```powershell
+# From a checkout that has components/Packages/ populated locally
+$ver = "v1"
+Compress-Archive -Path components/Packages/* `
+                 -DestinationPath ..\aurora-toolchain-$ver.zip `
+                 -CompressionLevel Optimal -Force
+```
+
+Then in the browser:
+
+1. Open <https://github.com/nipscernlab/Aurora/releases/new>
+2. **Choose a tag:** type `toolchain-v1` → *Create new tag on publish*
+3. **Title:** `AURORA toolchain v1`
+4. **Description:** one-liner about which upstream versions are bundled
+5. ✅ Tick **Set as a pre-release** (so it doesn't appear as the
+   user-facing "latest")
+6. Drag-and-drop `..\aurora-toolchain-v1.zip` into the assets area
+7. Click **Publish release**
+
+This is the bundle the release workflow downloads on every build.
+
+### Cutting an app release
+
+```powershell
+npm version patch          # or `minor` / `major` — creates a tagged commit
+git push --follow-tags
+```
+
+Then either:
+
+* **Recommended (CI build):** open the **Actions** tab → **Release**
+  workflow → **Run workflow**. Pass the toolchain release tag (e.g.
+  `toolchain-v1`). The workflow downloads the toolchain, runs
+  `electron-builder --publish always`, and the auto-updater takes it
+  from there.
+* **Manual (local build):** run `npm run build`, then upload the three
+  files from `dist/` (the `.exe`, the `.exe.blockmap`, and `latest.yml`)
+  to a new GitHub Release at the matching tag.
+
+### Manual upload (the v4.1.13 way)
+
+If CI isn't an option, build locally and upload through the browser:
+
+1. `npm run build` — produces `dist/AuroraIDE-Setup-vX.Y.Z.exe`,
+   `dist/AuroraIDE-Setup-vX.Y.Z.exe.blockmap`, and `dist/latest.yml`.
+2. Open <https://github.com/nipscernlab/Aurora/releases/new>
+3. **Choose a tag:** select the existing `vX.Y.Z` tag (or create one)
+4. **Title:** `AURORA IDE vX.Y.Z`
+5. **Description:** copy the relevant section from
+   [`CHANGELOG.md`](CHANGELOG.md)
+6. Drag-and-drop **all three** files from `dist/` into the assets area
+7. ✅ Tick **Set as the latest release**
+8. Click **Publish release**
+
+The moment the release is published, every user running an older AURORA
+sees the update prompt within ~10 s of launching — that's
+[`updater.js#initializeUpdateSystem`](main/updater.js#L208) firing the
+silent startup check.
+
+### How the auto-updater works
+
+| Stage                | Behaviour                                                     |
+|----------------------|---------------------------------------------------------------|
+| Boot + 10 s          | Silent check; no dialog if up to date                         |
+| Update available     | Native dialog with version + download size + release notes    |
+| Download             | Progress window driven by IPC channel `update-progress`       |
+| Download finished    | Native "Install Now / Install Later" dialog → `quitAndInstall`|
+| Renderer-driven check| `electronAPI.checkForUpdates()` — interactive, with a no-update toast |
+| Renderer-driven start| `electronAPI.downloadUpdate()` once an update is known         |
+| Renderer-driven install| `electronAPI.quitAndInstall()` once the download finished    |
+
+Feed URL is hardwired to
+`github://nipscernlab/aurora` (release channel) in
+[`updater.js#initializeUpdateSystem`](main/updater.js#L208). The
+installer's filename embeds `${version}` so `latest.yml` always points
+at the right artefact.
+
 ## Contributing
 
 We welcome bug reports, feature requests, and pull requests. Please read

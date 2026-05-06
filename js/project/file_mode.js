@@ -363,7 +363,9 @@ class VerilogModeManager {
      */
    async activateVerilogMode() {
         if (this.isVerilogModeActive) {
-            console.log('⚠️ Verilog Mode already active');
+            // Already active but a new project may have been opened — refresh
+            // the configuration and re-render rather than returning a stale tree.
+            await this.refreshVerilogTree();
             return;
         }
         
@@ -435,11 +437,6 @@ class VerilogModeManager {
         }
         
         console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
-        // Render each file with toggle
-    this.verilogFiles.forEach((file, index) => {
-        const fileItem = this.createFileItem(file, index); // Changed
-        fileTree.appendChild(fileItem);
-    });
 
         // Clear existing content
         fileTree.innerHTML = '';

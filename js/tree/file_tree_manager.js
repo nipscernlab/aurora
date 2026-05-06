@@ -108,6 +108,11 @@ async function refreshFileTree() {
             return;
         }
 
+        // Don't overwrite the verilog file tree with the standard project tree
+        if (fileTree.classList.contains('verilog-mode-active')) {
+            return;
+        }
+
         if (!window.currentProjectPath) {
             console.warn('No project is currently open');
             return;
@@ -582,20 +587,21 @@ class FileTreeManager {
     async initializeTreeBasedOnMode() {
         // Wait a bit for DOM to be fully ready
         await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const savedMode = localStorage.getItem('aurora-ide-compilation-mode');
+
+        // getCurrentMode() reads the live DOM (radio + toggle), which is the
+        // authoritative source. savedMode only stores the radio label, not the
+        // composite verilog-only state, so it cannot be used here.
         const currentMode = this.getCurrentMode();
-        const modeToUse = savedMode || currentMode;
-        
-        console.log('🌳 Initializing tree for mode:', modeToUse);
-        
-        if (modeToUse === 'Verilog Mode') {
-            // Activate Verilog Mode tree
+
+        console.log('🌳 Initializing tree for mode:', currentMode);
+
+        if (currentMode === 'verilog') {
+            // Project Mode + Compile&Simulate OFF → verilog file tree
             if (window.verilogModeManager) {
                 await window.verilogModeManager.activateVerilogMode();
             }
         } else {
-            // Show standard file tree for Processor/Project modes
+            // Processor Mode or Project+Sim ON → standard file tree
             this.refresh();
         }
     }

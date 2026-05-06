@@ -142,8 +142,10 @@ class CompilationFlowManager {
                 // 'true' string -> true boolean
                 toggle.checked = (savedState === 'true');
             } else {
-                // Default default if nothing saved (e.g., true/Simulate ON)
-                toggle.checked = true;
+                // Default: Compile & Simulate OFF — the project-verilog-only flow.
+                // Lets users drop a single .v and run it without configuring
+                // a processor first.
+                toggle.checked = false;
             }
 
             // Manually trigger change event so UI/CSS (hiding sections) updates immediately
@@ -256,15 +258,37 @@ async runAll() {
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
-        
-        const isProjectMode = document.getElementById('toggle-ui')?.classList.contains('active');
+
+        const mode = this.getCurrentMode();
+
+        if (mode === 'project-verilog-only') {
+            // No processor / no CMM / no ASM. Compile the user's Verilog and,
+            // if a testbench is present, run the simulation + waveform.
+            switchTerminal('terminal-tveri');
+            checkCancellation();
+            await compiler.iverilogVerilogOnlyCompilation();
+
+            const hasTestbench = !!(compiler.projectConfig?.testbenchFile)
+                || (compiler.projectConfig?.testbenchFiles?.some(f => f?.path));
+            if (hasTestbench) {
+                switchTerminal('terminal-twave');
+                checkCancellation();
+                await compiler.runVerilogOnlyGtkWave();
+            } else {
+                compiler.terminalManager.appendToTerminal('tveri',
+                    'No testbench configured — skipping simulation step.', 'info');
+            }
+            return;
+        }
+
         const hasProcessors = compiler.config?.processors?.length > 0;
-        
-        // Run All requires processors
+
+        // The remaining pipelines (processor + project-simulation) need
+        // a configured processor.
         if (!hasProcessors) {
             await showDialog({
                 title: 'Configuration Required',
-                message: 'Full Build (Run All) requires at least one configured processor. Use individual compilation steps for processor-less projects.',
+                message: 'Full Build (Run All) requires at least one configured processor. For processor-less designs, switch to Project Mode and disable Compile & Simulate.',
                 buttons: [
                     { label: 'OK', type: 'cancel', action: 'close' }
                 ]
@@ -272,8 +296,8 @@ async runAll() {
             endCompilation();
             return;
         }
-        
-        if (isProjectMode) {
+
+        if (mode === 'project-simulation') {
             await runProjectPipeline(compiler);
         } else {
             await runProcessorPipeline(compiler);

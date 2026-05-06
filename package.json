@@ -9,7 +9,7 @@
     },
     "main": "main.js",
     "scripts": {
-        "prestart": "node components/scripts/copy-components.js",
+        "prestart": "node components/Scripts/download-toolchain.js && node components/Scripts/copy-components.js",
         "start": "electron .",
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "electron-builder"

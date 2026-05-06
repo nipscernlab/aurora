@@ -1176,7 +1176,6 @@ validateVerilogOnlyConfig() {
         throw new Error('Project configuration not loaded');
     }
 
-    // 1. Validação de Arquivos Sintetizáveis
     if (!this.projectConfig.synthesizableFiles || this.projectConfig.synthesizableFiles.length === 0) {
         throw new Error('No synthesizable files found. Please add Verilog files in Project Settings.');
     }
@@ -1186,31 +1185,28 @@ validateVerilogOnlyConfig() {
         throw new Error('No top-level module selected. Please mark a file as top-level in Project Settings.');
     }
 
-    // 2. Busca exaustiva pelo Testbench
+    // Testbench is OPTIONAL in Verilog-only mode. The user may want to compile
+    // a single .v (e.g., a simple AND gate) without writing a testbench.
+    // When absent, iverilog uses the synthesizable top-level as -s.
     let foundTestbenchPath = null;
 
-    // Critério 1: Verificar a propriedade global "testbenchFile"
     if (this.projectConfig.testbenchFile && this.projectConfig.testbenchFile.trim() !== "") {
         foundTestbenchPath = this.projectConfig.testbenchFile;
     }
 
-    // Critério 2: Se ainda não encontrou, verificar a lista "testbenchFiles"
     if (!foundTestbenchPath && this.projectConfig.testbenchFiles && this.projectConfig.testbenchFiles.length > 0) {
-        // Filtra por qualquer item que tenha um path válido e pega o primeiro
-        const validEntry = this.projectConfig.testbenchFiles.find(f => f.path && f.path.trim() !== "");
-        if (validEntry) {
-            foundTestbenchPath = validEntry.path;
+        const starred = this.projectConfig.testbenchFiles.find(f => f.isTopLevel === true && f.path && f.path.trim() !== "");
+        if (starred) {
+            foundTestbenchPath = starred.path;
+        } else {
+            const validEntry = this.projectConfig.testbenchFiles.find(f => f.path && f.path.trim() !== "");
+            if (validEntry) foundTestbenchPath = validEntry.path;
         }
-    }
-
-    // 3. Validação Final
-    if (!foundTestbenchPath) {
-        throw new Error('No testbench files found. Please add a testbench file in Project Settings.');
     }
 
     return {
         topLevelFile: topLevelFile.path,
-        testbenchFile: foundTestbenchPath,
+        testbenchFile: foundTestbenchPath, // may be null
         synthesizableFiles: this.projectConfig.synthesizableFiles.map(f => f.path)
     };
 }
@@ -1227,44 +1223,49 @@ async iverilogVerilogOnlyCompilation() {
         const config = this.validateVerilogOnlyConfig();
 
         this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\\/]/).pop()}`, 'success');
-        this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\\/]/).pop()}`, 'success');
+        if (config.testbenchFile) {
+            this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\\/]/).pop()}`, 'success');
+        } else {
+            this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
+        }
         this.terminalManager.appendToTerminal('tveri', `Synthesizable files: ${config.synthesizableFiles.length}`, 'info');
 
         const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
         const iveriCompPath = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'bin', 
+            this.componentsPath,
+            'Packages',
+            'iverilog',
+            'bin',
             'iverilog.exe'
         );
+
+        if (!await window.electronAPI.fileExists(iveriCompPath)) {
+            throw new Error(`Icarus Verilog binary not found at:\n  ${iveriCompPath}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download "aurora-toolchain-v1.zip" from the project's GitHub Releases and extract it into components/Packages/, then restart the app.`);
+        }
 
         await window.electronAPI.mkdir(tempBaseDir);
 
         const topLevelModuleName = config.topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const simTopModule = config.testbenchFile
+            ? config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '')
+            : topLevelModuleName;
 
-        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
+        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
 
-        // Build file list: testbench first, then all synthesizable files
-        const allFiles = [
-            config.testbenchFile,
-            ...config.synthesizableFiles.filter(f => f !== config.testbenchFile)
-        ];
+        // Build file list: synthesizable files (which include the top-level),
+        // plus the testbench if one was set. Hardcoded processor HDL files are
+        // intentionally NOT included — this mode is for processor-less designs.
+        const fileSet = new Set(config.synthesizableFiles);
+        if (config.testbenchFile) fileSet.add(config.testbenchFile);
+        const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
 
-        const sourceFilesString = allFiles.map(f => `"${f}"`).join(' ');
-
-        // Get additional flags
         const flags = this.projectConfig.iverilogFlags || '';
-        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-        const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-        const verilogFilesString = verilogFiles.map(f => `"${hdlPath}\\${f}"`).join(' ');
 
         const cmd = [
             `"${iveriCompPath}"`,
             flags,
-            `-s ${testbenchModuleName}`,
-            `-o "${outputFile}" ${verilogFilesString}`,
+            `-s ${simTopModule}`,
+            `-o "${outputFile}"`,
             sourceFilesString
         ].filter(Boolean).join(' ');
 
@@ -1331,14 +1332,30 @@ async runVerilogOnlyGtkWave() {
         );
 
         const topLevelModuleName = config.topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const simTopModule = config.testbenchFile
+            ? config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '')
+            : topLevelModuleName;
 
-        const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
-        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${testbenchModuleName}.vcd`);
+        const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
 
-        // Check VVP file exists
+        // Auto-compile if the .vvp is missing — the user may have clicked
+        // Wave without running Verilog first. Skipping this would force them
+        // to click two buttons just to see a waveform.
         if (!await window.electronAPI.fileExists(vvpFile)) {
-            throw new Error(`Simulation file not found: ${vvpFile}. Please compile first.`);
+            this.terminalManager.appendToTerminal('twave',
+                'No compiled VVP found — running Verilog compilation first...', 'info');
+            await this.iverilogVerilogOnlyCompilation();
+            if (!await window.electronAPI.fileExists(vvpFile)) {
+                throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
+            }
+        }
+
+        // Without a testbench, vvp has nothing to dump and no $finish to hit,
+        // so the run produces no VCD. Tell the user up-front instead of
+        // letting them hit a confusing "VCD not generated" error.
+        if (!config.testbenchFile) {
+            throw new Error('No testbench configured. Add a testbench (.v) in Project Settings and mark it as top-level to run simulation.');
         }
 
         this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...', 'info');
@@ -1346,7 +1363,7 @@ async runVerilogOnlyGtkWave() {
         // Run VVP simulation
         const vvpCmd = `cd "${tempBaseDir}" && "${vvpBin}" "${vvpFile}"`;
         const result = await window.electronAPI.execCommand(vvpCmd);
-        
+
         if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
         if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
 

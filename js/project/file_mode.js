@@ -103,35 +103,35 @@ class VerilogModeManager {
      * Setup event listeners
      */
     setupEventListeners() {
-        // Handle Compile & Simulate Toggle Logic
-        // UNCHECKED (Off) = Verilog Mode Active (Compile Only)
-        // CHECKED (On) = Simulation Enabled (Full Pipeline) -> Deactivate Verilog Mode UI
-        if (this.elements.compileSimulateToggle) {
-            // Check initial state
-            if (!this.elements.compileSimulateToggle.checked) {
-                this.activateVerilogMode();
-            }
+        // The verilog file tree is the dedicated UI for the
+        // "project-verilog-only" flow: Project Mode + Compile & Simulate OFF.
+        // Any other combo falls back to the standard project tree.
+        const shouldShowVerilogTree = () => {
+            const projectModeChecked = this.elements.projectModeRadio?.checked === true;
+            const simEnabled = this.elements.compileSimulateToggle?.checked === true;
+            return projectModeChecked && !simEnabled;
+        };
 
-            this.elements.compileSimulateToggle.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    this.deactivateVerilogMode();
-                } else {
-                    this.activateVerilogMode();
-                }
-            });
+        const syncFromState = () => {
+            if (shouldShowVerilogTree()) {
+                this.activateVerilogMode();
+            } else {
+                this.deactivateVerilogMode();
+            }
+        };
+
+        if (this.elements.compileSimulateToggle) {
+            // Initial state on load
+            syncFromState();
+            this.elements.compileSimulateToggle.addEventListener('change', syncFromState);
         }
-        
-        // Keep listeners for other modes
+
         if (this.elements.processorModeRadio) {
-            this.elements.processorModeRadio.addEventListener('change', (e) => {
-                if (e.target.checked) this.deactivateVerilogMode();
-            });
+            this.elements.processorModeRadio.addEventListener('change', syncFromState);
         }
-        
+
         if (this.elements.projectModeRadio) {
-            this.elements.projectModeRadio.addEventListener('change', (e) => {
-                if (e.target.checked) this.deactivateVerilogMode();
-            });
+            this.elements.projectModeRadio.addEventListener('change', syncFromState);
         }
 
         if (this.elements.fileTree) {

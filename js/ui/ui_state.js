@@ -61,36 +61,41 @@ class UIStateManager {
     }
 
     /**
-     * Set initial mode based on localStorage, checked radio, or default to Verilog Mode
+     * Set initial mode based on localStorage, checked radio, or default to Project Mode
      */
     setInitialMode() {
         // Try to get saved mode from localStorage
         const savedMode = this.loadModeFromStorage();
-        
+
         // Check if there's a checked radio
         const checkedRadio = document.querySelector('input[name="mode"]:checked');
-        
-        // Determine initial mode (priority: localStorage > checked radio > default)
-        let initialMode = savedMode || (checkedRadio ? checkedRadio.value : 'Verilog Mode');
-        
-        // Validate that the mode exists in our config
-        if (!this.modeConfig[initialMode]) {
-            console.warn(`Invalid mode "${initialMode}" loaded, defaulting to Verilog Mode`);
-            initialMode = 'Verilog Mode';
+
+        // Default is Project Mode — paired with Compile & Simulate OFF, this
+        // gives the user the verilog-only flow on first launch.
+        let initialMode = savedMode || (checkedRadio ? checkedRadio.value : 'Project Mode');
+
+        // Validate that the mode exists in our config and as a real radio.
+        // 'Verilog Mode' is the simulation-toggle id, NOT a radio — falling
+        // back to it would leave no mode selected.
+        const isRadioMode = (m) => m === 'Project Mode' || m === 'Processor Mode';
+        if (!this.modeConfig[initialMode] || !isRadioMode(initialMode)) {
+            console.warn(`Invalid mode "${initialMode}" loaded, defaulting to Project Mode`);
+            initialMode = 'Project Mode';
         }
-        
-        // Set the appropriate radio button
+
         const targetRadio = document.getElementById(initialMode);
-        if (targetRadio) {
-            targetRadio.checked = true;
-        } else {
-            // Fallback: check Verilog Mode
-            const verilogRadio = document.getElementById('Verilog Mode');
-            if (verilogRadio) {
-                verilogRadio.checked = true;
-            }
+        const radioToCheck = targetRadio || document.getElementById('Project Mode');
+        if (radioToCheck) {
+            radioToCheck.checked = true;
+            // Programmatically setting `.checked` does NOT fire a change event.
+            // Dispatch on the next tick so other DOMContentLoaded listeners
+            // (file_mode.js, compilation_flow.js) have already attached their
+            // handlers by the time the event arrives.
+            setTimeout(() => {
+                radioToCheck.dispatchEvent(new Event('change', { bubbles: true }));
+            }, 0);
         }
-        
+
         // Don't show glow on initial load, but do update status
         this.handleModeChange(initialMode, true);
     }

@@ -1501,10 +1501,11 @@ async saveConfiguration() {
 
         const simuDelayValue = String(simuDelayNumber);
 
-        // If simulation is enabled, require testbench
+        // Testbench is optional. Without one, simulation will use the
+        // synthesizable top-level as -s; useful when the user only wants to
+        // syntax-check or wire up a single .v.
         if (isSimulationEnabled && !topLevelTestbench) {
-            this.showNotification('To run simulation, you must mark one file as the main testbench (star icon).', 'error', 4000);
-            return;
+            this.showNotification('No testbench marked — simulation will use the top-level module as the simulation top.', 'info', 3500);
         }
         
         // Construct the Configuration Object

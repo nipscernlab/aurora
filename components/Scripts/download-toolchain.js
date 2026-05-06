@@ -76,13 +76,18 @@ function downloadFile(url, dest) {
                 });
 
                 res.pipe(file);
-                res.on('end', () => { process.stdout.write('\n'); resolve(); });
+                res.on('end', () => process.stdout.write('\n'));
                 res.on('error', reject);
             }).on('error', reject);
         }
 
-        doRequest(url);
+        // Resolve only after the file is fully flushed and closed — otherwise
+        // PowerShell's Expand-Archive races us and hits the zip while it's
+        // still locked by this writer (silent corruption: the zip vanishes,
+        // Packages/ ends up empty).
+        file.on('finish', () => file.close(resolve));
         file.on('error', reject);
+        doRequest(url);
     });
 }
 
@@ -98,9 +103,12 @@ function extractZip(zipPath, destDir) {
         return;
     }
 
-    // Fall back to PowerShell
+    // Fall back to PowerShell. Use $ErrorActionPreference = 'Stop' so a
+    // cmdlet failure propagates as a non-zero exit code from powershell.exe
+    // (otherwise execSync sees success and we delete the zip + falsely log
+    // "installed successfully" before the sentinel check trips).
     execSync(
-        `powershell -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
+        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
         { stdio: 'inherit' }
     );
 }

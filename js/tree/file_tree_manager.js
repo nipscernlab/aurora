@@ -636,11 +636,31 @@ class FileTreeManager {
     }
     
 /**
- * Get current mode. Delegates to AppInitializer (single source of truth);
- * its impl already includes a DOM fallback for early-startup edge cases.
+ * Get current mode
  */
 getCurrentMode() {
-    return window.appInitializer?.getCurrentMode?.() ?? 'processor';
+    // Check if appInitializer is available
+    if (window.appInitializer && typeof window.appInitializer.getCurrentMode === 'function') {
+        return window.appInitializer.getCurrentMode();
+    }
+    
+    // Fallback: Manual detection
+    const _verilogModeRadio = document.getElementById('Verilog Mode');
+    const processorModeRadio = document.getElementById('Processor Mode');
+    const projectModeRadio = document.getElementById('Project Mode');
+    
+    // Check simulation toggle state
+    const simToggle = document.getElementById('Verilog Mode');
+    const isSimulationEnabled = simToggle ? simToggle.checked : true;
+    
+    if (projectModeRadio && projectModeRadio.checked && !isSimulationEnabled) {
+        return 'verilog';
+    }
+    
+    if (processorModeRadio && processorModeRadio.checked) return 'processor';
+    if (projectModeRadio && projectModeRadio.checked) return 'project';
+    
+    return 'processor'; // Default fallback
 }
 
 toggleHierarchyView() {

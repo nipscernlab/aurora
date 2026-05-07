@@ -2454,15 +2454,18 @@ updateToggleButtonForCurrentMode() {
     }
 }
 /**
- * Get current mode. Delegates to AppInitializer (single source of truth).
- * The previous local impl read 'Verilog Mode' as a *radio* and returned
- * 'verilog' when the simulation toggle was checked — i.e. the inverse of
- * the actual verilog file-mode condition (Project Mode + sim OFF). The
- * 'verilog' branch in updateToggleButtonForCurrentMode therefore only
- * triggered for the wrong UI state. Delegation fixes that latent bug.
+ * Get current compilation mode
  */
 getCurrentMode() {
-    return window.appInitializer?.getCurrentMode?.() ?? 'processor';
+    const verilogModeRadio = document.getElementById('Verilog Mode');
+    const processorModeRadio = document.getElementById('Processor Mode');
+    const projectModeRadio = document.getElementById('Project Mode');
+    
+    if (verilogModeRadio?.checked) return 'verilog';
+    if (processorModeRadio?.checked) return 'processor';
+    if (projectModeRadio?.checked) return 'project';
+    
+    return 'processor';
 }
 
     updateToggleButton(isHierarchical) {

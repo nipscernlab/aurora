@@ -562,11 +562,18 @@ class FileTreeManager {
         });
         
         window.electronAPI.onDirectoryChanged((dir, files) => {
-            if (dir === this.directoryWatcher.currentWatchedDirectory && !TreeViewState.isHierarchical) {
-                const currentMode = this.getCurrentMode();
-                if (currentMode !== 'verilog') {
-                    this.updateFileTree(files);
-                }
+            if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
+            if (TreeViewState.isHierarchical) return;
+            const currentMode = this.getCurrentMode();
+            if (currentMode === 'verilog') {
+                // Picker reads projectOriented.json, but processor creation
+                // / deletion silently rewrites that file from
+                // processor_oriented.js → the picker won't pick the change
+                // up unless we re-load. Same trigger the manual refresh
+                // button uses.
+                window.verilogModeManager?.refreshVerilogTree?.();
+            } else {
+                this.updateFileTree(files);
             }
         });
         

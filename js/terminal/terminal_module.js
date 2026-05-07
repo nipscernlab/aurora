@@ -541,7 +541,7 @@ class TerminalManager {
                                 const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
                                 if (cmmCompMatch) {
                                     const cmmFileName = cmmCompMatch[1];
-                                    const processorName = cmmCompMatch[2];
+                                    const _processorName = cmmCompMatch[2];
                                     const projectPath = cmmCompMatch[3];
 
                                     cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);

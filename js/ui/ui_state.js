@@ -525,15 +525,16 @@ class UIStateManager {
     }
 }
 
-// Initialize UI State Manager when DOM is ready
-let uiStateManager;
+// Initialize UI State Manager when DOM is ready (constructor wires DOM listeners
+// — we keep the instance alive but never read the reference back).
+let _uiStateManager;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        uiStateManager = new UIStateManager();
+        _uiStateManager = new UIStateManager();
     });
 } else {
-    uiStateManager = new UIStateManager();
+    _uiStateManager = new UIStateManager();
 }
 
 // Export for external access if needed

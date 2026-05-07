@@ -638,7 +638,7 @@ getCurrentMode() {
     }
     
     // Fallback: Manual detection
-    const verilogModeRadio = document.getElementById('Verilog Mode');
+    const _verilogModeRadio = document.getElementById('Verilog Mode');
     const processorModeRadio = document.getElementById('Processor Mode');
     const projectModeRadio = document.getElementById('Project Mode');
     

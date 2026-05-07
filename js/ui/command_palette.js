@@ -95,7 +95,7 @@ class CommandPalette {
         const ev = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
         target.dispatchEvent(ev);
         return true;
-      } catch (err) {
+      } catch (_err) {
         return false;
       }
     };
@@ -315,7 +315,7 @@ class CommandPalette {
       }
 
       return '<i class="fa-solid fa-keyboard"></i>';
-    } catch (err) {
+    } catch (_err) {
       return '<i class="fa-solid fa-keyboard"></i>';
     }
   }

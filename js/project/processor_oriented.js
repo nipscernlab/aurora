@@ -10,9 +10,9 @@ const saveConfigButton = document.getElementById("saveConfig");
 const cancelConfigButton = document.getElementById("cancelConfig");
 const processorClkInput = document.getElementById("processorClk");
 const processorNumClocksInput = document.getElementById("processorNumClocks");
-const iverilogFlagsInput = document.getElementById("iverilogFlags");
-const cmmCompFlagsInput = document.getElementById("cmmCompFlags");
-const asmCompFlagsInput = document.getElementById("asmCompFlags");
+const _iverilogFlagsInput = document.getElementById("iverilogFlags");
+const _cmmCompFlagsInput = document.getElementById("cmmCompFlags");
+const _asmCompFlagsInput = document.getElementById("asmCompFlags");
 const testbenchSelect = document.getElementById("processortestbenchSelect");
 const gtkwSelect = document.getElementById("processorgtkwaveSelect");
 const cmmFileSelect = document.getElementById("cmmFileSelect");
@@ -21,7 +21,7 @@ const showArraysCheckbox = document.getElementById("showArraysInGtkwave");
 // Store available processors and current configuration
 let availableProcessors = [];
 let selectedProcessor = null;
-let selectedCmmFile = null;
+let _selectedCmmFile = null;
 
 window.availableProcessors = [];
 
@@ -162,7 +162,7 @@ async function loadCmmFiles(processorName) {
     // Reseta e desabilita o seletor se nenhum processador for selecionado
     cmmFileSelect.innerHTML = '<option value="" selected>Select C± File</option>';
     cmmFileSelect.disabled = true;
-    selectedCmmFile = null;
+    _selectedCmmFile = null;
     return;
   }
 
@@ -224,7 +224,7 @@ async function loadCmmFiles(processorName) {
         if (tempProcessorConfigs[processorName] && 
             tempProcessorConfigs[processorName].cmmFile === file) {
           option.selected = true;
-          selectedCmmFile = file;
+          _selectedCmmFile = file;
         }
         
         cmmFileSelect.appendChild(option);
@@ -425,10 +425,10 @@ processorSelect.addEventListener("change", function() {
     // Set CMM file selection if available in temp config - CORRIGIDO
     if (tempConfig.cmmFile && cmmFileSelect) {
       cmmFileSelect.value = tempConfig.cmmFile;
-      selectedCmmFile = tempConfig.cmmFile;
+      _selectedCmmFile = tempConfig.cmmFile;
     } else if (cmmFileSelect) {
       cmmFileSelect.value = "";
-      selectedCmmFile = null;
+      _selectedCmmFile = null;
     }
     
     console.log(`Loaded temp config for ${selectedProcessor}:`, tempConfig);
@@ -459,10 +459,10 @@ processorSelect.addEventListener("change", function() {
     // Set CMM file selection if available in processor config - CORRIGIDO
     if (processorConfig.cmmFile && cmmFileSelect) {
       cmmFileSelect.value = processorConfig.cmmFile;
-      selectedCmmFile = processorConfig.cmmFile;
+      _selectedCmmFile = processorConfig.cmmFile;
     } else if (cmmFileSelect) {
       cmmFileSelect.value = "";
-      selectedCmmFile = null;
+      _selectedCmmFile = null;
     }
   } else {
     processorClkInput.value = '';
@@ -472,7 +472,7 @@ processorSelect.addEventListener("change", function() {
     if (gtkwSelect) gtkwSelect.value = "standard";
     if (cmmFileSelect) { // CORRIGIDO
       cmmFileSelect.value = "";
-      selectedCmmFile = null;
+      _selectedCmmFile = null;
     }
   }
   
@@ -495,74 +495,71 @@ processorSelect.addEventListener("change", function() {
 
     
 
-function deleteProcessor(processorName) {
-  return new Promise(async (resolve, reject) => {
-    if (!processorName) {
-      reject(new Error("No processor selected for deletion"));
-      return;
+async function deleteProcessor(processorName) {
+  if (!processorName) {
+    throw new Error("No processor selected for deletion");
+  }
+
+  console.log(`Starting deletion of processor: ${processorName}`);
+
+  try {
+    // Call API to delete processor with safety timeout
+    const deletePromise = window.electronAPI.deleteProcessor(processorName);
+
+    // Add timeout to prevent indefinite blocking
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Operation timed out")), 10000);
+    });
+
+    // Use Promise.race to ensure it doesn't get stuck
+    await Promise.race([deletePromise, timeoutPromise]);
+
+    console.log(`Successfully deleted processor: ${processorName}`);
+
+    // Remove from available processors
+    availableProcessors = availableProcessors.filter(p => p !== processorName);
+    console.log("Updated available processors:", availableProcessors);
+
+    // Remove from current config
+    if (currentConfig && currentConfig.processors) {
+      currentConfig.processors = currentConfig.processors.filter(p => p.name !== processorName);
     }
-    
-    console.log(`Starting deletion of processor: ${processorName}`);
-    
-    try {
-      // Call API to delete processor with safety timeout
-      const deletePromise = window.electronAPI.deleteProcessor(processorName);
-      
-      // Add timeout to prevent indefinite blocking
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Operation timed out")), 10000);
-      });
-      
-      // Use Promise.race to ensure it doesn't get stuck
-      await Promise.race([deletePromise, timeoutPromise]);
-      
-      console.log(`Successfully deleted processor: ${processorName}`);
-      
-      // Remove from available processors
-      availableProcessors = availableProcessors.filter(p => p !== processorName);
-      console.log("Updated available processors:", availableProcessors);
-      
-      // Remove from current config
-      if (currentConfig && currentConfig.processors) {
-        currentConfig.processors = currentConfig.processors.filter(p => p.name !== processorName);
-      }
-      
-      // Remove from temp configs
-      if (tempProcessorConfigs && tempProcessorConfigs[processorName]) {
-        delete tempProcessorConfigs[processorName];
-      }
-      
-      // Reset selection if we deleted the currently selected processor
-      if (selectedProcessor === processorName) {
-        selectedProcessor = null;
-        console.log("Reset selectedProcessor to null after deletion");
-      }
-      
-      // Handle UI updates if no processors remain
-      if (availableProcessors.length === 0) {
-        console.log("No processors remain after deletion");
-        selectedProcessor = null;
-        processorClkInput.value = '';
-        processorNumClocksInput.value = '';
-      } else if (!selectedProcessor) {
-        // If there are still processors but none selected, select the first one
-        selectedProcessor = availableProcessors[0];
-        console.log("Selected first available processor after deletion:", selectedProcessor);
-        
-        // Update input fields with the new selection's values
-        const newSelectedProc = currentConfig.processors.find(p => p.name === selectedProcessor);
-        if (newSelectedProc) {
-          processorClkInput.value = newSelectedProc.clk || '';
-          processorNumClocksInput.value = newSelectedProc.numClocks || '';
-        }
-      }
-      
-      resolve(processorName);
-    } catch (error) {
-      console.error(`Error deleting processor ${processorName}:`, error);
-      reject(error);
+
+    // Remove from temp configs
+    if (tempProcessorConfigs && tempProcessorConfigs[processorName]) {
+      delete tempProcessorConfigs[processorName];
     }
-  });
+
+    // Reset selection if we deleted the currently selected processor
+    if (selectedProcessor === processorName) {
+      selectedProcessor = null;
+      console.log("Reset selectedProcessor to null after deletion");
+    }
+
+    // Handle UI updates if no processors remain
+    if (availableProcessors.length === 0) {
+      console.log("No processors remain after deletion");
+      selectedProcessor = null;
+      processorClkInput.value = '';
+      processorNumClocksInput.value = '';
+    } else if (!selectedProcessor) {
+      // If there are still processors but none selected, select the first one
+      selectedProcessor = availableProcessors[0];
+      console.log("Selected first available processor after deletion:", selectedProcessor);
+
+      // Update input fields with the new selection's values
+      const newSelectedProc = currentConfig.processors.find(p => p.name === selectedProcessor);
+      if (newSelectedProc) {
+        processorClkInput.value = newSelectedProc.clk || '';
+        processorNumClocksInput.value = newSelectedProc.numClocks || '';
+      }
+    }
+
+    return processorName;
+  } catch (error) {
+    console.error(`Error deleting processor ${processorName}:`, error);
+    throw error;
+  }
 }
 
 // Função melhorada para o event listener do botão de excluir
@@ -685,7 +682,7 @@ async function loadConfiguration() {
       // Set CMM file selection if available - CORRIGIDO
       if (lastActiveProcessor.cmmFile && cmmFileSelect) {
         cmmFileSelect.value = lastActiveProcessor.cmmFile;
-        selectedCmmFile = lastActiveProcessor.cmmFile;
+        _selectedCmmFile = lastActiveProcessor.cmmFile;
       }
     } else {
       selectedProcessor = null;
@@ -981,6 +978,8 @@ function showNotification(message, type = 'info', duration = 3000) {
 }
 
 // Legacy alias kept for callers — same behaviour as showNotification.
+// (Currently no live callers; preserved for backward compatibility.)
+// eslint-disable-next-line no-unused-vars
 function showToastNotification(message, type = 'info', duration = 3000) {
   return showNotification(message, type, duration);
 }
@@ -1109,6 +1108,7 @@ const deleteProcessorButton = document.getElementById("deleteProcessor");
   simulTimeInput.addEventListener("input", updateNumberOfClocks);
 });
 
+// eslint-disable-next-line no-unused-vars
 function openProcessorModal() {
     const modal = document.getElementById('modalProcessorConfig');
     if (modal) {
@@ -1131,7 +1131,7 @@ function closeProcessorModal() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('modalProcessorConfig');
+    const _modal = document.getElementById('modalProcessorConfig');
     const closeModalButton = document.getElementById('closeModal');
     const cancelConfigButton = document.getElementById('cancelConfig');
     const saveConfigButton = document.getElementById('saveConfig');

@@ -5,14 +5,7 @@
  * =====================================================================================
  */
 
-/* eslint-disable no-undef */
 import { TabManager } from '../tabs/tab_manager.js';
-
-const pathUtils = {
-    basename: (filePath) => {
-        return filePath.split(/[\\/]/).pop();
-    }
-};
 
 class VerilogModeManager {
     constructor() {

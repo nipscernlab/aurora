@@ -18,8 +18,6 @@
  *     (refCount -= 1; dispose at zero).
  */
 
-/* eslint-disable no-undef */
-
 const entries = new Map(); // filePath -> { model, refCount }
 
 function uriFor(filePath) {

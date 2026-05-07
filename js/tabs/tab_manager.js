@@ -123,7 +123,7 @@ export class TabManager {
 
                 // Store cursor position and selection
                 const position = editor.getPosition();
-                const selection = editor.getSelection();
+                const _selection = editor.getSelection();
 
                 // Update editor content
                 editor.setValue(formattedCode);
@@ -181,14 +181,6 @@ export class TabManager {
         }
     }
 
-
-    // Clean up method (call when destroying TabManager)
-    static cleanup() {
-        if (this.tabObserver) {
-            this.tabObserver.disconnect();
-            this.tabObserver = null;
-        }
-    }
 
     // Enhanced updateContextPath method
     static updateContextPath(filePath) {
@@ -914,7 +906,7 @@ export class TabManager {
     // Enhanced cleanup method
     static cleanup() {
         // Save all PDF states before cleanup
-        for (const [filePath, viewer] of this.viewerInstances.entries()) {
+        for (const [filePath, _viewer] of this.viewerInstances.entries()) {
             if (this.isPdfFile(filePath)) {
                 this.savePdfViewerState(filePath);
             }
@@ -924,50 +916,6 @@ export class TabManager {
         this.pdfViewerStates.clear();
         this.stopAllWatchers();
     }
-
-    // Enhanced reopenLastClosedTab method
-    static async reopenLastClosedTab() {
-        if (this.closedTabsStack.length === 0) return;
-
-        const closedTab = this.closedTabsStack.pop();
-        const {
-            filePath,
-            content
-        } = closedTab;
-
-        try {
-            // Check if tab is already open
-            if (this.tabs.has(filePath)) {
-                this.activateTab(filePath);
-                return;
-            }
-
-            // Try to read current file content
-            let currentContent;
-            try {
-                currentContent = await window.electronAPI.readFile(filePath);
-            } catch (error) {
-                // File might not exist anymore, use stored content
-                currentContent = content;
-            }
-
-            // Recreate the tab
-            this.addTab(filePath, currentContent);
-
-            // If content was different when closed, restore it and mark as modified
-            if (content !== currentContent) {
-                const editor = EditorManager.getEditorForFile(filePath);
-                if (editor) {
-                    editor.setValue(content);
-                    this.markFileAsModified(filePath);
-                }
-            }
-
-        } catch (error) {
-            console.error('Error reopening tab:', error);
-        }
-    }
-
 
     // Handling unsaved changes with dialog
     static async handleUnsavedChanges(filePath) {
@@ -1198,8 +1146,10 @@ Object.assign(TabManager, tabViewers, tabDrag, tabWatchers);
 TabManager.initialize();
 
 // Atualizar a função de inicialização do contexto
+// (currently disabled — see commented call below)
+// eslint-disable-next-line no-unused-vars
 function initContextPath() {
-    const editorContainer = document.getElementById('monaco-editor')
+    const _editorContainer = document.getElementById('monaco-editor')
         .parentElement;
     const contextContainer = document.createElement('div');
     contextContainer.id = 'context-path';

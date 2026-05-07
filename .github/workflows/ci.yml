@@ -26,7 +26,6 @@ jobs:
 
       - name: ESLint
         run: npx eslint . --max-warnings=0
-        continue-on-error: true   # tighten once the codebase is clean
 
       - name: Sanity check JS modules
         shell: pwsh

@@ -120,7 +120,7 @@ setupEventListeners() {
         e.stopPropagation();
         
         // Determine which mode is active
-        const verilogModeRadio = document.getElementById('Verilog Mode');
+        const _verilogModeRadio = document.getElementById('Verilog Mode');
         const processorModeRadio = document.getElementById('Processor Mode');
         const projectModeRadio = document.getElementById('Project Mode');
         
@@ -715,7 +715,7 @@ async importFiles(files, type) {
         }
       } else {
         const sortedFiles = this.getSortedFiles(this.synthesizableFiles);
-        sortedFiles.forEach((file, index) => {
+        sortedFiles.forEach((file, _index) => {
           const actualIndex = this.synthesizableFiles.findIndex(f => f.path === file.path);
           const fileItem = this.createFileItem(file, actualIndex, 'synthesizable');
           fileList.appendChild(fileItem);
@@ -730,14 +730,14 @@ async importFiles(files, type) {
         }
       } else {
         const sortedTestbench = this.getSortedFiles(this.testbenchFiles);
-        sortedTestbench.forEach((file, index) => {
+        sortedTestbench.forEach((file, _index) => {
           const actualIndex = this.testbenchFiles.findIndex(f => f.path === file.path);
           const fileItem = this.createFileItem(file, actualIndex, 'testbench');
           fileList.appendChild(fileItem);
         });
         
         const sortedGtkw = this.getSortedFiles(this.gtkwFiles);
-        sortedGtkw.forEach((file, index) => {
+        sortedGtkw.forEach((file, _index) => {
           const actualIndex = this.gtkwFiles.findIndex(f => f.path === file.path);
           const fileItem = this.createFileItem(file, actualIndex, 'gtkw');
           fileList.appendChild(fileItem);

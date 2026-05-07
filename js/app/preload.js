@@ -10,8 +10,6 @@
  */
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
-const fs = require('fs');
-const path = require('path');
 
 /* ============================================================================
  *  FILE OPERATIONS

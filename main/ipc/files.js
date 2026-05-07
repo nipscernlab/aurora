@@ -8,7 +8,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const fse = require('fs-extra');
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const chokidar = require('chokidar');
 const log = require('electron-log');
 const moment = require('moment');

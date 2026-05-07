@@ -2,8 +2,6 @@
  * @file Controller for File Tree interactions (Collapse, Refresh, Backup).
  */
 
-/* eslint-disable no-undef */
-
 import { showCardNotification } from '../ui/notification.js';
 import { TreeViewState, fileTreeManager, FileTreeState } from './file_tree_manager.js';
 

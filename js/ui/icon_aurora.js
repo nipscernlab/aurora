@@ -13,7 +13,7 @@
     let iconUploadInput;
     let auroraIcons;
     let fallbackIcons;
-    let isIconLoaded = false;
+    let _isIconLoaded = false;
 
     /**
      * Updates all aurora icon images with the new source.
@@ -26,7 +26,7 @@
             // Set up handlers for each icon instance
             icon.onload = () => {
                 icon.style.display = 'inline-block';
-                isIconLoaded = true;
+                _isIconLoaded = true;
             };
             icon.onerror = () => {
                 console.error(`Failed to load icon: ${iconSrc.substring(0, 30)}...`);
@@ -50,7 +50,7 @@
     function showFallbackIcons() {
         auroraIcons.forEach(icon => icon.style.display = 'none');
         fallbackIcons.forEach(icon => icon.style.display = 'inline-block');
-        isIconLoaded = false;
+        _isIconLoaded = false;
     }
 
     /**

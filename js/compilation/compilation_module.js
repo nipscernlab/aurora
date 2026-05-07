@@ -633,7 +633,7 @@ end
             const newContent = content.slice(0, lastEndmoduleIndex) + newSimulationCode + content.slice(lastEndmoduleIndex);
 
             // Salva o arquivo instrumentado na pasta Temp
-            const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${testbenchPath.split(/[\\\/]/).pop()}`);
+            const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${testbenchPath.split(/[\\/]/).pop()}`);
             await window.electronAPI.writeFile(instrumentedPath, newContent);
             
             return instrumentedPath;
@@ -1063,8 +1063,8 @@ async iverilogProjectCompilation() {
             throw new Error("No testbench file specified in projectOriented.json");
         }
 
-        const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         
         this.terminalManager.appendToTerminal('tveri', `Top-level: ${topLevelModuleName}`, 'info');
         this.terminalManager.appendToTerminal('tveri', `Testbench: ${testbenchModuleName}`, 'info');
@@ -1096,7 +1096,7 @@ async iverilogProjectCompilation() {
                 verilogSources.push({
                     path: userFile.path,
                     type: 'user_synthesizable',
-                    description: `User: ${userFile.path.split(/[\\\/]/).pop()}`
+                    description: `User: ${userFile.path.split(/[\\/]/).pop()}`
                 });
             }
         }
@@ -1222,9 +1222,9 @@ async iverilogVerilogOnlyCompilation() {
     try {
         const config = this.validateVerilogOnlyConfig();
 
-        this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\\/]/).pop()}`, 'success');
+        this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'success');
         if (config.testbenchFile) {
-            this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\\/]/).pop()}`, 'success');
+            this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'success');
         } else {
             this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
         }
@@ -1245,9 +1245,9 @@ async iverilogVerilogOnlyCompilation() {
 
         await window.electronAPI.mkdir(tempBaseDir);
 
-        const topLevelModuleName = config.topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         const simTopModule = config.testbenchFile
-            ? config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '')
+            ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
             : topLevelModuleName;
 
         const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
@@ -1331,9 +1331,9 @@ async runVerilogOnlyGtkWave() {
             'vvp.exe'
         );
 
-        const topLevelModuleName = config.topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         const simTopModule = config.testbenchFile
-            ? config.testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '')
+            ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
             : topLevelModuleName;
 
         const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
@@ -1398,7 +1398,7 @@ async runVerilogOnlyGtkWave() {
             if (gtkwFile) {
                 gtkwSaveFile = gtkwFile.path;
                 this.terminalManager.appendToTerminal('twave',
-                    `Using GTKWave save file: ${gtkwSaveFile.split(/[\\\/]/).pop()}`, 'info');
+                    `Using GTKWave save file: ${gtkwSaveFile.split(/[\\/]/).pop()}`, 'info');
             }
         }
 
@@ -1504,7 +1504,7 @@ end
         await window.electronAPI.writeFile(destPath, instrumentedContent);
         
         this.terminalManager.appendToTerminal('tveri', 
-            `Testbench instrumented to temp file: ${destPath.split(/[\\\/]/).pop()}`, 'info');
+            `Testbench instrumented to temp file: ${destPath.split(/[\\/]/).pop()}`, 'info');
         
         return {
             instrumentedPath: destPath
@@ -2144,8 +2144,8 @@ async runProjectGtkWave() {
         if (!topLevelFile) throw new Error("No top-level file specified.");
         if (!testbenchFile) throw new Error("No testbench file specified.");
 
-        const topLevelModuleName = topLevelFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = testbenchFile.split(/[\\\/]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
 
         const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
         const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${testbenchModuleName}.vcd`);

@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedState = localStorage.getItem('uiToggleState');
     if (savedState === 'hidden') {
       elementsVisible = false;
-      HIDE_ELEMENTS.buttons.forEach(id => {
+      HIDE_ELEMENTS.buttons.forEach(_id => {
         /*
         const element = document.getElementById(id);
         if (element) {

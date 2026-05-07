@@ -16,12 +16,11 @@ const state = require('./state');
 const { isDev } = require('./paths');
 const { createProgressWindow } = require('./windows');
 
-// One-time autoUpdater logger config.
+// Wire electron-updater's internal logger into electron-log. Levels and
+// transports are already set centrally by main/logger.js at boot.
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
-log.transports.file.level = 'debug';
 
 function setupAutoUpdaterEvents() {
   if (autoUpdater.listenerCount('checking-for-update') > 0) {

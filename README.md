@@ -240,6 +240,21 @@ Feed URL is hardwired to
 installer's filename embeds `${version}` so `latest.yml` always points
 at the right artefact.
 
+## Logs
+
+When filing a bug, attaching `main.log` makes diagnosis trivial.
+electron-log writes it to the platform-standard user data directory:
+
+| OS      | Path                                            |
+|---------|-------------------------------------------------|
+| Windows | `%APPDATA%\Aurora-IDE\logs\main.log`            |
+| macOS   | `~/Library/Logs/Aurora-IDE/main.log`            |
+| Linux   | `~/.config/Aurora-IDE/logs/main.log`            |
+
+The file rolls over at ~5 MB (older content moves to `main.old.log`).
+Default level is `info`; flip to `debug` in
+[`main/logger.js`](main/logger.js) when chasing a specific issue.
+
 ## Contributing
 
 We welcome bug reports, feature requests, and pull requests. Please read

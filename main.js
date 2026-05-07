@@ -10,6 +10,9 @@
 
 const { app } = require('electron');
 
+const { configureLogger } = require('./main/logger');
+configureLogger(); // before anything else so all subsequent log calls use it
+
 const lifecycle = require('./main/lifecycle');
 const windows = require('./main/windows');
 const updater = require('./main/updater');

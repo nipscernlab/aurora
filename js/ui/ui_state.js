@@ -505,14 +505,6 @@ class UIStateManager {
     }
 
     /**
-     * Get current active mode
-     * @returns {string|null} Current mode
-     */
-    getCurrentMode() {
-        return this.currentMode;
-    }
-
-    /**
      * Clear saved mode from localStorage (utility method)
      */
     clearSavedMode() {

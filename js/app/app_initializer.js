@@ -473,10 +473,36 @@ class AppInitializer {
     }
 
     /**
-     * Get current mode
+     * Get current mode — the single source of truth for the IDE's mode.
+     *
+     * Returns 'processor' | 'project' | 'verilog'. Falls back to deriving
+     * the mode from the live radio + simulation-toggle DOM when
+     * `this.currentMode` hasn't been set yet (early startup, before
+     * restoreLastSession runs). Every other module should delegate here
+     * — duplicate readers tend to drift (e.g. compilation_module's old
+     * impl read the 'Verilog Mode' checkbox as a *radio* and returned
+     * 'verilog' for the exact opposite condition).
      */
     getCurrentMode() {
-        return this.currentMode;
+        if (this.currentMode) return this.currentMode;
+        return AppInitializer._deriveModeFromDOM();
+    }
+
+    static _deriveModeFromDOM() {
+        const projectModeRadio = document.getElementById('Project Mode');
+        const processorModeRadio = document.getElementById('Processor Mode');
+        const simToggle = document.getElementById('Verilog Mode');
+
+        const isProject = projectModeRadio?.checked === true;
+        const isProcessor = processorModeRadio?.checked === true;
+        const simEnabled = simToggle ? simToggle.checked === true : true;
+
+        // Project Mode + simulation OFF = Verilog file mode (the dedicated
+        // .v-only flow). Project Mode + simulation ON = standard project.
+        if (isProject && !simEnabled) return 'verilog';
+        if (isProject) return 'project';
+        if (isProcessor) return 'processor';
+        return 'processor';
     }
 
     /**

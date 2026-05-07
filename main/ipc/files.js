@@ -12,7 +12,6 @@ const fse = require('fs-extra');
 const { BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const chokidar = require('chokidar');
 const log = require('electron-log');
-const moment = require('moment');
 const { execFile } = require('child_process');
 
 const state = require('../state');
@@ -365,7 +364,15 @@ function register() {
 
     const folderName = path.basename(folderPath);
     const backupFolderPath = path.join(folderPath, 'Backup');
-    const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
+    // Local-time YYYY-MM-DD_HH-mm-ss (used as a filesystem-safe folder
+     // name, so colons are replaced with hyphens). Replaces a moment()
+     // call — moment is in maintenance mode and not worth the dep for
+     // one timestamp format.
+    const now = new Date();
+    const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
+    const timestamp =
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+      `_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
     const tempBackupFolderName = `backup_${timestamp}`;
     const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
     // .zip via PowerShell's Compress-Archive — ships natively on every

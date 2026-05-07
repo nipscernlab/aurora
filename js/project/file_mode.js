@@ -7,6 +7,7 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
+import { toNativeSeparators } from '../utils/path_utils.js';
 
 class VerilogModeManager {
     constructor() {
@@ -261,7 +262,7 @@ class VerilogModeManager {
                 continue;
             }
             
-            filePath = filePath.replace(/\//g, '\\');
+            filePath = toNativeSeparators(filePath);
             
             const ext = this.getFileExtension(file.name);
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {

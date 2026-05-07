@@ -4,6 +4,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
 import { TreeViewState } from '../tree/tree_view_state_module.js';
+import { toForwardSlashes } from '../utils/path_utils.js';
 
 class CompilationModule {
     constructor(projectPath) {
@@ -660,11 +661,9 @@ end
             const scriptsDir = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
 
             // Formatando caminhos para o TCL (barras normais funcionam melhor em TCL que invertidas)
-            const formatPath = (p) => p.replace(/\\/g, '/');
-
             const infosContent = [
-                formatPath(tempDir),        // 3. tmp_dir
-                formatPath(binDir),         // 4. bin_dir
+                toForwardSlashes(tempDir),  // 3. tmp_dir
+                toForwardSlashes(binDir),   // 4. bin_dir
             ].join('\n');
 
             const infoFilePath = await window.electronAPI.joinPath(tempDir, 'tcl_infos.txt');

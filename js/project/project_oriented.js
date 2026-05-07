@@ -5,6 +5,8 @@
  * =====================================================================================
  */
 
+import { toNativeSeparators } from '../utils/path_utils.js';
+
 class ProjectOrientedManager {
   constructor() {
     // Core configuration
@@ -528,7 +530,7 @@ async handleDrop(e, type) {
     }
     
     // Normalize path for Windows
-    filePath = filePath.replace(/\//g, '\\');
+    filePath = toNativeSeparators(filePath);
     
     // Verify file exists
     try {

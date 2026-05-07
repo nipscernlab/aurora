@@ -2,6 +2,7 @@
 
 import { CompilationModule } from './compilation_module.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { toForwardSlashes } from '../utils/path_utils.js';
 
 let compilationCanceled = false;
 
@@ -351,18 +352,17 @@ async runSingleStep(step) {
                 if (!projectPath) throw new Error("Abra um projeto primeiro.");
 
                 const rawComponentsPath = await window.electronAPI.getComponentsPath();
-                const normalizePath = (p) => p.replace(/\\/g, '/');
-                
+
                 const compilationPaths = {
-                    projectPath: normalizePath(projectPath),
-                    componentsPath: normalizePath(rawComponentsPath),
-                    hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
-                    tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
-                    yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
-                    netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
-                    processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
-                    projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
-                    topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
+                    projectPath: toForwardSlashes(projectPath),
+                    componentsPath: toForwardSlashes(rawComponentsPath),
+                    hdlPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
+                    tempPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
+                    yosysPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+                    netlistsvgPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
+                    processorConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
+                    projectOrientedConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
+                    topLevelPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
                     compilationMode: this.getCurrentMode()
                 };
 
@@ -510,28 +510,24 @@ async acquirePrismPaths() {
         const rawComponentsPath = await window.electronAPI.getComponentsPath();
         
         // Normalize slashes immediately to avoid issues downstream
-        const componentsPath = normalizePath(rawComponentsPath);
-        const projectPathNorm = normalizePath(projectPath);
+        const componentsPath = toForwardSlashes(rawComponentsPath);
+        const projectPathNorm = toForwardSlashes(projectPath);
 
         return {
             projectPath: projectPathNorm,
             componentsPath: componentsPath,
             // Construct ABSOLUTE paths for all resources
-            hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
-            tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
-            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
-            netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
+            hdlPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
+            tempPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
+            yosysPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+            netlistsvgPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
             // Project specific paths
-            processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
-            projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
-            topLevelPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
+            processorConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
+            projectOrientedConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
+            topLevelPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
             compilationMode: this.getCurrentMode()
         };
     }
-}
-
-function normalizePath(pathStr) {
-    return pathStr.replace(/\\/g, '/');
 }
 
 const compilationFlowManager = new CompilationFlowManager();

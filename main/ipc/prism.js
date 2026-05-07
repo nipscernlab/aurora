@@ -10,7 +10,7 @@
 const path = require('path');
 const fse = require('fs-extra');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const { exec, spawn } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -352,10 +352,8 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
     throw new Error(`Module JSON file not found: ${inputJsonPath}`);
   }
 
-  const netlistSvgCommand = `"${netlistsvgPath}" "${inputJsonPath}" -o "${outputSvgPath}"`;
-
   return new Promise((resolve, reject) => {
-    exec(netlistSvgCommand, { shell: true }, (error) => {
+    execFile(netlistsvgPath, [inputJsonPath, '-o', outputSvgPath], (error) => {
       if (error) {
         if (state.mainWindow && !state.mainWindow.isDestroyed()) {
           state.mainWindow.webContents.send(

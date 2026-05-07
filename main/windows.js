@@ -30,8 +30,14 @@ function createMainWindow() {
     autoHideMenuBar: true,
     icon: path.join(app.getAppPath(), 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
+      // Renderer must not have direct Node access. The preload script
+      // exposes a curated `electronAPI` via contextBridge — that is the
+      // only path the renderer can take to reach main-process capabilities.
+      // Important defense in depth because `webviewTag: true` lets the AI
+      // assistant load https://chatgpt.com inside a sub-frame.
       contextIsolation: true,
-      nodeIntegration: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
       webviewTag: true,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
       enableWebSQL: false,

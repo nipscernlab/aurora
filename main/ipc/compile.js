@@ -6,7 +6,7 @@
  */
 
 const { ipcMain } = require('electron');
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -105,10 +105,14 @@ function register() {
   });
 
   ipcMain.handle('check-process-running', async (_event, pid) => {
+    // Coerce to integer: pid comes from the renderer; if it's not a clean
+    // number we shouldn't shell anything out for it.
+    const pidInt = Number.parseInt(pid, 10);
+    if (!Number.isFinite(pidInt)) return false;
     return new Promise((resolve) => {
-      exec(`tasklist /FI "PID eq ${pid}"`, (error, stdout) => {
+      execFile('tasklist', ['/FI', `PID eq ${pidInt}`], (error, stdout) => {
         if (error) resolve(false);
-        else resolve(stdout.includes(pid.toString()));
+        else resolve(stdout.includes(String(pidInt)));
       });
     });
   });

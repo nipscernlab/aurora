@@ -12,10 +12,32 @@ const { BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const chokidar = require('chokidar');
 const log = require('electron-log');
 const moment = require('moment');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 
 const state = require('../state');
 const { debounce, getMimeType } = require('../utils');
+
+// Defensive path normalization for IPC inputs. Doesn't confine to any specific
+// root (the IDE legitimately reads from project roots, toolchain, app paths,
+// and user-picked imports), but does reject the obvious shapes a malicious
+// renderer would use to smuggle non-paths through:
+//   • non-strings (null, objects, arrays)
+//   • empty strings
+//   • null bytes (Node FS truncates at \0 on some platforms — classic bypass)
+// Returns an absolute, normalized path so downstream code never has to
+// re-normalize.
+function safePath(p, label = 'path') {
+  if (typeof p !== 'string') {
+    throw new TypeError(`Invalid ${label}: expected string, got ${typeof p}`);
+  }
+  if (p.length === 0) {
+    throw new Error(`Invalid ${label}: empty string`);
+  }
+  if (p.includes('\0')) {
+    throw new Error(`Invalid ${label}: contains null byte`);
+  }
+  return path.resolve(p);
+}
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
 async function scanDirectory(dirPath) {
@@ -95,6 +117,7 @@ function register() {
   // ---------- file ops ----------
 
   ipcMain.handle('read-file', async (_event, filePath) => {
+    filePath = safePath(filePath, 'filePath');
     try {
       return await fs.readFile(filePath, 'utf8');
     } catch (error) {
@@ -104,6 +127,7 @@ function register() {
   });
 
   ipcMain.handle('read-file-buffer', async (_event, filePath) => {
+    filePath = safePath(filePath, 'filePath');
     try {
       return await fs.readFile(filePath);
     } catch (error) {
@@ -113,6 +137,7 @@ function register() {
   });
 
   ipcMain.handle('write-file', async (_event, filePath, content) => {
+    filePath = safePath(filePath, 'filePath');
     try {
       const dir = path.dirname(filePath);
       await fse.ensureDir(dir);
@@ -126,7 +151,7 @@ function register() {
 
   ipcMain.handle('file-exists', async (_event, filePath) => {
     try {
-      await fs.access(filePath);
+      await fs.access(safePath(filePath, 'filePath'));
       return true;
     } catch {
       return false;
@@ -135,16 +160,19 @@ function register() {
 
   ipcMain.handle('path-exists', async (_event, filePath) => {
     try {
-      await fs.access(filePath);
+      await fs.access(safePath(filePath, 'filePath'));
       return true;
     } catch {
       return false;
     }
   });
 
-  ipcMain.handle('mkdir', (_event, dirPath) => fs.mkdir(dirPath, { recursive: true }));
+  ipcMain.handle('mkdir', (_event, dirPath) =>
+    fs.mkdir(safePath(dirPath, 'dirPath'), { recursive: true }),
+  );
 
   ipcMain.handle('create-directory', async (_event, dirPath) => {
+    dirPath = safePath(dirPath, 'dirPath');
     try {
       await fse.ensureDir(dirPath);
       return { success: true };
@@ -154,9 +182,12 @@ function register() {
     }
   });
 
-  ipcMain.handle('copy-file', (_event, src, dest) => fs.copyFile(src, dest));
+  ipcMain.handle('copy-file', (_event, src, dest) =>
+    fs.copyFile(safePath(src, 'src'), safePath(dest, 'dest')),
+  );
 
   ipcMain.handle('delete-file', async (_event, filePath) => {
+    filePath = safePath(filePath, 'filePath');
     try {
       await fs.unlink(filePath);
       return { success: true };
@@ -168,7 +199,7 @@ function register() {
 
   ipcMain.handle('file:delete', async (_event, filePath) => {
     try {
-      const normalizedPath = path.resolve(path.normalize(filePath));
+      const normalizedPath = safePath(filePath, 'filePath');
       let stats;
       try {
         stats = await fs.stat(normalizedPath);
@@ -198,7 +229,7 @@ function register() {
 
   ipcMain.handle('list-files-directory', async (_event, directoryPath) => {
     try {
-      return await fs.readdir(directoryPath);
+      return await fs.readdir(safePath(directoryPath, 'directoryPath'));
     } catch (error) {
       log.error('Error listing files:', error);
       return [];
@@ -206,7 +237,7 @@ function register() {
   });
 
   ipcMain.handle('getFolderFiles', async (_event, folderPath) => {
-    if (!folderPath) throw new Error('Folder path is required');
+    folderPath = safePath(folderPath, 'folderPath');
     try {
       const files = await fse.readdir(folderPath, { withFileTypes: true });
       return files.map((file) => ({
@@ -221,7 +252,7 @@ function register() {
   });
 
   ipcMain.handle('refreshFolder', async (_event, projectPath) => {
-    if (!projectPath) throw new Error('No project path provided');
+    projectPath = safePath(projectPath, 'projectPath');
     try {
       const files = await scanDirectory(projectPath);
       return { files };
@@ -233,7 +264,8 @@ function register() {
 
   ipcMain.handle('restore-original-testbench', async (_event, originalPath, backupPath) => {
     try {
-      if (!originalPath || !backupPath) return { success: false, message: 'Missing path arguments' };
+      originalPath = safePath(originalPath, 'originalPath');
+      backupPath = safePath(backupPath, 'backupPath');
       if (!(await fse.pathExists(backupPath))) return { success: false, message: 'Backup file does not exist' };
       await fse.copy(backupPath, originalPath, { overwrite: true });
       return { success: true };
@@ -342,7 +374,7 @@ function register() {
   // ---------- backups ----------
 
   ipcMain.handle('create-backup', async (_event, folderPath) => {
-    if (!folderPath) return { success: false, message: 'No folder open for backup!' };
+    folderPath = safePath(folderPath, 'folderPath');
 
     const folderName = path.basename(folderPath);
     const backupFolderPath = path.join(folderPath, 'Backup');
@@ -366,15 +398,21 @@ function register() {
         await fse.copy(path.join(folderPath, entry), path.join(tempBackupFolderPath, entry));
       }
 
-      // Quote escaping for PowerShell single-quoted strings: ' → ''.
+      // Quote escaping for PowerShell single-quoted strings: ' → ''. The
+      // outer `execFile` call already passes -Command as a single argv
+      // entry, so we don't have to defend against the second-layer
+      // shell-quoting that the old `exec(string)` form needed.
       const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
       const psCommand =
         `Compress-Archive -Path ${psQuote(path.join(tempBackupFolderPath, '*'))} ` +
         `-DestinationPath ${psQuote(zipFilePath)} -Force`;
-      const command = `powershell -NoProfile -NonInteractive -Command "${psCommand.replace(/"/g, '\\"')}"`;
 
       return await new Promise((resolve) => {
-        exec(command, { cwd: folderPath, windowsHide: true }, async (error, _stdout, stderr) => {
+        execFile(
+          'powershell',
+          ['-NoProfile', '-NonInteractive', '-Command', psCommand],
+          { cwd: folderPath, windowsHide: true },
+          async (error, _stdout, stderr) => {
           // Always try to clean the staging folder, success or failure, so
           // we don't leave the user with a dangling backup_<timestamp>/.
           try {

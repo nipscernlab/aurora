@@ -1,7 +1,7 @@
 /**
  * Aurora IDE - Toolchain bootstrap
  *
- * Downloads aurora-toolchain-v1.zip from GitHub Releases and extracts it
+ * Downloads aurora-toolchain-v2.zip from GitHub Releases and extracts it
  * into components/Packages/ if the toolchain is not already present.
  *
  * Usage:  node components/scripts/download-toolchain.js [--force]
@@ -15,8 +15,8 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const TOOLCHAIN_TAG      = 'toolchain-v1';
-const TOOLCHAIN_FILENAME = 'aurora-toolchain-v1.zip';
+const TOOLCHAIN_TAG      = 'toolchain-v2';
+const TOOLCHAIN_FILENAME = 'aurora-toolchain-v2.zip';
 const GITHUB_OWNER       = 'nipscernlab';
 const GITHUB_REPO        = 'Aurora';
 

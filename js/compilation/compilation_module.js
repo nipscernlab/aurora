@@ -1240,7 +1240,7 @@ async iverilogVerilogOnlyCompilation() {
         );
 
         if (!await window.electronAPI.fileExists(iveriCompPath)) {
-            throw new Error(`Icarus Verilog binary not found at:\n  ${iveriCompPath}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download "aurora-toolchain-v1.zip" from the project's GitHub Releases and extract it into components/Packages/, then restart the app.`);
+            throw new Error(`Icarus Verilog binary not found at:\n  ${iveriCompPath}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download "aurora-toolchain-v2.zip" from the project's GitHub Releases and extract it into components/Packages/, then restart the app.`);
         }
 
         await window.electronAPI.mkdir(tempBaseDir);

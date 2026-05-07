@@ -140,7 +140,7 @@ changes.
 
 ```powershell
 # From a checkout that has components/Packages/ populated locally
-$ver = "v1"
+$ver = "v2"
 Compress-Archive -Path components/Packages/* `
                  -DestinationPath ..\aurora-toolchain-$ver.zip `
                  -CompressionLevel Optimal -Force
@@ -149,12 +149,12 @@ Compress-Archive -Path components/Packages/* `
 Then in the browser:
 
 1. Open <https://github.com/nipscernlab/Aurora/releases/new>
-2. **Choose a tag:** type `toolchain-v1` → *Create new tag on publish*
-3. **Title:** `AURORA toolchain v1`
+2. **Choose a tag:** type `toolchain-v2` → *Create new tag on publish*
+3. **Title:** `AURORA toolchain v2`
 4. **Description:** one-liner about which upstream versions are bundled
 5. ✅ Tick **Set as a pre-release** (so it doesn't appear as the
    user-facing "latest")
-6. Drag-and-drop `..\aurora-toolchain-v1.zip` into the assets area
+6. Drag-and-drop `..\aurora-toolchain-v2.zip` into the assets area
 7. Click **Publish release**
 
 This is the bundle the release workflow downloads on every build.
@@ -170,7 +170,7 @@ Then either:
 
 * **Recommended (CI build):** open the **Actions** tab → **Release**
   workflow → **Run workflow**. Pass the toolchain release tag (e.g.
-  `toolchain-v1`). The workflow downloads the toolchain, runs
+  `toolchain-v2`). The workflow downloads the toolchain, runs
   `electron-builder --publish always`, and the auto-updater takes it
   from there.
 * **Manual (local build):** run `npm run build`, then upload the three

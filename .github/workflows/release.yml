@@ -20,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       toolchain_release:
-        description: 'Toolchain release tag (e.g. toolchain-v1)'
+        description: 'Toolchain release tag (e.g. toolchain-v2)'
         required: true
-        default: 'toolchain-v1'
+        default: 'toolchain-v2'
 
 jobs:
   release:

@@ -31,9 +31,34 @@ class EditorManager {
     }
 
     static createEditorInstance(filePath, initialContent = '') {
+        // Lazy fallback: setActiveEditor can fire before initialize() runs
+        // (e.g. activateTab dispatched from a tab click during Monaco's
+        // AMD-loading window). If Monaco itself is loaded the container is
+        // safe to grab from the DOM, so do that instead of bailing.
         if (!this.editorContainer) {
+            this.editorContainer = document.getElementById('monaco-editor');
+        }
+        if (!this.editorContainer || !window.monaco) {
             console.error('EditorManager has not been initialized. Please call EditorManager.initialize() on DOMContentLoaded.');
             return;
+        }
+
+        // Idempotent: if an editor for this filePath already exists, reuse it.
+        // Without this, racing call sites (setActiveEditor's auto-create +
+        // TabManager.addTab's IIFE) end up with two editor-instance divs
+        // stacked in the same container, both bound to the same shared model
+        // — typing produces visual artefacts and the user can't tell which
+        // pane has focus. Seed the shared model from initialContent if it
+        // hasn't been seeded yet.
+        const existing = this.editors.get(filePath);
+        if (existing) {
+            if (typeof initialContent === 'string' && initialContent !== '') {
+                const model = existing.editor.getModel();
+                if (model && model.getValue() === '') {
+                    model.setValue(initialContent);
+                }
+            }
+            return existing.editor;
         }
 
         const editorDiv = document.createElement('div');
@@ -611,15 +636,13 @@ class EditorManager {
             container.style.display = 'none';
         });
 
-        // Get or create editor for this file
-        let editorData = this.editors.get(filePath);
+        // No auto-create here. TabManager.addTab owns editor creation (with
+        // file content) via its EditorManager.ready-gated IIFE; if we forced
+        // a create here we'd race that path and end up with a duplicate
+        // empty editor stacked on top. Bail quietly — the IIFE will call us
+        // again once the editor is in the map.
+        const editorData = this.editors.get(filePath);
         if (!editorData) {
-            this.createEditorInstance(filePath);
-            editorData = this.editors.get(filePath);
-        }
-
-        if (!editorData) {
-            console.error(`Failed to create editor for ${filePath}`);
             return null;
         }
 

@@ -33,6 +33,9 @@ jobs:
           Get-ChildItem -Path js,main -Recurse -Filter *.js |
             ForEach-Object { node --check $_.FullName }
 
+      - name: Unit tests
+        run: npm test
+
       - name: Build (no publish)
         run: npx electron-builder --win --x64 --publish never
         env:

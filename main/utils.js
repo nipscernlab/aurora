@@ -109,6 +109,28 @@ function checkProcessRunning(processName) {
   });
 }
 
+// Defensive path normalization for IPC inputs. Doesn't confine to any specific
+// root (the IDE legitimately reads from project roots, toolchain, app paths,
+// and user-picked imports), but does reject the obvious shapes a malicious
+// renderer would use to smuggle non-paths through:
+//   • non-strings (null, objects, arrays)
+//   • empty strings
+//   • null bytes (Node FS truncates at \0 on some platforms — classic bypass)
+// Returns an absolute, normalized path so downstream code never has to
+// re-normalize.
+function safePath(p, label = 'path') {
+  if (typeof p !== 'string') {
+    throw new TypeError(`Invalid ${label}: expected string, got ${typeof p}`);
+  }
+  if (p.length === 0) {
+    throw new Error(`Invalid ${label}: empty string`);
+  }
+  if (p.includes('\0')) {
+    throw new Error(`Invalid ${label}: contains null byte`);
+  }
+  return path.resolve(p);
+}
+
 function getExecutablePath(executableName, appRoot) {
   if (executableName === 'yosys') {
     return path.join(appRoot, 'components', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
@@ -129,4 +151,5 @@ module.exports = {
   killProcessesByName,
   checkProcessRunning,
   getExecutablePath,
+  safePath,
 };

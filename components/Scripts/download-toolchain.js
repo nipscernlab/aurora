@@ -32,8 +32,8 @@ const TMP_ZIP       = path.join(ROOT_DIR, TOOLCHAIN_FILENAME);
 function log(msg) { console.log(`[toolchain] ${msg}`); }
 function err(msg) { console.error(`[toolchain] ERROR: ${msg}`); }
 
-function alreadyInstalled() {
-    return fs.existsSync(SENTINEL_FILE);
+function alreadyInstalled(sentinelPath = SENTINEL_FILE) {
+    return fs.existsSync(sentinelPath);
 }
 
 function downloadFile(url, dest) {
@@ -152,4 +152,18 @@ async function main() {
     }
 }
 
-main();
+// Only run main when invoked directly (`node download-toolchain.js`).
+// When imported by tests via require(), this is skipped.
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    alreadyInstalled,
+    downloadFile,
+    extractZip,
+    DOWNLOAD_URL,
+    TOOLCHAIN_TAG,
+    TOOLCHAIN_FILENAME,
+    SENTINEL_FILE,
+};

@@ -985,7 +985,9 @@ async importFiles(files, type) {
       const projectInfo = await window.electronAPI.getCurrentProject();
       
       if (projectInfo && projectInfo.projectOpen) {
-        window.currentProjectPath = projectInfo.projectPath;
+        // Funnel through the store rather than writing window.* directly so
+        // ProjectStore.getProjectPath() stays in sync (it owns the field).
+        window.ProjectStore?.setProject(projectInfo.spfPath || null, projectInfo.projectPath);
         this.availableProcessors = projectInfo.processors || [];
       } else {
         const currentProjectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
@@ -1239,18 +1241,18 @@ async importFiles(files, type) {
       this.gtkwFiles = [];
       
       let projectPath = window.currentProjectPath;
-      
+
       if (!projectPath) {
         const projectData = await window.electronAPI.getCurrentProject();
         if (projectData && typeof projectData === 'object' && projectData.projectPath) {
           projectPath = projectData.projectPath;
-          window.currentProjectPath = projectPath;
+          window.ProjectStore?.setProject(projectData.spfPath || null, projectPath);
         } else if (typeof projectData === 'string') {
           projectPath = projectData;
-          window.currentProjectPath = projectPath;
+          window.ProjectStore?.setProject(null, projectPath);
         }
       }
-      
+
       if (!projectPath) {
         console.error('Project path not available');
         return;

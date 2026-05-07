@@ -3,6 +3,7 @@
 import { TabManager } from '../tabs/tab_manager.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { ProjectStore } from './project_store.js';
 
 function updateProjectNameUI(projectData, spfPath) {
     const spfNameElement = document.getElementById('current-spf-name');
@@ -123,8 +124,9 @@ async function loadProject(spfPath) {
             throw new Error('Project base path could not be determined.');
         }
 
-        window.currentProjectPath = basePath;
-        window.currentSpfPath = spfPath;
+        // Single source of truth — also mirrors window.currentProjectPath /
+        // window.currentSpfPath for the dozens of existing read sites.
+        ProjectStore.setProject(spfPath, basePath);
 
         // Seed the global processor list from the IPC payload BEFORE the file
         // tree renders. Without this, processor folders render as plain

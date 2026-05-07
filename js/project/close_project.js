@@ -6,6 +6,7 @@
 
 import { showDialog } from '../ui/dialog_manager.js';
 import { TabManager } from '../tabs/tab_manager.js';
+import { ProjectStore } from './project_store.js';
 
 function disableCompileButtons() {
     const buttonIds = [
@@ -112,21 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 clearProjectInterface();
 
-                // Clear project state and bring the welcome screen back.
-                window.currentProjectPath = null;
-                window.currentSpfPath = null;
+                // Clear the canonical project state — the store mirrors to
+                // window.currentProjectPath / window.currentSpfPath for the
+                // legacy read sites.
+                ProjectStore.clearProject();
 
-                // Reset Verilog Mode state so reopening a project triggers a
-                // full re-activation (loads projectOriented.json fresh, picks
-                // up files outside the project folder). Without this,
-                // isVerilogModeActive stays true and the next activate call
-                // hits the early-return branch with a stale currentProjectPath.
-                const vmm = window.verilogModeManager;
-                if (vmm) {
-                    vmm.isVerilogModeActive = false;
-                    vmm.currentProjectPath = null;
-                    vmm.verilogFiles = [];
-                }
+                // Reset Verilog Mode so reopening triggers a full re-activate
+                // (loads projectOriented.json fresh, picks up files outside
+                // the project folder). Without this, isVerilogModeActive
+                // stays true and the next activate hits the early-return
+                // branch.
+                window.verilogModeManager?.reset?.();
 
                 window.SplitEditorManager?.refreshLayout?.();
             } else {

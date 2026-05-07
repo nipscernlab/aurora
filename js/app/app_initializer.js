@@ -490,6 +490,13 @@ class AppInitializer {
 // Create and export singleton instance
 const appInitializer = new AppInitializer();
 
+// Globally exposed so non-module callers (and the file_tree_manager mode
+// fallback that always-true-branch was relying on) can consult the same
+// instance instead of re-deriving mode state from the DOM.
+if (typeof window !== 'undefined') {
+    window.appInitializer = appInitializer;
+}
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => appInitializer.initialize());

@@ -893,9 +893,10 @@ window.electronAPI.onProcessorCreated((data) => {
   const projectPath = typeof data === 'object' ? data.projectPath : window.currentProjectPath;
   
   if (projectPath) {
-    // Store the project path for future use
-    if (window.currentProjectPath === undefined) {
-      window.currentProjectPath = projectPath;
+    // Funnel through the store rather than writing window.* directly so
+    // ProjectStore stays in sync. setProject is idempotent on equal values.
+    if (!window.ProjectStore?.hasProject?.()) {
+      window.ProjectStore?.setProject(window.currentSpfPath || null, projectPath);
     }
     localStorage.setItem('currentProjectPath', projectPath);
   }
@@ -933,7 +934,7 @@ window.electronAPI.onProjectOpen((data) => {
   
   // Extract project path
   if (data && data.projectPath) {
-    window.currentProjectPath = data.projectPath;
+    window.ProjectStore?.setProject(data.spfPath || null, data.projectPath);
     localStorage.setItem('currentProjectPath', data.projectPath);
   }
   

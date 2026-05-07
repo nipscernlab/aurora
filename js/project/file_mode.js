@@ -6,6 +6,7 @@
  */
 
 import { TabManager } from '../tabs/tab_manager.js';
+import { ProjectStore } from './project_store.js';
 
 class VerilogModeManager {
     constructor() {
@@ -13,10 +14,13 @@ class VerilogModeManager {
         this.CONFIG_FILENAME = 'projectOriented.json';
         this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'];
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
-        // State management
+        // State management. currentProjectPath is intentionally NOT cached
+        // here anymore — it lives in ProjectStore (single source of truth).
+        // Caching it on the manager was the root cause of files-disappearing
+        // on close+reopen, since close didn't reset it and the early-return
+        // branch in activateVerilogMode used the stale path.
         this.verilogFiles = [];
         this.isVerilogModeActive = false;
-        this.currentProjectPath = null;
         
         // DOM element cache
         this.elements = {};
@@ -401,21 +405,27 @@ class VerilogModeManager {
 
             this.isVerilogModeActive = true;
 
-            // Get current project path
-            try {
-                const projectData = await window.electronAPI.getCurrentProject();
-                if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-                    this.currentProjectPath = projectData.projectPath;
-                    window.currentProjectPath = projectData.projectPath;
-                } else if (typeof projectData === 'string') {
-                    this.currentProjectPath = projectData;
-                    window.currentProjectPath = projectData;
+            // Discover the project path if loadProject hasn't run yet (rare
+            // — happens on app startup when restoreLastSession is mid-flight).
+            // Once known, push it into ProjectStore so every other consumer
+            // sees the same value instead of caching a copy here.
+            if (!ProjectStore.hasProject()) {
+                try {
+                    const projectData = await window.electronAPI.getCurrentProject();
+                    const discoveredPath =
+                        (projectData && typeof projectData === 'object' && projectData.projectPath) ||
+                        (typeof projectData === 'string' ? projectData : null);
+                    const discoveredSpf =
+                        (projectData && typeof projectData === 'object' && projectData.spfPath) || null;
+                    if (discoveredPath) {
+                        ProjectStore.setProject(discoveredSpf, discoveredPath);
+                    }
+                } catch (error) {
+                    console.error('Error getting project path:', error);
                 }
-
-                console.log('📂 Project path:', this.currentProjectPath);
-            } catch (error) {
-                console.error('Error getting project path:', error);
             }
+
+            console.log('📂 Project path:', ProjectStore.getProjectPath());
 
             // Load configuration
             await this.loadConfiguration();
@@ -434,6 +444,18 @@ class VerilogModeManager {
         } finally {
             this._activatePromise = null;
         }
+    }
+
+    /**
+     * Reset all transient state. Called by close_project so reopening
+     * triggers a clean activation against the new ProjectStore value
+     * instead of the early-return branch with stale data.
+     */
+    reset() {
+        this.isVerilogModeActive = false;
+        this.verilogFiles = [];
+        // Tree DOM is already cleared by clearProjectInterface in
+        // close_project.js; nothing to do here.
     }
     
     /**
@@ -729,14 +751,7 @@ showContextMenu(event, file, index) {
 
     async syncToProjectConfig() {
     try {
-        let projectPath = this.currentProjectPath || window.currentProjectPath;
-        
-        if (!projectPath) {
-            const projectData = await window.electronAPI.getCurrentProject();
-            if (projectData && projectData.projectPath) {
-                projectPath = projectData.projectPath;
-            }
-        }
+        const projectPath = ProjectStore.getProjectPath();
         
         if (!projectPath) {
             console.error('❌ Project path not available for sync');
@@ -851,7 +866,7 @@ showContextMenu(event, file, index) {
  */
 async createNewFile() {
     try {
-        const projectPath = this.currentProjectPath || window.currentProjectPath || null;
+        const projectPath = ProjectStore.getProjectPath();
         const defaultPath = projectPath
             ? await window.electronAPI.joinPath(projectPath, 'untitled.v')
             : 'untitled.v';
@@ -1153,15 +1168,7 @@ async importFiles(files) {
  */
 async saveConfiguration() {
     try {
-        let projectPath = this.currentProjectPath || window.currentProjectPath;
-        
-        if (!projectPath) {
-            const projectData = await window.electronAPI.getCurrentProject();
-            if (projectData && projectData.projectPath) {
-                projectPath = projectData.projectPath;
-            }
-        }
-        
+        const projectPath = ProjectStore.getProjectPath();
         if (!projectPath) {
             console.error('Project path not available for sync');
             return;
@@ -1224,16 +1231,8 @@ async saveConfiguration() {
 async loadConfiguration() {
     try {
         this.verilogFiles = [];
-        
-        let projectPath = this.currentProjectPath || window.currentProjectPath;
-        
-        if (!projectPath) {
-            const projectData = await window.electronAPI.getCurrentProject();
-            if (projectData && projectData.projectPath) {
-                projectPath = projectData.projectPath;
-            }
-        }
-        
+
+        const projectPath = ProjectStore.getProjectPath();
         if (!projectPath) {
             console.error('Project path not available');
             return;

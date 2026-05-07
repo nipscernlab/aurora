@@ -110,8 +110,6 @@ async function createPrismWindow(compilationData = null) {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
-      webSecurity: false,
-      allowRunningInsecureContent: true,
     },
     backgroundColor: '#17151f',
     show: false,

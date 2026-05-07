@@ -927,17 +927,11 @@ class PRISMViewer {
         console.log('Loading SVG from:', svgPath);
         this.showStatus(`Loading ${moduleName}...`, false);
 
-        // Use file:// protocol for local files
-        const fileUrl = svgPath.startsWith('file://') ? svgPath : `file:///${svgPath.replace(/\\/g, '/')}`;
-        console.log('File URL:', fileUrl);
-
-        const response = await fetch(fileUrl);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const svgText = await response.text();
+        // Read via the main process IPC (`read-file` → safePath).
+        // Was `fetch('file://...')` previously, but that needed the window's
+        // webSecurity to be disabled — going through main keeps the renderer
+        // sandbox intact.
+        const svgText = await window.electronAPI.readFile(svgPath);
 
         if (!svgText || !svgText.includes('<svg')) {
             throw new Error('Invalid SVG content received');

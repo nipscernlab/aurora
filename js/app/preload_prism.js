@@ -6,6 +6,11 @@ console.log('Preload script loading...');
 try {
   contextBridge.exposeInMainWorld('electronAPI', {
 
+    // Reads a file via the main process so the renderer doesn't need
+    // `fetch('file://...')` (which would require disabling webSecurity).
+    // The main-side `read-file` handler runs the input through safePath().
+    readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+
     joinPath: async (...pathSegments) => {
     console.log('joinPath called with:', pathSegments);
     return ipcRenderer.invoke('join-path', pathSegments);

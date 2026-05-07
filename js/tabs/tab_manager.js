@@ -915,6 +915,15 @@ export class TabManager {
         this.viewerInstances.clear();
         this.pdfViewerStates.clear();
         this.stopAllWatchers();
+
+        // Disconnect the MutationObserver wired in tab_drag.js so the host
+        // page can GC. Without this the observer holds a live reference to
+        // the tabs container forever (it was set up in initSortableTabs
+        // and stashed on TabManager precisely so cleanup could release it).
+        if (this.tabObserver) {
+            this.tabObserver.disconnect();
+            this.tabObserver = null;
+        }
     }
 
     // Handling unsaved changes with dialog

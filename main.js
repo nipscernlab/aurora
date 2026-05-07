@@ -2,14 +2,16 @@
  * Electron entry point.
  *
  * All real logic lives in main/. This file just wires modules together so
- * the boot order is: lifecycle → IPC handlers → splash → updater (lazy).
+ * the boot order is: lifecycle → IPC handlers (incl. updater IPC) → splash.
+ * The autoUpdater itself initializes lazily, ~2 s after the main window
+ * shows; only the IPC handlers are registered eagerly here.
  */
 
 const { app } = require('electron');
 
 const lifecycle = require('./main/lifecycle');
 const windows = require('./main/windows');
-require('./main/updater'); // side effect: configure autoUpdater logger
+const updater = require('./main/updater');
 
 const filesIpc = require('./main/ipc/files');
 const projectIpc = require('./main/ipc/project');
@@ -28,6 +30,9 @@ if (acquiredLock) {
   compileIpc.register();
   prismIpc.register();
   systemIpc.register();
+  // Updater IPC must be registered at boot, not lazily — the splash window
+  // calls `getAppVersion()` before the autoUpdater itself is initialized.
+  updater.registerIpc();
 
   app.whenReady().then(() => {
     windows.createSplashScreen(); // splash schedules createMainWindow itself

@@ -281,7 +281,6 @@ function initializeUpdateSystem() {
   });
 
   setupAutoUpdaterEvents();
-  registerIpc();
 
   // Silent background check 10s after launch (gives the renderer time to
   // settle so the eventual "update available" dialog isn't competing with

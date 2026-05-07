@@ -50,7 +50,16 @@ export const SharedModelRegistry = {
         // Empty existing model + we have content → seed it.
         model.setValue(content);
       }
-      entry = { model, refCount: 0 };
+      // Snapshot the model's alternative version at acquire time. This
+      // is what every pane (main + splits) compares against to decide
+      // whether the buffer is dirty. Monaco bumps altVersionId on every
+      // edit and rolls it BACK on undo — so undoing all the way to the
+      // saved state correctly clears the dirty marker, exactly like VS Code.
+      entry = {
+        model,
+        refCount: 0,
+        savedAltVersionId: model.getAlternativeVersionId(),
+      };
       entries.set(filePath, entry);
     }
     entry.refCount += 1;
@@ -84,6 +93,35 @@ export const SharedModelRegistry = {
   /** Has any pane currently registered this file? */
   has(filePath) {
     return entries.has(filePath);
+  },
+
+  /**
+   * True iff the shared buffer differs from the last saved snapshot.
+   * Cheap (just an integer compare) and pane-agnostic, so the same answer
+   * is returned no matter which editor instance asks. Returns false if we
+   * don't track this file (no pane has it open).
+   */
+  isDirty(filePath) {
+    const entry = entries.get(filePath);
+    if (!entry) return false;
+    return entry.model.getAlternativeVersionId() !== entry.savedAltVersionId;
+  },
+
+  /**
+   * Pin the current buffer state as "the saved state". Call this right
+   * after a successful disk write so subsequent isDirty() returns false
+   * until the next edit. Survives undo/redo crossing this point.
+   */
+  markSaved(filePath) {
+    const entry = entries.get(filePath);
+    if (entry) {
+      entry.savedAltVersionId = entry.model.getAlternativeVersionId();
+    }
+  },
+
+  /** Current ref count (0 if file isn't held). */
+  refCount(filePath) {
+    return entries.get(filePath)?.refCount ?? 0;
   },
 };
 

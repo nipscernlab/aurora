@@ -31,9 +31,12 @@ class VerilogModeManager {
         this.deleteFile = this.deleteFile.bind(this);
         this.closeContextMenu = this.closeContextMenu.bind(this); // ADD THIS LINE
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this); // ADD THIS LINE
-        
-        // Initialize
-        this.init();
+
+        // Expose the init() promise so callers (app_initializer) can safely
+        // await DOM-element caching before asking us to render. Without this,
+        // a programmatic mode switch on cold start can race past cacheElements
+        // and silently bail out in renderVerilogTree (no fileTree element).
+        this.initPromise = this.init();
     }
     
     /**
@@ -126,6 +129,21 @@ class VerilogModeManager {
         if (this.elements.projectModeRadio) {
             this.elements.projectModeRadio.addEventListener('change', syncFromState);
         }
+
+        // Programmatic radio/checkbox flips (e.g. session restore via
+        // app_initializer.activateModeUI) do not fire a 'change' event, so
+        // app_initializer dispatches this custom event after switching modes.
+        document.addEventListener('mode-state-changed', syncFromState);
+
+        // Project modal saves write projectOriented.json. The modal's own
+        // saveConfiguration() already calls us when verilog mode is active,
+        // but listening here catches any other path that updates the config
+        // (CLI tools, future flows, etc.) so the picker never goes stale.
+        document.addEventListener('project-config-saved', () => {
+            if (this.isVerilogModeActive) {
+                this.refreshVerilogTree();
+            }
+        });
 
         if (this.elements.fileTree) {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
@@ -355,43 +373,67 @@ class VerilogModeManager {
      * Activate Verilog Mode
      */
    async activateVerilogMode() {
-        if (this.isVerilogModeActive) {
-            // Already active but a new project may have been opened — refresh
-            // the configuration and re-render rather than returning a stale tree.
-            await this.refreshVerilogTree();
-            return;
-        }
-        
-        console.log('🚀 Activating Verilog Mode...');
-        
-        this.isVerilogModeActive = true;
-        
-        // Get current project path
-        try {
-            const projectData = await window.electronAPI.getCurrentProject();
-            if (projectData && typeof projectData === 'object' && projectData.projectPath) {
-                this.currentProjectPath = projectData.projectPath;
-                window.currentProjectPath = projectData.projectPath;
-            } else if (typeof projectData === 'string') {
-                this.currentProjectPath = projectData;
-                window.currentProjectPath = projectData;
+        // Coalesce concurrent activations. Session-restore fires us from TWO
+        // paths in the same tick (mode-state-changed via syncFromState AND
+        // app_initializer.switchToVerilogFileMode). Without this guard, both
+        // run loadConfiguration() in parallel — each does `verilogFiles = []`
+        // then awaits, so call B's reset wipes call A's pushes mid-iteration
+        // and the surviving entries end up duplicated in the picker.
+        if (this._activatePromise) return this._activatePromise;
+
+        this._activatePromise = (async () => {
+            // Wait for cacheElements() to have run. Without this, an early
+            // programmatic activation can land before init() resolves and
+            // silently no-op in renderVerilogTree.
+            if (this.initPromise) {
+                try { await this.initPromise; } catch (_) { /* init logs its own errors */ }
             }
-            
-            console.log('📂 Project path:', this.currentProjectPath);
-        } catch (error) {
-            console.error('Error getting project path:', error);
+
+            if (this.isVerilogModeActive) {
+                // Already active but a new project may have been opened —
+                // refresh the configuration and re-render rather than
+                // returning a stale tree.
+                await this.refreshVerilogTree();
+                return;
+            }
+
+            console.log('🚀 Activating Verilog Mode...');
+
+            this.isVerilogModeActive = true;
+
+            // Get current project path
+            try {
+                const projectData = await window.electronAPI.getCurrentProject();
+                if (projectData && typeof projectData === 'object' && projectData.projectPath) {
+                    this.currentProjectPath = projectData.projectPath;
+                    window.currentProjectPath = projectData.projectPath;
+                } else if (typeof projectData === 'string') {
+                    this.currentProjectPath = projectData;
+                    window.currentProjectPath = projectData;
+                }
+
+                console.log('📂 Project path:', this.currentProjectPath);
+            } catch (error) {
+                console.error('Error getting project path:', error);
+            }
+
+            // Load configuration
+            await this.loadConfiguration();
+
+            // Render Verilog tree
+            this.renderVerilogTree();
+
+            // Setup hierarchy toggle
+            this.setupHierarchyToggle();
+
+            console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
+        })();
+
+        try {
+            await this._activatePromise;
+        } finally {
+            this._activatePromise = null;
         }
-        
-        // Load configuration
-        await this.loadConfiguration();
-        
-        // Render Verilog tree
-        this.renderVerilogTree();
-        
-        // Setup hierarchy toggle
-        this.setupHierarchyToggle();
-        
-        console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
     }
     
     /**
@@ -524,7 +566,7 @@ createFileItem(file, index) {
         if (e.target.closest('.category-toggle-wrapper') || e.target.closest('.delete-btn')) {
             return;
         }
-        
+
         try {
             const content = await window.electronAPI.readFile(file.path);
             TabManager.addTab(file.path, content);
@@ -1266,10 +1308,23 @@ async loadConfiguration() {
      * Refresh Verilog Mode tree
      */
     async refreshVerilogTree() {
-        console.log('🔄 Refreshing Verilog Mode tree...');
-        await this.loadConfiguration();
-        this.renderVerilogTree();
-        this.showNotification('Verilog Mode refreshed', 'success', 2000);
+        // Same coalescing pattern as activateVerilogMode: two refresh calls
+        // arriving in the same tick (e.g. from project-config-saved + a tab
+        // event) would each reset verilogFiles=[] and interleave pushes.
+        if (this._refreshPromise) return this._refreshPromise;
+
+        this._refreshPromise = (async () => {
+            console.log('🔄 Refreshing Verilog Mode tree...');
+            await this.loadConfiguration();
+            this.renderVerilogTree();
+            this.showNotification('Verilog Mode refreshed', 'success', 2000);
+        })();
+
+        try {
+            await this._refreshPromise;
+        } finally {
+            this._refreshPromise = null;
+        }
     }
 
     /**

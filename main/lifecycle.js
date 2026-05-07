@@ -22,6 +22,16 @@ function register() {
   // first, then quit the second instance.
   const gotTheLock = app.requestSingleInstanceLock();
   if (!gotTheLock) {
+    // Log loudly to BOTH the electron-log file AND stdout. Otherwise the
+    // user just sees `npm start` return immediately with no explanation,
+    // which is exactly what bug report #3 was: a leftover SAPHO/electron
+    // process held the lock and the new instance vanished silently.
+    const msg =
+      'SAPHO is already running (single-instance lock held by another process). ' +
+      'Close the existing window or kill leftover electron.exe / SAPHO.exe processes ' +
+      '(Task Manager) and try again.';
+    log.warn(msg);
+    process.stderr.write(`[SAPHO] ${msg}\n`);
     app.quit();
     return false;
   }

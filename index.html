@@ -148,17 +148,26 @@
         </button>
     </div>
 
-    <!-- Traffic-light window controls (yellow / green / red) — pinned right -->
+    <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
     <div class="window-controls" data-no-tooltip>
-        <button class="window-dot dot-min" id="win-min" aria-label="Minimize" data-no-tooltip>
-            <i class="ph-bold ph-minus"></i>
+        <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-no-tooltip>
+            <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <path d="M2 6 H10" />
+            </svg>
         </button>
-        <button class="window-dot dot-max" id="win-max" aria-label="Maximize" data-no-tooltip>
-            <i class="ph-bold ph-square"></i>
-            <i class="ph-bold ph-corners-in ph-restore"></i>
+        <button class="window-ctrl ctrl-max" id="win-max" aria-label="Maximize" data-no-tooltip>
+            <svg class="ctrl-icon-max" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="2.5" width="7" height="7" rx="0.5" />
+            </svg>
+            <svg class="ctrl-icon-restore" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <path d="M3.5 4.5 H8.5 V9.5 H3.5 Z" />
+                <path d="M5 4.5 V3 H10 V8 H8.5" />
+            </svg>
         </button>
-        <button class="window-dot dot-close" id="win-close" aria-label="Close" data-no-tooltip>
-            <i class="ph-bold ph-x"></i>
+        <button class="window-ctrl ctrl-close" id="win-close" aria-label="Close" data-no-tooltip>
+            <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" />
+            </svg>
         </button>
     </div>
   </div>
@@ -229,10 +238,14 @@
              horizontal resizer cannot affect its layout. -->
         <div id="editor-overlay" class="visible">
             <div class="welcome-screen">
+                <img class="welcome-watermark"
+                     src="./assets/icons/sapho_aurora_icon.svg"
+                     alt=""
+                     aria-hidden="true">
                 <div class="welcome-content">
                     <header class="welcome-topbar">
-                        <span class="welcome-mark">AURORA</span>
-                        <span class="welcome-tagline">IDE for the SAPHO platform</span>
+                        <span class="welcome-mark">SAPHO</span>
+                        <span class="welcome-tagline">Scalable Architecture for Hardware Optimization</span>
                     </header>
 
                     <div class="welcome-grid">

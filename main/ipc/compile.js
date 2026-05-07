@@ -24,6 +24,39 @@ const {
   checkProcessRunning,
 } = require('../utils');
 
+/**
+ * Tokenize a GTKWave argument string into an array suitable for `spawn` with
+ * `shell: false`. Handles three forms the renderer mixes freely:
+ *   --rcvar "hide_sst on"     → ['--rcvar', 'hide_sst on']
+ *   "C:/foo/bar.vcd"          → ['C:/foo/bar.vcd']
+ *   --script="C:/foo/x.tcl"   → ['--script=C:/foo/x.tcl']   (quotes STRIPPED)
+ *
+ * The third form is the one that bit us: a naive `\S+` capture would push
+ * `--script="C:/foo/x.tcl"` (quotes included) and GTKWave would then look for
+ * a file literally named `"C:/foo/x.tcl"` (with the quote characters), fail
+ * silently, and never run gtk_almost_proj.tcl — which is what kept fix.vcd
+ * from opening in the second tab in Verilog-only mode.
+ */
+function parseGtkwaveArgs(argsString) {
+  const args = [];
+  // Match: bare quoted "..." OR --key="..." OR plain non-space token.
+  const argRegex = /(--[\w-]+=)?(?:"([^"]*)"|(\S+))/g;
+  let match;
+  while ((match = argRegex.exec(argsString)) !== null) {
+    const keyEq = match[1] || '';
+    const quoted = match[2];
+    const bare = match[3];
+    if (quoted !== undefined) {
+      args.push(keyEq + quoted);
+    } else if (bare !== undefined) {
+      // Strip a trailing quote that may have leaked from `--key="value"` when
+      // the value itself contained spaces and the regex backtracked oddly.
+      args.push(keyEq + bare.replace(/^"|"$/g, ''));
+    }
+  }
+  return args;
+}
+
 function register() {
   ipcMain.handle('exec-command', (_event, command, options = {}) => {
     return new Promise((resolve, reject) => {
@@ -138,12 +171,7 @@ function register() {
         const gtkwavePath = cmdMatch[1];
         const argsString = cmdMatch[2];
 
-        const args = [];
-        const argRegex = /"([^"]+)"|(\S+)/g;
-        let match;
-        while ((match = argRegex.exec(argsString)) !== null) {
-          args.push(match[1] || match[2]);
-        }
+        const args = parseGtkwaveArgs(argsString);
 
         const gtkwaveProcess = spawn(gtkwavePath, args, {
           cwd: workingDir,

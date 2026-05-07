@@ -279,36 +279,66 @@ export class TabManager {
     }
 
 
-    // Improved method to mark files as modified
+    // Improved method to mark files as modified.
+    //
+    // Broadcasts the dirty marker to EVERY tab DOM element bound to this
+    // file path — that's the main pane tab plus one entry per split pane
+    // showing the same file. Querying with `.tab[data-path=...]` matches
+    // both `.tab` (main) and `.tab.split-tab` (splits) because both share
+    // the base class. VS Code-equivalent behaviour: edit in any pane, every
+    // instance shows the dirty dot.
     static markFileAsModified(filePath) {
         if (!filePath) return;
 
         this.unsavedChanges.add(filePath);
-        const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-        if (tab) {
-            const closeButton = tab.querySelector('.close-tab');
-            if (closeButton) {
-                closeButton.innerHTML = '•';
-                closeButton.style.color = '#ffd700'; // Gold color for unsaved changes
-                closeButton.style.fontSize = '20px';
-            }
-        }
+        document
+            .querySelectorAll(`.tab[data-path="${CSS.escape(filePath)}"]`)
+            .forEach((tab) => {
+                const closeButton = tab.querySelector('.close-tab');
+                if (closeButton) {
+                    closeButton.innerHTML = '•';
+                    closeButton.style.color = '#ffd700';
+                    closeButton.style.fontSize = '20px';
+                }
+            });
     }
 
-    // Improved method to mark files as saved
+    // Improved method to mark files as saved. Mirror of markFileAsModified
+    // — every instance of the file (main + splits) drops the dirty dot.
     static markFileAsSaved(filePath) {
         if (!filePath) return;
 
         this.unsavedChanges.delete(filePath);
-        const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
-        if (tab) {
-            const closeButton = tab.querySelector('.close-tab');
-            if (closeButton) {
-                closeButton.innerHTML = '×';
-                closeButton.style.color = ''; // Reset to default color
-                closeButton.style.fontSize = ''; // Reset to default size
+        document
+            .querySelectorAll(`.tab[data-path="${CSS.escape(filePath)}"]`)
+            .forEach((tab) => {
+                const closeButton = tab.querySelector('.close-tab');
+                if (closeButton) {
+                    closeButton.innerHTML = '×';
+                    closeButton.style.color = '';
+                    closeButton.style.fontSize = '';
+                }
+            });
+    }
+
+    /**
+     * How many open editor instances point at this file? Counts the main
+     * pane tab plus every split-pane tab. Used by the close flow to decide
+     * whether closing this view should prompt for unsaved changes — only
+     * the LAST instance triggers the prompt; earlier ones just dispose
+     * their view, since the shared model (and the user's edits) survives
+     * in the remaining instances.
+     */
+    static getInstanceCount(filePath) {
+        if (!filePath) return 0;
+        let count = this.tabs.has(filePath) ? 1 : 0;
+        const split = window.SplitEditorManager;
+        if (split && Array.isArray(split.panes)) {
+            for (const pane of split.panes) {
+                if (pane?.tabs?.has?.(filePath)) count += 1;
             }
         }
+        return count;
     }
 
     // Add this method to save editor state
@@ -527,6 +557,11 @@ export class TabManager {
             if (this.previewTab === filePath) {
                 this.promotePreviewToPermanent(filePath);
             }
+            // Main pane is paneIndex 0 — clicking its tab must flip the
+            // SplitEditorManager focus back here, otherwise a split pane
+            // remains "focused" (un-dimmed) even though the user just
+            // clicked a main-pane tab.
+            window.SplitEditorManager?.setFocus?.(0);
             this.activateTab(filePath);
         });
         tab.addEventListener('dblclick', () => {
@@ -684,7 +719,9 @@ export class TabManager {
 
     // Comprehensive save method. Reads from the shared model rather than
     // a specific editor, so saving works the same whether the user typed
-    // in the main pane or in a split.
+    // in the main pane or in a split. After the disk write, we pin the
+    // current altVersionId as the new "saved" snapshot via the registry —
+    // that's what propagates the cleared-dirty state to every other pane.
     static async saveCurrentFile() {
         const currentPath = this.getEditingFilePath();
         if (!currentPath) return;
@@ -702,6 +739,7 @@ export class TabManager {
 
             // Save file without interfering with undo history
             await window.electronAPI.writeFile(currentPath, content);
+            window.SharedModelRegistry?.markSaved?.(currentPath);
             this.markFileAsSaved(currentPath);
 
             // Update last modified time
@@ -717,39 +755,44 @@ export class TabManager {
         }
     }
 
-    // Enhanced saveAllFiles method with undo history preservation
+    // Enhanced saveAllFiles method with undo history preservation. Walks
+    // every file the registry knows about (main + split-only), so a file
+    // opened only in a split pane still saves on Ctrl+K S.
     static async saveAllFiles() {
-        for (const [filePath, originalContent] of this.tabs.entries()) {
-            // Skip binary files
-            if (this.isBinaryFile(filePath)) continue;
+        const registry = window.SharedModelRegistry;
+        if (!registry) return;
 
-            const model = window.SharedModelRegistry?.getModel?.(filePath)
+        // Build the universe of file paths we track: main-pane tabs plus
+        // anything the split panes hold that the main pane doesn't.
+        const paths = new Set(this.tabs.keys());
+        const split = window.SplitEditorManager;
+        if (split && Array.isArray(split.panes)) {
+            for (const pane of split.panes) {
+                pane?.tabs?.forEach?.((_info, p) => paths.add(p));
+            }
+        }
+
+        for (const filePath of paths) {
+            if (this.isBinaryFile(filePath)) continue;
+            if (!registry.isDirty(filePath)) continue;
+
+            const model = registry.getModel(filePath)
                 ?? EditorManager.getEditorForFile(filePath)?.getModel();
             if (!model) continue;
 
             const currentContent = model.getValue();
+            try {
+                this.tabs.set(filePath, currentContent);
+                await window.electronAPI.writeFile(filePath, currentContent);
+                registry.markSaved(filePath);
+                this.markFileAsSaved(filePath);
 
-            // Only save if modified
-            if (currentContent !== originalContent) {
                 try {
-                    // Update stored content first
-                    this.tabs.set(filePath, currentContent);
-
-                    // Save without creating undo stops
-                    await window.electronAPI.writeFile(filePath, currentContent);
-                    this.markFileAsSaved(filePath);
-
-                    // Update last modified time
-                    try {
-                        const stats = await window.electronAPI.getFileStats(filePath);
-                        this.lastModifiedTimes.set(filePath, stats.mtime);
-                    } catch (error) {
-                        // Ignore stats errors
-                    }
-
-                } catch (error) {
-                    console.error(`Error saving file ${filePath}:`, error);
-                }
+                    const stats = await window.electronAPI.getFileStats(filePath);
+                    this.lastModifiedTimes.set(filePath, stats.mtime);
+                } catch (_) { /* stats errors are non-fatal */ }
+            } catch (error) {
+                console.error(`Error saving file ${filePath}:`, error);
             }
         }
     }
@@ -782,15 +825,19 @@ export class TabManager {
         }
     }
 
-    // Add listener for content changes
+    // Add listener for content changes.
+    //
+    // Uses the SharedModelRegistry's altVersionId snapshot rather than a
+    // string-compare against this.tabs.get(filePath). The registry is the
+    // pane-agnostic source of truth, so an edit made in a split pane that
+    // shares the same model correctly clears/sets dirty here too — and
+    // undoing all the way back to the saved state crosses the snapshot
+    // and clears the dot, exactly like VS Code.
     static setupContentChangeListener(filePath, editor) {
         editor.onDidChangeModelContent(() => {
-            const currentContent = editor.getValue();
-            const originalContent = this.tabs.get(filePath);
-
-            if (currentContent !== originalContent) {
+            const dirty = window.SharedModelRegistry?.isDirty?.(filePath) ?? false;
+            if (dirty) {
                 this.markFileAsModified(filePath);
-                // Auto-promote preview tab to permanent the moment user starts typing
                 if (this.previewTab === filePath) {
                     this.promotePreviewToPermanent(filePath);
                 }
@@ -812,8 +859,19 @@ export class TabManager {
         this.isClosingTab = true;
 
         try {
-            // Handle unsaved changes for text files
-            if (!this.isBinaryFile(filePath) && this.unsavedChanges.has(filePath)) {
+            // Handle unsaved changes for text files — but only when THIS is
+            // the final instance. If the file is also open in a split pane,
+            // the shared model (and the user's edits) will outlive this view,
+            // so closing the main pane's tab is non-destructive and we skip
+            // the prompt. VS Code does the same thing: closing one pane's
+            // copy of a dirty file doesn't ask anything; only the last one
+            // does.
+            const isLastInstance = this.getInstanceCount(filePath) <= 1;
+            if (
+                isLastInstance
+                && !this.isBinaryFile(filePath)
+                && this.unsavedChanges.has(filePath)
+            ) {
                 const fileName = filePath.split(/[\\/]/)
                     .pop();
                 const result = await showUnsavedChangesDialog(fileName);
@@ -873,7 +931,15 @@ export class TabManager {
             }
 
             this.tabs.delete(filePath);
-            this.unsavedChanges.delete(filePath);
+            // Only clear the global "this file is dirty" flag if no other
+            // pane still holds the (dirty) shared model. Otherwise the
+            // surviving split tab's yellow dot would be wiped while the
+            // buffer it represents still has unsaved edits.
+            const registry = window.SharedModelRegistry;
+            const survivesDirty = registry?.has?.(filePath) && registry?.isDirty?.(filePath);
+            if (!survivesDirty) {
+                this.unsavedChanges.delete(filePath);
+            }
             this.editorStates.delete(filePath);
             if (this.previewTab === filePath) this.previewTab = null;
             this.updateTabsContainerVisibility();
@@ -1122,6 +1188,11 @@ export class TabManager {
                     }
                     this.activateTab(filePath);
                 }
+                // Cross-pane focus: clicking into the main editor (or its
+                // tab) must flip the SplitEditorManager focus back to 0,
+                // otherwise a split pane stays "focused" (un-dimmed) even
+                // though the cursor is in the main pane.
+                window.SplitEditorManager?.setFocus?.(0);
             }
             // Split panes are handled inside SplitEditorManager so they can
             // reach into their own pane's tab bar without going through us.
@@ -1237,8 +1308,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Simple, reliable confirmation dialog
-function showUnsavedChangesDialog(fileName) {
+// Simple, reliable confirmation dialog. Exported so split_editor.js can
+// run the same VS Code-style "save / don't save / cancel" prompt before
+// disposing the file's last instance.
+export function showUnsavedChangesDialog(fileName) {
     return new Promise((resolve) => {
         // Remove any existing modals
         const existingModal = document.querySelector('.confirm-modal');

@@ -254,19 +254,25 @@ class AppInitializer {
         const processorModeRadio = document.getElementById('Processor Mode');
         const projectModeRadio = document.getElementById('Project Mode');
         const simToggle = document.getElementById('Verilog Mode');
-        
+
         if (mode === 'processor') {
             if (processorModeRadio) processorModeRadio.checked = true;
             if (simToggle) simToggle.checked = true;
-            
+
         } else if (mode === 'project') {
             if (projectModeRadio) projectModeRadio.checked = true;
             if (simToggle) simToggle.checked = true;
-            
+
         } else if (mode === 'verilog') {
             if (projectModeRadio) projectModeRadio.checked = true;
             if (simToggle) simToggle.checked = false;
         }
+
+        // Programmatic .checked = ... does NOT fire a 'change' event, so any
+        // listener that derives state from the toolbar radios (e.g. file_mode.js
+        // deciding whether to show the synth/testbench picker) would miss the
+        // session-restore transition. Broadcast explicitly.
+        document.dispatchEvent(new CustomEvent('mode-state-changed', { detail: { mode } }));
     }
 
     /**

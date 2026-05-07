@@ -1560,7 +1560,11 @@ async saveConfiguration() {
             window.verilogModeManager.renderVerilogTree();
             console.log('✅ Synced changes to Verilog File Mode');
         }
-        
+
+        // Broadcast for any other listener that needs to react to a config
+        // change (verilog tree refreshes itself if mode flips on later, etc.).
+        document.dispatchEvent(new CustomEvent('project-config-saved', { detail: { configPath } }));
+
         this.closeModal();
         
     } catch (error) {

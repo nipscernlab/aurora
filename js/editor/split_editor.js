@@ -6,7 +6,7 @@
  * Drag resizers sit between each pane pair.
  */
 
-import { TabManager } from '../tabs/tab_manager.js';
+import { TabManager, showUnsavedChangesDialog } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { SharedModelRegistry } from './shared_models.js';
 
@@ -147,13 +147,16 @@ class SplitPane {
 
         // Mirror typing into the dirty marker. The shared model already
         // notifies every editor's listeners on change; we go through
-        // TabManager so the (single) main-tab close-button dot and the
-        // unsavedChanges set stay coherent regardless of where the edit
-        // originated.
+        // TabManager so the dirty dot lands on every tab (main + splits)
+        // for this file, and through SharedModelRegistry.isDirty so the
+        // result is the same regardless of which pane fired the event.
+        // VS Code parity: undoing all the way back to the saved state
+        // clears the dot in every instance.
         editor.onDidChangeModelContent(() => {
-            const stored = TabManager.tabs.get(filePath);
-            if (typeof stored === 'string' && model.getValue() !== stored) {
+            if (SharedModelRegistry.isDirty(filePath)) {
                 TabManager.markFileAsModified(filePath);
+            } else {
+                TabManager.markFileAsSaved(filePath);
             }
         });
 
@@ -185,6 +188,8 @@ class SplitPane {
         });
         tab.querySelector('.close-tab').addEventListener('click', (e) => {
             e.stopPropagation();
+            // Fire-and-forget — _closeFile is async because of the
+            // unsaved-changes prompt on the file's last instance.
             this._closeFile(filePath);
         });
 
@@ -209,9 +214,34 @@ class SplitPane {
         }
     }
 
-    _closeFile(filePath) {
+    async _closeFile(filePath) {
         const info = this.tabs.get(filePath);
         if (!info) return;
+
+        // Last-instance prompt: if this is the only pane still holding the
+        // file (main pane's TabManager doesn't have it AND no other split
+        // does), closing here will dispose the shared model and DROP the
+        // unsaved edits. In that case we run the same VS Code-style "save /
+        // don't save / cancel" dialog the main pane uses. With other
+        // instances still alive, the model survives — close silently.
+        const isLastInstance = TabManager.getInstanceCount(filePath) <= 1;
+        const isDirty = SharedModelRegistry.isDirty(filePath);
+        if (isLastInstance && isDirty) {
+            const fileName = filePath.split(/[\\/]/).pop();
+            const result = await showUnsavedChangesDialog(fileName);
+            if (result === 'cancel') return;
+            if (result === 'save') {
+                try {
+                    const content = SharedModelRegistry.getModel(filePath)?.getValue() ?? '';
+                    await window.electronAPI.writeFile(filePath, content);
+                    SharedModelRegistry.markSaved(filePath);
+                    TabManager.markFileAsSaved(filePath);
+                } catch (err) {
+                    console.error('Failed to save before close:', err);
+                }
+            }
+            // 'dont-save' falls through and disposes; edits are lost.
+        }
 
         // Dispose the editor view, then release our hold on the shared
         // model. The model only goes away once every pane (main + splits)
@@ -223,6 +253,13 @@ class SplitPane {
 
         const tabEl = this.element.querySelector(`.split-tab[data-path="${CSS.escape(filePath)}"]`);
         if (tabEl) tabEl.remove();
+
+        // If the model fully went away (no instances left) AND it had been
+        // dirty, clear the global flag so the unsavedChanges set doesn't
+        // hold a stale entry.
+        if (!SharedModelRegistry.has(filePath)) {
+            TabManager.unsavedChanges.delete(filePath);
+        }
 
         if (this.tabs.size === 0) {
             SplitEditorManager.closePane(this.paneIndex);

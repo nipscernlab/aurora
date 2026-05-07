@@ -20,12 +20,27 @@
   justify-content: center;
   background: var(--bg);
   overflow-y: auto;
+  position: relative;
   animation: welcomeFadeIn 200ms var(--ease-out-quart) both;
 }
 
 @keyframes welcomeFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* Watermark — large SAPHO logo, dimmed to act as a brand backdrop. */
+.welcome-watermark {
+  position: absolute;
+  right: clamp(40px, 8vw, 120px);
+  bottom: clamp(40px, 8vh, 120px);
+  width: clamp(220px, 32vw, 440px);
+  height: auto;
+  opacity: 0.045;
+  pointer-events: none;
+  user-select: none;
+  filter: grayscale(0.2);
+  z-index: 0;
 }
 
 /* Centered, generous content column with a max width. */
@@ -37,6 +52,8 @@
   flex-direction: column;
   gap: var(--space-7);
   user-select: none;
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------------------------------------------------------------------------

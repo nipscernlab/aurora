@@ -13,6 +13,7 @@
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "build": "electron-builder",
     "prepare": "husky"
   },
@@ -102,12 +103,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
+    "@types/node": "^25.6.0",
     "electron": "^39.8.10",
     "electron-builder": "^26.9.0",
     "eslint": "^9.34.0",
     "globals": "^16.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   }
 }

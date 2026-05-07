@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * File system + dialogs + chokidar watchers.
  *
@@ -275,10 +276,15 @@ function register() {
 
   ipcMain.handle('dialog:show-open-import', async (_event, options = {}) => {
     try {
-      return await dialog.showOpenDialog(state.mainWindow, {
+      const opts = {
         properties: options.properties || ['openFile'],
         filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
-      });
+      };
+      // Pass the main window as parent only if it exists; the no-parent
+      // overload is fine and avoids passing `null` (undefined behavior).
+      return await (state.mainWindow
+        ? dialog.showOpenDialog(state.mainWindow, opts)
+        : dialog.showOpenDialog(opts));
     } catch (err) {
       log.error('dialog:show-open-import failed:', err);
       return { canceled: true, filePaths: [] };
@@ -319,7 +325,10 @@ function register() {
   });
 
   ipcMain.handle('show-save-dialog', async (_event, options) => {
-    return dialog.showSaveDialog(BrowserWindow.getFocusedWindow(), options);
+    const focused = BrowserWindow.getFocusedWindow();
+    return focused
+      ? dialog.showSaveDialog(focused, options)
+      : dialog.showSaveDialog(options);
   });
 
   // ---------- shell ----------
@@ -454,7 +463,8 @@ function register() {
 
       watcher.on('error', (error) => {
         log.error(`Directory watcher error for ${directoryPath}:`, error);
-        event.sender.send('directory-watcher-error', directoryPath, error.message);
+        const message = error instanceof Error ? error.message : String(error);
+        event.sender.send('directory-watcher-error', directoryPath, message);
       });
 
       state.activeDirectoryWatchers.set(directoryPath, {
@@ -557,7 +567,8 @@ function register() {
             await restartWatcher(filePath, event);
           } catch (restartError) {
             log.error(`Failed to restart watcher for ${filePath}:`, restartError);
-            event.sender.send('file-watcher-error', filePath, error.message);
+            const message = error instanceof Error ? error.message : String(error);
+            event.sender.send('file-watcher-error', filePath, message);
           }
         }, 1000);
       });

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Aurora IDE - Toolchain bootstrap
  *

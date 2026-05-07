@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * preload.js — Electron context bridge para o renderer principal.
  *
@@ -7,6 +8,9 @@
  *
  * Ao adicionar novas APIs, agrupe pela seção correspondente e mantenha o
  * mapeamento 1:1 com `ipcMain.handle/on` em main.js.
+ *
+ * Type-checked via `// @ts-check` above. Run `npx tsc --noEmit` (or wait
+ * for CI) to validate the IPC surface.
  */
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');

@@ -1,0 +1,32 @@
+{
+  "//": "Type-checking config — we don't compile, only validate. allowJs lets us see .js files; checkJs is OFF globally, opt-in per file via the `// @ts-check` directive at the top. This lets us tighten coverage gradually instead of being buried in errors on day one.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": [
+    "main/**/*.js",
+    "main.js",
+    "js/**/*.js",
+    "components/Scripts/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "components/Packages"
+  ]
+}

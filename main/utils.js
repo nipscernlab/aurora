@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Stateless helper functions used by multiple IPC modules.
  */
@@ -109,15 +110,23 @@ function checkProcessRunning(processName) {
   });
 }
 
-// Defensive path normalization for IPC inputs. Doesn't confine to any specific
-// root (the IDE legitimately reads from project roots, toolchain, app paths,
-// and user-picked imports), but does reject the obvious shapes a malicious
-// renderer would use to smuggle non-paths through:
-//   • non-strings (null, objects, arrays)
-//   • empty strings
-//   • null bytes (Node FS truncates at \0 on some platforms — classic bypass)
-// Returns an absolute, normalized path so downstream code never has to
-// re-normalize.
+/**
+ * Defensive path normalization for IPC inputs. Doesn't confine to any
+ * specific root (the IDE legitimately reads from project roots, toolchain,
+ * app paths, and user-picked imports), but does reject the obvious shapes
+ * a malicious renderer would use to smuggle non-paths through:
+ *   - non-strings (null, objects, arrays)
+ *   - empty strings
+ *   - null bytes (Node FS truncates at \0 on some platforms — classic bypass)
+ *
+ * @param {unknown} p - Untrusted path from an IPC caller.
+ * @param {string} [label='path'] - Used in the thrown error message so
+ *   callers like `safePath(p, 'src')` produce diagnosable failures.
+ * @returns {string} An absolute, normalized path so downstream code never
+ *   has to re-normalize.
+ * @throws {TypeError} If `p` is not a string.
+ * @throws {Error} If `p` is empty or contains a null byte.
+ */
 function safePath(p, label = 'path') {
   if (typeof p !== 'string') {
     throw new TypeError(`Invalid ${label}: expected string, got ${typeof p}`);

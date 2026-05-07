@@ -1133,9 +1133,22 @@ function updateCursorPosition(event) {
     }
 }
 
+// Promise that resolves once Monaco's AMD modules + EditorManager.initialize()
+// have finished. addTab/setActiveEditor await this so files opened during the
+// brief window between app launch and Monaco being ready don't try to create
+// an editor against a still-null container.
+let _resolveEditorManagerReady;
+EditorManager.ready = new Promise((resolve) => {
+    _resolveEditorManagerReady = resolve;
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
-    await initMonaco();
-    await EditorManager.initialize();
+    try {
+        await initMonaco();
+        await EditorManager.initialize();
+    } finally {
+        _resolveEditorManagerReady();
+    }
 
     window.addEventListener('resize', () => {
         if (EditorManager.editors.size > 0) {

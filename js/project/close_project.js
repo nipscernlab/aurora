@@ -115,6 +115,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Clear project state and bring the welcome screen back.
                 window.currentProjectPath = null;
                 window.currentSpfPath = null;
+
+                // Reset Verilog Mode state so reopening a project triggers a
+                // full re-activation (loads projectOriented.json fresh, picks
+                // up files outside the project folder). Without this,
+                // isVerilogModeActive stays true and the next activate call
+                // hits the early-return branch with a stale currentProjectPath.
+                const vmm = window.verilogModeManager;
+                if (vmm) {
+                    vmm.isVerilogModeActive = false;
+                    vmm.currentProjectPath = null;
+                    vmm.verilogFiles = [];
+                }
+
                 window.SplitEditorManager?.refreshLayout?.();
             } else {
                 console.error('Failed to close project:', result.error);

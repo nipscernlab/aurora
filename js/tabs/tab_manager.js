@@ -558,21 +558,26 @@ export class TabManager {
             // Handle text files normally
             this.tabs.set(filePath, content || '');
 
-            try {
-                // Pass content through to the model factory so the registry
-                // can seed the shared model on first acquire. This avoids the
-                // old `setValue` after-create call, which would reset the
-                // model and silently wipe edits made by other panes that
-                // already attached to it.
-                const editor = EditorManager.createEditorInstance(filePath, content || '');
-
-                // Setup change listener
-                this.setupContentChangeListener(filePath, editor);
-                this.activateTab(filePath);
-            } catch (error) {
-                console.error('Error creating editor:', error);
-                this.closeTab(filePath);
-            }
+            // Editor creation needs Monaco's AMD modules + EditorManager
+            // to be initialized. If the user opens a file before that
+            // finishes (e.g. clicks a fresh .v right after app launch),
+            // wait on EditorManager.ready before creating the instance.
+            (async () => {
+                try {
+                    await EditorManager.ready;
+                    const editor = EditorManager.createEditorInstance(filePath, content || '');
+                    if (!editor) {
+                        // initialize() couldn't bind the container; bail.
+                        this.closeTab(filePath);
+                        return;
+                    }
+                    this.setupContentChangeListener(filePath, editor);
+                    this.activateTab(filePath);
+                } catch (error) {
+                    console.error('Error creating editor:', error);
+                    this.closeTab(filePath);
+                }
+            })();
         }
         this.updateTabsContainerVisibility();
         this.initSortableTabs();

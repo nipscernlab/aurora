@@ -143,8 +143,16 @@ async function loadProject(spfPath) {
         updateProjectNameUI(projectData, spfPath);
         await TabManager.closeAllTabs();
 
-        // Update file tree (defensive — files may be missing on partial result)
-        if (Array.isArray(result.files)) {
+        // Update file tree (defensive — files may be missing on partial result).
+        // In Verilog Mode the tree is sourced from projectOriented.json (paths
+        // can point outside the project folder), not the project-folder
+        // listing — mirror the watcher skip in file_tree_manager.js.
+        const currentMode = fileTreeManager.getCurrentMode();
+        if (currentMode === 'verilog') {
+            if (window.verilogModeManager) {
+                await window.verilogModeManager.activateVerilogMode();
+            }
+        } else if (Array.isArray(result.files)) {
             fileTreeManager.updateFileTree(result.files);
         }
         fileTreeManager.watcher?.startWatching?.(window.currentProjectPath);

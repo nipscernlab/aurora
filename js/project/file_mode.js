@@ -808,21 +808,15 @@ showContextMenu(event, file, index) {
  * Create new file with sync
  */
 async createNewFile() {
-    const fileName = await this.showFileNameDialog();
-    
-    if (!fileName) return;
-    
-    const invalidChars = /[<>:"/\\|?*]/;
-    const nameWithoutExt = fileName.replace('.v', '');
-    if (invalidChars.test(nameWithoutExt)) {
-        this.showNotification('File name contains invalid characters', 'error', 3000);
-        return;
-    }
-    
     try {
+        const projectPath = this.currentProjectPath || window.currentProjectPath || null;
+        const defaultPath = projectPath
+            ? await window.electronAPI.joinPath(projectPath, 'untitled.v')
+            : 'untitled.v';
+
         const result = await window.electronAPI.showSaveDialog({
             title: 'Save New Verilog File',
-            defaultPath: fileName,
+            defaultPath,
             filters: [
                 { name: 'Verilog Files', extensions: ['v'] }
             ],
@@ -864,85 +858,6 @@ async createNewFile() {
         this.showNotification('Error creating file', 'error', 3000);
     }
 }
-
-    /**
-     * Show file name input dialog
-     */
-    showFileNameDialog() {
-        return new Promise((resolve) => {
-            const modalHTML = `
-                <div class="file-name-modal" id="file-name-modal">
-                    <div class="file-name-modal-content">
-                        <div class="file-name-modal-header">
-                            <div class="file-name-modal-icon">
-                                <i class="fa-solid fa-file-code"></i>
-                            </div>
-                            <h3 class="file-name-modal-title">New Verilog File</h3>
-                        </div>
-                        <div class="file-name-modal-body">
-                            <label for="new-file-name">File Name:</label>
-                            <div class="file-name-input-wrapper">
-                                <input 
-                                    type="text" 
-                                    id="new-file-name" 
-                                    class="file-name-input" 
-                                    placeholder="module_name"
-                                />
-                                <span class="file-extension">.v</span>
-                            </div>
-                        </div>
-                        <div class="file-name-modal-actions">
-                            <button class="file-name-btn cancel" data-action="cancel">Cancel</button>
-                            <button class="file-name-btn create" data-action="create">Create</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            const modal = document.getElementById('file-name-modal');
-            const input = document.getElementById('new-file-name');
-            
-            setTimeout(() => {
-                input.focus();
-                input.select();
-            }, 100);
-            
-            const closeModal = (result) => {
-                modal.classList.remove('show');
-                setTimeout(() => {
-                    modal.remove();
-                    resolve(result);
-                }, 200);
-            };
-            
-            modal.addEventListener('click', (e) => {
-                const action = e.target.getAttribute('data-action');
-                if (action === 'cancel') {
-                    closeModal(null);
-                } else if (action === 'create') {
-                    const fileName = input.value.trim();
-                    if (fileName) {
-                        closeModal(fileName + '.v');
-                    }
-                }
-            });
-            
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    const fileName = input.value.trim();
-                    if (fileName) {
-                        closeModal(fileName + '.v');
-                    }
-                } else if (e.key === 'Escape') {
-                    closeModal(null);
-                }
-            });
-            
-            setTimeout(() => modal.classList.add('show'), 10);
-        });
-    }
-
 
     /**
  * Delete file from disk and sync

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Window factories: main, splash, progress.
  *
@@ -160,7 +161,6 @@ function createProgressWindow() {
     show: false,
     webPreferences: {
       contextIsolation: true,
-      enableRemoteModule: false,
       nodeIntegration: false,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
     },

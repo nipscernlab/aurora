@@ -1,3 +1,9 @@
+// TODO(types): opt this file into `// @ts-check` once we audit the
+// proprietary stuff (autoUpdater.showNoUpdateDialog, the
+// 'before-quit-for-update' event, log.transports.file.level) — those
+// look like they were either deprecated upstream or were always custom
+// extensions on the electron-updater types. Need to either remove the
+// dead branches or re-declare the augmentations correctly.
 /**
  * electron-updater wiring: events, manual triggers, init.
  */

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Misc system IPC: components path, system performance, path utilities,
  * relaunch.

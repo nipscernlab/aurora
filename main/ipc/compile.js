@@ -1,3 +1,9 @@
+// TODO(types): opt this file into `// @ts-check` once exec-command and
+// exec-vvp-optimized are migrated to a typed [bin, args[]] IPC contract
+// (PR 2.5). Today the renderer composes raw shell strings, which tangles
+// up the ChildProcess typings (shell:true/encoding narrowing, child.pid
+// undefined vs state.vvpProcessPid null) into ~15 errors that aren't
+// worth solving with casts when the actual fix is the IPC redesign.
 /**
  * Compilation + simulation execution: exec-command, exec-vvp-optimized,
  * launch-gtkwave-only, launch-serial-simulation, launch-parallel-simulation,

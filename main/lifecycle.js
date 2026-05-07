@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * App-wide lifecycle: single-instance lock, before-quit cleanup, activate
  * + window-all-closed, command-line .spf detection.
@@ -15,7 +16,7 @@ const { killProcessSilently, killProcessesByName } = require('./utils');
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
   // up after did-finish-load.
-  state.fileToOpen = process.argv.find((arg) => arg.endsWith('.spf'));
+  state.fileToOpen = process.argv.find((arg) => arg.endsWith('.spf')) ?? null;
 
   // Single-instance lock — pass any .spf the second instance had to the
   // first, then quit the second instance.

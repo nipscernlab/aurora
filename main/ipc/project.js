@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Project lifecycle (open/close/create), processor CRUD, and per-project
  * config (processorConfig.json) load/save.
@@ -86,7 +87,7 @@ function register() {
       }));
 
       const focusedWindow = BrowserWindow.getFocusedWindow();
-      focusedWindow.webContents.send('simulateOpenProject', {
+      focusedWindow?.webContents.send('simulateOpenProject', {
         canceled: false,
         filePaths: [projectPath],
       });
@@ -163,6 +164,10 @@ function register() {
       }));
 
       const focusedWindow = BrowserWindow.getFocusedWindow();
+      if (!focusedWindow) {
+        log.warn('open-spf-project: no focused window to send IPC events to');
+        return projectData;
+      }
       updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
 
       focusedWindow.webContents.send('project:processorHubState', { enabled: true });

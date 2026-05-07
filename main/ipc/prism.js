@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * PRISM: Yosys/netlistsvg-driven schematic viewer.
  *
@@ -65,6 +66,17 @@ function sanitizeFileName(fileName) {
 
 // ---------- window factory ----------
 
+/**
+ * @typedef {object} PrismCompilationResult
+ * @property {boolean} success
+ * @property {string} [message]
+ * @property {string} [topLevelModule]
+ * @property {string} [svgPath]
+ * @property {string} [tempDir]
+ * @property {boolean} [isProjectOriented]
+ */
+
+/** @param {PrismCompilationResult | null} [compilationData] */
 async function createPrismWindow(compilationData = null) {
   if (state.prismWindow && !state.prismWindow.isDestroyed()) {
     state.prismWindow.focus();

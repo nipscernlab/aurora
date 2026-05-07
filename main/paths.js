@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Static paths used across the main process.
  *

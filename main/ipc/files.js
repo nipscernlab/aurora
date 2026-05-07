@@ -431,8 +431,9 @@ function register() {
 
   ipcMain.handle('watch-directory', async (event, directoryPath) => {
     try {
-      if (state.activeDirectoryWatchers.has(directoryPath)) {
-        return state.activeDirectoryWatchers.get(directoryPath).id;
+      const existing = state.activeDirectoryWatchers.get(directoryPath);
+      if (existing) {
+        return existing.id;
       }
 
       const debouncedChangeHandler = debounce(async () => {
@@ -537,8 +538,9 @@ function register() {
 
   ipcMain.handle('watch-file', async (event, filePath) => {
     try {
-      if (state.activeWatchers.has(filePath)) {
-        return state.activeWatchers.get(filePath).id;
+      const existing = state.activeWatchers.get(filePath);
+      if (existing) {
+        return existing.id;
       }
 
       const debouncedChangeHandler = debounce((eventType) => {

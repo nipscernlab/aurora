@@ -140,6 +140,41 @@ function safePath(p, label = 'path') {
   return path.resolve(p);
 }
 
+/**
+ * Strips characters that would be illegal in a Windows filename plus the
+ * low-ASCII control bytes (\x00..\x1f). Replaces them — and any run of
+ * whitespace — with a single underscore so the result stays a valid path
+ * segment. Used wherever user-supplied identifiers (module names, project
+ * names) are spliced into filesystem paths.
+ *
+ * @param {string} fileName
+ * @returns {string}
+ */
+function sanitizeFileName(fileName) {
+  // The control-char range is intentional — it catches bytes that can sneak
+  // in via copy-paste from PDFs/shells and which break path-handling code
+  // downstream in inconsistent ways.
+  // eslint-disable-next-line no-control-regex
+  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
+}
+
+/**
+ * Local-time timestamp suitable for embedding in a filesystem-safe folder
+ * or file name (`YYYY-MM-DD_HH-mm-ss`). Replaces a moment().format() call;
+ * format chosen to sort lexicographically.
+ *
+ * @param {Date} [now=new Date()] - Injected for tests; defaults to now.
+ * @returns {string}
+ */
+function formatTimestamp(now = new Date()) {
+  /** @param {number} n */
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`
+  );
+}
+
 function getExecutablePath(executableName, appRoot) {
   if (executableName === 'yosys') {
     return path.join(appRoot, 'components', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
@@ -161,4 +196,6 @@ module.exports = {
   checkProcessRunning,
   getExecutablePath,
   safePath,
+  sanitizeFileName,
+  formatTimestamp,
 };

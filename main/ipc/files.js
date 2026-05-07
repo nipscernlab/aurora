@@ -15,7 +15,7 @@ const log = require('electron-log');
 const { execFile } = require('child_process');
 
 const state = require('../state');
-const { debounce, getMimeType, safePath } = require('../utils');
+const { debounce, getMimeType, safePath, formatTimestamp } = require('../utils');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
 async function scanDirectory(dirPath) {
@@ -364,15 +364,7 @@ function register() {
 
     const folderName = path.basename(folderPath);
     const backupFolderPath = path.join(folderPath, 'Backup');
-    // Local-time YYYY-MM-DD_HH-mm-ss (used as a filesystem-safe folder
-     // name, so colons are replaced with hyphens). Replaces a moment()
-     // call — moment is in maintenance mode and not worth the dep for
-     // one timestamp format.
-    const now = new Date();
-    const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
-    const timestamp =
-      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
-      `_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    const timestamp = formatTimestamp();
     const tempBackupFolderName = `backup_${timestamp}`;
     const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
     // .zip via PowerShell's Compress-Archive — ships natively on every

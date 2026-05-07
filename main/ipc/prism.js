@@ -16,6 +16,7 @@ const log = require('electron-log');
 
 const state = require('../state');
 const { componentsPath } = require('../paths');
+const { sanitizeFileName } = require('../utils');
 
 // ---------- helpers ----------
 
@@ -54,14 +55,6 @@ function isClickableModule(moduleName) {
     moduleName.startsWith('$paramod') ||
     (!moduleName.startsWith('$') && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(moduleName))
   );
-}
-
-function sanitizeFileName(fileName) {
-  // Strip Windows-illegal filename chars + low-ASCII control bytes (\x00..\x1f
-  // can sneak in via copy-paste from PDFs / shells). The control-char regex is
-  // intentional here, hence the rule disable.
-  // eslint-disable-next-line no-control-regex
-  return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_');
 }
 
 // ---------- window factory ----------

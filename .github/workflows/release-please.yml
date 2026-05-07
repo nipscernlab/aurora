@@ -1,0 +1,29 @@
+name: Release Please
+
+# Generates a permanent "release PR" on `main` that aggregates every
+# Conventional Commit since the last release. Merging that PR creates the
+# version-bump commit, tags the release, and publishes the GitHub Release
+# (which the existing release.yml workflow then builds + uploads the
+# installer + latest.yml to).
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Pin to a major so unrelated changes upstream don't surprise us;
+          # release-please-action follows semver, so we get patch + minor
+          # automatically via dependabot.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

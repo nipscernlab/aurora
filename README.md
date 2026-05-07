@@ -161,6 +161,32 @@ This is the bundle the release workflow downloads on every build.
 
 ### Cutting an app release
 
+#### Recommended — release-please
+
+Every push to `main` triggers
+[`.github/workflows/release-please.yml`](.github/workflows/release-please.yml),
+which keeps a permanent **"release PR"** open. That PR aggregates every
+[Conventional Commit](https://www.conventionalcommits.org/) since the
+last release, bumps `package.json` + the manifest, and updates
+`CHANGELOG.md` with auto-generated notes. To ship:
+
+1. Review the open release PR (`chore(main): release X.Y.Z`).
+2. Merge it. release-please creates the `vX.Y.Z` tag and the GitHub
+   Release immediately.
+3. Open the **Actions** tab → **Release** workflow → **Run workflow**,
+   passing the toolchain tag (e.g. `toolchain-v2`). The job builds the
+   installer with `electron-builder --publish always` and uploads
+   `AuroraIDE-Setup-vX.Y.Z.exe`, the matching `.blockmap`, and
+   `latest.yml` onto the release the bot just created. The auto-updater
+   takes it from there.
+
+Commit prefixes drive the version bump:
+- `feat:` → minor (or patch while < 1.0)
+- `fix:` / `perf:` / `refactor:` → patch
+- Any commit body containing `BREAKING CHANGE:` → major
+
+#### Manual fallback
+
 ```powershell
 npm version patch          # or `minor` / `major` — creates a tagged commit
 git push --follow-tags
@@ -168,11 +194,10 @@ git push --follow-tags
 
 Then either:
 
-* **Recommended (CI build):** open the **Actions** tab → **Release**
-  workflow → **Run workflow**. Pass the toolchain release tag (e.g.
-  `toolchain-v2`). The workflow downloads the toolchain, runs
-  `electron-builder --publish always`, and the auto-updater takes it
-  from there.
+* **CI build:** open the **Actions** tab → **Release** workflow → **Run
+  workflow**. Pass the toolchain release tag (e.g. `toolchain-v2`). The
+  workflow downloads the toolchain, runs `electron-builder --publish
+  always`, and the auto-updater takes it from there.
 * **Manual (local build):** run `npm run build`, then upload the three
   files from `dist/` (the `.exe`, the `.exe.blockmap`, and `latest.yml`)
   to a new GitHub Release at the matching tag.

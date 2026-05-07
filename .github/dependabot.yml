@@ -1,0 +1,27 @@
+# Weekly dependency scans for npm + GitHub Actions.
+# Groups dev-only updates so the PR feed stays manageable; runtime deps
+# (electron, electron-updater, monaco-editor, etc.) still come through as
+# individual PRs since each carries real risk.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "deps"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "deps"
+      - "ci"

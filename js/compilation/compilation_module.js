@@ -1406,11 +1406,15 @@ async runVerilogOnlyGtkWave() {
         // Generic init script: zooms, then opens fix.vcd in a second tab.
         const fixScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
 
-        // Build GTKWave command
-        let gtkwaveCmd = `"${gtkwaveBin}" --rcvar "hide_sst on" --dark "${vcdFile}"`;
+        // Build GTKWave command. We hide the Signal Search Tree only when a
+        // .gtkw save-file is in play — the save-file already lists every
+        // signal we want, so the SST would just be clutter. Without one
+        // (the typical Verilog-only flow), keep the SST visible so the user
+        // can navigate the testbench/DUT hierarchy and drag signals in.
+        let gtkwaveCmd = `"${gtkwaveBin}" --dark "${vcdFile}"`;
 
         if (gtkwSaveFile) {
-            gtkwaveCmd += ` -a "${gtkwSaveFile}"`;
+            gtkwaveCmd += ` --rcvar "hide_sst on" -a "${gtkwSaveFile}"`;
         }
 
         gtkwaveCmd += ` --script="${fixScript}"`;

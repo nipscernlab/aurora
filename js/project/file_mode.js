@@ -550,12 +550,17 @@ createFileItem(file, index) {
     const icon = this.getFileIcon(file.name);
     const isTestbench = file.category === 'testbench';
     
+    // Single field — `isTopLevel` — means "top of its category". For
+    // synthesizable that's the design's top module; for testbench that's
+    // the simulation entry. Render label is per-category; the underlying
+    // flag is the same so it round-trips cleanly through both managers.
     let badgesHtml = '';
     if (file.isTopLevel) {
-        badgesHtml += '<span class="file-badge top-level-badge">Top Level</span>';
-    }
-    if (file.isMarkedTestbench) {
-        badgesHtml += '<span class="file-badge testbench-badge">Testbench</span>';
+        if (isTestbench) {
+            badgesHtml += '<span class="file-badge testbench-badge">Testbench</span>';
+        } else {
+            badgesHtml += '<span class="file-badge top-level-badge">Top Level</span>';
+        }
     }
     
     fileItem.innerHTML = `
@@ -630,13 +635,10 @@ async handleCategoryToggle(index) {
     const file = this.verilogFiles[index];
     const newCategory = file.category === 'testbench' ? 'synthesizable' : 'testbench';
     
-    // When switching category, remove special marks
-    if (newCategory === 'synthesizable') {
-        file.isMarkedTestbench = false;
-    } else if (newCategory === 'testbench') {
-        file.isTopLevel = false;
-    }
-    
+    // Switching category invalidates the per-category top mark — a synth
+    // top is not the same thing as a testbench top, even though they share
+    // the underlying field.
+    file.isTopLevel = false;
     file.category = newCategory;
     
     await this.saveConfiguration();
@@ -672,21 +674,21 @@ showContextMenu(event, file, index) {
     menu.className = 'verilog-context-menu';
     menu.id = 'verilog-context-menu';
     
+    // Single source of truth: `isTopLevel` means "top of its category".
+    // The label and action just vary by category — the underlying flag is
+    // the same.
     const isTopLevel = file.isTopLevel || false;
-    const isMarkedTestbench = file.isMarkedTestbench || false;
     const isSynthesizable = file.category !== 'testbench';
     const isTestbench = file.category === 'testbench';
-    
-    // Top Level option (only for synthesizable files)
+
     const topLevelOption = isSynthesizable ? (
         isTopLevel
             ? { text: 'Remove Top Level', action: 'remove-top-level', disabled: false, show: true }
             : { text: 'Set as Top Level', action: 'set-top-level', disabled: false, show: true }
     ) : { show: false };
-    
-    // Testbench mark option (only for testbench files)
+
     const testbenchOption = isTestbench ? (
-        isMarkedTestbench
+        isTopLevel
             ? { text: 'Unmark Testbench', action: 'remove-testbench', disabled: false, show: true }
             : { text: 'Mark as Testbench', action: 'set-testbench', disabled: false, show: true }
     ) : { show: false };
@@ -955,32 +957,39 @@ async handleContextMenuAction(action, file, index) {
                 this.showNotification('Cannot set Top Level on Testbench file', 'warning', 3000);
                 return;
             }
-            // Remove Top Level from all files
-            this.verilogFiles.forEach(f => f.isTopLevel = false);
-            // Set this file as Top Level
+            // Clear the flag only within the same category. A synthesizable
+            // top and a testbench top are independent — setting one shouldn't
+            // wipe the other (the previous code did, which silently un-marked
+            // your testbench every time you set a Top Level).
+            this.verilogFiles.forEach(f => {
+                if (f.category !== 'testbench') f.isTopLevel = false;
+            });
             this.verilogFiles[index].isTopLevel = true;
             this.showNotification(`"${file.name}" set as Top Level`, 'success', 2000);
             break;
-            
+
         case 'remove-top-level':
             this.verilogFiles[index].isTopLevel = false;
             this.showNotification(`Top Level removed from "${file.name}"`, 'success', 2000);
             break;
-            
+
         case 'set-testbench':
             if (file.category !== 'testbench') {
                 this.showNotification('File must have Testbench category', 'warning', 3000);
                 return;
             }
-            // Remove testbench mark from all files
-            this.verilogFiles.forEach(f => f.isMarkedTestbench = false);
-            // Mark this file as the testbench
-            this.verilogFiles[index].isMarkedTestbench = true;
+            // Same as set-top-level but scoped to testbench files. The
+            // unified field is `isTopLevel`; render code picks the right
+            // badge label from the file's category.
+            this.verilogFiles.forEach(f => {
+                if (f.category === 'testbench') f.isTopLevel = false;
+            });
+            this.verilogFiles[index].isTopLevel = true;
             this.showNotification(`"${file.name}" marked as Testbench`, 'success', 2000);
             break;
-            
+
         case 'remove-testbench':
-            this.verilogFiles[index].isMarkedTestbench = false;
+            this.verilogFiles[index].isTopLevel = false;
             this.showNotification(`Testbench mark removed from "${file.name}"`, 'success', 2000);
             break;
             
@@ -1143,11 +1152,11 @@ async saveConfiguration() {
                 .map(file => ({
                     name: file.name,
                     path: file.path,
-                    isTopLevel: false,
-                    // Persist the "Mark as Testbench" badge state so it
-                    // survives close/reopen — it used to be in-memory
-                    // only, so the user had to re-mark every time.
-                    isMarkedTestbench: file.isMarkedTestbench || false,
+                    // Same field as synthesizable files — `isTopLevel: true`
+                    // here means "the testbench". This is what the Project
+                    // Settings modal also writes, so the two managers no
+                    // longer have to translate between schemas.
+                    isTopLevel: file.isTopLevel || false,
                 }));
 
             const topFile = this.verilogFiles.find(
@@ -1155,7 +1164,9 @@ async saveConfiguration() {
             );
             cfg.topLevelFile = topFile ? topFile.path : '';
 
-            const testbenchFile = this.verilogFiles.find(f => f.category === 'testbench');
+            const testbenchFile = this.verilogFiles.find(
+                f => f.isTopLevel && f.category === 'testbench',
+            );
             cfg.testbenchFile = testbenchFile ? testbenchFile.path : '';
         });
 
@@ -1217,15 +1228,17 @@ async loadConfiguration() {
                             const exists = await window.electronAPI.fileExists(fileData.path);
 
                             if (exists) {
+                                // Backward-compat: an older codepath persisted
+                                // the testbench-top mark as `isMarkedTestbench`.
+                                // Treat both fields equivalently on read; the
+                                // next save normalises to `isTopLevel` only.
+                                const isTop = fileData.isTopLevel === true
+                                    || fileData.isMarkedTestbench === true;
                                 this.verilogFiles.push({
                                     name: fileData.name,
                                     path: fileData.path,
-                                    isTopLevel: false,
+                                    isTopLevel: isTop,
                                     category: 'testbench',
-                                    // Restore the "Mark as Testbench" badge state.
-                                    // Defaults to false for entries written before
-                                    // saveConfiguration started persisting this field.
-                                    isMarkedTestbench: fileData.isMarkedTestbench || false,
                                 });
                             } else {
                                 console.warn(`File no longer exists: ${fileData.path}`);

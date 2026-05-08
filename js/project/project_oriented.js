@@ -1299,16 +1299,17 @@ async loadAndValidateFiles(files, type) {
         const exists = await window.electronAPI.fileExists(fileData.path);
         
         if (exists) {
+          // Backward-compat: an older codepath persisted the testbench-top
+          // mark as `isMarkedTestbench`. Coalesce into `isTopLevel` so the
+          // unified schema applies on the next save without requiring a
+          // user-visible re-mark.
+          const isTop = fileData.isTopLevel === true
+            || fileData.isMarkedTestbench === true;
           validFiles.push({
             name: fileData.name,
             path: fileData.path,
-            isTopLevel: fileData.isTopLevel || false,
+            isTopLevel: isTop,
             type: fileData.type || 'text/plain',
-            // Carry isMarkedTestbench through the load → save round trip
-            // even though this manager doesn't render it. Without this,
-            // saving via the Project Settings modal would strip a flag
-            // VerilogModeManager owns.
-            isMarkedTestbench: fileData.isMarkedTestbench || false,
           });
         } else {
           console.warn(`File no longer exists: ${fileData.path}`);
@@ -1542,9 +1543,6 @@ async saveConfiguration() {
                 name: file.name,
                 path: file.path,
                 isTopLevel: file.isTopLevel || false,
-                // VerilogModeManager owns this flag (right-click "Mark as
-                // Testbench"); we just keep it from being stripped on save.
-                isMarkedTestbench: file.isMarkedTestbench || false,
             })),
 
             gtkwFiles: this.gtkwFiles.map(file => ({

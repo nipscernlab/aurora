@@ -171,8 +171,13 @@ class CompilationModule {
             const hierarchyJson = JSON.parse(jsonContent);
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
+            // Sync to the shared store so the hierarchy toggle (and any
+            // other consumer holding a different CompilationModule
+            // reference) sees the fresh data. Without this, file_tree_*
+            // sees stale or null hierarchy after a re-compile.
+            TreeViewState.hierarchyData = this.hierarchyData;
             this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
-            this.enableHierarchyToggle(); // ✅ Enable toggle
+            this.enableHierarchyToggle();
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
@@ -223,8 +228,10 @@ async generateProjectHierarchy() {
             }));
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
+            // Sync to the shared store — see comment in generateHierarchy().
+            TreeViewState.hierarchyData = this.hierarchyData;
             this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
-            this.enableHierarchyToggle(); // ✅ Enable toggle
+            this.enableHierarchyToggle();
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Project hierarchy generation error: ${error.message}`, 'warning');
@@ -1217,21 +1224,38 @@ validateVerilogOnlyConfig() {
 }
 
 /**
- * Compile Verilog-only (no processors, no instrumentation)
+ * Verilog-only compile (no processors, no instrumentation).
+ *
+ * Two shapes, controlled by `buildVvp`:
+ *   - false (default, used by the Compile button): syntax-check only —
+ *     iverilog is invoked with `-tnull`, no .vvp output, testbench
+ *     excluded from the source set. After a clean elaboration we run
+ *     Yosys to regenerate the hierarchy. This is what the user wants
+ *     a "compile" click to do: confirm the design parses and refresh
+ *     the hierarchy view, no simulation artifacts.
+ *   - true (used by the Wave button's auto-compile): full build of a
+ *     `.vvp` for vvp/GTKWave to run. Includes the testbench, sets `-s`
+ *     to the testbench module, and writes the .vvp into Temp/.
+ *
+ * Splitting along this boundary keeps the Compile button fast and
+ * focused (no simulation-only artifacts) while the Wave button still
+ * has a path to produce a fresh .vvp on demand.
  */
-async iverilogVerilogOnlyCompilation() {
-    this.terminalManager.appendToTerminal('tveri', '--- Verilog-Only Compilation Mode ---', 'info');
-    this.terminalManager.appendToTerminal('tveri', 'Compiling without processor simulation', 'info');
+async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
+    const phaseLabel = buildVvp ? 'Verilog-Only Build (Simulation)' : 'Verilog-Only Check + Hierarchy';
+    this.terminalManager.appendToTerminal('tveri', `--- ${phaseLabel} ---`, 'info');
     statusUpdater.startCompilation('verilog');
 
     try {
         const config = this.validateVerilogOnlyConfig();
 
         this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'success');
-        if (config.testbenchFile) {
-            this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'success');
-        } else {
-            this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
+        if (buildVvp) {
+            if (config.testbenchFile) {
+                this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'success');
+            } else {
+                this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
+            }
         }
         this.terminalManager.appendToTerminal('tveri', `Synthesizable files: ${config.synthesizableFiles.length}`, 'info');
 
@@ -1257,47 +1281,68 @@ async iverilogVerilogOnlyCompilation() {
 
         const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
 
-        // Build file list: synthesizable files (which include the top-level),
-        // plus the testbench if one was set. Hardcoded processor HDL files are
-        // intentionally NOT included — this mode is for processor-less designs.
+        // File set:
+        //   - syntax-check: just the synthesizable files. The testbench has
+        //     non-synthesizable constructs ($dumpvars, $finish, delays); it
+        //     would only confuse a pure design check.
+        //   - build: synth files + testbench, since vvp needs both.
         const fileSet = new Set(config.synthesizableFiles);
-        if (config.testbenchFile) fileSet.add(config.testbenchFile);
+        if (buildVvp && config.testbenchFile) fileSet.add(config.testbenchFile);
         const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
 
         const flags = this.projectConfig.iverilogFlags || '';
 
-        const cmd = [
-            `"${iveriCompPath}"`,
-            flags,
-            `-s ${simTopModule}`,
-            `-o "${outputFile}"`,
-            sourceFilesString
-        ].filter(Boolean).join(' ');
+        const cmdParts = buildVvp
+            ? [
+                `"${iveriCompPath}"`,
+                flags,
+                `-s ${simTopModule}`,
+                `-o "${outputFile}"`,
+                sourceFilesString,
+            ]
+            : [
+                `"${iveriCompPath}"`,
+                flags,
+                // -tnull tells iverilog to elaborate but skip code-gen, so
+                // we get the parse + type-check without producing a .vvp.
+                '-tnull',
+                `-s ${topLevelModuleName}`,
+                sourceFilesString,
+            ];
 
-        this.terminalManager.appendToTerminal('tveri', 'Compilation command:', 'info');
+        const cmd = cmdParts.filter(Boolean).join(' ');
+
+        this.terminalManager.appendToTerminal('tveri', buildVvp ? 'Build command:' : 'Check command:', 'info');
         this.terminalManager.appendToTerminal('tveri', cmd, 'info');
 
         await TabManager.saveAllFiles();
 
-        this.terminalManager.appendToTerminal('tveri', 'Compiling...', 'info');
-        
+        this.terminalManager.appendToTerminal('tveri', buildVvp ? 'Building...' : 'Checking syntax...', 'info');
+
         const result = await window.electronAPI.execCommand(cmd);
         this.terminalManager.processExecutableOutput('tveri', result);
 
         if (result.code !== 0) {
-            throw new Error(`Iverilog compilation failed with exit code ${result.code}`);
+            throw new Error(`Iverilog ${buildVvp ? 'compilation' : 'syntax check'} failed with exit code ${result.code}`);
         }
 
-        const vvpExists = await window.electronAPI.fileExists(outputFile);
-        if (!vvpExists) {
-            throw new Error('VVP file was not generated');
+        if (buildVvp) {
+            const vvpExists = await window.electronAPI.fileExists(outputFile);
+            if (!vvpExists) {
+                throw new Error('VVP file was not generated');
+            }
         }
 
-        this.terminalManager.appendToTerminal('tveri', '--- Compilation Successful ---', 'success');
+        this.terminalManager.appendToTerminal('tveri', `--- ${buildVvp ? 'Build' : 'Syntax Check'} Successful ---`, 'success');
         statusUpdater.compilationSuccess('verilog');
 
-        // Generate hierarchy if needed
-        await this.generateProjectHierarchy();
+        // Hierarchy is regenerated on the syntax-check path only — that's
+        // the user-facing "compile" action. The wave-button auto-compile
+        // (buildVvp) doesn't touch hierarchy because the user already
+        // pressed compile to land on a known-good design.
+        if (!buildVvp) {
+            await this.generateProjectHierarchy();
+        }
 
     } catch (error) {
         this.terminalManager.appendToTerminal('tveri', '--- Compilation Failed ---', 'error');
@@ -1344,13 +1389,15 @@ async runVerilogOnlyGtkWave() {
         const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
         const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
 
-        // Auto-compile if the .vvp is missing — the user may have clicked
-        // Wave without running Verilog first. Skipping this would force them
-        // to click two buttons just to see a waveform.
+        // Auto-build the .vvp if missing — the user may have clicked Wave
+        // without pressing Compile first. The Compile button only does a
+        // syntax check now (no .vvp output), so Wave always has to be
+        // ready to build on demand. Pass buildVvp: true to take the
+        // simulation-build path.
         if (!await window.electronAPI.fileExists(vvpFile)) {
             this.terminalManager.appendToTerminal('twave',
-                'No compiled VVP found — running Verilog compilation first...', 'info');
-            await this.iverilogVerilogOnlyCompilation();
+                'No compiled VVP found — building for simulation first...', 'info');
+            await this.iverilogVerilogOnlyCompilation({ buildVvp: true });
             if (!await window.electronAPI.fileExists(vvpFile)) {
                 throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
             }
@@ -1533,9 +1580,19 @@ end
             return;
         }
 
+        // CompilationModule is reconstructed on every compile click
+        // (runSingleStep does `new CompilationModule(...)` each time), so
+        // attaching a fresh click listener here every time would leak —
+        // every old instance's listener stays registered and fires too,
+        // each one checking ITS OWN this.hierarchyData (null on old
+        // instances). That's where the spurious "Please compile Verilog
+        // first" warning was coming from. Mark the button after the
+        // first wire-up and bail out on subsequent constructions.
         TreeViewState.setCompilationModule(this);
-
         TreeViewState.disableToggle();
+
+        if (toggleButton.dataset.hierarchyListenerBound === 'true') return;
+        toggleButton.dataset.hierarchyListenerBound = 'true';
 
         toggleButton.addEventListener('click', () => {
             if (toggleButton.disabled || toggleButton.dataset.switching === 'true') {
@@ -1543,7 +1600,16 @@ end
                 return;
             }
 
-            if (!TreeViewState.isHierarchical && !this.hierarchyData) {
+            // Check the SHARED hierarchy data, not the per-instance copy.
+            // The current TreeViewState is pinned to the latest
+            // CompilationModule via setCompilationModule above, so its
+            // hierarchyData reflects whatever the most recent compile
+            // produced — independent of which `this` this listener
+            // happened to capture.
+            const hierarchy = TreeViewState.hierarchyData
+                ?? TreeViewState.compilationModule?.hierarchyData;
+
+            if (!TreeViewState.isHierarchical && !hierarchy) {
                 console.warn('Cannot switch to hierarchical view - no data');
                 this.terminalManager.appendToTerminal('tveri',
                     'Please compile Verilog first to generate hierarchy', 'warning');
@@ -1553,10 +1619,11 @@ end
             toggleButton.dataset.switching = 'true';
 
             try {
+                const owner = TreeViewState.compilationModule ?? this;
                 if (TreeViewState.isHierarchical) {
-                    this.switchToStandardView();
+                    owner.switchToStandardView();
                 } else {
-                    this.switchToHierarchicalView();
+                    owner.switchToHierarchicalView();
                 }
             } catch (error) {
                 console.error('Error toggling hierarchy view:', error);

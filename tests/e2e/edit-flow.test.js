@@ -1,0 +1,233 @@
+// tests/e2e/edit-flow.test.js
+//
+// Reproduces the bug class that surfaced repeatedly this month:
+// "open project → click a .v in the tree → cursor blinks but typing is dead".
+// Each occurrence had a different proximate trigger (Monaco 0.53 install
+// drift, race in setActiveEditor, a mode-oracle change). They all surfaced
+// the same way at the user level: clicking a file no longer gave you an
+// editable editor.
+//
+// This test asserts the user-visible contract end-to-end:
+//   1. Aurora opens with a project loaded
+//   2. The file tree renders the project's .v files
+//   3. Clicking a .v opens it in Monaco
+//   4. Typing into Monaco actually updates the buffer
+//
+// If any of those break — regardless of which subsystem regressed — this
+// test fails. That's the point of integration tests at this layer.
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { _electron as electron } from 'playwright';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function stripElectronNodeMode(env) {
+  const out = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (k === 'ELECTRON_RUN_AS_NODE') continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+async function waitForMainWindow(app, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const w of app.windows()) {
+      const url = w.url();
+      if (url.endsWith('/index.html') || url.endsWith('\\index.html')) return w;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('Main window (index.html) did not appear within timeout.');
+}
+
+/**
+ * Build a minimal Verilog project on disk: counter.v + tb_counter.v + the
+ * projectOriented.json and .spf that Aurora needs to recognize the folder
+ * as a project. Paths inside the JSON have to be absolute (Aurora uses
+ * them verbatim), so we generate the fixture at test time rather than
+ * checking it in static.
+ */
+function writeFixtureProject(rootDir) {
+  const counterPath = path.join(rootDir, 'counter.v');
+  const tbPath = path.join(rootDir, 'tb_counter.v');
+
+  fs.writeFileSync(counterPath,
+    `\`timescale 1ns/1ps\n` +
+    `module counter (\n` +
+    `  input  wire       clk,\n` +
+    `  input  wire       rst,\n` +
+    `  output reg  [3:0] q\n` +
+    `);\n` +
+    `  always @(posedge clk) begin\n` +
+    `    if (rst) q <= 4'b0;\n` +
+    `    else     q <= q + 1'b1;\n` +
+    `  end\n` +
+    `endmodule\n`
+  );
+
+  fs.writeFileSync(tbPath,
+    `\`timescale 1ns/1ps\n` +
+    `module tb_counter;\n` +
+    `  reg clk = 0;\n` +
+    `  reg rst = 1;\n` +
+    `  wire [3:0] q;\n` +
+    `  counter dut (.clk(clk), .rst(rst), .q(q));\n` +
+    `  always #5 clk = ~clk;\n` +
+    `  initial begin\n` +
+    `    $dumpfile("tb_counter.vcd");\n` +
+    `    $dumpvars(0, tb_counter);\n` +
+    `    #20 rst = 0;\n` +
+    `    #200 $finish;\n` +
+    `  end\n` +
+    `endmodule\n`
+  );
+
+  const cfg = {
+    synthesizableFiles: [
+      { name: 'counter.v', path: counterPath, isTopLevel: true },
+    ],
+    testbenchFiles: [
+      { name: 'tb_counter.v', path: tbPath, isTopLevel: false },
+    ],
+    topLevelFile: counterPath,
+    testbenchFile: tbPath,
+    gtkwFiles: [],
+    processors: [],
+  };
+  fs.writeFileSync(path.join(rootDir, 'projectOriented.json'), JSON.stringify(cfg, null, 2));
+
+  const spfPath = path.join(rootDir, 'counter.spf');
+  fs.writeFileSync(spfPath, JSON.stringify({
+    metadata: {
+      projectName: 'counter',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      computerName: 'e2e-test',
+      appVersion: '0.0.0-test',
+      projectPath: rootDir,
+    },
+    structure: { basePath: rootDir, processors: [], folders: [] },
+  }, null, 2));
+
+  return { spfPath, counterPath, tbPath };
+}
+
+describe('Aurora E2E — edit flow', () => {
+  /** @type {import('playwright').ElectronApplication} */
+  let app;
+  /** @type {import('playwright').Page} */
+  let window;
+  /** @type {string} */
+  let userDataDir;
+  /** @type {string} */
+  let projectDir;
+  /** @type {{ spfPath: string, counterPath: string, tbPath: string }} */
+  let fixture;
+
+  beforeAll(async () => {
+    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-e2e-ud-'));
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-e2e-prj-'));
+    fixture = writeFixtureProject(projectDir);
+
+    app = await electron.launch({
+      // Passing the .spf as a positional arg makes lifecycle.js pick it
+      // up via process.argv (the same code path as double-clicking a
+      // .spf in OS shell). The renderer then auto-loads it after
+      // did-finish-load.
+      args: ['.', `--user-data-dir=${userDataDir}`, fixture.spfPath],
+      cwd: REPO_ROOT,
+      env: {
+        ...stripElectronNodeMode(process.env),
+        SAPHO_SKIP_SINGLE_INSTANCE: '1',
+      },
+      timeout: 30_000,
+    });
+
+    window = await waitForMainWindow(app);
+
+    // Wait for Monaco AMD to finish loading.
+    await window.waitForFunction(
+      () => typeof window.monaco !== 'undefined'
+        && !!document.getElementById('monaco-editor'),
+      { timeout: 15_000 }
+    );
+
+    // Wait for the project to actually load — the file tree should
+    // contain at least one rendered file item. Either tree style
+    // (standard `.file-item` or verilog-mode `.verilog-file-item`)
+    // counts; we don't depend on which mode the user's saved state
+    // restored to.
+    await window.waitForFunction(
+      () => {
+        const tree = document.getElementById('file-tree');
+        if (!tree) return false;
+        return tree.querySelectorAll('.file-item, .verilog-file-item').length > 0;
+      },
+      { timeout: 20_000 }
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await app?.close().catch(() => { /* best-effort */ });
+    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    if (projectDir) fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('clicking a .v file opens an editable Monaco buffer', async () => {
+    // Click counter.v wherever it lives in the tree. Locator pierces both
+    // tree implementations because both render the file name as text.
+    const fileItem = window.locator('.file-item, .verilog-file-item')
+      .filter({ hasText: 'counter.v' })
+      .first();
+    await fileItem.waitFor({ state: 'visible', timeout: 10_000 });
+    await fileItem.click();
+
+    // Tab + editor instance for this file should appear.
+    await window.waitForSelector('.tab[data-path]', { timeout: 5_000 });
+    await window.waitForFunction(() => {
+      // The editor instance carries the filePath in its dataset (see
+      // EditorManager.createEditorInstance). Wait for at least one to be
+      // attached and visible.
+      const instances = document.querySelectorAll('.editor-instance');
+      for (const el of instances) {
+        if (el.style.display !== 'none' && el.dataset.filePath) return true;
+      }
+      return false;
+    }, { timeout: 10_000 });
+
+    // Move focus into Monaco. Clicking the visible editor's textarea is
+    // the most reliable way to do it — Monaco mounts a contenteditable
+    // .inputarea that accepts keyboard events.
+    const inputArea = window.locator('.editor-instance:visible .inputarea').first();
+    await inputArea.waitFor({ state: 'attached', timeout: 5_000 });
+    await inputArea.focus();
+
+    // Send a unique marker so we can distinguish our edit from the
+    // file's existing content. Press End to land at the end of the
+    // current line first, then a newline to keep the original buffer
+    // intact (cleaner than mid-file insertion which can fight with
+    // language services).
+    const marker = `// e2e-marker-${Date.now()}`;
+    await window.keyboard.press('End');
+    await window.keyboard.press('Enter');
+    await window.keyboard.type(marker);
+
+    // Read back from the shared model — the source of truth for the
+    // buffer regardless of which pane (main or split) is focused.
+    const value = await window.evaluate(() => {
+      const activeTab = document.querySelector('.tab.active[data-path]');
+      const filePath = activeTab?.getAttribute('data-path');
+      if (!filePath || !window.SharedModelRegistry) return null;
+      return window.SharedModelRegistry.getModel(filePath)?.getValue() ?? null;
+    });
+
+    expect(value).toBeTruthy();
+    expect(value).toContain(marker);
+  });
+});

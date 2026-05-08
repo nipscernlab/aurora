@@ -386,12 +386,20 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     const tempDir = compilationPaths.tempPath;
     await fse.ensureDir(tempDir);
 
+    // Renderer used to send 'project-simulation' / 'project-verilog-only'
+    // and 'processor'. After the Verilog-Mode merge it sends just
+    // 'project' or 'processor', and we infer the verilog-only branch
+    // from projectOriented.json itself: no processors → verilog-only.
+    // Old 'project-*' values are still accepted for back-compat with
+    // any callers that haven't been redeployed yet.
     const compilationMode = compilationPaths.compilationMode || 'processor';
     const isProjectOriented =
-      compilationMode === 'project-simulation' || compilationMode === 'project-verilog-only';
-    const isProjectVerilogOnly = compilationMode === 'project-verilog-only';
+      compilationMode === 'project'
+      || compilationMode === 'project-simulation'
+      || compilationMode === 'project-verilog-only';
 
     let topLevelModule;
+    let isProjectVerilogOnly = compilationMode === 'project-verilog-only';
 
     if (isProjectOriented) {
       const projectConfigPath = compilationPaths.projectOrientedConfigPath;
@@ -400,6 +408,14 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       }
       const configData = await fse.readJson(projectConfigPath);
       topLevelModule = path.basename(configData.topLevelFile, '.v');
+      // For the unified 'project' mode, decide verilog-only from
+      // configured processors. Empty list (or missing field) means
+      // there's nothing to instantiate from per-processor HDL — feed
+      // Yosys just the synthesizable .v files.
+      if (compilationMode === 'project') {
+        isProjectVerilogOnly = !Array.isArray(configData.processors)
+          || configData.processors.length === 0;
+      }
     } else {
       const processorConfigPath = compilationPaths.processorConfigPath;
       if (!(await fse.pathExists(processorConfigPath))) {

@@ -1144,6 +1144,10 @@ async saveConfiguration() {
                     name: file.name,
                     path: file.path,
                     isTopLevel: false,
+                    // Persist the "Mark as Testbench" badge state so it
+                    // survives close/reopen — it used to be in-memory
+                    // only, so the user had to re-mark every time.
+                    isMarkedTestbench: file.isMarkedTestbench || false,
                 }));
 
             const topFile = this.verilogFiles.find(
@@ -1211,13 +1215,17 @@ async loadConfiguration() {
                     if (fileData.path && fileData.name) {
                         try {
                             const exists = await window.electronAPI.fileExists(fileData.path);
-                            
+
                             if (exists) {
                                 this.verilogFiles.push({
                                     name: fileData.name,
                                     path: fileData.path,
                                     isTopLevel: false,
-                                    category: 'testbench'
+                                    category: 'testbench',
+                                    // Restore the "Mark as Testbench" badge state.
+                                    // Defaults to false for entries written before
+                                    // saveConfiguration started persisting this field.
+                                    isMarkedTestbench: fileData.isMarkedTestbench || false,
                                 });
                             } else {
                                 console.warn(`File no longer exists: ${fileData.path}`);

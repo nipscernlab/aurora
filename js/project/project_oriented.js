@@ -6,6 +6,7 @@
  */
 
 import { toNativeSeparators } from '../utils/path_utils.js';
+import { ProjectConfigStore } from './project_config_store.js';
 
 class ProjectOrientedManager {
   constructor() {
@@ -1512,47 +1513,52 @@ async saveConfiguration() {
             this.showNotification('No testbench marked — simulation will use the top-level module as the simulation top.', 'info', 3500);
         }
         
-        // Construct the Configuration Object
-        const config = {
+        // Route through ProjectConfigStore.update so this write
+        // serializes against any concurrent VerilogModeManager save and
+        // any unknown fields a future writer might own survive the
+        // round-trip. Build the patch first so the mutator stays a
+        // pure assignment.
+        const patch = {
             simulationEnabled: isSimulationEnabled,
-            
+
             // Paths
             topLevelFile: topLevelSynthesizable ? topLevelSynthesizable.path : '',
             testbenchFile: topLevelTestbench ? topLevelTestbench.path : '',
             gtkwaveFile: topLevelGtkw ? topLevelGtkw.path : '',
-            
+
             // File Lists
             synthesizableFiles: this.synthesizableFiles.map(file => ({
                 name: file.name,
                 path: file.path,
-                isTopLevel: file.isTopLevel || false
+                isTopLevel: file.isTopLevel || false,
             })),
-            
+
             testbenchFiles: this.testbenchFiles.map(file => ({
                 name: file.name,
                 path: file.path,
-                isTopLevel: file.isTopLevel || false
+                isTopLevel: file.isTopLevel || false,
             })),
-            
+
             gtkwFiles: this.gtkwFiles.map(file => ({
                 name: file.name,
                 path: file.path,
-                isTopLevel: file.isTopLevel || false
+                isTopLevel: file.isTopLevel || false,
             })),
-            
+
             // Settings (processors can be empty array now)
             processors: processors,
             iverilogFlags: iverilogFlagsValue,
             simuDelay: simuDelayValue,
-            showArraysInGtkwave: showArraysValue
+            showArraysInGtkwave: showArraysValue,
         };
-        
-        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-        await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2));
-        
+
+        const config = await ProjectConfigStore.update(projectPath, (cfg) => {
+            Object.assign(cfg, patch);
+        });
+
         console.log('Project configuration saved:', config);
         this.showNotification('Project configuration saved successfully!', 'success', 3000);
-        
+
         this.currentConfig = config;
         
         // Update processor status
@@ -1567,6 +1573,7 @@ async saveConfiguration() {
 
         // Broadcast for any other listener that needs to react to a config
         // change (verilog tree refreshes itself if mode flips on later, etc.).
+        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
         document.dispatchEvent(new CustomEvent('project-config-saved', { detail: { configPath } }));
 
         this.closeModal();

@@ -56,9 +56,7 @@ Some shared resources have a designated writer. Other call sites must not write 
 | `window.currentProjectPath` / `window.currentSpfPath` | `ProjectStore.setProject` / `clearProject` | Multiple writers drift; the cache vs. live state mismatch caused the "file outside folder disappears on reopen" bug. Migrated in `e01e406`. |
 | `appInitializer.currentMode` | `AppInitializer.switchToMode` only | Anyone setting it directly bypasses the persisted-mode `localStorage` write, the radio sync, and the `mode-state-changed` dispatch. |
 
-**Not yet single-writer (known TODO):**
-
-- [`projectOriented.json`](https://github.com/nipscernlab/aurora) is written by both `VerilogModeManager.saveConfiguration` ([file_mode.js](js/project/file_mode.js)) and `ProjectOrientedManager.saveConfiguration` ([project_oriented.js](js/project/project_oriented.js)). Each does `read → mutate → write` independently with overlapping fields (`synthesizableFiles`, `testbenchFiles`, `topLevelFile`). Last writer wins. **If you're adding a third writer, stop and consolidate first.**
+**`projectOriented.json` writes go through [ProjectConfigStore](js/project/project_config_store.js).** Two managers update it (`VerilogModeManager` for the picker, `ProjectOrientedManager` for the modal); both call `ProjectConfigStore.update(projectPath, mutator)` which serializes per-path read-mutate-write. Each mutator only touches the fields its manager owns; defaults for everything else come from `ProjectConfigStore.DEFAULTS`, so unknown fields a future writer might add survive the round trip. **If you're adding a third writer, use `update()` — don't write the file directly.**
 
 ---
 

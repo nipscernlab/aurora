@@ -7,6 +7,7 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
+import { ProjectConfigStore } from './project_config_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 
 class VerilogModeManager {
@@ -750,58 +751,6 @@ showContextMenu(event, file, index) {
 }
 
 
-    async syncToProjectConfig() {
-    try {
-        const projectPath = ProjectStore.getProjectPath();
-        
-        if (!projectPath) {
-            console.error('❌ Project path not available for sync');
-            return;
-        }
-
-        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-        
-        // Read existing config
-        let currentConfig = {};
-        try {
-            if (await window.electronAPI.fileExists(configPath)) {
-                const content = await window.electronAPI.readFile(configPath);
-                currentConfig = JSON.parse(content);
-            }
-        } catch (err) {
-            console.warn('Could not read existing config:', err);
-        }
-
-        // Map verilogFiles to synthesizableFiles format
-        const synthesizableFiles = this.verilogFiles.map(file => ({
-            name: file.name,
-            path: file.path,
-            isTopLevel: file.isTopLevel || false
-        }));
-
-        // Determine top level file
-        const topFile = this.verilogFiles.find(f => f.isTopLevel);
-        const topLevelPath = topFile ? topFile.path : "";
-
-        // Update config
-        currentConfig.synthesizableFiles = synthesizableFiles;
-        currentConfig.topLevelFile = topLevelPath;
-
-        // Ensure other arrays exist
-        if (!currentConfig.testbenchFiles) currentConfig.testbenchFiles = [];
-        if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
-        if (!currentConfig.processors) currentConfig.processors = [];
-
-        // Write back
-        await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
-        
-        console.log('💾 Synced to projectOriented.json');
-        
-    } catch (error) {
-        console.error('❌ Error syncing to project config:', error);
-    }
-}
-
    async handleTreeContextMenu(event) {
         event.preventDefault();
 
@@ -1165,7 +1114,12 @@ async importFiles(files) {
 }
 
   /**
- * Save configuration (keeps existing function name)
+ * Save configuration (keeps existing function name).
+ *
+ * Routes through ProjectConfigStore.update so our writes serialize
+ * cleanly with the Project Settings modal's writes; field defaults
+ * (gtkwFiles, processors, etc.) come from the store, so this manager
+ * only mutates what it actually owns.
  */
 async saveConfiguration() {
     try {
@@ -1175,52 +1129,33 @@ async saveConfiguration() {
             return;
         }
 
-        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-        
-        let currentConfig = {};
-        try {
-            if (await window.electronAPI.fileExists(configPath)) {
-                const content = await window.electronAPI.readFile(configPath);
-                currentConfig = JSON.parse(content);
-            }
-        } catch (err) {
-            console.warn('Could not read existing config:', err);
-        }
+        await ProjectConfigStore.update(projectPath, (cfg) => {
+            cfg.synthesizableFiles = this.verilogFiles
+                .filter(f => f.category !== 'testbench')
+                .map(file => ({
+                    name: file.name,
+                    path: file.path,
+                    isTopLevel: file.isTopLevel || false,
+                }));
 
-        const synthesizableFiles = this.verilogFiles
-            .filter(f => f.category !== 'testbench')
-            .map(file => ({
-                name: file.name,
-                path: file.path,
-                isTopLevel: file.isTopLevel || false
-            }));
+            cfg.testbenchFiles = this.verilogFiles
+                .filter(f => f.category === 'testbench')
+                .map(file => ({
+                    name: file.name,
+                    path: file.path,
+                    isTopLevel: false,
+                }));
 
-        const testbenchFiles = this.verilogFiles
-            .filter(f => f.category === 'testbench')
-            .map(file => ({
-                name: file.name,
-                path: file.path,
-                isTopLevel: false
-            }));
+            const topFile = this.verilogFiles.find(
+                f => f.isTopLevel && f.category !== 'testbench',
+            );
+            cfg.topLevelFile = topFile ? topFile.path : '';
 
-        const topFile = this.verilogFiles.find(f => f.isTopLevel && f.category !== 'testbench');
-        const topLevelPath = topFile ? topFile.path : "";
-        
-        const testbenchFile = this.verilogFiles.find(f => f.category === 'testbench');
-        const testbenchPath = testbenchFile ? testbenchFile.path : "";
+            const testbenchFile = this.verilogFiles.find(f => f.category === 'testbench');
+            cfg.testbenchFile = testbenchFile ? testbenchFile.path : '';
+        });
 
-        currentConfig.synthesizableFiles = synthesizableFiles;
-        currentConfig.testbenchFiles = testbenchFiles;
-        currentConfig.topLevelFile = topLevelPath;
-        currentConfig.testbenchFile = testbenchPath;
-
-        if (!currentConfig.gtkwFiles) currentConfig.gtkwFiles = [];
-        if (!currentConfig.processors) currentConfig.processors = [];
-
-        await window.electronAPI.writeFile(configPath, JSON.stringify(currentConfig, null, 2));
-        
         console.log('Saved configuration with categories');
-        
     } catch (error) {
         console.error('Error saving configuration:', error);
     }

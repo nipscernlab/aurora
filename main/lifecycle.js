@@ -19,8 +19,12 @@ function register() {
   state.fileToOpen = process.argv.find((arg) => arg.endsWith('.spf')) ?? null;
 
   // Single-instance lock — pass any .spf the second instance had to the
-  // first, then quit the second instance.
-  const gotTheLock = app.requestSingleInstanceLock();
+  // first, then quit the second instance. Tests run with their own
+  // user-data-dir but Electron's lock is per app name, so a test instance
+  // would still collide with a real Aurora the developer has open.
+  // SAPHO_SKIP_SINGLE_INSTANCE=1 bypasses the lock for that case only.
+  const skipLock = process.env.SAPHO_SKIP_SINGLE_INSTANCE === '1';
+  const gotTheLock = skipLock ? true : app.requestSingleInstanceLock();
   if (!gotTheLock) {
     // Log loudly to BOTH the electron-log file AND stdout. Otherwise the
     // user just sees `npm start` return immediately with no explanation,

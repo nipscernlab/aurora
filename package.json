@@ -13,6 +13,7 @@
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.config.e2e.js",
     "typecheck": "tsc --noEmit",
     "build": "electron-builder",
     "prepare": "husky"
@@ -109,6 +110,7 @@
     "globals": "^16.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "playwright": "^1.59.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   }

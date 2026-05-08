@@ -199,3 +199,6 @@ Smoke test (manual, ~2 min):
 3. Close project, reopen via Recent. Editor + edit should still work.
 4. Toggle simulation on/off. Trees should swap cleanly. Edit should still work.
 5. Switch Processor ↔ Project mode. No console errors.
+
+Smoke test (automated, runs in CI):
+- [tests/e2e/smoke.test.js](tests/e2e/smoke.test.js) launches a real Aurora via Playwright's Electron API and asserts Monaco initializes without the failure markers we've hit (notably "EditorManager has not been initialized" and the Monaco 0.53 contribution-module crash). Run locally with `npm run test:e2e`.

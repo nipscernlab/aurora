@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify monaco-editor pinned version
+        run: node scripts/check-monaco-version.js
+
       - name: ESLint
         run: npx eslint . --max-warnings=0
 

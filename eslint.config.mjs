@@ -52,6 +52,7 @@ export default defineConfig([
       "main.js",
       "main/**/*.js",
       "components/Scripts/**/*.js",
+      "scripts/**/*.js",
     ],
     languageOptions: {
       sourceType: "commonjs",

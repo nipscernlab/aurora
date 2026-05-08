@@ -1476,10 +1476,6 @@ async saveConfiguration() {
         const iverilogFlagsValue = this.elements.iverilogFlags ? this.elements.iverilogFlags.value : '';
         const showArraysValue = this.elements.showArraysCheckbox && this.elements.showArraysCheckbox.checked ? 1 : 0;
 
-        // Check if simulation is enabled
-        const simToggle = document.getElementById('Verilog Mode');
-        const isSimulationEnabled = simToggle ? simToggle.checked : false;
-
         // Validate Simulation Time. The HTML attributes (min/max/step/required)
         // catch most cases, but Iverilog treats non-positive integers as a hard
         // failure during simulation, so we re-validate before writing the
@@ -1515,18 +1511,21 @@ async saveConfiguration() {
         // Testbench is optional. Without one, simulation will use the
         // synthesizable top-level as -s; useful when the user only wants to
         // syntax-check or wire up a single .v.
-        if (isSimulationEnabled && !topLevelTestbench) {
+        if (!topLevelTestbench) {
             this.showNotification('No testbench marked — simulation will use the top-level module as the simulation top.', 'info', 3500);
         }
-        
+
         // Route through ProjectConfigStore.update so this write
         // serializes against any concurrent VerilogModeManager save and
         // any unknown fields a future writer might own survive the
         // round-trip. Build the patch first so the mutator stays a
         // pure assignment.
+        //
+        // Note: the legacy `simulationEnabled` field used to mirror the
+        // (now-removed) Compile&Simulate toggle. No code reads it any
+        // more, so we don't write it; old configs keep theirs harmlessly
+        // until the next save normalises.
         const patch = {
-            simulationEnabled: isSimulationEnabled,
-
             // Paths
             topLevelFile: topLevelSynthesizable ? topLevelSynthesizable.path : '',
             testbenchFile: topLevelTestbench ? topLevelTestbench.path : '',

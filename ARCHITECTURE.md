@@ -88,6 +88,8 @@ The IIFE in `addTab` ([tab_manager.js:565](js/tabs/tab_manager.js#L565)):
 
 ## 5. Startup sequence
 
+Two IDE modes today: **Processor** (legacy single-processor PRISM workflow) and **Project** (everything else — synth/sim of `.v` files, with or without configured processors). The old "Verilog Mode" was a third mode driven by a Compile & Simulate checkbox; it merged into Project Mode in May 2026 and the pipeline now auto-decides full-simulation vs verilog-only by checking `projectConfig.processors`.
+
 Roughly, on app start:
 
 ```
@@ -105,24 +107,23 @@ DOMContentLoaded
 │
 └── app_initializer.js DOMContentLoaded handler
     ├── setupModeSwitchers()            // attach radio change listeners
-    ├── setupSimulationToggle()         // RESTORE saved sim toggle (no event)
     └── await restoreLastSession()
         ├── await projectManager.loadProject(lastSpf)
         │   ├── ProjectStore.setProject(spf, base)
-        │   ├── if mode==='verilog': activateVerilogMode()
-        │   │   else: fileTreeManager.updateFileTree(files)
+        │   ├── if mode==='project': activateVerilogMode()
+        │   │   else (processor): fileTreeManager.updateFileTree(files)
         │   └── ...
-        └── await switchToMode(lastMode)
+        └── await switchToMode(lastMode)         // 'verilog' migrates to 'project'
             ├── this.currentMode = mode
             ├── activateModeUI(mode)    // sets radios programmatically
             ├── dispatch('mode-state-changed')   // see §6
-            ├── if mode==='verilog': switchToVerilogFileMode → activateVerilogMode (coalesced, see §7)
+            ├── if mode==='project': switchToVerilogFileMode → activateVerilogMode (coalesced, see §7)
             └── ...
 ```
 
 **Gotchas:**
 
-- `setupSimulationToggle` writes `simToggle.checked` programmatically. **Programmatic `.checked = ...` does NOT fire a `change` event.** That's why `mode-state-changed` was added (see §6).
+- `activateModeUI` writes `radio.checked` programmatically. **Programmatic `.checked = ...` does NOT fire a `change` event.** That's why `mode-state-changed` was added (see §6).
 - `initializeTreeBasedOnMode` runs after a `setTimeout(100ms)` in `fileTreeManager.initialize`. By that time `restoreLastSession` may or may not have called `activateModeUI` yet. The mode it reads is racy. Don't depend on this firing in any specific order relative to `switchToMode`.
 - Monaco's AMD modules load asynchronously. A `TabManager.addTab` call before `EditorManager.ready` resolves will block on the IIFE's `await` — the tab DOM is created immediately, the editor isn't.
 
@@ -130,7 +131,7 @@ DOMContentLoaded
 
 ## 6. The `mode-state-changed` event
 
-`AppInitializer.activateModeUI` sets `projectModeRadio.checked` / `simToggle.checked` programmatically. Programmatic `.checked` writes don't fire `change` events, so listeners that derive state from the toolbar (e.g. `file_mode.js`'s `syncFromState`) miss session-restore transitions.
+`AppInitializer.activateModeUI` sets `projectModeRadio.checked` programmatically. Programmatic `.checked` writes don't fire `change` events, so listeners that derive state from the toolbar (e.g. `file_mode.js`'s `syncFromState`) miss session-restore transitions.
 
 **Fix:** [`activateModeUI`](js/app/app_initializer.js) dispatches `document.dispatchEvent(new CustomEvent('mode-state-changed', { detail: { mode } }))` after every programmatic flip.
 

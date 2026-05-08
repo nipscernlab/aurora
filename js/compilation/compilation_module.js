@@ -182,12 +182,13 @@ class CompilationModule {
 
 async generateProjectHierarchy() {
     // Skip hierarchy generation in Verilog-only mode if no processors
-    if (this.isVerilogOnlyMode() && 
-        (!this.projectConfig.processors || this.projectConfig.processors.length === 0)) {
-        this.terminalManager.appendToTerminal('tveri', 
-            'Hierarchy generation skipped (Verilog-only mode)', 'info');
-        return;
-    }
+    // Hierarchy generation runs whenever there's at least one synthesizable
+    // file — Yosys can build a hierarchy from any user .v. The previous
+    // early-return only fired when the legacy "Verilog Mode" toggle was off
+    // AND no processors were configured; with the toggle gone we just
+    // require synth files. The yosys script below handles the no-files
+    // case implicitly (empty read_verilog → yosys errors out, caught by
+    // the surrounding try/catch).
         try {
             if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
@@ -1162,9 +1163,14 @@ async iverilogProjectCompilation() {
 /**
  * Check if Verilog-only mode is active (toggle disabled)
  */
+/**
+ * "Verilog-only" used to mean the Compile&Simulate toggle was off; with
+ * the toggle gone, the equivalent condition is "no processors are
+ * configured" — i.e. the project is a pure synth/sim flow that doesn't
+ * need CMM/ASM stages.
+ */
 isVerilogOnlyMode() {
-    const verilogModeCheckbox = document.getElementById('Verilog Mode');
-    return !verilogModeCheckbox.checked; // verifica se DESMARCADO
+    return (this.projectConfig?.processors?.length ?? 0) === 0;
 }
 
 /**
@@ -2437,8 +2443,11 @@ updateToggleButtonForCurrentMode() {
     const currentMode = this.getCurrentMode();
     
     if (TreeViewState.isHierarchical) {
-        // Currently showing hierarchical view
-        if (currentMode === 'verilog') {
+        // Currently showing hierarchical view. In Project Mode the
+        // standard view is the verilog picker (with synth/testbench);
+        // in Processor Mode it's the folder listing. Same icon for
+        // either — the toggle just goes back to "the standard view".
+        if (currentMode === 'project') {
             icon.className = 'fa-solid fa-file-code';
             text.textContent = 'File Mode';
             toggleButton.title = 'Switch to Verilog File Mode tree';
@@ -2457,17 +2466,18 @@ updateToggleButtonForCurrentMode() {
     }
 }
 /**
- * Get current compilation mode
+ * Get current IDE mode — 'processor' or 'project'. Delegates to
+ * AppInitializer when available; falls back to reading the radios for
+ * the early-startup window.
  */
 getCurrentMode() {
-    const verilogModeRadio = document.getElementById('Verilog Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
+    const fromInit = window.appInitializer?.getCurrentMode?.();
+    if (fromInit === 'processor' || fromInit === 'project') return fromInit;
+
     const projectModeRadio = document.getElementById('Project Mode');
-    
-    if (verilogModeRadio?.checked) return 'verilog';
-    if (processorModeRadio?.checked) return 'processor';
+    const processorModeRadio = document.getElementById('Processor Mode');
     if (projectModeRadio?.checked) return 'project';
-    
+    if (processorModeRadio?.checked) return 'processor';
     return 'processor';
 }
 

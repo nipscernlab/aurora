@@ -89,30 +89,23 @@ class VerilogModeManager {
             fileTreeContainer: document.querySelector('.file-tree-container'),
             openHdlButton: document.getElementById('open-hdl-button'),
             refreshButton: document.getElementById('refresh-button'),
-            // References the Checkbox/Toggle 
-            compileSimulateToggle: document.getElementById('Verilog Mode'),
             processorModeRadio: document.getElementById('Processor Mode'),
-            projectModeRadio: document.getElementById('Project Mode')
+            projectModeRadio: document.getElementById('Project Mode'),
         };
-        
-        console.log('📦 Cached elements:', {
-            fileTree: !!this.elements.fileTree,
-            compileSimulateToggle: !!this.elements.compileSimulateToggle
-        });
+
+        console.log('📦 Cached elements:', { fileTree: !!this.elements.fileTree });
     }
-    
+
     /**
      * Setup event listeners
      */
     setupEventListeners() {
-        // The verilog file tree is the dedicated UI for the
-        // "project-verilog-only" flow: Project Mode + Compile & Simulate OFF.
-        // Any other combo falls back to the standard project tree.
-        const shouldShowVerilogTree = () => {
-            const projectModeChecked = this.elements.projectModeRadio?.checked === true;
-            const simEnabled = this.elements.compileSimulateToggle?.checked === true;
-            return projectModeChecked && !simEnabled;
-        };
+        // The verilog picker tree is the file tree for Project Mode (with
+        // or without processors). Processor Mode keeps the standard
+        // folder listing. There used to be a "Compile & Simulate" toggle
+        // that gated this; with the toggle removed the rule simplifies to
+        // "Project Mode → picker".
+        const shouldShowVerilogTree = () => this.elements.projectModeRadio?.checked === true;
 
         const syncFromState = () => {
             if (shouldShowVerilogTree()) {
@@ -122,11 +115,8 @@ class VerilogModeManager {
             }
         };
 
-        if (this.elements.compileSimulateToggle) {
-            // Initial state on load
-            syncFromState();
-            this.elements.compileSimulateToggle.addEventListener('change', syncFromState);
-        }
+        // Initial state on load
+        syncFromState();
 
         if (this.elements.processorModeRadio) {
             this.elements.processorModeRadio.addEventListener('change', syncFromState);

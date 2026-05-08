@@ -11,16 +11,18 @@ import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
 
 class AppInitializer {
     constructor() {
-        this.currentMode = null; // 'processor', 'project', 'verilog'
-        this.isSimulationEnabled = true;
+        // Two modes now: 'processor' for the legacy single-processor PRISM
+        // workflow, 'project' for everything else (with or without
+        // processors — the pipeline auto-decides by checking
+        // projectConfig.processors). The old 'verilog' value is migrated
+        // on restore for backward-compat with stored localStorage.
+        this.currentMode = null;
         this.isInitialized = false;
         this.lastProjectPath = null;
-        
-        // Storage keys
+
         this.STORAGE_KEYS = {
             LAST_PROJECT: 'aurora-last-project-path',
             LAST_MODE: 'aurora-last-mode',
-            SIMULATION_STATE: 'aurora_compile_sim_state'
         };
     }
 
@@ -36,21 +38,13 @@ class AppInitializer {
         console.log('🚀 Initializing Aurora IDE...');
 
         try {
-            // 1. Setup mode switchers
             this.setupModeSwitchers();
-            
-            // 2. Setup simulation toggle
-            this.setupSimulationToggle();
-            
-            // 3. Restore last session
             await this.restoreLastSession();
-            
-            // 4. Initialize button states
             this.updateButtonStates();
-            
+
             this.isInitialized = true;
             console.log('✅ Aurora IDE initialized successfully');
-            
+
         } catch (error) {
             console.error('❌ Failed to initialize Aurora IDE:', error);
             await showDialog({
@@ -86,56 +80,17 @@ class AppInitializer {
     }
 
     /**
-     * Setup simulation toggle (Compile & Simulate checkbox)
-     */
-    setupSimulationToggle() {
-        const simToggle = document.getElementById('Verilog Mode');
-        
-        if (simToggle) {
-            // Restore saved state
-            const savedState = localStorage.getItem(this.STORAGE_KEYS.SIMULATION_STATE);
-            if (savedState !== null) {
-                simToggle.checked = (savedState === 'true');
-                this.isSimulationEnabled = (savedState === 'true');
-            } else {
-                this.isSimulationEnabled = simToggle.checked;
-            }
-            
-            // Listen for changes
-            simToggle.addEventListener('change', async () => {
-                this.isSimulationEnabled = simToggle.checked;
-                localStorage.setItem(this.STORAGE_KEYS.SIMULATION_STATE, simToggle.checked);
-                
-                // Check if we're in Project Mode
-                const projectModeRadio = document.getElementById('Project Mode');
-                const isProjectMode = projectModeRadio && projectModeRadio.checked;
-                
-                if (isProjectMode) {
-                    if (!simToggle.checked) {
-                        // Simulation disabled → Switch to Verilog File Mode
-                        console.log('🔄 Simulation disabled, switching to Verilog File Mode');
-                        await this.switchToMode('verilog');
-                    } else {
-                        // Simulation enabled → Switch to standard Project Mode
-                        console.log('🔄 Simulation enabled, switching to standard Project Mode');
-                        await this.switchToMode('project');
-                    }
-                }
-                
-                // Update button states
-                this.updateButtonStates();
-            });
-        }
-    }
-
-    /**
      * Restore last session (project + mode)
      */
     async restoreLastSession() {
         console.log('🔄 Attempting to restore last session...');
-        
+
         const lastProjectPath = localStorage.getItem(this.STORAGE_KEYS.LAST_PROJECT);
-        const lastMode = localStorage.getItem(this.STORAGE_KEYS.LAST_MODE) || 'processor';
+        // Backward-compat: the old 'verilog' value (Project Mode + sim
+        // OFF) collapses into 'project'. The pipeline now auto-decides
+        // verilog-only vs full-simulation based on processor count.
+        const rawLastMode = localStorage.getItem(this.STORAGE_KEYS.LAST_MODE) || 'processor';
+        const lastMode = rawLastMode === 'verilog' ? 'project' : rawLastMode;
         
         if (!lastProjectPath) {
             console.log('ℹ️ No previous project found');
@@ -202,45 +157,35 @@ class AppInitializer {
      */
     async switchToMode(mode) {
         console.log(`🔄 Switching to mode: ${mode}`);
-        
+
         if (mode === this.currentMode) {
             console.log('ℹ️ Already in this mode');
             return;
         }
-        
+
         try {
-            // Save the mode
             this.currentMode = mode;
             localStorage.setItem(this.STORAGE_KEYS.LAST_MODE, mode);
-            
-            // Activate UI
+
             this.activateModeUI(mode);
-            
-            // Load configuration based on mode
+
             if (mode === 'processor') {
                 await this.loadProcessorConfiguration();
                 this.switchToStandardFileTree();
-                
             } else if (mode === 'project') {
-                if (this.isSimulationEnabled) {
-                    await this.loadProjectConfiguration();
-                    this.switchToStandardFileTree();
-                } else {
-                    // Simulation disabled = Verilog Mode
-                    await this.switchToMode('verilog');
-                    return;
-                }
-                
-            } else if (mode === 'verilog') {
+                // Project Mode is unified: the verilog picker tree is the
+                // canonical view, and the pipeline auto-decides between
+                // full-simulation (with processors) and verilog-only
+                // (no processors) based on projectConfig.processors. The
+                // old "Compile & Simulate" toggle is gone.
                 await this.loadProjectConfiguration();
                 await this.switchToVerilogFileMode();
             }
-            
-            // Update button states
+
             this.updateButtonStates();
-            
+
             console.log(`✅ Switched to ${mode} mode`);
-            
+
         } catch (error) {
             console.error(`❌ Failed to switch to ${mode} mode:`, error);
             throw error;
@@ -253,19 +198,11 @@ class AppInitializer {
     activateModeUI(mode) {
         const processorModeRadio = document.getElementById('Processor Mode');
         const projectModeRadio = document.getElementById('Project Mode');
-        const simToggle = document.getElementById('Verilog Mode');
 
         if (mode === 'processor') {
             if (processorModeRadio) processorModeRadio.checked = true;
-            if (simToggle) simToggle.checked = true;
-
         } else if (mode === 'project') {
             if (projectModeRadio) projectModeRadio.checked = true;
-            if (simToggle) simToggle.checked = true;
-
-        } else if (mode === 'verilog') {
-            if (projectModeRadio) projectModeRadio.checked = true;
-            if (simToggle) simToggle.checked = false;
         }
 
         // Programmatic .checked = ... does NOT fire a 'change' event, so any
@@ -389,7 +326,7 @@ class AppInitializer {
                     statusEl.classList.remove('has-processors');
                 }
                 
-            } else if (this.currentMode === 'project' || this.currentMode === 'verilog') {
+            } else if (this.currentMode === 'project') {
                 // Project Mode
                 if (config.processors && config.processors.length > 0) {
                     const types = config.processors.map(p => p.type);
@@ -408,45 +345,15 @@ class AppInitializer {
     }
 
     /**
-     * Update button states based on mode
+     * Update button states based on mode. Both modes leave every button
+     * enabled today — the per-button gating that used to live here has
+     * moved into the compilation flow itself, which auto-decides which
+     * stages to run based on whether processors are configured.
      */
     updateButtonStates() {
-        const buttons = {};
-        
-        if (this.currentMode === 'processor') {
-            // Processor Mode - All buttons enabled
-            Object.values(buttons).forEach(btn => {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                }
-            });
-            
-        } else if (this.currentMode === 'project') {
-            // Project Mode with Simulation - All buttons enabled
-            Object.values(buttons).forEach(btn => {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                }
-            });
-            
-        } else if (this.currentMode === 'verilog') {
-            // Verilog Mode (Project without Simulation) - Only iverilog and prism
-            const enabledButtons = ['vericomp', 'prismcomp', 'settings'];
-            
-            Object.entries(buttons).forEach(([key, btn]) => {
-                if (btn) {
-                    const shouldEnable = enabledButtons.includes(key);
-                    btn.disabled = !shouldEnable;
-                    btn.style.opacity = shouldEnable ? '1' : '0.5';
-                    btn.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
-                }
-            });
-        }
-        
+        // Empty `buttons` map preserved for shape-compat with callers that
+        // still invoke this; if button-level gating returns later, plumb
+        // the IDs back in here.
         console.log(`✅ Button states updated for ${this.currentMode} mode`);
     }
 
@@ -473,17 +380,10 @@ class AppInitializer {
     }
 
     /**
-     * Get current mode
+     * Get current mode — 'processor' or 'project'.
      */
     getCurrentMode() {
         return this.currentMode;
-    }
-
-    /**
-     * Get simulation state
-     */
-    isSimulationActive() {
-        return this.isSimulationEnabled;
     }
 }
 

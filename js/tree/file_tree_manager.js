@@ -546,26 +546,26 @@ class FileTreeManager {
         this.fileSearch = new FileTreeSearch();
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
+            if (TreeViewState.isHierarchical) return;
             const currentMode = this.getCurrentMode();
-            if (currentMode === 'verilog' && !TreeViewState.isHierarchical) {
-                // Refresh Verilog file mode tree
+            if (currentMode === 'project') {
+                // Project Mode uses the verilog picker tree.
                 window.verilogModeManager?.refreshVerilogTree();
-            } else if (!TreeViewState.isHierarchical) {
-                // Refresh standard file tree
+            } else {
                 this.refresh();
             }
         });
-        
+
         // Hierarchy toggle button
         document.getElementById('alternate-tree-toggle')?.addEventListener('click', () => {
             this.toggleHierarchyView();
         });
-        
+
         window.electronAPI.onDirectoryChanged((dir, files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
             const currentMode = this.getCurrentMode();
-            if (currentMode === 'verilog') {
+            if (currentMode === 'project') {
                 // Picker reads projectOriented.json, but processor creation
                 // / deletion silently rewrites that file from
                 // processor_oriented.js → the picker won't pick the change
@@ -592,23 +592,18 @@ class FileTreeManager {
     }
 
     async initializeTreeBasedOnMode() {
-        // Wait a bit for DOM to be fully ready
+        // Wait a tick for DOM listeners (and AppInitializer) to settle.
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // getCurrentMode() reads the live DOM (radio + toggle), which is the
-        // authoritative source. savedMode only stores the radio label, not the
-        // composite verilog-only state, so it cannot be used here.
         const currentMode = this.getCurrentMode();
-
         console.log('🌳 Initializing tree for mode:', currentMode);
 
-        if (currentMode === 'verilog') {
-            // Project Mode + Compile&Simulate OFF → verilog file tree
+        if (currentMode === 'project') {
             if (window.verilogModeManager) {
                 await window.verilogModeManager.activateVerilogMode();
             }
         } else {
-            // Processor Mode or Project+Sim ON → standard file tree
+            // Processor Mode → standard folder tree
             this.refresh();
         }
     }
@@ -636,31 +631,19 @@ class FileTreeManager {
     }
     
 /**
- * Get current mode
+ * Get current mode — 'processor' or 'project'. Delegates to AppInitializer
+ * when available; falls back to reading the radios for the early-startup
+ * window before initialize() has run.
  */
 getCurrentMode() {
-    // Check if appInitializer is available
-    if (window.appInitializer && typeof window.appInitializer.getCurrentMode === 'function') {
-        return window.appInitializer.getCurrentMode();
-    }
-    
-    // Fallback: Manual detection
-    const _verilogModeRadio = document.getElementById('Verilog Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
+    const fromInit = window.appInitializer?.getCurrentMode?.();
+    if (fromInit === 'processor' || fromInit === 'project') return fromInit;
+
     const projectModeRadio = document.getElementById('Project Mode');
-    
-    // Check simulation toggle state
-    const simToggle = document.getElementById('Verilog Mode');
-    const isSimulationEnabled = simToggle ? simToggle.checked : true;
-    
-    if (projectModeRadio && projectModeRadio.checked && !isSimulationEnabled) {
-        return 'verilog';
-    }
-    
-    if (processorModeRadio && processorModeRadio.checked) return 'processor';
-    if (projectModeRadio && projectModeRadio.checked) return 'project';
-    
-    return 'processor'; // Default fallback
+    const processorModeRadio = document.getElementById('Processor Mode');
+    if (projectModeRadio?.checked) return 'project';
+    if (processorModeRadio?.checked) return 'processor';
+    return 'processor';
 }
 
 toggleHierarchyView() {
@@ -674,17 +657,15 @@ toggleHierarchyView() {
     const currentMode = this.getCurrentMode();
     console.log(`🔄 Toggling tree view. Mode: ${currentMode}, Is Hierarchical: ${TreeViewState.isHierarchical}`);
     
-    if (currentMode === 'verilog') {
-        // Verilog Mode: Toggle between Verilog File Mode and Hierarchical
+    if (currentMode === 'project') {
+        // Project Mode: toggle picker tree ↔ hierarchical
         if (TreeViewState.isHierarchical) {
-            // Back to Verilog File Mode
             console.log('📁 Switching to Verilog File Mode tree');
             TreeViewState.setHierarchical(false);
             if (window.verilogModeManager) {
                 window.verilogModeManager.renderVerilogTree();
             }
         } else {
-            // To Hierarchical
             if (!TreeViewState.hierarchyData) {
                 console.warn('⚠️ No hierarchy data available. Compile Verilog first.');
                 return;
@@ -693,16 +674,13 @@ toggleHierarchyView() {
             TreeViewState.setHierarchical(true);
             this.renderHierarchicalTreeFromData();
         }
-        
     } else {
-        // Processor/Project Mode: Toggle between Standard and Hierarchical
+        // Processor Mode: toggle standard folder tree ↔ hierarchical
         if (TreeViewState.isHierarchical) {
-            // Back to Standard
             console.log('📂 Switching to Standard File Tree');
             TreeViewState.setHierarchical(false);
             this.refresh();
         } else {
-            // To Hierarchical
             if (!TreeViewState.hierarchyData) {
                 console.warn('⚠️ No hierarchy data. Compile Verilog first.');
                 return;
@@ -731,7 +709,7 @@ updateToggleButtonAppearance() {
     const currentMode = this.getCurrentMode();
     
     if (TreeViewState.isHierarchical) {
-        if (currentMode === 'verilog') {
+        if (currentMode === 'project') {
             icon.className = 'ph ph-file-code';
             text.textContent = 'File Mode';
             toggleButton.title = 'Switch to Verilog File Mode';

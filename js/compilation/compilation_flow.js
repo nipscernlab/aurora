@@ -6,14 +6,6 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 
 let compilationCanceled = false;
 
-// Helper to check the Simulation Toggle State (ID: Verilog Mode)
-// Checked = Compile & Simulate
-// Unchecked = Compile Only (and conceptually activates Verilog Mode in your UI logic)
-function isSimulationEnabled() {
-    const toggle = document.getElementById('Verilog Mode');
-    return toggle ? toggle.checked : false;
-}
-
 function checkCancellation() {
     if (compilationCanceled) {
         throw new Error('Compilation canceled by user');
@@ -54,24 +46,18 @@ function endCompilation() {
 async function runProcessorPipeline(compiler) {
     const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
     if (!activeProcessor) throw new Error("No active processor found.");
-    
+
     await compiler.ensureDirectories(activeProcessor.name);
-    
+
     // 1. CMM Compilation
     switchTerminal('terminal-tcmm');
     checkCancellation();
     await compiler.cmmCompilation(activeProcessor);
-    
+
     // 2. ASM Compilation
     switchTerminal('terminal-tasm');
     checkCancellation();
     await compiler.asmCompilation(activeProcessor, 0);
-
-    // CHECK: Should we simulate?
-    if (!isSimulationEnabled()) {
-        compiler.terminalManager.appendToTerminal('tasm', 'Simulation skipped (Compile Only).', 'info');
-        return; // Stop here
-    }
 
     // 3. Verilog Simulation/Verification
     switchTerminal('terminal-tveri');
@@ -82,41 +68,46 @@ async function runProcessorPipeline(compiler) {
     switchTerminal('terminal-twave');
     checkCancellation();
     await compiler.runGtkWave(activeProcessor);
-
-            await compiler.iverilogCompilation(activeProcessor);
 }
 
 async function runProjectPipeline(compiler) {
-    if (!compiler.projectConfig?.processors) throw new Error('No processors defined in projectoriented.json');
+    const processors = compiler.projectConfig?.processors ?? [];
 
-    switchTerminal('terminal-tcmm');
-    
-    // 1. Compile all processors (CMM + ASM)
-    for (const projectProcessor of compiler.projectConfig.processors) {
-        checkCancellation();
-        const processorConfig = compiler.config.processors.find(p => p.name === projectProcessor.type);
-        if (!processorConfig) continue;
+    // 1. If processors are configured, compile each (CMM + ASM). With no
+    //    processors this stage is a no-op — the project becomes a pure
+    //    Verilog flow (the old "Verilog Mode") without any per-mode
+    //    branching elsewhere.
+    if (processors.length > 0) {
+        switchTerminal('terminal-tcmm');
+        for (const projectProcessor of processors) {
+            checkCancellation();
+            const processorConfig = compiler.config.processors.find(p => p.name === projectProcessor.type);
+            if (!processorConfig) continue;
 
-        await compiler.ensureDirectories(processorConfig.name);
-        await compiler.cmmCompilation(processorConfig);
-        await compiler.asmCompilation(processorConfig, 1);
+            await compiler.ensureDirectories(processorConfig.name);
+            await compiler.cmmCompilation(processorConfig);
+            await compiler.asmCompilation(processorConfig, 1);
+        }
     }
-    
-    // CHECK: Should we simulate?
-    if (!isSimulationEnabled()) {
-        compiler.terminalManager.appendToTerminal('tasm', 'Project Simulation skipped (Compile Only).', 'info');
-        return; // Stop here
-    }
-    
-    // 2. Project Verification
+
+    // 2. Verilog. The compiler picks the iverilog vs iverilog-only path
+    //    internally based on whether processors are present.
     switchTerminal('terminal-tveri');
     checkCancellation();
-    await compiler.iverilogProjectCompilation();
+    if (processors.length > 0) {
+        await compiler.iverilogProjectCompilation();
+    } else {
+        await compiler.iverilogVerilogOnlyCompilation();
+    }
 
-    // 3. Project Waveform
+    // 3. Waveform
     switchTerminal('terminal-twave');
     checkCancellation();
-    await compiler.runProjectGtkWave();
+    if (processors.length > 0) {
+        await compiler.runProjectGtkWave();
+    } else {
+        await compiler.runVerilogOnlyGtkWave();
+    }
 }
 
 // ----------------------------------------------------------------------
@@ -132,36 +123,12 @@ class CompilationFlowManager {
         document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
         document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
         document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
-        
-        // --- PERSISTENCE LOGIC START ---
-        // Restore the toggle state from localStorage
-        const toggle = document.getElementById('Verilog Mode');
-        const savedState = localStorage.getItem('aurora_compile_sim_state');
 
-        if (toggle) {
-            if (savedState !== null) {
-                // 'true' string -> true boolean
-                toggle.checked = (savedState === 'true');
-            } else {
-                // Default: Compile & Simulate OFF — the project-verilog-only flow.
-                // Lets users drop a single .v and run it without configuring
-                // a processor first.
-                toggle.checked = false;
-            }
+        // The "Compile & Simulate" checkbox (and its localStorage key
+        // aurora_compile_sim_state) was removed when Verilog Mode merged
+        // into Project Mode. The pipeline now decides simulate-or-not
+        // from projectConfig.processors directly.
 
-            // Manually trigger change event so UI/CSS (hiding sections) updates immediately
-            toggle.dispatchEvent(new Event('change'));
-
-            // Save state whenever user changes it
-            toggle.addEventListener('change', (e) => {
-                localStorage.setItem('aurora_compile_sim_state', e.target.checked);
-                // Also update button states when toggling
-                this.updateButtonStates();
-            });
-        }
-        // --- PERSISTENCE LOGIC END ---
-
-        // Setup mode change listeners
         this.setupModeListeners();
     }
 
@@ -183,32 +150,12 @@ class CompilationFlowManager {
 
 
 updateButtonStates() {
-    const mode = this.getCurrentMode();
-    
-    // Button states
-    const cmmBtn = document.getElementById('cmmcomp');
-    const asmBtn = document.getElementById('asmcomp');
-    const veriBtn = document.getElementById('vericomp');
-    const waveBtn = document.getElementById('wavecomp');
-    const prismBtn = document.getElementById('prismcomp');
-    const allBtn = document.getElementById('allcomp');
-    
-    // In Verilog Mode, compilation flow buttons remain enabled (no-op).
-    if (mode === 'verilog') {
-        // Intencionalmente vazio.
-    } else {
-        // Processor/Project modes — all buttons always enabled
-        // CMM and ASM
-        if (cmmBtn) cmmBtn.disabled = false;
-        if (asmBtn) asmBtn.disabled = false;
-
-        // Verilog, Wave, PRISM
-        if (veriBtn) veriBtn.disabled = false;
-        if (waveBtn) waveBtn.disabled = false;
-        if (prismBtn) prismBtn.disabled = false;
-
-        // Run All
-        if (allBtn) allBtn.disabled = false;
+    // All compilation buttons stay enabled in both modes; per-step
+    // gating happens inside runSingleStep / pipelines, which decide
+    // what to actually do based on processor count.
+    for (const id of ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -262,46 +209,22 @@ async runAll() {
 
         const mode = this.getCurrentMode();
 
-        if (mode === 'project-verilog-only') {
-            // No processor / no CMM / no ASM. Compile the user's Verilog and,
-            // if a testbench is present, run the simulation + waveform.
-            switchTerminal('terminal-tveri');
-            checkCancellation();
-            await compiler.iverilogVerilogOnlyCompilation();
-
-            const hasTestbench = !!(compiler.projectConfig?.testbenchFile)
-                || (compiler.projectConfig?.testbenchFiles?.some(f => f?.path));
-            if (hasTestbench) {
-                switchTerminal('terminal-twave');
-                checkCancellation();
-                await compiler.runVerilogOnlyGtkWave();
-            } else {
-                compiler.terminalManager.appendToTerminal('tveri',
-                    'No testbench configured — skipping simulation step.', 'info');
+        if (mode === 'processor') {
+            const hasProcessors = compiler.config?.processors?.length > 0;
+            if (!hasProcessors) {
+                await showDialog({
+                    title: 'Configuration Required',
+                    message: 'Run All in Processor Mode requires at least one configured processor.',
+                    buttons: [{ label: 'OK', type: 'cancel', action: 'close' }],
+                });
+                endCompilation();
+                return;
             }
-            return;
-        }
-
-        const hasProcessors = compiler.config?.processors?.length > 0;
-
-        // The remaining pipelines (processor + project-simulation) need
-        // a configured processor.
-        if (!hasProcessors) {
-            await showDialog({
-                title: 'Configuration Required',
-                message: 'Full Build (Run All) requires at least one configured processor. For processor-less designs, switch to Project Mode and disable Compile & Simulate.',
-                buttons: [
-                    { label: 'OK', type: 'cancel', action: 'close' }
-                ]
-            });
-            endCompilation();
-            return;
-        }
-
-        if (mode === 'project-simulation') {
-            await runProjectPipeline(compiler);
-        } else {
             await runProcessorPipeline(compiler);
+        } else {
+            // Project Mode — pipeline auto-decides between full and
+            // verilog-only depending on whether processors are configured.
+            await runProjectPipeline(compiler);
         }
     } catch (error) {
         console.error('Compilation error:', error);
@@ -310,34 +233,19 @@ async runAll() {
     }
 }
 
+/**
+ * IDE mode for compilation routing — `'processor'` or `'project'`.
+ * Delegates to AppInitializer when available; falls back to reading the
+ * radios for the early-startup window before initialize() runs.
+ */
 getCurrentMode() {
+    const fromInit = window.appInitializer?.getCurrentMode?.();
+    if (fromInit === 'processor' || fromInit === 'project') return fromInit;
+
     const projectModeRadio = document.getElementById('Project Mode');
     const processorModeRadio = document.getElementById('Processor Mode');
-    const compileAndSimulateToggle = document.getElementById('Verilog Mode');
-
-    const isProjectMode = projectModeRadio?.checked === true;
-    const isProcessorMode = processorModeRadio?.checked === true;
-    const isCompileAndSimulateEnabled = compileAndSimulateToggle?.checked === true;
-
-    // Project Mode + Compile & Simulate OFF = Verilog-only synthesis flow.
-    // Lets the user run PRISM/Verilog/GTKWave straight from project files
-    // without needing a configured processor.
-    if (isProjectMode && !isCompileAndSimulateEnabled) {
-        console.log('🎯 Current mode detected: PROJECT VERILOG-ONLY');
-        return 'project-verilog-only';
-    }
-
-    if (isProjectMode && isCompileAndSimulateEnabled) {
-        console.log('🎯 Current mode detected: PROJECT SIMULATION');
-        return 'project-simulation';
-    }
-
-    if (isProcessorMode) {
-        console.log('🎯 Current mode detected: PROCESSOR');
-        return 'processor';
-    }
-
-    console.log('⚠️ No mode detected, defaulting to PROCESSOR');
+    if (projectModeRadio?.checked) return 'project';
+    if (processorModeRadio?.checked) return 'processor';
     return 'processor';
 }
 
@@ -379,43 +287,40 @@ async runSingleStep(step) {
             return;
         }
 
-        // 2. Tratamento para CMM, ASM, Verilog, Wave (A parte que estava faltando)
+        // 2. CMM, ASM, Verilog, Wave per-step buttons.
         startCompilation();
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
             const currentMode = this.getCurrentMode();
 
-            if (currentMode === 'project-verilog-only') {
+            // Project Mode: Verilog and Wave routes auto-pick between
+            // the project-pipeline and verilog-only pipeline based on
+            // whether processors are configured. CMM/ASM only make sense
+            // when there are processors.
+            if (currentMode === 'project') {
+                const hasProcessors = (compiler.projectConfig?.processors?.length ?? 0) > 0;
+
                 if (step === 'verilog') {
                     switchTerminal('terminal-tveri');
-                    await compiler.iverilogVerilogOnlyCompilation();
+                    if (hasProcessors) await compiler.iverilogProjectCompilation();
+                    else                await compiler.iverilogVerilogOnlyCompilation();
                     return;
                 }
                 if (step === 'wave') {
                     switchTerminal('terminal-twave');
-                    await compiler.runVerilogOnlyGtkWave();
+                    if (hasProcessors) await compiler.runProjectGtkWave();
+                    else                await compiler.runVerilogOnlyGtkWave();
                     return;
                 }
-                if (step === 'cmm' || step === 'asm') {
-                    throw new Error('CMM e ASM não estão disponíveis no modo Verilog-only.');
+                if ((step === 'cmm' || step === 'asm') && !hasProcessors) {
+                    throw new Error('CMM/ASM require at least one configured processor in this project.');
                 }
+                // CMM/ASM with processors fall through to the processor flow below.
             }
 
-            if (currentMode === 'project-simulation') {
-                if (step === 'verilog') {
-                    switchTerminal('terminal-tveri');
-                    await compiler.iverilogProjectCompilation();
-                    return;
-                }
-                if (step === 'wave') {
-                    switchTerminal('terminal-twave');
-                    await compiler.runProjectGtkWave();
-                    return;
-                }
-            }
-
-            // Processor mode (and CMM/ASM in Project Simulation): need active processor
+            // Processor steps (Processor Mode, or CMM/ASM in Project Mode
+            // with processors) need an active processor.
             const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
             if (!activeProcessor) {
                 throw new Error("Nenhum processador ativo configurado. Selecione um processador no Processor Hub.");
@@ -427,23 +332,24 @@ async runSingleStep(step) {
                     await compiler.ensureDirectories(activeProcessor.name);
                     await compiler.cmmCompilation(activeProcessor);
                     break;
-                
+
                 case 'asm':
                     switchTerminal('terminal-tasm');
-                    // O segundo argumento '0' indica modo processador (padrão) vs projeto
-                    await compiler.asmCompilation(activeProcessor, 0); 
+                    // 0 = processor mode, 1 = project mode (asmCompilation
+                    // signature predates the merge; keep as-is for now).
+                    await compiler.asmCompilation(activeProcessor, currentMode === 'project' ? 1 : 0);
                     break;
-                
+
                 case 'verilog':
                     switchTerminal('terminal-tveri');
                     await compiler.iverilogCompilation(activeProcessor);
                     break;
-                
+
                 case 'wave':
                     switchTerminal('terminal-twave');
                     await compiler.runGtkWave(activeProcessor);
                     break;
-                    
+
                 default:
                     console.warn(`Passo desconhecido: ${step}`);
             }

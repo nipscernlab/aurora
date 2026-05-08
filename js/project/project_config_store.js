@@ -47,7 +47,6 @@ const DEFAULTS = Object.freeze({
   iverilogFlags: '',
   simuDelay: '200000',
   showArraysInGtkwave: 0,
-  simulationEnabled: false,
 });
 
 async function configPathFor(projectPath) {

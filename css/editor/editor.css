@@ -46,6 +46,11 @@
  * Only when `.visible` AND NOT `.hidden` do we want the welcome to fill the
  * area and replace the editor / resizer / terminal.
  */
+/*
+ * Default state: out of flow, transparent, hidden — so the editor and
+ * terminal lay out as if it isn't there. The absolute positioning makes
+ * the transition smooth (no reflow when toggling).
+ */
 #editor-overlay {
   position: absolute;
   inset: 0;
@@ -58,8 +63,20 @@
   transition: opacity var(--transition-normal);
 }
 
+/*
+ * When the overlay is actually showing, switch it BACK into the flex flow
+ * (position: relative, flex: 1) so it sits above the editor area but does
+ * NOT cover the terminal underneath. The previous `position: absolute;
+ * inset: 0` rule made the welcome card paint over the whole vertical area
+ * including the terminal — clicking compile from the welcome screen
+ * showed no log because the terminal was painted under the overlay.
+ */
 #editor-overlay.visible:not(.hidden) {
   display: flex;
+  position: relative;
+  inset: auto;
+  flex: 1 1 0;
+  min-height: 0;
   opacity: 1;
   pointer-events: all;
 }
@@ -70,14 +87,20 @@
   overflow-y: auto;
 }
 
-/* While the welcome is actually showing, hide the editor area, the horizontal
-   resizer and the terminal so nothing peeks through. After SplitEditorManager
-   initializes, .editor-container is wrapped inside .split-editor-wrapper —
-   target both so the rule survives either layout. */
+/* While the welcome is actually showing, hide the editor area and the
+   horizontal resizer so nothing peeks through behind the welcome card.
+   After SplitEditorManager initializes, .editor-container is wrapped
+   inside .split-editor-wrapper — target both so the rule survives
+   either layout.
+
+   The terminal stays visible deliberately: when the user kicks off a
+   compile without having opened a file yet, they need to see the
+   build / iverilog / yosys output streaming in. Hiding the terminal
+   alongside the editor (the previous behaviour) made every
+   compile-before-edit run look frozen. */
 #editor-overlay.visible:not(.hidden) ~ .editor-container,
 #editor-overlay.visible:not(.hidden) ~ .split-editor-wrapper,
-#editor-overlay.visible:not(.hidden) ~ .resizer-horizontal,
-#editor-overlay.visible:not(.hidden) ~ #terminal-container {
+#editor-overlay.visible:not(.hidden) ~ .resizer-horizontal {
   display: none !important;
 }
 

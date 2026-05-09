@@ -5,6 +5,9 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
 import { TreeViewState } from '../tree/tree_view_state_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
+import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
+import { buildGtkwContent } from '../wave/gtkw_writer.js';
+import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 
 class CompilationModule {
     constructor(projectPath) {
@@ -1224,152 +1227,21 @@ validateVerilogOnlyConfig() {
 }
 
 /**
- * Walk a VCD header (text up to `$enddefinitions`) and return the list
- * of scopes with their signals. Used to auto-build a GTKWave save-file
- * from whatever vvp dumped, without the user having to declare which
- * signals to show.
+ * Read a VCD from disk, hand its scopes/signals + the user's picker
+ * selection to the gtkw_writer module to build a save-file string,
+ * and write the result. Returns true on a non-empty write, false if
+ * there was nothing worth saving.
  *
- * Each scope carries `path` — the full dotted hierarchical path from
- * the simulation root, built from the names of every $scope module
- * encountered on the way down. This is what the Wave Configuration
- * picker uses to address signals (e.g. `tb_counter.dut.q_next`), so
- * picker selections can be matched against VCD signals 1:1 instead of
- * fighting name collisions across nested modules.
- *
- * Output shape:
- *   [{ name, path, signals: [{name, width, range, type}] }, ...]
- *
- * Scopes appear in declaration order. The first one is the simulation
- * top (the testbench module).
- */
-parseVcdScopes(vcdHeader) {
-    // Tokens: VCD keywords, signal names, range brackets, identifiers.
-    // Keep this conservative — VCD is whitespace-delimited and the
-    // header is small, so a bare regex split is fast enough.
-    const tokens = vcdHeader.match(/\[[^\]]+\]|\S+/g) || [];
-    const scopeStack = []; // entries are real scope objects or null (for non-module skips)
-    const scopes = [];
-
-    const skipToEnd = (i) => {
-        while (i < tokens.length && tokens[i] !== '$end') i++;
-        return i;
-    };
-
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (token === '$scope') {
-            // $scope <type> <name> $end  (type is module/task/function/...; we keep `module` only
-            //                              because non-module scopes don't matter for the picker.)
-            const scopeType = tokens[i + 1];
-            const name = tokens[i + 2];
-            i = skipToEnd(i + 2);
-            if (scopeType === 'module') {
-                // Find the nearest real (non-null) ancestor for the path.
-                const parent = scopeStack.slice().reverse().find((s) => s !== null);
-                const path = parent ? `${parent.path}.${name}` : name;
-                const newScope = { name, path, signals: [] };
-                scopes.push(newScope);
-                scopeStack.push(newScope);
-            } else {
-                // Push a placeholder so $upscope balances, but don't track signals.
-                scopeStack.push(null);
-            }
-        } else if (token === '$upscope') {
-            i = skipToEnd(i);
-            scopeStack.pop();
-        } else if (token === '$var') {
-            // $var <type> <width> <id> <name> [optional range] $end
-            const type = tokens[i + 1];
-            const width = parseInt(tokens[i + 2], 10);
-            const name = tokens[i + 4];
-            let range = null;
-            if (tokens[i + 5] && tokens[i + 5].startsWith('[') && tokens[i + 5] !== '$end') {
-                range = tokens[i + 5].slice(1, -1);
-            }
-            i = skipToEnd(i);
-            const current = scopeStack.slice().reverse().find((s) => s !== null);
-            if (current) current.signals.push({ name, width, range, type });
-        } else if (token === '$enddefinitions') {
-            break;
-        }
-    }
-
-    return scopes;
-}
-
-/**
- * Build a GTKWave `.gtkw` save-file that lists signals as traces, so
- * the wave window opens with them already laid out instead of empty.
- *
- * Argument selection:
- *   - selectedSignals empty: emit every signal at the testbench's
- *     module scope (matches Phase 1's implicit
- *     `$dumpvars(1, <tb>)` choice).
- *   - selectedSignals non-empty: emit exactly the user's picks, in
- *     their canonical scope.signal form. Signals not present in the
- *     VCD (e.g. user picked something then changed the design) are
- *     skipped silently.
- *
- * Format kept minimal — `[dumpfile]` + `@28` (hex) header + one
- * dotted-name per line. GTKWave fills in zoom / position / etc.
- * from defaults; the user can right-click inside GTKWave to override
- * any single trace's format.
+ * The pure VCD walking lives in js/wave/vcd_parser.js and the .gtkw
+ * formatting in js/wave/gtkw_writer.js — both unit-tested. This
+ * method is the IO glue.
  */
 async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
-    const full = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
-    const enddef = full.indexOf('$enddefinitions');
-    const header = enddef >= 0 ? full.slice(0, enddef) : full;
-
-    const scopes = this.parseVcdScopes(header);
-    if (scopes.length === 0) return false;
-
-    // Index every signal by its FULL hierarchical path (e.g.
-    // `tb_counter.dut.q_next`). The picker stores selections in the
-    // same form, so matching is a Set lookup. Without the parent
-    // chain, signals in nested modules would collide on local names.
-    const flatten = [];
-    for (const scope of scopes) {
-        for (const sig of scope.signals) {
-            flatten.push({
-                fullName: `${scope.path}.${sig.name}`,
-                range: sig.range,
-            });
-        }
-    }
-
-    let toEmit;
-    if (selectedSignals.length > 0) {
-        const picks = new Set(selectedSignals);
-        toEmit = flatten.filter((s) => picks.has(s.fullName));
-    } else {
-        // Default: testbench-module scope only — exactly the signals
-        // declared at `tbModule`'s level, no submodules.
-        toEmit = flatten.filter((s) => {
-            const parts = s.fullName.split('.');
-            return parts.length === 2 && parts[0] === tbModule;
-        });
-    }
-
-    if (toEmit.length === 0) return false;
-
-    const slashed = (p) => p.replace(/\\/g, '/');
-    const lines = [
-        '[*]',
-        '[*] Generated by Aurora',
-        '[*]',
-        `[dumpfile] "${slashed(vcdPath)}"`,
-        `[savefile] "${slashed(gtkwPath)}"`,
-        '[timestart] 0',
-        // @28 = hex display. Works for single bits and multi-bit buses;
-        // user can right-click to change format inside GTKWave.
-        '@28',
-    ];
-    for (const s of toEmit) {
-        const ref = s.range ? `${s.fullName}[${s.range}]` : s.fullName;
-        lines.push(ref);
-    }
-
-    await window.electronAPI.writeFile(gtkwPath, lines.join('\n') + '\n');
+    const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
+    const scopes = parseVcdHeaderFromContent(vcdContent);
+    const text = buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selectedSignals });
+    if (!text) return false;
+    await window.electronAPI.writeFile(gtkwPath, text);
     return true;
 }
 
@@ -1452,62 +1324,29 @@ async verilogOnlySyntaxCheck() {
 }
 
 /**
- * Inject `$dumpfile` + `$dumpvars` into a Verilog-Only testbench so the
- * Wave button works without forcing the user to write the VCD plumbing
- * by hand. Mirrors instrumentProjectTestbench's behaviour but simpler:
- * no progress.txt loop, no $finish hijack — Verilog-only flow doesn't
- * need them.
+ * Read the testbench, hand its content + the user's picker selection
+ * to the testbench_instrumenter module to decide whether and how to
+ * inject $dumpfile/$dumpvars, then write the result to Temp/. Returns
+ * the path iverilog should compile against — either the original (if
+ * the user already wrote dump plumbing, or the file is malformed) or
+ * the new instrumented copy.
  *
- *   - If the testbench already has $dumpfile or $dumpvars, the file
- *     is left alone and we use it directly (the user knows what they
- *     want; don't second-guess).
- *   - Otherwise we copy it to Temp/instr_<basename>.v with a
- *     `$dumpfile("<tb>.vcd"); $dumpvars(...)` block injected before
- *     the last `endmodule`. The argument list comes from
- *     `selectedSignals`:
- *       - non-empty → `$dumpvars(0, sig1, sig2, ...)` — exactly the
- *         signals the user picked in the Wave Configuration modal.
- *       - empty (default) → `$dumpvars(1, <tb>)` — signals at the
- *         testbench-module scope only, matching Phase 1's implicit
- *         behaviour.
- *
- * Returns the path that should be passed to iverilog instead of the
- * original testbench (either the same path, or the instrumented copy).
+ * Pure decision logic + string building lives in
+ * js/wave/testbench_instrumenter.js (unit-tested). This method is
+ * the IO glue.
  */
 async instrumentVerilogOnlyTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = []) {
-    const original = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
+    const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
+    const result = instrumentTestbenchSource({
+        originalContent,
+        tbModule,
+        selectedSignals,
+    });
+    if (!result.needsWrite) return testbenchPath;
 
-    if (/\$dumpfile/.test(original) || /\$dumpvars/.test(original)) {
-        return testbenchPath;
-    }
-
-    const lastEndmodule = original.lastIndexOf('endmodule');
-    if (lastEndmodule === -1) {
-        // Malformed testbench — bail and let iverilog produce its own
-        // syntax error rather than us silently corrupting the file.
-        return testbenchPath;
-    }
-
-    const dumpvarsArgs = selectedSignals.length > 0
-        ? `0, ${selectedSignals.join(', ')}`
-        : `1, ${tbModule}`;
-    const injection = `
-// --- AURORA AUTO-INSTRUMENTATION (Verilog-Only) ---
-// $dumpfile / $dumpvars added because the testbench did not declare
-// any. ${selectedSignals.length > 0
-    ? `Signal list comes from the Wave Configuration picker (${selectedSignals.length} signals).`
-    : 'Default: signals at the testbench module scope; configure via the Wave Configuration modal.'}
-initial begin
-    $dumpfile("${tbModule}.vcd");
-    $dumpvars(${dumpvarsArgs});
-end
-// --------------------------------------------------
-`;
-
-    const instrumented = original.slice(0, lastEndmodule) + injection + original.slice(lastEndmodule);
     const basename = testbenchPath.split(/[\\/]/).pop();
     const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
-    await window.electronAPI.writeFile(instrumentedPath, instrumented);
+    await window.electronAPI.writeFile(instrumentedPath, result.content);
     return instrumentedPath;
 }
 

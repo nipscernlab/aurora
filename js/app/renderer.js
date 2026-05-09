@@ -8,7 +8,7 @@ import { TerminalManager } from '../terminal/terminal_module.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
 import { projectManager } from '../project/project_manager.js';
-import { aiAssistantManager } from '../services/ai_assistant_manager.js';
+import { aiAssistantManager } from '../ui/ai_assistant_manager.js';
 import { uiComponentsManager } from '../ui/ui_components.js';
 import { compilationFlowManager } from '../compilation/compilation_flow.js';
 import { SplitEditorManager } from '../editor/split_editor.js';

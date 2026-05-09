@@ -151,6 +151,16 @@ describe('Aurora E2E — edit flow', () => {
 
     window = await waitForMainWindow(app);
 
+    // Mirror renderer console output to the test runner stdout so CI
+    // failures show why the page is in the state it's in (e.g. silent
+    // .spf-load failures) without having to repro locally.
+    window.on('console', (msg) => {
+      console.log(`[renderer:${msg.type()}] ${msg.text()}`);
+    });
+    window.on('pageerror', (err) => {
+      console.log(`[renderer:pageerror] ${err.message}`);
+    });
+
     // Wait for Monaco AMD to finish loading. The 3-arg form
     // (fn, arg, options) is required — the 2-arg form (fn, options)
     // is interpreted by Playwright as (fn, arg), so the timeout
@@ -161,6 +171,24 @@ describe('Aurora E2E — edit flow', () => {
       null,
       { timeout: 15_000 }
     );
+
+    // Belt-and-suspenders project load. The argv-passed .spf path
+    // (lifecycle.js → state.fileToOpen → did-finish-load IPC →
+    // ProjectManager.onSimulateOpenProject → loadProject) is the
+    // intended path and works locally, but on the windows-latest CI
+    // runner it has historically lost the IPC message — the renderer
+    // listener registers on DOMContentLoaded and the IPC fires on
+    // did-finish-load, which on a slow CPU + slow disk can race in
+    // either direction. Calling window.electronAPI.openProject(spf)
+    // directly here goes through the same loadProject flow but
+    // doesn't depend on listener-registration timing.
+    await window.evaluate(async (spfPath) => {
+      const api = window.electronAPI;
+      if (!api?.openProject) return;
+      try {
+        await api.openProject(spfPath);
+      } catch (_e) { /* original IPC may have already loaded it */ }
+    }, fixture.spfPath);
 
     // Wait for the project tree to render at least one item. Use
     // waitForSelector so we don't fall into the same (fn, options)
@@ -173,7 +201,20 @@ describe('Aurora E2E — edit flow', () => {
     // and per-wait timeout (45 s) are sized for the worst observed
     // case on the windows-latest runner with electron just unpacked
     // from npm install cache.
-    await window.waitForSelector('.file-item, .verilog-file-item', { timeout: 45_000 });
+    try {
+      await window.waitForSelector('.file-item, .verilog-file-item', { timeout: 45_000 });
+    } catch (err) {
+      // Diagnostic dump so CI failures are debuggable without local
+      // repro: snapshot the file-tree DOM and the URL the page is on.
+      const diag = await window.evaluate(() => ({
+        url: window.location.href,
+        bodyClasses: document.body.className,
+        fileTreeHtml: document.getElementById('file-tree')?.outerHTML?.slice(0, 1000) ?? '(no #file-tree)',
+        currentProjectPath: window.currentProjectPath ?? '(unset)',
+      })).catch(() => ({ note: 'evaluate failed' }));
+      console.log('[edit-flow setup] tree wait timed out. Page state:', JSON.stringify(diag, null, 2));
+      throw err;
+    }
   }, 90_000);
 
   afterAll(async () => {

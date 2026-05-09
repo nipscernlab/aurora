@@ -31,13 +31,20 @@
 
 /* Watermark — large SAPHO logo, dimmed to act as a brand backdrop.
  * Centered both axes so it stays balanced no matter how the user
- * resizes the welcome area (e.g. dragging the terminal-resizer up). */
+ * resizes the welcome area (e.g. dragging the terminal-resizer up).
+ *
+ * Sizing tracks BOTH viewport dimensions: width follows 32vw, height
+ * follows 50vh, and we use the smaller one. Without the vh half, the
+ * logo only shrank when the user narrowed the window — making it tall
+ * and skinny would push the watermark off the bottom of the welcome
+ * card. The clamp floor (120px) keeps it visible in very small panes
+ * without the logo collapsing to a smudge. */
 .welcome-watermark {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: clamp(220px, 32vw, 440px);
+  width: clamp(120px, min(32vw, 50vh), 440px);
   height: auto;
   opacity: 0.045;
   pointer-events: none;

@@ -19,12 +19,6 @@ body::after {
   transform: scale(1.1);
 }
 
-body.verilog-mode-active::after {
-  opacity: 0.18;
-  background: radial-gradient(ellipse 60% 40% at 30% 0%, rgba(95, 224, 176, 0.25), transparent 70%),
-              radial-gradient(ellipse 60% 40% at 70% 100%, rgba(91, 184, 232, 0.20), transparent 70%);
-}
-
 body.processor-mode-active::after {
   opacity: 0.20;
   background: radial-gradient(ellipse 60% 40% at 30% 0%, rgba(142, 131, 232, 0.30), transparent 70%),

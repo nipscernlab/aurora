@@ -440,7 +440,10 @@
         </div>
         <div class="status-item" id="compmode">
             <i class="ph ph-code"></i>
-            <span id="compmode-text">Verilog Mode</span>
+            <!-- Filled in by ui_state.handleModeChange on first paint
+                 (Project Mode by default). Empty here so a brief flash
+                 of stale text doesn't show before JS runs. -->
+            <span id="compmode-text"></span>
         </div>
     </div>
     <div class="status-zone status-zone-center">

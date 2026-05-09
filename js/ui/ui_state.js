@@ -1,8 +1,12 @@
 /**
  * =====================================================================================
  * Aurora IDE - UI State Manager
- * Handles smooth transitions between Verilog, Processor, and Project modes
- * Includes localStorage persistence and status indicator updates
+ * Handles smooth transitions between Processor and Project modes.
+ * Includes localStorage persistence and status indicator updates.
+ * Phase A (commit d55261e) collapsed the legacy "Verilog Mode" into
+ * Project Mode; legacy `aurora-ide-compilation-mode` localStorage
+ * values containing 'Verilog Mode' are migrated to 'Project Mode'
+ * on read by setInitialMode's validator.
  * =====================================================================================
  */
 
@@ -13,12 +17,8 @@ class UIStateManager {
         this.glowTimeout = null;
         this.statusElement = null;
         this.storageKey = 'aurora-ide-compilation-mode';
-        
+
         this.modeConfig = {
-            'Verilog Mode': {
-                icon: 'fa-solid fa-v fa-sm',
-                text: 'Verilog Mode',
-            },
             'Processor Mode': {
                 icon: 'fa-solid fa-microchip',
                 text: 'Processor Mode',
@@ -26,8 +26,7 @@ class UIStateManager {
             'Project Mode': {
                 icon: 'fa-solid fa-compass-drafting',
                 text: 'Project Mode',
-        
-            }
+            },
         };
         
         this.initializeStatusElement();
@@ -196,9 +195,6 @@ class UIStateManager {
         
         // Handle mode-specific UI changes
         switch (mode) {
-            case 'Verilog Mode':
-                this.activateVerilogMode();
-                break;
             case 'Processor Mode':
                 this.activateProcessorMode();
                 break;
@@ -225,16 +221,13 @@ class UIStateManager {
         }
         
         // Remove all mode classes first
-        body.classList.remove('verilog-mode-active', 'processor-mode-active', 'project-mode-active', 'glow-fading');
-        
+        body.classList.remove('processor-mode-active', 'project-mode-active', 'glow-fading');
+
         // Force reflow
         void body.offsetWidth;
-        
+
         // Add appropriate mode class
         switch (mode) {
-            case 'Verilog Mode':
-                body.classList.add('verilog-mode-active');
-                break;
             case 'Processor Mode':
                 body.classList.add('processor-mode-active');
                 break;
@@ -242,83 +235,16 @@ class UIStateManager {
                 body.classList.add('project-mode-active');
                 break;
         }
-        
+
         // Remove glow after 3 seconds
         this.glowTimeout = setTimeout(() => {
             body.classList.add('glow-fading');
-            
+
             // After fade completes, remove all classes
             setTimeout(() => {
-                body.classList.remove('verilog-mode-active', 'processor-mode-active', 'project-mode-active', 'glow-fading');
+                body.classList.remove('processor-mode-active', 'project-mode-active', 'glow-fading');
             }, 800); // Match CSS transition duration
         }, 3000);
-    }
-
-    /**
-     * Activate Verilog Mode - Hide specific buttons and tabs
-     */
-    activateVerilogMode() {
-        console.log('Activating Verilog Mode');
-        
-        // Toolbar buttons to hide in Verilog Mode
-        const toolbarButtonsToHide = [
-            /*
-            'cmmcomp',
-            'asmcomp',
-            'wavecomp',
-            'processorHub',
-            'cancel-everything',
-            'allcomp' */
-        ];
-
-        // Terminal tabs to hide
-        const terminalTabsToHide = [
-            'button.tab[data-terminal="tcmm"]',
-            'button.tab[data-terminal="tasm"]',
-            'button.tab[data-terminal="twave"]'
-        ];
-
-        // Terminal content divs to hide
-        const terminalContentToHide = [
-            'terminal-tcmm',
-            'terminal-tasm',
-            'terminal-twave'
-        ];
-
-        // Hide toolbar buttons
-        this.hideElementsById(toolbarButtonsToHide);
-        
-        // Hide terminal tabs
-        this.hideElementsBySelector(terminalTabsToHide);
-        
-        // Hide terminal content
-        this.hideElementsById(terminalContentToHide);
-
-        // Hide compile-all-group container
-        const compileAllGroup = document.querySelector('.compile-all-group');
-        if (compileAllGroup) {
-            this.smoothHide(compileAllGroup);
-        }
-
-        // Show TVERI tab if hidden
-        const tveriTab = document.querySelector('button.tab[data-terminal="tveri"]');
-        if (tveriTab) {
-            this.smoothShow(tveriTab);
-        }
-
-        // Show TVERI terminal content
-        const tveriContent = document.getElementById('terminal-tveri');
-        if (tveriContent) {
-            this.smoothShow(tveriContent);
-            tveriContent.classList.remove('hidden');
-        }
-
-        // Activate TVERI tab
-        setTimeout(() => {
-            if (tveriTab && !tveriTab.classList.contains('active')) {
-                tveriTab.click();
-            }
-        }, 400);
     }
 
     /**

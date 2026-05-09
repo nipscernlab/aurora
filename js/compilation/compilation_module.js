@@ -1692,12 +1692,10 @@ async runVerilogOnlyGtkWave() {
         //      signals if they want more.
         //   3. Nothing — GTKWave opens with no traces. Old behaviour.
         let gtkwSaveFile = null;
-        let userProvidedGtkw = false;
         if (this.projectConfig.gtkwFiles && this.projectConfig.gtkwFiles.length > 0) {
             const gtkwFile = this.projectConfig.gtkwFiles.find(f => f.isTopLevel === true);
             if (gtkwFile) {
                 gtkwSaveFile = gtkwFile.path;
-                userProvidedGtkw = true;
                 this.terminalManager.appendToTerminal('twave',
                     `Using GTKWave save file: ${gtkwSaveFile.split(/[\\/]/).pop()}`, 'info');
             }
@@ -1732,13 +1730,13 @@ async runVerilogOnlyGtkWave() {
         let gtkwaveCmd = `"${gtkwaveBin}" --dark "${vcdFile}"`;
 
         if (gtkwSaveFile) {
-            // Only suppress the Signal Search Tree when the user themselves
-            // curated the layout. With the auto-gen file we keep SST visible
-            // so they can still browse / add signals.
-            if (userProvidedGtkw) {
-                gtkwaveCmd += ` --rcvar "hide_sst on"`;
-            }
-            gtkwaveCmd += ` -a "${gtkwSaveFile}"`;
+            // Hide the Signal Search Tree whenever any .gtkw is in play.
+            // Aurora's Wave Configuration modal is now the canonical
+            // signal picker — having GTKWave's tree alongside duplicates
+            // the same job in two places. The auto-generated .gtkw lists
+            // exactly what the modal selected; the user-supplied .gtkw
+            // already curated its own list.
+            gtkwaveCmd += ` --rcvar "hide_sst on" -a "${gtkwSaveFile}"`;
         }
 
         gtkwaveCmd += ` --script="${fixScript}"`;

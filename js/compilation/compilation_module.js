@@ -1374,6 +1374,84 @@ async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
 }
 
 /**
+ * Run iverilog in `-tnull` mode with the testbench as the simulation
+ * top, just to confirm the design (synth files + testbench together)
+ * actually parses + elaborates. No `.vvp` is produced; nothing is
+ * instrumented.
+ *
+ * Used by the Wave Configuration modal as a gate: there's no point
+ * showing a hierarchy picker built from a regex parse if iverilog
+ * itself can't read the design. On failure the iverilog output goes
+ * to the `tveri` terminal (which we switch focus to) and the modal
+ * stays closed — the user fixes their code before picking signals.
+ *
+ * Returns `{ success: boolean, message?: string }`. Never throws.
+ */
+async verilogOnlySyntaxCheck() {
+    if (!this.componentsPath) {
+        await this.initializeComponentsPath();
+    }
+    try {
+        const config = this.validateVerilogOnlyConfig();
+
+        const iveriCompPath = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
+        );
+        if (!await window.electronAPI.fileExists(iveriCompPath)) {
+            const msg = `Icarus Verilog binary not found at:\n  ${iveriCompPath}`;
+            this.terminalManager.appendToTerminal('tveri', msg, 'error');
+            return { success: false, message: msg };
+        }
+
+        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        const simTopModule = config.testbenchFile
+            ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
+            : topLevelModuleName;
+
+        // Whole design: synth files + testbench (raw, no auto-instrumentation
+        // — we want iverilog to evaluate exactly what the user wrote).
+        const fileSet = new Set(config.synthesizableFiles);
+        if (config.testbenchFile) fileSet.add(config.testbenchFile);
+        const sourceFilesString = [...fileSet].map((f) => `"${f}"`).join(' ');
+
+        const flags = this.projectConfig?.iverilogFlags || '';
+        const cmd = [
+            `"${iveriCompPath}"`,
+            flags,
+            '-tnull',
+            `-s ${simTopModule}`,
+            sourceFilesString,
+        ].filter(Boolean).join(' ');
+
+        this.terminalManager.appendToTerminal('tveri',
+            '--- Verilog Syntax Check (Wave Configuration) ---', 'info');
+        this.terminalManager.appendToTerminal('tveri', `Top: ${simTopModule}`, 'info');
+        this.terminalManager.appendToTerminal('tveri', cmd, 'info');
+
+        const result = await window.electronAPI.execCommand(cmd);
+        this.terminalManager.processExecutableOutput('tveri', result);
+
+        if (result.code !== 0) {
+            this.terminalManager.appendToTerminal('tveri',
+                '--- Syntax Check Failed ---', 'error');
+            return {
+                success: false,
+                message: `Iverilog reported errors (exit ${result.code}). See terminal.`,
+            };
+        }
+
+        this.terminalManager.appendToTerminal('tveri',
+            '--- Syntax Check Passed ---', 'success');
+        return { success: true };
+
+    } catch (error) {
+        this.terminalManager.appendToTerminal('tveri',
+            `Syntax check error: ${error.message}`, 'error');
+        return { success: false, message: error.message };
+    }
+}
+
+/**
  * Inject `$dumpfile` + `$dumpvars` into a Verilog-Only testbench so the
  * Wave button works without forcing the user to write the VCD plumbing
  * by hand. Mirrors instrumentProjectTestbench's behaviour but simpler:

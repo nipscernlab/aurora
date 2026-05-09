@@ -15,6 +15,7 @@
 import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
+import { CompilationModule } from '../compilation/compilation_module.js';
 
 class WaveConfigManager {
     constructor() {
@@ -87,6 +88,33 @@ class WaveConfigManager {
     }
 
     async open() {
+        const projectPath = ProjectStore.getProjectPath();
+
+        // Gate on a real iverilog syntax check. The regex parser that
+        // builds the picker tree is conservative — it can quietly
+        // misparse broken Verilog and produce a tree the user trusts
+        // even though iverilog would refuse the same code. Run iverilog
+        // first; if the design doesn't elaborate, surface the errors in
+        // tveri and don't open the modal at all. Skipped when there's
+        // no project (the modal still opens to show the empty state)
+        // or in processor mode (Wave Configuration is verilog-only).
+        if (projectPath) {
+            const compiler = new CompilationModule(projectPath);
+            await compiler.loadConfig();
+
+            if (compiler.isVerilogOnlyMode()) {
+                if (typeof window.switchTerminal === 'function') {
+                    window.switchTerminal('terminal-tveri');
+                }
+                const check = await compiler.verilogOnlySyntaxCheck();
+                if (!check.success) {
+                    // Errors already streamed to tveri. Bail out — user
+                    // fixes their code, then reopens the picker.
+                    return;
+                }
+            }
+        }
+
         await this.refresh();
         this.modal?.setAttribute('aria-hidden', 'false');
         this.modal?.classList.add('show');

@@ -9,7 +9,7 @@ import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
-import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
+import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 
 class CompilationModule {

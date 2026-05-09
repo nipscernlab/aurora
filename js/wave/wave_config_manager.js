@@ -12,7 +12,7 @@
  * picker still gets a sensible wave layout.
  */
 
-import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
+import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';

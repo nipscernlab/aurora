@@ -8,9 +8,11 @@ export default defineConfig({
   test: {
     include: ['tests/e2e/**/*.test.js'],
     // Each test boots a renderer and asks Monaco's AMD loader to finish.
-    // 30s per test is generous on slow machines without being so high
-    // that a hung run wastes CI minutes.
-    testTimeout: 30_000,
-    hookTimeout: 60_000,
+    // CI (windows-latest) is noticeably slower than a dev machine —
+    // electron cold-start + .spf-load IPC chain takes ~10–15 s on the
+    // runner where it's <2 s locally. Sized for the worst observed
+    // case while still flagging genuinely-hung runs.
+    testTimeout: 60_000,
+    hookTimeout: 120_000,
   },
 });

@@ -163,15 +163,23 @@ describe('Aurora E2E — edit flow', () => {
     // (standard `.file-item` or verilog-mode `.verilog-file-item`)
     // counts; we don't depend on which mode the user's saved state
     // restored to.
+    //
+    // Timeout is generous because the .spf-load goes through several
+    // IPC round-trips (file watcher start, processor list seeding,
+    // project file enumeration) that are noticeably slower on CI than
+    // on a dev machine. Local runs finish in <2 s; the hookTimeout
+    // (90 s) and per-wait timeout (45 s) are sized for the worst
+    // observed case on the windows-latest runner with electron just
+    // unpacked from npm install cache.
     await window.waitForFunction(
       () => {
         const tree = document.getElementById('file-tree');
         if (!tree) return false;
         return tree.querySelectorAll('.file-item, .verilog-file-item').length > 0;
       },
-      { timeout: 20_000 }
+      { timeout: 45_000 }
     );
-  }, 60_000);
+  }, 90_000);
 
   afterAll(async () => {
     await app?.close().catch(() => { /* best-effort */ });

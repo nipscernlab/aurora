@@ -1239,10 +1239,10 @@ validateVerilogOnlyConfig() {
 async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
     const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
     const scopes = parseVcdHeaderFromContent(vcdContent);
-    const text = buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selectedSignals });
-    if (!text) return false;
-    await window.electronAPI.writeFile(gtkwPath, text);
-    return true;
+    const { content, dropped } = buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selectedSignals });
+    if (!content) return { written: false, dropped };
+    await window.electronAPI.writeFile(gtkwPath, content);
+    return { written: true, dropped };
 }
 
 /**
@@ -1624,14 +1624,27 @@ async runVerilogOnlyGtkWave() {
                 ? this.projectConfig.waveSignals
                 : [];
             try {
-                const wrote = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
-                if (wrote) {
+                const { written, dropped } = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
+                if (written) {
                     gtkwSaveFile = autoGtkw;
                     const source = selected.length > 0
                         ? `${selected.length} picker-selected signal(s)`
                         : 'testbench scope';
                     this.terminalManager.appendToTerminal('twave',
                         `Auto-generated GTKWave layout (${source})`, 'info');
+                }
+                // Surface stale Wave Configuration entries — signals the
+                // user selected in the picker that aren't in the VCD the
+                // simulation just produced. Common causes: renamed
+                // module instance, removed signal, edited testbench so
+                // the selection no longer matches. Without this warning
+                // the user just sees an empty trace and has to guess.
+                if (dropped.length > 0) {
+                    const preview = dropped.slice(0, 5).join(', ');
+                    const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
+                    this.terminalManager.appendToTerminal('twave',
+                        `Warning: ${dropped.length} selected signal(s) not present in VCD — ${preview}${more}. Re-open Wave Configuration to refresh the selection.`,
+                        'warning');
                 }
             } catch (genErr) {
                 this.terminalManager.appendToTerminal('twave',

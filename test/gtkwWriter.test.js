@@ -26,95 +26,116 @@ const sampleScopes = [
 
 describe('pickSignalsToEmit', () => {
     it('default (no selection) emits only top-scope testbench signals', () => {
-        const out = pickSignalsToEmit(sampleScopes, 'tb_counter', []);
-        const names = out.map((s) => s.fullName).sort();
+        const { emit, dropped } = pickSignalsToEmit(sampleScopes, 'tb_counter', []);
+        const names = emit.map((s) => s.fullName).sort();
         expect(names).toEqual(['tb_counter.clk', 'tb_counter.q', 'tb_counter.rst']);
+        expect(dropped).toEqual([]);
     });
 
     it('selection match uses the explicit list, not the default', () => {
-        const out = pickSignalsToEmit(
+        const { emit } = pickSignalsToEmit(
             sampleScopes,
             'tb_counter',
             ['tb_counter.dut.q_next', 'tb_counter.clk'],
         );
-        const names = out.map((s) => s.fullName).sort();
+        const names = emit.map((s) => s.fullName).sort();
         expect(names).toEqual(['tb_counter.clk', 'tb_counter.dut.q_next']);
     });
 
-    it('selection picks unknown to the VCD are silently dropped', () => {
-        const out = pickSignalsToEmit(
+    it('selections not in the VCD are emitted as `dropped` instead of being silently skipped', () => {
+        const { emit, dropped } = pickSignalsToEmit(
             sampleScopes,
             'tb_counter',
-            ['tb_counter.does_not_exist', 'tb_counter.clk'],
+            ['tb_counter.does_not_exist', 'tb_counter.clk', 'tb_counter.dut.gone'],
         );
-        const names = out.map((s) => s.fullName);
+        const names = emit.map((s) => s.fullName);
         expect(names).toEqual(['tb_counter.clk']);
+        expect(dropped.sort()).toEqual(['tb_counter.does_not_exist', 'tb_counter.dut.gone']);
     });
 
     it('range information is carried through for buses', () => {
-        const out = pickSignalsToEmit(sampleScopes, 'tb_counter', ['tb_counter.dut.q_next']);
-        expect(out[0].range).toBe('3:0');
+        const { emit } = pickSignalsToEmit(sampleScopes, 'tb_counter', ['tb_counter.dut.q_next']);
+        expect(emit[0].range).toBe('3:0');
+    });
+
+    it('default-mode never reports dropped (no selection means nothing to validate)', () => {
+        const { dropped } = pickSignalsToEmit(sampleScopes, 'tb_counter', []);
+        expect(dropped).toEqual([]);
     });
 });
 
 describe('buildGtkwContent', () => {
     it('emits the [dumpfile] header and one signal per line', () => {
-        const text = buildGtkwContent({
+        const { content } = buildGtkwContent({
             vcdPath: 'C:/tmp/tb_counter.vcd',
             gtkwPath: 'C:/tmp/tb_counter.gtkw',
             scopes: sampleScopes,
             tbModule: 'tb_counter',
         });
-        expect(text).toContain('[dumpfile] "C:/tmp/tb_counter.vcd"');
-        expect(text).toContain('[savefile] "C:/tmp/tb_counter.gtkw"');
+        expect(content).toContain('[dumpfile] "C:/tmp/tb_counter.vcd"');
+        expect(content).toContain('[savefile] "C:/tmp/tb_counter.gtkw"');
         // top-scope signals only by default
-        expect(text).toContain('tb_counter.clk');
-        expect(text).toContain('tb_counter.rst');
-        expect(text).toContain('tb_counter.q[3:0]');
-        expect(text).not.toContain('tb_counter.dut');
+        expect(content).toContain('tb_counter.clk');
+        expect(content).toContain('tb_counter.rst');
+        expect(content).toContain('tb_counter.q[3:0]');
+        expect(content).not.toContain('tb_counter.dut');
     });
 
     it('honours user selection and emits range syntax for buses', () => {
-        const text = buildGtkwContent({
+        const { content } = buildGtkwContent({
             vcdPath: 'C:/tmp/x.vcd',
             gtkwPath: 'C:/tmp/x.gtkw',
             scopes: sampleScopes,
             tbModule: 'tb_counter',
             selectedSignals: ['tb_counter.dut.q_next', 'tb_counter.dut.clk'],
         });
-        expect(text).toContain('tb_counter.dut.q_next[3:0]');
-        expect(text).toContain('tb_counter.dut.clk');
+        expect(content).toContain('tb_counter.dut.q_next[3:0]');
+        expect(content).toContain('tb_counter.dut.clk');
         // default-scope signals are NOT emitted when a selection is in
         // play — that branch is one or the other, not both.
-        expect(text).not.toMatch(/^tb_counter\.rst\b/m);
+        expect(content).not.toMatch(/^tb_counter\.rst\b/m);
     });
 
     it('normalises Windows backslashes in paths to forward slashes', () => {
-        const text = buildGtkwContent({
+        const { content } = buildGtkwContent({
             vcdPath: 'C:\\nipscern\\Aurora\\Temp\\tb.vcd',
             gtkwPath: 'C:\\nipscern\\Aurora\\Temp\\tb.gtkw',
             scopes: sampleScopes,
             tbModule: 'tb_counter',
         });
-        expect(text).toContain('[dumpfile] "C:/nipscern/Aurora/Temp/tb.vcd"');
-        expect(text).not.toContain('\\');
+        expect(content).toContain('[dumpfile] "C:/nipscern/Aurora/Temp/tb.vcd"');
+        expect(content).not.toContain('\\');
     });
 
-    it('returns null when nothing matches (avoids writing an empty .gtkw)', () => {
+    it('returns content=null when nothing matches (avoids writing an empty .gtkw)', () => {
         // Empty scopes
         expect(buildGtkwContent({
             vcdPath: 'a', gtkwPath: 'b', scopes: [], tbModule: 'tb',
-        })).toBeNull();
+        })).toEqual({ content: null, dropped: [] });
 
-        // Selection points at signals not in the VCD
+        // Selection points at signals not in the VCD — content is null
+        // but dropped is populated so the caller can warn the user.
         expect(buildGtkwContent({
             vcdPath: 'a', gtkwPath: 'b', scopes: sampleScopes, tbModule: 'tb_counter',
             selectedSignals: ['nope.zilch'],
-        })).toBeNull();
+        })).toEqual({ content: null, dropped: ['nope.zilch'] });
 
         // Default mode but no top-scope signals (testbench scope name doesn't match)
-        expect(buildGtkwContent({
+        const r = buildGtkwContent({
             vcdPath: 'a', gtkwPath: 'b', scopes: sampleScopes, tbModule: 'wrong_name',
-        })).toBeNull();
+        });
+        expect(r.content).toBeNull();
+        expect(r.dropped).toEqual([]);
+    });
+
+    it('reports dropped signals even when the .gtkw still has content', () => {
+        const { content, dropped } = buildGtkwContent({
+            vcdPath: 'a', gtkwPath: 'b',
+            scopes: sampleScopes,
+            tbModule: 'tb_counter',
+            selectedSignals: ['tb_counter.clk', 'tb_counter.gone_after_rename'],
+        });
+        expect(content).toContain('tb_counter.clk');
+        expect(dropped).toEqual(['tb_counter.gone_after_rename']);
     });
 });

@@ -20,37 +20,50 @@
 
 /**
  * Decide which scope.signal entries land in the save-file. Two modes:
- *   - selection non-empty: emit exactly those (skipping any that
- *     aren't in the VCD — covers "user picked then changed design").
+ *   - selection non-empty: emit exactly those that exist in the VCD.
+ *     Selections that point at signals NOT in the VCD (renamed
+ *     hierarchy, removed signal, stale projectOriented.json) are
+ *     reported back to the caller as `dropped` so the user gets a
+ *     warning instead of a silent empty trace.
  *   - selection empty: every signal at the testbench module's scope.
  *     Submodule signals are skipped; this matches the implicit
  *     `$dumpvars(1, <tb>)` default in the testbench instrumenter.
  *
+ * The VCD is the ground truth — anything we emit must be present in
+ * `scopes`, regardless of which upstream path (Wave Config picker,
+ * default top-scope, etc.) populated `selectedSignals`.
+ *
  * @param {VcdScope[]} scopes
  * @param {string} tbModule
  * @param {string[]} selectedSignals
- * @returns {Array<{ fullName: string, range: string|null }>}
+ * @returns {{ emit: Array<{ fullName: string, range: string|null }>, dropped: string[] }}
  */
 export function pickSignalsToEmit(scopes, tbModule, selectedSignals) {
     const flatten = [];
+    const inVcd = new Set();
     for (const scope of scopes) {
         for (const sig of scope.signals) {
-            flatten.push({
-                fullName: `${scope.path}.${sig.name}`,
-                range: sig.range,
-            });
+            const fullName = `${scope.path}.${sig.name}`;
+            flatten.push({ fullName, range: sig.range });
+            inVcd.add(fullName);
         }
     }
 
     if (selectedSignals.length > 0) {
         const picks = new Set(selectedSignals);
-        return flatten.filter((s) => picks.has(s.fullName));
+        return {
+            emit: flatten.filter((s) => picks.has(s.fullName)),
+            dropped: selectedSignals.filter((s) => !inVcd.has(s)),
+        };
     }
 
-    return flatten.filter((s) => {
-        const parts = s.fullName.split('.');
-        return parts.length === 2 && parts[0] === tbModule;
-    });
+    return {
+        emit: flatten.filter((s) => {
+            const parts = s.fullName.split('.');
+            return parts.length === 2 && parts[0] === tbModule;
+        }),
+        dropped: [],
+    };
 }
 
 /**
@@ -68,14 +81,19 @@ export function pickSignalsToEmit(scopes, tbModule, selectedSignals) {
  *                                      pick the default top-scope set.
  * @param {string[]} [input.selectedSignals]  Picker selection.
  *                                            Empty = use default.
- * @returns {string|null}  Save-file text, or null if there's nothing
- *                         to display (no signals matched).
+ * @returns {{ content: string|null, dropped: string[] }}
+ *      content: save-file text, or null if there's nothing to display
+ *      (empty scopes / no signals matched / no selection in VCD).
+ *      dropped: full-names from `selectedSignals` that weren't found
+ *      in the VCD; caller should surface them to the user.
  */
 export function buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selectedSignals = [] }) {
-    if (!Array.isArray(scopes) || scopes.length === 0) return null;
+    if (!Array.isArray(scopes) || scopes.length === 0) {
+        return { content: null, dropped: [] };
+    }
 
-    const toEmit = pickSignalsToEmit(scopes, tbModule, selectedSignals);
-    if (toEmit.length === 0) return null;
+    const { emit, dropped } = pickSignalsToEmit(scopes, tbModule, selectedSignals);
+    if (emit.length === 0) return { content: null, dropped };
 
     const slashed = (p) => p.replace(/\\/g, '/');
     const lines = [
@@ -87,8 +105,8 @@ export function buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selected
         '[timestart] 0',
         '@28',
     ];
-    for (const s of toEmit) {
+    for (const s of emit) {
         lines.push(s.range ? `${s.fullName}[${s.range}]` : s.fullName);
     }
-    return lines.join('\n') + '\n';
+    return { content: lines.join('\n') + '\n', dropped };
 }

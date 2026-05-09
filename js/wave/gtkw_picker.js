@@ -4,7 +4,8 @@
  * The user-facing companion to projectOriented.json's `gtkwFiles[]`.
  * Exposes a <select> in the toolbar that:
  *   - Lists every registered .gtkw by filename.
- *   - Has a "(no .gtkw)" option that clears the selection.
+ *   - Has a "default" option that clears the selection (wave flow
+ *     will then auto-generate a layout from the VCD's testbench scope).
  *   - Has an "+ Add .gtkw file..." action that opens a file dialog,
  *     registers the picked file in `gtkwFiles[]`, and marks it active.
  *
@@ -70,7 +71,7 @@ class GtkwPickerManager {
 
     _renderEmpty() {
         this.select.innerHTML = '';
-        this.select.appendChild(this._makeOption(NONE_VALUE, '(no .gtkw)'));
+        this.select.appendChild(this._makeOption(NONE_VALUE, 'default'));
         this.select.appendChild(this._makeOption(ADD_VALUE, '+ Add .gtkw file...'));
         this.select.value = NONE_VALUE;
         this._lastValue = NONE_VALUE;
@@ -80,7 +81,7 @@ class GtkwPickerManager {
     _renderOptions(files, selectedPath) {
         this.select.innerHTML = '';
         this.select.disabled = false;
-        this.select.appendChild(this._makeOption(NONE_VALUE, '(no .gtkw)'));
+        this.select.appendChild(this._makeOption(NONE_VALUE, 'default'));
         for (const f of files) {
             if (!f?.path) continue;
             const label = f.name || f.path.split(/[\\/]/).pop();

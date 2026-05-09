@@ -139,4 +139,5 @@
     color: var(--text-muted);
     font-size: var(--text-sm);
     font-family: var(--font-mono);
+    white-space: nowrap;
 }

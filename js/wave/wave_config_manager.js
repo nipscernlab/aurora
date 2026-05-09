@@ -183,7 +183,25 @@ class WaveConfigManager {
             this._applyDefaultSelection();
         }
 
+        // Open the modal with every nested module collapsed. The root
+        // (testbench) stays expanded so the user lands on the most
+        // common scope without having to click first; deep DUT
+        // hierarchies stay tucked away until explicitly opened.
+        this._collapseAllExceptRoot();
+
         this.renderTree();
+    }
+
+    _collapseAllExceptRoot() {
+        this.collapsedScopes = new Set();
+        if (!this.tree) return;
+        const walk = (node) => {
+            for (const child of node.children) {
+                this.collapsedScopes.add(child.scopePath);
+                walk(child);
+            }
+        };
+        walk(this.tree);
     }
 
     _applyDefaultSelection() {

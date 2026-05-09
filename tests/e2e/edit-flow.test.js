@@ -151,34 +151,29 @@ describe('Aurora E2E — edit flow', () => {
 
     window = await waitForMainWindow(app);
 
-    // Wait for Monaco AMD to finish loading.
+    // Wait for Monaco AMD to finish loading. The 3-arg form
+    // (fn, arg, options) is required — the 2-arg form (fn, options)
+    // is interpreted by Playwright as (fn, arg), so the timeout
+    // option is silently dropped and the 30s default kicks in.
     await window.waitForFunction(
       () => typeof window.monaco !== 'undefined'
         && !!document.getElementById('monaco-editor'),
+      null,
       { timeout: 15_000 }
     );
 
-    // Wait for the project to actually load — the file tree should
-    // contain at least one rendered file item. Either tree style
-    // (standard `.file-item` or verilog-mode `.verilog-file-item`)
-    // counts; we don't depend on which mode the user's saved state
-    // restored to.
+    // Wait for the project tree to render at least one item. Use
+    // waitForSelector so we don't fall into the same (fn, options)
+    // trap; selector form has unambiguous (selector, options).
     //
-    // Timeout is generous because the .spf-load goes through several
-    // IPC round-trips (file watcher start, processor list seeding,
-    // project file enumeration) that are noticeably slower on CI than
-    // on a dev machine. Local runs finish in <2 s; the hookTimeout
-    // (90 s) and per-wait timeout (45 s) are sized for the worst
-    // observed case on the windows-latest runner with electron just
-    // unpacked from npm install cache.
-    await window.waitForFunction(
-      () => {
-        const tree = document.getElementById('file-tree');
-        if (!tree) return false;
-        return tree.querySelectorAll('.file-item, .verilog-file-item').length > 0;
-      },
-      { timeout: 45_000 }
-    );
+    // The .spf-load goes through several IPC round-trips (file
+    // watcher start, processor list seeding, project file
+    // enumeration) that are noticeably slower on CI than on a dev
+    // machine. Local runs finish in <2 s; the hookTimeout (90 s)
+    // and per-wait timeout (45 s) are sized for the worst observed
+    // case on the windows-latest runner with electron just unpacked
+    // from npm install cache.
+    await window.waitForSelector('.file-item, .verilog-file-item', { timeout: 45_000 });
   }, 90_000);
 
   afterAll(async () => {

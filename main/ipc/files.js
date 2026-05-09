@@ -9,7 +9,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const fse = require('fs-extra');
-const { BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const chokidar = require('chokidar');
 const log = require('electron-log');
 const { execFile } = require('child_process');
@@ -266,9 +266,19 @@ function register() {
     });
   });
 
-  ipcMain.handle('dialog:openDirectory', async () => {
+  ipcMain.handle('dialog:openDirectory', async (_event, options = {}) => {
+    // defaultPath is the directory the dialog opens at. Without it,
+    // Windows falls back to the process's last-used directory, which
+    // ends up being the currently-open project folder — and the user
+    // accidentally nests new projects inside existing ones. Renderer
+    // passes the last "new project location" from localStorage; we
+    // fall back to the user's Documents folder when there isn't one.
+    const defaultPath = (options.defaultPath && typeof options.defaultPath === 'string')
+      ? options.defaultPath
+      : app.getPath('documents');
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
+      defaultPath,
     });
     return result.canceled ? null : result.filePaths[0];
   });

@@ -54,8 +54,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('browseBtn').addEventListener('click', async () => {
         try {
-            const folderPath = await window.electronAPI.selectDirectory();
-            
+            // Open the dialog at the last "new project" location the
+            // user picked, falling back to ~/Documents on the main side
+            // when this is the first time. Without this, Windows opens
+            // the dialog inside the currently-loaded project folder
+            // (process's last-used dir) and the user accidentally
+            // creates Project-B nested under Project-A.
+            const lastLocation = localStorage.getItem('aurora-last-new-project-location') || undefined;
+            const folderPath = await window.electronAPI.selectDirectory({ defaultPath: lastLocation });
+
             if (folderPath) {
                 projectLocationInput.value = folderPath;
                 validateInput(projectLocationInput, pathRegex);
@@ -97,6 +104,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const result = await window.electronAPI.createProjectStructure(projectPath, spfPath, projectName);
 
             if (result.success) {
+                // Remember this location so the next New Project
+                // dialog opens at the same parent directory — sibling
+                // projects are the common case.
+                try {
+                    localStorage.setItem('aurora-last-new-project-location', projectLocation);
+                } catch (_e) { /* localStorage failure is non-fatal */ }
+
                 closeNewProjectModal();
 
                 await new Promise(resolve => setTimeout(resolve, 1000));

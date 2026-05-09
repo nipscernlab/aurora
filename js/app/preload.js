@@ -148,7 +148,7 @@ const prismOperations = {
 const dialogOperations = {
   showOpenDialog:    () => ipcRenderer.invoke('dialog:showOpen'),
   showSaveDialog:    (opts) => ipcRenderer.invoke('show-save-dialog', opts),
-  selectDirectory:   () => ipcRenderer.invoke('dialog:openDirectory'),
+  selectDirectory:   (opts) => ipcRenderer.invoke('dialog:openDirectory', opts),
   showOpenDialogImport: () => ipcRenderer.invoke('dialog:show-open-import'),
 };
 

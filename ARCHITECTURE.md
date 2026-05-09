@@ -183,6 +183,51 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
 ## 10. Wave flow — VCD is the ground truth
 
+The Wave button (Verilog-Only) goes through eight named phases. The orchestrator is `runVerilogOnlyGtkWave` in [compilation_module.js](js/compilation/compilation_module.js); each phase is a private `_wave*` method right below it. The orchestrator is intentionally short — it documents the order of operations, nothing else. **All wave-flow behaviour changes belong inside one phase.** If you find yourself touching two phases for one feature, you've found a missing abstraction; surface it before merging.
+
+```
+Click "Wave" button (Verilog-Only)
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────┐
+│ 0. validateVerilogOnlyConfig + bail-if-no-testbench            │
+│    (orchestrator body, not a separate phase)                   │
+├───────────────────────────────────────────────────────────────┤
+│ 1. _waveResolveToolchain                                       │
+│    → { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin }          │
+├───────────────────────────────────────────────────────────────┤
+│ 2. _waveDeriveSimTopModule(config) → "tb_counter"              │
+├───────────────────────────────────────────────────────────────┤
+│ 3. _waveBuildAndVerifyVvp                                      │
+│    runs iverilog (Phase 2 selection-validation fires here)     │
+│    → ${tempBaseDir}/${simTop}.vvp on disk                      │
+├───────────────────────────────────────────────────────────────┤
+│ 4. _waveRunVvpSimulation                                       │
+│    cd tempBaseDir && vvp <vvpFile>                             │
+│    → some .vcd on disk in tempBaseDir                          │
+├───────────────────────────────────────────────────────────────┤
+│ 5. _waveResolveVcdFile                                         │
+│    expected name? ✅ done.                                     │
+│    not found? scan dir → exactly one .vcd? adopt it.           │
+│    zero or multiple? throw with concrete fix instructions.     │
+│    → absolute vcdFile path                                     │
+├───────────────────────────────────────────────────────────────┤
+│ 6. _waveStageFixVcd                                            │
+│    cp ${scripts}/fix.vcd ${tempBaseDir}/fix.vcd (GTK3 redraw)  │
+├───────────────────────────────────────────────────────────────┤
+│ 7. _waveResolveGtkwSaveFile                                    │
+│    user-curated .gtkw set? validate vs VCD, return its path.   │
+│    else: generateGtkwForVcd (uses _validatedWaveSelection      │
+│    cached by phase 3) → tempBaseDir/${simTop}.gtkw or null.    │
+│    → absolute .gtkw path or null                               │
+├───────────────────────────────────────────────────────────────┤
+│ 8. _waveLaunchGtkwave                                          │
+│    builds command line, execs gtkwave.exe, monitors PID        │
+└───────────────────────────────────────────────────────────────┘
+```
+
+Each phase's JSDoc states inputs / returns / throws / side-effects. **Don't rely on documentation in this file alone — the in-source contracts are authoritative.** This section gives the bird's-eye view; refining a phase is a code-doc-then-code task.
+
 The Wave button (Verilog-Only) goes through three steps with a single guiding rule: anything we ask GTKWave to display must be present in the VCD that vvp actually produced. The user can request signals from three different places, but the VCD wins.
 
 **Sources of truth, in priority order:**
@@ -201,9 +246,12 @@ The Wave button (Verilog-Only) goes through three steps with a single guiding ru
 
 **What you can't change without thinking:**
 
-- **Don't add a fourth source of "what to dump."** If users want a curated layout, they import a custom `.gtkw` via Project Settings — that's the existing escape hatch and the wave-flow code already detects it (`gtkwSaveFile` set early in `runVerilogOnlyGtkWave`). Adding a fifth path means another priority decision and another silent-mismatch class.
+- **Don't add a fourth source of "what to dump."** If users want a curated layout, they import a custom `.gtkw` via Project Settings — that's the existing escape hatch and the wave-flow code already detects it (`_waveResolveGtkwSaveFile`'s Source 1 branch). Adding a fifth path means another priority decision and another silent-mismatch class.
 - **Don't bypass `_validateWaveSelection` to inject `$dumpvars` directly.** If the path you write isn't in the parsed hierarchy, iverilog fails with `port "X" is not a port of dut` or similar — exactly the bug we hit when we shipped the picker without validation. Always go through the validator.
 - **The `reason: 'user-defined'` override is one-directional.** When the user has manual `$dumpvars`, the picker selection is ignored, but we don't proactively clear `waveSignals` from disk — the user might remove their `$dumpvars` later and want the picker back. Only `validateSelection` writes to `waveSignals`; `'user-defined'` just suppresses use of it.
+- **Don't inline phase logic back into the orchestrator.** The 8-phase structure exists so future "GTKWave doesn't open right" bug reports can be triaged to one phase at a time. Inlining trades that property for a few lines of locality and we lose more than we gain.
+- **Don't merge phases unless they share a real invariant.** "These two phases both touch tempBaseDir" is not a real invariant — most phases touch tempBaseDir. Real reasons to merge: shared in-flight state that doesn't belong on `this`, or a contract that only makes sense as a unit (e.g., "build vvp + run vvp" is two phases because building can fail without running, and the in-between has no meaningful state to pass).
+- **Phase JSDoc is the contract.** When you change behaviour, update the input/return/throws/side-effects block first, then the implementation. If the JSDoc doesn't change, the behaviour shouldn't have changed either — that's the audit trail.
 
 ---
 

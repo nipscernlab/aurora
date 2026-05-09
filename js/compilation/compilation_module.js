@@ -1639,266 +1639,382 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
 /**
  * Run GTKWave for Verilog-only mode
  */
+/**
+ * Verilog-only Wave button entrypoint. Orchestrates the full pipeline
+ * from .v sources to a running GTKWave window. Each phase is a
+ * private method below with its own contract; the orchestrator below
+ * is intentionally short so the *order of phases* is the only thing
+ * a future reader has to understand here.
+ *
+ * Pipeline (read top-to-bottom):
+ *
+ *   _waveResolveToolchain()          → { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin }
+ *   _waveDeriveSimTopModule(config)  → testbench module name
+ *   _waveBuildAndVerifyVvp()         → tempBaseDir/${simTop}.vvp on disk
+ *   _waveRunVvpSimulation()          → tempBaseDir/<some>.vcd on disk
+ *   _waveResolveVcdFile()            → absolute path to that .vcd
+ *   _waveStageFixVcd()               → tempBaseDir/fix.vcd (GTK3 quirk)
+ *   _waveResolveGtkwSaveFile()       → .gtkw absolute path or null
+ *   _waveLaunchGtkwave()             → GTKWave process, monitored
+ *
+ * If you need to change behaviour, change the phase that owns the
+ * concern. The orchestrator only changes when you add / remove a
+ * phase or reorder them.
+ *
+ * See ARCHITECTURE.md §10 for the broader rationale (why VCD is the
+ * ground truth, how the three .gtkw sources interact, etc.).
+ */
 async runVerilogOnlyGtkWave() {
     this.terminalManager.appendToTerminal('twave', '--- Verilog-Only Simulation & GTKWave ---', 'info');
 
     try {
         const config = this.validateVerilogOnlyConfig();
 
-        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
-
-        const gtkwaveBin = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'gtkwave', 
-            'bin', 
-            'gtkwave.exe'
-        );
-        
-        const vvpBin = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'bin', 
-            'vvp.exe'
-        );
-
-        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const simTopModule = config.testbenchFile
-            ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
-            : topLevelModuleName;
-
-        const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
-
-        // Always rebuild the .vvp on Wave click. The instrumented
-        // testbench bakes the user's $dumpvars selection in at iverilog
-        // time, so a previous .vvp would lock in the previous selection.
-        // Compile time on small designs is sub-second; the predictability
-        // is worth the trip.
-        this.terminalManager.appendToTerminal('twave',
-            'Building VVP for simulation...', 'info');
-        await this.iverilogVerilogOnlyCompilation({ buildVvp: true });
-        if (!await window.electronAPI.fileExists(vvpFile)) {
-            throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
-        }
-
-        // Without a testbench, vvp has nothing to dump and no $finish to hit,
-        // so the run produces no VCD. Tell the user up-front instead of
-        // letting them hit a confusing "VCD not generated" error.
+        // No testbench → vvp has nothing to dump and no $finish to
+        // hit, so simulation can't produce a VCD. Bail early with a
+        // readable message instead of letting the user hit the
+        // generic "VCD not generated" error from _waveResolveVcdFile.
         if (!config.testbenchFile) {
             throw new Error('No testbench configured. Add a testbench (.v) in Project Settings and mark it as top-level to run simulation.');
         }
 
-        this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...', 'info');
+        const tools = await this._waveResolveToolchain();
+        const simTopModule = this._waveDeriveSimTopModule(config);
 
-        // Run VVP simulation
-        const vvpCmd = `cd "${tempBaseDir}" && "${vvpBin}" "${vvpFile}"`;
-        const result = await window.electronAPI.execCommand(vvpCmd);
-
-        if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
-        if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
-
-        if (result.code !== 0) {
-            throw new Error(`VVP simulation failed with exit code ${result.code}`);
-        }
-
-        // Verify VCD file was generated. Aurora normally injects
-        // $dumpfile/$dumpvars when the testbench lacks them, so the
-        // only ways to land here are: the user wrote their own dump
-        // logic and pointed it at a different filename, or the
-        // testbench didn't hit a $finish before vvp aborted.
-        //
-        // Recover from the wrong-name case: vvp's CWD is tempBaseDir
-        // (we cd'd there above), so a `$dumpfile("counter.vcd")` lands
-        // inside tempBaseDir under whatever name the user picked. If
-        // the expected file is missing, scan the dir for an
-        // unambiguous .vcd and adopt it. Anything ambiguous (zero or
-        // multiple) still throws so the user has to disambiguate.
-        let resolvedVcd = vcdFile;
-        if (!await window.electronAPI.fileExists(vcdFile)) {
-            let candidates = [];
-            try {
-                const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
-                candidates = (entries || []).filter((name) =>
-                    name.toLowerCase().endsWith('.vcd') && name !== 'fix.vcd',
-                );
-            } catch (_listErr) {
-                candidates = [];
-            }
-
-            if (candidates.length === 1) {
-                resolvedVcd = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
-                this.terminalManager.appendToTerminal('twave',
-                    `Note: testbench's $dumpfile pointed at "${candidates[0]}" instead of ${simTopModule}.vcd; using that file for the wave view.`,
-                    'warning');
-            } else {
-                const detail = candidates.length === 0
-                    ? `No .vcd was produced.`
-                    : `Multiple .vcd candidates were produced: ${candidates.join(', ')}.`;
-                throw new Error(
-                    `VCD file was not generated as ${simTopModule}.vcd.\n` +
-                    `${detail}\n` +
-                    `Aurora looks for a .vcd named after the testbench module. ` +
-                    `Either drop the explicit $dumpfile and let Aurora auto-instrument, ` +
-                    `or change the $dumpfile string to "${simTopModule}.vcd".`,
-                );
-            }
-        }
-        const vcdFileResolved = resolvedVcd;
-
-        this.terminalManager.appendToTerminal('twave', `VCD file created: ${vcdFileResolved}`, 'success');
-
-        // Always stage fix.vcd alongside the VCD output. GTKWave under GTK3
-        // needs that companion file opened in a second tab to refresh the
-        // view — the same workaround used by processor and project modes.
-        try {
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
-                await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
-            );
-        } catch (copyErr) {
-            this.terminalManager.appendToTerminal('twave',
-                `Warning: could not stage fix.vcd — ${copyErr.message}`, 'warning');
-        }
-
-        // GTKWave save-file resolution. Order of precedence:
-        //   1. User-configured .gtkw (set via Project Settings, marked
-        //      Top-Level). Their layout, their formatting choices —
-        //      we hide the SST since they curated the signal list.
-        //   2. Auto-generated .gtkw from the VCD's testbench scope.
-        //      First-run convenience so the wave window isn't blank.
-        //      Keep the SST visible so the user can drag in submodule
-        //      signals if they want more.
-        //   3. Nothing — GTKWave opens with no traces. Old behaviour.
-        let gtkwSaveFile = null;
-        if (this.projectConfig.gtkwFiles && this.projectConfig.gtkwFiles.length > 0) {
-            const gtkwFile = this.projectConfig.gtkwFiles.find(f => f.isTopLevel === true);
-            if (gtkwFile) {
-                gtkwSaveFile = gtkwFile.path;
-                this.terminalManager.appendToTerminal('twave',
-                    `Using GTKWave save file: ${gtkwSaveFile.split(/[\\/]/).pop()}`, 'info');
-
-                // Validate the user-curated .gtkw against the VCD we
-                // just produced. Same VCD-as-truth principle as the
-                // auto-generated path: a saved layout can reference
-                // signals that the user later renamed/removed (or the
-                // testbench's $dumpvars no longer covers). GTKWave
-                // would render those as empty traces with no warning.
-                try {
-                    const gtkwContent = await window.electronAPI.readFile(gtkwSaveFile, { encoding: 'utf8' });
-                    const referenced = extractSignalRefs(gtkwContent);
-                    if (referenced.length > 0) {
-                        const vcdContent = await window.electronAPI.readFile(vcdFileResolved, { encoding: 'utf8' });
-                        const scopes = parseVcdHeaderFromContent(vcdContent);
-                        const inVcd = new Set();
-                        for (const scope of scopes) {
-                            for (const sig of scope.signals) {
-                                inVcd.add(`${scope.path}.${sig.name}`);
-                            }
-                        }
-                        const missing = referenced.filter((s) => !inVcd.has(s));
-                        if (missing.length > 0) {
-                            const preview = missing.slice(0, 5).map((s) => `"${s}"`).join(', ');
-                            const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
-                            const msg = missing.length === 1
-                                ? `Note: ${preview} is referenced by ${gtkwSaveFile.split(/[\\/]/).pop()} but is not in the generated VCD; GTKWave will show an empty trace for it.`
-                                : `Note: ${missing.length} signals referenced by ${gtkwSaveFile.split(/[\\/]/).pop()} are not in the generated VCD: ${preview}${more}. GTKWave will show empty traces for these.`;
-                            this.terminalManager.appendToTerminal('twave', msg, 'warning');
-                        }
-                    }
-                } catch (refErr) {
-                    // Validation is best-effort; if we can't read the
-                    // .gtkw or parse the VCD, just open GTKWave anyway
-                    // and let the user see whatever is there.
-                    this.terminalManager.appendToTerminal('twave',
-                        `Could not pre-validate ${gtkwSaveFile.split(/[\\/]/).pop()} against VCD (${refErr.message}); opening GTKWave anyway.`,
-                        'warning');
-                }
-            }
-        }
-
-        if (!gtkwSaveFile) {
-            const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
-            // Prefer the validated selection cached by the
-            // iverilogVerilogOnlyCompilation step (which ran moments
-            // ago for buildVvp). It already had stale entries pruned,
-            // so the .gtkw lines up exactly with what's in the VCD —
-            // no duplicate "signal not in VCD" warning here.
-            const selected = Array.isArray(this._validatedWaveSelection)
-                ? this._validatedWaveSelection
-                : (Array.isArray(this.projectConfig?.waveSignals)
-                    ? this.projectConfig.waveSignals
-                    : []);
-            try {
-                const { written, dropped } = await this.generateGtkwForVcd(vcdFileResolved, autoGtkw, simTopModule, selected);
-                if (written) {
-                    gtkwSaveFile = autoGtkw;
-                    const source = selected.length > 0
-                        ? `${selected.length} picker-selected signal(s)`
-                        : 'testbench scope';
-                    this.terminalManager.appendToTerminal('twave',
-                        `Auto-generated GTKWave layout (${source})`, 'info');
-                }
-                // Surface stale Wave Configuration entries — signals the
-                // user selected in the picker that aren't in the VCD the
-                // simulation just produced. Common causes: renamed
-                // module instance, removed signal, edited testbench so
-                // the selection no longer matches. Without this warning
-                // the user just sees an empty trace and has to guess.
-                if (dropped.length > 0) {
-                    const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
-                    const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
-                    const msg = dropped.length === 1
-                        ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
-                        : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
-                    this.terminalManager.appendToTerminal('twave', msg, 'warning');
-                }
-            } catch (genErr) {
-                this.terminalManager.appendToTerminal('twave',
-                    `Warning: could not auto-generate .gtkw — ${genErr.message}`, 'warning');
-            }
-        }
-
-        this.terminalManager.appendToTerminal('twave', 'Launching GTKWave...', 'info');
-
-        // Generic init script: zooms, then opens fix.vcd in a second tab.
-        const fixScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
-
-        let gtkwaveCmd = `"${gtkwaveBin}" --dark "${vcdFileResolved}"`;
-
-        if (gtkwSaveFile) {
-            // Hide the Signal Search Tree whenever any .gtkw is in play.
-            // Aurora's Wave Configuration modal is now the canonical
-            // signal picker — having GTKWave's tree alongside duplicates
-            // the same job in two places. The auto-generated .gtkw lists
-            // exactly what the modal selected; the user-supplied .gtkw
-            // already curated its own list.
-            gtkwaveCmd += ` --rcvar "hide_sst on" -a "${gtkwSaveFile}"`;
-        }
-
-        gtkwaveCmd += ` --script="${fixScript}"`;
-
-        const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
-            gtkwCmd: gtkwaveCmd,
-            workingDir: tempBaseDir
-        });
-
-        if (gtkwaveResult.success) {
-            this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
-            this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
-            this.monitorGtkwaveProcess();
-        } else {
-            throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
-        }
-
+        await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
+        await this._waveRunVvpSimulation(simTopModule, tools);
+        const vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
+        await this._waveStageFixVcd(tools);
+        const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
+        await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
         console.error(error);
         throw error;
     }
+}
+
+// ---------------------------------------------------------------------
+// Wave-flow phases — keep each method's contract block in sync with
+// what it actually does. The orchestrator above documents the order;
+// each phase below documents the local invariants. ARCHITECTURE.md §10
+// has the cross-cutting principles (VCD-as-truth, validation gates).
+// ---------------------------------------------------------------------
+
+/**
+ * Resolve absolute paths to bundled toolchain executables and Aurora's
+ * Temp / Scripts directories.
+ *
+ * Inputs:  this.componentsPath
+ * Returns: { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin } — all absolute
+ * Throws:  never (joinPath is total)
+ * Side-effects: none
+ */
+async _waveResolveToolchain() {
+    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+    const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
+    const gtkwaveBin = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe',
+    );
+    const vvpBin = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe',
+    );
+    return { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin };
+}
+
+/**
+ * Derive the simulation-top module name (the `-s` value passed to
+ * iverilog and the basename Aurora expects for the .vvp / .vcd / .gtkw
+ * triplet).
+ *
+ * The testbench module is the simulation top when one exists; falling
+ * back to the synthesizable top is for the rare "compile a single .v
+ * with no testbench" flow (which the wave button rejects upstream
+ * anyway, but the helper stays general).
+ */
+_waveDeriveSimTopModule(config) {
+    const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    return config.testbenchFile
+        ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
+        : topLevelModuleName;
+}
+
+/**
+ * Build the .vvp via iverilog and confirm it landed at the expected
+ * path. Always rebuilds — the instrumented testbench bakes the user's
+ * $dumpvars selection in at iverilog time, so a previous .vvp would
+ * lock in a previous selection.
+ *
+ * Inputs:  simTopModule, tempBaseDir
+ * Returns: void (vvp file path is reconstructible from the inputs)
+ * Throws:  if iverilog fails OR the expected .vvp isn't on disk
+ * Side-effects: writes ${tempBaseDir}/${simTopModule}.vvp; logs to twave;
+ *               also caches `this._validatedWaveSelection` as part of
+ *               iverilogVerilogOnlyCompilation (the .gtkw resolver reads it).
+ */
+async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
+    this.terminalManager.appendToTerminal('twave', 'Building VVP for simulation...', 'info');
+    await this.iverilogVerilogOnlyCompilation({ buildVvp: true });
+    const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+    if (!await window.electronAPI.fileExists(vvpFile)) {
+        throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
+    }
+}
+
+/**
+ * Run vvp on the freshly-built .vvp. We `cd` to tempBaseDir before
+ * exec so any user-written `$dumpfile("foo.vcd")` lands in a
+ * predictable location (the resolver below scans tempBaseDir).
+ *
+ * Inputs:  simTopModule, tools (uses tempBaseDir + vvpBin)
+ * Returns: void
+ * Throws:  if vvp exits non-zero
+ * Side-effects: writes a .vcd somewhere under tempBaseDir; streams
+ *               vvp's stdout/stderr to twave.
+ */
+async _waveRunVvpSimulation(simTopModule, tools) {
+    const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
+    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...', 'info');
+    const vvpCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
+    const result = await window.electronAPI.execCommand(vvpCmd);
+    if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
+    if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
+    if (result.code !== 0) {
+        throw new Error(`VVP simulation failed with exit code ${result.code}`);
+    }
+}
+
+/**
+ * Find the .vcd that vvp just produced.
+ *
+ * Aurora's auto-instrumented testbench writes `${simTopModule}.vcd`,
+ * which is the happy path. The recovery branch handles the
+ * "user wrote $dumpfile with a different name" case: vvp's CWD is
+ * tempBaseDir, so the file is in there under whatever name the user
+ * picked. We scan for unambiguous .vcd files (excluding fix.vcd which
+ * we stage ourselves later) and adopt one if the choice is clear.
+ *
+ * Inputs:  simTopModule, tempBaseDir
+ * Returns: absolute path to the .vcd to use downstream
+ * Throws:  if zero or multiple candidate .vcds (ambiguous);
+ *          message names the candidates and offers two concrete fixes
+ * Side-effects: logs to twave (success line, or warning when the
+ *               adopted file's name differs from simTopModule.vcd)
+ */
+async _waveResolveVcdFile(simTopModule, tempBaseDir) {
+    const expected = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    if (await window.electronAPI.fileExists(expected)) {
+        this.terminalManager.appendToTerminal('twave', `VCD file created: ${expected}`, 'success');
+        return expected;
+    }
+
+    let candidates = [];
+    try {
+        const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
+        candidates = (entries || []).filter((name) =>
+            name.toLowerCase().endsWith('.vcd') && name !== 'fix.vcd',
+        );
+    } catch (_listErr) {
+        candidates = [];
+    }
+
+    if (candidates.length === 1) {
+        const adopted = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
+        this.terminalManager.appendToTerminal('twave',
+            `Note: testbench's $dumpfile pointed at "${candidates[0]}" instead of ${simTopModule}.vcd; using that file for the wave view.`,
+            'warning');
+        this.terminalManager.appendToTerminal('twave', `VCD file created: ${adopted}`, 'success');
+        return adopted;
+    }
+
+    const detail = candidates.length === 0
+        ? `No .vcd was produced.`
+        : `Multiple .vcd candidates were produced: ${candidates.join(', ')}.`;
+    throw new Error(
+        `VCD file was not generated as ${simTopModule}.vcd.\n` +
+        `${detail}\n` +
+        `Aurora looks for a .vcd named after the testbench module. ` +
+        `Either drop the explicit $dumpfile and let Aurora auto-instrument, ` +
+        `or change the $dumpfile string to "${simTopModule}.vcd".`,
+    );
+}
+
+/**
+ * Copy the canned `fix.vcd` companion alongside the user's VCD.
+ * GTKWave under GTK3 needs that file opened in a second tab to
+ * refresh its view — the launch script (`gtk_almost_proj.tcl`)
+ * triggers that. Don't remove this without first ripping out the
+ * companion-tab line in the script.
+ *
+ * Inputs:  tools (uses scriptsPath + tempBaseDir)
+ * Returns: void
+ * Throws:  never (best-effort; logs a warning on failure)
+ * Side-effects: writes ${tempBaseDir}/fix.vcd
+ */
+async _waveStageFixVcd(tools) {
+    try {
+        await window.electronAPI.copyFile(
+            await window.electronAPI.joinPath(tools.scriptsPath, 'fix.vcd'),
+            await window.electronAPI.joinPath(tools.tempBaseDir, 'fix.vcd'),
+        );
+    } catch (copyErr) {
+        this.terminalManager.appendToTerminal('twave',
+            `Warning: could not stage fix.vcd — ${copyErr.message}`, 'warning');
+    }
+}
+
+/**
+ * Pick the .gtkw save-file that GTKWave will load. Three sources, in
+ * priority order:
+ *
+ *   1. User-curated .gtkw (gtkwFiles[].isTopLevel === true). Cross-
+ *      checked against the VCD so the user gets a Note for any
+ *      signal the layout references but the simulation didn't dump.
+ *      Returns the user's path verbatim.
+ *   2. Auto-generated from the VCD's parsed scopes. Uses the picker
+ *      selection (already validated and possibly zeroed by Phase 3)
+ *      cached in this._validatedWaveSelection. Falls back to
+ *      "everything at testbench-module scope" if the cache is empty.
+ *   3. None — returns null. GTKWave opens with no save-file.
+ *
+ * Inputs:  simTopModule, vcdFile, tempBaseDir
+ * Returns: absolute path to a .gtkw file, or null
+ * Throws:  never (validation hiccups become warnings, not failures)
+ * Side-effects: may write ${tempBaseDir}/${simTopModule}.gtkw;
+ *               logs to twave (source line + per-signal warnings).
+ *
+ * See ARCHITECTURE.md §10 for the source-precedence rationale.
+ */
+async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
+    // Source 1: user-curated .gtkw.
+    if (this.projectConfig.gtkwFiles && this.projectConfig.gtkwFiles.length > 0) {
+        const gtkwFile = this.projectConfig.gtkwFiles.find((f) => f.isTopLevel === true);
+        if (gtkwFile) {
+            const userGtkw = gtkwFile.path;
+            this.terminalManager.appendToTerminal('twave',
+                `Using GTKWave save file: ${userGtkw.split(/[\\/]/).pop()}`, 'info');
+            await this._waveValidateUserGtkwAgainstVcd(userGtkw, vcdFile);
+            return userGtkw;
+        }
+    }
+
+    // Source 2: auto-generate from VCD + Wave Configuration selection.
+    const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
+    const selected = Array.isArray(this._validatedWaveSelection)
+        ? this._validatedWaveSelection
+        : (Array.isArray(this.projectConfig?.waveSignals)
+            ? this.projectConfig.waveSignals
+            : []);
+    try {
+        const { written, dropped } = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
+        if (written) {
+            const source = selected.length > 0
+                ? `${selected.length} picker-selected signal(s)`
+                : 'testbench scope';
+            this.terminalManager.appendToTerminal('twave',
+                `Auto-generated GTKWave layout (${source})`, 'info');
+        }
+        if (dropped.length > 0) {
+            // Stale picker entries that the just-produced VCD doesn't
+            // contain. Phase 2 prunes against parsed sources at compile
+            // time; this branch covers the "selection was valid against
+            // sources but the running design dumped fewer signals than
+            // expected" gap (e.g., $dumpvars with explicit list vs full
+            // hierarchy).
+            const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
+            const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
+            const msg = dropped.length === 1
+                ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
+                : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
+            this.terminalManager.appendToTerminal('twave', msg, 'warning');
+        }
+        return written ? autoGtkw : null;
+    } catch (genErr) {
+        // Auto-generation is best-effort. If it fails we fall through
+        // to "no .gtkw" rather than aborting the wave button.
+        this.terminalManager.appendToTerminal('twave',
+            `Warning: could not auto-generate .gtkw — ${genErr.message}`, 'warning');
+        return null;
+    }
+}
+
+/**
+ * Cross-check a user-curated .gtkw against the VCD: every dotted path
+ * the layout references must exist in the parsed scopes, otherwise
+ * GTKWave shows an empty trace with no warning. Best-effort —
+ * parse hiccups produce a single twave warning but don't block.
+ *
+ * Inputs:  gtkwPath (absolute), vcdPath (absolute)
+ * Returns: void
+ * Throws:  never
+ * Side-effects: logs to twave (per-signal note when stale references found)
+ */
+async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
+    try {
+        const gtkwContent = await window.electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
+        const referenced = extractSignalRefs(gtkwContent);
+        if (referenced.length === 0) return;
+        const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
+        const scopes = parseVcdHeaderFromContent(vcdContent);
+        const inVcd = new Set();
+        for (const scope of scopes) {
+            for (const sig of scope.signals) {
+                inVcd.add(`${scope.path}.${sig.name}`);
+            }
+        }
+        const missing = referenced.filter((s) => !inVcd.has(s));
+        if (missing.length === 0) return;
+        const preview = missing.slice(0, 5).map((s) => `"${s}"`).join(', ');
+        const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+        const fileName = gtkwPath.split(/[\\/]/).pop();
+        const msg = missing.length === 1
+            ? `Note: ${preview} is referenced by ${fileName} but is not in the generated VCD; GTKWave will show an empty trace for it.`
+            : `Note: ${missing.length} signals referenced by ${fileName} are not in the generated VCD: ${preview}${more}. GTKWave will show empty traces for these.`;
+        this.terminalManager.appendToTerminal('twave', msg, 'warning');
+    } catch (refErr) {
+        this.terminalManager.appendToTerminal('twave',
+            `Could not pre-validate ${gtkwPath.split(/[\\/]/).pop()} against VCD (${refErr.message}); opening GTKWave anyway.`,
+            'warning');
+    }
+}
+
+/**
+ * Build the GTKWave command line and launch the process.
+ *
+ * Three switches matter:
+ *   - `--dark` — Aurora's dark theme parity.
+ *   - `--rcvar "hide_sst on"` + `-a <gtkw>` — only when a save-file is
+ *     in play. SST is GTKWave's Signal Search Tree; Wave Configuration
+ *     replaces it as the canonical picker, so showing both duplicates
+ *     work.
+ *   - `--script=<tcl>` — `gtk_almost_proj.tcl` zooms-fit and opens
+ *     `fix.vcd` in a second tab (the GTK3 redraw workaround).
+ *
+ * Inputs:  vcdFile (absolute), gtkwSaveFile (absolute or null), tools
+ * Returns: void
+ * Throws:  if launchGtkwaveOnly reports failure
+ * Side-effects: spawns gtkwave.exe, stores PID on this.gtkwaveProcess,
+ *               starts the lifecycle monitor.
+ */
+async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
+    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave...', 'info');
+    const fixScript = await window.electronAPI.joinPath(tools.scriptsPath, 'gtk_almost_proj.tcl');
+    let gtkwaveCmd = `"${tools.gtkwaveBin}" --dark "${vcdFile}"`;
+    if (gtkwSaveFile) {
+        gtkwaveCmd += ` --rcvar "hide_sst on" -a "${gtkwSaveFile}"`;
+    }
+    gtkwaveCmd += ` --script="${fixScript}"`;
+
+    const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
+        gtkwCmd: gtkwaveCmd,
+        workingDir: tools.tempBaseDir,
+    });
+    if (!gtkwaveResult.success) {
+        throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
+    }
+    this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
+    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
+    this.monitorGtkwaveProcess();
 }
 
 

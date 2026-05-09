@@ -67,6 +67,44 @@ export function pickSignalsToEmit(scopes, tbModule, selectedSignals) {
 }
 
 /**
+ * Extract dotted signal references from a .gtkw file. Used to detect
+ * stale paths in a user-curated layout (signal renamed since the file
+ * was saved).
+ *
+ * .gtkw is a line-oriented format with several decoration kinds:
+ *   - `[*]` / `[dumpfile]` / `[savefile]` / `[timestart]` — headers
+ *   - `@<hex>` — format codes (radix, color, etc.)
+ *   - `-<name>` — group open marker
+ *   - `[group_close]` / `[group_end]` — group close
+ *   - `<dotted.path>[range]?` — actual signal reference
+ *
+ * The signal lines we care about are: starts with a letter or
+ * underscore, contains at least one dot. Strip a trailing `[a:b]`
+ * range to get the bare path. Everything else is decoration we
+ * don't validate.
+ *
+ * @param {string} gtkwContent
+ * @returns {string[]}  unique dotted paths referenced by the file
+ */
+export function extractSignalRefs(gtkwContent) {
+    if (typeof gtkwContent !== 'string' || gtkwContent.length === 0) return [];
+    const paths = new Set();
+    for (const rawLine of gtkwContent.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        // Decoration / metadata: skip.
+        if (line.startsWith('[') || line.startsWith('@') || line.startsWith('-')
+            || line.startsWith('*') || line.startsWith('#')) continue;
+        // Signal candidate: must start with [a-zA-Z_], contain at least one
+        // `.`, and use a dotted-identifier shape. Strip a trailing range.
+        const noRange = line.replace(/\[[^\]]*\]\s*$/, '').trim();
+        if (!/^[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)+$/.test(noRange)) continue;
+        paths.add(noRange);
+    }
+    return [...paths];
+}
+
+/**
  * Render the .gtkw file content.
  *
  * @param {object} input

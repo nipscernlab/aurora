@@ -6,7 +6,7 @@ import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/t
 import { TreeViewState } from '../tree/tree_view_state_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
-import { buildGtkwContent } from '../wave/gtkw_writer.js';
+import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
@@ -1750,6 +1750,43 @@ async runVerilogOnlyGtkWave() {
                 gtkwSaveFile = gtkwFile.path;
                 this.terminalManager.appendToTerminal('twave',
                     `Using GTKWave save file: ${gtkwSaveFile.split(/[\\/]/).pop()}`, 'info');
+
+                // Validate the user-curated .gtkw against the VCD we
+                // just produced. Same VCD-as-truth principle as the
+                // auto-generated path: a saved layout can reference
+                // signals that the user later renamed/removed (or the
+                // testbench's $dumpvars no longer covers). GTKWave
+                // would render those as empty traces with no warning.
+                try {
+                    const gtkwContent = await window.electronAPI.readFile(gtkwSaveFile, { encoding: 'utf8' });
+                    const referenced = extractSignalRefs(gtkwContent);
+                    if (referenced.length > 0) {
+                        const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
+                        const scopes = parseVcdHeaderFromContent(vcdContent);
+                        const inVcd = new Set();
+                        for (const scope of scopes) {
+                            for (const sig of scope.signals) {
+                                inVcd.add(`${scope.path}.${sig.name}`);
+                            }
+                        }
+                        const missing = referenced.filter((s) => !inVcd.has(s));
+                        if (missing.length > 0) {
+                            const preview = missing.slice(0, 5).map((s) => `"${s}"`).join(', ');
+                            const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+                            const msg = missing.length === 1
+                                ? `Note: ${preview} is referenced by ${gtkwSaveFile.split(/[\\/]/).pop()} but is not in the generated VCD; GTKWave will show an empty trace for it.`
+                                : `Note: ${missing.length} signals referenced by ${gtkwSaveFile.split(/[\\/]/).pop()} are not in the generated VCD: ${preview}${more}. GTKWave will show empty traces for these.`;
+                            this.terminalManager.appendToTerminal('twave', msg, 'warning');
+                        }
+                    }
+                } catch (refErr) {
+                    // Validation is best-effort; if we can't read the
+                    // .gtkw or parse the VCD, just open GTKWave anyway
+                    // and let the user see whatever is there.
+                    this.terminalManager.appendToTerminal('twave',
+                        `Could not pre-validate ${gtkwSaveFile.split(/[\\/]/).pop()} against VCD (${refErr.message}); opening GTKWave anyway.`,
+                        'warning');
+                }
             }
         }
 

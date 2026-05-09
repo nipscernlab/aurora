@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * preload.js — Electron context bridge para o renderer principal.
  *

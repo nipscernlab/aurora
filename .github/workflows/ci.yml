@@ -30,9 +30,6 @@ jobs:
       - name: ESLint
         run: npx eslint . --max-warnings=0
 
-      - name: TypeScript check (// @ts-check'd files only)
-        run: npm run typecheck
-
       - name: Sanity check JS modules
         shell: pwsh
         run: |

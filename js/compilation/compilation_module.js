@@ -1198,7 +1198,10 @@ validateVerilogOnlyConfig() {
         throw new Error('No synthesizable files found. Please add Verilog files in Project Settings.');
     }
 
-    const topLevelFile = this.projectConfig.synthesizableFiles.find(f => f.isTopLevel === true);
+    const topLevelFile = this._pickSingleTop(
+        this.projectConfig.synthesizableFiles,
+        'synthesizable',
+    );
     if (!topLevelFile) {
         throw new Error('No top-level module selected. Please mark a file as top-level in Project Settings.');
     }
@@ -1213,11 +1216,14 @@ validateVerilogOnlyConfig() {
     }
 
     if (!foundTestbenchPath && this.projectConfig.testbenchFiles && this.projectConfig.testbenchFiles.length > 0) {
-        const starred = this.projectConfig.testbenchFiles.find(f => f.isTopLevel === true && f.path && f.path.trim() !== "");
+        const starred = this._pickSingleTop(
+            this.projectConfig.testbenchFiles.filter((f) => f.path && f.path.trim() !== ""),
+            'testbench',
+        );
         if (starred) {
             foundTestbenchPath = starred.path;
         } else {
-            const validEntry = this.projectConfig.testbenchFiles.find(f => f.path && f.path.trim() !== "");
+            const validEntry = this.projectConfig.testbenchFiles.find((f) => f.path && f.path.trim() !== "");
             if (validEntry) foundTestbenchPath = validEntry.path;
         }
     }
@@ -1227,6 +1233,35 @@ validateVerilogOnlyConfig() {
         testbenchFile: foundTestbenchPath, // may be null
         synthesizableFiles: this.projectConfig.synthesizableFiles.map(f => f.path)
     };
+}
+
+/**
+ * Pick the file marked `isTopLevel` from a category list, warning if
+ * multiple are marked.
+ *
+ * The set-top-level UI clears the flag from siblings before applying
+ * it, so within a single Aurora session you can't end up with two
+ * tops in the same category. But projectOriented.json can be
+ * hand-edited, migrated from older builds, or written by a buggy
+ * version — and a silent "first match wins" turns those cases into
+ * "I marked counter.v as top but the build keeps using oldcounter.v"
+ * mysteries. Surface the conflict in tveri instead.
+ *
+ * @param {Array<{path:string, name?:string, isTopLevel?:boolean}>} files
+ * @param {'synthesizable'|'testbench'} category  — used in the warning text
+ * @returns {object|undefined}  The picked file (first match), or undefined
+ *      if none has isTopLevel.
+ */
+_pickSingleTop(files, category) {
+    const tops = (files || []).filter((f) => f && f.isTopLevel === true);
+    if (tops.length <= 1) return tops[0];
+    const picked = tops[0];
+    const ignored = tops.slice(1).map((f) => f.name || f.path?.split(/[\\/]/).pop() || '?').join(', ');
+    const pickedName = picked.name || picked.path?.split(/[\\/]/).pop() || '?';
+    this.terminalManager.appendToTerminal('tveri',
+        `Warning: ${tops.length} ${category} files are marked as top-level. Using "${pickedName}"; ignoring ${ignored}. Set exactly one top-level per category in Project Settings to silence this warning.`,
+        'warning');
+    return picked;
 }
 
 /**

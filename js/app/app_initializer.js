@@ -380,6 +380,21 @@ class AppInitializer {
     }
 
     /**
+     * Forget the last-opened project. Called from close_project.js so a
+     * "Close Project" + restart doesn't auto-reopen what the user just
+     * closed. Restoring on next launch happens via restoreLastSession,
+     * which reads the same key — clearing here breaks that loop cleanly.
+     */
+    clearLastProject() {
+        this.lastProjectPath = null;
+        try {
+            localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
+        } catch (_e) {
+            /* localStorage failure is non-fatal */
+        }
+    }
+
+    /**
      * Get current mode — 'processor' or 'project'.
      */
     getCurrentMode() {

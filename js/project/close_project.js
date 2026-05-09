@@ -118,6 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // legacy read sites.
                 ProjectStore.clearProject();
 
+                // Forget the last-opened project so the next Aurora launch
+                // doesn't auto-reopen what we just closed. The path lives
+                // in localStorage (`aurora-last-project-path`); we route
+                // through appInitializer instead of touching the key
+                // directly so the storage shape stays owned by one module.
+                window.appInitializer?.clearLastProject?.();
+
                 // Reset Verilog Mode so reopening triggers a full re-activate
                 // (loads projectOriented.json fresh, picks up files outside
                 // the project folder). Without this, isVerilogModeActive

@@ -1416,12 +1416,12 @@ async instrumentVerilogOnlyTestbench(testbenchPath, tbModule, tempBaseDir, selec
         tbModule,
         selectedSignals,
     });
-    if (!result.needsWrite) return testbenchPath;
+    if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
 
     const basename = testbenchPath.split(/[\\/]/).pop();
     const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
     await window.electronAPI.writeFile(instrumentedPath, result.content);
-    return instrumentedPath;
+    return { path: instrumentedPath, reason: result.reason };
 }
 
 /**
@@ -1498,18 +1498,37 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
                 : [];
             const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
             const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
-            // Cache so the .gtkw step in runVerilogOnlyGtkWave reuses
-            // the same pruned list (no duplicate "stale signal"
-            // warning, and the .gtkw matches the VCD exactly).
-            this._validatedWaveSelection = selected;
 
-            const tbPath = await this.instrumentVerilogOnlyTestbench(
+            const { path: tbPath, reason } = await this.instrumentVerilogOnlyTestbench(
                 config.testbenchFile,
                 simTopModule,
                 tempBaseDir,
                 selected,
             );
             fileSet.add(tbPath);
+
+            // Phase 3 — when the testbench has hand-written
+            // $dumpfile/$dumpvars, the user has taken control of
+            // what gets dumped. Forcing the WC picker selection into
+            // the .gtkw would create a layout that references signals
+            // outside the user's $dumpvars scope (silently empty
+            // traces). Cache an empty selection so the .gtkw step
+            // falls back to "default top-scope" — derived purely from
+            // what's actually in the VCD the user produced.
+            if (reason === 'user-defined') {
+                this._validatedWaveSelection = [];
+                if (rawSelected.length > 0) {
+                    this.terminalManager.appendToTerminal('twave',
+                        `Note: testbench has hand-written $dumpvars/$dumpfile — Wave Configuration selection (${rawSelected.length} signal(s)) ignored; .gtkw will mirror the VCD's top-scope.`,
+                        'warning');
+                }
+            } else {
+                // Cache so the .gtkw step in runVerilogOnlyGtkWave
+                // reuses the same pruned list (no duplicate "stale
+                // signal" warning, and the .gtkw matches the VCD).
+                this._validatedWaveSelection = selected;
+            }
+
             if (tbPath !== config.testbenchFile) {
                 const note = selected.length > 0
                     ? `${selected.length} picker-selected signal(s)`

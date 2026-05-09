@@ -8,6 +8,8 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { buildGtkwContent } from '../wave/gtkw_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
+import { validateSelection } from '../wave/selection_validator.js';
+import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
 
 class CompilationModule {
     constructor(projectPath) {
@@ -1236,6 +1238,53 @@ validateVerilogOnlyConfig() {
  * formatting in js/wave/gtkw_writer.js — both unit-tested. This
  * method is the IO glue.
  */
+/**
+ * Filter the user's saved Wave Configuration selection against the
+ * current parsed Verilog hierarchy and warn about stale entries.
+ *
+ * Why this exists: the picker stores selections by dotted path. If
+ * the user later renames a signal (rst → rs) or removes an instance,
+ * the saved entry dangles. Feeding it to the testbench instrumenter
+ * makes iverilog produce `$dumpvars(0, tb_counter.rst)` against a
+ * design that has no `rst`, and the build fails with a cryptic
+ * "exit code 2". Pre-validating turns that into a readable warning
+ * in tveri and lets the build proceed with the still-valid subset.
+ *
+ * Returns the pruned selection. On parse failure, falls back to the
+ * raw selection — better to let iverilog produce a real error than
+ * to silently strip the user's choice on a transient parse hiccup.
+ */
+async _validateWaveSelection(rawSelected, config, simTopModule) {
+    if (!Array.isArray(rawSelected) || rawSelected.length === 0) return [];
+    try {
+        const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
+        const fileContents = await Promise.all(
+            filePaths.map(async (path) => ({
+                path,
+                content: await window.electronAPI.readFile(path, { encoding: 'utf8' }),
+            })),
+        );
+        const { modules } = parseVerilogModules(fileContents);
+        const tree = simTopModule && modules.has(simTopModule)
+            ? buildHierarchyTree(modules, simTopModule)
+            : null;
+        const { valid, dropped } = validateSelection(rawSelected, tree);
+        if (dropped.length > 0) {
+            const preview = dropped.slice(0, 5).join(', ');
+            const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
+            this.terminalManager.appendToTerminal('tveri',
+                `Warning: ${dropped.length} Wave Configuration signal(s) no longer in design — ${preview}${more}. Re-open Wave Configuration to refresh the selection.`,
+                'warning');
+        }
+        return valid;
+    } catch (err) {
+        this.terminalManager.appendToTerminal('tveri',
+            `Could not pre-validate Wave Configuration selection (${err.message}); proceeding with as-saved.`,
+            'warning');
+        return rawSelected;
+    }
+}
+
 async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
     const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
     const scopes = parseVcdHeaderFromContent(vcdContent);
@@ -1419,9 +1468,15 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
         if (buildVvp && config.testbenchFile) {
             // Pull the user's Wave Configuration selection (if any).
             // Empty = stick with the testbench-scope default.
-            const selected = Array.isArray(this.projectConfig?.waveSignals)
+            const rawSelected = Array.isArray(this.projectConfig?.waveSignals)
                 ? this.projectConfig.waveSignals
                 : [];
+            const selected = await this._validateWaveSelection(rawSelected, config, simTopModule);
+            // Cache so the .gtkw step in runVerilogOnlyGtkWave reuses
+            // the same pruned list (no duplicate "stale signal"
+            // warning, and the .gtkw matches the VCD exactly).
+            this._validatedWaveSelection = selected;
+
             const tbPath = await this.instrumentVerilogOnlyTestbench(
                 config.testbenchFile,
                 simTopModule,
@@ -1620,9 +1675,16 @@ async runVerilogOnlyGtkWave() {
 
         if (!gtkwSaveFile) {
             const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
-            const selected = Array.isArray(this.projectConfig?.waveSignals)
-                ? this.projectConfig.waveSignals
-                : [];
+            // Prefer the validated selection cached by the
+            // iverilogVerilogOnlyCompilation step (which ran moments
+            // ago for buildVvp). It already had stale entries pruned,
+            // so the .gtkw lines up exactly with what's in the VCD —
+            // no duplicate "signal not in VCD" warning here.
+            const selected = Array.isArray(this._validatedWaveSelection)
+                ? this._validatedWaveSelection
+                : (Array.isArray(this.projectConfig?.waveSignals)
+                    ? this.projectConfig.waveSignals
+                    : []);
             try {
                 const { written, dropped } = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
                 if (written) {

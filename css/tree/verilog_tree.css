@@ -179,6 +179,14 @@
 .file-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  /* Sized to fit the widest label ("TESTBENCH") at text-2xs semibold so
+     "TOP LEVEL" and "TESTBENCH" rows share the same badge width. Using
+     `width` rather than `min-width` because the latter loses to the
+     intrinsic content size when text exceeds it — "TESTBENCH" at
+     ~80px would push past 72px while "TOP LEVEL" stays at 72px and
+     they end up mismatched again. */
+  width: 72px;
   height: 16px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);

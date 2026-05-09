@@ -1706,20 +1706,50 @@ async runVerilogOnlyGtkWave() {
         }
 
         // Verify VCD file was generated. Aurora normally injects
-        // $dumpfile/$dumpvars when the testbench lacks them, so the only
-        // ways to land here are: the user wrote their own dump logic and
-        // pointed it at a different filename, or the testbench didn't
-        // hit a $finish before vvp aborted.
+        // $dumpfile/$dumpvars when the testbench lacks them, so the
+        // only ways to land here are: the user wrote their own dump
+        // logic and pointed it at a different filename, or the
+        // testbench didn't hit a $finish before vvp aborted.
+        //
+        // Recover from the wrong-name case: vvp's CWD is tempBaseDir
+        // (we cd'd there above), so a `$dumpfile("counter.vcd")` lands
+        // inside tempBaseDir under whatever name the user picked. If
+        // the expected file is missing, scan the dir for an
+        // unambiguous .vcd and adopt it. Anything ambiguous (zero or
+        // multiple) still throws so the user has to disambiguate.
+        let resolvedVcd = vcdFile;
         if (!await window.electronAPI.fileExists(vcdFile)) {
-            throw new Error(
-                `VCD file was not generated.\n` +
-                `Expected: ${vcdFile}\n` +
-                `If your testbench has its own $dumpfile, make sure the filename ` +
-                `matches the testbench module name (Aurora reads ${simTopModule}.vcd).`,
-            );
-        }
+            let candidates = [];
+            try {
+                const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
+                candidates = (entries || []).filter((name) =>
+                    name.toLowerCase().endsWith('.vcd') && name !== 'fix.vcd',
+                );
+            } catch (_listErr) {
+                candidates = [];
+            }
 
-        this.terminalManager.appendToTerminal('twave', `VCD file created: ${vcdFile}`, 'success');
+            if (candidates.length === 1) {
+                resolvedVcd = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
+                this.terminalManager.appendToTerminal('twave',
+                    `Note: testbench's $dumpfile pointed at "${candidates[0]}" instead of ${simTopModule}.vcd; using that file for the wave view.`,
+                    'warning');
+            } else {
+                const detail = candidates.length === 0
+                    ? `No .vcd was produced.`
+                    : `Multiple .vcd candidates were produced: ${candidates.join(', ')}.`;
+                throw new Error(
+                    `VCD file was not generated as ${simTopModule}.vcd.\n` +
+                    `${detail}\n` +
+                    `Aurora looks for a .vcd named after the testbench module. ` +
+                    `Either drop the explicit $dumpfile and let Aurora auto-instrument, ` +
+                    `or change the $dumpfile string to "${simTopModule}.vcd".`,
+                );
+            }
+        }
+        const vcdFileResolved = resolvedVcd;
+
+        this.terminalManager.appendToTerminal('twave', `VCD file created: ${vcdFileResolved}`, 'success');
 
         // Always stage fix.vcd alongside the VCD output. GTKWave under GTK3
         // needs that companion file opened in a second tab to refresh the
@@ -1761,7 +1791,7 @@ async runVerilogOnlyGtkWave() {
                     const gtkwContent = await window.electronAPI.readFile(gtkwSaveFile, { encoding: 'utf8' });
                     const referenced = extractSignalRefs(gtkwContent);
                     if (referenced.length > 0) {
-                        const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
+                        const vcdContent = await window.electronAPI.readFile(vcdFileResolved, { encoding: 'utf8' });
                         const scopes = parseVcdHeaderFromContent(vcdContent);
                         const inVcd = new Set();
                         for (const scope of scopes) {
@@ -1803,7 +1833,7 @@ async runVerilogOnlyGtkWave() {
                     ? this.projectConfig.waveSignals
                     : []);
             try {
-                const { written, dropped } = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
+                const { written, dropped } = await this.generateGtkwForVcd(vcdFileResolved, autoGtkw, simTopModule, selected);
                 if (written) {
                     gtkwSaveFile = autoGtkw;
                     const source = selected.length > 0
@@ -1837,7 +1867,7 @@ async runVerilogOnlyGtkWave() {
         // Generic init script: zooms, then opens fix.vcd in a second tab.
         const fixScript = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
 
-        let gtkwaveCmd = `"${gtkwaveBin}" --dark "${vcdFile}"`;
+        let gtkwaveCmd = `"${gtkwaveBin}" --dark "${vcdFileResolved}"`;
 
         if (gtkwSaveFile) {
             // Hide the Signal Search Tree whenever any .gtkw is in play.

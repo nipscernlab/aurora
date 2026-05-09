@@ -1229,8 +1229,15 @@ validateVerilogOnlyConfig() {
  * from whatever vvp dumped, without the user having to declare which
  * signals to show.
  *
+ * Each scope carries `path` — the full dotted hierarchical path from
+ * the simulation root, built from the names of every $scope module
+ * encountered on the way down. This is what the Wave Configuration
+ * picker uses to address signals (e.g. `tb_counter.dut.q_next`), so
+ * picker selections can be matched against VCD signals 1:1 instead of
+ * fighting name collisions across nested modules.
+ *
  * Output shape:
- *   [{ name: 'tb_counter', signals: [{name, width, range, type}, ...] }, ...]
+ *   [{ name, path, signals: [{name, width, range, type}] }, ...]
  *
  * Scopes appear in declaration order. The first one is the simulation
  * top (the testbench module).
@@ -1240,7 +1247,7 @@ parseVcdScopes(vcdHeader) {
     // Keep this conservative — VCD is whitespace-delimited and the
     // header is small, so a bare regex split is fast enough.
     const tokens = vcdHeader.match(/\[[^\]]+\]|\S+/g) || [];
-    const scopeStack = [];
+    const scopeStack = []; // entries are real scope objects or null (for non-module skips)
     const scopes = [];
 
     const skipToEnd = (i) => {
@@ -1257,7 +1264,10 @@ parseVcdScopes(vcdHeader) {
             const name = tokens[i + 2];
             i = skipToEnd(i + 2);
             if (scopeType === 'module') {
-                const newScope = { name, signals: [] };
+                // Find the nearest real (non-null) ancestor for the path.
+                const parent = scopeStack.slice().reverse().find((s) => s !== null);
+                const path = parent ? `${parent.path}.${name}` : name;
+                const newScope = { name, path, signals: [] };
                 scopes.push(newScope);
                 scopeStack.push(newScope);
             } else {
@@ -1277,7 +1287,7 @@ parseVcdScopes(vcdHeader) {
                 range = tokens[i + 5].slice(1, -1);
             }
             i = skipToEnd(i);
-            const current = scopeStack[scopeStack.length - 1];
+            const current = scopeStack.slice().reverse().find((s) => s !== null);
             if (current) current.signals.push({ name, width, range, type });
         } else if (token === '$enddefinitions') {
             break;
@@ -1313,14 +1323,15 @@ async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
     const scopes = this.parseVcdScopes(header);
     if (scopes.length === 0) return false;
 
-    // Index every signal in the VCD by its dotted scope path so we can
-    // match user picks (which are stored in dotted form) and re-attach
-    // the bit-range for nice trace formatting.
+    // Index every signal by its FULL hierarchical path (e.g.
+    // `tb_counter.dut.q_next`). The picker stores selections in the
+    // same form, so matching is a Set lookup. Without the parent
+    // chain, signals in nested modules would collide on local names.
     const flatten = [];
     for (const scope of scopes) {
         for (const sig of scope.signals) {
             flatten.push({
-                fullName: `${scope.name}.${sig.name}`,
+                fullName: `${scope.path}.${sig.name}`,
                 range: sig.range,
             });
         }
@@ -1331,8 +1342,12 @@ async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
         const picks = new Set(selectedSignals);
         toEmit = flatten.filter((s) => picks.has(s.fullName));
     } else {
-        // Default: testbench-module scope only.
-        toEmit = flatten.filter((s) => s.fullName.split('.').length === 2 && s.fullName.startsWith(`${tbModule}.`));
+        // Default: testbench-module scope only — exactly the signals
+        // declared at `tbModule`'s level, no submodules.
+        toEmit = flatten.filter((s) => {
+            const parts = s.fullName.split('.');
+            return parts.length === 2 && parts[0] === tbModule;
+        });
     }
 
     if (toEmit.length === 0) return false;

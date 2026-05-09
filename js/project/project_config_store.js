@@ -47,6 +47,11 @@ const DEFAULTS = Object.freeze({
   iverilogFlags: '',
   simuDelay: '200000',
   showArraysInGtkwave: 0,
+  // Wave Configuration picker — list of dotted scope paths
+  // ("tb_counter.dut.q") that should land in $dumpvars and the
+  // auto-generated .gtkw. Empty = use the default of "everything at
+  // the testbench module scope".
+  waveSignals: [],
 });
 
 async function configPathFor(projectPath) {

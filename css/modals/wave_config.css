@@ -1,0 +1,142 @@
+/*
+ * wave_config.css — Wave Configuration modal.
+ *
+ * Hierarchical signal picker for Verilog testbench → DUT → ... — user
+ * checks signals to dump to VCD. Layout: a flat list with indented
+ * rows (CSS depth, not nested DOM containers) so collapse/expand and
+ * checkbox propagation stay simple.
+ *
+ * The base modal frame (.modal-overlay / .modal-container / .modal-header /
+ * .modal-body / .modal-footer) lives in modal_config.css; only the
+ * tree-specific bits live here.
+ */
+
+.wave-tree-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.wave-tree-toolbar .btn-small {
+    font-size: var(--text-xs);
+    padding: 4px 10px;
+}
+
+.wave-tree {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    max-height: 50vh;
+    min-height: 240px;
+    overflow-y: auto;
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+/* Each row is module-or-signal. Indent comes from --depth set inline. */
+.wave-tree-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px var(--space-2);
+    padding-left: calc(var(--space-2) + (var(--depth, 0) * 18px));
+    border-radius: var(--radius-sm);
+    cursor: default;
+    user-select: none;
+}
+
+.wave-tree-row:hover {
+    background-color: var(--bg-elev);
+}
+
+/* Module rows have a chevron (collapsed/expanded). Signal rows
+   reserve the same width with an invisible spacer so checkboxes line up. */
+.wave-tree-chevron {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: transform 120ms ease;
+    flex-shrink: 0;
+}
+
+.wave-tree-chevron.collapsed {
+    transform: rotate(-90deg);
+}
+
+.wave-tree-chevron.spacer {
+    cursor: default;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.wave-tree-checkbox {
+    flex-shrink: 0;
+    margin: 0;
+    cursor: pointer;
+    /* Indeterminate styling is handled by the browser. */
+}
+
+.wave-tree-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.wave-tree-row.module-row .wave-tree-icon {
+    color: var(--accent);
+}
+
+.wave-tree-row.signal-row .wave-tree-icon {
+    color: var(--text-muted);
+}
+
+.wave-tree-name {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wave-tree-row.module-row .wave-tree-name {
+    font-weight: 600;
+}
+
+.wave-tree-row.signal-row .wave-tree-name .signal-kind {
+    color: var(--text-muted);
+    margin-right: var(--space-1);
+    font-size: var(--text-xs);
+}
+
+.wave-tree-row.signal-row .wave-tree-name .signal-range {
+    color: var(--text-muted);
+    margin-left: 4px;
+    font-size: var(--text-xs);
+}
+
+.wave-tree-row .wave-tree-instance {
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: var(--space-1);
+    font-size: var(--text-xs);
+}
+
+/* Hidden subtree under a collapsed module. */
+.wave-tree-row.hidden-by-parent {
+    display: none;
+}
+
+.footer-counter {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+}

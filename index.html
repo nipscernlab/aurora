@@ -684,6 +684,75 @@
 <input type="file" id="synthesizableFileInput" class="hidden" multiple accept=".v">
 <input type="file" id="testbenchFileInput" class="hidden" multiple accept=".v,.gtkw">
 
+<!-- Wave Configuration Modal -->
+<div id="modalWaveConfig" class="modal-overlay" aria-hidden="true">
+    <div class="modal-container medium" role="dialog" aria-labelledby="wave-config-title" aria-modal="true">
+        <header class="modal-header">
+            <h2 id="wave-config-title" class="modal-title">
+                <i class="ph ph-waveform" aria-hidden="true"></i>
+                <span>Wave Configuration</span>
+            </h2>
+            <button id="closeWaveConfigModal" class="modal-close-btn" aria-label="Close Modal">
+                <i class="ph ph-x" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <main class="modal-body">
+            <section class="config-section">
+                <h3 class="section-title">
+                    <i class="ph ph-list-checks" aria-hidden="true"></i>
+                    Signals to Dump
+                </h3>
+                <p class="form-hint">
+                    Pick which signals are dumped to the VCD and shown in GTKWave on Wave click.
+                    Default (no selection): everything declared at the testbench module scope.
+                </p>
+
+                <div class="wave-tree-toolbar">
+                    <button id="waveConfigRefresh" class="btn btn-outline btn-small" type="button">
+                        <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                        <span>Refresh from sources</span>
+                    </button>
+                    <button id="waveConfigSelectDefault" class="btn btn-outline btn-small" type="button">
+                        <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+                        <span>Reset to default</span>
+                    </button>
+                    <button id="waveConfigSelectAll" class="btn btn-outline btn-small" type="button">
+                        <i class="ph ph-check-square" aria-hidden="true"></i>
+                        <span>Select all</span>
+                    </button>
+                    <button id="waveConfigSelectNone" class="btn btn-outline btn-small" type="button">
+                        <i class="ph ph-square" aria-hidden="true"></i>
+                        <span>Clear</span>
+                    </button>
+                </div>
+
+                <div id="waveConfigTree" class="wave-tree" role="tree">
+                    <div class="empty-state" id="waveConfigEmpty">
+                        <i class="ph ph-tree-structure empty-icon" aria-hidden="true"></i>
+                        <span>No signals discovered yet. Click "Refresh from sources".</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="modal-footer">
+            <div class="footer-info">
+                <span id="waveConfigSelectedCount" class="footer-counter">0 signals selected</span>
+            </div>
+            <div class="footer-actions">
+                <button id="cancelWaveConfig" class="btn btn-secondary">
+                    <span>Cancel</span>
+                </button>
+                <button id="saveWaveConfig" class="btn btn-primary">
+                    <i class="ph ph-floppy-disk" aria-hidden="true"></i>
+                    <span>Save</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+</div>
+
 <!-- New Project Modal -->
 <div id="newProjectModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-container" role="dialog" aria-labelledby="new-project-title" aria-modal="true">
@@ -1136,6 +1205,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/ui/dialog_manager.js" type="module"></script>
 <script src="./js/processors/processor_hub.js" type="module"></script>
 <script src="./js/tree/file_tree_toggler.js" type="module"></script>
+<script src="./js/wave/wave_config_manager.js" type="module"></script>
 <script src="./js/app/app_initializer.js" type="module"></script>
 </body>
 </html>

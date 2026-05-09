@@ -126,6 +126,7 @@ class CommandPalette {
       { id: 'asmcomp', label: 'Compile ASM', description: 'Run ASM compilation', category: 'Compilation', action: () => clickIfPossible('asmcomp') },
       { id: 'vericomp', label: 'Compile Verilog', description: 'Run Verilog compilation', category: 'Compilation', action: () => clickIfPossible('vericomp') },
       { id: 'wavecomp', label: 'Open Waveform Viewer', description: 'Open waveform viewer', category: 'Compilation', action: () => clickIfPossible('wavecomp') },
+      { id: 'waveConfigBtn', label: 'Wave Configuration', description: 'Pick signals to dump for the waveform viewer', category: 'Compilation', action: () => clickIfPossible('waveConfigBtn') },
       { id: 'prismcomp', label: 'PRISM Compile', description: 'Run PRISM', category: 'Compilation', action: async () => {
         if (window.compilationFlowManager && typeof window.compilationFlowManager.runSingleStep === 'function') {
           await window.compilationFlowManager.runSingleStep('prism');

@@ -63,6 +63,11 @@ class WaveConfigManager {
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());
         this.elements.selectNoneBtn?.addEventListener('click', () => this.selectNone());
 
+        // Toolbar button — primary entry point for the modal. Also
+        // wired up here (rather than in renderer.js / compilation_flow)
+        // so the manager owns its full lifecycle.
+        document.getElementById('waveConfigBtn')?.addEventListener('click', () => this.open());
+
         // Esc closes when modal is open.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen()) this.close();

@@ -87,20 +87,19 @@
   overflow-y: auto;
 }
 
-/* While the welcome is actually showing, hide the editor area and the
-   horizontal resizer so nothing peeks through behind the welcome card.
-   After SplitEditorManager initializes, .editor-container is wrapped
-   inside .split-editor-wrapper — target both so the rule survives
-   either layout.
+/* While the welcome is actually showing, hide the editor area so
+   nothing peeks through behind the welcome card. After
+   SplitEditorManager initializes, .editor-container is wrapped inside
+   .split-editor-wrapper — target both so the rule survives either
+   layout.
 
-   The terminal stays visible deliberately: when the user kicks off a
-   compile without having opened a file yet, they need to see the
-   build / iverilog / yosys output streaming in. Hiding the terminal
-   alongside the editor (the previous behaviour) made every
-   compile-before-edit run look frozen. */
+   The terminal AND its horizontal resizer stay visible: the user
+   needs to see compile output streaming when they kick off a build
+   from the welcome screen, and the resizer lets them grow the
+   terminal pane without first having to open a file (which used to
+   be a prerequisite for any drag-to-resize behaviour). */
 #editor-overlay.visible:not(.hidden) ~ .editor-container,
-#editor-overlay.visible:not(.hidden) ~ .split-editor-wrapper,
-#editor-overlay.visible:not(.hidden) ~ .resizer-horizontal {
+#editor-overlay.visible:not(.hidden) ~ .split-editor-wrapper {
   display: none !important;
 }
 

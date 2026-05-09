@@ -424,6 +424,13 @@ class TerminalManager {
             content :
             (content.stdout || '') + ' ' + (content.stderr || '');
 
+        // C-toolchain style: `<file>:<line>: error: ...` / `warning: ...`.
+        // Catches lowercase iverilog / yosys / gcc-style diagnostics that
+        // the older substring checks (`'ERROR'`, `'Warning'`) miss.
+        // Checked first because it's the most specific (token + colon).
+        if (/\berror:/i.test(text)) return 'error';
+        if (/\bwarning:/i.test(text)) return 'warning';
+
         if (text.includes('Atenção') || text.includes('Warning')) return 'warning';
         if (text.includes('Erro') || text.includes('ERROR')) return 'error';
         if (text.includes('Sucesso') || text.includes('Success')) return 'success';

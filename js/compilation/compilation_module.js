@@ -10,6 +10,7 @@ import { buildGtkwContent } from '../wave/gtkw_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../verilog/signal_parser.js';
+import { ProjectConfigStore } from '../project/project_config_store.js';
 
 class CompilationModule {
     constructor(projectPath) {
@@ -1254,10 +1255,9 @@ validateVerilogOnlyConfig() {
  * raw selection — better to let iverilog produce a real error than
  * to silently strip the user's choice on a transient parse hiccup.
  */
-async _validateWaveSelection(rawSelected, config, simTopModule) {
+async _validateWaveSelection(rawSelected, filePaths, simTopModule) {
     if (!Array.isArray(rawSelected) || rawSelected.length === 0) return [];
     try {
-        const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
         const fileContents = await Promise.all(
             filePaths.map(async (path) => ({
                 path,
@@ -1270,15 +1270,40 @@ async _validateWaveSelection(rawSelected, config, simTopModule) {
             : null;
         const { valid, dropped } = validateSelection(rawSelected, tree);
         if (dropped.length > 0) {
-            const preview = dropped.slice(0, 5).join(', ');
+            const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
             const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
-            this.terminalManager.appendToTerminal('tveri',
-                `Warning: ${dropped.length} Wave Configuration signal(s) no longer in design — ${preview}${more}. Re-open Wave Configuration to refresh the selection.`,
-                'warning');
+            const msg = dropped.length === 1
+                ? `Note: ${preview} was checked in Wave Configuration but no longer exists in the design; ignored (not added to $dumpvars).`
+                : `Note: ${dropped.length} signals checked in Wave Configuration no longer exist in the design and were ignored (not added to $dumpvars): ${preview}${more}.`;
+            // Goes to twave — this is a Wave Configuration concern,
+            // even though it's detected during the iverilog
+            // instrumentation step (the wave button is the only flow
+            // that triggers buildVvp; the plain Compile button never
+            // hits this path).
+            this.terminalManager.appendToTerminal('twave', msg, 'warning');
+
+            // Auto-prune the persisted selection so the warning fires
+            // once, not on every compile. We can't tell the user to
+            // "uncheck" a stale entry — the picker only shows signals
+            // that exist in the parsed hierarchy, so a missing path
+            // has no UI to remove it from. The cleanup runs through
+            // ProjectConfigStore.update so it serializes against any
+            // concurrent writes from the modal/save flow.
+            try {
+                await ProjectConfigStore.update(this.projectPath, (cfg) => {
+                    cfg.waveSignals = valid;
+                });
+                if (Array.isArray(this.projectConfig?.waveSignals)) {
+                    this.projectConfig.waveSignals = valid;
+                }
+            } catch (_persistErr) {
+                // Non-fatal: the run already proceeds with `valid`.
+                // Next compile will re-detect and re-try the cleanup.
+            }
         }
         return valid;
     } catch (err) {
-        this.terminalManager.appendToTerminal('tveri',
+        this.terminalManager.appendToTerminal('twave',
             `Could not pre-validate Wave Configuration selection (${err.message}); proceeding with as-saved.`,
             'warning');
         return rawSelected;
@@ -1471,7 +1496,8 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
             const rawSelected = Array.isArray(this.projectConfig?.waveSignals)
                 ? this.projectConfig.waveSignals
                 : [];
-            const selected = await this._validateWaveSelection(rawSelected, config, simTopModule);
+            const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
+            const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
             // Cache so the .gtkw step in runVerilogOnlyGtkWave reuses
             // the same pruned list (no duplicate "stale signal"
             // warning, and the .gtkw matches the VCD exactly).
@@ -1702,11 +1728,12 @@ async runVerilogOnlyGtkWave() {
                 // the selection no longer matches. Without this warning
                 // the user just sees an empty trace and has to guess.
                 if (dropped.length > 0) {
-                    const preview = dropped.slice(0, 5).join(', ');
+                    const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
                     const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
-                    this.terminalManager.appendToTerminal('twave',
-                        `Warning: ${dropped.length} selected signal(s) not present in VCD — ${preview}${more}. Re-open Wave Configuration to refresh the selection.`,
-                        'warning');
+                    const msg = dropped.length === 1
+                        ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
+                        : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
+                    this.terminalManager.appendToTerminal('twave', msg, 'warning');
                 }
             } catch (genErr) {
                 this.terminalManager.appendToTerminal('twave',

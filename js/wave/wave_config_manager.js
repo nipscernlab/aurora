@@ -90,28 +90,41 @@ class WaveConfigManager {
     async open() {
         const projectPath = ProjectStore.getProjectPath();
 
-        // Gate on a real iverilog syntax check. The regex parser that
-        // builds the picker tree is conservative — it can quietly
-        // misparse broken Verilog and produce a tree the user trusts
-        // even though iverilog would refuse the same code. Run iverilog
-        // first; if the design doesn't elaborate, surface the errors in
-        // tveri and don't open the modal at all. Skipped when there's
-        // no project (the modal still opens to show the empty state)
-        // or in processor mode (Wave Configuration is verilog-only).
         if (projectPath) {
             const compiler = new CompilationModule(projectPath);
             await compiler.loadConfig();
 
+            // STEP 1 — local cleanup: validate the saved waveSignals
+            // against the current Verilog hierarchy and auto-prune
+            // entries that no longer exist. Cheap regex parse, runs
+            // BEFORE any iverilog work so a stale selection from a
+            // previous code edit can't outlive the rename. The
+            // notification (twave) and the projectOriented.json write
+            // happen inside _validateWaveSelection.
+            const cfg = await ProjectConfigStore.read(projectPath);
+            const filePaths = [
+                ...(cfg.synthesizableFiles || []).map((f) => f?.path),
+                cfg.testbenchFile,
+                ...(cfg.testbenchFiles || []).map((f) => f?.path),
+            ].filter(Boolean);
+            const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
+            const tbModule = moduleNameFromPath(cfg.testbenchFile)
+                || moduleNameFromPath(cfg.topLevelFile);
+            const rawSelected = Array.isArray(cfg.waveSignals) ? cfg.waveSignals : [];
+            if (tbModule && filePaths.length > 0) {
+                await compiler._validateWaveSelection(rawSelected, filePaths, tbModule);
+            }
+
+            // STEP 2 — informational iverilog syntax check. Used to
+            // gate the modal but that created a dead-end (if a stale
+            // selection caused the iverilog failure, the user
+            // couldn't reach the picker to clean it up). Now purely
+            // informational; modal opens regardless.
             if (compiler.isVerilogOnlyMode()) {
                 if (typeof window.switchTerminal === 'function') {
                     window.switchTerminal('terminal-tveri');
                 }
-                const check = await compiler.verilogOnlySyntaxCheck();
-                if (!check.success) {
-                    // Errors already streamed to tveri. Bail out — user
-                    // fixes their code, then reopens the picker.
-                    return;
-                }
+                await compiler.verilogOnlySyntaxCheck();
             }
         }
 

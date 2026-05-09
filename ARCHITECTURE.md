@@ -2,7 +2,7 @@
 
 This is **not** a project overview or onboarding doc. Read [README.md](README.md) for that.
 
-This file lists the implicit contracts the renderer process depends on but doesn't enforce. Every entry here was learned by something breaking in subtle ways. **Read this before refactoring anything in [js/app/](js/app/), [js/project/](js/project/), [js/tree/](js/tree/), [js/editor/](js/editor/), or [js/tabs/](js/tabs/).**
+This file lists the implicit contracts the renderer process depends on but doesn't enforce. Every entry here was learned by something breaking in subtle ways. **Read this before refactoring anything in [js/app/](js/app/), [js/project/](js/project/), [js/tree/](js/tree/), [js/editor/](js/editor/), [js/tabs/](js/tabs/), [js/wave/](js/wave/), or the wave-flow paths in [js/compilation/](js/compilation/).**
 
 When you change something here, update this doc.
 
@@ -181,7 +181,33 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
 ---
 
-## 10. Refactoring checklist
+## 10. Wave flow — VCD is the ground truth
+
+The Wave button (Verilog-Only) goes through three steps with a single guiding rule: anything we ask GTKWave to display must be present in the VCD that vvp actually produced. The user can request signals from three different places, but the VCD wins.
+
+**Sources of truth, in priority order:**
+
+1. **User-written `$dumpfile` / `$dumpvars` in the testbench** — if the source already has either, `instrumentTestbenchSource` ([testbench_instrumenter.js](js/wave/testbench_instrumenter.js)) leaves the file alone and returns `reason: 'user-defined'`. The compile flow ([compilation_module.js](js/compilation/compilation_module.js)) then forces the cached selection to `[]` so the .gtkw step falls through to the default top-scope. **The picker selection is intentionally ignored when the user has taken control** — anything else would emit traces for signals the user's `$dumpvars` never dumped.
+2. **Wave Configuration picker selection** (`projectConfig.waveSignals`) — fed verbatim into `$dumpvars(0, sig1, sig2, ...)` after validation (next bullet). The picker UI ([wave_config_manager.js](js/wave/wave_config_manager.js)) only ever shows signals that exist in the parsed hierarchy, so a stale dotted-path entry has no UI representation and can't be unchecked from the modal.
+3. **Default** — empty selection produces `$dumpvars(1, <tb>)`, which dumps every signal at the testbench-module scope. The .gtkw mirrors this: every top-scope signal in the VCD ends up as a trace.
+
+**Three validation gates, all reading the same VCD-as-truth principle:**
+
+- `validateSelection` ([selection_validator.js](js/wave/selection_validator.js)) — runs against the regex-parsed hierarchy. Stale entries (renamed signal, removed instance) are auto-pruned out of `projectConfig.waveSignals` and a `Note: ... ignored (not added to $dumpvars)` is logged in `twave`. Fires both at WC modal open and at compile time, so the cleanup happens regardless of which path the user takes.
+- `pickSignalsToEmit` ([gtkw_writer.js](js/wave/gtkw_writer.js)) — runs against the VCD's parsed scopes. Anything in the selection that vvp didn't actually dump is reported back as `dropped`; the .gtkw still writes for the rest, and the warning surfaces in `twave`. This is the second-to-last line of defense before GTKWave opens.
+- `instrumentTestbenchSource.reason` — the user-defined override. The compile-flow caller ([compilation_module.js](js/compilation/compilation_module.js)) reads this and zeroes the cached selection, which is what makes the .gtkw fall back to default top-scope when the user has hand-written `$dumpvars`.
+
+**Why the cache `_validatedWaveSelection`:** the validation runs during `iverilogVerilogOnlyCompilation({buildVvp: true})`. The .gtkw is written later, in `runVerilogOnlyGtkWave` after vvp produces the VCD. Both steps need the same pruned-and-possibly-zeroed selection, so the compile step writes it onto `this._validatedWaveSelection` for the .gtkw step to read. Without the cache, you either re-run the (regex parse + projectOriented.json write) or you re-warn the user about signals you already pruned.
+
+**What you can't change without thinking:**
+
+- **Don't add a fourth source of "what to dump."** If users want a curated layout, they import a custom `.gtkw` via Project Settings — that's the existing escape hatch and the wave-flow code already detects it (`gtkwSaveFile` set early in `runVerilogOnlyGtkWave`). Adding a fifth path means another priority decision and another silent-mismatch class.
+- **Don't bypass `_validateWaveSelection` to inject `$dumpvars` directly.** If the path you write isn't in the parsed hierarchy, iverilog fails with `port "X" is not a port of dut` or similar — exactly the bug we hit when we shipped the picker without validation. Always go through the validator.
+- **The `reason: 'user-defined'` override is one-directional.** When the user has manual `$dumpvars`, the picker selection is ignored, but we don't proactively clear `waveSignals` from disk — the user might remove their `$dumpvars` later and want the picker back. Only `validateSelection` writes to `waveSignals`; `'user-defined'` just suppresses use of it.
+
+---
+
+## 11. Refactoring checklist
 
 Before merging any change to this layer, walk through:
 
@@ -193,6 +219,7 @@ Before merging any change to this layer, walk through:
 - [ ] Did you call `EditorManager.createEditorInstance` outside `TabManager.addTab`? See §4.
 - [ ] Did you change what `getCurrentMode` returns at startup or how soon? Smoke-test open-close-reopen-edit manually.
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
+- [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §10 — if the path bypasses `validateSelection` or `pickSignalsToEmit`, you're recreating a class of bug we've already fixed.
 
 Smoke test (manual, ~2 min):
 1. Open Aurora. Last project should auto-load in saved mode.

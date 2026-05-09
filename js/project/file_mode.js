@@ -1257,13 +1257,19 @@ async loadConfiguration() {
         // Same coalescing pattern as activateVerilogMode: two refresh calls
         // arriving in the same tick (e.g. from project-config-saved + a tab
         // event) would each reset verilogFiles=[] and interleave pushes.
+        //
+        // No toast on completion: this method runs from four call sites,
+        // only one of which is user-triggered (manual refresh button).
+        // The other three (initial activation, project-config-saved,
+        // filesystem watcher) all fire on app open or background events,
+        // so a toast there is noise. The tree visually updating is
+        // already the feedback for the manual case.
         if (this._refreshPromise) return this._refreshPromise;
 
         this._refreshPromise = (async () => {
             console.log('🔄 Refreshing Verilog Mode tree...');
             await this.loadConfiguration();
             this.renderVerilogTree();
-            this.showNotification('Verilog Mode refreshed', 'success', 2000);
         })();
 
         try {

@@ -43,9 +43,22 @@
      ============================================================ -->
 <div class="app-shell">
 
-  <!-- Toolbar = custom title bar (drag region + tools + traffic lights) -->
+  <!-- Toolbar = custom title bar (drag region + tools + traffic lights)
+
+       Groups, left-to-right:
+         1. file / project actions
+         2. processor toolchain (Processor Hub, C±, ASM)
+         3. synthesize (Verilog + PRISM)
+         4. waves (Analyse Verilog, Wave Configuration, .gtkw picker)
+         5. everything else (mode toggle, build, settings, AI, ...)
+
+       Each group is wrapped in `.toolbar-group`; vertical-line
+       `.toolbar-separator`s sit between adjacent groups. Group 5 has
+       `.toolbar-group-rest` to push it (and the window controls)
+       against the right edge. -->
   <div class="toolbar" id="custom-titlebar">
-    <div class="toolbar-left">
+    <!-- Group 1: file / project actions -->
+    <div class="toolbar-group">
         <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar">
             <i class="ph ph-sidebar-simple"></i>
         </button>
@@ -58,9 +71,13 @@
             <span>Open Project</span>
         </button>
     </div>
+    <div class="toolbar-separator" aria-hidden="true"></div>
 
-    <!-- Center Group - Compilation Tools -->
-    <div class="toolbar-center">
+    <!-- Group 2: processor toolchain -->
+    <div class="toolbar-group">
+        <button id="processorHub" class="toolbar-button icon-only" data-tooltip="Processor Hub">
+            <i class="ph ph-graph"></i>
+        </button>
         <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±">
             <span class="glyph glyph-cpm" aria-hidden="true">
               <svg viewBox="0 0 24 16">
@@ -82,6 +99,11 @@
               </svg>
             </span>
         </button>
+    </div>
+    <div class="toolbar-separator" aria-hidden="true"></div>
+
+    <!-- Group 3: synthesize -->
+    <div class="toolbar-group">
         <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog">
             <span class="glyph glyph-veri" aria-hidden="true">
               <svg viewBox="0 0 16 16">
@@ -92,7 +114,16 @@
               </svg>
             </span>
         </button>
-        <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="View waveform">
+        <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
+            <img src="./assets/icons/aurora_prism.svg" alt="">
+            <span>PRISM</span>
+        </button>
+    </div>
+    <div class="toolbar-separator" aria-hidden="true"></div>
+
+    <!-- Group 4: waves -->
+    <div class="toolbar-group">
+        <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)">
             <span class="glyph glyph-wave" aria-hidden="true">
               <svg viewBox="0 0 16 16">
                 <!-- Symmetric square wave: low → high → low → high → low across the viewport -->
@@ -100,45 +131,43 @@
               </svg>
             </span>
         </button>
-        <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
-            <img src="./assets/icons/aurora_prism.svg" alt="">
-            <span>PRISM</span>
+        <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump">
+            <i class="ph ph-list-checks"></i>
         </button>
+        <select id="gtkwPickerSelect" class="toolbar-select" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave">
+            <option value="">(no .gtkw)</option>
+            <option value="__add__">+ Add .gtkw file...</option>
+        </select>
     </div>
+    <div class="toolbar-separator" aria-hidden="true"></div>
 
-    <!-- Mode toggle -->
-    <div class="toggle-group">
-      <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
-      <label for="Processor Mode" class="mode-label mode-label-proc" data-tooltip="Processor Mode">
-          <i class="ph ph-cpu mode-label-icon"></i>
-      </label>
-      <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
-      <label for="Project Mode" class="mode-label mode-label-proj" data-tooltip="Project Mode">
-          <i class="ph ph-tree-structure mode-label-icon"></i>
-      </label>
-    </div>
+    <!-- Group 5: mode toggle, build, the rest. Pushed against the
+         right edge so the window controls hug the corner. -->
+    <div class="toolbar-group toolbar-group-rest">
+        <div class="toggle-group">
+            <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
+            <label for="Processor Mode" class="mode-label mode-label-proc" data-tooltip="Processor Mode">
+                <i class="ph ph-cpu mode-label-icon"></i>
+            </label>
+            <input type="radio" name="mode" id="Project Mode" value="Project Mode" />
+            <label for="Project Mode" class="mode-label mode-label-proj" data-tooltip="Project Mode">
+                <i class="ph ph-tree-structure mode-label-icon"></i>
+            </label>
+        </div>
 
-    <div class="compile-all-group">
-        <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
-            <i class="ph ph-stop-circle"></i>
-        </button>
-        <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build">
-            <i class="ph ph-hammer"></i>
-            <span>Full Build</span>
-        </button>
-    </div>
+        <div class="compile-all-group">
+            <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
+                <i class="ph ph-stop-circle"></i>
+            </button>
+            <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build">
+                <i class="ph ph-hammer"></i>
+                <span>Full Build</span>
+            </button>
+        </div>
 
-    <div class="toolbar-right">
         <button id="settings" class="toolbar-button btn-settings">
             <i class="ph ph-gear-six"></i>
             <span>Settings</span>
-        </button>
-        <button id="processorHub" class="toolbar-button btn-hub">
-            <i class="ph ph-graph"></i>
-            <span>Processor Hub</span>
-        </button>
-        <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump">
-            <i class="ph ph-list-checks"></i>
         </button>
         <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
             <i class="ph ph-sliders-horizontal"></i>
@@ -1209,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/processors/processor_hub.js" type="module"></script>
 <script src="./js/tree/file_tree_toggler.js" type="module"></script>
 <script src="./js/wave/wave_config_manager.js" type="module"></script>
+<script src="./js/wave/gtkw_picker.js" type="module"></script>
 <script src="./js/app/app_initializer.js" type="module"></script>
 </body>
 </html>

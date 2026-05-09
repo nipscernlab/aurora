@@ -169,9 +169,10 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 /* ---------------------------------------------------------------------------
  *  Groups
  * ------------------------------------------------------------------------- */
-.toolbar-left,
-.toolbar-center,
-.toolbar-right,
+/* Group container: each "logical cluster" of buttons sits inside one
+   .toolbar-group. The whole toolbar reads as `group | group | group`,
+   with .toolbar-separator drawing the visual divider between them. */
+.toolbar-group,
 .compile-all-group,
 .toggle-group {
   display: inline-flex;
@@ -183,34 +184,29 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   flex-shrink: 0;
 }
 
-.toolbar-left { gap: 1px; margin-right: var(--space-2); }
-
-.toolbar-center {
-  position: relative;
-  padding: 0 var(--space-3);
-  margin: 0 auto;
-  gap: 1px;
-}
-
-.toolbar-center::before,
-.toolbar-center::after {
-  content: '';
+/* Vertical hairline between groups. Lives as its own element rather
+   than ::before/::after on the group so re-ordering / inserting a new
+   group is one HTML edit instead of two CSS reads. */
+.toolbar-separator {
   width: 1px;
   height: 18px;
   background: var(--border);
-  display: block;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  margin: 0 var(--space-2);
+  flex-shrink: 0;
+  align-self: center;
 }
 
-.toolbar-center::before { left: 0; }
-.toolbar-center::after  { right: 0; }
+/* The "everything else" group hugs the right edge so the window
+   controls (min/max/close) sit flush against the corner. Nested
+   sub-clusters keep their own gap so .toggle-group's pill style and
+   the build/cancel pair don't collapse onto the icon buttons. */
+.toolbar-group-rest {
+  margin-left: auto;
+  gap: var(--space-1);
+}
 
-.compile-all-group { gap: 1px; margin-left: var(--space-2); }
-.toggle-group      { margin: 0 var(--space-2); }
-
-.toolbar-right { margin-left: auto; gap: 1px; }
+.compile-all-group { gap: 1px; }
+.toggle-group      { margin: 0 var(--space-1); }
 
 /* ---------------------------------------------------------------------------
  *  Button base — 28px, consistent rhythm
@@ -246,6 +242,62 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   padding: 0;
   width: var(--h-button);
   min-width: var(--h-button);
+}
+
+/* Toolbar-side native <select>. Matches .toolbar-button height/font but
+   stays a true <select> so it gets the OS dropdown for free (keyboard
+   nav, screen reader, etc.). The styled chevron is added via a tiny
+   inline SVG so we don't depend on a font icon for it. */
+.toolbar-select {
+  height: var(--h-button);
+  max-width: 220px;
+  padding: 0 28px 0 var(--space-3);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8a8b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: 14px 14px;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast),
+              border-color var(--transition-fast);
+}
+
+.toolbar-select:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.toolbar-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Dropdown popup. Native <select> popups are OS-rendered, but
+   Chromium honours background-color / color on <option> to theme
+   the list. Without these the popup falls back to the system's
+   white-on-dark default which screams against Aurora's dark UI. */
+.toolbar-select option {
+  background-color: var(--bg-elev-2);
+  color: var(--text);
+}
+
+.toolbar-select option:checked,
+.toolbar-select option:hover {
+  background-color: var(--bg-elev-3);
+  color: var(--text);
 }
 
 .toolbar-button:hover {
@@ -628,7 +680,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 @media screen and (max-width: 880px) {
   .toolbar { padding: 0 var(--space-2); gap: 0; }
-  .toolbar-center { padding: 0 var(--space-2); }
-  .toolbar-left,
-  .toolbar-right { gap: 0; }
+  .toolbar-group { gap: 0; }
+  .toolbar-separator { margin: 0 var(--space-1); }
 }

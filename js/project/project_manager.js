@@ -177,6 +177,11 @@ async function loadProject(spfPath) {
         // welcome overlay disappears even when no file has been auto-opened.
         window.SplitEditorManager?.refreshLayout?.();
 
+        // Repopulate the toolbar's .gtkw picker against the just-loaded
+        // project's gtkwFiles[]. No-op if the picker hasn't initialized
+        // yet (e.g. PRISM window without that toolbar element).
+        window.gtkwPickerManager?.refresh?.();
+
     } catch (error) {
         console.error('Error loading project:', error);
         try {

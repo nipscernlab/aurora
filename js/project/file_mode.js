@@ -1135,36 +1135,49 @@ async saveConfiguration() {
             return;
         }
 
+        // SNAPSHOT BEFORE AWAIT.
+        //
+        // ProjectConfigStore.update queues onto a per-project promise
+        // chain, so the mutator below doesn't run until any earlier
+        // update settles. Reading `this.verilogFiles` from inside the
+        // mutator was a race: between the click and the mutator
+        // firing, our own file watcher (file_tree_manager.js's
+        // onDirectoryChanged) sees projectOriented.json change from
+        // a previous write, fires refreshVerilogTree, which calls
+        // loadConfiguration, which sets `this.verilogFiles = []` and
+        // reloads from the OLD on-disk state — wiping the in-memory
+        // category change the user just made. The mutator then writes
+        // the now-rebuilt (still old-state) array back to disk, and
+        // the testbench mark is silently lost.
+        //
+        // Building the patch synchronously here means the mutator is
+        // pure assignment; whatever load/refresh runs in parallel
+        // can't backdate the data we're about to persist.
+        const buildEntry = (f) => ({
+            name: f.name,
+            path: f.path,
+            isTopLevel: f.isTopLevel || false,
+        });
+        const synthFiles = this.verilogFiles
+            .filter((f) => f.category !== 'testbench')
+            .map(buildEntry);
+        const tbFiles = this.verilogFiles
+            .filter((f) => f.category === 'testbench')
+            .map(buildEntry);
+        const topFile = this.verilogFiles.find(
+            (f) => f.isTopLevel && f.category !== 'testbench',
+        );
+        const tbTopFile = this.verilogFiles.find(
+            (f) => f.isTopLevel && f.category === 'testbench',
+        );
+        const topPath = topFile ? topFile.path : '';
+        const tbPath = tbTopFile ? tbTopFile.path : '';
+
         await ProjectConfigStore.update(projectPath, (cfg) => {
-            cfg.synthesizableFiles = this.verilogFiles
-                .filter(f => f.category !== 'testbench')
-                .map(file => ({
-                    name: file.name,
-                    path: file.path,
-                    isTopLevel: file.isTopLevel || false,
-                }));
-
-            cfg.testbenchFiles = this.verilogFiles
-                .filter(f => f.category === 'testbench')
-                .map(file => ({
-                    name: file.name,
-                    path: file.path,
-                    // Same field as synthesizable files — `isTopLevel: true`
-                    // here means "the testbench". This is what the Project
-                    // Settings modal also writes, so the two managers no
-                    // longer have to translate between schemas.
-                    isTopLevel: file.isTopLevel || false,
-                }));
-
-            const topFile = this.verilogFiles.find(
-                f => f.isTopLevel && f.category !== 'testbench',
-            );
-            cfg.topLevelFile = topFile ? topFile.path : '';
-
-            const testbenchFile = this.verilogFiles.find(
-                f => f.isTopLevel && f.category === 'testbench',
-            );
-            cfg.testbenchFile = testbenchFile ? testbenchFile.path : '';
+            cfg.synthesizableFiles = synthFiles;
+            cfg.testbenchFiles = tbFiles;
+            cfg.topLevelFile = topPath;
+            cfg.testbenchFile = tbPath;
         });
 
         console.log('Saved configuration with categories');
@@ -1178,35 +1191,41 @@ async saveConfiguration() {
  */
 async loadConfiguration() {
     try {
-        this.verilogFiles = [];
-
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath) {
             console.error('Project path not available');
             return;
         }
-        
+
         const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
         const configExists = await window.electronAPI.fileExists(configPath);
-        
+
+        // Build the new list LOCALLY first, only swap into `this.verilogFiles`
+        // at the end. Two reasons:
+        //   1. Atomicity for outside observers — saveConfiguration was racing
+        //      against an in-progress load that briefly left verilogFiles=[].
+        //   2. If load fails partway (read error, parse error), the previous
+        //      in-memory state survives instead of being half-wiped.
+        const nextFiles = [];
+
         if (configExists) {
             const configContent = await window.electronAPI.readFile(configPath);
             const configData = JSON.parse(configContent);
-            
+
             console.log('Loading configuration from:', configPath);
-            
+
             if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
                 for (const fileData of configData.synthesizableFiles) {
                     if (fileData.path && fileData.name) {
                         try {
                             const exists = await window.electronAPI.fileExists(fileData.path);
-                            
+
                             if (exists) {
-                                this.verilogFiles.push({
+                                nextFiles.push({
                                     name: fileData.name,
                                     path: fileData.path,
                                     isTopLevel: fileData.isTopLevel || false,
-                                    category: 'synthesizable'
+                                    category: 'synthesizable',
                                 });
                             } else {
                                 console.warn(`File no longer exists: ${fileData.path}`);
@@ -1217,7 +1236,7 @@ async loadConfiguration() {
                     }
                 }
             }
-            
+
             if (configData.testbenchFiles && Array.isArray(configData.testbenchFiles)) {
                 for (const fileData of configData.testbenchFiles) {
                     if (fileData.path && fileData.name) {
@@ -1231,7 +1250,7 @@ async loadConfiguration() {
                                 // next save normalises to `isTopLevel` only.
                                 const isTop = fileData.isTopLevel === true
                                     || fileData.isMarkedTestbench === true;
-                                this.verilogFiles.push({
+                                nextFiles.push({
                                     name: fileData.name,
                                     path: fileData.path,
                                     isTopLevel: isTop,
@@ -1246,13 +1265,14 @@ async loadConfiguration() {
                     }
                 }
             }
-            
-            this.sortFilesAlphabetically();
-            
-            console.log('Loaded', this.verilogFiles.length, 'files from configuration');
+
+            console.log('Loaded', nextFiles.length, 'files from configuration');
         } else {
             console.log('projectOriented.json not found, starting with empty list');
         }
+
+        this.verilogFiles = nextFiles;
+        this.sortFilesAlphabetically();
     } catch (error) {
         console.error('Error loading configuration:', error);
     }

@@ -34,6 +34,12 @@ components/Backup/
 components/Packages/
 saphoComponents/Packages/
 
+# YANC compilers (cmmcomp, asmcomp, appcomp, comp2gtkw) — built from
+# the separate nipscernlab/yanc repo. download-yanc.js fetches them
+# from that repo's GitHub Releases at prestart, same model as the main
+# toolchain bundle above.
+components/bin/
+
 # --- Test scratch ---
 coverage/
 .nyc_output/

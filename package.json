@@ -9,7 +9,7 @@
   },
   "main": "main.js",
   "scripts": {
-    "prestart": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/copy-components.js",
+    "prestart": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/copy-components.js",
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",

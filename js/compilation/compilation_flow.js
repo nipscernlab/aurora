@@ -508,24 +508,20 @@ async runSingleStep(step) {
                     compiler,
                     overrideProcessor.name,
                 );
+                let asmPreamble = null;
                 if (!cmmArtifactsReady) {
-                    if (window.terminalManager?.appendToTerminal) {
-                        // Prefixo "Info:" e detectado por detectMessageType
-                        // em terminal_module.js e classificado como 'tips'
-                        // (azul) automaticamente — robusto independente do
-                        // type passado aqui.
-                        window.terminalManager.appendToTerminal(
-                            'tasm',
-                            'Info: cmm_log.txt missing — running C± compile first to generate it. Output in tcmm terminal.',
-                            'tips',
-                        );
-                    }
                     await compiler.cmmCompilation(overrideProcessor);
                     // Voltamos pro tasm depois do cmm pra que as
-                    // proximas mensagens do asmCompilation cheguem
-                    // pro terminal certo (cmmCompilation deixa o
+                    // mensagens do asmCompilation cheguem pro terminal
+                    // que o usuario clicou (cmmCompilation deixa o
                     // foco em tcmm).
                     switchTerminal('terminal-tasm');
+                    // Mensagem de explicacao vai como preamble do
+                    // asmCompilation — caso contrario o clearTerminal
+                    // que ele faz logo no inicio apagava ela. Prefixo
+                    // "Info:" + tipo 'tips' garantem renderizacao em
+                    // azul mesmo se um dos dois caminhos quebrar.
+                    asmPreamble = 'Info: cmm_log.txt was missing — C± was recompiled first. See tcmm terminal for its output.';
                 }
 
                 // projectParam=1 -> asmcomp.exe NAO inclui o bloco
@@ -535,7 +531,7 @@ async runSingleStep(step) {
                 // ou via parametros do iverilog/vvp. A heuristica
                 // "0 quando testbench standard, 1 quando custom"
                 // ficou de lado por escolha do usuario.
-                await compiler.asmCompilation(overrideProcessor, 1);
+                await compiler.asmCompilation(overrideProcessor, 1, asmPreamble);
             } catch (error) {
                 console.error('Erro na etapa asm:', error);
                 if (window.terminalManager?.appendToTerminal) {

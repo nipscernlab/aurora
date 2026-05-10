@@ -767,13 +767,21 @@ end
         }
     }
 
-    async asmCompilation(processor, projectParam = null) {
+    async asmCompilation(processor, projectParam = null, preamble = null) {
         const {
             name,
             clk,
             numClocks
         } = processor;
         await this.terminalManager.clearTerminal('tasm');
+
+        // Mensagem opcional logada APOS o clear — usada pelo handler
+        // do botao ASM pra avisar quando o C+- foi recompilado por
+        // falta de cmm_log.txt. Antes do clear ela era apagada antes
+        // do usuario ver.
+        if (preamble) {
+            this.terminalManager.appendToTerminal('tasm', preamble, 'tips');
+        }
 
         this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation process for ${name}...`);
 

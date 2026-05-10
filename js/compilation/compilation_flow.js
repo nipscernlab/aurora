@@ -465,10 +465,14 @@ async runSingleStep(step) {
 
                 switchTerminal('terminal-tasm');
                 await compiler.ensureDirectories(overrideProcessor.name);
-                // 0 = processor mode, 1 = project mode (assinatura
-                // herdada — manter a mesma convencao do fluxo antigo).
-                const currentMode = this.getCurrentMode();
-                await compiler.asmCompilation(overrideProcessor, currentMode === 'project' ? 1 : 0);
+                // projectParam=1 -> asmcomp.exe NAO inclui o bloco
+                // "$finish quando atinge @fim" no testbench gerado.
+                // Decisao temporaria: o botao sempre usa 1, deixando
+                // o usuario controlar a parada via testbench externo
+                // ou via parametros do iverilog/vvp. A heuristica
+                // "0 quando testbench standard, 1 quando custom"
+                // ficou de lado por escolha do usuario.
+                await compiler.asmCompilation(overrideProcessor, 1);
             } catch (error) {
                 console.error('Erro na etapa asm:', error);
                 if (window.terminalManager?.appendToTerminal) {

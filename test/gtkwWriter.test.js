@@ -26,10 +26,20 @@ const sampleScopes = [
 ];
 
 describe('pickSignalsToEmit', () => {
-    it('default (no selection) emits only top-scope testbench signals', () => {
+    it('default (no selection) mirrors the full VCD, including submodule scopes', () => {
+        // Submodule signals (tb_counter.dut.*) are included because the
+        // VCD has them — that means $dumpvars dumped them, so the user
+        // wants them visible. Old behaviour was "top-scope only", which
+        // broke for hand-written $dumpvars(0, ...) that pulls submodules.
         const { emit, dropped } = pickSignalsToEmit(sampleScopes, 'tb_counter', []);
         const names = emit.map((s) => s.fullName).sort();
-        expect(names).toEqual(['tb_counter.clk', 'tb_counter.q', 'tb_counter.rst']);
+        expect(names).toEqual([
+            'tb_counter.clk',
+            'tb_counter.dut.clk',
+            'tb_counter.dut.q_next',
+            'tb_counter.q',
+            'tb_counter.rst',
+        ]);
         expect(dropped).toEqual([]);
     });
 
@@ -66,7 +76,7 @@ describe('pickSignalsToEmit', () => {
 });
 
 describe('buildGtkwContent', () => {
-    it('emits the [dumpfile] header and one signal per line', () => {
+    it('emits the [dumpfile] header and one signal per line, including submodules', () => {
         const { content } = buildGtkwContent({
             vcdPath: 'C:/tmp/tb_counter.vcd',
             gtkwPath: 'C:/tmp/tb_counter.gtkw',
@@ -75,11 +85,12 @@ describe('buildGtkwContent', () => {
         });
         expect(content).toContain('[dumpfile] "C:/tmp/tb_counter.vcd"');
         expect(content).toContain('[savefile] "C:/tmp/tb_counter.gtkw"');
-        // top-scope signals only by default
+        // All VCD signals show up by default — top scope AND submodules.
         expect(content).toContain('tb_counter.clk');
         expect(content).toContain('tb_counter.rst');
         expect(content).toContain('tb_counter.q[3:0]');
-        expect(content).not.toContain('tb_counter.dut');
+        expect(content).toContain('tb_counter.dut.clk');
+        expect(content).toContain('tb_counter.dut.q_next[3:0]');
     });
 
     it('honours user selection and emits range syntax for buses', () => {
@@ -121,12 +132,11 @@ describe('buildGtkwContent', () => {
             selectedSignals: ['nope.zilch'],
         })).toEqual({ content: null, dropped: ['nope.zilch'] });
 
-        // Default mode but no top-scope signals (testbench scope name doesn't match)
-        const r = buildGtkwContent({
-            vcdPath: 'a', gtkwPath: 'b', scopes: sampleScopes, tbModule: 'wrong_name',
-        });
-        expect(r.content).toBeNull();
-        expect(r.dropped).toEqual([]);
+        // Scopes that exist but contain no signals at all → still null.
+        const emptySigScopes = [{ name: 'tb', path: 'tb', signals: [] }];
+        expect(buildGtkwContent({
+            vcdPath: 'a', gtkwPath: 'b', scopes: emptySigScopes, tbModule: 'tb',
+        })).toEqual({ content: null, dropped: [] });
     });
 
     it('reports dropped signals even when the .gtkw still has content', () => {

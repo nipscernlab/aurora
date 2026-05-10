@@ -25,20 +25,25 @@
  *     hierarchy, removed signal, stale projectOriented.json) are
  *     reported back to the caller as `dropped` so the user gets a
  *     warning instead of a silent empty trace.
- *   - selection empty: every signal at the testbench module's scope.
- *     Submodule signals are skipped; this matches the implicit
- *     `$dumpvars(1, <tb>)` default in the testbench instrumenter.
+ *   - selection empty: emit EVERY signal in the VCD, across all
+ *     scope depths. The VCD itself reflects whatever the running
+ *     `$dumpvars` chose to dump — hand-written `$dumpvars(0, ...)`
+ *     pulls submodules in, and Aurora's own instrumenter only dumps
+ *     the testbench scope. Either way, mirroring the VCD wholesale
+ *     is the safe default: anything in the VCD is something the
+ *     user wants visible. `tbModule` is kept in the signature for
+ *     backward compat but no longer affects the filter.
  *
  * The VCD is the ground truth — anything we emit must be present in
  * `scopes`, regardless of which upstream path (Wave Config picker,
- * default top-scope, etc.) populated `selectedSignals`.
+ * default, etc.) populated `selectedSignals`.
  *
  * @param {VcdScope[]} scopes
- * @param {string} tbModule
+ * @param {string} _tbModule  unused in default mode (signature kept stable)
  * @param {string[]} selectedSignals
  * @returns {{ emit: Array<{ fullName: string, range: string|null }>, dropped: string[] }}
  */
-export function pickSignalsToEmit(scopes, tbModule, selectedSignals) {
+export function pickSignalsToEmit(scopes, _tbModule, selectedSignals) {
     const flatten = [];
     const inVcd = new Set();
     for (const scope of scopes) {
@@ -57,13 +62,10 @@ export function pickSignalsToEmit(scopes, tbModule, selectedSignals) {
         };
     }
 
-    return {
-        emit: flatten.filter((s) => {
-            const parts = s.fullName.split('.');
-            return parts.length === 2 && parts[0] === tbModule;
-        }),
-        dropped: [],
-    };
+    // No selection → mirror the entire VCD. Submodule signals
+    // included; the user can right-click in GTKWave to delete what
+    // they don't want.
+    return { emit: flatten, dropped: [] };
 }
 
 /**

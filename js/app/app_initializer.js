@@ -7,7 +7,7 @@
 
 import { showDialog } from '../ui/dialog_manager.js';
 import { projectManager } from '../project/project_manager.js';
-import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
+import { fileTreeManager } from '../tree/file_tree_manager.js';
 
 class AppInitializer {
     constructor() {
@@ -272,17 +272,14 @@ class AppInitializer {
      */
     switchToStandardFileTree() {
         console.log('🌲 Switching to standard file tree');
-        
-        if (TreeViewState.isHierarchical) {
-            TreeViewState.setHierarchical(false);
-        }
-        
+
         // Deactivate Verilog Mode if active
         if (window.verilogTreeManager && window.verilogTreeManager.isVerilogTreeActive) {
             window.verilogTreeManager.deactivateVerilogMode();
         }
-        
-        // Refresh standard tree
+
+        // Controller resolves view + renderer.
+        window.fileTreeViewController?.showFileMode?.();
         fileTreeManager.refresh();
     }
 
@@ -291,11 +288,6 @@ class AppInitializer {
      */
     async switchToVerilogFileMode() {
         console.log('🌲 Switching to Verilog File Mode tree');
-        
-        // Disable hierarchical view
-        if (TreeViewState.isHierarchical) {
-            TreeViewState.setHierarchical(false);
-        }
         
         // Activate Verilog Mode Manager
         if (window.verilogTreeManager) {
@@ -362,11 +354,9 @@ class AppInitializer {
      */
     handlePostCompilation(success) {
         if (!success) return;
-        
-        // If Verilog was compiled successfully, enable hierarchy toggle
-        if (TreeViewState.hierarchyData) {
-            TreeViewState.enableToggle();
-        }
+        // No-op now: setHierarchyData (called inside the hierarchy
+        // generators) enables the toggle automatically. Kept as a
+        // hook in case future post-compile state needs to live here.
     }
 
     /**

@@ -76,16 +76,6 @@ class VerilogTreeManager {
         }
     }
 
-    setupHierarchyToggle() {
-        const toggleButton = document.getElementById('alternate-tree-toggle');
-        if (!toggleButton) return;
-        
-        // Only enable toggle after successful compilation logic is handled elsewhere
-        if (typeof TreeViewState !== 'undefined') {
-            TreeViewState.disableToggle();
-        }
-    }
-    
     /**
      * Cache all DOM elements
      */
@@ -486,9 +476,6 @@ class VerilogTreeManager {
 
             // Render Verilog tree
             this.renderVerilogTree();
-
-            // Setup hierarchy toggle
-            this.setupHierarchyToggle();
 
             console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
         })();

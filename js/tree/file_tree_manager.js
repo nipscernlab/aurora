@@ -28,58 +28,79 @@ treeStyle.textContent = `
 /* file-tree visuals are owned by css/tree/file_tree.css */`;
 document.head.appendChild(treeStyle);
 
-// --- Tree View State (Standard vs. Hierarchical) ---
+// --- Tree View State — façade over fileTreeViewController -------
+//
+// Pre-controller, TreeViewState owned isHierarchical / hierarchyData /
+// isToggleEnabled / compilationModule and a copy lived in BOTH this
+// file and tree_view_state_module.js (different objects, never in
+// sync). Now it's a thin façade:
+//
+//   - isHierarchical, hierarchyData, isToggleEnabled  → getters that
+//     read from the controller. No private fields here.
+//   - setHierarchical / hierarchyData write           → route to the
+//     controller's showHierarchyMode / showFileMode / setHierarchyData.
+//   - enable/disableToggle                            → no-ops. The
+//     controller enables the toggle automatically when hierarchyData
+//     is set; disables when it's null. Lifecycle calls (e.g. on each
+//     CompilationModule construction) used to re-disable the toggle
+//     blindly — that's the bug class we just removed.
+//   - setCompilationModule / compilationModule        → no-ops. The
+//     controller's hierarchy renderer always reads from
+//     window._latestCompilationModule (set in the constructor) so
+//     callers don't need to track "the latest" themselves.
+//
+// New code should call window.fileTreeViewController directly. The
+// façade exists so the dozens of legacy reads/writes don't all have
+// to migrate at once — and so any future drift between TreeViewState
+// and the controller is impossible by construction (there's no
+// "TreeViewState" state to drift).
 const TreeViewState = {
-    isHierarchical: false,
-    hierarchyData: null,
-    isToggleEnabled: false,
-    compilationModule: null,
+    get isHierarchical() {
+        return window.fileTreeViewController?.isShowingHierarchy() ?? false;
+    },
+    set isHierarchical(value) {
+        // Treat as a request to flip views; the controller is
+        // idempotent against same-state writes.
+        if (value) window.fileTreeViewController?.showHierarchyMode();
+        else window.fileTreeViewController?.showFileMode();
+    },
+
+    get hierarchyData() {
+        return window.fileTreeViewController?.getHierarchyData() ?? null;
+    },
+    set hierarchyData(data) {
+        window.fileTreeViewController?.setHierarchyData(data);
+    },
+
+    get isToggleEnabled() {
+        return !!window.fileTreeViewController?.getHierarchyData();
+    },
+
+    get compilationModule() {
+        return window._latestCompilationModule ?? null;
+    },
 
     setHierarchical(value) {
         this.isHierarchical = value;
-        this.updateToggleButton();
     },
 
-    setCompilationModule(module) {
-        this.compilationModule = module;
-    },
-
-    updateToggleButton() {
-        const toggleButton = document.getElementById('alternate-tree-toggle');
-        if (!toggleButton) return;
-
-        const icon = toggleButton.querySelector('i');
-        const text = toggleButton.querySelector('.toggle-text');
-
-        if (this.isHierarchical) {
-            icon.className = 'ph ph-list-bullets';
-            text.textContent = 'Standard';
-            toggleButton.classList.add('active');
-            toggleButton.title = 'Switch to standard file tree';
-        } else {
-            icon.className = 'ph ph-tree-structure';
-            text.textContent = 'Hierarchical';
-            toggleButton.classList.remove('active');
-            toggleButton.title = 'Switch to hierarchical module view';
-        }
+    setCompilationModule(_module) {
+        // No-op: the controller resolves the latest CompilationModule
+        // via window._latestCompilationModule, set by the constructor.
     },
 
     enableToggle() {
-        const toggleButton = document.getElementById('alternate-tree-toggle');
-        if (!toggleButton) return;
-        toggleButton.classList.remove('disabled');
-        toggleButton.disabled = false;
-        this.isToggleEnabled = true;
+        // No-op: toggle enables automatically when hierarchyData
+        // is set on the controller. Old code called this without
+        // setting data first, which produced a useless enabled-but-
+        // empty toggle.
     },
 
     disableToggle() {
-        const toggleButton = document.getElementById('alternate-tree-toggle');
-        if (!toggleButton) return;
-        toggleButton.classList.add('disabled');
-        toggleButton.disabled = true;
-        toggleButton.title = 'Compile Verilog to generate hierarchy';
-        this.isToggleEnabled = false;
-    }
+        // No-op: same reasoning. If you actually want to disable the
+        // toggle (because the data became invalid), set
+        // hierarchyData = null instead.
+    },
 };
 
 // --- Standard File Tree State ---
@@ -659,54 +680,6 @@ toggleHierarchyView() {
         window.fileTreeViewController.showFileMode();
     } else {
         window.fileTreeViewController?.showHierarchyMode?.();
-    }
-}
-
-/**
- * Update toggle button appearance based on current state and mode
- */
-updateToggleButtonAppearance() {
-    const toggleButton = document.getElementById('alternate-tree-toggle');
-    if (!toggleButton) return;
-    
-    const icon = toggleButton.querySelector('i');
-    const text = toggleButton.querySelector('.toggle-text');
-    if (!icon || !text) return;
-    
-    const currentMode = this.getCurrentMode();
-    
-    if (TreeViewState.isHierarchical) {
-        if (currentMode === 'project') {
-            icon.className = 'ph ph-file-code';
-            text.textContent = 'File Mode';
-            toggleButton.title = 'Switch to Verilog File Mode';
-        } else {
-            icon.className = 'ph ph-folder-notch';
-            text.textContent = 'File Tree';
-            toggleButton.title = 'Switch to Standard File Tree';
-        }
-        toggleButton.classList.add('active');
-    } else {
-        icon.className = 'ph ph-tree-structure';
-        text.textContent = 'Hierarchical';
-        toggleButton.title = 'Switch to Hierarchical Module View';
-        toggleButton.classList.remove('active');
-    }
-}
-/**
- * Render hierarchical tree from cached data
- */
-renderHierarchicalTreeFromData() {
-    const fileTree = document.getElementById('file-tree');
-    if (!fileTree || !TreeViewState.hierarchyData) {
-        console.error('❌ Cannot render hierarchy: missing tree or data');
-        return;
-    }
-    
-    if (TreeViewState.compilationModule) {
-        TreeViewState.compilationModule.renderHierarchicalTree();
-    } else {
-        console.error('❌ CompilationModule not set in TreeViewState');
     }
 }
 

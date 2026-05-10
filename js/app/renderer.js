@@ -6,7 +6,7 @@ import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
-import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
+import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { treeView } from '../tree/tree_view.js';
 import { fileTreeViewController } from '../tree/file_tree_view_controller.js';
 // Make sure the view subcontainers exist before any renderer runs.
@@ -78,10 +78,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const recentProjectsManager = new RecentProjectsManager(projectManager.loadProject);
     window.recentProjectsManager = recentProjectsManager;
 
-    // Initialize the main CompilationModule and link it to the TreeViewState
+    // Initialize the main CompilationModule. Its constructor pins
+    // itself as window._latestCompilationModule, which is what the
+    // file-tree view controller reads to find the renderer for the
+    // hierarchy view — no explicit registration needed.
     if (typeof CompilationModule !== 'undefined') {
         const compilationModule = new CompilationModule(window.currentProjectPath);
-        TreeViewState.setCompilationModule(compilationModule);
         window.compilationModule = compilationModule;
     }
 

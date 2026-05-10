@@ -3,7 +3,6 @@
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
-import { TreeViewState } from '../tree/tree_view_state_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
@@ -23,7 +22,6 @@ class CompilationModule {
         this.isHierarchicalView = false;
         this.gtkwaveProcess = null;
         this.hierarchyGenerated = false;
-        this.setupHierarchyToggle();
         this._hierarchyGenerationInProgress = false;
         this.componentsPath = null;
         this.projectTestbenchBackup = null;
@@ -129,10 +127,8 @@ class CompilationModule {
                             'GTKWave closed - restoring standard file tree...', 'info');
 
                         setTimeout(() => {
-                            this.restoreStandardTreeState();
-                            if (typeof refreshFileTree === 'function') {
-                                refreshFileTree();
-                            }
+                            this.isHierarchicalView = false;
+                            window.fileTreeViewController?.showFileMode?.();
                         }, 500);
                     }
 
@@ -189,10 +185,10 @@ class CompilationModule {
             // other consumer holding a different CompilationModule
             // reference) sees the fresh data. Without this, file_tree_*
             // sees stale or null hierarchy after a re-compile.
-            TreeViewState.hierarchyData = this.hierarchyData;
+            // setHierarchyData enables the toggle automatically; no
+            // separate enableToggle call needed.
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
-            this.enableHierarchyToggle();
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
@@ -243,11 +239,8 @@ async generateProjectHierarchy() {
             }));
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
-            // Sync to the shared store — see comment in generateHierarchy().
-            TreeViewState.hierarchyData = this.hierarchyData;
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
-            this.enableHierarchyToggle();
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', `Project hierarchy generation error: ${error.message}`, 'warning');
@@ -2141,27 +2134,9 @@ end
 }
 
 
-    setupHierarchyToggle() {
-        // The actual click handler lives in file_tree_manager.js
-        // (toggleHierarchyView). This method just registers the
-        // current CompilationModule as the data owner for that
-        // handler to consult, and starts the button in disabled
-        // state until a compile produces hierarchyData.
-        //
-        // We used to attach a SECOND click listener here that called
-        // switchToStandardView / switchToHierarchicalView. That fought
-        // with toggleHierarchyView — both fired on the same click, and
-        // the compilation_module path ignored Project-Mode's "back to
-        // verilog picker" semantics, leaving the user on the standard
-        // file list when they expected the verilog picker.
-        TreeViewState.setCompilationModule(this);
-        TreeViewState.disableToggle();
-    }
-
     switchToStandardView() {
         // Delegate to the controller — it picks verilog vs standard
         // based on IDE mode and owns the active-view state.
-        TreeViewState.setHierarchical(false);
         window.fileTreeViewController?.showFileMode?.();
         this.terminalManager.appendToTerminal('tveri',
             'Switched to file tree', 'info');
@@ -2185,13 +2160,7 @@ end
 
             if (success) {
                 this.hierarchyGenerated = true;
-                TreeViewState.hierarchyData = this.hierarchyData;
-            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-
-                if (!TreeViewState.isToggleEnabled) {
-                    TreeViewState.enableToggle();
-                    TreeViewState.isToggleEnabled = true;
-                }
+                window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
 
                 await this.switchToHierarchicalView();
             }
@@ -2270,7 +2239,8 @@ async iverilogCompilation(processor) {
             const hierarchyGenerated = await this.generateProcessorHierarchy(processor);
             if (hierarchyGenerated) {
                 this.hierarchyGenerated = true;
-                this.enableHierarchyToggle();
+                // setHierarchyData is already called inside the
+                // hierarchy generators; no explicit enable here.
                 await this.switchToHierarchicalView();
             }
 
@@ -2940,86 +2910,19 @@ write_json ${jsonOutputPath}
         return cleanName;
     }
 
-    saveStandardTreeState() {
-        // Per-view subtree split — saving the standard view's HTML
-        // separately means restoring doesn't have to wipe other views.
-        const standardContainer = window.treeView?.getContainer('standard');
-        if (standardContainer) {
-            this.standardTreeState = standardContainer.innerHTML;
-        }
-    }
-
-    restoreStandardTreeState() {
-        this.isHierarchicalView = false;
-        // Activate the standard subcontainer; refreshFileTree below
-        // populates it. The hierarchy subcontainer is left intact.
-        window.treeView?.setActive('standard');
-        if (typeof refreshFileTree === 'function') {
-            refreshFileTree();
-        }
-    }
-
 switchToHierarchicalView() {
-    // Delegate to the controller. The controller checks for data
-    // availability and routes to the registered hierarchy renderer.
+    // Delegate to the controller. It checks for data availability,
+    // sets the active view, and runs the hierarchy renderer. Toggle
+    // button UI (icon, title, enabled state) is handled inside the
+    // controller's _updateToggleUI based on the data slot — no
+    // explicit enable/disable calls or icon updates needed here.
     if (!window.fileTreeViewController?.showHierarchyMode?.()) {
         this.terminalManager.appendToTerminal('tveri',
             'No hierarchy data available. Please compile Verilog first.', 'warning');
         return;
     }
-    TreeViewState.setHierarchical(true);
     this.terminalManager.appendToTerminal('tveri',
         'Switched to hierarchical module view', 'info');
-}
-        enableHierarchyToggle() {
-            const toggleButton = document.getElementById('alternate-tree-toggle');
-            if (!toggleButton) return;
-
-            toggleButton.classList.remove('disabled');
-            toggleButton.disabled = false;
-            TreeViewState.isToggleEnabled = true;
-            
-            this.updateToggleButtonForCurrentMode();
-            
-            this.terminalManager.appendToTerminal('tveri',
-                'Hierarchical view is now available', 'success');
-        }
-
-        /**
- * Update toggle button text and icon based on current mode and view
- */
-updateToggleButtonForCurrentMode() {
-    const toggleButton = document.getElementById('alternate-tree-toggle');
-    if (!toggleButton) return;
-
-    const icon = toggleButton.querySelector('i');
-    const text = toggleButton.querySelector('.toggle-text');
-    if (!icon || !text) return;
-
-    const currentMode = this.getCurrentMode();
-    
-    if (TreeViewState.isHierarchical) {
-        // Currently showing hierarchical view. In Project Mode the
-        // standard view is the verilog picker (with synth/testbench);
-        // in Processor Mode it's the folder listing. Same icon for
-        // either — the toggle just goes back to "the standard view".
-        if (currentMode === 'project') {
-            icon.className = 'fa-solid fa-file-code';
-            text.textContent = 'File Mode';
-            toggleButton.title = 'Switch to Verilog File Mode tree';
-        } else {
-            icon.className = 'fa-solid fa-folder-tree';
-            text.textContent = 'File Tree';
-            toggleButton.title = 'Switch to Standard File Tree';
-        }
-        toggleButton.classList.add('active');
-    } else {
-        // Currently showing standard/file mode view
-        icon.className = 'fa-solid fa-sitemap';
-        text.textContent = 'Hierarchical';
-        toggleButton.title = 'Switch to Hierarchical Module View';
-        toggleButton.classList.remove('active');
-    }
 }
 /**
  * Get current IDE mode — 'processor' or 'project'. Delegates to
@@ -3229,9 +3132,7 @@ async iverilogVerilogModeCompilation() {
         await this.generateVerilogModeHierarchy();
         
         if (this.hierarchyData) {
-            TreeViewState.hierarchyData = this.hierarchyData;
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-            TreeViewState.enableToggle();
             this.hierarchyGenerated = true;
             await this.switchToHierarchicalView();
         }
@@ -3299,11 +3200,7 @@ write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
 
         this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, topLevelModuleName);
         this.terminalManager.appendToTerminal('tveri', 'Project Mode (no processors) hierarchy generated successfully', 'success');
-        
-        TreeViewState.hierarchyData = this.hierarchyData;
-            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-        TreeViewState.enableToggle();
-        
+        window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
         return true;
     } catch (error) {
         this.terminalManager.appendToTerminal('tveri', 

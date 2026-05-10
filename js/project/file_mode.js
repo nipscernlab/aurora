@@ -509,6 +509,10 @@ class VerilogTreeManager {
         }
         
         console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
+        // DIAG: render with stack
+        console.log('🎨 [DIAG] render — files:',
+            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', ') || '(empty)',
+            'stack:', new Error().stack?.split('\n').slice(2, 6).join(' ← '));
 
         // Clear existing content
         fileTree.innerHTML = '';
@@ -541,6 +545,36 @@ class VerilogTreeManager {
         });
 
         console.log('✅ Rendered', this.verilogFiles.length, 'file items');
+
+        // DIAG: install a one-shot MutationObserver to catch ANY DOM
+        // change inside #file-tree in the next 5 seconds. Each mutation
+        // logs what changed + the calling stack — that lets us find the
+        // code that mutates the tree post-render and flips the badge.
+        if (window._verilogTreeObs) window._verilogTreeObs.disconnect();
+        window._verilogTreeObs = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                const target = m.target;
+                let label = `<${target.nodeName}>`;
+                if (target.classList) label += '.' + [...target.classList].join('.');
+                if (m.type === 'childList') {
+                    console.log(`🔍 [MUT] childList on ${label}: +${m.addedNodes.length}/-${m.removedNodes.length}`,
+                        'removed:', [...m.removedNodes].map((n) => n.outerHTML?.slice(0, 80) || n.textContent?.slice(0, 80)).join(' || '),
+                        'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
+                } else if (m.type === 'attributes') {
+                    console.log(`🔍 [MUT] attr "${m.attributeName}" on ${label}`,
+                        'old=', m.oldValue,
+                        'new=', target.getAttribute(m.attributeName),
+                        'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
+                }
+            }
+        });
+        window._verilogTreeObs.observe(fileTree, {
+            childList: true, subtree: true, attributes: true, attributeOldValue: true,
+        });
+        setTimeout(() => {
+            window._verilogTreeObs?.disconnect();
+            console.log('🔍 [MUT] observer detached after 5s');
+        }, 5000);
     }
     
 

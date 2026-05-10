@@ -849,6 +849,30 @@ async clearTerminal(terminalId) {
             });
     }
 
+    /**
+     * Synchronous wipe of every terminal's DOM and per-terminal state.
+     * Used at the start of a new compilation so the user gets a fresh
+     * slate without the fade animation racing against the first
+     * appendToTerminal() that follows. clearAllTerminals() above keeps
+     * the ~250ms fade for the manual "Clear" button case.
+     */
+    clearAllTerminalsImmediate() {
+        Object.keys(this.terminals).forEach((terminalId) => {
+            const terminal = this.terminals[terminalId];
+            if (!terminal) return;
+            terminal.classList.remove('faded-out');
+            terminal.innerHTML = '';
+            this.currentSessionCards[terminalId] = {};
+            this.updatableCards[terminalId] = {};
+            this.messageCounts[terminalId] = {
+                error: 0,
+                warning: 0,
+                success: 0,
+                tips: 0,
+            };
+        });
+    }
+
     changeClearIcon(clearButton) {
         const icon = clearButton.querySelector('i');
         if (icon.classList.contains('fa-trash-can')) {

@@ -32,7 +32,13 @@ function setCompilationButtonsState(_disabled) {
 function startCompilation() {
     compilationCanceled = false;
     setCompilationButtonsState(true);
-    window.initializeGlobalTerminalManager();
+    const tm = window.initializeGlobalTerminalManager();
+    // Fresh slate for every compile so the user isn't reading mixed
+    // logs from a previous run when looking for errors. Synchronous
+    // wipe (clearAllTerminalsImmediate) — the async fade-clear used
+    // by the manual "Clear" button would race against the first
+    // appendToTerminal of the new run and erase its initial lines.
+    tm?.clearAllTerminalsImmediate?.();
 }
 
 function endCompilation() {

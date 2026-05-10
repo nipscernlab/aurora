@@ -289,6 +289,10 @@ write_json "${hierarchyJsonPath}"
   await fse.writeFile(yosysScriptPath, yosysScript);
 
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    // 'tips' (azul) — mesmo tipo usado pela compilacao do botao Verilog
+    // para a linha contextual "Top-level". Mantem a UX consistente entre
+    // os dois fluxos (PRISM e iverilog).
+    state.mainWindow.webContents.send('terminal-log', 'tveri', `Top-level: ${topLevelModule}.v`, 'tips');
     state.mainWindow.webContents.send('terminal-log', 'tveri', 'Running Yosys synthesis...', 'info');
   }
 

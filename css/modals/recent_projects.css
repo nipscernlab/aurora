@@ -202,9 +202,15 @@
 .recent-projects-count:empty { display: none; }
 
 .recent-projects-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  /* Grade compartilhada por todas as linhas para que nome e path
+     comecem no mesmo x em cada projeto recente. Sem isso, cada
+     .project-item resolvia seu próprio grid-template-columns e
+     a coluna de path "andava" conforme o tamanho do nome. */
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 0;
   max-height: 360px;
   overflow-y: auto;
   padding: 0;
@@ -223,10 +229,15 @@
  *  Project item — link-style, name + path inline
  * ------------------------------------------------------------------------- */
 .project-item {
+  /* Subgrid alinha as colunas (nome / path / botão remover) com as
+     colunas definidas em .recent-projects-list, então todas as linhas
+     usam a MESMA largura de coluna 1, fazendo os paths comecarem no
+     mesmo x. */
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
   padding: var(--space-2) var(--space-2) var(--space-2) 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -310,6 +321,9 @@
  *  Empty state
  * ------------------------------------------------------------------------- */
 .empty-state {
+  /* O wrapper .recent-projects-list virou um grid de 3 colunas; sem
+     isso o empty-state ficaria espremido na primeira coluna. */
+  grid-column: 1 / -1;
   padding: var(--space-3) 0;
   color: var(--text-muted);
 }

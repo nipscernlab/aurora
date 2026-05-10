@@ -412,11 +412,13 @@ class VerilogTreeManager {
         if (!np.startsWith(projN)) return null;
         const rel = np.slice(projN.length).replace(/^\/+/, '');
         const segs = rel.split('/');
-        // Esperamos <proc>/Hardware/<arquivo> ou <proc>/Software/<arquivo>
-        // — pelo menos 3 segs e o segundo precisa ser uma das duas
+        // Esperamos <proc>/{Hardware|Software|Simulation}/<arquivo> —
+        // pelo menos 3 segs e o segundo precisa ser uma das tres
         // subpastas reconhecidas.
         if (segs.length < 3) return null;
-        if (segs[1] !== 'hardware' && segs[1] !== 'software') return null;
+        if (segs[1] !== 'hardware' && segs[1] !== 'software' && segs[1] !== 'simulation') {
+            return null;
+        }
         const candidate = segs[0];
         for (const p of procs) {
             if (p.toLowerCase() === candidate) return p;
@@ -443,20 +445,21 @@ class VerilogTreeManager {
         let addedPersist = 0;
         let addedSoftware = 0;
 
-        // Para cada processador, varremos duas subpastas:
-        //   Hardware/ → arquivos sintetizaveis (.v/.sv/.vh)  → entram como synth
-        //                                                       e sao persistidos.
-        //   Software/ → fontes de C+/asm (.cmm/.asm)         → entram com isSoftware,
-        //                                                       sem categoria/toggle,
-        //                                                       NAO persistidos.
-        const subfolders = [
-            { dir: 'Hardware', exts: this.ALLOWED_EXTENSIONS, software: false },
-            { dir: 'Software', exts: this.SOFTWARE_EXTENSIONS, software: true },
-        ];
+        // Para cada processador, varremos as TRES subpastas reconhecidas
+        // (Hardware/, Software/, Simulation/) e aceitamos qualquer arquivo
+        // com extensao Verilog ou Software, independente da pasta. A
+        // categoria (synth vs software) e decidida pela EXTENSAO, nao pela
+        // pasta:
+        //   .v / .sv / .vh   → synth, persistido em projectOriented.json
+        //   .cmm / .asm      → software, isSoftware=true, NAO persistido
+        //                       (re-descoberto a cada load para evitar
+        //                       loop com o file watcher)
+        const subfolders = ['Hardware', 'Software', 'Simulation'];
+        const allExts = [...this.ALLOWED_EXTENSIONS, ...this.SOFTWARE_EXTENSIONS];
 
         for (const procName of procs) {
-            for (const { dir, exts, software } of subfolders) {
-                const subDir = await window.electronAPI.joinPath(projectPath, procName, dir);
+            for (const subDirName of subfolders) {
+                const subDir = await window.electronAPI.joinPath(projectPath, procName, subDirName);
                 let entries;
                 try {
                     entries = await window.electronAPI.listFilesInDirectory(subDir);
@@ -466,7 +469,10 @@ class VerilogTreeManager {
                 if (!Array.isArray(entries)) continue;
                 for (const entry of entries) {
                     if (typeof entry !== 'string') continue;
-                    if (!exts.some((ext) => entry.toLowerCase().endsWith(ext))) continue;
+                    const lower = entry.toLowerCase();
+                    const matchedExt = allExts.find((ext) => lower.endsWith(ext));
+                    if (!matchedExt) continue;
+                    const isSoftware = this.SOFTWARE_EXTENSIONS.includes(matchedExt);
                     const fullPath = await window.electronAPI.joinPath(subDir, entry);
                     const key = this._normalizePath(fullPath);
                     if (seen.has(key)) continue;
@@ -476,7 +482,7 @@ class VerilogTreeManager {
                         isTopLevel: false,
                         category: 'synthesizable',
                     };
-                    if (software) {
+                    if (isSoftware) {
                         fileEntry.isSoftware = true;
                         addedSoftware++;
                     } else {

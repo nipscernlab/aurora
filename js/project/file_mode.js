@@ -525,8 +525,9 @@ class VerilogTreeManager {
             return;
         }
         
-        console.log('🛑 Deactivating Verilog Mode...');
-        
+        console.log('🛑 Deactivating Verilog Mode... stack:',
+            new Error().stack?.split('\n').slice(2, 6).join(' ← '));
+
         this.isVerilogTreeActive = false;
         // Same reasoning as reset() — drop the cached render fingerprint
         // so re-activation always repaints (DOM was just wiped).
@@ -536,6 +537,10 @@ class VerilogTreeManager {
         const fileTree = this.elements.fileTree;
         if (fileTree) {
             fileTree.classList.remove('verilog-mode-active', 'verilog-empty', 'verilog-dragover');
+            const wipedCount = fileTree.querySelectorAll('.verilog-file-item').length;
+            if (wipedCount > 0) {
+                console.log('🛑 [DIAG] deactivate WIPING', wipedCount, 'rows via innerHTML');
+            }
             fileTree.innerHTML = '';
         }
         
@@ -580,10 +585,23 @@ class VerilogTreeManager {
             return;
         }
 
+        // DIAG: log render call with the input list and stack so we
+        // see exactly which path triggered each render and what data
+        // it had. The badge-flash bug class shouldn't recur after the
+        // reconciler — if it does, this trace shows where.
+        const stack = new Error().stack?.split('\n').slice(2, 6).join(' ← ');
+        console.log('🎨 [DIAG] render input:',
+            this.verilogFiles.map((f) => `${f.name}[top=${f.isTopLevel}]`).join(', ') || '(empty)',
+            'stack:', stack);
+
         fileTree.classList.add('verilog-mode-active');
 
         // Empty state branch — drop any data rows + show the placeholder.
         if (this.verilogFiles.length === 0) {
+            const droppedCount = fileTree.querySelectorAll('.verilog-file-item').length;
+            if (droppedCount > 0) {
+                console.log('🎨 [DIAG] empty branch — REMOVING', droppedCount, 'existing rows');
+            }
             fileTree.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());
             fileTree.classList.add('verilog-empty');
             if (!fileTree.querySelector('.verilog-empty-state')) {
@@ -616,14 +634,18 @@ class VerilogTreeManager {
         // sibling position. We track `prev` to know where the next row
         // should land. insertBefore handles "node already in parent" as
         // a move, so a no-op when ordering is already correct.
+        let createdCount = 0;
+        let updatedCount = 0;
         let prev = null;
         for (const file of this.verilogFiles) {
             let row = existingByPath.get(file.path);
             if (row) {
                 this._updateFileItem(row, file);
                 existingByPath.delete(file.path);
+                updatedCount++;
             } else {
                 row = this._createFileItem(file);
+                createdCount++;
             }
             const targetSibling = prev ? prev.nextSibling : fileTree.firstChild;
             if (row !== targetSibling) {
@@ -634,7 +656,14 @@ class VerilogTreeManager {
 
         // Pass 2 — anything still in existingByPath wasn't claimed by
         // any desired file. Remove.
+        const removedCount = existingByPath.size;
         for (const row of existingByPath.values()) row.remove();
+
+        // DIAG: per-render summary (created/updated/removed counts).
+        console.log('🎨 [DIAG] render done:',
+            `created=${createdCount}`, `updated=${updatedCount}`, `removed=${removedCount}`,
+            'final row count=', fileTree.querySelectorAll('.verilog-file-item').length,
+            'has top-level-badge in DOM=', !!fileTree.querySelector('.top-level-badge'));
     }
 
     /**
@@ -677,6 +706,11 @@ class VerilogTreeManager {
             if (badge.className !== desiredCls) badge.className = desiredCls;
             if (badge.textContent !== desiredText) badge.textContent = desiredText;
         } else if (badge) {
+            // DIAG: removing a badge means file.isTopLevel went from
+            // true to false — chase upstream if this fires unexpectedly.
+            console.log('🎨 [DIAG] _updateFileItem REMOVING badge from row',
+                row.dataset.filePath, 'because file.isTopLevel=', file.isTopLevel,
+                'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
             badge.remove();
         }
 

@@ -309,9 +309,6 @@ write_json "${hierarchyJsonPath}"
         }
         reject(new Error(`Yosys exited with code ${code}`));
       } else if (await fse.pathExists(hierarchyJsonPath)) {
-        if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-          state.mainWindow.webContents.send('terminal-log', 'tveri', 'Hierarchy JSON generated', 'success');
-        }
         resolve(hierarchyJsonPath);
       } else {
         reject(new Error('hierarchy.json was not created'));
@@ -378,9 +375,6 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
         }
         reject(new Error(`SVG generation failed: ${error.message}`));
         return;
-      }
-      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-        state.mainWindow.webContents.send('terminal-log', 'tveri', 'SVG diagram generated successfully', 'success');
       }
       resolve(outputSvgPath);
     });

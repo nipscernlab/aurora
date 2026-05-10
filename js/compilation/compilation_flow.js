@@ -3,6 +3,7 @@
 import { CompilationModule } from './compilation_module.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
+import { TabManager } from '../tabs/tab_manager.js';
 
 let compilationCanceled = false;
 
@@ -126,6 +127,31 @@ async function runProjectPipeline(compiler) {
     switchTerminal('terminal-twave');
     checkCancellation();
     await compiler.runProjectGtkWave();
+}
+
+/**
+ * Dado um path de arquivo e a lista de processadores configurados,
+ * descobre a qual processador o arquivo pertence procurando o padrao
+ *   <projectPath>/<procName>/{Hardware|Software|Simulation}/<arquivo>
+ * Devolve o objeto do processador (com casing original) ou null.
+ *
+ * Mesmo padrao que VerilogTreeManager._getProcessorForFile, replicado
+ * aqui pra evitar acoplamento entre o pipeline de compilacao e o file
+ * tree manager.
+ */
+function findProcessorForPath(filePath, projectPath, processors) {
+    if (!filePath || !projectPath || !Array.isArray(processors)) return null;
+    const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
+    const fp = norm(filePath);
+    const pp = norm(projectPath);
+    if (!fp.startsWith(pp)) return null;
+    const rel = fp.slice(pp.length).replace(/^\/+/, '');
+    const segs = rel.split('/');
+    if (segs.length < 3) return null;
+    const sub = segs[1];
+    if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
+    const procNameLower = segs[0];
+    return processors.find((p) => p?.name && p.name.toLowerCase() === procNameLower) || null;
 }
 
 // ----------------------------------------------------------------------
@@ -306,6 +332,62 @@ async runSingleStep(step) {
             return;
         }
 
+        // 1.5. Botao C±: o usuario pediu pra que ele compile o .cmm que
+        //      esta aberto no Monaco, ignorando o "active processor" do
+        //      hub. Se o arquivo em foco no editor nao for .cmm, no-op
+        //      (apenas uma dica no terminal — sem bagunçar o status
+        //      updater nem limpar o terminal por nada).
+        if (step === 'cmm') {
+            const editingPath = TabManager.getEditingFilePath?.();
+            if (!editingPath || !editingPath.toLowerCase().endsWith('.cmm')) {
+                switchTerminal('terminal-tcmm');
+                if (window.terminalManager?.appendToTerminal) {
+                    window.terminalManager.appendToTerminal(
+                        'tcmm',
+                        'No .cmm file is open in the editor. Open a .cmm and try again.',
+                        'tips',
+                    );
+                }
+                return;
+            }
+
+            startCompilation(STEP_TERMINALS.cmm);
+            try {
+                const compiler = new CompilationModule(window.currentProjectPath);
+                await compiler.loadConfig();
+
+                const procFromPath = findProcessorForPath(
+                    editingPath,
+                    window.currentProjectPath,
+                    compiler.config?.processors || [],
+                );
+                if (!procFromPath) {
+                    throw new Error(
+                        `Cannot resolve a processor for "${editingPath}". ` +
+                        `The file must live in <project>/<processor>/{Software,Hardware,Simulation}/.`,
+                    );
+                }
+
+                // getSelectedCmmFile prioriza this.config.selectedCmmFile sobre
+                // processor.cmmFile — limpamos pra forcar o uso do override.
+                if (compiler.config) compiler.config.selectedCmmFile = null;
+                const cmmFileName = editingPath.split(/[\\/]/).pop();
+                const overrideProcessor = { ...procFromPath, cmmFile: cmmFileName };
+
+                switchTerminal('terminal-tcmm');
+                await compiler.ensureDirectories(overrideProcessor.name);
+                await compiler.cmmCompilation(overrideProcessor);
+            } catch (error) {
+                console.error('Erro na etapa cmm:', error);
+                if (window.terminalManager?.appendToTerminal) {
+                    window.terminalManager.appendToTerminal('tcmm', `Erro Fatal: ${error.message}`, 'error');
+                }
+            } finally {
+                endCompilation();
+            }
+            return;
+        }
+
         // 2. CMM, ASM, Verilog, Wave per-step buttons. Clear only the
         //    terminal this step writes to so unrelated runs (e.g. a
         //    previous CMM compile in tcmm) stay readable.
@@ -348,11 +430,9 @@ async runSingleStep(step) {
             }
 
             switch (step) {
-                case 'cmm':
-                    switchTerminal('terminal-tcmm');
-                    await compiler.ensureDirectories(activeProcessor.name);
-                    await compiler.cmmCompilation(activeProcessor);
-                    break;
+                // Nota: 'cmm' nunca chega aqui — e tratado em early return
+                // mais acima usando o arquivo aberto no Monaco em vez do
+                // active processor.
 
                 case 'asm':
                     switchTerminal('terminal-tasm');

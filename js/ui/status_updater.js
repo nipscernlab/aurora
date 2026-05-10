@@ -2,10 +2,17 @@
 
 class StatusUpdater {
     constructor() {
-      this.statusItem = document.querySelector('.status-item:nth-child(3)'); // Place Holder element
+      // Antes: .status-item:nth-child(3) — seletor obsoleto, foi quebrado
+      // quando os status-items foram divididos em .status-zone-left /
+      // -center / -right. Cada zone tem seus proprios filhos, entao
+      // nenhum status-item e o "3o filho" mais. Resultado: this.statusItem
+      // ficava null, todos os metodos tinham guarda `if (!this.statusItem)
+      // return` e o texto "Start Compilation" hardcoded em index.html
+      // nunca era substituido.
+      this.statusItem = document.getElementById('statusUpdater');
       this.defaultStatus = '<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation';
       this.isCompiling = false;
-      
+
       // Initialize - make sure placeholder is empty
       if (this.statusItem) {
         this.setDefaultStatus();

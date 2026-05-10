@@ -402,8 +402,6 @@ class VerilogTreeManager {
 
             console.log('🚀 Activating Verilog Mode...');
 
-            this.isVerilogTreeActive = true;
-
             // Discover the project path if loadProject hasn't run yet (rare
             // — happens on app startup when restoreLastSession is mid-flight).
             // Once known, push it into ProjectStore so every other consumer
@@ -423,6 +421,24 @@ class VerilogTreeManager {
                     console.error('Error getting project path:', error);
                 }
             }
+
+            // STILL no project after the discover attempt? Bail without
+            // rendering. If we proceeded, loadConfiguration would early-
+            // return on the missing path and renderVerilogTree would paint
+            // an empty tree — exactly the "appears blank, then files
+            // pop in" flash the user sees on app open. The next activate
+            // call (project_manager.loadProject after setProject lands)
+            // will run this body to completion.
+            //
+            // Critically, isVerilogTreeActive is NOT set to true here —
+            // otherwise the next call would hit the early-return refresh
+            // branch and skip the full activation we still need.
+            if (!ProjectStore.hasProject()) {
+                console.log('⏸ No project yet — deferring activation to next call');
+                return;
+            }
+
+            this.isVerilogTreeActive = true;
 
             console.log('📂 Project path:', ProjectStore.getProjectPath());
 
@@ -493,12 +509,6 @@ class VerilogTreeManager {
         }
         
         console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
-        // DIAGNOSTIC: dump isTopLevel state for every render so we can
-        // catch the path where the badge gets reset between renders.
-        // Remove once the badge-flash bug is closed.
-        console.log('🎨 [DIAG] verilogFiles state:',
-            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', '),
-            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
 
         // Clear existing content
         fileTree.innerHTML = '';
@@ -531,26 +541,6 @@ class VerilogTreeManager {
         });
 
         console.log('✅ Rendered', this.verilogFiles.length, 'file items');
-        // DIAGNOSTIC: dump the rendered DOM of the top-level row, AFTER
-        // append. If it contains "Top Level" but the badge "disappears"
-        // visually, the bug is in CSS or a later DOM mutation. If it
-        // doesn't contain "Top Level" despite isTopLevel:true in the
-        // data, the badge HTML branch was somehow skipped.
-        const topRow = fileTree.querySelector('.verilog-file-item.top-level-file');
-        console.log('🎨 [DIAG] top-level-file row outerHTML:', topRow?.outerHTML ?? '(no row found)');
-        // Also schedule a check on the next animation frame to see if
-        // anything mutated it post-render.
-        requestAnimationFrame(() => {
-            const stillThere = fileTree.querySelector('.verilog-file-item.top-level-file');
-            const hasBadge = stillThere?.querySelector('.top-level-badge');
-            console.log('🎨 [DIAG] post-rAF check — top-level-file class:', !!stillThere, 'top-level-badge present:', !!hasBadge);
-        });
-        // Schedule a deferred check in 1 second too.
-        setTimeout(() => {
-            const stillThere2 = fileTree.querySelector('.verilog-file-item.top-level-file');
-            const hasBadge2 = stillThere2?.querySelector('.top-level-badge');
-            console.log('🎨 [DIAG] +1s check — top-level-file class:', !!stillThere2, 'top-level-badge present:', !!hasBadge2);
-        }, 1000);
     }
     
 
@@ -1199,13 +1189,6 @@ async saveConfiguration() {
         const topPath = topFile ? topFile.path : '';
         const tbPath = tbTopFile ? tbTopFile.path : '';
 
-        // DIAGNOSTIC
-        console.log('💾 [DIAG] saveConfiguration writing:',
-            'synth=', synthFiles.map((f) => `${f.name}[top=${f.isTopLevel}]`).join(','),
-            'tb=', tbFiles.map((f) => `${f.name}[top=${f.isTopLevel}]`).join(','),
-            'topPath=', topPath, 'tbPath=', tbPath,
-            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
-
         await ProjectConfigStore.update(projectPath, (cfg) => {
             cfg.synthesizableFiles = synthFiles;
             cfg.testbenchFiles = tbFiles;
@@ -1306,10 +1289,6 @@ async loadConfiguration() {
 
         this.verilogFiles = nextFiles;
         this.sortFilesAlphabetically();
-        // DIAGNOSTIC
-        console.log('📥 [DIAG] loadConfiguration done:',
-            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', '),
-            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
     } catch (error) {
         console.error('Error loading configuration:', error);
     }

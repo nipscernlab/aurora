@@ -214,7 +214,13 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Row actions (toggle + delete) — appear on hover
+ *  Row actions
+ *
+ *  The category toggle (synth/testbench) is ALWAYS visible — the user
+ *  needs to see at a glance which category each file belongs to and
+ *  be able to flip it without having to hover. The delete button is
+ *  still hover-only because it's destructive (one accidental click =
+ *  file removed from the project) so requiring hover is a soft guard.
  * ------------------------------------------------------------------------- */
 .verilog-file-actions {
   display: flex;
@@ -226,16 +232,6 @@
 .category-toggle-wrapper {
   display: flex;
   align-items: center;
-  opacity: 0;
-  transform: translateX(4px);
-  pointer-events: none;
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.verilog-file-item:hover .category-toggle-wrapper {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
 }
 
 .category-toggle {

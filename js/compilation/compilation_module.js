@@ -1079,8 +1079,12 @@ async iverilogProjectCompilation() {
         const topLevelModuleName = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         
-        this.terminalManager.appendToTerminal('tveri', `Top-level: ${topLevelModuleName}`, 'info');
-        this.terminalManager.appendToTerminal('tveri', `Testbench: ${testbenchModuleName}`, 'info');
+        // 'tips' (blue) for the contextual lines — see the matching
+        // pair in iverilogVerilogOnlyCompilation. Plain 'info' was
+        // hidden by the verbose filter (no semantic keyword in text);
+        // 'tips' keeps them visible without faking a success outcome.
+        this.terminalManager.appendToTerminal('tveri', `Top-level: ${topLevelModuleName}`, 'tips');
+        this.terminalManager.appendToTerminal('tveri', `Testbench: ${testbenchModuleName}`, 'tips');
 
         const tempTbFileName = `tb_inst_${testbenchModuleName}.v`;
         const tempTbPath = await window.electronAPI.joinPath(tempBaseDir, tempTbFileName);
@@ -1485,10 +1489,15 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
     try {
         const config = this.validateVerilogOnlyConfig();
 
-        this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'success');
+        // 'tips' = blue/info badge. These lines are contextual info
+        // about what's about to be compiled, not a success outcome —
+        // the green "Compilation Successful" line later is what
+        // signals success. Using 'tips' here keeps the visual hierarchy
+        // (blue = "FYI", green = "it worked").
+        this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'tips');
         if (buildVvp) {
             if (config.testbenchFile) {
-                this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'success');
+                this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'tips');
             } else {
                 this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
             }

@@ -2125,80 +2125,43 @@ end
 
 
     setupHierarchyToggle() {
-        const toggleButton = document.getElementById('alternate-tree-toggle');
-        if (!toggleButton) {
-            console.warn('Hierarchy toggle button not found');
-            return;
-        }
-
-        // CompilationModule is reconstructed on every compile click
-        // (runSingleStep does `new CompilationModule(...)` each time), so
-        // attaching a fresh click listener here every time would leak —
-        // every old instance's listener stays registered and fires too,
-        // each one checking ITS OWN this.hierarchyData (null on old
-        // instances). That's where the spurious "Please compile Verilog
-        // first" warning was coming from. Mark the button after the
-        // first wire-up and bail out on subsequent constructions.
+        // The actual click handler lives in file_tree_manager.js
+        // (toggleHierarchyView). This method just registers the
+        // current CompilationModule as the data owner for that
+        // handler to consult, and starts the button in disabled
+        // state until a compile produces hierarchyData.
+        //
+        // We used to attach a SECOND click listener here that called
+        // switchToStandardView / switchToHierarchicalView. That fought
+        // with toggleHierarchyView — both fired on the same click, and
+        // the compilation_module path ignored Project-Mode's "back to
+        // verilog picker" semantics, leaving the user on the standard
+        // file list when they expected the verilog picker.
         TreeViewState.setCompilationModule(this);
         TreeViewState.disableToggle();
-
-        if (toggleButton.dataset.hierarchyListenerBound === 'true') return;
-        toggleButton.dataset.hierarchyListenerBound = 'true';
-
-        toggleButton.addEventListener('click', () => {
-            if (toggleButton.disabled || toggleButton.dataset.switching === 'true') {
-                console.log('Toggle disabled or switching in progress');
-                return;
-            }
-
-            // Check the SHARED hierarchy data, not the per-instance copy.
-            // The current TreeViewState is pinned to the latest
-            // CompilationModule via setCompilationModule above, so its
-            // hierarchyData reflects whatever the most recent compile
-            // produced — independent of which `this` this listener
-            // happened to capture.
-            const hierarchy = TreeViewState.hierarchyData
-                ?? TreeViewState.compilationModule?.hierarchyData;
-
-            if (!TreeViewState.isHierarchical && !hierarchy) {
-                console.warn('Cannot switch to hierarchical view - no data');
-                this.terminalManager.appendToTerminal('tveri',
-                    'Please compile Verilog first to generate hierarchy', 'warning');
-                return;
-            }
-
-            toggleButton.dataset.switching = 'true';
-
-            try {
-                const owner = TreeViewState.compilationModule ?? this;
-                if (TreeViewState.isHierarchical) {
-                    owner.switchToStandardView();
-                } else {
-                    owner.switchToHierarchicalView();
-                }
-            } catch (error) {
-                console.error('Error toggling hierarchy view:', error);
-                this.terminalManager.appendToTerminal('tveri',
-                    `Error switching view: ${error.message}`, 'error');
-            } finally {
-                setTimeout(() => {
-                    toggleButton.dataset.switching = 'false';
-                }, 300);
-            }
-        });
     }
 
     switchToStandardView() {
-        // Activate the standard subcontainer; refreshFileTree below
-        // populates it. Hierarchy subcontainer keeps its content for
-        // cheap toggling back. NEVER innerHTML='' on #file-tree itself
-        // — that wipes the per-view subcontainers created by
-        // tree_view.js and breaks every renderer.
+        // "Standard view" depends on which IDE mode we're in.
+        // Project Mode: the file view is the verilog picker — going
+        //   "back to standard" from hierarchy means going back to the
+        //   picker, not to a folder listing the picker doesn't even
+        //   show in this mode.
+        // Processor Mode: the file view IS the standard folder tree.
         TreeViewState.setHierarchical(false);
-        window.treeView?.setActive('standard');
-        refreshFileTree();
-        this.terminalManager.appendToTerminal('tveri',
-            'Switched to standard file tree', 'info');
+
+        const projectMode = document.getElementById('Project Mode')?.checked === true;
+        if (projectMode) {
+            window.treeView?.setActive('verilog');
+            window.verilogTreeManager?.renderVerilogTree?.();
+            this.terminalManager.appendToTerminal('tveri',
+                'Switched to file picker', 'info');
+        } else {
+            window.treeView?.setActive('standard');
+            refreshFileTree();
+            this.terminalManager.appendToTerminal('tveri',
+                'Switched to standard file tree', 'info');
+        }
     }
 
     async generateHierarchyAfterCompilation(processor = null) {

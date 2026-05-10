@@ -162,6 +162,24 @@ function findProcessorForPath(filePath, projectPath, processors) {
     return typeof match === 'string' ? { name: match } : match;
 }
 
+/**
+ * Verifica se os artefatos do cmmcomp ja foram gerados pra esse
+ * processador. asmcomp depende deles (cmm_log.txt e onde ele le
+ * num_ins, prname, n_dat, nubits, nbmant, nbexpo, itr_addr — ver
+ * yanc/ASM/Sources/eval.c:eval_init).
+ *
+ * Por enquanto a unica condicao e a existencia de cmm_log.txt. Se
+ * aparecerem mais (ex: pc_<name>_mem.txt, trad_cmm.txt), encadear
+ * aqui com && no return.
+ */
+async function cmmArtifactsExist(compiler, procName) {
+    const tempProc = await window.electronAPI.joinPath(
+        compiler.componentsPath, 'Temp', procName,
+    );
+    const cmmLog = await window.electronAPI.joinPath(tempProc, 'cmm_log.txt');
+    return await window.electronAPI.fileExists(cmmLog);
+}
+
 // ----------------------------------------------------------------------
 // MANAGER CLASS
 // ----------------------------------------------------------------------
@@ -465,6 +483,38 @@ async runSingleStep(step) {
 
                 switchTerminal('terminal-tasm');
                 await compiler.ensureDirectories(overrideProcessor.name);
+
+                // asmcomp depende de artefatos que so o cmmcomp gera
+                // (cmm_log.txt principalmente — lido em
+                // yanc/ASM/Sources/eval.c). Se o usuario clica ASM sem
+                // ter rodado C+- antes, ou se a pasta Temp foi limpa,
+                // o asmcomp falha com "system cannot find the path".
+                //
+                // Pre-condicao: cmm_log.txt presente em
+                // <components>/Temp/<proc>/. Se faltar, recompila o
+                // cmm primeiro (logando uma dica no tasm pra o usuario
+                // saber pra onde olhar). Pra adicionar mais
+                // condicoes, encadear com && no return da funcao.
+                const cmmArtifactsReady = await cmmArtifactsExist(
+                    compiler,
+                    overrideProcessor.name,
+                );
+                if (!cmmArtifactsReady) {
+                    if (window.terminalManager?.appendToTerminal) {
+                        window.terminalManager.appendToTerminal(
+                            'tasm',
+                            'cmm_log.txt missing — running C± compile first to generate it. Output in tcmm terminal.',
+                            'tips',
+                        );
+                    }
+                    await compiler.cmmCompilation(overrideProcessor);
+                    // Voltamos pro tasm depois do cmm pra que as
+                    // proximas mensagens do asmCompilation cheguem
+                    // pro terminal certo (cmmCompilation deixa o
+                    // foco em tcmm).
+                    switchTerminal('terminal-tasm');
+                }
+
                 // projectParam=1 -> asmcomp.exe NAO inclui o bloco
                 // "$finish quando atinge @fim" no testbench gerado.
                 // Decisao temporaria: o botao sempre usa 1, deixando

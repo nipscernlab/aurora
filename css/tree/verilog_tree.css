@@ -174,46 +174,6 @@
    font weight or text color. */
 
 /* ---------------------------------------------------------------------------
- *  Inline badges (Top Level, Testbench)
- * ------------------------------------------------------------------------- */
-.file-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Sized to fit the widest label ("TESTBENCH") at text-2xs semibold so
-     "TOP LEVEL" and "TESTBENCH" rows share the same badge width. Using
-     `width` rather than `min-width` because the latter loses to the
-     intrinsic content size when text exceeds it — "TESTBENCH" at
-     ~80px would push past 72px while "TOP LEVEL" stays at 72px and
-     they end up mismatched again. */
-  width: 72px;
-  height: 16px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-semibold);
-  letter-spacing: var(--tracking-tight);
-  text-transform: uppercase;
-  white-space: nowrap;
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  border: 1px solid var(--accent-border);
-  flex-shrink: 0;
-}
-
-.top-level-badge {
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  border-color: var(--accent);
-}
-
-.testbench-badge {
-  background: rgba(0, 0, 0, 0); /* let the row's purple border-left carry meaning */
-  color: var(--aurora-purple);
-  border-color: var(--aurora-purple);
-}
-
-/* ---------------------------------------------------------------------------
  *  Row actions
  *
  *  The category toggle (synth/testbench) is ALWAYS visible — the user

@@ -662,20 +662,11 @@ class VerilogTreeManager {
             if (nameEl.title !== desiredTitle) nameEl.title = desiredTitle;
         }
 
-        // Badge: present iff isTopLevel; its label/class depends on category.
-        let badge = info.querySelector('.file-badge');
-        if (file.isTopLevel) {
-            const desiredText = isTestbench ? 'Testbench' : 'Top Level';
-            const desiredCls = `file-badge ${isTestbench ? 'testbench-badge' : 'top-level-badge'}`;
-            if (!badge) {
-                badge = document.createElement('span');
-                info.appendChild(badge);
-            }
-            if (badge.className !== desiredCls) badge.className = desiredCls;
-            if (badge.textContent !== desiredText) badge.textContent = desiredText;
-        } else if (badge) {
-            badge.remove();
-        }
+        // Badges legados: se uma versão anterior já tinha desenhado um
+        // .file-badge nesta linha, remove — o icone agora carrega esse
+        // significado.
+        const legacyBadge = info.querySelector('.file-badge');
+        if (legacyBadge) legacyBadge.remove();
 
         // Toggle button: category class + tooltip.
         const toggleBtn = row.querySelector('.category-toggle');
@@ -709,11 +700,6 @@ _createFileItem(file) {
     if (file.isTopLevel) fileItem.classList.add('top-level-file');
 
     const icon = this.getFileIcon(file);
-    const badgeHtml = file.isTopLevel
-        ? (isTestbench
-            ? '<span class="file-badge testbench-badge">Testbench</span>'
-            : '<span class="file-badge top-level-badge">Top Level</span>')
-        : '';
     const toggleTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
     const toggleClass = isTestbench ? 'testbench' : 'synthesizable';
 
@@ -722,7 +708,6 @@ _createFileItem(file) {
             <div class="verilog-file-info">
                 <i class="${icon} verilog-file-icon"></i>
                 <div class="verilog-file-name" title="${file.path}">${file.name}</div>
-                ${badgeHtml}
             </div>
             <div class="verilog-file-actions">
                 <div class="category-toggle-wrapper">

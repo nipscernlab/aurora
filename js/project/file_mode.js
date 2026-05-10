@@ -149,6 +149,45 @@ class VerilogTreeManager {
 
         if (this.elements.fileTree) {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
+
+            // Delegated click handler for the verilog file rows.
+            // Each row carries `data-file-path`; action buttons carry
+            // `data-action`. This single listener replaces the previous
+            // per-row addEventListener trio (open file / toggle / delete).
+            // Looking up the file by path on every click means listeners
+            // survive sorting and in-place updates — no closure-captured
+            // stale index can mis-target a row.
+            this.elements.fileTree.addEventListener('click', async (e) => {
+                if (!this.isVerilogTreeActive) return;
+                const row = e.target.closest('.verilog-file-item');
+                if (!row) return;
+                const path = row.dataset.filePath;
+                if (!path) return;
+                const file = this.verilogFiles.find((f) => f.path === path);
+                if (!file) return;
+
+                const actionBtn = e.target.closest('[data-action]');
+                const action = actionBtn?.dataset.action;
+
+                if (action === 'toggle-category') {
+                    e.preventDefault(); e.stopPropagation();
+                    await this._toggleCategoryByPath(path);
+                    return;
+                }
+                if (action === 'delete') {
+                    e.preventDefault(); e.stopPropagation();
+                    await this._removeFileByPath(path);
+                    return;
+                }
+                // Plain row click → open the file in a tab.
+                try {
+                    const content = await window.electronAPI.readFile(file.path);
+                    TabManager.addTab(file.path, content);
+                } catch (err) {
+                    console.error('Error opening file:', err);
+                    this.showNotification(`Error opening file: ${file.name}`, 'error', 3000);
+                }
+            });
         }
 
         this.elements.openHdlButton?.addEventListener('click', () => {
@@ -507,7 +546,32 @@ class VerilogTreeManager {
     }
     
     /**
-     * Render Verilog Mode tree
+     * Render Verilog Mode tree.
+     *
+     * KEY-BASED RECONCILER. NEVER calls `fileTree.innerHTML = ''`.
+     * Comparing the desired list (this.verilogFiles, keyed by path) to
+     * the rows currently in the DOM:
+     *   - rows whose path is no longer wanted → removed
+     *   - rows whose path is in both → updated in place (badge,
+     *     category class, top-level highlight)
+     *   - paths in the desired list with no matching row → created
+     *     and inserted at the right position
+     *   - rows in the wrong order → moved with insertBefore (DOM
+     *     handles "node already inside parent" gracefully — it's a
+     *     move, not a clone)
+     *
+     * Why this matters: previous render did `innerHTML = ''` then
+     * re-appended every row. Multiple activate paths during app open
+     * (loadProject's activate + the early-return refresh from
+     * switchToVerilogFileMode's activate) ran this back-to-back with
+     * the same data. The browser had a chance to paint the empty
+     * intermediate state — the visible "appears, blinks, disappears"
+     * flash. With reconciliation, identical-data renders are no-ops
+     * (zero DOM mutations); only real changes touch the DOM.
+     *
+     * Idempotent: calling renderVerilogTree() N times in a row with
+     * the same `this.verilogFiles` produces zero DOM changes after
+     * the first call.
      */
     renderVerilogTree() {
         const fileTree = this.elements.fileTree;
@@ -515,178 +579,216 @@ class VerilogTreeManager {
             console.error('❌ File tree element not found');
             return;
         }
-        
-        // Skip the destroy-and-rebuild if the input is byte-identical to
-        // the last render. Without this, multiple activate calls during
-        // app open (loadProject + switchToVerilogFileMode each fire one
-        // — second call hits the early-return refresh path) trigger two
-        // back-to-back renders with the same data; the user sees a flash
-        // because innerHTML='' clears the tree for one frame before
-        // appendChild repopulates it. Same-data, same-result → no need
-        // to repaint.
-        const fingerprint = JSON.stringify(
-            this.verilogFiles.map((f) => [f.path, f.name, f.category, !!f.isTopLevel]),
-        );
-        if (this._lastRenderFingerprint === fingerprint) {
-            console.log('🎨 Skipping render — data unchanged');
-            return;
-        }
-        this._lastRenderFingerprint = fingerprint;
 
-        console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
-
-        // Clear existing content
-        fileTree.innerHTML = '';
-        
-        // Add Verilog Mode class
         fileTree.classList.add('verilog-mode-active');
-        fileTree.classList.remove('verilog-empty');
-        
-        // If no files, show empty state
+
+        // Empty state branch — drop any data rows + show the placeholder.
         if (this.verilogFiles.length === 0) {
+            fileTree.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());
             fileTree.classList.add('verilog-empty');
-            const emptyState = document.createElement('div');
-            emptyState.className = 'verilog-empty-state';
-            emptyState.innerHTML = `
-                <i class="fa-solid fa-folder-open verilog-empty-icon"></i>
-                <div class="verilog-empty-text">
-                    No synthesizable files<br>
-                    <strong>Drag and drop .v files here</strong>
-                </div>
-            `;
-            fileTree.appendChild(emptyState);
-            console.log('📭 Empty state displayed');
+            if (!fileTree.querySelector('.verilog-empty-state')) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'verilog-empty-state';
+                emptyState.innerHTML = `
+                    <i class="fa-solid fa-folder-open verilog-empty-icon"></i>
+                    <div class="verilog-empty-text">
+                        No synthesizable files<br>
+                        <strong>Drag and drop .v files here</strong>
+                    </div>
+                `;
+                fileTree.appendChild(emptyState);
+            }
             return;
         }
-        
-        // Render each file
-        this.verilogFiles.forEach((file, index) => {
-            const fileItem = this.createFileItem(file, index);
-            fileTree.appendChild(fileItem);
-        });
 
-        console.log('✅ Rendered', this.verilogFiles.length, 'file items');
+        // Have data → ensure no placeholder remains.
+        fileTree.classList.remove('verilog-empty');
+        fileTree.querySelector('.verilog-empty-state')?.remove();
+
+        // Index existing rows by path so we can match against the
+        // desired list in one pass.
+        const existingByPath = new Map();
+        for (const row of fileTree.querySelectorAll('.verilog-file-item')) {
+            existingByPath.set(row.dataset.filePath, row);
+        }
+
+        // Pass 1 — for each desired file, place its row in the correct
+        // sibling position. We track `prev` to know where the next row
+        // should land. insertBefore handles "node already in parent" as
+        // a move, so a no-op when ordering is already correct.
+        let prev = null;
+        for (const file of this.verilogFiles) {
+            let row = existingByPath.get(file.path);
+            if (row) {
+                this._updateFileItem(row, file);
+                existingByPath.delete(file.path);
+            } else {
+                row = this._createFileItem(file);
+            }
+            const targetSibling = prev ? prev.nextSibling : fileTree.firstChild;
+            if (row !== targetSibling) {
+                fileTree.insertBefore(row, targetSibling);
+            }
+            prev = row;
+        }
+
+        // Pass 2 — anything still in existingByPath wasn't claimed by
+        // any desired file. Remove.
+        for (const row of existingByPath.values()) row.remove();
+    }
+
+    /**
+     * Update an existing row's mutable parts (category class, badge,
+     * top-level highlight) without recreating it. The path-keyed
+     * structural slot stays put — only the visual differentiators
+     * change. Pure DOM mutation; no listeners need re-attaching
+     * because the tree-level delegation in setupEventListeners
+     * dispatches to the right handler based on data-file-path, not
+     * stored index.
+     */
+    _updateFileItem(row, file) {
+        const isTestbench = file.category === 'testbench';
+        row.classList.toggle('synthesizable', !isTestbench);
+        row.classList.toggle('testbench', isTestbench);
+        row.classList.toggle('top-level-file', !!file.isTopLevel);
+
+        const info = row.querySelector('.verilog-file-info');
+        if (!info) return;
+
+        // Filename — only touch DOM if it actually changed (e.g. rename
+        // outside Aurora). Re-writing the textNode every render flickers
+        // selection in some browsers.
+        const nameEl = info.querySelector('.verilog-file-name');
+        if (nameEl) {
+            if (nameEl.textContent !== file.name) nameEl.textContent = file.name;
+            const desiredTitle = file.path;
+            if (nameEl.title !== desiredTitle) nameEl.title = desiredTitle;
+        }
+
+        // Badge: present iff isTopLevel; its label/class depends on category.
+        let badge = info.querySelector('.file-badge');
+        if (file.isTopLevel) {
+            const desiredText = isTestbench ? 'Testbench' : 'Top Level';
+            const desiredCls = `file-badge ${isTestbench ? 'testbench-badge' : 'top-level-badge'}`;
+            if (!badge) {
+                badge = document.createElement('span');
+                info.appendChild(badge);
+            }
+            if (badge.className !== desiredCls) badge.className = desiredCls;
+            if (badge.textContent !== desiredText) badge.textContent = desiredText;
+        } else if (badge) {
+            badge.remove();
+        }
+
+        // Toggle button: category class + tooltip.
+        const toggleBtn = row.querySelector('.category-toggle');
+        if (toggleBtn) {
+            toggleBtn.classList.toggle('synthesizable', !isTestbench);
+            toggleBtn.classList.toggle('testbench', isTestbench);
+            const desiredTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
+            if (toggleBtn.title !== desiredTitle) toggleBtn.title = desiredTitle;
+        }
     }
     
 
 /**
- * Enhanced createFileItem with two-state toggle and context menu
+ * Build a file row's DOM with no per-row listeners attached.
+ * All click / contextmenu handling is done by the single delegated
+ * listener installed in setupEventListeners — that listener finds
+ * the file by `data-file-path`, so reordering, sorting, or partial
+ * updates don't need any listener bookkeeping.
+ *
+ * `_updateFileItem` mirrors this template's mutable parts so a row
+ * created here can be re-used and updated without re-creating its
+ * structural HTML.
  */
-createFileItem(file, index) {
+_createFileItem(file) {
     const fileItem = document.createElement('div');
     fileItem.className = 'verilog-file-item';
-    fileItem.dataset.fileIndex = index;
     fileItem.dataset.filePath = file.path;
-    
-    const categoryClass = file.category === 'testbench' ? 'testbench' : 'synthesizable';
-    fileItem.classList.add(categoryClass);
-    
-    if (file.isTopLevel) {
-        fileItem.classList.add('top-level-file');
-    }
-    
-    const icon = this.getFileIcon(file.name);
+
     const isTestbench = file.category === 'testbench';
-    
-    // Single field — `isTopLevel` — means "top of its category". For
-    // synthesizable that's the design's top module; for testbench that's
-    // the simulation entry. Render label is per-category; the underlying
-    // flag is the same so it round-trips cleanly through both managers.
-    let badgesHtml = '';
-    if (file.isTopLevel) {
-        if (isTestbench) {
-            badgesHtml += '<span class="file-badge testbench-badge">Testbench</span>';
-        } else {
-            badgesHtml += '<span class="file-badge top-level-badge">Top Level</span>';
-        }
-    }
-    
+    fileItem.classList.add(isTestbench ? 'testbench' : 'synthesizable');
+    if (file.isTopLevel) fileItem.classList.add('top-level-file');
+
+    const icon = this.getFileIcon(file.name);
+    const badgeHtml = file.isTopLevel
+        ? (isTestbench
+            ? '<span class="file-badge testbench-badge">Testbench</span>'
+            : '<span class="file-badge top-level-badge">Top Level</span>')
+        : '';
+    const toggleTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
+    const toggleClass = isTestbench ? 'testbench' : 'synthesizable';
+
     fileItem.innerHTML = `
         <div class="verilog-file-content">
             <div class="verilog-file-info">
                 <i class="${icon} verilog-file-icon"></i>
                 <div class="verilog-file-name" title="${file.path}">${file.name}</div>
-                ${badgesHtml}
+                ${badgeHtml}
             </div>
             <div class="verilog-file-actions">
                 <div class="category-toggle-wrapper">
-                    <button class="category-toggle ${categoryClass}" 
-                         data-index="${index}"
-                         title="${isTestbench ? 'Category: Testbench' : 'Category: Synthesizable'}">
+                    <button class="category-toggle ${toggleClass}" data-action="toggle-category"
+                         title="${toggleTitle}">
                         <span class="toggle-slider"></span>
                     </button>
                 </div>
-                <button class="verilog-icon-btn delete-btn" 
-                        data-index="${index}"
+                <button class="verilog-icon-btn delete-btn" data-action="delete"
                         title="Remove file">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
         </div>
     `;
-    
-    const contentDiv = fileItem.querySelector('.verilog-file-content');
-    const toggleButton = fileItem.querySelector('.category-toggle');
-    const deleteBtn = fileItem.querySelector('.delete-btn');
-    
-    contentDiv.addEventListener('click', async (e) => {
-        if (e.target.closest('.category-toggle-wrapper') || e.target.closest('.delete-btn')) {
-            return;
-        }
-
-        try {
-            const content = await window.electronAPI.readFile(file.path);
-            TabManager.addTab(file.path, content);
-        } catch (error) {
-            console.error('Error opening file:', error);
-            this.showNotification(`Error opening file: ${file.name}`, 'error', 3000);
-        }
-    });
-    
-    toggleButton.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        await this.handleCategoryToggle(index);
-    });
-    
-    fileItem.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.showContextMenu(e, file, index);
-    });
-    
-    deleteBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.removeFile(index);
-    });
-    
     return fileItem;
 }
 
 /**
- * Handle category toggle between Synthesizable and Testbench
+ * Handle category toggle between Synthesizable and Testbench.
+ * Path-keyed: caller passes the row's data-file-path, we look the
+ * file up by reference. Index-based version retired — it broke under
+ * sort because closures captured stale indices.
  */
-async handleCategoryToggle(index) {
-    if (!this.verilogFiles[index]) return;
-    
-    const file = this.verilogFiles[index];
+async _toggleCategoryByPath(path) {
+    const file = this.verilogFiles.find((f) => f.path === path);
+    if (!file) return;
     const newCategory = file.category === 'testbench' ? 'synthesizable' : 'testbench';
-    
+
     // Switching category invalidates the per-category top mark — a synth
     // top is not the same thing as a testbench top, even though they share
     // the underlying field.
     file.isTopLevel = false;
     file.category = newCategory;
-    
+
     await this.saveConfiguration();
     this.renderVerilogTree();
-    
+
     this.showNotification(
-        `"${file.name}" category changed to ${newCategory}`, 
-        'info', 
-        2000
+        `"${file.name}" category changed to ${newCategory}`,
+        'info',
+        2000,
     );
+}
+
+/**
+ * Path-keyed delete. The reconciler's reorder/delete logic doesn't
+ * care about indices either, so we just splice by path and re-render.
+ */
+async _removeFileByPath(path) {
+    const idx = this.verilogFiles.findIndex((f) => f.path === path);
+    if (idx < 0) return;
+    return this.removeFile(idx);
+}
+
+/**
+ * Legacy alias kept for callers (context menu actions still pass
+ * indices). Wraps the path-based version for consistency.
+ */
+async handleCategoryToggle(index) {
+    const file = this.verilogFiles[index];
+    if (!file) return;
+    return this._toggleCategoryByPath(file.path);
 }
 
 
@@ -792,11 +894,26 @@ showContextMenu(event, file, index) {
 
 
    async handleTreeContextMenu(event) {
-        event.preventDefault();
-
         if (!this.isVerilogTreeActive) return;
-        
-        if (event.target.closest('.verilog-file-item')) return;
+
+        // Right-click landed on a file row → per-row context menu (the
+        // category/top-level/delete options). Per-row listeners are
+        // gone since the render-reconciler refactor; this delegated
+        // path replaces them. Look the file up by data-file-path —
+        // index lookups are intentionally avoided (they break under
+        // sort).
+        const row = event.target.closest('.verilog-file-item');
+        if (row) {
+            event.preventDefault();
+            event.stopPropagation();
+            const path = row.dataset.filePath;
+            const idx = this.verilogFiles.findIndex((f) => f.path === path);
+            if (idx >= 0) this.showContextMenu(event, this.verilogFiles[idx], idx);
+            return;
+        }
+
+        // Right-click in empty tree area → "create new file" menu below.
+        event.preventDefault();
         if (event.target.closest('button')) return;
         
         this.closeCreateMenu();

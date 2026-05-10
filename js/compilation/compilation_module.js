@@ -1585,10 +1585,22 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
 
         const flags = this.projectConfig.iverilogFlags || '';
 
+        // -y tells iverilog to resolve any module referenced but not
+        // listed in the source set by looking for `<moduleName>.v` in
+        // these directories. Aurora bundles a small HDL library
+        // (myFIFO.v, ula.v, etc.) that processor-mode pulls in
+        // explicitly; for verilog-only the user otherwise has to
+        // manually add each library file to their picker. Pointing
+        // -y at components/HDL means a `myFIFO foo (...)` instance in
+        // the user's design just works without extra setup.
+        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+        const libraryArgs = `-y "${hdlPath}"`;
+
         const cmdParts = buildVvp
             ? [
                 `"${iveriCompPath}"`,
                 flags,
+                libraryArgs,
                 `-s ${simTopModule}`,
                 `-o "${outputFile}"`,
                 sourceFilesString,
@@ -1596,6 +1608,7 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
             : [
                 `"${iveriCompPath}"`,
                 flags,
+                libraryArgs,
                 // -tnull tells iverilog to elaborate but skip code-gen, so
                 // we get the parse + type-check without producing a .vvp.
                 '-tnull',

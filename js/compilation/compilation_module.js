@@ -382,7 +382,18 @@ async generateProjectHierarchy() {
         // freely innerHTML='' our own without touching the standard
         // tree or the verilog picker. See js/tree/tree_view.js.
         const hostContainer = window.treeView?.getContainer('hierarchy');
-        if (!hostContainer || !this.hierarchyData) return;
+        if (!hostContainer) return;
+
+        // Source of truth for hierarchy data: prefer the instance
+        // field (set by the compile that produced it), but fall
+        // back to the shared TreeViewState slot — runSingleStep
+        // builds a NEW CompilationModule on every click, and
+        // setupHierarchyToggle re-pins TreeViewState.compilationModule
+        // to the new instance whose this.hierarchyData starts null.
+        // Without this fallback, the toggle handler would call us via
+        // the new (empty) instance and silently produce nothing.
+        const hierarchyData = this.hierarchyData ?? TreeViewState.hierarchyData;
+        if (!hierarchyData) return;
 
         window.treeView.setActive('hierarchy');
         hostContainer.innerHTML = '';
@@ -391,9 +402,9 @@ async generateProjectHierarchy() {
         container.className = 'hierarchy-container';
 
         const topLevelInstance = {
-            instanceName: this.hierarchyData.name,
+            instanceName: hierarchyData.name,
             type: 'instance',
-            moduleDefinition: this.hierarchyData
+            moduleDefinition: hierarchyData
         };
 
         const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'fa-solid fa-microchip', true);
@@ -402,7 +413,7 @@ async generateProjectHierarchy() {
 
         container.appendChild(topItem);
 
-        this.buildHierarchyTree(topItem, this.hierarchyData);
+        this.buildHierarchyTree(topItem, hierarchyData);
 
         hostContainer.appendChild(container);
     }

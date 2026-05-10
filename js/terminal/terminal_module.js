@@ -341,9 +341,22 @@ class TerminalManager {
     }
 
     setupTerminalLogListener() {
+        // Module-level guard — every `new TerminalManager()` used to
+        // register its own ipcRenderer.on('terminal-log', ...) callback,
+        // and nothing ever removed them. Compilation_module / wave_config /
+        // renderer all instantiate one (~3+ instances live at any time
+        // when a project is open), so a single PRISM "compilation
+        // completed" log fanned out to N terminals = the message
+        // appeared 3+ times in tveri.
+        //
+        // The IPC payload includes the target terminal id, and
+        // appendToTerminal routes by id — so one listener serving all
+        // terminals is correct. Subsequent constructors no-op.
+        if (TerminalManager.terminalLogListenerInitialized) return;
         window.electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
             this.appendToTerminal(terminal, message, type);
         });
+        TerminalManager.terminalLogListenerInitialized = true;
     }
 
     setupTerminalTabs() {

@@ -529,8 +529,28 @@ class VerilogTreeManager {
             const fileItem = this.createFileItem(file, index);
             fileTree.appendChild(fileItem);
         });
-        
+
         console.log('✅ Rendered', this.verilogFiles.length, 'file items');
+        // DIAGNOSTIC: dump the rendered DOM of the top-level row, AFTER
+        // append. If it contains "Top Level" but the badge "disappears"
+        // visually, the bug is in CSS or a later DOM mutation. If it
+        // doesn't contain "Top Level" despite isTopLevel:true in the
+        // data, the badge HTML branch was somehow skipped.
+        const topRow = fileTree.querySelector('.verilog-file-item.top-level-file');
+        console.log('🎨 [DIAG] top-level-file row outerHTML:', topRow?.outerHTML ?? '(no row found)');
+        // Also schedule a check on the next animation frame to see if
+        // anything mutated it post-render.
+        requestAnimationFrame(() => {
+            const stillThere = fileTree.querySelector('.verilog-file-item.top-level-file');
+            const hasBadge = stillThere?.querySelector('.top-level-badge');
+            console.log('🎨 [DIAG] post-rAF check — top-level-file class:', !!stillThere, 'top-level-badge present:', !!hasBadge);
+        });
+        // Schedule a deferred check in 1 second too.
+        setTimeout(() => {
+            const stillThere2 = fileTree.querySelector('.verilog-file-item.top-level-file');
+            const hasBadge2 = stillThere2?.querySelector('.top-level-badge');
+            console.log('🎨 [DIAG] +1s check — top-level-file class:', !!stillThere2, 'top-level-badge present:', !!hasBadge2);
+        }, 1000);
     }
     
 

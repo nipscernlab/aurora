@@ -493,6 +493,12 @@ class VerilogTreeManager {
         }
         
         console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
+        // DIAGNOSTIC: dump isTopLevel state for every render so we can
+        // catch the path where the badge gets reset between renders.
+        // Remove once the badge-flash bug is closed.
+        console.log('🎨 [DIAG] verilogFiles state:',
+            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', '),
+            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
 
         // Clear existing content
         fileTree.innerHTML = '';
@@ -1173,6 +1179,13 @@ async saveConfiguration() {
         const topPath = topFile ? topFile.path : '';
         const tbPath = tbTopFile ? tbTopFile.path : '';
 
+        // DIAGNOSTIC
+        console.log('💾 [DIAG] saveConfiguration writing:',
+            'synth=', synthFiles.map((f) => `${f.name}[top=${f.isTopLevel}]`).join(','),
+            'tb=', tbFiles.map((f) => `${f.name}[top=${f.isTopLevel}]`).join(','),
+            'topPath=', topPath, 'tbPath=', tbPath,
+            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
+
         await ProjectConfigStore.update(projectPath, (cfg) => {
             cfg.synthesizableFiles = synthFiles;
             cfg.testbenchFiles = tbFiles;
@@ -1273,6 +1286,10 @@ async loadConfiguration() {
 
         this.verilogFiles = nextFiles;
         this.sortFilesAlphabetically();
+        // DIAGNOSTIC
+        console.log('📥 [DIAG] loadConfiguration done:',
+            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', '),
+            'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
     } catch (error) {
         console.error('Error loading configuration:', error);
     }

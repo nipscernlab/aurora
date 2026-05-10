@@ -232,6 +232,13 @@
 .category-toggle-wrapper {
   display: flex;
   align-items: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.verilog-file-item:hover .category-toggle-wrapper,
+.verilog-file-item:focus-within .category-toggle-wrapper {
+  opacity: 1;
 }
 
 .category-toggle {

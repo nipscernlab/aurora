@@ -479,7 +479,16 @@ async runSingleStep(step) {
                 // pra cmm pra cobrir ambos os casos (cmm aberto: o nome
                 // ja vem certo; asm aberto: trocamos .asm por .cmm).
                 const baseName = editingPath.split(/[\\/]/).pop().replace(/\.(cmm|asm)$/i, '');
-                const overrideProcessor = { ...procFromPath, cmmFile: `${baseName}.cmm` };
+                // clk/numClocks hardcoded por enquanto. Sem isso, um
+                // processor montado a partir do .spf (so name) cai em
+                // 0/0 e o asmcomp gera um testbench inutil. Valores
+                // escolhidos pelo usuario: 100 MHz, 2000 clocks.
+                const overrideProcessor = {
+                    ...procFromPath,
+                    cmmFile: `${baseName}.cmm`,
+                    clk: 100,
+                    numClocks: 2000,
+                };
 
                 switchTerminal('terminal-tasm');
                 await compiler.ensureDirectories(overrideProcessor.name);

@@ -664,6 +664,49 @@ class VerilogTreeManager {
             `created=${createdCount}`, `updated=${updatedCount}`, `removed=${removedCount}`,
             'final row count=', fileTree.querySelectorAll('.verilog-file-item').length,
             'has top-level-badge in DOM=', !!fileTree.querySelector('.top-level-badge'));
+
+        // DIAG (post-render-2): if the badge is in DOM but the user
+        // says it's invisible, something OUTSIDE renderVerilogTree
+        // must be mutating the tree. Install a MutationObserver
+        // watching for any node removal under #file-tree, and any
+        // class/style attribute change. Logs the mutation source
+        // stack so we can chase the offender.
+        if (window._vtreeBadgeObs) window._vtreeBadgeObs.disconnect();
+        window._vtreeBadgeObs = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.type === 'childList' && m.removedNodes.length > 0) {
+                    for (const n of m.removedNodes) {
+                        const html = n.outerHTML?.slice(0, 120) || n.textContent?.slice(0, 120);
+                        // Badge or row removal — that's the smoking gun.
+                        if (html?.includes('top-level-badge') || html?.includes('verilog-file-item')) {
+                            console.log('🚨 [DIAG] MUT removed badge/row:', html,
+                                'parent:', m.target.nodeName, m.target.className,
+                                'stack:', new Error().stack?.split('\n').slice(2, 6).join(' ← '));
+                        }
+                    }
+                } else if (m.type === 'attributes') {
+                    const t = m.target;
+                    // Class / style change on a row or badge.
+                    if (t.classList?.contains('file-badge') || t.classList?.contains('top-level-badge') ||
+                        t.classList?.contains('top-level-file') || t.classList?.contains('verilog-file-item')) {
+                        console.log('🚨 [DIAG] MUT attr', m.attributeName, 'on', t.nodeName + '.' + [...t.classList].join('.'),
+                            'old=', m.oldValue, 'new=', t.getAttribute(m.attributeName),
+                            'stack:', new Error().stack?.split('\n').slice(2, 6).join(' ← '));
+                    }
+                }
+            }
+        });
+        window._vtreeBadgeObs.observe(fileTree, {
+            childList: true, subtree: true, attributes: true, attributeOldValue: true,
+        });
+        setTimeout(() => {
+            const badgeStill = fileTree.querySelector('.top-level-badge');
+            console.log('🎨 [DIAG] +2s post-render — top-level-badge in DOM=', !!badgeStill,
+                'visible=', badgeStill ? getComputedStyle(badgeStill).display !== 'none' && getComputedStyle(badgeStill).opacity !== '0' : 'n/a',
+                'opacity=', badgeStill ? getComputedStyle(badgeStill).opacity : 'n/a',
+                'display=', badgeStill ? getComputedStyle(badgeStill).display : 'n/a');
+            window._vtreeBadgeObs?.disconnect();
+        }, 2000);
     }
 
     /**

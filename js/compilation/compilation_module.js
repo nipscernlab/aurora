@@ -823,7 +823,19 @@ end
                 throw new Error(`ASM compilation failed with code ${asmResult.code}`);
             }
 
-            if (!this.isProjectOriented && processor.testbenchFile == 'standard') {
+            // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
+            // pra <proc>/Simulation/<base>_tb.v sempre que o processador
+            // usa o testbench "standard" — i.e., nao tem um testbench
+            // customizado configurado. Antes essa copia era gateada por
+            // !this.isProjectOriented; em Project Mode ela era skip e o
+            // testbench so existia em components/Temp/, escondido do
+            // usuario. O testbench auto-gerado e per-processador
+            // (Simulation/<base>_tb.v), distinto do testbench-top que
+            // o projectOriented aponta, entao copiar em Project Mode
+            // tambem nao conflita com nada.
+            const usesStandardTestbench =
+                !processor.testbenchFile || processor.testbenchFile === 'standard';
+            if (usesStandardTestbench) {
                 const tbFileName = tbFile.split(/[\\\\/]/)
                     .pop();
                 const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);

@@ -365,13 +365,16 @@ async runSingleStep(step) {
                 await compiler.loadConfig();
 
                 // Em Project Mode os processadores podem estar listados em
-                // projectOriented.json (compiler.projectConfig) e nao em
-                // processorConfig.json (compiler.config). Em Processor Mode
-                // e o contrario. Combinar os dois cobre as duas variacoes
-                // sem o caller precisar saber em qual modo o usuario esta.
+                // projectOriented.json (compiler.projectConfig) ou nao
+                // estar em nenhum dos dois JSONs (caso comum: o .spf lista
+                // a pasta ProcDTW/ mas processorConfig.json esta vazio).
+                // window.availableProcessors e a lista canonica vinda do
+                // .spf — e e o que o file tree usa pra agrupar arquivos.
+                // Combinamos as tres fontes pra cobrir qualquer setup.
                 const allProcessors = [
                     ...(compiler.config?.processors || []),
                     ...(compiler.projectConfig?.processors || []),
+                    ...(Array.isArray(window.availableProcessors) ? window.availableProcessors : []),
                 ];
                 const procFromPath = findProcessorForPath(
                     editingPath,

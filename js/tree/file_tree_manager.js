@@ -137,6 +137,20 @@ async function refreshFileTree() {
             fileTree.style.opacity = '0';
 
             setTimeout(() => {
+                // Re-check the verilog-mode guard inside the timeout.
+                // Between this function's top-of-body check and now,
+                // ~200ms + an await have passed, and activateVerilogMode
+                // can have flipped the file-tree into verilog-picker
+                // mode in the meantime. Without this re-check we'd
+                // innerHTML='' the verilog rows we just rendered, then
+                // populate the standard tree on top — the user sees
+                // both tree styles stacked (10 entries instead of 5)
+                // and the verilog row badges flicker out.
+                if (fileTree.classList.contains('verilog-mode-active')) {
+                    fileTree.style.opacity = '1';
+                    return;
+                }
+
                 fileTree.innerHTML = '';
                 fileTree.classList.remove('hierarchy-view');
                 renderFileTree(result.files, fileTree);

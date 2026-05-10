@@ -151,7 +151,15 @@ function findProcessorForPath(filePath, projectPath, processors) {
     const sub = segs[1];
     if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
     const procNameLower = segs[0];
-    return processors.find((p) => p?.name && p.name.toLowerCase() === procNameLower) || null;
+    // Tolera entradas como string (projectOriented.json) ou objeto com
+    // .name (processorConfig.json). Devolve sempre um objeto pra que
+    // o caller possa fazer { ...processor, cmmFile: ... }.
+    const match = processors.find((p) => {
+        const n = typeof p === 'string' ? p : p?.name;
+        return n && n.toLowerCase() === procNameLower;
+    });
+    if (!match) return null;
+    return typeof match === 'string' ? { name: match } : match;
 }
 
 // ----------------------------------------------------------------------
@@ -356,10 +364,19 @@ async runSingleStep(step) {
                 const compiler = new CompilationModule(window.currentProjectPath);
                 await compiler.loadConfig();
 
+                // Em Project Mode os processadores podem estar listados em
+                // projectOriented.json (compiler.projectConfig) e nao em
+                // processorConfig.json (compiler.config). Em Processor Mode
+                // e o contrario. Combinar os dois cobre as duas variacoes
+                // sem o caller precisar saber em qual modo o usuario esta.
+                const allProcessors = [
+                    ...(compiler.config?.processors || []),
+                    ...(compiler.projectConfig?.processors || []),
+                ];
                 const procFromPath = findProcessorForPath(
                     editingPath,
                     window.currentProjectPath,
-                    compiler.config?.processors || [],
+                    allProcessors,
                 );
                 if (!procFromPath) {
                     throw new Error(

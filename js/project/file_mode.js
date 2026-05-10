@@ -385,6 +385,102 @@ class VerilogTreeManager {
     }
     
     /**
+     * Normalize um path para comparacao case-insensitive cross-platform.
+     */
+    _normalizePath(p) {
+        return (p || '').replace(/\\/g, '/').toLowerCase();
+    }
+
+    /**
+     * Dado um arquivo, devolve o nome do processador "dono" se o path
+     * cair em <projeto>/<proc>/Hardware/, senao null. A lista canonica
+     * de processadores e window.availableProcessors (semeada no load
+     * do .spf por project_manager).
+     */
+    _getProcessorForFile(file) {
+        const projectPath = ProjectStore.getProjectPath();
+        if (!projectPath || !file?.path) return null;
+        const procs = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+        if (procs.length === 0) return null;
+        const np = this._normalizePath(file.path);
+        const projN = this._normalizePath(projectPath);
+        if (!np.startsWith(projN)) return null;
+        const rel = np.slice(projN.length).replace(/^\/+/, '');
+        const segs = rel.split('/');
+        // Esperamos <proc>/Hardware/<arquivo>(/sub)? — pelo menos 3 segs
+        // e o segundo precisa ser "hardware".
+        if (segs.length < 3 || segs[1] !== 'hardware') return null;
+        const candidate = segs[0];
+        for (const p of procs) {
+            if (p.toLowerCase() === candidate) return p;
+        }
+        return null;
+    }
+
+    /**
+     * Varre <projeto>/<proc>/Hardware/ pra cada processador configurado e
+     * adiciona qualquer .v/.sv/.vh ainda nao listado em this.verilogFiles
+     * como synth. Devolve quantos foram adicionados — caller usa pra
+     * decidir se vale chamar saveConfiguration().
+     *
+     * Nao-destrutivo: nao remove arquivos que sumiram do disco aqui (isso
+     * fica a cargo do filtro fileExists em loadConfiguration).
+     */
+    async _discoverProcessorFiles() {
+        const projectPath = ProjectStore.getProjectPath();
+        if (!projectPath) return 0;
+        const procs = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+        if (procs.length === 0) return 0;
+
+        const seen = new Set(this.verilogFiles.map((f) => this._normalizePath(f.path)));
+        let added = 0;
+
+        for (const procName of procs) {
+            const hardwareDir = await window.electronAPI.joinPath(projectPath, procName, 'Hardware');
+            let entries;
+            try {
+                entries = await window.electronAPI.listFilesInDirectory(hardwareDir);
+            } catch {
+                continue;
+            }
+            if (!Array.isArray(entries)) continue;
+            for (const entry of entries) {
+                if (typeof entry !== 'string') continue;
+                if (!this.ALLOWED_EXTENSIONS.some((ext) => entry.toLowerCase().endsWith(ext))) continue;
+                const fullPath = await window.electronAPI.joinPath(hardwareDir, entry);
+                const key = this._normalizePath(fullPath);
+                if (seen.has(key)) continue;
+                this.verilogFiles.push({
+                    name: entry,
+                    path: fullPath,
+                    isTopLevel: false,
+                    category: 'synthesizable',
+                });
+                seen.add(key);
+                added++;
+            }
+        }
+        return added;
+    }
+
+    /**
+     * Cria o separador horizontal que marca o inicio de um grupo de
+     * arquivos de processador na arvore.
+     */
+    _createProcessorSeparator(procName) {
+        const sep = document.createElement('div');
+        sep.className = 'verilog-processor-separator';
+        sep.dataset.processorName = procName;
+        sep.innerHTML = `
+            <span class="verilog-processor-separator-line"></span>
+            <span class="verilog-processor-separator-label"></span>
+            <span class="verilog-processor-separator-line"></span>
+        `;
+        sep.querySelector('.verilog-processor-separator-label').textContent = procName;
+        return sep;
+    }
+
+    /**
      * Get file icon based on extension
      */
     /**
@@ -606,36 +702,72 @@ class VerilogTreeManager {
         container.classList.remove('verilog-empty');
         container.querySelector('.verilog-empty-state')?.remove();
 
-        // Index existing rows by path so we can match against the
-        // desired list in one pass.
-        const existingByPath = new Map();
+        // Agrupa os arquivos por processador. Arquivos "comuns" (que nao
+        // estao numa pasta <proc>/Hardware/) ficam num grupo sem nome
+        // que aparece primeiro, sem separador. Os grupos por processador
+        // aparecem depois, em ordem alfabetica, cada um precedido por um
+        // separador horizontal com o nome do processador.
+        const userFiles = [];
+        const procGroups = new Map(); // procName -> [files]
+        for (const file of this.verilogFiles) {
+            const proc = this._getProcessorForFile(file);
+            if (!proc) {
+                userFiles.push(file);
+            } else {
+                if (!procGroups.has(proc)) procGroups.set(proc, []);
+                procGroups.get(proc).push(file);
+            }
+        }
+        const procNames = [...procGroups.keys()].sort((a, b) => a.localeCompare(b));
+
+        // Indexa rows e separadores existentes pra reconciliacao path-keyed
+        // (mesmo padrao usado antes da feature de processador): rows certas
+        // sao reutilizadas/movidas, restos viram lixo no fim.
+        const existingFileRows = new Map();
         for (const row of container.querySelectorAll('.verilog-file-item')) {
-            existingByPath.set(row.dataset.filePath, row);
+            existingFileRows.set(row.dataset.filePath, row);
+        }
+        const existingSeparators = new Map();
+        for (const sep of container.querySelectorAll('.verilog-processor-separator')) {
+            existingSeparators.set(sep.dataset.processorName, sep);
         }
 
-        // Pass 1 — for each desired file, place its row in the correct
-        // sibling position. We track `prev` to know where the next row
-        // should land. insertBefore handles "node already in parent" as
-        // a move, so a no-op when ordering is already correct.
         let prev = null;
-        for (const file of this.verilogFiles) {
-            let row = existingByPath.get(file.path);
+        const placeNode = (node) => {
+            const targetSibling = prev ? prev.nextSibling : container.firstChild;
+            if (node !== targetSibling) container.insertBefore(node, targetSibling);
+            prev = node;
+        };
+        const placeFile = (file) => {
+            let row = existingFileRows.get(file.path);
             if (row) {
                 this._updateFileItem(row, file);
-                existingByPath.delete(file.path);
+                existingFileRows.delete(file.path);
             } else {
                 row = this._createFileItem(file);
             }
-            const targetSibling = prev ? prev.nextSibling : container.firstChild;
-            if (row !== targetSibling) {
-                container.insertBefore(row, targetSibling);
+            placeNode(row);
+        };
+        const placeSeparator = (procName) => {
+            let sep = existingSeparators.get(procName);
+            if (sep) {
+                existingSeparators.delete(procName);
+            } else {
+                sep = this._createProcessorSeparator(procName);
             }
-            prev = row;
+            placeNode(sep);
+        };
+
+        for (const file of userFiles) placeFile(file);
+        for (const procName of procNames) {
+            placeSeparator(procName);
+            for (const file of procGroups.get(procName)) placeFile(file);
         }
 
-        // Pass 2 — anything still in existingByPath wasn't claimed by
-        // any desired file. Remove.
-        for (const row of existingByPath.values()) row.remove();
+        // Limpa rows / separadores que sobraram (arquivos removidos,
+        // processadores que sumiram).
+        for (const row of existingFileRows.values()) row.remove();
+        for (const sep of existingSeparators.values()) sep.remove();
     }
 
     /**
@@ -1431,7 +1563,17 @@ async loadConfiguration() {
         }
 
         this.verilogFiles = nextFiles;
+
+        // Auto-descobre arquivos dentro de <projeto>/<proc>/Hardware/
+        // para todos os processadores configurados. Se algum for novo
+        // (nao estava em projectOriented.json), persistimos imediatamente
+        // pra que o proximo load nao precise re-descobrir e a lista de
+        // synth do iverilog reflita o estado real do projeto.
+        const addedFromProcessors = await this._discoverProcessorFiles();
         this.sortFilesAlphabetically();
+        if (addedFromProcessors > 0) {
+            await this.saveConfiguration();
+        }
     } catch (error) {
         console.error('Error loading configuration:', error);
     }

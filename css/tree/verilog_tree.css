@@ -77,6 +77,42 @@
 }
 
 /* ---------------------------------------------------------------------------
+ *  Processor group separator
+ *
+ *  Marca o inicio de cada grupo de arquivos pertencentes a um processador
+ *  configurado (auto-descobertos a partir de <projeto>/<proc>/Hardware/).
+ *  Visualmente: duas linhas finas com o nome do processador no meio, em
+ *  letra menor e muted, sem cursor de clique (e so um separador, nao um
+ *  item de arvore).
+ * ------------------------------------------------------------------------- */
+.verilog-processor-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 22px;
+  padding: 0 var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  user-select: none;
+  cursor: default;
+}
+
+.verilog-processor-separator-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.verilog-processor-separator-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
  *  File rows — match the regular file tree's row metrics
  * ------------------------------------------------------------------------- */
 .verilog-file-item {

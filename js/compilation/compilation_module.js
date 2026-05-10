@@ -28,6 +28,14 @@ class CompilationModule {
         this.componentsPath = null;
         this.projectTestbenchBackup = null;
         this.initializeComponentsPath();
+
+        // Pin this instance as "the latest" — the file-tree view
+        // controller's hierarchy renderer delegates to whatever
+        // CompilationModule lives here. New compile click =
+        // new instance = new pin = freshest data.
+        if (typeof window !== 'undefined') {
+            window._latestCompilationModule = this;
+        }
     }
 
     static extractFileInfoFromSource(sourceAttr) {
@@ -182,6 +190,7 @@ class CompilationModule {
             // reference) sees the fresh data. Without this, file_tree_*
             // sees stale or null hierarchy after a re-compile.
             TreeViewState.hierarchyData = this.hierarchyData;
+            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
             this.enableHierarchyToggle();
             return true;
@@ -236,6 +245,7 @@ async generateProjectHierarchy() {
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
             // Sync to the shared store — see comment in generateHierarchy().
             TreeViewState.hierarchyData = this.hierarchyData;
+            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
             this.enableHierarchyToggle();
             return true;
@@ -384,18 +394,14 @@ async generateProjectHierarchy() {
         const hostContainer = window.treeView?.getContainer('hierarchy');
         if (!hostContainer) return;
 
-        // Source of truth for hierarchy data: prefer the instance
-        // field (set by the compile that produced it), but fall
-        // back to the shared TreeViewState slot — runSingleStep
-        // builds a NEW CompilationModule on every click, and
-        // setupHierarchyToggle re-pins TreeViewState.compilationModule
-        // to the new instance whose this.hierarchyData starts null.
-        // Without this fallback, the toggle handler would call us via
-        // the new (empty) instance and silently produce nothing.
-        const hierarchyData = this.hierarchyData ?? TreeViewState.hierarchyData;
+        // Single source of truth for hierarchy data: the file-tree
+        // view controller. Per-instance `this.hierarchyData` is just
+        // a freshness shortcut for the compile that produced it —
+        // the controller's slot survives the per-compile reconstruction
+        // of CompilationModule.
+        const hierarchyData = this.hierarchyData ?? window.fileTreeViewController?.getHierarchyData?.();
         if (!hierarchyData) return;
 
-        window.treeView.setActive('hierarchy');
         hostContainer.innerHTML = '';
 
         const container = document.createElement('div');
@@ -2153,26 +2159,12 @@ end
     }
 
     switchToStandardView() {
-        // "Standard view" depends on which IDE mode we're in.
-        // Project Mode: the file view is the verilog picker — going
-        //   "back to standard" from hierarchy means going back to the
-        //   picker, not to a folder listing the picker doesn't even
-        //   show in this mode.
-        // Processor Mode: the file view IS the standard folder tree.
+        // Delegate to the controller — it picks verilog vs standard
+        // based on IDE mode and owns the active-view state.
         TreeViewState.setHierarchical(false);
-
-        const projectMode = document.getElementById('Project Mode')?.checked === true;
-        if (projectMode) {
-            window.treeView?.setActive('verilog');
-            window.verilogTreeManager?.renderVerilogTree?.();
-            this.terminalManager.appendToTerminal('tveri',
-                'Switched to file picker', 'info');
-        } else {
-            window.treeView?.setActive('standard');
-            refreshFileTree();
-            this.terminalManager.appendToTerminal('tveri',
-                'Switched to standard file tree', 'info');
-        }
+        window.fileTreeViewController?.showFileMode?.();
+        this.terminalManager.appendToTerminal('tveri',
+            'Switched to file tree', 'info');
     }
 
     async generateHierarchyAfterCompilation(processor = null) {
@@ -2194,6 +2186,7 @@ end
             if (success) {
                 this.hierarchyGenerated = true;
                 TreeViewState.hierarchyData = this.hierarchyData;
+            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
 
                 if (!TreeViewState.isToggleEnabled) {
                     TreeViewState.enableToggle();
@@ -2967,20 +2960,14 @@ write_json ${jsonOutputPath}
     }
 
 switchToHierarchicalView() {
-    if (!this.hierarchyData) {
-        console.warn('No hierarchy data available');
+    // Delegate to the controller. The controller checks for data
+    // availability and routes to the registered hierarchy renderer.
+    if (!window.fileTreeViewController?.showHierarchyMode?.()) {
         this.terminalManager.appendToTerminal('tveri',
             'No hierarchy data available. Please compile Verilog first.', 'warning');
         return;
     }
-
-    // Activate the hierarchy subcontainer; renderHierarchicalTree
-    // populates it. The other views' subtrees are kept intact for
-    // cheap toggling back. NEVER innerHTML='' on #file-tree itself.
-    this.renderHierarchicalTree();
     TreeViewState.setHierarchical(true);
-    this.updateToggleButtonForCurrentMode();
-
     this.terminalManager.appendToTerminal('tveri',
         'Switched to hierarchical module view', 'info');
 }
@@ -3243,6 +3230,7 @@ async iverilogVerilogModeCompilation() {
         
         if (this.hierarchyData) {
             TreeViewState.hierarchyData = this.hierarchyData;
+            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             TreeViewState.enableToggle();
             this.hierarchyGenerated = true;
             await this.switchToHierarchicalView();
@@ -3313,6 +3301,7 @@ write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
         this.terminalManager.appendToTerminal('tveri', 'Project Mode (no processors) hierarchy generated successfully', 'success');
         
         TreeViewState.hierarchyData = this.hierarchyData;
+            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
         TreeViewState.enableToggle();
         
         return true;

@@ -558,10 +558,11 @@ class FileTreeManager {
             }
         });
 
-        // Hierarchy toggle button
-        document.getElementById('alternate-tree-toggle')?.addEventListener('click', () => {
-            this.toggleHierarchyView();
-        });
+        // Hierarchy toggle is owned by file_tree_view_controller.js —
+        // a single click listener installed there handles the
+        // file ↔ hierarchy flip. Don't re-attach here; two listeners
+        // on the same button stomped on each other before this
+        // controller existed.
 
         window.electronAPI.onDirectoryChanged((dir, files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
@@ -650,60 +651,15 @@ getCurrentMode() {
 }
 
 toggleHierarchyView() {
-    const toggleButton = document.getElementById('alternate-tree-toggle');
-    
-    if (!toggleButton || toggleButton.disabled) {
-        console.warn('⚠️ Toggle button is disabled');
-        return;
-    }
-    
-    const currentMode = this.getCurrentMode();
-    console.log(`🔄 Toggling tree view. Mode: ${currentMode}, Is Hierarchical: ${TreeViewState.isHierarchical}`);
-    
-    if (currentMode === 'project') {
-        // Project Mode: toggle picker tree ↔ hierarchical
-        if (TreeViewState.isHierarchical) {
-            console.log('📁 Switching to Verilog File Mode tree');
-            TreeViewState.setHierarchical(false);
-            window.treeView?.setActive('verilog');
-            // Verilog rows are still in their subcontainer from before
-            // — the renderer is idempotent so this is cheap. We call
-            // it to make sure the data is in sync with the on-disk
-            // state in case the user did something while in hierarchy.
-            if (window.verilogTreeManager) {
-                window.verilogTreeManager.renderVerilogTree();
-            }
-        } else {
-            if (!TreeViewState.hierarchyData) {
-                console.warn('⚠️ No hierarchy data available. Compile Verilog first.');
-                return;
-            }
-            console.log('🌲 Switching to Hierarchical tree');
-            TreeViewState.setHierarchical(true);
-            window.treeView?.setActive('hierarchy');
-            this.renderHierarchicalTreeFromData();
-        }
+    // Delegate to the file-tree view controller — it owns the
+    // toggle button and the view-switch state. Kept this stub so
+    // legacy callers (command palette, etc.) that still call
+    // `fileTreeManager.toggleHierarchyView()` keep working.
+    if (window.fileTreeViewController?.isShowingHierarchy?.()) {
+        window.fileTreeViewController.showFileMode();
     } else {
-        // Processor Mode: toggle standard folder tree ↔ hierarchical
-        if (TreeViewState.isHierarchical) {
-            console.log('📂 Switching to Standard File Tree');
-            TreeViewState.setHierarchical(false);
-            window.treeView?.setActive('standard');
-            this.refresh();
-        } else {
-            if (!TreeViewState.hierarchyData) {
-                console.warn('⚠️ No hierarchy data. Compile Verilog first.');
-                return;
-            }
-            console.log('🌲 Switching to Hierarchical tree');
-            window.treeView?.setActive('hierarchy');
-            TreeViewState.setHierarchical(true);
-            this.renderHierarchicalTreeFromData();
-        }
+        window.fileTreeViewController?.showHierarchyMode?.();
     }
-    
-    // Update toggle button appearance
-    this.updateToggleButtonAppearance();
 }
 
 /**

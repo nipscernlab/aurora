@@ -510,9 +510,13 @@ async runSingleStep(step) {
                 );
                 if (!cmmArtifactsReady) {
                     if (window.terminalManager?.appendToTerminal) {
+                        // Prefixo "Info:" e detectado por detectMessageType
+                        // em terminal_module.js e classificado como 'tips'
+                        // (azul) automaticamente — robusto independente do
+                        // type passado aqui.
                         window.terminalManager.appendToTerminal(
                             'tasm',
-                            'cmm_log.txt missing — running C± compile first to generate it. Output in tcmm terminal.',
+                            'Info: cmm_log.txt missing — running C± compile first to generate it. Output in tcmm terminal.',
                             'tips',
                         );
                     }

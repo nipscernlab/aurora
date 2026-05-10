@@ -408,6 +408,78 @@ async runSingleStep(step) {
             return;
         }
 
+        // 1.6. Botao ASM: mesmo padrao do C+- mas aceita tanto .cmm
+        //      quanto .asm em foco. asmCompilation internamente deriva
+        //      o caminho do .asm a partir do basename do "cmmFile" que
+        //      recebe (e.g. cmmFile="ProcDTW.cmm" -> asm em
+        //      <proc>/Software/ProcDTW.asm). Entao mesmo quando o
+        //      usuario esta editando o .asm direto, montamos um
+        //      cmmFile sintetico "<base>.cmm" e o asmcomp.exe acaba
+        //      trabalhando no .asm correto de qualquer jeito.
+        if (step === 'asm') {
+            const editingPath = TabManager.getEditingFilePath?.();
+            const lower = (editingPath || '').toLowerCase();
+            const isCmm = lower.endsWith('.cmm');
+            const isAsm = lower.endsWith('.asm');
+            if (!editingPath || (!isCmm && !isAsm)) {
+                switchTerminal('terminal-tasm');
+                if (window.terminalManager?.appendToTerminal) {
+                    window.terminalManager.appendToTerminal(
+                        'tasm',
+                        'No .cmm or .asm file is open in the editor. Open one and try again.',
+                        'tips',
+                    );
+                }
+                return;
+            }
+
+            startCompilation(STEP_TERMINALS.asm);
+            try {
+                const compiler = new CompilationModule(window.currentProjectPath);
+                await compiler.loadConfig();
+
+                const allProcessors = [
+                    ...(compiler.config?.processors || []),
+                    ...(compiler.projectConfig?.processors || []),
+                    ...(Array.isArray(window.availableProcessors) ? window.availableProcessors : []),
+                ];
+                const procFromPath = findProcessorForPath(
+                    editingPath,
+                    window.currentProjectPath,
+                    allProcessors,
+                );
+                if (!procFromPath) {
+                    throw new Error(
+                        `Cannot resolve a processor for "${editingPath}". ` +
+                        `The file must live in <project>/<processor>/{Software,Hardware,Simulation}/.`,
+                    );
+                }
+
+                if (compiler.config) compiler.config.selectedCmmFile = null;
+                // asmCompilation espera "<base>.cmm" e remove .cmm pra
+                // achar o .asm. Trocamos a extensao do arquivo aberto
+                // pra cmm pra cobrir ambos os casos (cmm aberto: o nome
+                // ja vem certo; asm aberto: trocamos .asm por .cmm).
+                const baseName = editingPath.split(/[\\/]/).pop().replace(/\.(cmm|asm)$/i, '');
+                const overrideProcessor = { ...procFromPath, cmmFile: `${baseName}.cmm` };
+
+                switchTerminal('terminal-tasm');
+                await compiler.ensureDirectories(overrideProcessor.name);
+                // 0 = processor mode, 1 = project mode (assinatura
+                // herdada — manter a mesma convencao do fluxo antigo).
+                const currentMode = this.getCurrentMode();
+                await compiler.asmCompilation(overrideProcessor, currentMode === 'project' ? 1 : 0);
+            } catch (error) {
+                console.error('Erro na etapa asm:', error);
+                if (window.terminalManager?.appendToTerminal) {
+                    window.terminalManager.appendToTerminal('tasm', `Erro Fatal: ${error.message}`, 'error');
+                }
+            } finally {
+                endCompilation();
+            }
+            return;
+        }
+
         // 2. CMM, ASM, Verilog, Wave per-step buttons. Clear only the
         //    terminal this step writes to so unrelated runs (e.g. a
         //    previous CMM compile in tcmm) stay readable.
@@ -450,16 +522,9 @@ async runSingleStep(step) {
             }
 
             switch (step) {
-                // Nota: 'cmm' nunca chega aqui — e tratado em early return
-                // mais acima usando o arquivo aberto no Monaco em vez do
-                // active processor.
-
-                case 'asm':
-                    switchTerminal('terminal-tasm');
-                    // 0 = processor mode, 1 = project mode (asmCompilation
-                    // signature predates the merge; keep as-is for now).
-                    await compiler.asmCompilation(activeProcessor, currentMode === 'project' ? 1 : 0);
-                    break;
+                // Nota: 'cmm' e 'asm' nunca chegam aqui — sao tratados em
+                // early return mais acima usando o arquivo aberto no Monaco
+                // em vez do active processor.
 
                 case 'verilog':
                     switchTerminal('terminal-tveri');

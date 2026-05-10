@@ -632,6 +632,11 @@ class FileTreeManager {
         const fileTree = document.getElementById('file-tree');
         if (!fileTree) return;
 
+        // Owner check — same invariant as refreshFileTree: don't
+        // overwrite the verilog picker tree with the standard
+        // project tree. The class on #file-tree is the lock.
+        if (fileTree.classList.contains('verilog-mode-active')) return;
+
         // ... (resto da lógica de updateFileTree, mantendo a expansão de pastas)
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
         fileTree.innerHTML = '';
@@ -759,10 +764,16 @@ renderHierarchicalTreeFromData() {
 
     updateFileTree(files) {
         if (TreeViewState.isHierarchical || FileTreeState.isRefreshing || !Array.isArray(files)) return;
-        
+
         const fileTree = document.getElementById('file-tree');
         if (!fileTree) return;
-        
+
+        // Owner check — same invariant as refreshFileTree /
+        // renderStandardTree: don't overwrite the verilog picker
+        // tree. The class on #file-tree is the single source of
+        // truth for "who owns this DOM right now".
+        if (fileTree.classList.contains('verilog-mode-active')) return;
+
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
         fileTree.innerHTML = '';
         fileTree.classList.remove('hierarchy-view');

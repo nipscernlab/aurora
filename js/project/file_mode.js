@@ -21,6 +21,11 @@ class VerilogTreeManager {
         // dropping one here is rejected with the same notification a
         // .txt would get.
         this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh'];
+        // Extensoes "software" — moram em <proc>/Software/, nao em
+        // Hardware/. Aparecem na arvore agrupadas com o processador,
+        // mas nao recebem toggle synth/tb, delete, nem entram no
+        // synthesizableFiles do projectOriented.json.
+        this.SOFTWARE_EXTENSIONS = ['.cmm', '.asm'];
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
         // State management. currentProjectPath is intentionally NOT cached
         // here anymore — it lives in ProjectStore (single source of truth).
@@ -407,9 +412,11 @@ class VerilogTreeManager {
         if (!np.startsWith(projN)) return null;
         const rel = np.slice(projN.length).replace(/^\/+/, '');
         const segs = rel.split('/');
-        // Esperamos <proc>/Hardware/<arquivo>(/sub)? — pelo menos 3 segs
-        // e o segundo precisa ser "hardware".
-        if (segs.length < 3 || segs[1] !== 'hardware') return null;
+        // Esperamos <proc>/Hardware/<arquivo> ou <proc>/Software/<arquivo>
+        // — pelo menos 3 segs e o segundo precisa ser uma das duas
+        // subpastas reconhecidas.
+        if (segs.length < 3) return null;
+        if (segs[1] !== 'hardware' && segs[1] !== 'software') return null;
         const candidate = segs[0];
         for (const p of procs) {
             if (p.toLowerCase() === candidate) return p;
@@ -428,39 +435,59 @@ class VerilogTreeManager {
      */
     async _discoverProcessorFiles() {
         const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) return 0;
+        if (!projectPath) return { addedPersist: 0, addedSoftware: 0 };
         const procs = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
-        if (procs.length === 0) return 0;
+        if (procs.length === 0) return { addedPersist: 0, addedSoftware: 0 };
 
         const seen = new Set(this.verilogFiles.map((f) => this._normalizePath(f.path)));
-        let added = 0;
+        let addedPersist = 0;
+        let addedSoftware = 0;
+
+        // Para cada processador, varremos duas subpastas:
+        //   Hardware/ → arquivos sintetizaveis (.v/.sv/.vh)  → entram como synth
+        //                                                       e sao persistidos.
+        //   Software/ → fontes de C+/asm (.cmm/.asm)         → entram com isSoftware,
+        //                                                       sem categoria/toggle,
+        //                                                       NAO persistidos.
+        const subfolders = [
+            { dir: 'Hardware', exts: this.ALLOWED_EXTENSIONS, software: false },
+            { dir: 'Software', exts: this.SOFTWARE_EXTENSIONS, software: true },
+        ];
 
         for (const procName of procs) {
-            const hardwareDir = await window.electronAPI.joinPath(projectPath, procName, 'Hardware');
-            let entries;
-            try {
-                entries = await window.electronAPI.listFilesInDirectory(hardwareDir);
-            } catch {
-                continue;
-            }
-            if (!Array.isArray(entries)) continue;
-            for (const entry of entries) {
-                if (typeof entry !== 'string') continue;
-                if (!this.ALLOWED_EXTENSIONS.some((ext) => entry.toLowerCase().endsWith(ext))) continue;
-                const fullPath = await window.electronAPI.joinPath(hardwareDir, entry);
-                const key = this._normalizePath(fullPath);
-                if (seen.has(key)) continue;
-                this.verilogFiles.push({
-                    name: entry,
-                    path: fullPath,
-                    isTopLevel: false,
-                    category: 'synthesizable',
-                });
-                seen.add(key);
-                added++;
+            for (const { dir, exts, software } of subfolders) {
+                const subDir = await window.electronAPI.joinPath(projectPath, procName, dir);
+                let entries;
+                try {
+                    entries = await window.electronAPI.listFilesInDirectory(subDir);
+                } catch {
+                    continue;
+                }
+                if (!Array.isArray(entries)) continue;
+                for (const entry of entries) {
+                    if (typeof entry !== 'string') continue;
+                    if (!exts.some((ext) => entry.toLowerCase().endsWith(ext))) continue;
+                    const fullPath = await window.electronAPI.joinPath(subDir, entry);
+                    const key = this._normalizePath(fullPath);
+                    if (seen.has(key)) continue;
+                    const fileEntry = {
+                        name: entry,
+                        path: fullPath,
+                        isTopLevel: false,
+                        category: 'synthesizable',
+                    };
+                    if (software) {
+                        fileEntry.isSoftware = true;
+                        addedSoftware++;
+                    } else {
+                        addedPersist++;
+                    }
+                    this.verilogFiles.push(fileEntry);
+                    seen.add(key);
+                }
             }
         }
-        return added;
+        return { addedPersist, addedSoftware };
     }
 
     /**
@@ -510,6 +537,8 @@ class VerilogTreeManager {
                     : 'fa-solid fa-flag';
             }
             return 'fa-solid fa-microchip';
+        } else if (ext === '.cmm' || ext === '.asm') {
+            return 'fa-solid fa-file-code';
         } else if (ext === '.txt') {
             return 'fa-solid fa-file-lines';
         } else if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) {
@@ -783,6 +812,7 @@ class VerilogTreeManager {
         const isTestbench = file.category === 'testbench';
         row.classList.toggle('synthesizable', !isTestbench);
         row.classList.toggle('testbench', isTestbench);
+        row.classList.toggle('software', !!file.isSoftware);
         row.classList.toggle('top-level-file', !!file.isTopLevel);
 
         const info = row.querySelector('.verilog-file-info');
@@ -846,7 +876,9 @@ _createFileItem(file) {
     fileItem.dataset.filePath = file.path;
 
     const isTestbench = file.category === 'testbench';
+    const isSoftware = !!file.isSoftware;
     fileItem.classList.add(isTestbench ? 'testbench' : 'synthesizable');
+    if (isSoftware) fileItem.classList.add('software');
     if (file.isTopLevel) fileItem.classList.add('top-level-file');
 
     const icon = this.getFileIcon(file);
@@ -854,12 +886,13 @@ _createFileItem(file) {
     const toggleTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
     const toggleClass = isTestbench ? 'testbench' : 'synthesizable';
 
-    fileItem.innerHTML = `
-        <div class="verilog-file-content">
-            <div class="verilog-file-info">
-                <i class="${icon} verilog-file-icon"${iconTitle ? ` title="${iconTitle}"` : ''}></i>
-                <div class="verilog-file-name" title="${file.path}">${file.name}</div>
-            </div>
+    // Arquivos software (.cmm/.asm de <proc>/Software/) nao aparecem com
+    // toggle synth/testbench (sao codigo do processador, nao Verilog) nem
+    // com delete (sao gerenciados pelo proprio processador). Apenas o icone
+    // + nome. Clicar abre o arquivo, igual aos demais.
+    const actionsHtml = isSoftware
+        ? ''
+        : `
             <div class="verilog-file-actions">
                 <div class="category-toggle-wrapper">
                     <button class="category-toggle ${toggleClass}" data-action="toggle-category"
@@ -872,6 +905,15 @@ _createFileItem(file) {
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+        `;
+
+    fileItem.innerHTML = `
+        <div class="verilog-file-content">
+            <div class="verilog-file-info">
+                <i class="${icon} verilog-file-icon"${iconTitle ? ` title="${iconTitle}"` : ''}></i>
+                <div class="verilog-file-name" title="${file.path}">${file.name}</div>
+            </div>
+            ${actionsHtml}
         </div>
     `;
     return fileItem;
@@ -1449,11 +1491,14 @@ async saveConfiguration() {
             path: f.path,
             isTopLevel: f.isTopLevel || false,
         });
+        // Arquivos software (.cmm/.asm de <proc>/Software/) nao entram em
+        // synthesizableFiles nem testbenchFiles — eles sao codigo do
+        // processador, nao Verilog. Sao auto-redescobertos no proximo load.
         const synthFiles = this.verilogFiles
-            .filter((f) => f.category !== 'testbench')
+            .filter((f) => !f.isSoftware && f.category !== 'testbench')
             .map(buildEntry);
         const tbFiles = this.verilogFiles
-            .filter((f) => f.category === 'testbench')
+            .filter((f) => !f.isSoftware && f.category === 'testbench')
             .map(buildEntry);
         const topFile = this.verilogFiles.find(
             (f) => f.isTopLevel && f.category !== 'testbench',
@@ -1564,14 +1609,21 @@ async loadConfiguration() {
 
         this.verilogFiles = nextFiles;
 
-        // Auto-descobre arquivos dentro de <projeto>/<proc>/Hardware/
-        // para todos os processadores configurados. Se algum for novo
-        // (nao estava em projectOriented.json), persistimos imediatamente
-        // pra que o proximo load nao precise re-descobrir e a lista de
-        // synth do iverilog reflita o estado real do projeto.
-        const addedFromProcessors = await this._discoverProcessorFiles();
+        // Auto-descobre arquivos dentro das pastas Hardware/ e Software/
+        // de cada processador configurado. Hardware/ entra como synth e
+        // PRECISA ser persistido em projectOriented.json (e o que o
+        // iverilog le). Software/ aparece na arvore mas nao e persistido —
+        // sao re-descobertos a cada load.
+        //
+        // Persistir tambem os de Software causaria loop: o save mudaria
+        // o mtime do JSON, o file watcher dispararia refresh, refresh
+        // chamaria loadConfiguration, que re-descobriria os mesmos
+        // Software files (porque o filtro do save os exclui da JSON), e
+        // assim por diante. Por isso so chamamos saveConfiguration
+        // quando algo PERSISTIVEL (Hardware) foi adicionado.
+        const { addedPersist } = await this._discoverProcessorFiles();
         this.sortFilesAlphabetically();
-        if (addedFromProcessors > 0) {
+        if (addedPersist > 0) {
             await this.saveConfiguration();
         }
     } catch (error) {

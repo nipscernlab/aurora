@@ -14,13 +14,13 @@ class VerilogModeManager {
     constructor() {
         // Configuration - Points to the main project config
         this.CONFIG_FILENAME = 'projectOriented.json';
-        // Verilog picker tree only takes Verilog source / header files
-        // and GTKWave save files — that's what the wave/synth flow can
-        // do something with. .txt and image extensions used to be in
-        // here from an early pass when the picker was a generic file
-        // bucket; they're dropped now so misplaced drags get a clear
-        // rejection instead of silently landing in the tree.
-        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh', '.gtkw'];
+        // File tree drag-and-drop / Open HDL accept Verilog source and
+        // header files only. .gtkw save files have a dedicated entry
+        // point — the toolbar's gtkw picker (+ Add .gtkw file...) —
+        // and don't belong in the same list as Verilog sources, so
+        // dropping one here is rejected with the same notification a
+        // .txt would get.
+        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh'];
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
         // State management. currentProjectPath is intentionally NOT cached
         // here anymore — it lives in ProjectStore (single source of truth).
@@ -263,8 +263,11 @@ class VerilogModeManager {
             
             const ext = this.getFileExtension(file.name);
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
+                const hint = ext === '.gtkw'
+                    ? ' Use the toolbar\'s .gtkw picker (+ Add .gtkw file...) instead.'
+                    : '';
                 this.showNotification(
-                    `"${file.name}" was rejected — only Verilog (.v, .sv, .vh) and GTKWave (.gtkw) files belong here.`,
+                    `"${file.name}" was rejected — only Verilog (.v, .sv, .vh) source files belong in the tree.${hint}`,
                     'warning',
                     3000
                 );
@@ -311,12 +314,11 @@ class VerilogModeManager {
         try {
             const filters = [
                 { name: 'Verilog Files', extensions: ['v', 'sv', 'vh'] },
-                { name: 'GTKWave Save Files', extensions: ['gtkw'] },
                 { name: 'All Files', extensions: ['*'] },
             ];
 
             const result = await window.electronAPI.selectFilesWithPath({
-                title: 'Select Verilog / GTKWave Files',
+                title: 'Select Verilog Files',
                 filters: filters,
                 properties: ['openFile', 'multiSelections'],
             });
@@ -1063,17 +1065,7 @@ async removeFile(index, type) {
  * Import files (keeps existing function name)
  */
 async importFiles(files) {
-    // Split incoming files by destination:
-    //   - .v / .sv / .vh   → this.verilogFiles → projectOriented.synthesizableFiles
-    //                        → rendered in the file tree.
-    //   - .gtkw            → projectOriented.gtkwFiles via ProjectConfigStore
-    //                        → shown in the toolbar's gtkw picker dropdown,
-    //                          NEVER in the file tree (the picker is the
-    //                          canonical UI for selecting the active save
-    //                          file; listing them in the tree alongside
-    //                          source files would muddle two concepts).
-    const validVerilog = [];
-    const validGtkw = [];
+    const validFiles = [];
     const errors = [];
 
     for (let file of files) {
@@ -1089,21 +1081,16 @@ async importFiles(files) {
             continue;
         }
 
-        if (ext === '.gtkw') {
-            validGtkw.push(file);
-            continue;
-        }
-
         if (this.verilogFiles.some(f => f.path === file.path)) {
             errors.push(`"${file.name}" already exists`);
             continue;
         }
 
-        validVerilog.push({
+        validFiles.push({
             name: file.name,
             path: file.path,
             isTopLevel: false,
-            category: 'synthesizable'
+            category: 'synthesizable',
         });
     }
 
@@ -1113,69 +1100,23 @@ async importFiles(files) {
         });
     }
 
-    if (validVerilog.length === 0 && validGtkw.length === 0) {
+    if (validFiles.length === 0) {
         if (errors.length === 0) {
             this.showNotification('No valid files to import', 'warning', 3000);
         }
         return;
     }
 
-    if (validVerilog.length > 0) {
-        this.verilogFiles.push(...validVerilog);
-        this.sortFilesAlphabetically();
-        await this.saveConfiguration();
-        this.renderVerilogTree();
-    }
+    this.verilogFiles.push(...validFiles);
+    this.sortFilesAlphabetically();
+    await this.saveConfiguration();
+    this.renderVerilogTree();
 
-    if (validGtkw.length > 0) {
-        await this._registerGtkwFiles(validGtkw);
-    }
-
-    const total = validVerilog.length + validGtkw.length;
     this.showNotification(
-        `Successfully added ${total} file(s)`,
+        `Successfully added ${validFiles.length} file(s)`,
         'success',
-        2000
+        2000,
     );
-}
-
-/**
- * Persist a batch of dropped/imported .gtkw files into projectOriented.json's
- * `gtkwFiles[]` array and mark the LAST one active. Mirrors the behaviour of
- * the toolbar picker's "+ Add .gtkw file..." action (gtkw_picker.js): de-dup
- * by absolute path so a re-drop just toggles activation rather than
- * appending; setting the new entry as the only `isTopLevel` keeps the
- * picker UI in sync with the user's most recent choice.
- *
- * @param {Array<{ name: string, path: string }>} gtkwFiles
- */
-async _registerGtkwFiles(gtkwFiles) {
-    const projectPath = ProjectStore.getProjectPath();
-    if (!projectPath) return;
-
-    await ProjectConfigStore.update(projectPath, (cfg) => {
-        const list = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
-        let activeEntry = null;
-        for (const incoming of gtkwFiles) {
-            let existing = list.find((f) => f?.path === incoming.path);
-            if (!existing) {
-                existing = { name: incoming.name, path: incoming.path, isTopLevel: false };
-                list.push(existing);
-            }
-            activeEntry = existing;
-        }
-        // Activate only the last one of the batch (matches the picker's
-        // "+ Add" semantics — one file = the active one).
-        if (activeEntry) {
-            for (const f of list) {
-                f.isTopLevel = (f === activeEntry);
-            }
-        }
-        cfg.gtkwFiles = list;
-    });
-
-    // Pull the toolbar dropdown's options in sync with what we just wrote.
-    window.gtkwPickerManager?.refresh?.();
 }
 
   /**

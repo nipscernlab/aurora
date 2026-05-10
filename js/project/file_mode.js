@@ -583,6 +583,22 @@ class VerilogTreeManager {
         // re-check (commit f196e2d for the bug we hit).
         fileTree.classList.add('verilog-mode-active');
 
+        // Drop any leftover content from a different view mode. The
+        // hierarchical view (compilation_module.renderHierarchicalTree)
+        // builds a `.hierarchy-container` inside #file-tree; toggling
+        // back from hierarchy → verilog used to leave that container
+        // in place because the reconciler only matches our own
+        // .verilog-file-item nodes. Result: verilog rows inserted, but
+        // hierarchy artifact still occupying space (or layered) and
+        // the user saw "nothing" depending on flex/order.
+        // Strip every child that isn't part of our render contract.
+        fileTree.classList.remove('hierarchy-view');
+        for (const child of [...fileTree.children]) {
+            if (!child.matches('.verilog-file-item, .verilog-empty-state')) {
+                child.remove();
+            }
+        }
+
         // Empty state branch — drop any data rows + show the placeholder.
         if (this.verilogFiles.length === 0) {
             fileTree.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());

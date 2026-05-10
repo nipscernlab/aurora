@@ -3487,7 +3487,11 @@ async iverilogCompilationForProcessor(processor) {
 
 async compileAll() {
     try {
-        startCompilation();
+        // Full pipeline writes to every terminal — wipe them all so
+        // the user starts clean. List literal here mirrors
+        // ALL_TERMINALS in compilation_flow.js (the canonical
+        // full-build entrypoint); keep them in sync.
+        startCompilation(['tcmm', 'tasm', 'tveri', 'twave']);
         await this.loadConfig();
 
         if (this.isProjectOriented) {

@@ -850,27 +850,36 @@ async clearTerminal(terminalId) {
     }
 
     /**
-     * Synchronous wipe of every terminal's DOM and per-terminal state.
+     * Synchronous wipe of one terminal's DOM and per-terminal state.
      * Used at the start of a new compilation so the user gets a fresh
-     * slate without the fade animation racing against the first
-     * appendToTerminal() that follows. clearAllTerminals() above keeps
-     * the ~250ms fade for the manual "Clear" button case.
+     * slate WITHOUT erasing terminals belonging to unrelated steps
+     * (e.g. running Wave shouldn't clear the tcmm log from a previous
+     * CMM compile). Sync because the caller is also sync — an async
+     * fade would race against the first appendToTerminal of the new
+     * run and erase its initial lines.
+     */
+    clearTerminalImmediate(terminalId) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+        terminal.classList.remove('faded-out');
+        terminal.innerHTML = '';
+        this.currentSessionCards[terminalId] = {};
+        this.updatableCards[terminalId] = {};
+        this.messageCounts[terminalId] = {
+            error: 0,
+            warning: 0,
+            success: 0,
+            tips: 0,
+        };
+    }
+
+    /**
+     * Wipes every terminal at once. Use clearTerminalImmediate for the
+     * per-step case; this is for Full Build / Run All where every
+     * pipeline stage runs and the user wants a clean slate everywhere.
      */
     clearAllTerminalsImmediate() {
-        Object.keys(this.terminals).forEach((terminalId) => {
-            const terminal = this.terminals[terminalId];
-            if (!terminal) return;
-            terminal.classList.remove('faded-out');
-            terminal.innerHTML = '';
-            this.currentSessionCards[terminalId] = {};
-            this.updatableCards[terminalId] = {};
-            this.messageCounts[terminalId] = {
-                error: 0,
-                warning: 0,
-                success: 0,
-                tips: 0,
-            };
-        });
+        Object.keys(this.terminals).forEach((id) => this.clearTerminalImmediate(id));
     }
 
     changeClearIcon(clearButton) {

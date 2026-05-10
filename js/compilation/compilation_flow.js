@@ -29,16 +29,34 @@ function setCompilationButtonsState(_disabled) {
     // acontece em modo (Verilog/Processor/Project) — ver setCompilationModeButtons.
 }
 
-function startCompilation() {
+// Per-step → terminals the step actually writes to. Drives the
+// targeted clear in startCompilation so unrelated terminals (e.g.
+// the tcmm output from a previous CMM run) survive when the user
+// runs only Wave or only PRISM. Keep in sync with the step branches
+// in runSingleStep below.
+const STEP_TERMINALS = Object.freeze({
+    cmm:     ['tcmm'],
+    asm:     ['tasm'],
+    verilog: ['tveri'],
+    wave:    ['twave'],
+    prism:   ['tveri'],
+});
+const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
+
+/**
+ * @param {string[]} [terminalsToClear]
+ *   IDs of terminals to wipe before logging the new run. Pass
+ *   STEP_TERMINALS[step] for a single-step button, ALL_TERMINALS for
+ *   Full Build / Run All. Undefined leaves all terminals intact —
+ *   should rarely happen; surface as a missing-mapping if it does.
+ */
+function startCompilation(terminalsToClear) {
     compilationCanceled = false;
     setCompilationButtonsState(true);
     const tm = window.initializeGlobalTerminalManager();
-    // Fresh slate for every compile so the user isn't reading mixed
-    // logs from a previous run when looking for errors. Synchronous
-    // wipe (clearAllTerminalsImmediate) — the async fade-clear used
-    // by the manual "Clear" button would race against the first
-    // appendToTerminal of the new run and erase its initial lines.
-    tm?.clearAllTerminalsImmediate?.();
+    if (tm && Array.isArray(terminalsToClear)) {
+        for (const id of terminalsToClear) tm.clearTerminalImmediate?.(id);
+    }
 }
 
 function endCompilation() {
@@ -208,7 +226,8 @@ async runPrismForCurrentMode() {
 }
 
 async runAll() {
-    startCompilation();
+    // Full Build runs every pipeline stage — clear all terminals.
+    startCompilation(ALL_TERMINALS);
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -259,7 +278,7 @@ async runSingleStep(step) {
         // 1. Tratamento Especial para PRISM (Mantendo sua lógica nova que funciona)
         if (step === 'prism') {
             console.log("🚀 Trigger PRISM acionado via Command Palette");
-            startCompilation(); // Atualiza UI para estado "compilando"
+            startCompilation(STEP_TERMINALS.prism); // Atualiza UI para estado "compilando"
             
             try {
                 const projectPath = window.currentProjectPath || await window.electronAPI.dirname(window.currentOpenProjectPath);
@@ -293,8 +312,10 @@ async runSingleStep(step) {
             return;
         }
 
-        // 2. CMM, ASM, Verilog, Wave per-step buttons.
-        startCompilation();
+        // 2. CMM, ASM, Verilog, Wave per-step buttons. Clear only the
+        //    terminal this step writes to so unrelated runs (e.g. a
+        //    previous CMM compile in tcmm) stay readable.
+        startCompilation(STEP_TERMINALS[step]);
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();

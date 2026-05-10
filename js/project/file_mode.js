@@ -387,17 +387,27 @@ class VerilogTreeManager {
     /**
      * Get file icon based on extension
      */
-    getFileIcon(fileName) {
-        const ext = this.getFileExtension(fileName);
-        
+    getFileIcon(file) {
+        // Tolerante a chamadores antigos que passavam só o nome.
+        const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
+        const ext = this.getFileExtension(fileObj.name || '');
+
         if (ext === '.v' || ext === '.sv') {
+            // Arquivos marcados como "Top Level" (synth) ou "Testbench top"
+            // recebem ícones próprios para serem identificáveis na árvore
+            // sem precisar ler o badge.
+            if (fileObj.isTopLevel) {
+                return fileObj.category === 'testbench'
+                    ? 'fa-solid fa-vial'
+                    : 'fa-solid fa-flag';
+            }
             return 'fa-solid fa-microchip';
         } else if (ext === '.txt') {
             return 'fa-solid fa-file-lines';
         } else if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) {
             return 'fa-solid fa-image';
         }
-        
+
         return 'fa-solid fa-file';
     }
     
@@ -634,6 +644,14 @@ class VerilogTreeManager {
         const info = row.querySelector('.verilog-file-info');
         if (!info) return;
 
+        // Ícone — recalcula porque ele depende de isTopLevel + category.
+        // Só toca no DOM se a classe efetivamente mudou.
+        const iconEl = info.querySelector('.verilog-file-icon');
+        if (iconEl) {
+            const desiredIcon = `${this.getFileIcon(file)} verilog-file-icon`;
+            if (iconEl.className !== desiredIcon) iconEl.className = desiredIcon;
+        }
+
         // Filename — only touch DOM if it actually changed (e.g. rename
         // outside Aurora). Re-writing the textNode every render flickers
         // selection in some browsers.
@@ -690,7 +708,7 @@ _createFileItem(file) {
     fileItem.classList.add(isTestbench ? 'testbench' : 'synthesizable');
     if (file.isTopLevel) fileItem.classList.add('top-level-file');
 
-    const icon = this.getFileIcon(file.name);
+    const icon = this.getFileIcon(file);
     const badgeHtml = file.isTopLevel
         ? (isTestbench
             ? '<span class="file-badge testbench-badge">Testbench</span>'

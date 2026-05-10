@@ -474,8 +474,12 @@ class VerilogTreeManager {
             // Load configuration
             await this.loadConfiguration();
 
-            // Render Verilog tree
-            this.renderVerilogTree();
+            // Switch the visible view to file mode AND render into the
+            // verilog subcontainer in one call. Going through the
+            // controller (rather than calling renderVerilogTree
+            // directly) keeps its _activeView field in sync — which
+            // drives the toggle button's label and click direction.
+            window.fileTreeViewController?.showFileMode?.();
 
             console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
         })();
@@ -545,14 +549,16 @@ class VerilogTreeManager {
      * second call.
      */
     renderVerilogTree() {
-        // Activate the verilog view + grab its dedicated container.
-        // The previous shared-DOM design needed a class-based lock
-        // and "strip everything else" cleanup — both gone now that
-        // each view owns its own subtree.
-        const tv = window.treeView;
-        if (!tv) return;
-        tv.setActive('verilog');
-        const container = tv.getContainer('verilog');
+        // Render into the dedicated verilog subcontainer. The view's
+        // active/visible state is owned by the file-tree view
+        // controller — DON'T call setActive('verilog') here, that
+        // would sync the DOM without telling the controller, leaving
+        // the controller's _activeView stuck at its initial value.
+        // External callers that want to BOTH render AND switch the
+        // visible view should go through fileTreeViewController.
+        // showFileMode() (which invokes this renderer via the
+        // registered renderer hook).
+        const container = window.treeView?.getContainer('verilog');
         if (!container) return;
 
         // Empty state branch — drop any data rows + show the placeholder.

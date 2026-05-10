@@ -14,7 +14,13 @@ class VerilogModeManager {
     constructor() {
         // Configuration - Points to the main project config
         this.CONFIG_FILENAME = 'projectOriented.json';
-        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'];
+        // Verilog picker tree only takes Verilog source / header files
+        // and GTKWave save files — that's what the wave/synth flow can
+        // do something with. .txt and image extensions used to be in
+        // here from an early pass when the picker was a generic file
+        // bucket; they're dropped now so misplaced drags get a clear
+        // rejection instead of silently landing in the tree.
+        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh', '.gtkw'];
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
         // State management. currentProjectPath is intentionally NOT cached
         // here anymore — it lives in ProjectStore (single source of truth).
@@ -258,7 +264,7 @@ class VerilogModeManager {
             const ext = this.getFileExtension(file.name);
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
                 this.showNotification(
-                    `"${file.name}" has unsupported extension. Only .v, .txt and images allowed.`,
+                    `"${file.name}" was rejected — only Verilog (.v, .sv, .vh) and GTKWave (.gtkw) files belong here.`,
                     'warning',
                     3000
                 );
@@ -304,16 +310,15 @@ class VerilogModeManager {
     async handleImportClick() {
         try {
             const filters = [
-                { name: 'Verilog Files', extensions: ['v', 'sv'] },
-                { name: 'Text Files', extensions: ['txt'] },
-                { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'] },
-                { name: 'All Files', extensions: ['*'] }
+                { name: 'Verilog Files', extensions: ['v', 'sv', 'vh'] },
+                { name: 'GTKWave Save Files', extensions: ['gtkw'] },
+                { name: 'All Files', extensions: ['*'] },
             ];
-            
+
             const result = await window.electronAPI.selectFilesWithPath({
-                title: 'Select Verilog Mode Files',
+                title: 'Select Verilog / GTKWave Files',
                 filters: filters,
-                properties: ['openFile', 'multiSelections']
+                properties: ['openFile', 'multiSelections'],
             });
             
             if (!result.canceled && result.files.length > 0) {

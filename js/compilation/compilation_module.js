@@ -2189,24 +2189,16 @@ end
     }
 
     switchToStandardView() {
-        const fileTree = document.getElementById('file-tree');
-        if (!fileTree) return;
-
-        fileTree.style.transition = 'opacity 0.2s ease';
-        fileTree.style.opacity = '0';
-
-        setTimeout(() => {
-            fileTree.innerHTML = '';
-            fileTree.classList.remove('hierarchy-view');
-
-            TreeViewState.setHierarchical(false);
-
-            refreshFileTree();
-
-
-            this.terminalManager.appendToTerminal('tveri',
-                'Switched to standard file tree', 'info');
-        }, 200);
+        // Activate the standard subcontainer; refreshFileTree below
+        // populates it. Hierarchy subcontainer keeps its content for
+        // cheap toggling back. NEVER innerHTML='' on #file-tree itself
+        // — that wipes the per-view subcontainers created by
+        // tree_view.js and breaks every renderer.
+        TreeViewState.setHierarchical(false);
+        window.treeView?.setActive('standard');
+        refreshFileTree();
+        this.terminalManager.appendToTerminal('tveri',
+            'Switched to standard file tree', 'info');
     }
 
     async generateHierarchyAfterCompilation(processor = null) {
@@ -2982,32 +2974,25 @@ write_json ${jsonOutputPath}
     }
 
     saveStandardTreeState() {
-        const fileTree = document.getElementById('file-tree');
-        if (fileTree) {
-            this.standardTreeState = fileTree.innerHTML;
+        // Per-view subtree split — saving the standard view's HTML
+        // separately means restoring doesn't have to wipe other views.
+        const standardContainer = window.treeView?.getContainer('standard');
+        if (standardContainer) {
+            this.standardTreeState = standardContainer.innerHTML;
         }
     }
 
     restoreStandardTreeState() {
-        const fileTree = document.getElementById('file-tree');
-        if (!fileTree) return;
-
         this.isHierarchicalView = false;
-
-        fileTree.innerHTML = '';
-
+        // Activate the standard subcontainer; refreshFileTree below
+        // populates it. The hierarchy subcontainer is left intact.
+        window.treeView?.setActive('standard');
         if (typeof refreshFileTree === 'function') {
             refreshFileTree();
         }
     }
 
 switchToHierarchicalView() {
-    const fileTree = document.getElementById('file-tree');
-    if (!fileTree) {
-        console.warn('File tree element not found');
-        return;
-    }
-
     if (!this.hierarchyData) {
         console.warn('No hierarchy data available');
         this.terminalManager.appendToTerminal('tveri',
@@ -3015,23 +3000,15 @@ switchToHierarchicalView() {
         return;
     }
 
-    fileTree.style.transition = 'opacity 0.2s ease';
-    fileTree.style.opacity = '0';
+    // Activate the hierarchy subcontainer; renderHierarchicalTree
+    // populates it. The other views' subtrees are kept intact for
+    // cheap toggling back. NEVER innerHTML='' on #file-tree itself.
+    this.renderHierarchicalTree();
+    TreeViewState.setHierarchical(true);
+    this.updateToggleButtonForCurrentMode();
 
-    setTimeout(() => {
-        fileTree.innerHTML = '';
-        fileTree.classList.add('hierarchy-view');
-
-        this.renderHierarchicalTree();
-
-        TreeViewState.setHierarchical(true);
-        this.updateToggleButtonForCurrentMode(); // Update button state
-
-        fileTree.style.opacity = '1';
-
-        this.terminalManager.appendToTerminal('tveri',
-            'Switched to hierarchical module view', 'info');
-    }, 200);
+    this.terminalManager.appendToTerminal('tveri',
+        'Switched to hierarchical module view', 'info');
 }
         enableHierarchyToggle() {
             const toggleButton = document.getElementById('alternate-tree-toggle');

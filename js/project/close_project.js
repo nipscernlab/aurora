@@ -44,7 +44,7 @@ function disableCompileButtons() {
             statusText.textContent = 'Not Ready';
         }
         
-        statusElement.classList.remove('Ready');
+        statusElement.classList.remove('is-ready');
         statusElement.classList.remove('fading');
     };
 

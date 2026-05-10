@@ -81,9 +81,13 @@ function enableCompileButtons() {
     if (statusElement) {
         // 1. Configura o cursor
         statusElement.style.cursor = 'default';
-        
-        // 2. Adiciona a classe visual de pronto
-        statusElement.classList.add('ready');
+
+        // 2. Adiciona a classe visual de pronto. Class name has to be
+        // `is-ready` (with the `is-` prefix) — that's what the CSS rule
+        // `#ready.is-ready .status-dot` expects to flip the dot from
+        // red to green. A previous version added plain `ready` here,
+        // which silently failed the selector match.
+        statusElement.classList.add('is-ready');
         statusElement.classList.remove('fading'); // Remove caso tenha sobrado de alguma tentativa anterior
 
         // 3. Troca o ícone imediatamente
@@ -260,7 +264,7 @@ function setupStatusIndicator() {
 
   statusIndicator.addEventListener('click', () => {
     // Só abre o diálogo se NÃO estiver ready (ou seja, se estiver Not Ready)
-    const isReady = statusIndicator.classList.contains('ready');
+    const isReady = statusIndicator.classList.contains('is-ready');
     
     if (!isReady) {
       // Isso simula o clique no botão de abrir, que por sua vez chama o showOpenDialog (dialogo nativo do Windows)

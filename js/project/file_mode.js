@@ -469,6 +469,11 @@ class VerilogTreeManager {
     reset() {
         this.isVerilogTreeActive = false;
         this.verilogFiles = [];
+        // Drop the render fingerprint so the next activation always
+        // repaints — without this, opening a different project whose
+        // file list happens to fingerprint-match the previous one (rare
+        // but possible) would skip the render and show stale rows.
+        this._lastRenderFingerprint = null;
         // Tree DOM is already cleared by clearProjectInterface in
         // close_project.js; nothing to do here.
     }
@@ -484,7 +489,10 @@ class VerilogTreeManager {
         console.log('🛑 Deactivating Verilog Mode...');
         
         this.isVerilogTreeActive = false;
-        
+        // Same reasoning as reset() — drop the cached render fingerprint
+        // so re-activation always repaints (DOM was just wiped).
+        this._lastRenderFingerprint = null;
+
         // Clear file tree
         const fileTree = this.elements.fileTree;
         if (fileTree) {
@@ -508,11 +516,24 @@ class VerilogTreeManager {
             return;
         }
         
+        // Skip the destroy-and-rebuild if the input is byte-identical to
+        // the last render. Without this, multiple activate calls during
+        // app open (loadProject + switchToVerilogFileMode each fire one
+        // — second call hits the early-return refresh path) trigger two
+        // back-to-back renders with the same data; the user sees a flash
+        // because innerHTML='' clears the tree for one frame before
+        // appendChild repopulates it. Same-data, same-result → no need
+        // to repaint.
+        const fingerprint = JSON.stringify(
+            this.verilogFiles.map((f) => [f.path, f.name, f.category, !!f.isTopLevel]),
+        );
+        if (this._lastRenderFingerprint === fingerprint) {
+            console.log('🎨 Skipping render — data unchanged');
+            return;
+        }
+        this._lastRenderFingerprint = fingerprint;
+
         console.log('🎨 Rendering Verilog tree with', this.verilogFiles.length, 'files');
-        // DIAG: render with stack
-        console.log('🎨 [DIAG] render — files:',
-            this.verilogFiles.map((f) => `${f.name}[${f.category}][top=${f.isTopLevel}]`).join(', ') || '(empty)',
-            'stack:', new Error().stack?.split('\n').slice(2, 6).join(' ← '));
 
         // Clear existing content
         fileTree.innerHTML = '';
@@ -545,36 +566,6 @@ class VerilogTreeManager {
         });
 
         console.log('✅ Rendered', this.verilogFiles.length, 'file items');
-
-        // DIAG: install a one-shot MutationObserver to catch ANY DOM
-        // change inside #file-tree in the next 5 seconds. Each mutation
-        // logs what changed + the calling stack — that lets us find the
-        // code that mutates the tree post-render and flips the badge.
-        if (window._verilogTreeObs) window._verilogTreeObs.disconnect();
-        window._verilogTreeObs = new MutationObserver((mutations) => {
-            for (const m of mutations) {
-                const target = m.target;
-                let label = `<${target.nodeName}>`;
-                if (target.classList) label += '.' + [...target.classList].join('.');
-                if (m.type === 'childList') {
-                    console.log(`🔍 [MUT] childList on ${label}: +${m.addedNodes.length}/-${m.removedNodes.length}`,
-                        'removed:', [...m.removedNodes].map((n) => n.outerHTML?.slice(0, 80) || n.textContent?.slice(0, 80)).join(' || '),
-                        'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
-                } else if (m.type === 'attributes') {
-                    console.log(`🔍 [MUT] attr "${m.attributeName}" on ${label}`,
-                        'old=', m.oldValue,
-                        'new=', target.getAttribute(m.attributeName),
-                        'stack:', new Error().stack?.split('\n').slice(2, 5).join(' ← '));
-                }
-            }
-        });
-        window._verilogTreeObs.observe(fileTree, {
-            childList: true, subtree: true, attributes: true, attributeOldValue: true,
-        });
-        setTimeout(() => {
-            window._verilogTreeObs?.disconnect();
-            console.log('🔍 [MUT] observer detached after 5s');
-        }, 5000);
     }
     
 

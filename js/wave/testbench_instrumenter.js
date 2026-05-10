@@ -54,7 +54,7 @@ export function instrumentTestbenchSource({ originalContent, tbModule, selectedS
         : 'Default: signals at the testbench module scope; configure via the Wave Configuration modal.';
 
     const injection = `
-// --- AURORA AUTO-INSTRUMENTATION (Verilog-Only) ---
+// --- AURORA AUTO-INSTRUMENTATION ---
 // $dumpfile / $dumpvars added because the testbench did not declare
 // any. ${note}
 initial begin

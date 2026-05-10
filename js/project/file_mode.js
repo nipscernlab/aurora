@@ -10,7 +10,7 @@ import { ProjectStore } from './project_store.js';
 import { ProjectConfigStore } from './project_config_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 
-class VerilogModeManager {
+class VerilogTreeManager {
     constructor() {
         // Configuration - Points to the main project config
         this.CONFIG_FILENAME = 'projectOriented.json';
@@ -28,7 +28,7 @@ class VerilogModeManager {
         // on close+reopen, since close didn't reset it and the early-return
         // branch in activateVerilogMode used the stale path.
         this.verilogFiles = [];
-        this.isVerilogModeActive = false;
+        this.isVerilogTreeActive = false;
         
         // DOM element cache
         this.elements = {};
@@ -142,7 +142,7 @@ class VerilogModeManager {
         // but listening here catches any other path that updates the config
         // (CLI tools, future flows, etc.) so the picker never goes stale.
         document.addEventListener('project-config-saved', () => {
-            if (this.isVerilogModeActive) {
+            if (this.isVerilogTreeActive) {
                 this.refreshVerilogTree();
             }
         });
@@ -152,13 +152,13 @@ class VerilogModeManager {
         }
 
         this.elements.openHdlButton?.addEventListener('click', () => {
-            if (this.isVerilogModeActive) {
+            if (this.isVerilogTreeActive) {
                 this.handleImportClick();
             }
         });
         
         this.elements.refreshButton?.addEventListener('click', () => {
-            if (this.isVerilogModeActive) {
+            if (this.isVerilogTreeActive) {
                 this.refreshVerilogTree();
             }
         });
@@ -184,7 +184,7 @@ class VerilogModeManager {
         
         // Handle drag over
         dropArea.addEventListener('dragover', (e) => {
-            if (this.isVerilogModeActive) {
+            if (this.isVerilogTreeActive) {
                 e.preventDefault();
                 dropArea.classList.add('verilog-dragover');
             }
@@ -209,7 +209,7 @@ class VerilogModeManager {
      * Handle drag enter
      */
     handleDragEnter() {
-        if (this.isVerilogModeActive) {
+        if (this.isVerilogTreeActive) {
             this.elements.fileTree.classList.add('verilog-dragover');
         }
     }
@@ -218,7 +218,7 @@ class VerilogModeManager {
      * Handle drag leave
      */
     handleDragLeave(e) {
-        if (this.isVerilogModeActive) {
+        if (this.isVerilogTreeActive) {
             const rect = this.elements.fileTree.getBoundingClientRect();
             if (e.clientX < rect.left || e.clientX >= rect.right ||
                 e.clientY < rect.top || e.clientY >= rect.bottom) {
@@ -233,7 +233,7 @@ class VerilogModeManager {
     async handleDrop(e) {
         this.elements.fileTree.classList.remove('verilog-dragover');
         
-        if (!this.isVerilogModeActive) return;
+        if (!this.isVerilogTreeActive) return;
         
         const droppedFiles = e.dataTransfer.files;
         
@@ -392,7 +392,7 @@ class VerilogModeManager {
                 try { await this.initPromise; } catch (_) { /* init logs its own errors */ }
             }
 
-            if (this.isVerilogModeActive) {
+            if (this.isVerilogTreeActive) {
                 // Already active but a new project may have been opened —
                 // refresh the configuration and re-render rather than
                 // returning a stale tree.
@@ -402,7 +402,7 @@ class VerilogModeManager {
 
             console.log('🚀 Activating Verilog Mode...');
 
-            this.isVerilogModeActive = true;
+            this.isVerilogTreeActive = true;
 
             // Discover the project path if loadProject hasn't run yet (rare
             // — happens on app startup when restoreLastSession is mid-flight).
@@ -451,7 +451,7 @@ class VerilogModeManager {
      * instead of the early-return branch with stale data.
      */
     reset() {
-        this.isVerilogModeActive = false;
+        this.isVerilogTreeActive = false;
         this.verilogFiles = [];
         // Tree DOM is already cleared by clearProjectInterface in
         // close_project.js; nothing to do here.
@@ -461,13 +461,13 @@ class VerilogModeManager {
      * Deactivate Verilog Mode
      */
     deactivateVerilogMode() {
-        if (!this.isVerilogModeActive) {
+        if (!this.isVerilogTreeActive) {
             return;
         }
         
         console.log('🛑 Deactivating Verilog Mode...');
         
-        this.isVerilogModeActive = false;
+        this.isVerilogTreeActive = false;
         
         // Clear file tree
         const fileTree = this.elements.fileTree;
@@ -753,7 +753,7 @@ showContextMenu(event, file, index) {
    async handleTreeContextMenu(event) {
         event.preventDefault();
 
-        if (!this.isVerilogModeActive) return;
+        if (!this.isVerilogTreeActive) return;
         
         if (event.target.closest('.verilog-file-item')) return;
         if (event.target.closest('button')) return;
@@ -1320,10 +1320,10 @@ async loadConfiguration() {
 }
 
 // Create and export single instance
-const verilogModeManager = new VerilogModeManager();
+const verilogTreeManager = new VerilogTreeManager();
 
 // Make globally accessible
-window.verilogModeManager = verilogModeManager;
+window.verilogTreeManager = verilogTreeManager;
 
 // Export
-export { VerilogModeManager, verilogModeManager };
+export { VerilogTreeManager, verilogTreeManager };

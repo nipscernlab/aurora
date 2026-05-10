@@ -120,11 +120,11 @@ class WaveConfigManager {
             // selection caused the iverilog failure, the user
             // couldn't reach the picker to clean it up). Now purely
             // informational; modal opens regardless.
-            if (compiler.isVerilogOnlyMode()) {
+            if (compiler.hasNoProcessors()) {
                 if (typeof window.switchTerminal === 'function') {
                     window.switchTerminal('terminal-tveri');
                 }
-                await compiler.verilogOnlySyntaxCheck();
+                await compiler.syntaxCheck();
             }
         }
 

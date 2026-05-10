@@ -1570,9 +1570,9 @@ async saveConfiguration() {
         await this.updateProcessorStatus();
         
         // Sync to Verilog File Mode if active
-        if (window.verilogModeManager && window.verilogModeManager.isVerilogModeActive) {
-            await window.verilogModeManager.loadConfiguration();
-            window.verilogModeManager.renderVerilogTree();
+        if (window.verilogTreeManager && window.verilogTreeManager.isVerilogTreeActive) {
+            await window.verilogTreeManager.loadConfiguration();
+            window.verilogTreeManager.renderVerilogTree();
             console.log('✅ Synced changes to Verilog File Mode');
         }
 

@@ -295,8 +295,8 @@ class TreeViewCycler {
 
             case VIEW_STATES.VERILOG_MODE:
                 // Ativa a visualização do Verilog Mode (somente arquivos .v)
-                if (window.verilogModeManager && typeof window.verilogModeManager.renderVerilogFileTree === 'function') {
-                    window.verilogModeManager.renderVerilogFileTree(); // Assumindo que este método renderiza apenas arquivos .v
+                if (window.verilogTreeManager && typeof window.verilogTreeManager.renderVerilogFileTree === 'function') {
+                    window.verilogTreeManager.renderVerilogFileTree(); // Assumindo que este método renderiza apenas arquivos .v
                 }
                 break;
 
@@ -325,9 +325,9 @@ class TreeViewCycler {
     disableAllViews() {
         // Desativa visualização Hierárquica
         TreeViewState.setHierarchical(false);
-        // Desativa Verilog Mode (se aplicável, talvez gerenciado internamente pelo VerilogModeManager)
-        if (window.verilogModeManager && typeof window.verilogModeManager.disableVerilogMode === 'function') {
-             window.verilogModeManager.disableVerilogMode(); // Assumindo um método para desativar o modo Verilog
+        // Desativa Verilog Mode (se aplicável, talvez gerenciado internamente pelo VerilogTreeManager)
+        if (window.verilogTreeManager && typeof window.verilogTreeManager.disableVerilogMode === 'function') {
+             window.verilogTreeManager.disableVerilogMode(); // Assumindo um método para desativar o modo Verilog
         }
     }
 

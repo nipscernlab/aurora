@@ -122,7 +122,7 @@ export const ProjectConfigStore = {
 
 if (typeof window !== 'undefined') {
   // Exposed for non-module callers (mainly the legacy global
-  // `window.verilogModeManager` and `window.processorConfigManager`
+  // `window.verilogTreeManager` and `window.processorConfigManager`
   // wirings used elsewhere). New code should import.
   window.ProjectConfigStore = ProjectConfigStore;
 }

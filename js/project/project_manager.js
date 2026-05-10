@@ -155,8 +155,8 @@ async function loadProject(spfPath) {
         // file_tree_manager.js. Processor Mode uses the standard tree.
         const currentMode = fileTreeManager.getCurrentMode();
         if (currentMode === 'project') {
-            if (window.verilogModeManager) {
-                await window.verilogModeManager.activateVerilogMode();
+            if (window.verilogTreeManager) {
+                await window.verilogTreeManager.activateVerilogMode();
             }
         } else if (Array.isArray(result.files)) {
             fileTreeManager.updateFileTree(result.files);

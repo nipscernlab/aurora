@@ -278,8 +278,8 @@ class AppInitializer {
         }
         
         // Deactivate Verilog Mode if active
-        if (window.verilogModeManager && window.verilogModeManager.isVerilogModeActive) {
-            window.verilogModeManager.deactivateVerilogMode();
+        if (window.verilogTreeManager && window.verilogTreeManager.isVerilogTreeActive) {
+            window.verilogTreeManager.deactivateVerilogMode();
         }
         
         // Refresh standard tree
@@ -298,8 +298,8 @@ class AppInitializer {
         }
         
         // Activate Verilog Mode Manager
-        if (window.verilogModeManager) {
-            await window.verilogModeManager.activateVerilogMode();
+        if (window.verilogTreeManager) {
+            await window.verilogTreeManager.activateVerilogMode();
         } else {
             console.error('❌ VerilogModeManager not available');
         }

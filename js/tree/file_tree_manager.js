@@ -550,7 +550,7 @@ class FileTreeManager {
             const currentMode = this.getCurrentMode();
             if (currentMode === 'project') {
                 // Project Mode uses the verilog picker tree.
-                window.verilogModeManager?.refreshVerilogTree();
+                window.verilogTreeManager?.refreshVerilogTree();
             } else {
                 this.refresh();
             }
@@ -571,7 +571,7 @@ class FileTreeManager {
                 // processor_oriented.js → the picker won't pick the change
                 // up unless we re-load. Same trigger the manual refresh
                 // button uses.
-                window.verilogModeManager?.refreshVerilogTree?.();
+                window.verilogTreeManager?.refreshVerilogTree?.();
             } else {
                 this.updateFileTree(files);
             }
@@ -599,8 +599,8 @@ class FileTreeManager {
         console.log('🌳 Initializing tree for mode:', currentMode);
 
         if (currentMode === 'project') {
-            if (window.verilogModeManager) {
-                await window.verilogModeManager.activateVerilogMode();
+            if (window.verilogTreeManager) {
+                await window.verilogTreeManager.activateVerilogMode();
             }
         } else {
             // Processor Mode → standard folder tree
@@ -662,8 +662,8 @@ toggleHierarchyView() {
         if (TreeViewState.isHierarchical) {
             console.log('📁 Switching to Verilog File Mode tree');
             TreeViewState.setHierarchical(false);
-            if (window.verilogModeManager) {
-                window.verilogModeManager.renderVerilogTree();
+            if (window.verilogTreeManager) {
+                window.verilogTreeManager.renderVerilogTree();
             }
         } else {
             if (!TreeViewState.hierarchyData) {

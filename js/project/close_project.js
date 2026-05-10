@@ -127,10 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Reset Verilog Mode so reopening triggers a full re-activate
                 // (loads projectOriented.json fresh, picks up files outside
-                // the project folder). Without this, isVerilogModeActive
+                // the project folder). Without this, isVerilogTreeActive
                 // stays true and the next activate hits the early-return
                 // branch.
-                window.verilogModeManager?.reset?.();
+                window.verilogTreeManager?.reset?.();
 
                 window.SplitEditorManager?.refreshLayout?.();
             } else {

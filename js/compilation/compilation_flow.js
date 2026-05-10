@@ -114,24 +114,18 @@ async function runProjectPipeline(compiler) {
         }
     }
 
-    // 2. Verilog. The compiler picks the iverilog vs iverilog-only path
-    //    internally based on whether processors are present.
+    // 2. Verilog. iverilogProjectCompilation dispatches internally:
+    //    no processors → the standalone path (no processor HDL, just
+    //    user sources + library), with processors → the full project
+    //    path. Don't re-do the dispatch here.
     switchTerminal('terminal-tveri');
     checkCancellation();
-    if (processors.length > 0) {
-        await compiler.iverilogProjectCompilation();
-    } else {
-        await compiler.iverilogVerilogOnlyCompilation();
-    }
+    await compiler.iverilogProjectCompilation();
 
-    // 3. Waveform
+    // 3. Waveform — runProjectGtkWave dispatches the same way.
     switchTerminal('terminal-twave');
     checkCancellation();
-    if (processors.length > 0) {
-        await compiler.runProjectGtkWave();
-    } else {
-        await compiler.runVerilogOnlyGtkWave();
-    }
+    await compiler.runProjectGtkWave();
 }
 
 // ----------------------------------------------------------------------
@@ -330,14 +324,14 @@ async runSingleStep(step) {
 
                 if (step === 'verilog') {
                     switchTerminal('terminal-tveri');
-                    if (hasProcessors) await compiler.iverilogProjectCompilation();
-                    else                await compiler.iverilogVerilogOnlyCompilation();
+                    // iverilogProjectCompilation dispatches internally
+                    // by hasNoProcessors() — no need to branch here.
+                    await compiler.iverilogProjectCompilation();
                     return;
                 }
                 if (step === 'wave') {
                     switchTerminal('terminal-twave');
-                    if (hasProcessors) await compiler.runProjectGtkWave();
-                    else                await compiler.runVerilogOnlyGtkWave();
+                    await compiler.runProjectGtkWave();
                     return;
                 }
                 if ((step === 'cmm' || step === 'asm') && !hasProcessors) {

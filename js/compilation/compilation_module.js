@@ -195,7 +195,7 @@ async generateProjectHierarchy() {
     // Skip hierarchy generation in Verilog-only mode if no processors
     // Hierarchy generation runs whenever there's at least one synthesizable
     // file — Yosys can build a hierarchy from any user .v. The previous
-    // early-return only fired when the legacy "Verilog Mode" toggle was off
+    // early-return only fired when the legacy "Project Mode (no processors)" toggle was off
     // AND no processors were configured; with the toggle gone we just
     // require synth files. The yosys script below handles the no-files
     // case implicitly (empty read_verilog → yosys errors out, caught by
@@ -989,8 +989,8 @@ async validateMemoryFiles(projectTempDir) {
 
 
 async iverilogProjectCompilation() {
-    if (this.isVerilogOnlyMode()) {
-        return await this.iverilogVerilogOnlyCompilation();
+    if (this.hasNoProcessors()) {
+        return await this.iverilogCompileNoProcessors();
     }
 
     this.terminalManager.appendToTerminal('tveri', '--- Icarus Verilog Project Compilation ---', 'info');
@@ -1080,7 +1080,7 @@ async iverilogProjectCompilation() {
         const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
         
         // 'tips' (blue) for the contextual lines — see the matching
-        // pair in iverilogVerilogOnlyCompilation. Plain 'info' was
+        // pair in iverilogCompileNoProcessors. Plain 'info' was
         // hidden by the verbose filter (no semantic keyword in text);
         // 'tips' keeps them visible without faking a success outcome.
         this.terminalManager.appendToTerminal('tveri', `Top-level: ${topLevelModuleName}`, 'tips');
@@ -1186,14 +1186,14 @@ async iverilogProjectCompilation() {
  * configured" — i.e. the project is a pure synth/sim flow that doesn't
  * need CMM/ASM stages.
  */
-isVerilogOnlyMode() {
+hasNoProcessors() {
     return (this.projectConfig?.processors?.length ?? 0) === 0;
 }
 
 /**
  * Validate Verilog-only configuration
  */
-validateVerilogOnlyConfig() {
+validateConfigNoProcessors() {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
@@ -1372,12 +1372,12 @@ async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
  *
  * Returns `{ success: boolean, message?: string }`. Never throws.
  */
-async verilogOnlySyntaxCheck() {
+async syntaxCheck() {
     if (!this.componentsPath) {
         await this.initializeComponentsPath();
     }
     try {
-        const config = this.validateVerilogOnlyConfig();
+        const config = this.validateConfigNoProcessors();
 
         const iveriCompPath = await window.electronAPI.joinPath(
             this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
@@ -1448,7 +1448,7 @@ async verilogOnlySyntaxCheck() {
  * js/wave/testbench_instrumenter.js (unit-tested). This method is
  * the IO glue.
  */
-async instrumentVerilogOnlyTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = []) {
+async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, selectedSignals = []) {
     const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
         originalContent,
@@ -1481,13 +1481,13 @@ async instrumentVerilogOnlyTestbench(testbenchPath, tbModule, tempBaseDir, selec
  * focused (no simulation-only artifacts) while the Wave button still
  * has a path to produce a fresh .vvp on demand.
  */
-async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
-    const phaseLabel = buildVvp ? 'Verilog-Only Build (Simulation)' : 'Verilog-Only Check + Hierarchy';
+async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
+    const phaseLabel = buildVvp ? 'Verilog Build (Simulation)' : 'Verilog Check + Hierarchy';
     this.terminalManager.appendToTerminal('tveri', `--- ${phaseLabel} ---`, 'info');
     statusUpdater.startCompilation('verilog');
 
     try {
-        const config = this.validateVerilogOnlyConfig();
+        const config = this.validateConfigNoProcessors();
 
         // 'tips' = blue/info badge. These lines are contextual info
         // about what's about to be compiled, not a success outcome —
@@ -1543,7 +1543,7 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
             const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
             const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
 
-            const { path: tbPath, reason } = await this.instrumentVerilogOnlyTestbench(
+            const { path: tbPath, reason } = await this.instrumentTestbenchNoProcessors(
                 config.testbenchFile,
                 simTopModule,
                 tempBaseDir,
@@ -1567,7 +1567,7 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
                         'warning');
                 }
             } else {
-                // Cache so the .gtkw step in runVerilogOnlyGtkWave
+                // Cache so the .gtkw step in runGtkWaveNoProcessors
                 // reuses the same pruned list (no duplicate "stale
                 // signal" warning, and the .gtkw matches the VCD).
                 this._validatedWaveSelection = selected;
@@ -1589,7 +1589,7 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
         // listed in the source set by looking for `<moduleName>.v` in
         // these directories. Aurora bundles a small HDL library
         // (myFIFO.v, ula.v, etc.) that processor-mode pulls in
-        // explicitly; for verilog-only the user otherwise has to
+        // explicitly; for no-processors the user otherwise has to
         // manually add each library file to their picker. Pointing
         // -y at components/HDL means a `myFIFO foo (...)` instance in
         // the user's design just works without extra setup.
@@ -1686,11 +1686,11 @@ async iverilogVerilogOnlyCompilation({ buildVvp = false } = {}) {
  * See ARCHITECTURE.md §10 for the broader rationale (why VCD is the
  * ground truth, how the three .gtkw sources interact, etc.).
  */
-async runVerilogOnlyGtkWave() {
-    this.terminalManager.appendToTerminal('twave', '--- Verilog-Only Simulation & GTKWave ---', 'info');
+async runGtkWaveNoProcessors() {
+    this.terminalManager.appendToTerminal('twave', '--- Simulation & GTKWave ---', 'info');
 
     try {
-        const config = this.validateVerilogOnlyConfig();
+        const config = this.validateConfigNoProcessors();
 
         // No testbench → vvp has nothing to dump and no $finish to
         // hit, so simulation can't produce a VCD. Bail early with a
@@ -1772,11 +1772,11 @@ _waveDeriveSimTopModule(config) {
  * Throws:  if iverilog fails OR the expected .vvp isn't on disk
  * Side-effects: writes ${tempBaseDir}/${simTopModule}.vvp; logs to twave;
  *               also caches `this._validatedWaveSelection` as part of
- *               iverilogVerilogOnlyCompilation (the .gtkw resolver reads it).
+ *               iverilogCompileNoProcessors (the .gtkw resolver reads it).
  */
 async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
     this.terminalManager.appendToTerminal('twave', 'Building VVP for simulation...', 'info');
-    await this.iverilogVerilogOnlyCompilation({ buildVvp: true });
+    await this.iverilogCompileNoProcessors({ buildVvp: true });
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     if (!await window.electronAPI.fileExists(vvpFile)) {
         throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
@@ -2732,8 +2732,8 @@ async runGtkWave(processor) {
  * Uses the same paths and method as processor mode
  */
 async runProjectGtkWave() {
-     if (this.isVerilogOnlyMode()) {
-        return await this.runVerilogOnlyGtkWave();
+     if (this.hasNoProcessors()) {
+        return await this.runGtkWaveNoProcessors();
     }
     this.terminalManager.appendToTerminal('twave', 'Starting Simulation & GTKWave (Project Mode)...');
 
@@ -3205,13 +3205,13 @@ async loadFileModeConfig() {
 }
 
 /**
- * Icarus Verilog compilation for Verilog Mode (Project without Simulation)
+ * Icarus Verilog compilation for Project Mode (no processors) (Project without Simulation)
  * Compiles all HDL files + synthesizable files from projectOriented.json
  */
 async iverilogVerilogModeCompilation() {
     await this.terminalManager.clearTerminal('tveri');
 
-    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Verilog Mode)...');
+    this.terminalManager.appendToTerminal('tveri', 'Starting Icarus Verilog compilation (Project Mode (no processors))...');
     
     statusUpdater.startCompilation('verilog');
 
@@ -3280,10 +3280,10 @@ async iverilogVerilogModeCompilation() {
             throw new Error('Icarus Verilog compilation failed');
         }
 
-        this.terminalManager.appendToTerminal('tveri', 'Verilog Mode compilation completed successfully', 'success');
+        this.terminalManager.appendToTerminal('tveri', 'Project Mode (no processors) compilation completed successfully', 'success');
         statusUpdater.compilationSuccess('verilog');
 
-        // Generate hierarchy for Verilog Mode
+        // Generate hierarchy for Project Mode (no processors)
         await this.generateVerilogModeHierarchy();
         
         if (this.hierarchyData) {
@@ -3301,7 +3301,7 @@ async iverilogVerilogModeCompilation() {
 }
 
 /**
- * Generate hierarchy for Verilog Mode using Yosys
+ * Generate hierarchy for Project Mode (no processors) using Yosys
  */
 async generateVerilogModeHierarchy() {
     try {
@@ -3325,7 +3325,7 @@ async generateVerilogModeHierarchy() {
         );
         const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
-        this.terminalManager.appendToTerminal('tveri', 'Generating Verilog Mode hierarchy with Yosys...');
+        this.terminalManager.appendToTerminal('tveri', 'Generating Project Mode (no processors) hierarchy with Yosys...');
 
         // Build Yosys script with all synthesizable files
         const readVerilogCommands = this.fileModeConfig.synthesizableFiles
@@ -3355,7 +3355,7 @@ write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
         );
 
         this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, topLevelModuleName);
-        this.terminalManager.appendToTerminal('tveri', 'Verilog Mode hierarchy generated successfully', 'success');
+        this.terminalManager.appendToTerminal('tveri', 'Project Mode (no processors) hierarchy generated successfully', 'success');
         
         TreeViewState.hierarchyData = this.hierarchyData;
         TreeViewState.enableToggle();
@@ -3363,7 +3363,7 @@ write_json "${tempBaseDir}\\verilog_mode_hierarchy.json"
         return true;
     } catch (error) {
         this.terminalManager.appendToTerminal('tveri', 
-            `Verilog Mode hierarchy generation error: ${error.message}`, 'warning');
+            `Project Mode (no processors) hierarchy generation error: ${error.message}`, 'warning');
         return false;
     }
 }

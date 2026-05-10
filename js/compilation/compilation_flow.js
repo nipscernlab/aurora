@@ -543,6 +543,120 @@ async runSingleStep(step) {
             return;
         }
 
+        // 1.7. Botao Wave: antes de mandar pro fluxo de simulacao,
+        //      compila C+- + ASM (que ja incorpora o appcomp) para
+        //      TODOS os processadores conhecidos do projeto. Sem essa
+        //      pre-compilacao, o vvp falha com "$readmemb: Unable to
+        //      open pc_<proc>_mem.txt" porque o cmmcomp nao gerou
+        //      o arquivo, ou o asmcomp nao gerou o .vvp.
+        //
+        //      Lista de processadores combina as mesmas tres fontes
+        //      dos botoes C+- e ASM (config + projectConfig + .spf).
+        //      Convencao: o .cmm de cada processador chama-se
+        //      <procName>.cmm e mora em <proj>/<procName>/Software/.
+        //      Processadores sem esse arquivo sao pulados com warning.
+        if (step === 'wave') {
+            startCompilation(STEP_TERMINALS.wave);
+            try {
+                const compiler = new CompilationModule(window.currentProjectPath);
+                await compiler.loadConfig();
+
+                const seenProcs = new Map(); // name(lower) -> processor object
+                const sources = [
+                    compiler.config?.processors,
+                    compiler.projectConfig?.processors,
+                    (Array.isArray(window.availableProcessors) ? window.availableProcessors : [])
+                        .map((n) => (typeof n === 'string' ? { name: n } : n)),
+                ];
+                for (const src of sources) {
+                    if (!Array.isArray(src)) continue;
+                    for (const p of src) {
+                        const n = typeof p === 'string' ? p : p?.name;
+                        if (!n) continue;
+                        const key = n.toLowerCase();
+                        if (!seenProcs.has(key)) {
+                            seenProcs.set(key, typeof p === 'string' ? { name: p } : p);
+                        }
+                    }
+                }
+
+                if (seenProcs.size === 0) {
+                    if (window.terminalManager?.appendToTerminal) {
+                        window.terminalManager.appendToTerminal(
+                            'twave',
+                            'Warning: no processors found to pre-compile — skipping straight to simulation.',
+                            'warning',
+                        );
+                    }
+                } else {
+                    if (window.terminalManager?.appendToTerminal) {
+                        window.terminalManager.appendToTerminal(
+                            'twave',
+                            `Info: pre-compiling ${seenProcs.size} processor(s) (C± + ASM) before simulation.`,
+                            'tips',
+                        );
+                    }
+                    for (const proc of seenProcs.values()) {
+                        const cmmFileName = `${proc.name}.cmm`;
+                        const cmmPath = await window.electronAPI.joinPath(
+                            window.currentProjectPath, proc.name, 'Software', cmmFileName,
+                        );
+                        const cmmExists = await window.electronAPI.fileExists(cmmPath);
+                        if (!cmmExists) {
+                            if (window.terminalManager?.appendToTerminal) {
+                                window.terminalManager.appendToTerminal(
+                                    'twave',
+                                    `Warning: no ${cmmFileName} at ${cmmPath} — skipping ${proc.name}.`,
+                                    'warning',
+                                );
+                            }
+                            continue;
+                        }
+
+                        // Override igual ao usado pelos botoes C+- e
+                        // ASM: garante cmmFile correto e parametros
+                        // clk/numClocks razoaveis pra processadores que
+                        // vem do .spf sem esses campos.
+                        const overrideProcessor = {
+                            ...proc,
+                            cmmFile: cmmFileName,
+                            clk: 100,
+                            numClocks: 2000,
+                        };
+                        if (compiler.config) compiler.config.selectedCmmFile = null;
+
+                        await compiler.ensureDirectories(proc.name);
+                        await compiler.cmmCompilation(overrideProcessor);
+                        await compiler.asmCompilation(overrideProcessor, 1);
+                    }
+                    // Volta o foco pro twave depois do cmm/asm
+                    // (que mudaram o terminal ativo).
+                    switchTerminal('terminal-twave');
+                }
+
+                // Continua com a logica de simulacao existente.
+                const currentMode = this.getCurrentMode();
+                if (currentMode === 'project') {
+                    await compiler.runProjectGtkWave();
+                } else {
+                    const activeProcessor = compiler.config?.processors?.find(p => p.isActive === true)
+                        || [...seenProcs.values()][0];
+                    if (!activeProcessor) {
+                        throw new Error('No processor available for waveform simulation.');
+                    }
+                    await compiler.runGtkWave(activeProcessor);
+                }
+            } catch (error) {
+                console.error('Erro na etapa wave:', error);
+                if (window.terminalManager?.appendToTerminal) {
+                    window.terminalManager.appendToTerminal('twave', `Erro Fatal: ${error.message}`, 'error');
+                }
+            } finally {
+                endCompilation();
+            }
+            return;
+        }
+
         // 2. CMM, ASM, Verilog, Wave per-step buttons. Clear only the
         //    terminal this step writes to so unrelated runs (e.g. a
         //    previous CMM compile in tcmm) stay readable.
@@ -566,11 +680,9 @@ async runSingleStep(step) {
                     await compiler.iverilogProjectCompilation();
                     return;
                 }
-                if (step === 'wave') {
-                    switchTerminal('terminal-twave');
-                    await compiler.runProjectGtkWave();
-                    return;
-                }
+                // Nota: 'wave' nunca chega aqui — e tratado no early
+                // return mais acima, que pre-compila C+- + ASM de todos
+                // os processadores antes de delegar pro runProjectGtkWave.
                 if ((step === 'cmm' || step === 'asm') && !hasProcessors) {
                     throw new Error('CMM/ASM require at least one configured processor in this project.');
                 }
@@ -585,18 +697,14 @@ async runSingleStep(step) {
             }
 
             switch (step) {
-                // Nota: 'cmm' e 'asm' nunca chegam aqui — sao tratados em
-                // early return mais acima usando o arquivo aberto no Monaco
-                // em vez do active processor.
+                // Nota: 'cmm', 'asm' e 'wave' nunca chegam aqui — sao
+                // tratados em early returns mais acima. cmm/asm usam o
+                // arquivo aberto no Monaco; wave pre-compila todos os
+                // processadores antes da simulacao.
 
                 case 'verilog':
                     switchTerminal('terminal-tveri');
                     await compiler.iverilogCompilation(activeProcessor);
-                    break;
-
-                case 'wave':
-                    switchTerminal('terminal-twave');
-                    await compiler.runGtkWave(activeProcessor);
                     break;
 
                 default:

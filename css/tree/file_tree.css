@@ -15,6 +15,20 @@
  */
 
 /* ---------------------------------------------------------------------------
+ *  View slots — three physically separate subtrees inside #file-tree.
+ *  Only the one matching [data-active-view] on the parent is shown.
+ *  Each slot is owned by exactly one renderer, so they can't collide.
+ *  See js/tree/tree_view.js for the rationale (replacing the old
+ *  class-based ownership lock that proved too fragile).
+ * ------------------------------------------------------------------------- */
+#file-tree > .tree-view { display: none; }
+#file-tree[data-active-view="standard"]  > .tree-view-standard,
+#file-tree[data-active-view="verilog"]   > .tree-view-verilog,
+#file-tree[data-active-view="hierarchy"] > .tree-view-hierarchy {
+  display: block;
+}
+
+/* ---------------------------------------------------------------------------
  *  Container
  * ------------------------------------------------------------------------- */
 .file-tree-container {

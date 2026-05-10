@@ -524,16 +524,12 @@ class VerilogTreeManager {
 
         this.isVerilogTreeActive = false;
 
-        // Clear file tree. Removing the verilog-mode-active class
-        // releases ownership of #file-tree back to the standard
-        // refreshFileTree path; the dispatched event below tells it
-        // to re-render.
-        const fileTree = this.elements.fileTree;
-        if (fileTree) {
-            fileTree.classList.remove('verilog-mode-active', 'verilog-empty', 'verilog-dragover');
-            fileTree.innerHTML = '';
-        }
-        
+        // Switch the active view back to standard. Our verilog
+        // subcontainer keeps its rows in DOM but is display:none — so
+        // re-activating later is a single attribute change with the
+        // existing rows already there. No wipe needed.
+        window.treeView?.setActive('standard');
+
         // Trigger standard file tree refresh
         document.dispatchEvent(new Event('refresh-file-tree'));
         
@@ -541,69 +537,42 @@ class VerilogTreeManager {
     }
     
     /**
-     * Render Verilog Mode tree.
+     * Render Verilog Mode tree into the dedicated `.tree-view-verilog`
+     * subcontainer. CSS shows only the active subcontainer based on
+     * `#file-tree[data-active-view]`, so the standard tree and
+     * hierarchical view living in their own subcontainers can't
+     * collide with us. See js/tree/tree_view.js for the rationale.
      *
-     * KEY-BASED RECONCILER. NEVER calls `fileTree.innerHTML = ''`.
-     * Comparing the desired list (this.verilogFiles, keyed by path) to
-     * the rows currently in the DOM:
-     *   - rows whose path is no longer wanted → removed
-     *   - rows whose path is in both → updated in place (badge,
-     *     category class, top-level highlight)
-     *   - paths in the desired list with no matching row → created
-     *     and inserted at the right position
-     *   - rows in the wrong order → moved with insertBefore (DOM
-     *     handles "node already inside parent" gracefully — it's a
-     *     move, not a clone)
+     * KEY-BASED RECONCILER. Never `innerHTML = ''`. Compares
+     * this.verilogFiles (keyed by path) against rows currently in
+     * the verilog subcontainer:
+     *   - rows whose path is gone → removed
+     *   - rows still wanted → updated in place (badge, classes,
+     *     toggle title) by _updateFileItem
+     *   - paths with no row yet → created via _createFileItem and
+     *     insertBefore'd into the right position (DOM treats
+     *     insertBefore on an already-attached node as a move, so
+     *     existing rows in the right slot are no-ops).
      *
-     * Why this matters: previous render did `innerHTML = ''` then
-     * re-appended every row. Multiple activate paths during app open
-     * (loadProject's activate + the early-return refresh from
-     * switchToVerilogFileMode's activate) ran this back-to-back with
-     * the same data. The browser had a chance to paint the empty
-     * intermediate state — the visible "appears, blinks, disappears"
-     * flash. With reconciliation, identical-data renders are no-ops
-     * (zero DOM mutations); only real changes touch the DOM.
-     *
-     * Idempotent: calling renderVerilogTree() N times in a row with
-     * the same `this.verilogFiles` produces zero DOM changes after
-     * the first call.
+     * Idempotent: same input twice = zero DOM mutations on the
+     * second call.
      */
     renderVerilogTree() {
-        const fileTree = this.elements.fileTree;
-        if (!fileTree) {
-            console.error('❌ File tree element not found');
-            return;
-        }
-
-        // Mark ownership of #file-tree FIRST. Anything else writing
-        // to the tree (the standard refreshFileTree, in particular)
-        // must check this class before mutating. If a deferred write
-        // somewhere else races with us, the class is the source of
-        // truth — see file_tree_manager.js:refreshFileTree's setTimeout
-        // re-check (commit f196e2d for the bug we hit).
-        fileTree.classList.add('verilog-mode-active');
-
-        // Drop any leftover content from a different view mode. The
-        // hierarchical view (compilation_module.renderHierarchicalTree)
-        // builds a `.hierarchy-container` inside #file-tree; toggling
-        // back from hierarchy → verilog used to leave that container
-        // in place because the reconciler only matches our own
-        // .verilog-file-item nodes. Result: verilog rows inserted, but
-        // hierarchy artifact still occupying space (or layered) and
-        // the user saw "nothing" depending on flex/order.
-        // Strip every child that isn't part of our render contract.
-        fileTree.classList.remove('hierarchy-view');
-        for (const child of [...fileTree.children]) {
-            if (!child.matches('.verilog-file-item, .verilog-empty-state')) {
-                child.remove();
-            }
-        }
+        // Activate the verilog view + grab its dedicated container.
+        // The previous shared-DOM design needed a class-based lock
+        // and "strip everything else" cleanup — both gone now that
+        // each view owns its own subtree.
+        const tv = window.treeView;
+        if (!tv) return;
+        tv.setActive('verilog');
+        const container = tv.getContainer('verilog');
+        if (!container) return;
 
         // Empty state branch — drop any data rows + show the placeholder.
         if (this.verilogFiles.length === 0) {
-            fileTree.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());
-            fileTree.classList.add('verilog-empty');
-            if (!fileTree.querySelector('.verilog-empty-state')) {
+            container.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());
+            container.classList.add('verilog-empty');
+            if (!container.querySelector('.verilog-empty-state')) {
                 const emptyState = document.createElement('div');
                 emptyState.className = 'verilog-empty-state';
                 emptyState.innerHTML = `
@@ -613,19 +582,19 @@ class VerilogTreeManager {
                         <strong>Drag and drop .v files here</strong>
                     </div>
                 `;
-                fileTree.appendChild(emptyState);
+                container.appendChild(emptyState);
             }
             return;
         }
 
         // Have data → ensure no placeholder remains.
-        fileTree.classList.remove('verilog-empty');
-        fileTree.querySelector('.verilog-empty-state')?.remove();
+        container.classList.remove('verilog-empty');
+        container.querySelector('.verilog-empty-state')?.remove();
 
         // Index existing rows by path so we can match against the
         // desired list in one pass.
         const existingByPath = new Map();
-        for (const row of fileTree.querySelectorAll('.verilog-file-item')) {
+        for (const row of container.querySelectorAll('.verilog-file-item')) {
             existingByPath.set(row.dataset.filePath, row);
         }
 
@@ -642,9 +611,9 @@ class VerilogTreeManager {
             } else {
                 row = this._createFileItem(file);
             }
-            const targetSibling = prev ? prev.nextSibling : fileTree.firstChild;
+            const targetSibling = prev ? prev.nextSibling : container.firstChild;
             if (row !== targetSibling) {
-                fileTree.insertBefore(row, targetSibling);
+                container.insertBefore(row, targetSibling);
             }
             prev = row;
         }

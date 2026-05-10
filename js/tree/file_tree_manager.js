@@ -101,15 +101,18 @@ const FileTreeState = {
 };
 
 // --- Main Rendering and Refresh Logic ---
+//
+// Standard tree renders into the dedicated `.tree-view-standard`
+// subcontainer inside #file-tree. The other two views (verilog,
+// hierarchy) live in their own subcontainers and can't conflict
+// with this writer. CSS at css/tree/file_tree.css shows only the
+// active subcontainer based on `[data-active-view]` on #file-tree.
+// See js/tree/tree_view.js for the rationale.
 async function refreshFileTree() {
     try {
-        const fileTree = document.getElementById('file-tree');
-        if (!fileTree || TreeViewState.isHierarchical) {
-            return;
-        }
-
-        // Don't overwrite the verilog file tree with the standard project tree
-        if (fileTree.classList.contains('verilog-mode-active')) {
+        const tv = window.treeView;
+        const standardContainer = tv?.getContainer('standard');
+        if (!standardContainer || TreeViewState.isHierarchical) {
             return;
         }
 
@@ -133,30 +136,15 @@ async function refreshFileTree() {
 
         if (result && result.files) {
             const expandedPaths = Array.from(FileTreeState.expandedFolders);
-            fileTree.style.transition = 'opacity 0.2s ease';
-            fileTree.style.opacity = '0';
+            standardContainer.style.transition = 'opacity 0.2s ease';
+            standardContainer.style.opacity = '0';
 
             setTimeout(() => {
-                // Re-check the verilog-mode guard inside the timeout.
-                // Between this function's top-of-body check and now,
-                // ~200ms + an await have passed, and activateVerilogMode
-                // can have flipped the file-tree into verilog-picker
-                // mode in the meantime. Without this re-check we'd
-                // innerHTML='' the verilog rows we just rendered, then
-                // populate the standard tree on top — the user sees
-                // both tree styles stacked (10 entries instead of 5)
-                // and the verilog row badges flicker out.
-                if (fileTree.classList.contains('verilog-mode-active')) {
-                    fileTree.style.opacity = '1';
-                    return;
-                }
+                standardContainer.innerHTML = '';
+                renderFileTree(result.files, standardContainer);
 
-                fileTree.innerHTML = '';
-                fileTree.classList.remove('hierarchy-view');
-                renderFileTree(result.files, fileTree);
-                
                 expandedPaths.forEach(path => {
-                    const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
+                    const folderItem = standardContainer.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
                     if (folderItem) {
                         const folderToggle = folderItem.querySelector('.folder-toggle');
                         const folderContent = folderItem.querySelector('.folder-content');
@@ -175,7 +163,7 @@ async function refreshFileTree() {
                 if (typeof TabManager !== 'undefined' && TabManager.activeTab) {
                     TabManager.highlightFileInTree(TabManager.activeTab);
                 }
-                fileTree.style.opacity = '1';
+                standardContainer.style.opacity = '1';
             }, 200);
         }
 
@@ -629,19 +617,15 @@ class FileTreeManager {
     renderStandardTree(files = this.files) {
         if (TreeViewState.isHierarchical || FileTreeState.isRefreshing || !Array.isArray(files)) return;
 
-        const fileTree = document.getElementById('file-tree');
-        if (!fileTree) return;
+        const standardContainer = window.treeView?.getContainer('standard');
+        if (!standardContainer) return;
 
-        // Owner check — same invariant as refreshFileTree: don't
-        // overwrite the verilog picker tree with the standard
-        // project tree. The class on #file-tree is the lock.
-        if (fileTree.classList.contains('verilog-mode-active')) return;
-
-        // ... (resto da lógica de updateFileTree, mantendo a expansão de pastas)
+        // Per-view subcontainer — no lock check needed: the verilog
+        // picker writes to a different DOM subtree, the hierarchy
+        // view writes to a third. CSS handles which one is visible.
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
-        fileTree.innerHTML = '';
-        fileTree.classList.remove('hierarchy-view'); // Garante que a classe de hierarquia esteja removida
-        renderFileTree(files, fileTree);
+        standardContainer.innerHTML = '';
+        renderFileTree(files, standardContainer);
         refreshFileTree();
 
         expandedPaths.forEach(path => {
@@ -681,6 +665,11 @@ toggleHierarchyView() {
         if (TreeViewState.isHierarchical) {
             console.log('📁 Switching to Verilog File Mode tree');
             TreeViewState.setHierarchical(false);
+            window.treeView?.setActive('verilog');
+            // Verilog rows are still in their subcontainer from before
+            // — the renderer is idempotent so this is cheap. We call
+            // it to make sure the data is in sync with the on-disk
+            // state in case the user did something while in hierarchy.
             if (window.verilogTreeManager) {
                 window.verilogTreeManager.renderVerilogTree();
             }
@@ -691,6 +680,7 @@ toggleHierarchyView() {
             }
             console.log('🌲 Switching to Hierarchical tree');
             TreeViewState.setHierarchical(true);
+            window.treeView?.setActive('hierarchy');
             this.renderHierarchicalTreeFromData();
         }
     } else {
@@ -698,6 +688,7 @@ toggleHierarchyView() {
         if (TreeViewState.isHierarchical) {
             console.log('📂 Switching to Standard File Tree');
             TreeViewState.setHierarchical(false);
+            window.treeView?.setActive('standard');
             this.refresh();
         } else {
             if (!TreeViewState.hierarchyData) {
@@ -705,6 +696,7 @@ toggleHierarchyView() {
                 return;
             }
             console.log('🌲 Switching to Hierarchical tree');
+            window.treeView?.setActive('hierarchy');
             TreeViewState.setHierarchical(true);
             this.renderHierarchicalTreeFromData();
         }
@@ -765,23 +757,17 @@ renderHierarchicalTreeFromData() {
     updateFileTree(files) {
         if (TreeViewState.isHierarchical || FileTreeState.isRefreshing || !Array.isArray(files)) return;
 
-        const fileTree = document.getElementById('file-tree');
-        if (!fileTree) return;
+        const standardContainer = window.treeView?.getContainer('standard');
+        if (!standardContainer) return;
 
-        // Owner check — same invariant as refreshFileTree /
-        // renderStandardTree: don't overwrite the verilog picker
-        // tree. The class on #file-tree is the single source of
-        // truth for "who owns this DOM right now".
-        if (fileTree.classList.contains('verilog-mode-active')) return;
-
+        // Per-view subcontainer — see renderStandardTree.
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
-        fileTree.innerHTML = '';
-        fileTree.classList.remove('hierarchy-view');
-        renderFileTree(files, fileTree);
+        standardContainer.innerHTML = '';
+        renderFileTree(files, standardContainer);
         refreshFileTree();
-        
+
         expandedPaths.forEach(path => {
-            const folderItem = fileTree.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
+            const folderItem = standardContainer.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
             if (folderItem) {
                 folderItem.querySelector('.folder-content')?.classList.remove('hidden');
                 folderItem.querySelector('.folder-toggle')?.classList.add('rotated');

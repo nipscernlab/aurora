@@ -176,12 +176,19 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
   The same script auto-watches any other dependency you pin exactly. To opt a package into strict checking, drop its caret/tilde in package.json — no other plumbing needed.
 
 - **`getCurrentMode` callers' tolerance for `null`.** Pre-`b046e5a`, `appInitializer.getCurrentMode()` returned `null` until `switchToMode` ran. Most callers compared against literal mode strings, so `null` silently meant "treat as not-this-mode". A 2026-05 attempt (`b046e5a`, reverted in `ecb3591`) made it derive from DOM instead — reproducibly broke Monaco editing in restored sessions. The interaction was not pinned down. **If you change what `getCurrentMode` returns at startup, run the full open-close-reopen-edit smoke test manually** until we have an integration test that catches this class of regression.
-- **Two trees sharing `#file-tree`.** Standard tree (`refreshFileTree`, `renderStandardTree`, `updateFileTree`) and verilog tree (`renderVerilogTree`) compete for the same DOM container. The class `verilog-mode-active` on `#file-tree` is a one-bit "ownership lock":
-    - **Verilog tree** adds the class as the FIRST thing in `renderVerilogTree` (before mutating).
-    - **Standard tree writers** check `fileTree.classList.contains('verilog-mode-active')` and bail. Every writer must check — currently `refreshFileTree`, `renderStandardTree`, `updateFileTree`.
-    - **Critical:** the check has to happen **immediately before** the actual mutation, not at top-of-function. `refreshFileTree` originally checked at the top, then deferred a write inside a 200 ms `setTimeout`. By the time the timeout fired the verilog tree could have taken ownership in between (commit `f196e2d` was the fix). **If you `await` or `setTimeout` between the guard and the mutation, re-check the guard immediately before the mutation.**
-    - **Verilog tree** uses key-based reconciliation in `renderVerilogTree` ([file_mode.js](js/project/file_mode.js)) — never `innerHTML = ''`, never destroys rows already in the tree. Multiple identical-data renders are no-ops. Don't replace this with a destroy-and-rebuild "for simplicity" — the flash bug it solved was non-trivial to find.
-    - Don't add a third writer without the same guard pattern.
+- **`#file-tree` has three view subcontainers.** Three different views render the file tree (standard folder listing, verilog picker, module hierarchy). They used to share `#file-tree` directly and compete via a class-based ownership lock; that produced a steady stream of subtle bugs (deferred-write races, view-A leaving artifacts view-B couldn't clean, badge flashes from back-to-back renders, etc). Replaced with **physically separate DOM subtrees**, controlled by [`treeView`](js/tree/tree_view.js):
+    ```html
+    <div id="file-tree" data-active-view="…">
+      <div class="tree-view tree-view-standard">…</div>
+      <div class="tree-view tree-view-verilog">…</div>
+      <div class="tree-view tree-view-hierarchy">…</div>
+    </div>
+    ```
+    - **Each renderer writes only into its own subtree.** Standard tree → `treeView.getContainer('standard')`. Verilog picker → `treeView.getContainer('verilog')`. Hierarchy view → `treeView.getContainer('hierarchy')`. Renderers literally cannot collide because they target different DOM trees.
+    - **CSS shows only the active subtree** based on `[data-active-view]`. Switching views is a single attribute change (`treeView.setActive('verilog')`); no DOM mutation needed, and inactive subtrees keep their content for cheap toggling back.
+    - **The verilog renderer is a key-based reconciler** ([file_mode.js](js/project/file_mode.js) `renderVerilogTree`) — diffs `verilogFiles` against existing `.verilog-file-item` rows by `data-file-path` and applies minimal DOM mutations. Multiple identical-data renders are zero-mutation no-ops. Don't replace this with destroy-and-rebuild.
+    - **Adding a fourth view?** Add the name to `VIEW_NAMES` in tree_view.js, add the corresponding CSS rule in file_tree.css, write a renderer that targets `treeView.getContainer('<name>')`. Don't introduce a writer that touches `#file-tree` directly — that defeats the whole separation.
+    - **Don't go back to a shared-DOM lock.** Three previous attempts (commits `f196e2d`, `02f7e9c`, plus several smaller patches) tried variations on guard-by-class. Each closed the visible bug but left a new corner case open. The separate-subtree design has no equivalent corner case to find — the property is enforced by physics.
 - **Manager constructors do I/O.** `VerilogModeManager`, `ProjectOrientedManager`, etc. call `this.init()` from their constructors, which awaits `DOMContentLoaded`, caches DOM elements, attaches listeners, possibly hits IPC. The script load order (§1) is the implicit init order. **Moving these calls is exactly the class of change that breaks startup in subtle ways.**
 
 ---

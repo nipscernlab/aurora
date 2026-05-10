@@ -7,6 +7,9 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { fileTreeManager, TreeViewState } from '../tree/file_tree_manager.js';
+import { treeView } from '../tree/tree_view.js';
+// Make sure the view subcontainers exist before any renderer runs.
+treeView.initialize();
 import { projectManager } from '../project/project_manager.js';
 import { aiAssistantManager } from '../ui/ai_assistant_manager.js';
 import { uiComponentsManager } from '../ui/ui_components.js';

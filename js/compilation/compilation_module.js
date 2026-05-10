@@ -377,11 +377,15 @@ async generateProjectHierarchy() {
     }
 
     renderHierarchicalTree() {
-        const fileTreeElement = document.getElementById('file-tree');
-        if (!fileTreeElement || !this.hierarchyData) return;
+        // Hierarchy view owns its dedicated subcontainer inside
+        // #file-tree. Each view is in its own subtree so we can
+        // freely innerHTML='' our own without touching the standard
+        // tree or the verilog picker. See js/tree/tree_view.js.
+        const hostContainer = window.treeView?.getContainer('hierarchy');
+        if (!hostContainer || !this.hierarchyData) return;
 
-        fileTreeElement.innerHTML = '';
-        fileTreeElement.classList.add('hierarchy-view');
+        window.treeView.setActive('hierarchy');
+        hostContainer.innerHTML = '';
 
         const container = document.createElement('div');
         container.className = 'hierarchy-container';
@@ -400,7 +404,7 @@ async generateProjectHierarchy() {
 
         this.buildHierarchyTree(topItem, this.hierarchyData);
 
-        fileTreeElement.appendChild(container);
+        hostContainer.appendChild(container);
     }
 
     buildHierarchyTree(parentItem, moduleDefinition) {

@@ -52,8 +52,12 @@ function disableCompileButtons() {
 }
 
 function clearProjectInterface() {
+    // Wipe every view subcontainer through the controller — keeps the
+    // separation invariant intact when the next project opens.
+    window.treeView?.clearAll?.();
+    window.treeView?.setActive?.('standard');
+
     const selectors = {
-        '#file-tree': el => el.innerHTML = '',
         '#processor-list': el => el.innerHTML = '',
         '#editor': el => el.innerHTML = '',
         '#project-title': el => el.textContent = 'No project open',

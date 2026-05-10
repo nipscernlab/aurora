@@ -387,6 +387,18 @@ class VerilogTreeManager {
     /**
      * Get file icon based on extension
      */
+    /**
+     * Tooltip do ícone na linha. Só faz sentido quando o arquivo é
+     * um "top" (synth top ou testbench top) — para os demais retorna
+     * string vazia e o template omite o atributo title.
+     */
+    _getIconTooltip(file) {
+        if (!file?.isTopLevel) return '';
+        return file.category === 'testbench'
+            ? 'This file is set as the project\'s Testbench top'
+            : 'This file is set as the project\'s Top Level module';
+    }
+
     getFileIcon(file) {
         // Tolerante a chamadores antigos que passavam só o nome.
         const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
@@ -650,6 +662,12 @@ class VerilogTreeManager {
         if (iconEl) {
             const desiredIcon = `${this.getFileIcon(file)} verilog-file-icon`;
             if (iconEl.className !== desiredIcon) iconEl.className = desiredIcon;
+            const desiredIconTitle = this._getIconTooltip(file);
+            if (desiredIconTitle) {
+                if (iconEl.title !== desiredIconTitle) iconEl.title = desiredIconTitle;
+            } else if (iconEl.hasAttribute('title')) {
+                iconEl.removeAttribute('title');
+            }
         }
 
         // Filename — only touch DOM if it actually changed (e.g. rename
@@ -700,13 +718,14 @@ _createFileItem(file) {
     if (file.isTopLevel) fileItem.classList.add('top-level-file');
 
     const icon = this.getFileIcon(file);
+    const iconTitle = this._getIconTooltip(file);
     const toggleTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
     const toggleClass = isTestbench ? 'testbench' : 'synthesizable';
 
     fileItem.innerHTML = `
         <div class="verilog-file-content">
             <div class="verilog-file-info">
-                <i class="${icon} verilog-file-icon"></i>
+                <i class="${icon} verilog-file-icon"${iconTitle ? ` title="${iconTitle}"` : ''}></i>
                 <div class="verilog-file-name" title="${file.path}">${file.name}</div>
             </div>
             <div class="verilog-file-actions">

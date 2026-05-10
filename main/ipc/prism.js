@@ -268,10 +268,20 @@ async function runYosysCompilationWithPaths(
   if (fileList.length === 0) throw new Error('No Verilog files found for compilation');
 
   const readCommands = fileList.map((file) => `read_verilog "${file}"`).join('\n');
+  // setundef -zero: substitui valores don't-care (x) por 0 constante.
+  // Sem isso, $pmux com `full_case` produz A=[x,x] como ramo default
+  // unreachable, e o netlistsvg renderiza esses don't-cares como
+  // "linhas fantasma" diagonais (uma constante invisivel com fanout
+  // alimentando varios muxes), confundindo o usuario. Trocar x por 0
+  // nao muda a semantica porque o ramo default e unreachable.
+  // opt_clean -purge: remove fios e celulas que sobraram desconectados
+  // depois da substituicao.
   const yosysScript = `
 ${readCommands}
 hierarchy -top ${topLevelModule}
 proc
+setundef -zero
+opt_clean -purge
 write_json "${hierarchyJsonPath}"
 `;
 

@@ -1829,6 +1829,18 @@ async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
  *               vvp's stdout/stderr to twave.
  */
 async _waveRunVvpSimulation(simTopModule, tools) {
+    // asmcomp gera `initial $readmemb("pc_<proc>_mem.txt", min)` dentro
+    // do .v do processador (yanc/ASM/Sources/hdl.c). O caminho e
+    // RELATIVO — vvp procura no CWD, que aqui e tempBaseDir.
+    // Mas o cmmcomp escreve o pc_<proc>_mem.txt em
+    // <components>/Temp/<proc>/, nao em <components>/Temp/.
+    //
+    // Antes de rodar o vvp, copiar todo pc_*_mem.txt que estiver em
+    // qualquer Temp/<sub>/ pra Temp/ direto, pra que o $readmemb
+    // resolva. Idempotente: se ja foi copiado antes, o copyFile
+    // simplesmente sobrescreve com o mesmo conteudo.
+    await this._stageProcessorMemoryFiles(tools.tempBaseDir);
+
     const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
     this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...', 'info');
     const vvpCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
@@ -1837,6 +1849,49 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
     if (result.code !== 0) {
         throw new Error(`VVP simulation failed with exit code ${result.code}`);
+    }
+}
+
+/**
+ * Varre subdirectorias de tempBaseDir procurando arquivos pc_*_mem.txt
+ * (gerados pelo cmmcomp em cada Temp/<proc>/) e copia pro proprio
+ * tempBaseDir. vvp roda com CWD=tempBaseDir e precisa achar esses
+ * arquivos no $readmemb que o ProcDTW.v faz internamente.
+ *
+ * Tolerante a falha por subdir — se uma das pastas nao puder ser
+ * lida, segue pra proxima. Tolerante a "subdir nao existe ou nao tem
+ * arquivo de memoria" — silencio.
+ */
+async _stageProcessorMemoryFiles(tempBaseDir) {
+    let entries;
+    try {
+        entries = await window.electronAPI.getFolderFiles(tempBaseDir);
+    } catch (_e) {
+        return;
+    }
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries) {
+        if (!entry?.isDirectory) continue;
+        const subDir = entry.path;
+        let subFiles;
+        try {
+            subFiles = await window.electronAPI.listFilesInDirectory(subDir);
+        } catch (_e) {
+            continue;
+        }
+        if (!Array.isArray(subFiles)) continue;
+        for (const fileName of subFiles) {
+            if (typeof fileName !== 'string') continue;
+            if (!fileName.startsWith('pc_') || !fileName.endsWith('_mem.txt')) continue;
+            const src = await window.electronAPI.joinPath(subDir, fileName);
+            const dst = await window.electronAPI.joinPath(tempBaseDir, fileName);
+            try {
+                await window.electronAPI.copyFile(src, dst);
+            } catch (_e) {
+                // Idempotente — se nao conseguir copiar, o vvp vai
+                // dar erro claro no $readmemb e a gente ve.
+            }
+        }
     }
 }
 

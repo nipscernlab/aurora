@@ -1434,10 +1434,20 @@ async syntaxCheck() {
         if (config.testbenchFile) fileSet.add(config.testbenchFile);
         const sourceFilesString = [...fileSet].map((f) => `"${f}"`).join(' ');
 
+        // -y points iverilog at components/HDL pra resolver os modulos
+        // da biblioteca SAPHO (processor.v, addr_dec.v, instr_dec.v,
+        // ula.v, myFIFO.v, core.v) que o .v gerado pelo asmcomp
+        // instancia. Sem isso o syntax check falha com "Unknown module
+        // type: processor" em projetos que tem processadores SAPHO.
+        // Mesmo padrao do iverilogCompileNoProcessors.
+        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+        const libraryArgs = `-y "${hdlPath}"`;
+
         const flags = this.projectConfig?.iverilogFlags || '';
         const cmd = [
             `"${iveriCompPath}"`,
             flags,
+            libraryArgs,
             '-tnull',
             `-s ${simTopModule}`,
             sourceFilesString,

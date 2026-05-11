@@ -7,7 +7,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildProcessorAwareGtkw } from '../wave/gtkw_proc_writer.js';
-import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
+import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
@@ -24,7 +24,6 @@ class CompilationModule {
         this.hierarchyGenerated = false;
         this._hierarchyGenerationInProgress = false;
         this.componentsPath = null;
-        this.projectTestbenchBackup = null;
         this.initializeComponentsPath();
 
         // Pin this instance as "the latest" — the file-tree view
@@ -143,14 +142,11 @@ class CompilationModule {
     }
 
 async generateProjectHierarchy() {
-    // Skip hierarchy generation in Verilog-only mode if no processors
     // Hierarchy generation runs whenever there's at least one synthesizable
-    // file — Yosys can build a hierarchy from any user .v. The previous
-    // early-return only fired when the legacy "Project Mode (no processors)" toggle was off
-    // AND no processors were configured; with the toggle gone we just
-    // require synth files. The yosys script below handles the no-files
-    // case implicitly (empty read_verilog → yosys errors out, caught by
-    // the surrounding try/catch).
+    // file — Yosys can build a hierarchy from any user .v. The yosys
+    // script below handles the no-files case implicitly (empty
+    // read_verilog → yosys errors out, caught by the surrounding
+    // try/catch).
         try {
             if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
@@ -790,371 +786,13 @@ end
     }
 
 
-    /**
- * Icarus Verilog Compilation (Project Mode)
- * Compiles user files with instrumented testbench (using a temp file, preserving original)
- */
-
-
-async collectVerilogSources(processors, componentsPath, projectPath) {
-    const verilogSources = [];
-    
-    const hdlPath = await window.electronAPI.joinPath(componentsPath, 'HDL');
-    const baseHdlFiles = [
-        'addr_dec.v',
-        'core.v', 
-        'instr_dec.v',
-        'myFIFO.v',
-        'processor.v',
-        'ula.v'
-    ];
-
-    for (const file of baseHdlFiles) {
-        const filePath = await window.electronAPI.joinPath(hdlPath, file);
-        verilogSources.push({
-            path: filePath,
-            type: 'base_hdl',
-            description: `Core HDL: ${file}`
-        });
-    }
-
-    this.terminalManager.appendToTerminal('tveri', `Added ${baseHdlFiles.length} base HDL files`, 'info');
-
-    for (const processor of processors) {
-        try {
-            const processorName = processor.name;
-            
-            const hardwarePath = await window.electronAPI.joinPath(
-                projectPath, 
-                processorName, 
-                'Hardware'
-            );
-
-            const hardwareDirExists = await window.electronAPI.fileExists(hardwarePath);
-            if (!hardwareDirExists) {
-                this.terminalManager.appendToTerminal(
-                    'tveri',
-                    `Warning: Hardware directory not found for ${processorName}`,
-                    'warning'
-                );
-                continue;
-            }
-
-            const files = await window.electronAPI.getFolderFiles(hardwarePath);
-            const verilogFiles = files.filter(f => {
-                const fileName = typeof f === 'string' ? f : f.name;
-                return fileName.endsWith('.v');
-            });
-
-            for (const vFile of verilogFiles) {
-                const fileName = typeof vFile === 'string' ? vFile : vFile.name;
-                const filePath = await window.electronAPI.joinPath(hardwarePath, fileName);
-                verilogSources.push({
-                    path: filePath,
-                    type: 'processor_hardware',
-                    processor: processorName,
-                    description: `${processorName} Hardware: ${fileName}`
-                });
-            }
-
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                `  Processor ${processorName}: ${verilogFiles.length} hardware file(s)`,
-                'info'
-            );
-
-        } catch (error) {
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                `Warning: Error collecting files for ${processor.name}: ${error.message}`,
-                'warning'
-            );
-        }
-    }
-
-    return verilogSources;
-}
-
-async validateMemoryFiles(projectTempDir) {
-    this.terminalManager.appendToTerminal('tveri', 'Validating memory files...', 'info');
-    
-    try {
-        const files = await window.electronAPI.getFolderFiles(projectTempDir);
-        const memoryFiles = files.filter(f => {
-            const fileName = typeof f === 'string' ? f : f.name;
-            return fileName.startsWith('pc_') && fileName.endsWith('mem.txt');
-        });
-
-        if (memoryFiles.length === 0) {
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                'WARNING: No pc_*mem.txt files found in Temp directory',
-                'warning'
-            );
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                'This will cause "invalid file descriptor" errors if testbench uses $readmemh/$fscanf',
-                'warning'
-            );
-            return { valid: false, files: [] };
-        }
-
-        const validatedFiles = [];
-        for (const file of memoryFiles) {
-            const fileName = typeof file === 'string' ? file : file.name;
-            const filePath = await window.electronAPI.joinPath(projectTempDir, fileName);
-            
-            try {
-                const stats = await window.electronAPI.getFileStats(filePath);
-                if (stats.size === 0) {
-                    this.terminalManager.appendToTerminal(
-                        'tveri',
-                        `  Warning: ${fileName} is empty`,
-                        'warning'
-                    );
-                } else {
-                    validatedFiles.push({
-                        name: fileName,
-                        path: filePath,
-                        size: stats.size
-                    });
-                    this.terminalManager.appendToTerminal(
-                        'tveri',
-                        `  Validated: ${fileName} (${stats.size} bytes)`,
-                        'success'
-                    );
-                }
-            } catch (error) {
-                this.terminalManager.appendToTerminal(
-                    'tveri',
-                    `  Error validating ${fileName}: ${error.message}`,
-                    'error'
-                );
-            }
-        }
-
-        return {
-            valid: validatedFiles.length > 0,
-            files: validatedFiles
-        };
-
-    } catch (error) {
-        this.terminalManager.appendToTerminal(
-            'tveri',
-            `Error validating memory files: ${error.message}`,
-            'error'
-        );
-        return { valid: false, files: [] };
-    }
-}
-
-
-async iverilogProjectCompilation() {
-    if (this.hasNoProcessors()) {
-        return await this.iverilogCompileNoProcessors();
-    }
-
-    this.terminalManager.appendToTerminal('tveri', '--- Icarus Verilog Project Compilation ---', 'info');
-    statusUpdater.startCompilation('verilog');
-
-    try {
-        if (!this.projectConfig) {
-            throw new Error("Project configuration not loaded");
-        }
-
-        if (!this.projectConfig.processors || !Array.isArray(this.projectConfig.processors)) {
-            throw new Error("No processors defined in projectOriented.json");
-        }
-
-        if (this.projectConfig.processors.length === 0) {
-            throw new Error("Processor array is empty in projectOriented.json");
-        }
-
-        this.terminalManager.appendToTerminal(
-            'tveri', 
-            `Configured processors: ${this.projectConfig.processors.length}`, 
-            'info'
-        );
-
-        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
-        const iveriCompPath = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'bin', 
-            'iverilog.exe'
-        );
-
-        await window.electronAPI.mkdir(tempBaseDir);
-
-        const fixVcdSource = await window.electronAPI.joinPath(scriptsPath, 'fix.vcd');
-        const fixVcdDest = await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd');
-        
-        try {
-            await window.electronAPI.copyFile(fixVcdSource, fixVcdDest);
-            this.terminalManager.appendToTerminal('tveri', 'fix.vcd copied', 'success');
-        } catch (error) {
-            this.terminalManager.appendToTerminal(
-                'tveri', 
-                `Warning: Could not copy fix.vcd - ${error.message}`, 
-                'warning'
-            );
-        }
-
-        const memoryFilesResult = await this.copyProcessorMemoryFiles(
-            this.projectConfig.processors,
-            this.componentsPath,
-            tempBaseDir
-        );
-
-        if (!memoryFilesResult.success) {
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                'WARNING: No memory files copied. Simulation may fail.',
-                'warning'
-            );
-        }
-
-        const validationResult = await this.validateMemoryFiles(tempBaseDir);
-        
-        if (!validationResult.valid) {
-            this.terminalManager.appendToTerminal(
-                'tveri',
-                'WARNING: Memory file validation failed',
-                'warning'
-            );
-        }
-
-        const topLevelFile = this.projectConfig.topLevelFile;
-        const testbenchFile = this.projectConfig.testbenchFile;
-        
-        if (!topLevelFile) {
-            throw new Error("No top-level file specified in projectOriented.json");
-        }
-        
-        if (!testbenchFile) {
-            throw new Error("No testbench file specified in projectOriented.json");
-        }
-
-        const topLevelModuleName = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        
-        // 'tips' (blue) for the contextual lines — see the matching
-        // pair in iverilogCompileNoProcessors. Plain 'info' was
-        // hidden by the verbose filter (no semantic keyword in text);
-        // 'tips' keeps them visible without faking a success outcome.
-        this.terminalManager.appendToTerminal('tveri', `Top-level: ${topLevelModuleName}`, 'tips');
-        this.terminalManager.appendToTerminal('tveri', `Testbench: ${testbenchModuleName}`, 'tips');
-
-        const tempTbFileName = `tb_inst_${testbenchModuleName}.v`;
-        const tempTbPath = await window.electronAPI.joinPath(tempBaseDir, tempTbFileName);
-        const simuDelay = this.projectConfig.simuDelay || '200000';
-        
-        await this.instrumentProjectTestbench(
-            testbenchFile,
-            tempTbPath,
-            tempBaseDir,
-            testbenchModuleName, 
-            topLevelModuleName,
-            simuDelay
-        );
-
-        this.terminalManager.appendToTerminal('tveri', 'Collecting Verilog sources...', 'info');
-        
-        const verilogSources = await this.collectVerilogSources(
-            this.projectConfig.processors,
-            this.componentsPath,
-            this.projectPath
-        );
-
-        const userSourceFiles = this.projectConfig.synthesizableFiles || [];
-        for (const userFile of userSourceFiles) {
-            if (userFile.path) {
-                verilogSources.push({
-                    path: userFile.path,
-                    type: 'user_synthesizable',
-                    description: `User: ${userFile.path.split(/[\\/]/).pop()}`
-                });
-            }
-        }
-
-        this.terminalManager.appendToTerminal(
-            'tveri',
-            `Total Verilog sources: ${verilogSources.length}`,
-            'info'
-        );
-
-        const flags = this.projectConfig.iverilogFlags || '';
-        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
-        
-        const lastSeparatorIndex = Math.max(
-            testbenchFile.lastIndexOf('/'), 
-            testbenchFile.lastIndexOf('\\')
-        );
-        const originalTbDir = (lastSeparatorIndex !== -1) 
-            ? testbenchFile.substring(0, lastSeparatorIndex) 
-            : ".";
-        const includeFlag = `-I "${originalTbDir}"`;
-
-        const sourceFilesString = verilogSources
-            .map(src => `"${src.path}"`)
-            .join(' ');
-
-        const cmd = [
-            `"${iveriCompPath}"`,
-            flags,
-            `-s ${testbenchModuleName}`,
-            `-o "${outputFile}"`,
-            includeFlag,
-            sourceFilesString,
-            `"${tempTbPath}"`
-        ].filter(Boolean).join(' ');
-
-        this.terminalManager.appendToTerminal('tveri', 'Compilation command:', 'info');
-        this.terminalManager.appendToTerminal('tveri', cmd, 'info');
-
-        await TabManager.saveAllFiles();
-
-        this.terminalManager.appendToTerminal('tveri', 'Compiling...', 'info');
-        
-        const result = await window.electronAPI.execCommand(cmd);
-        this.terminalManager.processExecutableOutput('tveri', result);
-
-        if (result.code !== 0) {
-            throw new Error(`Iverilog compilation failed with exit code ${result.code}`);
-        }
-
-        this.terminalManager.appendToTerminal('tveri', '--- Compilation Successful ---', 'success');
-        statusUpdater.compilationSuccess('verilog');
-
-        await this.generateProjectHierarchy();
-
-    } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', '--- Compilation Failed ---', 'error');
-        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
-        statusUpdater.compilationError('verilog', error.message);
-        throw error;
-    }
-}
-
 /**
- * Check if Verilog-only mode is active (toggle disabled)
+ * Valida config minima pro pipeline iverilog: synthesizableFiles
+ * presente, um top-level marcado. Testbench e opcional (irrelevante
+ * pro botao Verilog/PRISM, obrigatorio pro botao Wave que checa
+ * separadamente).
  */
-/**
- * "Verilog-only" used to mean the Compile&Simulate toggle was off; with
- * the toggle gone, the equivalent condition is "no processors are
- * configured" — i.e. the project is a pure synth/sim flow that doesn't
- * need CMM/ASM stages.
- */
-hasNoProcessors() {
-    return (this.projectConfig?.processors?.length ?? 0) === 0;
-}
-
-/**
- * Validate Verilog-only configuration
- */
-validateConfigNoProcessors() {
+validateConfig() {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
@@ -1171,9 +809,10 @@ validateConfigNoProcessors() {
         throw new Error('No top-level module selected. Please mark a file as top-level in Project Settings.');
     }
 
-    // Testbench is OPTIONAL in Verilog-only mode. The user may want to compile
-    // a single .v (e.g., a simple AND gate) without writing a testbench.
-    // When absent, iverilog uses the synthesizable top-level as -s.
+    // Testbench e opcional pros botoes Verilog e PRISM (que usam -s
+    // top-level e nao precisam de stimuli). Pro botao Wave e obrigatorio,
+    // mas o handler de Wave checa separadamente. Quando absent, iverilog
+    // usa o synthesizable top-level como -s.
     let foundTestbenchPath = null;
 
     if (this.projectConfig.testbenchFile && this.projectConfig.testbenchFile.trim() !== "") {
@@ -1338,7 +977,7 @@ async syntaxCheck() {
         await this.initializeComponentsPath();
     }
     try {
-        const config = this.validateConfigNoProcessors();
+        const config = this.validateConfig();
 
         const iveriCompPath = await window.electronAPI.joinPath(
             this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
@@ -1365,7 +1004,7 @@ async syntaxCheck() {
         // ula.v, myFIFO.v, core.v) que o .v gerado pelo asmcomp
         // instancia. Sem isso o syntax check falha com "Unknown module
         // type: processor" em projetos que tem processadores SAPHO.
-        // Mesmo padrao do iverilogCompileNoProcessors.
+        // Mesmo padrao do iverilogCompile.
         const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
         const libraryArgs = `-y "${hdlPath}"`;
 
@@ -1419,7 +1058,7 @@ async syntaxCheck() {
  * js/wave/testbench_instrumenter.js (unit-tested). This method is
  * the IO glue.
  */
-async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
+async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
     const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
         originalContent,
@@ -1436,7 +1075,9 @@ async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, sele
 }
 
 /**
- * Verilog-only compile (no processors).
+ * Compila o design Verilog do projeto via iverilog. Pipeline unico
+ * sem branches sobre presenca de processador — synthesizableFiles
+ * (populado pelo file tree) ja inclui os .v de cada processador.
  *
  * Two shapes, controlled by `buildVvp`:
  *   - false (default, used by the Compile button): syntax-check only —
@@ -1453,13 +1094,13 @@ async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, sele
  * focused (no simulation-only artifacts) while the Wave button still
  * has a path to produce a fresh .vvp on demand.
  */
-async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
+async iverilogCompile({ buildVvp = false } = {}) {
     const phaseLabel = buildVvp ? 'Verilog Build (Simulation)' : 'Verilog Check + Hierarchy';
     this.terminalManager.appendToTerminal('tveri', `--- ${phaseLabel} ---`, 'info');
     statusUpdater.startCompilation('verilog');
 
     try {
-        const config = this.validateConfigNoProcessors();
+        const config = this.validateConfig();
 
         // 'tips' = blue/info badge. These lines are contextual info
         // about what's about to be compiled, not a success outcome —
@@ -1524,7 +1165,7 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
                 && config.testbenchFile
                 && this.projectConfig.waveSignalsCustomizedFor === config.testbenchFile
             );
-            const { path: tbPath, reason } = await this.instrumentTestbenchNoProcessors(
+            const { path: tbPath, reason } = await this.instrumentTestbench(
                 config.testbenchFile,
                 simTopModule,
                 tempBaseDir,
@@ -1571,12 +1212,11 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
 
         // -y tells iverilog to resolve any module referenced but not
         // listed in the source set by looking for `<moduleName>.v` in
-        // these directories. Aurora bundles a small HDL library
-        // (myFIFO.v, ula.v, etc.) that processor-mode pulls in
-        // explicitly; for no-processors the user otherwise has to
-        // manually add each library file to their picker. Pointing
-        // -y at components/HDL means a `myFIFO foo (...)` instance in
-        // the user's design just works without extra setup.
+        // these directories. components/HDL tem tanto componentes do
+        // processador SAPHO (processor.v, addr_dec.v, instr_dec.v, ula.v,
+        // core.v) quanto componentes usados fora dele (myFIFO.v). Sempre
+        // ligado, em qualquer fluxo — projetos sem processador tambem
+        // se beneficiam pra coisas tipo myFIFO.
         const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
         const libraryArgs = `-y "${hdlPath}"`;
 
@@ -1643,14 +1283,14 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
 }
 
 /**
- * Run GTKWave for Verilog-only mode
- */
-/**
- * Verilog-only Wave button entrypoint. Orchestrates the full pipeline
- * from .v sources to a running GTKWave window. Each phase is a
- * private method below with its own contract; the orchestrator below
- * is intentionally short so the *order of phases* is the only thing
- * a future reader has to understand here.
+ * Wave button entrypoint. Orquestra o pipeline completo de .v sources
+ * ate uma janela GTKWave rodando. Cada fase e um metodo privado com
+ * contrato proprio; o orquestrador e curto pra deixar a *ordem das
+ * fases* como unica coisa que um futuro leitor tem que entender aqui.
+ *
+ * Memory file staging (pc_*_mem.txt gerados pelo cmmcomp) acontece
+ * dentro de _waveRunVvpSimulation — no-op natural em projetos sem
+ * processador (nao ha subdir com .txt pra copiar).
  *
  * Pipeline (read top-to-bottom):
  *
@@ -1670,11 +1310,11 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
  * See ARCHITECTURE.md §10 for the broader rationale (why VCD is the
  * ground truth, how the three .gtkw sources interact, etc.).
  */
-async runGtkWaveNoProcessors() {
+async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', '--- Simulation & GTKWave ---', 'info');
 
     try {
-        const config = this.validateConfigNoProcessors();
+        const config = this.validateConfig();
 
         // No testbench → vvp has nothing to dump and no $finish to
         // hit, so simulation can't produce a VCD. Bail early with a
@@ -1756,11 +1396,11 @@ _waveDeriveSimTopModule(config) {
  * Throws:  if iverilog fails OR the expected .vvp isn't on disk
  * Side-effects: writes ${tempBaseDir}/${simTopModule}.vvp; logs to twave;
  *               also caches `this._validatedWaveSelection` as part of
- *               iverilogCompileNoProcessors (the .gtkw resolver reads it).
+ *               iverilogCompile (the .gtkw resolver reads it).
  */
 async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
     this.terminalManager.appendToTerminal('twave', 'Building VVP for simulation...', 'info');
-    await this.iverilogCompileNoProcessors({ buildVvp: true });
+    await this.iverilogCompile({ buildVvp: true });
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     if (!await window.electronAPI.fileExists(vvpFile)) {
         throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
@@ -1797,7 +1437,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // espera resolucao relativa a pasta do testbench. Varremos o
     // source do testbench atras dessas chamadas e copiamos cada
     // arquivo da pasta do testbench pra tempBaseDir.
-    const config = this.validateConfigNoProcessors();
+    const config = this.validateConfig();
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }
@@ -2245,87 +1885,6 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
 
 
 
-/**
- * Instrument testbench for Project Mode with progress tracking and VCD generation
- * Creates a TEMPORARY file, does NOT modify the user file.
- * Conditionally adds VCD logic only if missing.
- */
-async instrumentProjectTestbench(sourcePath, destPath, tempDir, tbModuleName, topLevelModuleName, simuDelay) {
-    try {
-        const originalContent = await window.electronAPI.readFile(sourcePath, { encoding: 'utf8' });
-        
-        // Deteccao via hasUserDumpCalls — strip-a comentarios antes
-        // de testar. Sem isso, um `// $dumpvars(0, tb);` comentado
-        // pelo usuario era classificado como user-defined e Aurora
-        // nao injetava o dumpfile -> nenhum VCD gerado.
-        const userHasVcdLogic = hasUserDumpCalls(originalContent);
-
-        let content = originalContent
-            .replace(/\$finish\s*;/g, '// $finish; (Aurora controlled)');
-
-        const numericSimuDelay = parseFloat(simuDelay) || 200000.0;
-        const vcdFileName = `${tbModuleName}.vcd`; // ✅ VCD named after testbench, not top-level
-        const progressFilePath = `${tempDir.replace(/\\/g, '\\\\')}\\\\progress.txt`;
-
-        let vcdLogic = '';
-        
-        if (!userHasVcdLogic) {
-            vcdLogic = `
-    // VCD Configuration - SCOPED to testbench module (Auto-injected by Aurora)
-    $dumpfile("${vcdFileName}");
-    $dumpvars(0, ${tbModuleName});`;
-        } else {
-            vcdLogic = `
-    // VCD Configuration skipped: User defined $dumpvars/$dumpfile detected.`;
-        }
-
-        const injectionCode = `
-// ============================================
-// AURORA PROJECT MODE SIMULATION BLOCK
-// ============================================
-integer aurora_progress_file, aurora_progress_counter;
-initial begin
-    ${vcdLogic}
-    
-    // Progress Tracking
-    aurora_progress_file = $fopen("${progressFilePath}", "w");
-    for (aurora_progress_counter = 10; aurora_progress_counter <= 100; aurora_progress_counter = aurora_progress_counter + 10) begin
-        #${numericSimuDelay}; 
-        $fdisplay(aurora_progress_file, "%0d", aurora_progress_counter);
-        $fflush(aurora_progress_file);
-    end
-    $fclose(aurora_progress_file);
-    $finish;
-end
-// ============================================
-`;
-
-        const lastEndmoduleIndex = content.lastIndexOf('endmodule');
-        if (lastEndmoduleIndex === -1) {
-            throw new Error("Invalid testbench: 'endmodule' keyword not found");
-        }
-
-        const instrumentedContent = 
-            content.slice(0, lastEndmoduleIndex) + 
-            injectionCode + 
-            content.slice(lastEndmoduleIndex);
-
-        await window.electronAPI.writeFile(destPath, instrumentedContent);
-        
-        this.terminalManager.appendToTerminal('tveri', 
-            `Testbench instrumented to temp file: ${destPath.split(/[\\/]/).pop()}`, 'info');
-        
-        return {
-            instrumentedPath: destPath
-        };
-
-    } catch (error) {
-        console.error("Failed to instrument testbench:", error);
-        throw new Error(`Testbench instrumentation failed: ${error.message}`);
-    }
-}
-
-
     switchToStandardView() {
         // Delegate to the controller — it picks verilog vs standard
         // based on IDE mode and owns the active-view state.
@@ -2333,284 +1892,6 @@ end
         this.terminalManager.appendToTerminal('tveri',
             'Switched to file tree', 'info');
     }
-
-    async generateHierarchyAfterCompilation(processor = null) {
-        try {
-            if (this._hierarchyGenerationInProgress) {
-                console.log('Hierarchy generation already in progress, skipping duplicate call');
-                return true;
-            }
-
-            this._hierarchyGenerationInProgress = true;
-            let success = false;
-
-            // FASE 2: branch generateProcessorHierarchy(processor)
-            // eliminado. Project Mode usa generateProjectHierarchy.
-            success = await this.generateProjectHierarchy();
-
-            if (success) {
-                this.hierarchyGenerated = true;
-                window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-
-                await this.switchToHierarchicalView();
-            }
-
-            return success;
-        } catch (error) {
-            console.error('Error generating hierarchy:', error);
-            return false;
-        } finally {
-            this._hierarchyGenerationInProgress = false;
-        }
-    }
-
-    async copyProcessorMemoryFiles(processors, componentsPath, projectTempDir) {
-    this.terminalManager.appendToTerminal('tveri', 'Copying processor memory files to Temp...', 'info');
-    
-    const copiedFiles = [];
-    const errors = [];
-
-    for (const processor of processors) {
-        try {
-            const processorType = processor.type || processor.name;
-            const processorTempDir = await window.electronAPI.joinPath(
-                componentsPath, 
-                'Temp', 
-                processorType
-            );
-
-            const dirExists = await window.electronAPI.fileExists(processorTempDir);
-            if (!dirExists) {
-                this.terminalManager.appendToTerminal(
-                    'tveri', 
-                    `Warning: Processor '${processorType}' temp directory not found at ${processorTempDir}`, 
-                    'warning'
-                );
-                this.terminalManager.appendToTerminal(
-                    'tveri',
-                    `You must compile processors individually first to generate their temp directories`,
-                    'warning'
-                );
-                continue;
-            }
-
-            const files = await window.electronAPI.getFolderFiles(processorTempDir);
-            
-            for (const file of files) {
-                const fileName = typeof file === 'string' ? file : file.name;
-                
-                if (fileName.startsWith('pc_') && fileName.endsWith('mem.txt')) {
-                    const sourcePath = await window.electronAPI.joinPath(processorTempDir, fileName);
-                    const destPath = await window.electronAPI.joinPath(projectTempDir, fileName);
-                    
-                    try {
-                        await window.electronAPI.copyFile(sourcePath, destPath);
-                        copiedFiles.push({
-                            processor: processorType,
-                            file: fileName,
-                            source: sourcePath,
-                            destination: destPath
-                        });
-                        
-                        this.terminalManager.appendToTerminal(
-                            'tveri', 
-                            `  Copied: ${fileName} (from ${processorType})`, 
-                            'success'
-                        );
-                    } catch (copyError) {
-                        errors.push({
-                            processor: processorType,
-                            file: fileName,
-                            error: copyError.message
-                        });
-                        
-                        this.terminalManager.appendToTerminal(
-                            'tveri', 
-                            `  Error copying ${fileName}: ${copyError.message}`, 
-                            'error'
-                        );
-                    }
-                }
-            }
-        } catch (processorError) {
-            this.terminalManager.appendToTerminal(
-                'tveri', 
-                `Warning: Error processing ${processor.type || processor.name}: ${processorError.message}`, 
-                'warning'
-            );
-        }
-    }
-
-    this.terminalManager.appendToTerminal(
-        'tveri', 
-        `Memory files copied: ${copiedFiles.length}, Errors: ${errors.length}`, 
-        copiedFiles.length > 0 ? 'info' : 'warning'
-    );
-
-    return {
-        copiedFiles,
-        errors,
-        success: copiedFiles.length > 0
-    };
-}
-
-/**
- * Run GTKWave for Project Mode
- * Uses the same paths and method as processor mode
- */
-async runProjectGtkWave() {
-     if (this.hasNoProcessors()) {
-        return await this.runGtkWaveNoProcessors();
-    }
-    this.terminalManager.appendToTerminal('twave', 'Starting Simulation & GTKWave (Project Mode)...');
-
-    try {
-        if (!this.projectConfig) throw new Error("Project configuration not loaded");
-
-        const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-        const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
-
-        // ✅ Use CORRECT GTKWave path (same as processor mode)
-        const gtkwaveBin = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'gtkwave', 
-            'bin', 
-            'gtkwave.exe'
-        );
-        
-        const vvpBin = await window.electronAPI.joinPath(
-            this.componentsPath, 
-            'Packages', 
-            'iverilog', 
-            'bin', 
-            'vvp.exe'
-        );
-
-        const topLevelFile = this.projectConfig.topLevelFile;
-        const testbenchFile = this.projectConfig.testbenchFile;
-
-        if (!topLevelFile) throw new Error("No top-level file specified.");
-        if (!testbenchFile) throw new Error("No testbench file specified.");
-
-        const topLevelModuleName = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const testbenchModuleName = testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-
-        const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModuleName}.vvp`);
-        const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${testbenchModuleName}.vcd`);
-
-        const procList = this.projectConfig.processors || [];
-        for (const proc of procList) {
-            const tempProcDir = await window.electronAPI.joinPath(tempBaseDir, proc.type);
-            const tbFile = await window.electronAPI.joinPath(tempProcDir, `${proc.type}_tb.v`);
-            const destDir = await window.electronAPI.joinPath(this.projectPath, proc.type, 'Simulation');
-            const destFile = await window.electronAPI.joinPath(destDir, `${proc.type}_tb.v`);
-            
-            try {
-                const tbExists = await window.electronAPI.fileExists(tbFile);
-                if (tbExists) {
-                    await window.electronAPI.copyFile(tbFile, destFile);
-                    this.terminalManager.appendToTerminal('tveri', 
-                        `Copied testbench for ${proc.type} to Simulation folder`);
-                    // FIXED: Use 'proc' instead of 'processor'
-                    await this.generateHierarchyAfterCompilation(proc);
-                }
-            } catch (copyError) {
-                this.terminalManager.appendToTerminal('tveri', 
-                    `Warning: Could not copy testbench for ${proc.type}: ${copyError.message}`, 'warning');
-            }
-        }
-
-        const binPath = await window.electronAPI.joinPath(this.componentsPath, 'bin');
-
-        // Create TCL info file
-        const instances = procList.map(p => p.instance).join(' ');
-        const processors = procList.map(p => p.type).join(' ');
-        const tclContent = `${instances}\n${processors}\n${tempBaseDir}\n${binPath}\n${scriptsPath}\n`;
-        await window.electronAPI.writeFile(await window.electronAPI.joinPath(tempBaseDir, 'tcl_infos.txt'), tclContent);
-
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(scriptsPath, 'fix.vcd'),
-            await window.electronAPI.joinPath(tempBaseDir, 'fix.vcd')
-        );
-
-
-        if (!await window.electronAPI.fileExists(vvpFile)) {
-            throw new Error(`Simulation file not found: ${vvpFile}. Please compile first.`);
-        }
-
-        this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
-
-        // Run VVP simulation
-        const vvpCmd = `cd "${tempBaseDir}" && "${vvpBin}" "${vvpFile}"`;
-        const result = await window.electronAPI.execCommand(vvpCmd);
-        
-        if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
-        if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
-
-        if (result.code !== 0) {
-            throw new Error(`VVP simulation failed with exit code ${result.code}`);
-        }
-
-        // Verify VCD file was generated
-        if (!await window.electronAPI.fileExists(vcdFile)) {
-            throw new Error(`VCD file was not generated at: ${vcdFile}`);
-        }
-
-        this.terminalManager.appendToTerminal('twave', 'Opening GTKWave...');
-        
-        const scriptPath = await window.electronAPI.joinPath(scriptsPath, 'gtk_proc_init.tcl');
-        // Use the SAME method as processor mode
-        const gtkwaveCmd = `"${gtkwaveBin}" --rcvar "hide_sst on" --dark "${vcdFile}"  --script=${scriptPath}`;
-        
-        const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
-            gtkwCmd: gtkwaveCmd,
-            workingDir: tempBaseDir
-        });
-
-        if (gtkwaveResult.success) {
-            this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
-            this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
-            this.monitorGtkwaveProcess();
-        } else {
-            throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
-        }
-
-    } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
-        console.error(error);
-        throw error;
-    }
-}
-
-/**
- * Restore original testbench from backup after simulation
- */
-async restoreProjectTestbenchBackup() {
-    if (!this.projectTestbenchBackup) return;
-    
-    try {
-        const backupExists = await window.electronAPI.fileExists(this.projectTestbenchBackup);
-        if (!backupExists) return;
-        
-        const originalPath = this.projectTestbenchBackup.replace('.aurora_backup', '');
-        
-        // Restore original file
-        await window.electronAPI.copyFile(this.projectTestbenchBackup, originalPath);
-        
-        // Delete backup
-        await window.electronAPI.deleteFileOrDirectory(this.projectTestbenchBackup);
-        
-        this.terminalManager.appendToTerminal('twave', 'Original testbench restored', 'success');
-        this.projectTestbenchBackup = null;
-        
-    } catch (error) {
-        console.error("Failed to restore testbench backup:", error);
-        this.terminalManager.appendToTerminal('twave', 
-            'Warning: Could not restore original testbench', 'warning');
-    }
-}
 
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');

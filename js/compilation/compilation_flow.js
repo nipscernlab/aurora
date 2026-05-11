@@ -67,40 +67,17 @@ function endCompilation() {
 // PIPELINES (Updated to respect Toggle State)
 // ----------------------------------------------------------------------
 
-// FASE 2: runProcessorPipeline (Processor Mode full build) removida —
-// runAll agora chama so runProjectPipeline.
+// Full Build: cmm+asm pra cada processador → iverilog (com testbench,
+// gera vvp) → vvp → gtkwave. Pipeline unificado sem branches sobre
+// presenca de processador.
 async function runProjectPipeline(compiler) {
-    const processors = compiler.projectConfig?.processors ?? [];
-
-    // 1. If processors are configured, compile each (CMM + ASM). With no
-    //    processors this stage is a no-op — the project becomes a pure
-    //    Verilog flow (the old "Verilog Mode") without any per-mode
-    //    branching elsewhere.
-    if (processors.length > 0) {
-        switchTerminal('terminal-tcmm');
-        for (const projectProcessor of processors) {
-            checkCancellation();
-            const processorConfig = compiler.config.processors.find(p => p.name === projectProcessor.type);
-            if (!processorConfig) continue;
-
-            await compiler.ensureDirectories(processorConfig.name);
-            await compiler.cmmCompilation(processorConfig);
-            await compiler.asmCompilation(processorConfig, 1);
-        }
-    }
-
-    // 2. Verilog. iverilogProjectCompilation dispatches internally:
-    //    no processors → the standalone path (no processor HDL, just
-    //    user sources + library), with processors → the full project
-    //    path. Don't re-do the dispatch here.
-    switchTerminal('terminal-tveri');
+    switchTerminal('terminal-tcmm');
     checkCancellation();
-    await compiler.iverilogProjectCompilation();
+    await precompileAllProcessors(compiler, 'tcmm');
 
-    // 3. Waveform — runProjectGtkWave dispatches the same way.
     switchTerminal('terminal-twave');
     checkCancellation();
-    await compiler.runProjectGtkWave();
+    await compiler.runGtkWave();
 }
 
 /**
@@ -152,6 +129,93 @@ async function cmmArtifactsExist(compiler, procName) {
     );
     const cmmLog = await window.electronAPI.joinPath(tempProc, 'cmm_log.txt');
     return await window.electronAPI.fileExists(cmmLog);
+}
+
+/**
+ * Pre-flight comum aos botoes Verilog/Wave/PRISM: pra cada processador
+ * conhecido do projeto, roda cmmCompilation + asmCompilation. For-loop
+ * sobre array vazio (projeto sem processador) e no-op natural — nao ha
+ * branches sobre "tem processador?".
+ *
+ * Lista de processadores combina tres fontes pra cobrir projetos antigos
+ * onde config/projectConfig podem estar fora de sincronia com o .spf:
+ *   - compiler.config.processors (processorConfig.json legado)
+ *   - compiler.projectConfig.processors (projectOriented.json)
+ *   - window.availableProcessors (.spf)
+ *
+ * Pulamos processadores cuja convencao <proj>/<proc>/Software/<proc>.cmm
+ * nao existe em disco — sem .cmm, cmmcomp falharia.
+ *
+ * Retorna a contagem de processadores efetivamente compilados (ou 0
+ * pra projetos verilog-puro).
+ */
+async function precompileAllProcessors(compiler, terminalId) {
+    const seenProcs = new Map();
+    const sources = [
+        compiler.config?.processors,
+        compiler.projectConfig?.processors,
+        (Array.isArray(window.availableProcessors) ? window.availableProcessors : [])
+            .map((n) => (typeof n === 'string' ? { name: n } : n)),
+    ];
+    for (const src of sources) {
+        if (!Array.isArray(src)) continue;
+        for (const p of src) {
+            const n = typeof p === 'string' ? p : p?.name;
+            if (!n) continue;
+            const key = n.toLowerCase();
+            if (!seenProcs.has(key)) {
+                seenProcs.set(key, typeof p === 'string' ? { name: p } : p);
+            }
+        }
+    }
+
+    if (seenProcs.size === 0) return 0;
+
+    // componentsPath e populado via construtor sem await (background
+    // promise). Garante que resolve antes do primeiro ensureDirectories
+    // que le this.componentsPath diretamente.
+    await compiler.initializeComponentsPath();
+
+    const tm = window.terminalManager;
+    tm?.appendToTerminal?.(
+        terminalId,
+        `Info: pre-compiling ${seenProcs.size} processor(s) (C± + ASM).`,
+        'tips',
+    );
+
+    let compiled = 0;
+    for (const proc of seenProcs.values()) {
+        checkCancellation();
+        const cmmFileName = `${proc.name}.cmm`;
+        const cmmPath = await window.electronAPI.joinPath(
+            window.currentProjectPath, proc.name, 'Software', cmmFileName,
+        );
+        const cmmExists = await window.electronAPI.fileExists(cmmPath);
+        if (!cmmExists) {
+            tm?.appendToTerminal?.(
+                terminalId,
+                `Warning: no ${cmmFileName} at ${cmmPath} — skipping ${proc.name}.`,
+                'warning',
+            );
+            continue;
+        }
+
+        // Override igual ao usado pelos botoes C+- e ASM. clk/numClocks
+        // razoaveis pra processadores que vem do .spf sem esses campos.
+        const overrideProcessor = {
+            ...proc,
+            cmmFile: cmmFileName,
+            clk: 100,
+            numClocks: 2000,
+        };
+        if (compiler.config) compiler.config.selectedCmmFile = null;
+
+        await compiler.ensureDirectories(proc.name);
+        await compiler.cmmCompilation(overrideProcessor);
+        await compiler.asmCompilation(overrideProcessor, 1);
+        compiled++;
+    }
+    return compiled;
 }
 
 // ----------------------------------------------------------------------
@@ -225,17 +289,24 @@ getCurrentMode() {
 }
 
 async runSingleStep(step) {
-        // 1. Tratamento Especial para PRISM (Mantendo sua lógica nova que funciona)
+        // 1. PRISM: cmm+asm pra cada processador → iverilog -tnull
+        //    (top-level, sem testbench, sem vvp) pra checar que o circuito
+        //    e valido → yosys via IPC pra analise estrutural. Aceita
+        //    duplicacao de trabalho com o botao Verilog em troca de
+        //    "usuario nao precisa rodar Verilog antes".
         if (step === 'prism') {
-            console.log("🚀 Trigger PRISM acionado via Command Palette");
-            startCompilation(STEP_TERMINALS.prism); // Atualiza UI para estado "compilando"
-            
+            startCompilation(STEP_TERMINALS.prism);
             try {
                 const projectPath = window.currentProjectPath || await window.electronAPI.dirname(window.currentOpenProjectPath);
                 if (!projectPath) throw new Error("Abra um projeto primeiro.");
 
-                const rawComponentsPath = await window.electronAPI.getComponentsPath();
+                const compiler = new CompilationModule(projectPath);
+                await compiler.loadConfig();
+                await precompileAllProcessors(compiler, 'tveri');
+                switchTerminal('terminal-tveri');
+                await compiler.iverilogCompile();
 
+                const rawComponentsPath = await window.electronAPI.getComponentsPath();
                 const compilationPaths = {
                     projectPath: toForwardSlashes(projectPath),
                     componentsPath: toForwardSlashes(rawComponentsPath),
@@ -251,13 +322,11 @@ async runSingleStep(step) {
 
                 const result = await window.electronAPI.prismCompileWithPaths(compilationPaths);
                 if (!result.success) throw new Error(result.message);
-                
-                console.log("✅ Trigger PRISM concluído com sucesso");
             } catch (error) {
                 console.error("Erro no trigger PRISM:", error);
                 if(window.terminalManager) window.terminalManager.appendToTerminal('tveri', `Erro PRISM: ${error.message}`, 'error');
             } finally {
-                endCompilation(); // Restaura UI
+                endCompilation();
             }
             return;
         }
@@ -447,100 +516,22 @@ async runSingleStep(step) {
             return;
         }
 
-        // 1.7. Botao Wave: antes de mandar pro fluxo de simulacao,
-        //      compila C+- + ASM (que ja incorpora o appcomp) para
-        //      TODOS os processadores conhecidos do projeto. Sem essa
-        //      pre-compilacao, o vvp falha com "$readmemb: Unable to
-        //      open pc_<proc>_mem.txt" porque o cmmcomp nao gerou
-        //      o arquivo, ou o asmcomp nao gerou o .vvp.
-        //
-        //      Lista de processadores combina as mesmas tres fontes
-        //      dos botoes C+- e ASM (config + projectConfig + .spf).
-        //      Convencao: o .cmm de cada processador chama-se
-        //      <procName>.cmm e mora em <proj>/<procName>/Software/.
-        //      Processadores sem esse arquivo sao pulados com warning.
+        // 1.7. Botao Wave: cmm+asm pra cada processador → iverilog
+        //      (testbench, gera vvp) → vvp → gtkwave. Mesma sequencia
+        //      inicial do Verilog/PRISM; difere no testbench-as-top e
+        //      em precisar de vvp pra simular. Helper
+        //      precompileAllProcessors e no-op em projetos sem
+        //      processador. runGtkWave (em compilation_module) e self-
+        //      contained — pre-compila o vvp via _waveBuildAndVerifyVvp.
         if (step === 'wave') {
             startCompilation(STEP_TERMINALS.wave);
             try {
                 const compiler = new CompilationModule(window.currentProjectPath);
                 await compiler.loadConfig();
 
-                const seenProcs = new Map(); // name(lower) -> processor object
-                const sources = [
-                    compiler.config?.processors,
-                    compiler.projectConfig?.processors,
-                    (Array.isArray(window.availableProcessors) ? window.availableProcessors : [])
-                        .map((n) => (typeof n === 'string' ? { name: n } : n)),
-                ];
-                for (const src of sources) {
-                    if (!Array.isArray(src)) continue;
-                    for (const p of src) {
-                        const n = typeof p === 'string' ? p : p?.name;
-                        if (!n) continue;
-                        const key = n.toLowerCase();
-                        if (!seenProcs.has(key)) {
-                            seenProcs.set(key, typeof p === 'string' ? { name: p } : p);
-                        }
-                    }
-                }
-
-                if (seenProcs.size === 0) {
-                    if (window.terminalManager?.appendToTerminal) {
-                        window.terminalManager.appendToTerminal(
-                            'twave',
-                            'Warning: no processors found to pre-compile — skipping straight to simulation.',
-                            'warning',
-                        );
-                    }
-                } else {
-                    if (window.terminalManager?.appendToTerminal) {
-                        window.terminalManager.appendToTerminal(
-                            'twave',
-                            `Info: pre-compiling ${seenProcs.size} processor(s) (C± + ASM) before simulation.`,
-                            'tips',
-                        );
-                    }
-                    for (const proc of seenProcs.values()) {
-                        const cmmFileName = `${proc.name}.cmm`;
-                        const cmmPath = await window.electronAPI.joinPath(
-                            window.currentProjectPath, proc.name, 'Software', cmmFileName,
-                        );
-                        const cmmExists = await window.electronAPI.fileExists(cmmPath);
-                        if (!cmmExists) {
-                            if (window.terminalManager?.appendToTerminal) {
-                                window.terminalManager.appendToTerminal(
-                                    'twave',
-                                    `Warning: no ${cmmFileName} at ${cmmPath} — skipping ${proc.name}.`,
-                                    'warning',
-                                );
-                            }
-                            continue;
-                        }
-
-                        // Override igual ao usado pelos botoes C+- e
-                        // ASM: garante cmmFile correto e parametros
-                        // clk/numClocks razoaveis pra processadores que
-                        // vem do .spf sem esses campos.
-                        const overrideProcessor = {
-                            ...proc,
-                            cmmFile: cmmFileName,
-                            clk: 100,
-                            numClocks: 2000,
-                        };
-                        if (compiler.config) compiler.config.selectedCmmFile = null;
-
-                        await compiler.ensureDirectories(proc.name);
-                        await compiler.cmmCompilation(overrideProcessor);
-                        await compiler.asmCompilation(overrideProcessor, 1);
-                    }
-                    // Volta o foco pro twave depois do cmm/asm
-                    // (que mudaram o terminal ativo).
-                    switchTerminal('terminal-twave');
-                }
-
-                // FASE 2: branch Processor Mode (runGtkWave(activeProcessor))
-                // deletado. Project Mode e o unico modo.
-                await compiler.runProjectGtkWave();
+                await precompileAllProcessors(compiler, 'twave');
+                switchTerminal('terminal-twave');
+                await compiler.runGtkWave();
             } catch (error) {
                 console.error('Erro na etapa wave:', error);
                 if (window.terminalManager?.appendToTerminal) {
@@ -553,14 +544,13 @@ async runSingleStep(step) {
         }
 
         // 2. Verilog per-step button. cmm/asm/wave sao tratados em
-        //    early returns mais acima (usam o arquivo aberto no
-        //    Monaco / pre-compilam todos os processadores). Aqui so
-        //    restam Verilog e qualquer step desconhecido.
+        //    early returns mais acima. Aqui so restam Verilog e qualquer
+        //    step desconhecido.
         //
-        //    FASE 2: branch "Processor Mode com active processor" eliminado.
-        //    iverilogProjectCompilation funciona com 0 ou N processadores
-        //    (dispatcher interno por hasNoProcessors), entao virou o
-        //    unico caminho.
+        //    Botao Verilog faz: cmm+asm pra cada processador → iverilog
+        //    -tnull (top-level, sem testbench, sem vvp). Mesma sequencia
+        //    inicial do Wave; difere so no flag do iverilog. Helper
+        //    precompileAllProcessors e no-op em projetos sem processador.
         startCompilation(STEP_TERMINALS[step]);
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
@@ -568,8 +558,9 @@ async runSingleStep(step) {
 
             switch (step) {
                 case 'verilog':
+                    await precompileAllProcessors(compiler, 'tveri');
                     switchTerminal('terminal-tveri');
-                    await compiler.iverilogProjectCompilation();
+                    await compiler.iverilogCompile();
                     break;
 
                 default:

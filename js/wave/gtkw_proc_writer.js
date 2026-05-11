@@ -394,8 +394,7 @@ export function buildProcessorAwareGtkw({
     vcdPath,
     gtkwPath,
     scopes,
-    // tbModule recebido pelo caller mas nao usado mais (clk/rst/itr
-    // sao per-processador agora, do core de cada um).
+    tbModule = null,
     tempBaseDir = null,
     binDir = null,
 }) {
@@ -441,24 +440,36 @@ export function buildProcessorAwareGtkw({
         return paths;
     };
 
+    // Procura clk/rst/itr no CORE do processador primeiro (caso multi-
+    // proc com domínio de clock proprio, como o exemplo canonico do
+    // SAPHO). Se nao achar, cai pro escopo do testbench top (caso onde
+    // o processador recebe o clk da fora). Retorna o primeiro achado
+    // ou null.
+    const findCoreOrTb = (corePath, name) => {
+        return findSignal(scopes, corePath, name)
+            || (tbModule ? findSignal(scopes, tbModule, name) : null);
+    };
+
     procs.forEach((proc) => {
         const paths = resolveProcPaths(proc);
 
-        // Banner do processador. O TCL usa "###### <instanceName>" e
-        // o GTKWave renderiza isso como uma linha de comentario no
-        // painel de signals — espelhamos textualmente.
-        emitComment(lines, `###### ${proc.instanceName}`);
+        // Banner do processador: usa o procType (nome do .v / pasta
+        // no projeto) em vez do instanceName, porque o instanceName
+        // pode ser generico tipo "proc" — pouco informativo. procType
+        // identifica unicamente o processador no projeto.
+        emitComment(lines, `###### ${proc.procType}`);
 
-        // clk/rst/itr do CORE deste processador (nao do testbench top).
-        // Cada processador tem seu proprio clock domain, e o GTKWave
-        // exibe os tres como sinais sem cor/formato especial logo
-        // abaixo do banner do proc.
-        const coreClk = findSignal(scopes, proc.corePath, 'clk');
-        const coreRst = findSignal(scopes, proc.corePath, 'rst');
-        const coreItr = findSignal(scopes, proc.corePath, 'itr');
-        if (coreClk) emitSignal(lines, coreClk, FMT_BIN, COLOR_NORMAL, null);
-        if (coreRst) emitSignal(lines, coreRst, FMT_BIN, COLOR_NORMAL, null);
-        if (coreItr) emitSignal(lines, coreItr, FMT_BIN, COLOR_NORMAL, null);
+        // clk/rst/itr do processador. Cada proc tem seu proprio par
+        // logo abaixo do banner. Se o testbench compartilha esses
+        // sinais entre varios processadores, eles aparecem repetidos
+        // — comportamento aceitavel, deixa claro a qual proc cada
+        // linha pertence.
+        const procClk = findCoreOrTb(proc.corePath, 'clk');
+        const procRst = findCoreOrTb(proc.corePath, 'rst');
+        const procItr = findCoreOrTb(proc.corePath, 'itr');
+        if (procClk) emitSignal(lines, procClk, FMT_BIN, COLOR_NORMAL, null);
+        if (procRst) emitSignal(lines, procRst, FMT_BIN, COLOR_NORMAL, null);
+        if (procItr) emitSignal(lines, procItr, FMT_BIN, COLOR_NORMAL, null);
 
         emitIoSection(lines, scopes, proc.instancePath);
         emitInstructionsSection(lines, scopes, proc.instancePath, paths, counter);

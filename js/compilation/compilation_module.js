@@ -18,7 +18,6 @@ class CompilationModule {
         this.config = null;
         this.projectConfig = null;
         this.terminalManager = new TerminalManager();
-        this.isProjectOriented = false;
         this.hierarchyData = null;
         this.isHierarchicalView = false;
         this.gtkwaveProcess = null;
@@ -471,12 +470,6 @@ async generateProjectHierarchy() {
 
 async loadConfig() {
     try {
-        // FASE 2: isProjectOriented era set via radio em Processor Mode
-        // vs Project Mode. Agora hardcoded true; o campo continua
-        // sendo mantido por compat com codigo legado que le
-        // this.isProjectOriented (nas fases 3+ ele tambem some).
-        this.isProjectOriented = true;
-
         const projectInfo = await window.electronAPI.getCurrentProject();
         const currentProjectPath = projectInfo.projectPath || this.projectPath;
 
@@ -750,8 +743,8 @@ end
             }
 
             if (projectParam === null) {
-                // FASE 2: era ternario sobre isProjectOriented; Project
-                // Mode (unico modo) -> 1 (sem auto $finish no testbench).
+                // Project Mode (modo unico) -> 1 (sem auto $finish no
+                // testbench).
                 projectParam = 1;
             }
 
@@ -771,13 +764,10 @@ end
             // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
             // pra <proc>/Simulation/<base>_tb.v sempre que o processador
             // usa o testbench "standard" — i.e., nao tem um testbench
-            // customizado configurado. Antes essa copia era gateada por
-            // !this.isProjectOriented; em Project Mode ela era skip e o
-            // testbench so existia em components/Temp/, escondido do
-            // usuario. O testbench auto-gerado e per-processador
-            // (Simulation/<base>_tb.v), distinto do testbench-top que
-            // o projectOriented aponta, entao copiar em Project Mode
-            // tambem nao conflita com nada.
+            // customizado configurado. O testbench auto-gerado e
+            // per-processador (Simulation/<base>_tb.v), distinto do
+            // testbench-top que o projectOriented aponta, entao nao
+            // conflita com nada.
             const usesStandardTestbench =
                 !processor.testbenchFile || processor.testbenchFile === 'standard';
             if (usesStandardTestbench) {

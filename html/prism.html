@@ -852,8 +852,7 @@ class PRISMViewer {
         this.navigationHistory = [];
         this.currentModule = null;
         this.tempDir = null;
-        this.isProjectOriented = false;
-        
+
         this.initializeElements();
         this.setupEventListeners();
         
@@ -909,7 +908,6 @@ class PRISMViewer {
         if (data.success) {
             this.currentModule = data.topLevelModule;
             this.tempDir = data.tempDir;
-            this.isProjectOriented = data.isProjectOriented;
             this.navigationHistory = [{
                 module: data.topLevelModule,
                 svgPath: data.svgPath

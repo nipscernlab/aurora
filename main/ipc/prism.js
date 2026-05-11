@@ -405,11 +405,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     const tempDir = compilationPaths.tempPath;
     await fse.ensureDir(tempDir);
 
-    // FASE 2: branch Processor Mode (le active processor de
-    // processorConfig.json) eliminado. Top-level vem sempre de
-    // projectOriented.topLevelFile. runYosysCompilationWithPaths ja
-    // foi unificado tambem — os params isProjectOriented/
-    // isProjectVerilogOnly sao ignorados la dentro.
+    // Top-level vem sempre de projectOriented.topLevelFile.
     const projectConfigPath = compilationPaths.projectOrientedConfigPath;
     if (!(await fse.pathExists(projectConfigPath))) {
       throw new Error('projectOriented.json not found in project root');

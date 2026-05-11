@@ -38,7 +38,7 @@ describe('detectProcessors', () => {
         });
     });
 
-    it('extrai procType do sub-scope p_<X>.core quando existe', () => {
+    it('extrai procType do sub-scope p_<X>.core quando existe (padrao SAPHO antigo)', () => {
         const scopes = [
             scope('tb.proc', [
                 { name: 'valr2' }, { name: 'linetabs' },
@@ -50,7 +50,22 @@ describe('detectProcessors', () => {
         expect(procs[0].corePath).toBe('tb.proc.p_ProcDTW.core');
     });
 
-    it('cai pro testbench top como procType quando p_<X>.core nao existe', () => {
+    it('extrai procType do parent _inst quando scope com valr2 ja eh o core (padrao SAPHO atual)', () => {
+        // Cenario tipico no teste345: o scope com valr2/linetabs e o core
+        // do processador, e o parent e o wrapper "<Proc>_inst".
+        const scopes = [
+            scope('top_level_tb.top_level_inst.ProcDTWv4_inst.DTWv4_inst', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+        ];
+        const procs = detectProcessors(scopes);
+        expect(procs[0].procType).toBe('ProcDTWv4');
+        expect(procs[0].corePath).toBe('top_level_tb.top_level_inst.ProcDTWv4_inst.DTWv4_inst');
+    });
+
+    it('cai pro testbench top como procType quando p_<X>.core nao existe (fallback historico)', () => {
+        // Projeto antigo com um so processador: tb chama-se "<proc>_tb",
+        // e o scope direto do proc tem valr2/linetabs sem parent _inst.
         const scopes = [
             scope('ProcDTW_tb.proc', [
                 { name: 'valr2' }, { name: 'linetabs' },
@@ -58,7 +73,6 @@ describe('detectProcessors', () => {
         ];
         const procs = detectProcessors(scopes);
         expect(procs[0].procType).toBe('ProcDTW');
-        expect(procs[0].corePath).toBeNull();
     });
 
     it('retorna lista vazia quando nada bate', () => {

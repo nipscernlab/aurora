@@ -98,13 +98,15 @@ const hex = (n) => n.toString(16);
  * AMBOS `valr2` e `linetabs` (registradores caracteristicos do
  * processador, emitidos pelo asmcomp em hdl_vv_file).
  *
- * Quando existe um sub-escopo `<inst>.p_<procType>.core`, extraimos
- * procType + corePath a partir dele (caminho rico, usado pelos
- * groups de Stack/ULA). Quando o $dumpvars do testbench nao desceu
- * tao fundo (caso da maioria dos projetos com um so processador),
- * corePath fica null e o template omite os groups de Stack/ULA.
- * procType nesse caso e inferido do escopo do testbench (ex:
- * "ProcDTW_tb" -> "ProcDTW"); se nem isso bater, cai no instanceName.
+ * Extracao de procType + corePath, em ordem de preferencia:
+ *   1. Pattern antigo SAPHO: existe sub-escopo
+ *      `<instPath>.p_<procType>.core` em qualquer profundidade.
+ *      procType vem do match, corePath aponta pra esse sub-escopo.
+ *   2. Pattern atual SAPHO: o scope com valr2/linetabs ja e o core.
+ *      O parent scope (wrapper) costuma ser `<procType>_inst` — strip
+ *      o suffix `_inst` pra ter o procType. corePath = instancePath.
+ *   3. Ultimo recurso: instanceName sem `_inst`. Se nem isso, usa
+ *      tal qual.
  *
  * @param {VcdScope[]} scopes
  * @returns {Array<{ instancePath: string, instanceName: string, procType: string, corePath: string|null }>}
@@ -123,10 +125,8 @@ export function detectProcessors(scopes) {
         const parts = scope.path.split('.');
         const instanceName = parts[parts.length - 1];
 
-        // Procura um child scope <instPath>.p_<X>.core em qualquer
-        // posicao mais profunda. Se existe, da pra extrair procType e
-        // corePath canonicos. Senao, corePath = null e procType e
-        // inferido do testbench top.
+        // (1) Pattern SAPHO antigo: <instPath>.p_<X>.core em qualquer
+        // sub-escopo. Quando bate, procType e corePath sao canonicos.
         let procType = null;
         let corePath = null;
         for (const other of scopes) {
@@ -140,11 +140,31 @@ export function detectProcessors(scopes) {
             }
         }
 
+        // (2) Pattern atual SAPHO: scope com valr2/linetabs ja e o
+        // core. O parent (wrapper) costuma ter suffix `_inst`. Ex:
+        //   top_level_tb.top_level_inst.ProcDTWv4_inst.DTWv4_inst
+        //                                └── parent "ProcDTWv4_inst" -> "ProcDTWv4"
+        if (!procType && parts.length >= 2) {
+            const parentName = parts[parts.length - 2];
+            if (/_inst$/i.test(parentName)) {
+                procType = parentName.replace(/_inst$/i, '');
+                corePath = scope.path;
+            }
+        }
+
+        // (3) Fallback historico: testbench top chamado `<procType>_tb`.
+        // Ainda comum em projetos com um so processador onde o tb leva
+        // o nome do proc.
         if (!procType) {
-            // Fallback: testbench costuma chamar-se "<procType>_tb".
             const tbScope = parts[0];
-            if (/_tb$/i.test(tbScope)) procType = tbScope.replace(/_tb$/i, '');
-            else procType = instanceName;
+            if (/_tb$/i.test(tbScope)) {
+                procType = tbScope.replace(/_tb$/i, '');
+            }
+        }
+
+        // (4) Last resort: o proprio instanceName, com strip `_inst`.
+        if (!procType) {
+            procType = instanceName.replace(/_inst$/i, '') || instanceName;
         }
 
         found.push({

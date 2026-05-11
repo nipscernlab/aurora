@@ -54,33 +54,41 @@ const COLOR_VIOLET = 7;
 // Trace-flag bits — subset of what GTKWave saves into the `@<hex>`
 // line that prefixes a trace. See analyzer.h in the gtkwave source
 // for the canonical list.
+const TR_HEX           = 0x00000002;
 const TR_DEC           = 0x00000004;
 const TR_BIN           = 0x00000008;
 const TR_RJUSTIFY      = 0x00000020;
 const TR_BLANK         = 0x00000200;
 const TR_SIGNED        = 0x00000400;
+const TR_COLLAPSED     = 0x00001000;
 const TR_FTRANSLATED   = 0x00002000;
 const TR_PTRANSLATED   = 0x00004000;
 const TR_REAL          = 0x00040000;
-const TR_REAL2BITS     = 0x08000000;
 const TR_ANALOG_STEP   = 0x00008000;
+const TR_CLOSED        = 0x00400000;
 const TR_GRP_BEGIN     = 0x00800000;
 const TR_GRP_END       = 0x01000000;
 
 // Format presets — each value corresponds to a menu in GTKWave's
 // Edit > Data Format submenu.
-const FMT_BIN           = TR_RJUSTIFY | TR_BIN;                 // 0x28
-const FMT_DEC           = TR_RJUSTIFY | TR_DEC;                 // 0x24
-const FMT_SIGNED_DEC    = TR_RJUSTIFY | TR_DEC | TR_SIGNED;     // 0x424
-const FMT_BITS_TO_REAL  = TR_RJUSTIFY | TR_REAL | TR_REAL2BITS; // 0x8040020
-const FMT_ANALOG_STEP   = TR_RJUSTIFY | TR_ANALOG_STEP;         // 0x8020
-// FMT_HEX (TR_RJUSTIFY|TR_HEX=0x22) intencionalmente nao definido —
-// nenhuma regra do gtk_proc_init.tcl usa Hex. Adicione TR_HEX e a
-// constante FMT_HEX quando precisar.
+// Format presets — calibrados a partir de um .gtkw gerado pelo proprio
+// GTKWave (save manual), nao por adivinhacao. Algumas combinacoes
+// surpreendem:
+//   - "Signed Decimal" no save NAO tem TR_DEC: e so TR_SIGNED. O
+//     GTKWave default pra signed sem outro format-bit ja e decimal.
+//   - "BitsToReal" no save NAO tem TR_REAL2BITS: e so TR_REAL.
+//   - "Analog Step" e um modificador de display; combina com o
+//     formato underlying (signed dec, hex, etc).
+const FMT_BIN              = TR_RJUSTIFY | TR_BIN;                 // 0x28
+const FMT_DEC              = TR_RJUSTIFY | TR_DEC;                 // 0x24
+const FMT_SIGNED_DEC       = TR_RJUSTIFY | TR_SIGNED;              // 0x420
+const FMT_REAL             = TR_RJUSTIFY | TR_REAL;                // 0x40020
+const FMT_ANALOG_SIGNED    = TR_RJUSTIFY | TR_SIGNED | TR_ANALOG_STEP;  // 0x8420
+const FMT_ANALOG_HEX       = TR_RJUSTIFY | TR_HEX | TR_ANALOG_STEP;     // 0x8022
 
-const FLAG_COMMENT_LINE = TR_BLANK;                              // 0x200
-const FLAG_GROUP_BEGIN  = TR_BLANK | TR_GRP_BEGIN;               // 0x800200
-const FLAG_GROUP_END    = TR_BLANK | TR_GRP_END;                 // 0x1000200
+const FLAG_COMMENT_LINE = TR_BLANK;                                       // 0x200
+const FLAG_GROUP_BEGIN  = TR_BLANK | TR_GRP_BEGIN | TR_CLOSED;            // 0xC00200
+const FLAG_GROUP_END    = TR_BLANK | TR_GRP_END | TR_CLOSED | TR_COLLAPSED; // 0x1401200
 
 const hex = (n) => n.toString(16);
 
@@ -158,29 +166,50 @@ function emitGroupEnd(lines, text) {
  * Emit one signal row with format + alias + color, optionally with a
  * file or process translation filter applied.
  *
+ * Order baseado em um .gtkw salvo pelo proprio GTKWave:
+ *   @<flags>
+ *   [color] N
+ *   ^N <path>                <- file filter, inline declaration+use
+ *   ^^N <path>               <- proc filter, inline declaration+use
+ *   +{alias} signal.path
+ *
+ * Filter IDs sao alocados via filterCounter (passado por referencia) —
+ * cada novo `^N <path>` ou `^^N <path>` consome o proximo ID
+ * sequencial. Declaração e uso acontecem na mesma linha; nao ha
+ * "declarar no header + selecionar depois".
+ *
  * @param {object} [opts]
- * @param {number} [opts.fileFilterId]  ID previously declared via
- *      `^N <path>` in the file header. Sets TR_FTRANSLATED in the
- *      flag and emits a `^N` selector line right before the signal.
- * @param {number} [opts.procFilterId]  ID previously declared via
- *      `^^N <path>`. Sets TR_PTRANSLATED and emits `^^N` selector.
+ * @param {string} [opts.fileFilterPath]  caminho absoluto pro .txt
+ *      de file filter (trad_opcode.txt, trad_cmm.txt). Acende
+ *      TR_FTRANSLATED no flag e emite `^N <path>`.
+ * @param {string} [opts.procFilterPath]  caminho absoluto pro .exe
+ *      de process filter (comp2gtkw.exe). Acende TR_PTRANSLATED e
+ *      emite `^^N <path>`.
+ * @param {{file:number, proc:number}} [opts.counter]  contadores de
+ *      IDs globais de file/proc filters; incrementados in-place.
  */
 function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
     if (!sig) return;
     let flag = formatFlag;
-    if (opts.fileFilterId) flag |= TR_FTRANSLATED;
-    if (opts.procFilterId) flag |= TR_PTRANSLATED;
+    if (opts.fileFilterPath) flag |= TR_FTRANSLATED;
+    if (opts.procFilterPath) flag |= TR_PTRANSLATED;
     lines.push(`@${hex(flag)}`);
-    if (opts.fileFilterId) lines.push(`^${opts.fileFilterId}`);
-    if (opts.procFilterId) lines.push(`^^${opts.procFilterId}`);
+    if (color !== COLOR_NORMAL) {
+        lines.push(`[color] ${color}`);
+    }
+    if (opts.fileFilterPath) {
+        const id = ++opts.counter.file;
+        lines.push(`^${id} ${opts.fileFilterPath}`);
+    }
+    if (opts.procFilterPath) {
+        const id = ++opts.counter.proc;
+        lines.push(`^^${id} ${opts.procFilterPath}`);
+    }
     const ref = `${sig.fullName}${rangeSuffix(sig)}`;
     if (alias) {
         lines.push(`+{${alias}} ${ref}`);
     } else {
         lines.push(ref);
-    }
-    if (color !== COLOR_NORMAL) {
-        lines.push(`[color] ${color}`);
     }
 }
 
@@ -202,7 +231,7 @@ function emitIoSection(lines, scopes, instancePath) {
     const pairCount = Math.max(reqIns.length, inSims.length);
     for (let i = 0; i < pairCount; i++) {
         if (reqIns[i]) emitSignal(lines, reqIns[i], FMT_BIN, COLOR_YELLOW, `req_in ${i}`);
-        if (inSims[i]) emitSignal(lines, inSims[i], FMT_SIGNED_DEC, COLOR_YELLOW, `input ${i}`);
+        if (inSims[i]) emitSignal(lines, inSims[i], FMT_SIGNED_DEC, COLOR_YELLOW, `input  ${i}`);
     }
     const outPairCount = Math.max(outEns.length, outSigs.length);
     for (let i = 0; i < outPairCount; i++) {
@@ -211,17 +240,21 @@ function emitIoSection(lines, scopes, instancePath) {
     }
 }
 
-function emitInstructionsSection(lines, scopes, instancePath, filters) {
+function emitInstructionsSection(lines, scopes, instancePath, paths, counter) {
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) {
-        emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly',
-            { fileFilterId: filters.tradOpcode });
+        emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly', {
+            fileFilterPath: paths.tradOpcode,
+            counter,
+        });
     }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
     if (linetabs) {
-        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C±',
-            { fileFilterId: filters.tradCmm });
+        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C+-', {
+            fileFilterPath: paths.tradCmm,
+            counter,
+        });
     }
 }
 
@@ -244,22 +277,28 @@ function findTypedVars(scopes, instancePath, prefix) {
     return out;
 }
 
-function emitTypedVars(lines, scopes, instancePath, filters) {
+function emitTypedVars(lines, scopes, instancePath, paths, counter) {
     const ints   = findTypedVars(scopes, instancePath, 'me1_');
     const floats = findTypedVars(scopes, instancePath, 'me2_');
     const comps  = findTypedVars(scopes, instancePath, 'comp_me3_');
 
-    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC,   COLOR_ORANGE, `int ${v.var} in ${v.func}`);
-    for (const v of floats) emitSignal(lines, v.sig, FMT_BITS_TO_REAL, COLOR_ORANGE, `float ${v.var} in ${v.func}`);
+    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC, COLOR_ORANGE, `int ${v.var} in ${v.func}`);
+    for (const v of floats) emitSignal(lines, v.sig, FMT_REAL,       COLOR_ORANGE, `float ${v.var} in ${v.func}`);
     for (const v of comps) {
-        emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}`,
-            { procFilterId: filters.comp2gtkw });
+        // comp2gtkw e o mesmo binario pra todos os comps, mas o
+        // formato de save force inline declaration. Cada uso ganha
+        // seu proprio ID (consumo do counter), exatamente como
+        // GTKWave faria.
+        emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}`, {
+            procFilterPath: paths.comp2gtkw,
+            counter,
+        });
     }
 }
 
 // Arrays: nomes terminam com um sufixo numerico de 4 digitos. Agrupa
 // por base (sem o sufixo) e cria um group GTKWave por base.
-function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, procFilterId) {
+function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, procFilterPath, counter) {
     const sigs = listSignalsInScope(scopes, instancePath);
     const groups = new Map(); // baseName -> [{ sig, idx }]
     for (const s of sigs) {
@@ -274,8 +313,6 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
     }
     for (const baseName of [...groups.keys()].sort()) {
         const items = groups.get(baseName).sort((a, b) => a.idx - b.idx);
-        // Extrai funcao + nome da variavel do base name, mesmo padrao
-        // dos escalares.
         const m = baseName.match(/^[^_]+_f_(.*?)_v_(.*?)_e_/);
         const fn = m ? m[1] : '';
         const vr = m ? m[2] : baseName;
@@ -284,7 +321,7 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
         emitGroupBegin(lines, groupLabel);
         let i = 0;
         for (const { sig } of items) {
-            const opts = procFilterId ? { procFilterId } : undefined;
+            const opts = procFilterPath ? { procFilterPath, counter } : undefined;
             emitSignal(lines, sig, fmt, COLOR_ORANGE, `${vr} ${i}`, opts);
             i++;
         }
@@ -292,26 +329,27 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
     }
 }
 
-function emitVariablesSection(lines, scopes, instancePath, filters) {
+function emitVariablesSection(lines, scopes, instancePath, paths, counter) {
     emitComment(lines, 'Variables **********');
-    emitTypedVars(lines, scopes, instancePath, filters);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC,   'int',   null);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_BITS_TO_REAL, 'float', null);
-    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,          'comp',  filters.comp2gtkw);
+    emitTypedVars(lines, scopes, instancePath, paths, counter);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC, 'int',   null,             counter);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_REAL,       'float', null,             counter);
+    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,        'comp',  paths.comp2gtkw,  counter);
 }
 
 function emitFlagsSection(lines, scopes, corePath) {
     emitComment(lines, 'Flags **************');
 
     // Stack: data stack (sp) + instruction stack (isp). Cada um tem
-    // pointeri (analog step), fl_max (decimal), fl_full (binary).
+    // pointeri (analog step + signed dec), fl_max (decimal), fl_full
+    // (binary). Flags conferidos contra .gtkw salvo pelo GTKWave.
     const stackEntries = [
-        { path: `${corePath}.sp`,  label: 'Data Stack',     name: 'pointeri', fmt: FMT_ANALOG_STEP, alias: 'Data Stack Pointer' },
-        { path: `${corePath}.sp`,  label: 'Data Stack',     name: 'fl_max',   fmt: FMT_DEC,          alias: 'Data Stack Max' },
-        { path: `${corePath}.sp`,  label: 'Data Stack',     name: 'fl_full',  fmt: FMT_BIN,          alias: 'Data Stack Overflow' },
-        { path: `${corePath}.isp`, label: 'Inst Stack',     name: 'pointeri', fmt: FMT_ANALOG_STEP, alias: 'Inst Stack Pointer' },
-        { path: `${corePath}.isp`, label: 'Inst Stack',     name: 'fl_max',   fmt: FMT_DEC,          alias: 'Inst Stack Max' },
-        { path: `${corePath}.isp`, label: 'Inst Stack',     name: 'fl_full',  fmt: FMT_BIN,          alias: 'Inst Stack Overflow' },
+        { path: `${corePath}.sp`,  name: 'pointeri', fmt: FMT_ANALOG_SIGNED, alias: 'Data Stack Pointer' },
+        { path: `${corePath}.sp`,  name: 'fl_max',   fmt: FMT_DEC,           alias: 'Data Stack Max' },
+        { path: `${corePath}.sp`,  name: 'fl_full',  fmt: FMT_BIN,           alias: 'Data Stack Overflow' },
+        { path: `${corePath}.isp`, name: 'pointeri', fmt: FMT_ANALOG_SIGNED, alias: 'Inst Stack Pointer' },
+        { path: `${corePath}.isp`, name: 'fl_max',   fmt: FMT_DEC,           alias: 'Inst Stack Max' },
+        { path: `${corePath}.isp`, name: 'fl_full',  fmt: FMT_BIN,           alias: 'Inst Stack Overflow' },
     ];
     const stackResolved = stackEntries
         .map((e) => ({ ...e, sig: findSignal(scopes, e.path, e.name) }))
@@ -322,13 +360,14 @@ function emitFlagsSection(lines, scopes, corePath) {
         emitGroupEnd(lines, 'Stack');
     }
 
-    // ULA: delta_int e delta_float (real numbers, mostrar analog step)
+    // ULA: delta_int + delta_float renderizados como analog step + hex
+    // (GTKWave default pra reals).
     const deltaInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
     const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
     if (deltaInt || deltaFloat) {
         emitGroupBegin(lines, 'ULA');
-        if (deltaInt)   emitSignal(lines, deltaInt,   FMT_ANALOG_STEP, COLOR_NORMAL, 'Rounding Error (int)');
-        if (deltaFloat) emitSignal(lines, deltaFloat, FMT_ANALOG_STEP, COLOR_NORMAL, 'Rounding Error (float)');
+        if (deltaInt)   emitSignal(lines, deltaInt,   FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (int)');
+        if (deltaFloat) emitSignal(lines, deltaFloat, FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (float)');
         emitGroupEnd(lines, 'ULA');
     }
 }
@@ -340,14 +379,13 @@ function emitFlagsSection(lines, scopes, corePath) {
  * @param {string} input.vcdPath      used in [dumpfile]
  * @param {string} input.gtkwPath     used in [savefile]
  * @param {VcdScope[]} input.scopes   parsed VCD scope tree
- * @param {string} [input.tbModule]   testbench top scope; clk/rst are
- *                                    resolved relative to it
- * @param {string} [input.tempBaseDir]  Temp/ root (no per-proc subdir).
- *                                      Used to resolve translation
- *                                      files at `<tempBaseDir>/<proc>/
- *                                      trad_opcode.txt` and trad_cmm.txt.
+ * @param {string} [input.tbModule]   testbench top scope. Kept in the
+ *      signature for backward compatibility but unused — clk/rst/itr
+ *      are now sourced from each processor's `core` scope.
+ * @param {string} [input.tempBaseDir]  Temp/ root. Resolves translation
+ *      files at <tempBaseDir>/<procType>/trad_opcode.txt and trad_cmm.txt.
  * @param {string} [input.binDir]     bin/ dir containing comp2gtkw.exe
- *                                    (process filter for comp_me3* vars).
+ *      (process filter for comp_me3* vars and comp_arr_me3 arrays).
  * @returns {{ content: string|null, processorCount: number }}
  *      content: null when no processor instance is detected, so the
  *      caller can fall back to the simpler buildGtkwContent path.
@@ -356,7 +394,8 @@ export function buildProcessorAwareGtkw({
     vcdPath,
     gtkwPath,
     scopes,
-    tbModule,
+    // tbModule recebido pelo caller mas nao usado mais (clk/rst/itr
+    // sao per-processador agora, do core de cada um).
     tempBaseDir = null,
     binDir = null,
 }) {
@@ -368,72 +407,62 @@ export function buildProcessorAwareGtkw({
         return { content: null, processorCount: 0 };
     }
 
-    const slashed = (p) => p.replace(/\\/g, '/');
-    const headerLines = [
+    // Header: GTKWave salva paths com BACKSLASH no Windows. Reusamos
+    // as paths tal qual vieram (sem normalizar pra forward slash) pra
+    // espelhar o formato canonico — verificado contra .gtkw salvo pelo
+    // GTKWave em Windows.
+    const lines = [
         '[*]',
         '[*] Generated by Aurora (processor-aware)',
         '[*]',
-        `[dumpfile] "${slashed(vcdPath)}"`,
-        `[savefile] "${slashed(gtkwPath)}"`,
+        `[dumpfile] "${vcdPath}"`,
+        `[savefile] "${gtkwPath}"`,
         '[timestart] 0',
     ];
 
-    // Filter declarations: cada processador tem seus dois file filters
-    // (trad_opcode.txt + trad_cmm.txt) com paths absolutos. comp2gtkw.exe
-    // e UM process filter compartilhado entre todos os processadores
-    // (mesmo binario, mesma logica).
-    //
-    // Filter IDs: file filters numerados sequencialmente comecando em 1;
-    // process filters seguem numeracao propria, tambem comecando em 1.
-    // GTKWave parseia `^N <path>` como file filter declaration e
-    // `^^N <path>` como process filter declaration.
-    const filterLines = [];
-    let nextFileFilterId = 1;
-    let nextProcFilterId = 1;
-    const perProcFilters = []; // [{ tradOpcode, tradCmm, comp2gtkw }]
-    const comp2gtkwUsed = procs.some((p) =>
-        listSignalsInScope(scopes, p.instancePath).some((s) =>
-            s.name.startsWith('comp_me3_') || s.name.startsWith('comp_arr_me3_')
-        ));
-    const comp2gtkwId = (binDir && comp2gtkwUsed)
-        ? (nextProcFilterId++)
-        : null;
-    if (comp2gtkwId !== null) {
-        const exePath = slashed(binDir.replace(/[\\/]$/, '') + '/comp2gtkw.exe');
-        filterLines.push(`^^${comp2gtkwId} ${exePath}`);
-    }
-    for (const proc of procs) {
-        const filters = { tradOpcode: null, tradCmm: null, comp2gtkw: comp2gtkwId };
+    // Contador global de filter IDs. file e proc filters tem
+    // numeracoes independentes; cada novo `^N <path>` ou `^^N <path>`
+    // inline consome o proximo ID.
+    const counter = { file: 0, proc: 0 };
+
+    // Resolve paths dos tradutores per-processador. trads ficam em
+    // Temp/<procType>/ (procType e o nome da pasta/modulo, NAO o
+    // instanceName que aparece no testbench).
+    const resolveProcPaths = (proc) => {
+        const paths = { tradOpcode: null, tradCmm: null, comp2gtkw: null };
         if (tempBaseDir) {
-            // O folder em Temp/ usa o procType (nome do .v / pasta no
-            // projeto), NAO o instanceName (variavel no testbench).
-            // cmmcomp/asmcomp escrevem as trads em Temp/<procType>/.
-            const procTemp = slashed(tempBaseDir.replace(/[\\/]$/, '') + '/' + proc.procType);
-            filters.tradOpcode = nextFileFilterId++;
-            filterLines.push(`^${filters.tradOpcode} ${procTemp}/trad_opcode.txt`);
-            filters.tradCmm = nextFileFilterId++;
-            filterLines.push(`^${filters.tradCmm} ${procTemp}/trad_cmm.txt`);
+            const procTemp = tempBaseDir.replace(/[\\/]$/, '') + '\\' + proc.procType;
+            paths.tradOpcode = `${procTemp}\\trad_opcode.txt`;
+            paths.tradCmm = `${procTemp}\\trad_cmm.txt`;
         }
-        perProcFilters.push(filters);
-    }
+        if (binDir) {
+            paths.comp2gtkw = binDir.replace(/[\\/]$/, '') + '\\comp2gtkw.exe';
+        }
+        return paths;
+    };
 
-    const lines = [...headerLines, ...filterLines];
+    procs.forEach((proc) => {
+        const paths = resolveProcPaths(proc);
 
-    // clk + rst do testbench, sem cor/format especial. Procuramos no
-    // top scope; se nao achar, ignora.
-    if (tbModule) {
-        const clk = findSignal(scopes, tbModule, 'clk');
-        const rst = findSignal(scopes, tbModule, 'rst');
-        if (clk) emitSignal(lines, clk, FMT_BIN, COLOR_NORMAL, null);
-        if (rst) emitSignal(lines, rst, FMT_BIN, COLOR_NORMAL, null);
-    }
+        // Banner do processador. O TCL usa "###### <instanceName>" e
+        // o GTKWave renderiza isso como uma linha de comentario no
+        // painel de signals — espelhamos textualmente.
+        emitComment(lines, `###### ${proc.instanceName}`);
 
-    procs.forEach((proc, idx) => {
-        const filters = perProcFilters[idx];
-        emitComment(lines, `${proc.instanceName} (${proc.procType}) ********`);
+        // clk/rst/itr do CORE deste processador (nao do testbench top).
+        // Cada processador tem seu proprio clock domain, e o GTKWave
+        // exibe os tres como sinais sem cor/formato especial logo
+        // abaixo do banner do proc.
+        const coreClk = findSignal(scopes, proc.corePath, 'clk');
+        const coreRst = findSignal(scopes, proc.corePath, 'rst');
+        const coreItr = findSignal(scopes, proc.corePath, 'itr');
+        if (coreClk) emitSignal(lines, coreClk, FMT_BIN, COLOR_NORMAL, null);
+        if (coreRst) emitSignal(lines, coreRst, FMT_BIN, COLOR_NORMAL, null);
+        if (coreItr) emitSignal(lines, coreItr, FMT_BIN, COLOR_NORMAL, null);
+
         emitIoSection(lines, scopes, proc.instancePath);
-        emitInstructionsSection(lines, scopes, proc.instancePath, filters);
-        emitVariablesSection(lines, scopes, proc.instancePath, filters);
+        emitInstructionsSection(lines, scopes, proc.instancePath, paths, counter);
+        emitVariablesSection(lines, scopes, proc.instancePath, paths, counter);
         emitFlagsSection(lines, scopes, proc.corePath);
     });
 

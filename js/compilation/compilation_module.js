@@ -47,8 +47,8 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
-import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildProcessorAwareGtkw } from '../wave/gtkw_proc_writer.js';
+import { extractSignalRefs } from '../wave/gtkw_writer.js';
+import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -1022,15 +1022,6 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule) {
     }
 }
 
-async generateGtkwForVcd(vcdPath, gtkwPath, tbModule, selectedSignals = []) {
-    const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
-    const scopes = parseVcdHeaderFromContent(vcdContent);
-    const { content, dropped } = buildGtkwContent({ vcdPath, gtkwPath, scopes, tbModule, selectedSignals });
-    if (!content) return { written: false, dropped };
-    await window.electronAPI.writeFile(gtkwPath, content);
-    return { written: true, dropped };
-}
-
 /**
  * Run iverilog in `-tnull` mode with the testbench as the simulation
  * top, just to confirm the design (synth files + testbench together)
@@ -1761,26 +1752,29 @@ async _waveStageFixVcd(tools) {
 }
 
 /**
- * Pick the .gtkw save-file that GTKWave will load. Three sources, in
- * priority order:
+ * Decide o .gtkw save-file que o GTKWave vai abrir. Duas sources, em
+ * ordem de prioridade:
  *
- *   1. User-curated .gtkw (gtkwFiles[].isTopLevel === true). Cross-
- *      checked against the VCD so the user gets a Note for any
- *      signal the layout references but the simulation didn't dump.
- *      Returns the user's path verbatim.
- *   2. Auto-generated from the VCD's parsed scopes. Uses the picker
- *      selection (already validated and possibly zeroed by Phase 3)
- *      cached in this._validatedWaveSelection. Falls back to
- *      "everything at testbench-module scope" if the cache is empty.
- *   3. None — returns null. GTKWave opens with no save-file.
+ *   1. User-curated .gtkw (`gtkwFiles[].isTopLevel === true`, marcado
+ *      pelo dropdown gtkwPickerSelect na toolbar). Cross-check contra
+ *      o VCD pra avisar de paths stale. Retorna o path do usuario
+ *      intocado.
+ *   2. Auto-gerado pelo `buildAuroraGtkw`: secao "Top-level" com tudo
+ *      que nao pertence a processador + uma secao SAPHO completa
+ *      (cores/aliases/grupos) por processador detectado. Filtrado por
+ *      `_validatedWaveSelection` (cache do Wave Config picker) quando
+ *      ha selecao.
+ *
+ * Se ambas falharem (VCD invalido, etc.), retorna null e GTKWave abre
+ * sem save-file.
  *
  * Inputs:  simTopModule, vcdFile, tempBaseDir
- * Returns: absolute path to a .gtkw file, or null
- * Throws:  never (validation hiccups become warnings, not failures)
- * Side-effects: may write ${tempBaseDir}/${simTopModule}.gtkw;
- *               logs to twave (source line + per-signal warnings).
+ * Returns: path absoluto pro .gtkw, ou null
+ * Throws:  nunca (validation hiccups viram warnings)
+ * Side-effects: pode escrever ${tempBaseDir}/${simTopModule}.gtkw;
+ *               loga em twave.
  *
- * See ARCHITECTURE.md §10 for the source-precedence rationale.
+ * Ver ARCHITECTURE.md §9 pro racional de precedencia.
  */
 async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     // Source 1: user-curated .gtkw.
@@ -1795,20 +1789,9 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         }
     }
 
+    // Source 2: auto-gerado. buildAuroraGtkw cobre o caso geral —
+    // top-level flat + secoes por processador SAPHO detectado.
     const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
-
-    // Source 1.5: processor-aware layout. Quando o VCD contem
-    // instancias de processador SAPHO (detectadas pelo padrao
-    // <inst>.p_<procType>.core), portamos as regras de cor/format/
-    // grupo/alias do antigo gtk_proc_init.tcl para o proprio .gtkw —
-    // funciona para multiplos processadores, sem dependencia de TCL
-    // post-processing.
-    //
-    // Tenta SEMPRE primeiro, mesmo quando ha selecao do WC: o template
-    // ja sabe filtrar por selectedSignals, preservando cores/aliases/
-    // grupos pros sinais que estao na selecao. Caso o usuario customize
-    // marcando apenas alguns sinais, o .gtkw resultante mantem a
-    // formatacao do processor-aware com so a parte selecionada visivel.
     const selected = Array.isArray(this._validatedWaveSelection)
         ? this._validatedWaveSelection
         : (Array.isArray(this.projectConfig?.waveSignals)
@@ -1818,7 +1801,28 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
-        const proc = buildProcessorAwareGtkw({
+
+        // Last-line-of-defense pra picker selection: avisa o usuario
+        // sobre sinais selecionados que nao chegaram no VCD (testbench
+        // dumpou subset, signal renomeado entre compile e wave, etc).
+        // Aurora ainda escreve o .gtkw — gtkwave so mostra os que tem.
+        if (selected.length > 0) {
+            const inVcd = new Set();
+            for (const sc of scopes) {
+                for (const sig of sc.signals) inVcd.add(`${sc.path}.${sig.name}`);
+            }
+            const dropped = selected.filter((s) => !inVcd.has(s));
+            if (dropped.length > 0) {
+                const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
+                const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
+                const msg = dropped.length === 1
+                    ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
+                    : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
+                this.terminalManager.appendToTerminal('twave', msg, 'warning');
+            }
+        }
+
+        const result = buildAuroraGtkw({
             vcdPath: vcdFile,
             gtkwPath: autoGtkw,
             scopes,
@@ -1827,52 +1831,21 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             binDir,
             selectedSignals: selected.length > 0 ? selected : null,
         });
-        if (proc.content) {
-            await window.electronAPI.writeFile(autoGtkw, proc.content);
-            const label = selected.length > 0
-                ? `${proc.processorCount} processor${proc.processorCount === 1 ? '' : 's'}, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
-                : `${proc.processorCount} processor${proc.processorCount === 1 ? '' : 's'}`;
-            this.terminalManager.appendToTerminal('twave',
-                `Auto-generated processor-aware GTKWave layout (${label})`,
-                'info');
-            return autoGtkw;
-        }
-    } catch (procErr) {
-        this.terminalManager.appendToTerminal('twave',
-            `Warning: processor-aware .gtkw failed (${procErr.message}); falling back to flat VCD layout.`,
-            'warning');
-    }
+        if (!result.content) return null;
 
-    // Source 2: auto-generate from VCD + Wave Configuration selection.
-    try {
-        const { written, dropped } = await this.generateGtkwForVcd(vcdFile, autoGtkw, simTopModule, selected);
-        if (written) {
-            const source = selected.length > 0
-                ? `${selected.length} picker-selected signal(s)`
-                : 'testbench scope';
-            this.terminalManager.appendToTerminal('twave',
-                `Auto-generated GTKWave layout (${source})`, 'info');
-        }
-        if (dropped.length > 0) {
-            // Stale picker entries that the just-produced VCD doesn't
-            // contain. Phase 2 prunes against parsed sources at compile
-            // time; this branch covers the "selection was valid against
-            // sources but the running design dumped fewer signals than
-            // expected" gap (e.g., $dumpvars with explicit list vs full
-            // hierarchy).
-            const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
-            const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
-            const msg = dropped.length === 1
-                ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
-                : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
-            this.terminalManager.appendToTerminal('twave', msg, 'warning');
-        }
-        return written ? autoGtkw : null;
-    } catch (genErr) {
-        // Auto-generation is best-effort. If it fails we fall through
-        // to "no .gtkw" rather than aborting the wave button.
+        await window.electronAPI.writeFile(autoGtkw, result.content);
+        const procPart = result.processorCount > 0
+            ? `${result.processorCount} processor${result.processorCount === 1 ? '' : 's'}`
+            : 'flat layout';
+        const selPart = selected.length > 0
+            ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
+            : '';
         this.terminalManager.appendToTerminal('twave',
-            `Warning: could not auto-generate .gtkw — ${genErr.message}`, 'warning');
+            `Auto-generated GTKWave layout (${procPart}${selPart})`, 'info');
+        return autoGtkw;
+    } catch (err) {
+        this.terminalManager.appendToTerminal('twave',
+            `Warning: could not auto-generate .gtkw — ${err.message}`, 'warning');
         return null;
     }
 }

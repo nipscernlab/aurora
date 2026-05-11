@@ -1,44 +1,43 @@
 /**
- * gtkw_proc_writer.js — Build a processor-aware .gtkw layout.
+ * gtkw_proc_writer.js — Build the default Aurora .gtkw layout.
  *
- * Mirrors the styling rules of components/Scripts/gtk_proc_init.tcl
- * but emits them statically into the .gtkw, so no TCL post-processing
- * is needed. The big difference from the TCL version: this one
- * supports MULTIPLE processor instances. The TCL hardcodes patterns
- * like `proc.req_in_sim` (single processor named "proc"); here we
- * detect each instance and apply the same template to all of them.
+ * O arquivo resultante tem duas zonas:
  *
- * Detection
- * ---------
- * A processor instance is recognised by having a subtree shaped like
- *   <inst>.p_<procType>.core
- * inside the VCD. The instance is `<inst>` (e.g. `proc`, `proc1`, ...),
- * and the type is `<procType>` (e.g. `ProcDTW`).
+ *   1. **Top-level**: todos os sinais do VCD que NAO estao dentro de
+ *      uma instancia de processador SAPHO. Lista flat com formato
+ *      default (hex/bin pelo GTKWave). Sao os sinais "glue logic" do
+ *      design — clk global, FIFOs no top, módulos auxiliares, etc.
  *
- * Per-processor layout
- * --------------------
- *   1. Comment "<procName> *********"
- *   2. Comment "I/O ****************"
- *      - req_in_sim_<N> + in_sim_<N> pairs, both Yellow, aliased
- *      - out_en_sim_<N> + out_sig_<N> pairs, both Yellow, aliased
- *   3. Comment "Instructions *******"
- *      - valr2: Decimal, Indigo, alias "Assembly"
- *      - linetabs: Signed Decimal, Violet, alias "C±"
- *   4. Comment "Variables **********"
+ *   2. **Per-processor sections**: pra cada instancia de processador
+ *      SAPHO detectada, uma secao completa com cores/aliases/grupos
+ *      (port das regras do antigo gtk_proc_init.tcl). Suporta multiplos
+ *      processadores no mesmo design.
+ *
+ * Deteccao de processador
+ * -----------------------
+ * Um scope conta como instancia de processador se contem
+ * AMBOS `valr2` e `linetabs` (registers que o asmcomp emite no .v).
+ * Quando existe sub-escopo `<inst>.p_<procType>.core`, procType e
+ * corePath sao extraidos dele.
+ *
+ * Layout per-processador
+ * ----------------------
+ *   1. Banner "<procType> ****"
+ *   2. clk / rst / itr (do core)
+ *   3. "I/O ****************"
+ *      - req_in_sim_<N> + in_sim_<N> pairs, Yellow, alias "req_in N" / "input N"
+ *      - out_en_sim_<N> + out_sig_<N> pairs, Yellow, alias "out_en N" / "output N"
+ *   4. "Instructions *******"
+ *      - valr2: Decimal, Indigo, alias "Assembly", file filter trad_opcode.txt
+ *      - linetabs: Signed Decimal, Violet, alias "C±", file filter trad_cmm.txt
+ *   5. "Variables **********"
  *      - me1_f_<func>_v_<var>_e_: Signed Decimal, Orange, "int <var> in <func>"
  *      - me2_f_<func>_v_<var>_e_: BitsToReal, Orange, "float <var> in <func>"
  *      - comp_me3_f_<func>_v_<var>_e_: Binary, Orange, "comp <var> in <func>"
- *      - arr_me1/me2/comp_me3 with numeric suffix: grouped arrays
- *   5. Comment "Flags **************"
- *      - Stack group (sp.pointeri, sp.fl_max, sp.fl_full, plus isp.*)
+ *      - arr_me1/me2/comp_me3: grupos por array
+ *   6. "Flags **************"
+ *      - Stack group (sp.pointeri, sp.fl_max, sp.fl_full, isp.*)
  *      - ULA group (delta_int, delta_float)
- *
- * Translation files (trad_opcode.txt, trad_cmm.txt, comp2gtkw.exe)
- * are NOT applied in this first pass — they need ^N declarations in
- * the header and TR_FTRANSLATED flag wiring per-signal, which is
- * fragile to get right without empirical iteration. Colors, formats,
- * groups, and aliases cover the main visual win; tradutores fica
- * como follow-up.
  */
 
 // Color codes used after [color] directives.
@@ -253,6 +252,41 @@ function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
         lines.push(`+{${alias}} ${ref}`);
     } else {
         lines.push(ref);
+    }
+}
+
+// ---- section builders --------------------------------------------------
+
+/**
+ * Emite a secao top-level: todos os sinais que NAO estao dentro de
+ * uma instancia de processador. Lista flat com formato default
+ * (`@28` = TR_RJUSTIFY | TR_BIN — GTKWave usa hex pra multi-bit, bin
+ * pra single bit).
+ *
+ * @param {string[]} processorInstancePaths  paths-raiz das instancias
+ *   de processador (qualquer scope cujo path comeca com `<root>.` e
+ *   "interno" e pulado aqui — sera emitido na secao do proc).
+ */
+function emitTopLevelSection(lines, scopes, processorInstancePaths, filter) {
+    const isInsideProcessor = (scopePath) => processorInstancePaths.some(
+        (proc) => scopePath === proc || scopePath.startsWith(proc + '.'),
+    );
+
+    const emitList = [];
+    for (const scope of scopes) {
+        if (isInsideProcessor(scope.path)) continue;
+        for (const sig of scope.signals) {
+            const fullName = `${scope.path}.${sig.name}`;
+            if (filter && !filter.has(fullName)) continue;
+            emitList.push({ fullName, range: sig.range });
+        }
+    }
+    if (emitList.length === 0) return;
+
+    emitComment(lines, '###### Top-level');
+    lines.push(`@${hex(FMT_BIN)}`);
+    for (const s of emitList) {
+        lines.push(s.range ? `${s.fullName}[${s.range}]` : s.fullName);
     }
 }
 
@@ -535,22 +569,30 @@ function addProcessorAliases(map, scopes, proc) {
 // ---- public entry point ------------------------------------------------
 
 /**
+ * Constroi o conteudo de um .gtkw a partir do VCD parseado: uma
+ * secao "Top-level" listando tudo que nao pertence a nenhum
+ * processador, seguida de uma secao completa (cores/aliases/grupos
+ * SAPHO) pra cada processador detectado.
+ *
  * @param {object} input
- * @param {string} input.vcdPath      used in [dumpfile]
- * @param {string} input.gtkwPath     used in [savefile]
- * @param {VcdScope[]} input.scopes   parsed VCD scope tree
- * @param {string} [input.tbModule]   testbench top scope. Kept in the
- *      signature for backward compatibility but unused — clk/rst/itr
- *      are now sourced from each processor's `core` scope.
- * @param {string} [input.tempBaseDir]  Temp/ root. Resolves translation
- *      files at <tempBaseDir>/<procType>/trad_opcode.txt and trad_cmm.txt.
- * @param {string} [input.binDir]     bin/ dir containing comp2gtkw.exe
- *      (process filter for comp_me3* vars and comp_arr_me3 arrays).
+ * @param {string} input.vcdPath      usado em [dumpfile]
+ * @param {string} input.gtkwPath     usado em [savefile]
+ * @param {VcdScope[]} input.scopes   scope tree parseado do VCD
+ * @param {string} [input.tbModule]   scope do testbench top. Kept na
+ *      signature pra compat — clk/rst/itr vem do core de cada proc.
+ * @param {string} [input.tempBaseDir]  raiz do Temp/. Resolve trad files
+ *      em <tempBaseDir>/<procType>/trad_opcode.txt e trad_cmm.txt.
+ * @param {string} [input.binDir]     dir do bin/ com comp2gtkw.exe
+ *      (process filter pra comp_me3* vars e comp_arr_me3 arrays).
+ * @param {string[]} [input.selectedSignals]  filter — quando setado,
+ *      so emite sinais cujo full-path bate. Mantem decoracao
+ *      (cor/alias) onde aplicavel.
  * @returns {{ content: string|null, processorCount: number }}
- *      content: null when no processor instance is detected, so the
- *      caller can fall back to the simpler buildGtkwContent path.
+ *      content: null so quando scopes esta vazio (VCD invalido).
+ *      Caso contrario sempre retorna o layout, mesmo sem processadores
+ *      detectados (so a secao top-level).
  */
-export function buildProcessorAwareGtkw({
+export function buildAuroraGtkw({
     vcdPath,
     gtkwPath,
     scopes,
@@ -560,7 +602,7 @@ export function buildProcessorAwareGtkw({
     selectedSignals = null,
 }) {
     // Filter opcional: lista de full-paths (strings). Quando setado,
-    // o template completo e percorrido — comentarios, grupos, cores,
+    // o layout completo e percorrido — comentarios, grupos, cores,
     // tradutores — mas apenas sinais cujo path bate ficam emitidos.
     // Aliases continuam refletindo a hierarquia inteira (positions
     // estaveis) mesmo que parte dos sinais nao apareca.
@@ -571,9 +613,6 @@ export function buildProcessorAwareGtkw({
         return { content: null, processorCount: 0 };
     }
     const procs = detectProcessors(scopes);
-    if (procs.length === 0) {
-        return { content: null, processorCount: 0 };
-    }
 
     // Header: GTKWave salva paths com BACKSLASH no Windows. Reusamos
     // as paths tal qual vieram (sem normalizar pra forward slash) pra
@@ -581,12 +620,16 @@ export function buildProcessorAwareGtkw({
     // GTKWave em Windows.
     const lines = [
         '[*]',
-        '[*] Generated by Aurora (processor-aware)',
+        '[*] Generated by Aurora',
         '[*]',
         `[dumpfile] "${vcdPath}"`,
         `[savefile] "${gtkwPath}"`,
         '[timestart] 0',
     ];
+
+    // Top-level: tudo que nao esta dentro de um processador. Sempre
+    // primeiro pra dar contexto antes das secoes internas.
+    emitTopLevelSection(lines, scopes, procs.map((p) => p.instancePath), filter);
 
     // Contador global de filter IDs. file e proc filters tem
     // numeracoes independentes; cada novo `^N <path>` ou `^^N <path>`

@@ -190,6 +190,11 @@ function emitGroupEnd(lines, text) {
  */
 function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
     if (!sig) return;
+    // Filtro opcional: se opts.filter (Set de fullName) e fornecido,
+    // pula sinais nao selecionados. Permite que o .gtkw mantenha
+    // cores/aliases/grupos do template processor-aware mesmo quando o
+    // usuario customizou a Wave Configuration (selecao subset do total).
+    if (opts.filter && !opts.filter.has(sig.fullName)) return;
     let flag = formatFlag;
     if (opts.fileFilterPath) flag |= TR_FTRANSLATED;
     if (opts.procFilterPath) flag |= TR_PTRANSLATED;
@@ -215,7 +220,7 @@ function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
 
 // ---- processor-specific section builders -------------------------------
 
-function emitIoSection(lines, scopes, instancePath) {
+function emitIoSection(lines, scopes, instancePath, filter) {
     emitComment(lines, 'I/O ****************');
 
     const sigs = listSignalsInScope(scopes, instancePath);
@@ -228,25 +233,31 @@ function emitIoSection(lines, scopes, instancePath) {
     const outSigs = sigs.filter((s) => /^out_sig_?\d+$/.test(s.name))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
+    // Aliases gerados a partir da POSICAO no array sorted completo —
+    // o filter (opcional) pula a emissao do sinal mas a numeracao
+    // continua refletindo a hierarquia inteira, pra que "req_in 0"
+    // seja sempre o mesmo signal independente de o usuario ter
+    // marcado req_in 1 ou nao.
     const pairCount = Math.max(reqIns.length, inSims.length);
     for (let i = 0; i < pairCount; i++) {
-        if (reqIns[i]) emitSignal(lines, reqIns[i], FMT_BIN, COLOR_YELLOW, `req_in ${i}`);
-        if (inSims[i]) emitSignal(lines, inSims[i], FMT_SIGNED_DEC, COLOR_YELLOW, `input  ${i}`);
+        if (reqIns[i]) emitSignal(lines, reqIns[i], FMT_BIN, COLOR_YELLOW, `req_in ${i}`, { filter });
+        if (inSims[i]) emitSignal(lines, inSims[i], FMT_SIGNED_DEC, COLOR_YELLOW, `input  ${i}`, { filter });
     }
     const outPairCount = Math.max(outEns.length, outSigs.length);
     for (let i = 0; i < outPairCount; i++) {
-        if (outEns[i])  emitSignal(lines, outEns[i],  FMT_BIN, COLOR_YELLOW, `out_en ${i}`);
-        if (outSigs[i]) emitSignal(lines, outSigs[i], FMT_SIGNED_DEC, COLOR_YELLOW, `output ${i}`);
+        if (outEns[i])  emitSignal(lines, outEns[i],  FMT_BIN, COLOR_YELLOW, `out_en ${i}`, { filter });
+        if (outSigs[i]) emitSignal(lines, outSigs[i], FMT_SIGNED_DEC, COLOR_YELLOW, `output ${i}`, { filter });
     }
 }
 
-function emitInstructionsSection(lines, scopes, instancePath, paths, counter) {
+function emitInstructionsSection(lines, scopes, instancePath, paths, counter, filter) {
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) {
         emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly', {
             fileFilterPath: paths.tradOpcode,
             counter,
+            filter,
         });
     }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
@@ -254,6 +265,7 @@ function emitInstructionsSection(lines, scopes, instancePath, paths, counter) {
         emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C+-', {
             fileFilterPath: paths.tradCmm,
             counter,
+            filter,
         });
     }
 }
@@ -277,28 +289,25 @@ function findTypedVars(scopes, instancePath, prefix) {
     return out;
 }
 
-function emitTypedVars(lines, scopes, instancePath, paths, counter) {
+function emitTypedVars(lines, scopes, instancePath, paths, counter, filter) {
     const ints   = findTypedVars(scopes, instancePath, 'me1_');
     const floats = findTypedVars(scopes, instancePath, 'me2_');
     const comps  = findTypedVars(scopes, instancePath, 'comp_me3_');
 
-    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC, COLOR_ORANGE, `int ${v.var} in ${v.func}`);
-    for (const v of floats) emitSignal(lines, v.sig, FMT_REAL,       COLOR_ORANGE, `float ${v.var} in ${v.func}`);
+    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC, COLOR_ORANGE, `int ${v.var} in ${v.func}`, { filter });
+    for (const v of floats) emitSignal(lines, v.sig, FMT_REAL,       COLOR_ORANGE, `float ${v.var} in ${v.func}`, { filter });
     for (const v of comps) {
-        // comp2gtkw e o mesmo binario pra todos os comps, mas o
-        // formato de save force inline declaration. Cada uso ganha
-        // seu proprio ID (consumo do counter), exatamente como
-        // GTKWave faria.
         emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}`, {
             procFilterPath: paths.comp2gtkw,
             counter,
+            filter,
         });
     }
 }
 
 // Arrays: nomes terminam com um sufixo numerico de 4 digitos. Agrupa
 // por base (sem o sufixo) e cria um group GTKWave por base.
-function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, procFilterPath, counter) {
+function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, procFilterPath, counter, filter) {
     const sigs = listSignalsInScope(scopes, instancePath);
     const groups = new Map(); // baseName -> [{ sig, idx }]
     for (const s of sigs) {
@@ -321,7 +330,9 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
         emitGroupBegin(lines, groupLabel);
         let i = 0;
         for (const { sig } of items) {
-            const opts = procFilterPath ? { procFilterPath, counter } : undefined;
+            const opts = procFilterPath
+                ? { procFilterPath, counter, filter }
+                : { filter };
             emitSignal(lines, sig, fmt, COLOR_ORANGE, `${vr} ${i}`, opts);
             i++;
         }
@@ -329,15 +340,15 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
     }
 }
 
-function emitVariablesSection(lines, scopes, instancePath, paths, counter) {
+function emitVariablesSection(lines, scopes, instancePath, paths, counter, filter) {
     emitComment(lines, 'Variables **********');
-    emitTypedVars(lines, scopes, instancePath, paths, counter);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC, 'int',   null,             counter);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_REAL,       'float', null,             counter);
-    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,        'comp',  paths.comp2gtkw,  counter);
+    emitTypedVars(lines, scopes, instancePath, paths, counter, filter);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC, 'int',   null,             counter, filter);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_REAL,       'float', null,             counter, filter);
+    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,        'comp',  paths.comp2gtkw,  counter, filter);
 }
 
-function emitFlagsSection(lines, scopes, corePath) {
+function emitFlagsSection(lines, scopes, corePath, filter) {
     emitComment(lines, 'Flags **************');
 
     // Stack: data stack (sp) + instruction stack (isp). Cada um tem
@@ -356,7 +367,7 @@ function emitFlagsSection(lines, scopes, corePath) {
         .filter((e) => e.sig);
     if (stackResolved.length > 0) {
         emitGroupBegin(lines, 'Stack');
-        for (const e of stackResolved) emitSignal(lines, e.sig, e.fmt, COLOR_NORMAL, e.alias);
+        for (const e of stackResolved) emitSignal(lines, e.sig, e.fmt, COLOR_NORMAL, e.alias, { filter });
         emitGroupEnd(lines, 'Stack');
     }
 
@@ -366,10 +377,115 @@ function emitFlagsSection(lines, scopes, corePath) {
     const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
     if (deltaInt || deltaFloat) {
         emitGroupBegin(lines, 'ULA');
-        if (deltaInt)   emitSignal(lines, deltaInt,   FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (int)');
-        if (deltaFloat) emitSignal(lines, deltaFloat, FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (float)');
+        if (deltaInt)   emitSignal(lines, deltaInt,   FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (int)',   { filter });
+        if (deltaFloat) emitSignal(lines, deltaFloat, FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (float)', { filter });
         emitGroupEnd(lines, 'ULA');
     }
+}
+
+// ---- alias map builder (shared with WC modal) --------------------------
+
+/**
+ * Constroi um Map<fullSignalPath, alias> aplicando as mesmas regras
+ * que o gtkw writer usa. Permite que a Wave Configuration mostre os
+ * mesmos labels amigaveis ("int cont in global", "Assembly",
+ * "Data Stack Pointer") em vez dos nomes crus de hierarquia.
+ *
+ * Aceita scopes em qualquer fonte (VCD parser ou Verilog hierarchy
+ * tree) — desde que cada scope tenha { path, signals: [{ name }] }
+ * o helper produz o map.
+ *
+ * @param {Array<{ path: string, signals: Array<{ name: string }> }>} scopes
+ * @returns {Map<string, string>}
+ */
+export function buildAliasMap(scopes) {
+    const map = new Map();
+    if (!Array.isArray(scopes) || scopes.length === 0) return map;
+    const procs = detectProcessors(scopes);
+    for (const proc of procs) {
+        addProcessorAliases(map, scopes, proc);
+    }
+    return map;
+}
+
+function addProcessorAliases(map, scopes, proc) {
+    const { instancePath, corePath } = proc;
+    const sigs = listSignalsInScope(scopes, instancePath);
+
+    // I/O — alias posicional dentro da lista sorted naturalmente.
+    const byPattern = (re) => sigs.filter((s) => re.test(s.name))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const reqIns  = byPattern(/^req_in_sim_?\d+$/);
+    const inSims  = byPattern(/^in_sim_?\d+$/);
+    const outEns  = byPattern(/^out_en_sim_?\d+$/);
+    const outSigs = byPattern(/^out_sig_?\d+$/);
+    reqIns.forEach((s, i)  => map.set(s.fullName, `req_in ${i}`));
+    inSims.forEach((s, i)  => map.set(s.fullName, `input ${i}`));
+    outEns.forEach((s, i)  => map.set(s.fullName, `out_en ${i}`));
+    outSigs.forEach((s, i) => map.set(s.fullName, `output ${i}`));
+
+    // Instructions
+    const valr2 = findSignal(scopes, instancePath, 'valr2');
+    if (valr2) map.set(valr2.fullName, 'Assembly');
+    const linetabs = findSignal(scopes, instancePath, 'linetabs');
+    if (linetabs) map.set(linetabs.fullName, 'C+-');
+
+    // Typed scalar vars: me1 (int), me2 (float), comp_me3 (comp).
+    const aliasFromVarName = (s, label) => {
+        const m = s.name.match(/^[^_]+_f_(.*?)_v_(.*?)_e_$/);
+        if (!m) return null;
+        const fn = m[1];
+        const vr = m[2];
+        return `${label} ${vr} in ${fn === 'global' ? 'global' : `${fn}()`}`;
+    };
+    for (const s of sigs) {
+        let alias = null;
+        if (s.name.startsWith('me1_'))           alias = aliasFromVarName(s, 'int');
+        else if (s.name.startsWith('me2_'))      alias = aliasFromVarName(s, 'float');
+        else if (s.name.startsWith('comp_me3_')) alias = aliasFromVarName(s, 'comp');
+        if (alias) map.set(s.fullName, alias);
+    }
+
+    // Array vars (arr_me1, arr_me2, comp_arr_me3): cada indice ganha
+    // alias "<var> N" (0-based) dentro de seu base group.
+    const arrayPrefixes = ['arr_me1_', 'arr_me2_', 'comp_arr_me3_'];
+    for (const prefix of arrayPrefixes) {
+        const groups = new Map();
+        for (const s of sigs) {
+            if (!s.name.startsWith(prefix)) continue;
+            const m = s.name.match(/^(.*?)(\d{4})$/);
+            if (!m) continue;
+            const base = m[1];
+            const idx = parseInt(m[2], 10);
+            if (!groups.has(base)) groups.set(base, []);
+            groups.get(base).push({ sig: s, idx });
+        }
+        for (const items of groups.values()) {
+            items.sort((a, b) => a.idx - b.idx);
+            const baseName = items[0].sig.name.match(/^(.*?)\d{4}$/)?.[1] || '';
+            const m = baseName.match(/^[^_]+_f_(.*?)_v_(.*?)_e_/);
+            const vr = m ? m[2] : baseName;
+            items.forEach((it, i) => map.set(it.sig.fullName, `${vr} ${i}`));
+        }
+    }
+
+    // Flags: Stack (sp + isp) e ULA.
+    const stackAliases = [
+        { path: `${corePath}.sp`,  name: 'pointeri', alias: 'Data Stack Pointer' },
+        { path: `${corePath}.sp`,  name: 'fl_max',   alias: 'Data Stack Max' },
+        { path: `${corePath}.sp`,  name: 'fl_full',  alias: 'Data Stack Overflow' },
+        { path: `${corePath}.isp`, name: 'pointeri', alias: 'Inst Stack Pointer' },
+        { path: `${corePath}.isp`, name: 'fl_max',   alias: 'Inst Stack Max' },
+        { path: `${corePath}.isp`, name: 'fl_full',  alias: 'Inst Stack Overflow' },
+    ];
+    for (const e of stackAliases) {
+        const s = findSignal(scopes, e.path, e.name);
+        if (s) map.set(s.fullName, e.alias);
+    }
+    const dInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
+    if (dInt) map.set(dInt.fullName, 'Rounding Error (int)');
+    const dFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
+    if (dFloat) map.set(dFloat.fullName, 'Rounding Error (float)');
 }
 
 // ---- public entry point ------------------------------------------------
@@ -397,7 +513,16 @@ export function buildProcessorAwareGtkw({
     tbModule = null,
     tempBaseDir = null,
     binDir = null,
+    selectedSignals = null,
 }) {
+    // Filter opcional: lista de full-paths (strings). Quando setado,
+    // o template completo e percorrido — comentarios, grupos, cores,
+    // tradutores — mas apenas sinais cujo path bate ficam emitidos.
+    // Aliases continuam refletindo a hierarquia inteira (positions
+    // estaveis) mesmo que parte dos sinais nao apareca.
+    const filter = (Array.isArray(selectedSignals) && selectedSignals.length > 0)
+        ? new Set(selectedSignals)
+        : null;
     if (!Array.isArray(scopes) || scopes.length === 0) {
         return { content: null, processorCount: 0 };
     }
@@ -467,14 +592,14 @@ export function buildProcessorAwareGtkw({
         const procClk = findCoreOrTb(proc.corePath, 'clk');
         const procRst = findCoreOrTb(proc.corePath, 'rst');
         const procItr = findCoreOrTb(proc.corePath, 'itr');
-        if (procClk) emitSignal(lines, procClk, FMT_BIN, COLOR_NORMAL, null);
-        if (procRst) emitSignal(lines, procRst, FMT_BIN, COLOR_NORMAL, null);
-        if (procItr) emitSignal(lines, procItr, FMT_BIN, COLOR_NORMAL, null);
+        if (procClk) emitSignal(lines, procClk, FMT_BIN, COLOR_NORMAL, null, { filter });
+        if (procRst) emitSignal(lines, procRst, FMT_BIN, COLOR_NORMAL, null, { filter });
+        if (procItr) emitSignal(lines, procItr, FMT_BIN, COLOR_NORMAL, null, { filter });
 
-        emitIoSection(lines, scopes, proc.instancePath);
-        emitInstructionsSection(lines, scopes, proc.instancePath, paths, counter);
-        emitVariablesSection(lines, scopes, proc.instancePath, paths, counter);
-        emitFlagsSection(lines, scopes, proc.corePath);
+        emitIoSection(lines, scopes, proc.instancePath, filter);
+        emitInstructionsSection(lines, scopes, proc.instancePath, paths, counter, filter);
+        emitVariablesSection(lines, scopes, proc.instancePath, paths, counter, filter);
+        emitFlagsSection(lines, scopes, proc.corePath, filter);
     });
 
     return { content: lines.join('\n') + '\n', processorCount: procs.length };

@@ -2072,38 +2072,45 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     // <inst>.p_<procType>.core), portamos as regras de cor/format/
     // grupo/alias do antigo gtk_proc_init.tcl para o proprio .gtkw —
     // funciona para multiplos processadores, sem dependencia de TCL
-    // post-processing. Se a Wave Configuration tem seleção do usuario,
-    // pulamos isso e caimos no Source 2 (que respeita a seleção).
+    // post-processing.
+    //
+    // Tenta SEMPRE primeiro, mesmo quando ha selecao do WC: o template
+    // ja sabe filtrar por selectedSignals, preservando cores/aliases/
+    // grupos pros sinais que estao na selecao. Caso o usuario customize
+    // marcando apenas alguns sinais, o .gtkw resultante mantem a
+    // formatacao do processor-aware com so a parte selecionada visivel.
     const selected = Array.isArray(this._validatedWaveSelection)
         ? this._validatedWaveSelection
         : (Array.isArray(this.projectConfig?.waveSignals)
             ? this.projectConfig.waveSignals
             : []);
-    if (selected.length === 0) {
-        try {
-            const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
-            const scopes = parseVcdHeaderFromContent(vcdContent);
-            const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
-            const proc = buildProcessorAwareGtkw({
-                vcdPath: vcdFile,
-                gtkwPath: autoGtkw,
-                scopes,
-                tbModule: simTopModule,
-                tempBaseDir,
-                binDir,
-            });
-            if (proc.content) {
-                await window.electronAPI.writeFile(autoGtkw, proc.content);
-                this.terminalManager.appendToTerminal('twave',
-                    `Auto-generated processor-aware GTKWave layout (${proc.processorCount} processor${proc.processorCount === 1 ? '' : 's'})`,
-                    'info');
-                return autoGtkw;
-            }
-        } catch (procErr) {
+    try {
+        const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
+        const scopes = parseVcdHeaderFromContent(vcdContent);
+        const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
+        const proc = buildProcessorAwareGtkw({
+            vcdPath: vcdFile,
+            gtkwPath: autoGtkw,
+            scopes,
+            tbModule: simTopModule,
+            tempBaseDir,
+            binDir,
+            selectedSignals: selected.length > 0 ? selected : null,
+        });
+        if (proc.content) {
+            await window.electronAPI.writeFile(autoGtkw, proc.content);
+            const label = selected.length > 0
+                ? `${proc.processorCount} processor${proc.processorCount === 1 ? '' : 's'}, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
+                : `${proc.processorCount} processor${proc.processorCount === 1 ? '' : 's'}`;
             this.terminalManager.appendToTerminal('twave',
-                `Warning: processor-aware .gtkw failed (${procErr.message}); falling back to flat VCD layout.`,
-                'warning');
+                `Auto-generated processor-aware GTKWave layout (${label})`,
+                'info');
+            return autoGtkw;
         }
+    } catch (procErr) {
+        this.terminalManager.appendToTerminal('twave',
+            `Warning: processor-aware .gtkw failed (${procErr.message}); falling back to flat VCD layout.`,
+            'warning');
     }
 
     // Source 2: auto-generate from VCD + Wave Configuration selection.

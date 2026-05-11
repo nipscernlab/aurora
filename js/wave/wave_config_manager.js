@@ -14,6 +14,7 @@
 
 import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
+import { buildAliasMap } from './gtkw_proc_writer.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
@@ -196,6 +197,11 @@ class WaveConfigManager {
 
         this.tree = buildHierarchyTree(modules, topModule);
 
+        // Constroi um alias map a partir da hierarquia parseada. Mesmas
+        // regras que o gtkw writer aplica, entao o rotulo mostrado no
+        // modal bate com o que vai aparecer no GTKWave.
+        this.aliasMap = buildAliasMap(this._hierarchyToScopes(this.tree));
+
         // Estrategia de selecao inicial:
         //  1. waveSignalsCustomizedFor === testbench atual  -> usa a
         //     selecao salva em waveSignals (usuario assumiu o controle
@@ -247,6 +253,26 @@ class WaveConfigManager {
             }
         };
         walk(this.tree);
+    }
+
+    /**
+     * Converte uma HierarchyNode (output do buildHierarchyTree) num
+     * array de scopes no formato esperado por buildAliasMap
+     * ({ path, signals: [{name}] }), pra que as regras do .gtkw
+     * processor-aware se apliquem identicamente aqui no modal.
+     */
+    _hierarchyToScopes(root) {
+        const scopes = [];
+        const walk = (n) => {
+            if (!n) return;
+            scopes.push({
+                path: n.scopePath,
+                signals: (n.signals || []).map((s) => ({ name: s.name })),
+            });
+            for (const child of n.children || []) walk(child);
+        };
+        walk(root);
+        return scopes;
     }
 
     _applyDefaultSelection() {
@@ -418,14 +444,25 @@ class WaveConfigManager {
         const fullName = `${parent.scopePath}.${sig.name}`;
         row.dataset.signal = fullName;
 
+        // Se o sinal e parte de um processador SAPHO reconhecido, mostra
+        // o alias amigavel ("Assembly", "int cont in global", etc.)
+        // em vez do nome cru. Identicos aos labels que aparecem no
+        // GTKWave depois.
+        const alias = this.aliasMap?.get(fullName);
+
+        const nameSpanHtml = alias
+            ? `<span class="signal-alias">${this._escape(alias)}</span>
+               <span class="signal-raw">${this._escape(sig.name)}${sig.range ? `[${this._escape(sig.range)}]` : ''}</span>`
+            : `<span class="signal-kind">${this._escape(sig.kind)}</span>
+               <span>${this._escape(sig.name)}</span>
+               ${sig.range ? `<span class="signal-range">[${this._escape(sig.range)}]</span>` : ''}`;
+
         row.innerHTML = `
             <span class="wave-tree-chevron spacer"></span>
             <input type="checkbox" class="wave-tree-checkbox" tabindex="-1">
             <span class="wave-tree-icon"><i class="ph ph-pulse"></i></span>
             <span class="wave-tree-name">
-                <span class="signal-kind">${this._escape(sig.kind)}</span>
-                <span>${this._escape(sig.name)}</span>
-                ${sig.range ? `<span class="signal-range">[${this._escape(sig.range)}]</span>` : ''}
+                ${nameSpanHtml}
             </span>
         `;
 

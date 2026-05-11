@@ -123,6 +123,21 @@
     font-size: var(--text-xs);
 }
 
+/* Alias amigavel pra sinais SAPHO reconhecidos (ex: "Assembly",
+   "int cont in global"). Aparece em destaque a frente, com o nome
+   cru ao lado em fonte menor pra que o usuario consiga conferir. */
+.wave-tree-row.signal-row .wave-tree-name .signal-alias {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: var(--space-2);
+}
+
+.wave-tree-row.signal-row .wave-tree-name .signal-raw {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+}
+
 .wave-tree-row .wave-tree-instance {
     color: var(--text-muted);
     font-style: italic;

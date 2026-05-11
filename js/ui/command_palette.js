@@ -134,9 +134,8 @@ class CommandPalette {
         }
         return clickIfPossible('prismcomp');
       } },
-      // FASE 1 da elimicacao dos 3 modos: Full Build (allcomp) e
-      // Settings (settings) escondidos do toolbar tambem somem do
-      // command palette — eram entries mode-dependent.
+      // Full Build (allcomp) e Settings (settings) ficam fora do
+      // palette — sao botoes escondidos hoje.
       { id: 'cancel-everything', label: 'Cancel Build', description: 'Cancel all running compilations', category: 'Compilation', action: () => clickIfPossible('cancel-everything') },
 
       { id: 'processorHub', label: 'Processor Hub', description: 'Create / manage processors', category: 'Settings', action: () => clickIfPossible('processorHub') },

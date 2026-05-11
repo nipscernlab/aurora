@@ -50,11 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     toggleButton.addEventListener('click', toggleElementsVisibility);
 
-    // FASE 2.5: handler do botao Settings removido — o botao foi
-    // escondido na fase 1.5 e o modal de Processor Mode nao existe
-    // mais. Caso volte um Settings na toolbar, vai apontar direto
-    // pro #modalProjectConfig.
-
     toggleButton.addEventListener('mouseenter', () => {
       const icon = toggleButton.querySelector('i');
       if (icon && !elementsVisible) return;

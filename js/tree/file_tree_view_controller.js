@@ -1,47 +1,39 @@
 /**
- * file_tree_view_controller.js — Single owner of "which file-tree
- * view is showing right now" + the toggle button.
+ * file_tree_view_controller.js — single owner do par "qual file-tree
+ * view esta visivel agora" + listener do toggle button.
  *
- * Pre-controller, the state was spread across:
- *   - TreeViewState.isHierarchical (in file_tree_manager.js)
- *   - TreeViewState.hierarchyData (set by 5+ compile paths)
- *   - TreeViewState.compilationModule (re-pinned per compile)
- *   - verilogTreeManager.isVerilogTreeActive
- *   - The mode radios (Project Mode / Processor Mode)
- *   - One click listener in file_tree_manager.js (toggleHierarchyView)
- *   - A second click listener in compilation_module.js (setupHierarchyToggle)
- * and each refactor that closed one bug opened another because the
- * pieces never agreed on who owned the transition.
+ * Pre-controller, esse estado estava espalhado por 6+ lugares
+ * (TreeViewState.isHierarchical, .hierarchyData, .compilationModule;
+ * verilogTreeManager.isVerilogTreeActive; mode radios; dois click
+ * listeners diferentes no mesmo botao). Cada refactor que fechava um
+ * bug abria outro. O design atual centraliza tudo aqui.
  *
- * This controller owns:
- *   1. The toggle button click listener (exactly one, attached once).
- *   2. The current view name ('standard' | 'verilog' | 'hierarchy').
- *   3. The hierarchy data (so the toggle knows when it's available).
- *   4. The "what view do we show in 'file mode'?" decision (depends
- *      on Project Mode vs Processor Mode).
+ * O controller e dono de:
+ *   1. O click listener do toggle (exatamente um, attached once).
+ *   2. O nome da view ativa ('standard' | 'verilog' | 'hierarchy').
+ *   3. Os dados de hierarquia (pra saber se o toggle deve estar
+ *      habilitado).
  *
- * Renderers register a function for their view. When the view
- * becomes active, the controller calls the renderer. Renderers
- * never directly mutate the toggle button or the view-switch state.
+ * Renderers registram uma funcao por view. Quando a view fica
+ * ativa, o controller chama o renderer. Renderers nunca mutam o
+ * toggle nem o estado de view direto.
  *
- * Public API (everything outside this file goes through here):
- *   showFileMode()             — flip to whatever "file" means in
- *                                 the current IDE mode
- *   showHierarchyMode()        — flip to hierarchy view (no-op if
- *                                 no hierarchyData yet)
+ * API publica:
+ *   showFileMode()             — vai pra 'verilog' (a view de
+ *                                 arquivos do projeto)
+ *   showHierarchyMode()        — vai pra hierarchy (no-op se
+ *                                 nao ha hierarchyData)
  *   isShowingHierarchy()
  *   isShowingFileMode()
- *   setHierarchyData(data)     — compile flow tells us hierarchy
- *                                 data exists (or is gone)
+ *   setHierarchyData(data)     — compile flow avisa que ha (ou
+ *                                 nao ha mais) hierarchy data
  *   getHierarchyData()
- *   registerRenderer(name, fn) — view registers its render function
+ *   registerRenderer(name, fn) — view registra sua render fn
  *
- * Single click listener path:
- *   user clicks toggle → controller decides direction based on
- *   isShowingHierarchy() → calls showHierarchyMode() or
- *   showFileMode() → setActive(name) on tree_view + invokes the
- *   registered renderer. No other code path mutates the active
- *   view.
+ * Path de um clique: user clica toggle → controller decide direcao
+ * via isShowingHierarchy() → chama showHierarchyMode() ou
+ * showFileMode() → setActive(name) no tree_view + invoca o renderer
+ * registrado. Nenhum outro caminho muta a active view.
  */
 
 import { treeView } from './tree_view.js';
@@ -80,9 +72,9 @@ class FileTreeViewController {
     }
 
     /**
-     * Flip to the file-mode view. FASE 2.5: modo unico — sempre o
-     * verilog picker. O renderer 'standard' continua registrado pra
-     * compat com codigo que invoca _showView('standard') direto.
+     * Flip pra view de arquivos. Modo unico → sempre o verilog
+     * picker. O renderer 'standard' continua registrado pra compat
+     * com codigo legado que invoca _showView('standard') direto.
      */
     showFileMode() {
         this._showView('verilog');

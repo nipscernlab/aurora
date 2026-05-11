@@ -1,5 +1,47 @@
 /* eslint-disable no-undef */
 // statusUpdater, refreshFileTree, checkCancellation, startCompilation, endCompilation are global
+/**
+ * compilation_module.js — toolchain orchestrator (renderer side).
+ *
+ * Expoe a classe CompilationModule, que e o "backend" dos botoes
+ * disparados em compilation_flow.js. Cada metodo publico corresponde
+ * a uma etapa da pipeline:
+ *
+ *   loadConfig()            le projectOriented.json em this.projectConfig
+ *   ensureDirectories(name) cria components/Temp/<name>
+ *   cmmCompilation(proc)    cmmcomp.exe -> Software/<proc>.asm + cmm_log.txt
+ *   asmCompilation(proc, ...)
+ *                           appcomp + asmcomp -> Hardware/<proc>.v +
+ *                           pc_<proc>_mem.txt + Simulation/<proc>_tb.v
+ *   iverilogCompile({ buildVvp })
+ *                           iverilog -tnull (check + hierarquia) OU
+ *                           iverilog -o <sim>.vvp (pra simulacao)
+ *   runGtkWave()            8-fase pipeline _wave* — pre-compila vvp,
+ *                           roda vvp, abre gtkwave (ver §9 de
+ *                           ARCHITECTURE.md)
+ *
+ * Decisoes de design (post-2026-05):
+ *
+ *   1. Pipeline unico — sem branches "tem processador?". For-loops
+ *      sobre processors[] sao no-op quando o array e vazio
+ *      (projeto verilog puro). Branches estruturais foram
+ *      removidos na fase 3.
+ *
+ *   2. projectOriented.json e a unica fonte de config. O
+ *      processorConfig.json legado saiu na fase 4 — defaults pra
+ *      clk/numClocks/cmmFile estao hardcoded em precompileAllProcessors
+ *      (compilation_flow.js).
+ *
+ *   3. synthesizableFiles[] (populado pelo file tree) ja inclui os
+ *      .v dos processadores. -y components/HDL e sempre adicionado
+ *      pra resolver a biblioteca SAPHO (processor.v, ula.v,
+ *      myFIFO.v, etc) sem o usuario precisar listar.
+ *
+ *   4. runGtkWave esta dividido em 8 fases _wave*. Cada fase tem
+ *      JSDoc com inputs/returns/throws/side-effects. Mudancas de
+ *      comportamento da wave-flow pertencem dentro de uma fase. Ver
+ *      ARCHITECTURE.md §9 pro racional.
+ */
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
@@ -515,14 +557,21 @@ async loadConfig() {
         return processor.cmmFile;
     }
 
+    /**
+     * Resolve qual testbench o asmCompilation vai copiar pra
+     * <proj>/<proc>/Simulation/. Duas formas:
+     *
+     *   - processor.testbenchFile e um path absoluto → usa direto
+     *     (testbench custom, salvo pelo projectOriented.json).
+     *   - caso contrario → convencao "<cmmBase>_tb.v" dentro de
+     *     <proj>/<proc>/Simulation/ (testbench auto-gerado pelo
+     *     asmcomp).
+     */
     async getTestbenchInfo(processor, cmmBaseName) {
         let tbModule, tbFile;
         const testbenchFilePath = processor.testbenchFile;
 
         if (testbenchFilePath && testbenchFilePath !== 'standard') {
-            // FASE 2: branch Processor Mode (caminho relativo a
-            // <proj>/<proc>/Simulation) deletado — Project Mode usa
-            // path absoluto direto do projectOriented.testbenchFile.
             tbFile = testbenchFilePath;
             const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop();
             tbModule = tbFileName.replace(/\.v$/i, '');
@@ -1989,17 +2038,6 @@ switchToHierarchicalView() {
     this.terminalManager.appendToTerminal('tveri',
         'Switched to hierarchical module view', 'info');
 }
-/**
- * Get current IDE mode — 'processor' or 'project'. Delegates to
- * AppInitializer when available; falls back to reading the radios for
- * the early-startup window.
- */
-getCurrentMode() {
-    // FASE 1: lockado em 'project'. Ver comentario em
-    // app_initializer.getCurrentMode().
-    return 'project';
-}
-
     updateToggleButton(isHierarchical) {
         const toggleButton = document.getElementById('alternate-tree-toggle');
         if (!toggleButton) return;

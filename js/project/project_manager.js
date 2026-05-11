@@ -149,9 +149,11 @@ async function loadProject(spfPath) {
         updateProjectNameUI(projectData, spfPath);
         await TabManager.closeAllTabs();
 
-        // FASE 2.5: modo unico (Project Mode). A tree e sempre sourced
-        // de projectOriented.json via verilogTreeManager — o branch de
-        // Processor Mode (que populava direto do listing) foi removido.
+        // Tree e sempre populada de projectOriented.json via
+        // verilogTreeManager. A coalescencia interna em
+        // activateVerilogMode garante que isso + a chamada de
+        // fileTreeManager.initializeTreeBasedOnMode nao gerem duplo
+        // loadConfiguration (ver ARCHITECTURE.md §6).
         if (window.verilogTreeManager) {
             await window.verilogTreeManager.activateVerilogMode();
         }

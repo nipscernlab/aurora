@@ -129,11 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // directly so the storage shape stays owned by one module.
                 window.appInitializer?.clearLastProject?.();
 
-                // Reset Verilog Mode so reopening triggers a full re-activate
-                // (loads projectOriented.json fresh, picks up files outside
-                // the project folder). Without this, isVerilogTreeActive
-                // stays true and the next activate hits the early-return
-                // branch.
+                // Reset do verilog tree pra que reabrir dispare um
+                // re-activate full (le projectOriented.json fresco,
+                // pega arquivos fora da pasta do projeto). Sem isso,
+                // isVerilogTreeActive fica true e o proximo activate
+                // cai no early-return.
                 window.verilogTreeManager?.reset?.();
 
                 window.SplitEditorManager?.refreshLayout?.();

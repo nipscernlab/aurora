@@ -141,48 +141,21 @@
     </div>
     <div class="toolbar-separator" aria-hidden="true"></div>
 
-    <!-- Group 5: mode toggle, build, the rest. Pushed against the
-         right edge so the window controls hug the corner.
-
-         FASE 1 da elimicacao dos 3 modos: o toggle-group esta escondido
-         (display:none) e o radio "Project Mode" pre-marcado. Codigo
-         legado que le `getElementById('Project Mode').checked` continua
-         funcionando — ele sempre retorna true agora. Fases seguintes
-         vao deletar o markup e os listeners de mode. -->
+    <!-- Group 5: cancel + Full Build + Settings. Pushed against the
+         right edge so the window controls hug the corner. Full Build
+         e Settings ficam escondidos (display:none) hoje — mantidos no
+         DOM pra nao quebrar listeners legados. -->
     <div class="toolbar-group toolbar-group-rest">
-        <div class="toggle-group" style="display:none">
-            <input type="radio" name="mode" id="Processor Mode" value="Processor Mode" />
-            <label for="Processor Mode" class="mode-label mode-label-proc" data-tooltip="Processor Mode">
-                <i class="ph ph-cpu mode-label-icon"></i>
-            </label>
-            <input type="radio" name="mode" id="Project Mode" value="Project Mode" checked />
-            <label for="Project Mode" class="mode-label mode-label-proj" data-tooltip="Project Mode">
-                <i class="ph ph-tree-structure mode-label-icon"></i>
-            </label>
-        </div>
-
         <div class="compile-all-group">
             <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
                 <i class="ph ph-stop-circle"></i>
             </button>
-            <!-- FASE 1 da elimicacao dos 3 modos: o botao Full Build
-                 disparava runAll() que era mode-dependent (processor
-                 pipeline vs project pipeline). Escondido por enquanto
-                 — pode voltar como uma versao unica + simplificada se
-                 fizer sentido depois. Listeners legacy continuam vivos
-                 porque o elemento existe; fases seguintes removem
-                 markup + listeners. -->
             <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" style="display:none">
                 <i class="ph ph-hammer"></i>
                 <span>Full Build</span>
             </button>
         </div>
 
-        <!-- FASE 1/4: botao Settings escondido. Era usado pra abrir
-             modais de Processor/Project Settings — modal de Processor
-             foi removido na fase 4. Elemento mantido pra nao quebrar
-             listeners legados que fazem getElementById('settings') sem
-             null-check. -->
         <button id="settings" class="toolbar-button btn-settings" style="display:none">
             <i class="ph ph-gear-six"></i>
             <span>Settings</span>
@@ -458,9 +431,8 @@
         </div>
         <div class="status-item" id="compmode">
             <i class="ph ph-code"></i>
-            <!-- Filled in by ui_state.handleModeChange on first paint
-                 (Project Mode by default). Empty here so a brief flash
-                 of stale text doesn't show before JS runs. -->
+            <!-- Preenchido por ui_state.js na primeira pintura. Vazio
+                 aqui pra evitar flash de texto stale antes do JS rodar. -->
             <span id="compmode-text"></span>
         </div>
     </div>
@@ -486,18 +458,13 @@
      MODALS
      ============================================================ -->
 
-<!-- FASE 4: modalProcessorConfig (Processor Configuration legacy)
-     removido. Editor per-processador de cmmFile/clk/numClocks foi
-     descontinuado junto com processorConfig.json — defaults hardcoded
-     em precompileAllProcessors (clk=100, numClocks=2000, cmmFile=`${proc}.cmm`). -->
-
 <!-- Project Configuration Modal -->
 <div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
     <div class="modal-container medium" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
         <header class="modal-header">
             <h2 id="project-modal-title" class="modal-title">
                 <i class="ph ph-gear" aria-hidden="true"></i>
-                <span>Project Mode Settings</span>
+                <span>Project Settings</span>
             </h2>
             <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
                 <i class="ph ph-x" aria-hidden="true"></i>

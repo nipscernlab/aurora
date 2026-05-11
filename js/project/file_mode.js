@@ -1,8 +1,22 @@
 /**
- * =====================================================================================
- * Aurora IDE - Verilog Mode File Manager
- * Handles Verilog Mode file tree reading directly from projectOriented.json
- * =====================================================================================
+ * file_mode.js — VerilogTreeManager.
+ *
+ * Renderiza a "verilog picker tree" — a unica vista de arquivos que
+ * Aurora mostra hoje. O nome "VerilogTreeManager" / "Verilog Mode"
+ * vem da epoca de 3 modos; hoje e simplesmente o file tree do
+ * projeto, listando arquivos a partir de projectOriented.json
+ * (synthesizableFiles + testbenchFiles + gtkwFiles + per-proc
+ * Software/Hardware/Simulation).
+ *
+ * Pontos de entrada externos:
+ *   activateVerilogMode()   — chamada por projectManager.loadProject
+ *                             e por fileTreeManager.initializeTreeBasedOnMode.
+ *                             Coalescida via _activatePromise (ver
+ *                             ARCHITECTURE.md §6).
+ *   refreshVerilogTree()    — re-le projectOriented.json e re-renderiza
+ *                             (idempotente; key-based reconciler).
+ *   deactivateVerilogMode() — esconde a tree. Usada hoje so em
+ *                             close_project.
  */
 
 import { TabManager } from '../tabs/tab_manager.js';
@@ -56,28 +70,22 @@ class VerilogTreeManager {
         this.initPromise = this.init();
     }
     
-    /**
-     * Initialize the Verilog Mode Manager
-     */
     async init() {
         try {
-            // Wait for DOM to be fully ready
             if (document.readyState === 'loading') {
                 await new Promise(resolve => {
                     document.addEventListener('DOMContentLoaded', resolve, { once: true });
                 });
             }
-            
             this.cacheElements();
             this.setupEventListeners();
-            // Styles live in css/tree/verilog_tree.css now — they used to be
-            // injected at runtime via injectStyles(), which created two
-            // problems: a third .confirm-modal definition that fought with
-            // the canonical one, and a 600+ line CSS literal that couldn't
-            // be edited without touching JS.
-            console.log('✅ Verilog Mode Manager initialized successfully');
+            // Estilos vivem em css/tree/verilog_tree.css — antes eram
+            // injetados em runtime via injectStyles(), o que criava uma
+            // terceira definicao de .confirm-modal que brigava com a
+            // canonica.
+            console.log('✅ VerilogTreeManager initialized');
         } catch (error) {
-            console.error('❌ Failed to initialize Verilog Mode Manager:', error);
+            console.error('❌ Failed to initialize VerilogTreeManager:', error);
         }
     }
 
@@ -95,13 +103,11 @@ class VerilogTreeManager {
         console.log('📦 Cached elements:', { fileTree: !!this.elements.fileTree });
     }
 
-    /**
-     * Setup event listeners
-     */
     setupEventListeners() {
-        // FASE 2: o file tree do projeto sempre usa o verilog picker.
-        // Antes havia ramificacao Processor Mode (folder tree) vs Project
-        // Mode (picker); modo unico agora, listener de radio removido.
+        // Project Mode unico: file tree e sempre o verilog picker.
+        // Atalho do construtor pra primeira pintura — chamadas
+        // subsequentes vem via projectManager.loadProject e
+        // fileTreeManager.initializeTreeBasedOnMode (coalescidas).
         this.activateVerilogMode();
 
         // Project modal saves write projectOriented.json. The modal's own
@@ -527,15 +533,16 @@ class VerilogTreeManager {
     }
     
     /**
-     * Activate Verilog Mode
+     * Ativa o verilog picker tree
      */
    async activateVerilogMode() {
         // Coalesce concurrent activations. Session-restore fires us from TWO
-        // paths in the same tick (mode-state-changed via syncFromState AND
-        // app_initializer.switchToVerilogFileMode). Without this guard, both
-        // run loadConfiguration() in parallel — each does `verilogFiles = []`
-        // then awaits, so call B's reset wipes call A's pushes mid-iteration
-        // and the surviving entries end up duplicated in the picker.
+        // paths in the same tick (projectManager.loadProject AND
+        // fileTreeManager.initializeTreeBasedOnMode). Sem este guard,
+        // ambos rodam loadConfiguration() em paralelo — cada um faz
+        // `verilogFiles = []` e aguarda I/O, entao o reset da chamada B
+        // limpa os pushes da chamada A em meio de iteracao e as entries
+        // sobreviventes terminam duplicadas no picker.
         if (this._activatePromise) return this._activatePromise;
 
         this._activatePromise = (async () => {
@@ -554,7 +561,7 @@ class VerilogTreeManager {
                 return;
             }
 
-            console.log('🚀 Activating Verilog Mode...');
+            console.log('🚀 Activating Verilog tree...');
 
             // Discover the project path if loadProject hasn't run yet (rare
             // — happens on app startup when restoreLastSession is mid-flight).
@@ -606,7 +613,7 @@ class VerilogTreeManager {
             // drives the toggle button's label and click direction.
             window.fileTreeViewController?.showFileMode?.();
 
-            console.log('✅ Verilog Mode activated with', this.verilogFiles.length, 'files');
+            console.log('✅ Verilog tree active with', this.verilogFiles.length, 'files');
         })();
 
         try {
@@ -629,31 +636,29 @@ class VerilogTreeManager {
     }
     
     /**
-     * Deactivate Verilog Mode
+     * Deactivate the Verilog tree (volta pra view "standard" — folder
+     * listing direto). Hoje so e chamada por close_project; o resto
+     * do fluxo assume verilog tree sempre ativa.
      */
     deactivateVerilogMode() {
         if (!this.isVerilogTreeActive) {
             return;
         }
-        
-        console.log('🛑 Deactivating Verilog Mode...');
 
+        console.log('🛑 Deactivating Verilog tree...');
         this.isVerilogTreeActive = false;
 
-        // Switch the active view back to standard. Our verilog
-        // subcontainer keeps its rows in DOM but is display:none — so
-        // re-activating later is a single attribute change with the
-        // existing rows already there. No wipe needed.
+        // Switch the active view back to standard. Nosso verilog
+        // subcontainer mantem suas rows no DOM mas com display:none —
+        // reativar depois e uma mudanca de atributo, com rows ja la.
         window.treeView?.setActive('standard');
-
-        // Trigger standard file tree refresh
         document.dispatchEvent(new Event('refresh-file-tree'));
-        
-        console.log('✅ Verilog Mode deactivated - standard tree restored');
+
+        console.log('✅ Verilog tree deactivated — standard tree restored');
     }
     
     /**
-     * Render Verilog Mode tree into the dedicated `.tree-view-verilog`
+     * Renderiza a verilog picker tree no subcontainer `.tree-view-verilog`
      * subcontainer. CSS shows only the active subcontainer based on
      * `#file-tree[data-active-view]`, so the standard tree and
      * hierarchical view living in their own subcontainers can't
@@ -1609,7 +1614,7 @@ async loadConfiguration() {
     }
 }
     /**
-     * Refresh Verilog Mode tree
+     * Re-le projectOriented.json e re-renderiza
      */
     async refreshVerilogTree() {
         // Same coalescing pattern as activateVerilogMode: two refresh calls
@@ -1625,7 +1630,7 @@ async loadConfiguration() {
         if (this._refreshPromise) return this._refreshPromise;
 
         this._refreshPromise = (async () => {
-            console.log('🔄 Refreshing Verilog Mode tree...');
+            console.log('🔄 Refreshing Verilog tree...');
             await this.loadConfiguration();
             this.renderVerilogTree();
         })();

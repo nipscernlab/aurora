@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * Project lifecycle (open/close/create) e processor CRUD.
+ * Project lifecycle (open/close/create) e processor CRUD (main process).
  *
- * FASE 4: per-project config legado (processorConfig.json) foi
- * eliminado — projectOriented.json e canonico, gerenciado pelo
- * ProjectConfigStore no renderer.
+ * Per-project config: projectOriented.json e a fonte canonica, mas
+ * a leitura/escrita acontece no renderer via ProjectConfigStore —
+ * este modulo nao mexe nesse arquivo.
  */
 
 const path = require('path');
@@ -383,12 +383,6 @@ void main()
     }
   });
 
-  // FASE 4: IPC handlers save-config / load-config-from-path removidos
-  // junto com processorConfig.json. Schema do legado (processors[] com
-  // cmmFile/clk/numClocks/isActive, iverilogFlags array, cmmCompFlags,
-  // asmCompFlags, testbenchFile='standard', gtkwFile='standard') agora
-  // vive em projectOriented.json (acessivel via ProjectConfigStore)
-  // ou foi descartado (defaults hardcoded em precompileAllProcessors).
 }
 
 module.exports = { register, ProjectFile, updateProjectState };

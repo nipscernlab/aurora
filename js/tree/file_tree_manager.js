@@ -228,18 +228,20 @@ function renderFileTree(files, container, level = 0, processor = null) {
         return;
     }
 
-    // --- NOVA LÓGICA DE FILTRAGEM (MANTIDA DA VERSÃO NOVA) ---
+    // Filtra arquivos que nao devem aparecer na tree:
+    //   - projectOriented.json — config canonica do projeto (gerenciada
+    //     pela UI, nao pelo usuario direto)
+    //   - processorConfig.json — config legado descontinuado; Aurora
+    //     nao le mais mas projetos antigos podem ter o arquivo
+    //   - fileOriented.json — outro config historico
+    //   - .* (dotfiles)
+    //   - .spf (arquivo de projeto raiz)
     const filteredFiles = files.filter(file => {
         if (file.type === 'directory') return true;
-        
-        // processorConfig.json mantido na lista pra projetos legados
-        // que ainda tem o arquivo em disco (Aurora nao le mais — fase 4
-        // — mas tambem nao apaga). Sem isso ele apareceria na tree.
         const ignoredFiles = ['projectOriented.json', 'processorConfig.json', 'fileOriented.json'];
-        
-        return !file.name.startsWith('.') && 
-               !ignoredFiles.includes(file.name) && 
-               !file.name.endsWith('.spf');
+        return !file.name.startsWith('.')
+            && !ignoredFiles.includes(file.name)
+            && !file.name.endsWith('.spf');
     });
 
     // Ordenação (Diretórios primeiro, depois alfabético)
@@ -573,22 +575,19 @@ class FileTreeManager {
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
             if (TreeViewState.isHierarchical) return;
-            // FASE 2: Project Mode unico — sempre o verilog picker.
             window.verilogTreeManager?.refreshVerilogTree();
         });
 
-        // Hierarchy toggle is owned by file_tree_view_controller.js —
-        // a single click listener installed there handles the
-        // file ↔ hierarchy flip. Don't re-attach here; two listeners
-        // on the same button stomped on each other before this
-        // controller existed.
+        // Hierarchy toggle e owned por file_tree_view_controller.js —
+        // um unico click listener instalado la cuida do flip file ↔
+        // hierarchy. Nao re-attachar aqui; ja tivemos dois listeners
+        // brigando no mesmo botao.
 
         window.electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
-            // FASE 2: Project Mode unico — verilog picker e o unico
-            // file tree. Re-le projectOriented.json pra pegar processor
-            // creation/deletion que rewrita o arquivo.
+            // Re-le projectOriented.json pra pegar processor creation/
+            // deletion que reescreve o arquivo.
             window.verilogTreeManager?.refreshVerilogTree?.();
         });
         
@@ -606,10 +605,17 @@ class FileTreeManager {
         this.initializeTreeBasedOnMode();
     }
 
+    /**
+     * Primeira pintura da tree. Espera um tick pra DOM listeners +
+     * AppInitializer assentarem, depois dispara o verilog picker.
+     *
+     * O nome "initializeTreeBasedOnMode" e historico (era um branch
+     * sobre IDE mode). Modo unico hoje — chama activateVerilogMode
+     * direto. A coalescencia em activateVerilogMode garante que isso
+     * + projectManager.loadProject nao gerem duplo loadConfiguration.
+     */
     async initializeTreeBasedOnMode() {
-        // Wait a tick for DOM listeners (and AppInitializer) to settle.
         await new Promise(resolve => setTimeout(resolve, 100));
-        // FASE 2: so existe Project Mode — sempre ativa o verilog picker.
         if (window.verilogTreeManager) {
             await window.verilogTreeManager.activateVerilogMode();
         }
@@ -638,8 +644,6 @@ class FileTreeManager {
         });
     }
     
-// FASE 2: getCurrentMode() removida — modo unico (Project).
-
 toggleHierarchyView() {
     // Delegate to the file-tree view controller — it owns the
     // toggle button and the view-switch state. Kept this stub so

@@ -190,20 +190,8 @@ describe('Aurora E2E — edit flow', () => {
       } catch (_e) { /* original IPC may have already loaded it */ }
     }, fixture.spfPath);
 
-    // Force Project Mode. On a fresh userDataDir (always on CI) Aurora
-    // boots into Processor Mode by default; with no processors in the
-    // fixture, the standard file tree stays empty and the verilog
-    // picker tree never renders. Locally this passes only because
-    // dev userDataDir has `aurora-last-mode = 'project'` cached.
-    // Clicking the radio fires its change event which AppInitializer
-    // listens to → switchToMode('project') → renderVerilogTree().
-    await window.evaluate(() => {
-      const radio = document.getElementById('Project Mode');
-      if (radio && !radio.checked) {
-        radio.checked = true;
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
+    // Mode toggle saiu em 2026-05 (modo unico). Aurora abre direto
+    // no verilog picker; nao ha mais radio pra clicar.
 
     // Wait for the project tree to render at least one item. Use
     // waitForSelector so we don't fall into the same (fn, options)

@@ -117,9 +117,9 @@ setupEventListeners() {
     this.elements.addProcessorBtn?.addEventListener('click', () => this.addProcessorRow());
     this.elements.processorsList?.addEventListener('click', (e) => this.handleProcessorListClick(e));
     
-    // Settings button — FASE 2.5: modo unico, sempre abre o Project
-    // Configuration Modal. O botao em si esta escondido na toolbar
-    // mas o listener fica caso a entrada volte via command palette.
+    // Settings button — abre o Project Configuration Modal. O botao
+    // em si esta escondido na toolbar; listener fica caso a entrada
+    // volte via command palette ou shortcut.
     this.elements.settingsButton?.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();

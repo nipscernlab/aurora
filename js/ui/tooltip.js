@@ -91,11 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'close-button': 'Close the current project and return to the welcome screen.',
         'toggle-file-tree': 'Collapse or expand all folders in the file tree.',
         'clear-search': 'Clear the current file search query.',
-        // FASE 4: tooltips do modalProcessorConfig (closeModal,
-        // deleteProcessor, saveConfig, cancelConfig, processorSelect,
-        // cmmFileSelect, processortestbenchSelect, processorClk,
-        // processorNumClocks, processorSimulTime, processorgtkwaveSelect,
-        // showArraysInGtkwave per-proc) removidos — modal foi descontinuado.
         'closeProjectModal': 'Close the project configuration modal without saving changes.',
         'saveProjectConfig': 'Save the current project configuration settings.',
         'cancelProjectConfig': 'Cancel and discard any changes made to the project configuration.',

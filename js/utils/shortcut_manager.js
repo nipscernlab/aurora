@@ -5,9 +5,9 @@
 (() => {
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
 
-    // FASE 1 da elimicacao dos 3 modos: 'compileAll' (Ctrl+Shift+B) e
-    // 'openSettings' (Ctrl+Shift+C) removidos. Os botoes correspondentes
-    // (allcomp, settings) foram escondidos por serem mode-dependent.
+    // Shortcuts pra 'compileAll' (Ctrl+Shift+B) e 'openSettings'
+    // (Ctrl+Shift+C) sairam quando os botoes correspondentes (allcomp,
+    // settings) viraram dead UI.
     const defaultShortcuts = {
         'closeTab': { ctrlKey: true, shiftKey: false, altKey: false, key: 'W' },
         'reopenTab': { ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },

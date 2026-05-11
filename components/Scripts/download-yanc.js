@@ -3,9 +3,19 @@
  * Aurora IDE - YANC compiler bootstrap
  *
  * Baixa yanc-bin-vX.zip do release pinado em
- * github.com/nipscernlab/yanc e extrai os .exes (cmmcomp, asmcomp,
- * appcomp, comp2gtkw) em components/bin/. Roda no prestart, depois do
- * download do toolchain principal e antes do copy-components.
+ * github.com/nipscernlab/yanc e extrai em components/. O zip contem:
+ *   - bin/  (cmmcomp.exe, asmcomp.exe, appcomp.exe, comp2gtkw.exe)
+ *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
+ *            myFIFO.v — bibliotecas verilog do toolchain SAPHO, v2+)
+ *   - Macros/ (Sin_LUT.txt, Arctan_LUT.txt, float_*.asm — LUTs e
+ *              helpers de ponto flutuante, v2+)
+ *
+ * Scripts/ NAO esta incluso porque o components/Scripts/ do Aurora
+ * mistura scripts SAPHO com scripts proprios de build (este aqui,
+ * copy-components.js, etc.) — overwrite wholesale quebraria o build.
+ *
+ * Roda no prestart, depois do download do toolchain principal e antes
+ * do copy-components.
  *
  * Padrao seguido do download-toolchain.js — mesma logica de download
  * com retry de redirect, fallback PowerShell -> 7-Zip, e exit 0 em

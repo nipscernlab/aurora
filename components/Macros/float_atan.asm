@@ -1,94 +1,58 @@
 
 // Funcao arco-tangente -------------------------------------------------------
 
-@float_atan                 SET   my_atan_x              // pega parametro x
+#arrays atan_lut 2 49 "$Arctan_LUT.txt"
 
-                          F_ABS_M my_atan_x              // float ax = abs(x);
-                            SET   my_atan_ax
+@float_atan SET   atan_x
 
-                            LOD   my_atan_ax             // if (ax == 0.0) return 0.0;
-                          P_LOD   0.0
-                          S_EQU
-                            JIZ   L1else_atan
-                            LOD   0.0
-                            RET
+         PF_ABS_M atan_x          // testa se vai usar x ou 1/x
+          F_LES   1.0
+            JIZ   L_atan
 
-@L1else_atan                LOD   my_atan_ax             // if (ax > 1.02) return sign(x, 1.5707963268) - my_atan(1.0/x);
-                          P_LOD   1.02
-                         SF_GRE
-                            JIZ   L2else_atan
-                            LOD   1.5707963268
-                          F_SGN   my_atan_x
-                          P_LOD   my_atan_x
-                          F_DIV   1.0
-                            CAL   float_atan
-                          F_NEG
-                         SF_ADD
-                            RET
+          F_ABS_M atan_x          // branch de 1/x
+          F_DIV   47.0
+            SET   atan_idxf       // calcula posicao em x
 
-@L2else_atan                LOD   my_atan_ax             //if (ax > 0.98)
-                          P_LOD   0.98
-                         SF_GRE
-                            JIZ   L3else_atan
+            F2I
+            SET   atan_idx        // pega primeiro indice
 
-                          F_NEG_M 1.0                    // float xm1 = ax-1.0;
-                          F_ADD   my_atan_ax
-                            SET   my_atan_xm1
+            LDI   atan_lut
+            SET   atan_x          // pega primeiro valor y na tabeka
 
-                            LOD   my_atan_xm1            // return sign(x, 0.7853981634 + xm1*0.5 - xm1*xm1*0.25);
-                          F_MLT   0.5
-                          F_ADD   0.7853981634
-                          P_LOD   my_atan_xm1
-                          F_MLT   my_atan_xm1
-                          F_MLT   0.25
-                          F_NEG
-                         SF_ADD
-                          F_SGN   my_atan_x
-                            RET
+            LOD   atan_idx
+            ADD   1
+            LDI   atan_lut        // pega segundo valor y na tabela
 
-@L3else_atan                LOD   my_atan_x              // float termo = x;
-                            SET   my_atan_termo
+          F_SU1   atan_x          // faz a interpolacao linear
+          P_I2F_M atan_idx
+          F_SU2   atan_idxf
+         SF_MLT
+          F_ADD   atan_x
 
-                            LOD   my_atan_x              // float x2 = x*x;
-                          F_MLT   my_atan_x
-                            SET   my_atan_x2
+          F_ADD  -1.57079632679   // offset do branch 1/x
 
-                            LOD   my_atan_termo          // float resultado = termo;
-                            SET   my_atan_resultado
+         SF_SGN
+            RET
 
-                            LOD   my_atan_x2             // float tolerancia = 0.000008/x2;
-                          F_DIV   epsilon_taylor
-                            SET   my_atan_tolerancia
+@L_atan   F_ABS_M atan_x
+          F_MLT   47.0
+            SET   atan_idxf
 
-                            LOD   3                      // int indiceX = 3;
-                            SET   my_atan_indiceX
+            F2I
+            SET   atan_idx
 
-@L4_atan                  F_ABS_M my_atan_termo          // while ((abs(termo) > tolerancia) && (indiceX < 100))
-                          P_LOD   my_atan_tolerancia
-                          SF_GRE
-                          P_LOD   100
-                            LES   my_atan_indiceX
-                          S_LAN
-                            JIZ   L4end_atan
+            LDI   atan_lut
+            SET   atan_x
 
-                            NEG_M 2                      // termo = termo * (- x2 * (indiceX - 2)) / indiceX;
-                            ADD   my_atan_indiceX
-                            I2F
-                          F_MLT   my_atan_x2
-                          F_NEG
-                          F_MLT   my_atan_termo
-                          P_I2F_M my_atan_indiceX
-                         SF_DIV
-                            SET   my_atan_termo
+            LOD   atan_idx
+            ADD   1
+            LDI   atan_lut
+            
+          F_SU1   atan_x
+          P_I2F_M atan_idx
+          F_SU2   atan_idxf
+         SF_MLT
+          F_ADD   atan_x
 
-                            LOD   my_atan_resultado      // resultado = resultado + termo;
-                          F_ADD   my_atan_termo
-                            SET   my_atan_resultado
-
-                            LOD   my_atan_indiceX        // indiceX = indiceX + 2;
-                            ADD   2
-                            SET   my_atan_indiceX
-
-                            JMP   L4_atan
-@L4end_atan                 LOD   my_atan_resultado      // return resultado;
-                            RET
+         SF_SGN
+            RET

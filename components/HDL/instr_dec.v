@@ -145,7 +145,11 @@ module instr_dec
 	parameter  S_SRS   = 0,
 
     // operacoes especiais
-    parameter  F_ROT   = 0   // potencia de 2 mais proxima da raiz (com ACC)
+    parameter  F_ROT   = 0,   // potencia de 2 mais proxima da raiz com ACC
+    parameter  F_SU1   = 0,   // subtracao de ponto flutuante na entrada 1
+	parameter  F_SU2   = 0,   // subtracao de ponto flutuante na entrada 2
+    parameter SF_SU1   = 0,   // subtracao de ponto flutuante na entrada 1 com pilha
+    parameter SF_SU2   = 0    // subtracao de ponto flutuante na entrada 2 com pilha
 )(
 	input                   clk, rst,
 	input      [NBOPCO-1:0] opcode,
@@ -310,7 +314,11 @@ wire  wS_SRS  ; generate if ( S_SRS  ) assign  wS_SRS   = opcode == 7'd95; else 
 
 // operacoes especiais (pula o NOP) -------------------------------------------
 
-wire  wF_ROT  ; generate if ( F_ROT  ) assign  wF_ROT   = opcode == 7'd97; else assign   wF_ROT  = 1'b0; endgenerate
+wire  wF_ROT  ; generate if ( F_ROT  ) assign  wF_ROT   = opcode == 7'd97;  else assign   wF_ROT  = 1'b0; endgenerate
+wire  wF_SU1  ; generate if ( F_SU1  ) assign  wF_SU1   = opcode == 7'd98;  else assign   wF_SU1  = 1'b0; endgenerate
+wire  wF_SU2  ; generate if ( F_SU2  ) assign  wF_SU2   = opcode == 7'd99;  else assign   wF_SU2  = 1'b0; endgenerate
+wire wSF_SU1  ; generate if (SF_SU1  ) assign wSF_SU1   = opcode == 7'd100; else assign  wSF_SU1  = 1'b0; endgenerate
+wire wSF_SU2  ; generate if (SF_SU2  ) assign wSF_SU2   = opcode == 7'd101; else assign  wSF_SU2  = 1'b0; endgenerate
 
 // ----------------------------------------------------------------------------
 // circuitos de controle ------------------------------------------------------
@@ -347,14 +355,14 @@ endgenerate
 // circuito de controle de leitura da pilha de dados --------------------------
 
 generate
-if (               SET_P |    STI |     ISI |    POP |  S_ADD |  SF_ADD |  S_MLT |
-                SF_MLT   |  S_DIV |  SF_DIV |  S_MOD |  S_SGN |  SF_SGN |  S_AND |
-				 S_ORR   |  S_XOR |   S_LAN |  S_LOR |  S_LES |  SF_LES |  S_GRE |
-				SF_GRE   |  S_EQU |   S_SHL |  S_SHR |  S_SRS )
-     assign pop = wSET_P |   wSTI |    wISI |   wPOP | wS_ADD | wSF_ADD | wS_MLT |
-	           wSF_MLT   | wS_DIV | wSF_DIV | wS_MOD | wS_SGN | wSF_SGN | wS_AND |
-				wS_ORR   | wS_XOR |  wS_LAN | wS_LOR | wS_LES | wSF_LES | wS_GRE |
-			   wSF_GRE   | wS_EQU |  wS_SHL | wS_SHR | wS_SRS ;
+if (               SET_P |    STI |     ISI |    POP |  S_ADD |  SF_ADD |   S_MLT |
+                SF_MLT   |  S_DIV |  SF_DIV |  S_MOD |  S_SGN |  SF_SGN |   S_AND |
+				 S_ORR   |  S_XOR |   S_LAN |  S_LOR |  S_LES |  SF_LES |   S_GRE |
+				SF_GRE   |  S_EQU |   S_SHL |  S_SHR |  S_SRS |  SF_SU1 |  SF_SU2 )
+     assign pop = wSET_P |   wSTI |    wISI |   wPOP | wS_ADD | wSF_ADD |  wS_MLT |
+	           wSF_MLT   | wS_DIV | wSF_DIV | wS_MOD | wS_SGN | wSF_SGN |  wS_AND |
+				wS_ORR   | wS_XOR |  wS_LAN | wS_LOR | wS_LES | wSF_LES |  wS_GRE |
+			   wSF_GRE   | wS_EQU |  wS_SHL | wS_SHR | wS_SRS | wSF_SU1 | wSF_SU2 ;
 else assign pop = 1'b0   ;
 endgenerate
 
@@ -364,75 +372,83 @@ wire b5,b4,b3,b2,b1,b0;
 
 // logica pra b5
 generate
-if (              INV |    INV_M |  P_INV_M |     LAN |  S_LAN |    LOR |  S_LOR |     LIN |  LIN_M |  P_LIN_M |
-                  LES |  S_LES   |  F_LES   |  SF_LES |    GRE |  S_GRE |  F_GRE |  SF_GRE |  EQU   |  S_EQU   |
-                  SHL |  S_SHL   |    SHR   |   S_SHR |    SRS |  S_SRS |  F_ROT)
+if (              INV |    INV_M |  P_INV_M |     LAN |   S_LAN |    LOR |  S_LOR |     LIN |    LIN_M |  P_LIN_M |
+                  LES |  S_LES   |  F_LES   |  SF_LES |     GRE |  S_GRE |  F_GRE |  SF_GRE |    EQU   |  S_EQU   |
+                  SHL |  S_SHL   |    SHR   |   S_SHR |     SRS |  S_SRS |
+                F_ROT |  F_SU1   |  F_SU2   |  SF_SU1 |  SF_SU2 )
 
-     assign b5 = wINV |   wINV_M | wP_INV_M |    wLAN | wS_LAN |   wLOR | wS_LOR |    wLIN | wLIN_M | wP_LIN_M |
-                 wLES | wS_LES   | wF_LES   | wSF_LES |   wGRE | wS_GRE | wF_GRE | wSF_GRE | wEQU   | wS_EQU   |
-                 wSHL | wS_SHL   |   wSHR   |  wS_SHR |   wSRS | wS_SRS | wF_ROT ;
+     assign b5 = wINV |   wINV_M | wP_INV_M |    wLAN |  wS_LAN |   wLOR | wS_LOR |    wLIN |   wLIN_M | wP_LIN_M |
+                 wLES | wS_LES   | wF_LES   | wSF_LES |    wGRE | wS_GRE | wF_GRE | wSF_GRE |   wEQU   | wS_EQU   |
+                 wSHL | wS_SHL   |   wSHR   |  wS_SHR |    wSRS | wS_SRS |
+               wF_ROT | wF_SU1   | wF_SU2   | wSF_SU1 | wSF_SU2 ;
 else assign b5 = 1'b0 ;
 endgenerate
 
 // logica pra b4
 generate
-if (            F_INN   |  PF_INN  | 
-                  ABS_M |  P_ABS_M |  F_ABS |  F_ABS_M |  PF_ABS_M |
-                  PST   |    PST_M |  P_PST_M |  F_PST |  F_PST_M |  PF_PST_M |
-                  NRM   |    NRM_M |  P_NRM_M |
-                  I2F   |    I2F_M |  P_I2F_M |    F2I |    F2I_M |   P_F2I_M |
-                  AND   |  S_AND   |    ORR   |  S_ORR |    XOR   |   S_XOR   )
+if (              F_INN   |  PF_INN   | 
+                    ABS_M |  P_ABS_M  |  F_ABS   |  F_ABS_M |  PF_ABS_M |
+                    PST   |    PST_M  |  P_PST_M |  F_PST   |  F_PST_M  |  PF_PST_M |
+                    NRM   |    NRM_M  |  P_NRM_M |
+                    I2F   |    I2F_M  |  P_I2F_M |    F2I   |    F2I_M  |   P_F2I_M |
+                    AND   |  S_AND    |    ORR   |  S_ORR   |    XOR    |   S_XOR   |
+                  F_SU2   | SF_SU2    )
 
-     assign b4 = wF_INN   | wPF_INN  | 
-                   wABS_M | wP_ABS_M | wF_ABS   | wF_ABS_M | wPF_ABS_M |
-                   wPST   |   wPST_M | wP_PST_M | wF_PST   |  wF_PST_M | wPF_PST_M |
-                   wNRM   |   wNRM_M | wP_NRM_M |
-                   wI2F   |   wI2F_M | wP_I2F_M |   wF2I   |    wF2I_M |  wP_F2I_M |
-                   wAND   | wS_AND   |   wORR   | wS_ORR   |    wXOR   |  wS_XOR   ;
+     assign b4 = wF_INN   | wPF_INN   | 
+                   wABS_M |  wP_ABS_M | wF_ABS   | wF_ABS_M | wPF_ABS_M |
+                   wPST   |    wPST_M | wP_PST_M | wF_PST   |  wF_PST_M | wPF_PST_M |
+                   wNRM   |    wNRM_M | wP_NRM_M |
+                   wI2F   |    wI2F_M | wP_I2F_M |   wF2I   |    wF2I_M |  wP_F2I_M |
+                   wAND   |  wS_AND   |   wORR   | wS_ORR   |    wXOR   |  wS_XOR   |
+                 wF_SU2   | wSF_SU2   ;
 else assign b4 = 1'b0 ;
 endgenerate
 
 // logica pra b3
 generate
 if               (F_INN | PF_INN    |
-                    MOD |  S_MOD    |   SGN    |   S_SGN |  F_SGN   |  SF_SGN   |
-                    NEG |    NEG_M  |  P_NEG_M |   F_NEG |  F_NEG_M |  PF_NEG_M |
-                    ABS |    NRM_M  |  P_NRM_M |
-                    I2F |    I2F_M  |  P_I2F_M |     F2I |    F2I_M |   P_F2I_M |
-                    AND |  S_AND    |    ORR   |   S_ORR |    XOR   |   S_XOR   |
-                    GRE |  S_GRE    |  F_GRE   |  SF_GRE |    EQU   |   S_EQU   |
-                    SHL |  S_SHL    |    SHR   |   S_SHR |    SRS   |   S_SRS   |   F_ROT)
+                    MOD |  S_MOD    |    SGN    |   S_SGN |  F_SGN   |  SF_SGN   |
+                    NEG |    NEG_M  |   P_NEG_M |   F_NEG |  F_NEG_M |  PF_NEG_M |
+                    ABS |    NRM_M  |   P_NRM_M |
+                    I2F |    I2F_M  |   P_I2F_M |     F2I |    F2I_M |   P_F2I_M |
+                    AND |  S_AND    |     ORR   |   S_ORR |    XOR   |   S_XOR   |
+                    GRE |  S_GRE    |   F_GRE   |  SF_GRE |    EQU   |   S_EQU   |
+                    SHL |  S_SHL    |     SHR   |   S_SHR |    SRS   |   S_SRS   |
+                  F_ROT |  F_SU1    |  SF_SU1   )
 
      assign b3 = wF_INN | wPF_INN   | 
-                   wMOD |  wS_MOD   |   wSGN   |  wS_SGN | wF_SGN   | wSF_SGN   |
-                   wNEG |    wNEG_M | wP_NEG_M |  wF_NEG | wF_NEG_M | wPF_NEG_M |
-                   wABS |    wNRM_M | wP_NRM_M |
-                   wI2F |    wI2F_M | wP_I2F_M |    wF2I |   wF2I_M |  wP_F2I_M |
-                   wAND |  wS_AND   |   wORR   |  wS_ORR |   wXOR   |  wS_XOR   |
-                   wGRE |  wS_GRE   | wF_GRE   | wSF_GRE |   wEQU   |  wS_EQU   |
-                   wSHL |  wS_SHL   |   wSHR   |  wS_SHR |   wSRS   |  wS_SRS   |  wF_ROT;
+                   wMOD |  wS_MOD   |    wSGN   |  wS_SGN | wF_SGN   | wSF_SGN   |
+                   wNEG |    wNEG_M |  wP_NEG_M |  wF_NEG | wF_NEG_M | wPF_NEG_M |
+                   wABS |    wNRM_M |  wP_NRM_M |
+                   wI2F |    wI2F_M |  wP_I2F_M |    wF2I |   wF2I_M |  wP_F2I_M |
+                   wAND |  wS_AND   |    wORR   |  wS_ORR |   wXOR   |  wS_XOR   |
+                   wGRE |  wS_GRE   |  wF_GRE   | wSF_GRE |   wEQU   |  wS_EQU   |
+                   wSHL |  wS_SHL   |    wSHR   |  wS_SHR |   wSRS   |  wS_SRS   | 
+                 wF_ROT |  wF_SU1   | wSF_SU1   ;
 else assign b3 = 1'b0 ;
 endgenerate
 
 // logica pra b2
 generate
-if (              MLT   | S_MLT    |  F_MLT   |  SF_MLT   |
-                  DIV   | S_DIV    |  F_DIV   |  SF_DIV   |
-                  NEG_M | P_NEG_M  |  F_NEG   |   F_NEG_M |  PF_NEG_M |   ABS |
-                  PST_M | P_PST_M  |  F_PST   |   F_PST_M |  PF_PST_M |   NRM |
+if (              MLT   | S_MLT    |   F_MLT   |  SF_MLT   |
+                  DIV   | S_DIV    |   F_DIV   |  SF_DIV   |
+                  NEG_M | P_NEG_M  |   F_NEG   |   F_NEG_M |  PF_NEG_M |   ABS |
+                  PST_M | P_PST_M  |   F_PST   |   F_PST_M |  PF_PST_M |   NRM |
                   F2I_M | P_F2I_M  |
-                  AND   | S_AND    |    ORR   |   S_ORR   |     XOR   | S_XOR |
-                  LIN   |   LIN_M  |  P_LIN_M |     LES   |   S_LES   | F_LES |   SF_LES |
-                  SHR   | S_SHR    |    SRS   |   S_SRS   |   F_ROT   )
+                  AND   | S_AND    |     ORR   |   S_ORR   |     XOR   | S_XOR |
+                  LIN   |   LIN_M  |   P_LIN_M |     LES   |   S_LES   | F_LES |   SF_LES |
+                  SHR   | S_SHR    |     SRS   |   S_SRS   |
+                F_ROT   | F_SU1    |  SF_SU1   )
 
-     assign b2 = wMLT   | wS_MLT   | wF_MLT   | wSF_MLT   |
-                 wDIV   | wS_DIV   | wF_DIV   | wSF_DIV   |
-                 wNEG_M | wP_NEG_M | wF_NEG   |  wF_NEG_M | wPF_NEG_M |   wABS |
-                 wPST_M | wP_PST_M | wF_PST   |  wF_PST_M | wPF_PST_M |   wNRM |
+     assign b2 = wMLT   | wS_MLT   |  wF_MLT   | wSF_MLT   |
+                 wDIV   | wS_DIV   |  wF_DIV   | wSF_DIV   |
+                 wNEG_M | wP_NEG_M |  wF_NEG   |  wF_NEG_M | wPF_NEG_M |   wABS |
+                 wPST_M | wP_PST_M |  wF_PST   |  wF_PST_M | wPF_PST_M |   wNRM |
                  wF2I_M | wP_F2I_M |
-                 wAND   | wS_AND   |   wORR   |  wS_ORR   |    wXOR   | wS_XOR |
-                 wLIN   |   wLIN_M | wP_LIN_M |    wLES   |  wS_LES   | wF_LES | wSF_LES |
-                 wSHR   | wS_SHR   |   wSRS   |  wS_SRS   |  wF_ROT   ;
+                 wAND   | wS_AND   |    wORR   |  wS_ORR   |    wXOR   | wS_XOR |
+                 wLIN   |   wLIN_M |  wP_LIN_M |    wLES   |  wS_LES   | wF_LES | wSF_LES |
+                 wSHR   | wS_SHR   |    wSRS   |  wS_SRS   |
+               wF_ROT   | wF_SU1   | wSF_SU1   ;
 else assign b2 = 1'b0 ;
 endgenerate
 
@@ -450,7 +466,8 @@ if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
                   ORR |  S_ORR   |     XOR   |   S_XOR   |
                   LAN |  S_LAN   |     LOR   |   S_LOR   |
                   LES |  S_LES   |   F_LES   |  SF_LES   |
-                  EQU |  S_EQU   |     SHL   |   S_SHL   | F_ROT)
+                  EQU |  S_EQU   |     SHL   |   S_SHL   |
+                F_ROT |  F_SU1   |  SF_SU1   )
 
      assign b1 = wADD | wS_ADD   |  wF_ADD   | wSF_ADD   |
                  wDIV | wS_DIV   |  wF_DIV   | wSF_DIV   |
@@ -464,19 +481,20 @@ if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
                  wORR | wS_ORR   |    wXOR   |  wS_XOR   |
                  wLAN | wS_LAN   |    wLOR   |  wS_LOR   |
                  wLES | wS_LES   |  wF_LES   | wSF_LES   |
-                 wEQU | wS_EQU   |    wSHL   |  wS_SHL   | wF_ROT;
+                 wEQU | wS_EQU   |    wSHL   |  wS_SHL   |
+               wF_ROT | wF_SU1   | wSF_SU1   ;
 else assign b1 = 1'b0 ;
 endgenerate
 
 // logica pra b0
 generate
-if (              LOD |  P_LOD |  LDI   |    ILI   |    SET_P |     POP |  F_INN |  PF_INN |  F_ADD |  SF_ADD |  F_MLT |  SF_MLT |  F_DIV |   SF_DIV |    SGN   |  S_SGN |
-                  NEG |  F_NEG |  ABS   |  F_ABS   |    PST   |   F_PST |    NRM |     I2F |    F2I |     AND |  S_AND |     XOR |  S_XOR |    INV_M |  P_INV_M |
-                  LOR |  S_LOR |  LIN_M |  P_LIN_M |  F_LES   |  SF_LES |  F_GRE |  SF_GRE |    SHL |   S_SHL |    SRS |   S_SRS )
+if (              LOD |  P_LOD |  LDI   |    ILI   |    SET_P |     POP |  F_INN |  PF_INN |  F_ADD |  SF_ADD |  F_MLT |  SF_MLT |  F_DIV |  SF_DIV   |    SGN   |  S_SGN |
+                  NEG |  F_NEG |  ABS   |  F_ABS   |    PST   |   F_PST |    NRM |     I2F |    F2I |     AND |  S_AND |     XOR |  S_XOR |     INV_M |  P_INV_M |
+                  LOR |  S_LOR |  LIN_M |  P_LIN_M |  F_LES   |  SF_LES |  F_GRE |  SF_GRE |    SHL |   S_SHL |    SRS |   S_SRS |  F_SU1 |  SF_SU1   )
 
-     assign b0 = wLOD | wP_LOD | wLDI   |   wILI   |   wSET_P |    wPOP | wF_INN | wPF_INN | wF_ADD | wSF_ADD | wF_MLT | wSF_MLT | wF_DIV | wSF_DIV  |   wSGN   | wS_SGN |
-                 wNEG | wF_NEG | wABS   | wF_ABS   |   wPST   |  wF_PST |   wNRM |    wI2F |   wF2I |    wAND | wS_AND |    wXOR | wS_XOR |   wINV_M | wP_INV_M |
-                 wLOR | wS_LOR | wLIN_M | wP_LIN_M | wF_LES   | wSF_LES | wF_GRE | wSF_GRE |   wSHL |  wS_SHL |   wSRS |  wS_SRS ;
+     assign b0 = wLOD | wP_LOD | wLDI   |   wILI   |   wSET_P |    wPOP | wF_INN | wPF_INN | wF_ADD | wSF_ADD | wF_MLT | wSF_MLT | wF_DIV | wSF_DIV   |   wSGN   | wS_SGN |
+                 wNEG | wF_NEG | wABS   | wF_ABS   |   wPST   |  wF_PST |   wNRM |    wI2F |   wF2I |    wAND | wS_AND |    wXOR | wS_XOR |    wINV_M | wP_INV_M |
+                 wLOR | wS_LOR | wLIN_M | wP_LIN_M | wF_LES   | wSF_LES | wF_GRE | wSF_GRE |   wSHL |  wS_SHL |   wSRS |  wS_SRS | wF_SU1 | wSF_SU1   ;
 else assign b0 = 1'b0 ;
 endgenerate
 
@@ -584,4 +602,8 @@ endmodule
     95: ula_op  <= 6'd45;    //  S_SRS   -> Shift pra direita com sinal usando a pilha
     96: ula_op  <= 6'dx;     //    NOP   -> No Operation
     97: ula_op  <= 6'd46;    //  F_ROT   -> Raiz quadrada em ponto flutuante
+    98: ula_op  <= 6'd47;    //  F_SU1   -> subtracao em ponto flutuante com a memoria na entrada 1
+    99: ula_op  <= 6'd48;    //  F_SU2   -> subtracao em ponto flutuante com a memoria na entrada 2
+   100: ula_op  <= 6'd47;    // SF_SU1   -> subtracao em ponto flutuante com a pilha na entrada 1
+   101: ula_op  <= 6'd48;    // SF_SU2   -> subtracao em ponto flutuante com a pilha na entrada 2
     ------------------------------------------------*/

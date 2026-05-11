@@ -112,6 +112,8 @@ always @ (*) case (op)
 	6'd45  : out <=   srs ;   //   SRS
 
 	6'd46  : out <=   smx ;   // F_ROT
+	6'd47  : out <=   smx ;   // F_SU1
+	6'd48  : out <=   smx ;   // F_SU2
 
 	default: out <= {NUBITS{1'bx}};
 endcase
@@ -130,15 +132,16 @@ module ula_denorm
 	parameter MAN = 23,
 	parameter EXP =  8
 )(
-	 input            [MAN+EXP :0] in1, in2,
-	output reg signed [EXP-1   :0] e_out,
+	 input                            neg1, neg2,       // inverte o sinal
+	 input            [MAN+EXP :0]     in1,  in2,
+	output reg signed [EXP-1   :0]   e_out,
 	output reg signed [MAN     :0] sm1_out, sm2_out
 );
 
 // desempacota as entradas registradas ----------------------------------------
 
-wire                  s1_in = in1[MAN+EXP      ]; 
-wire                  s2_in = in2[MAN+EXP      ]; 
+wire                  s1_in = (neg1) ? ~in1[MAN+EXP] : in1[MAN+EXP]; 
+wire                  s2_in = (neg2) ? ~in2[MAN+EXP] : in2[MAN+EXP]; 
 wire signed [EXP-1:0] e1_in = in1[MAN+EXP-1:MAN];
 wire signed [EXP-1:0] e2_in = in2[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1_in = in1[MAN    -1:0  ];
@@ -248,7 +251,9 @@ always @ (*) case (op)
 	6'd7   : imux_out <=  fdiv ;   // F_DIV
 	6'd25  : imux_out <=   i2f ;   //   I2F
 	6'd26  : imux_out <=   i2fm;   //   I2F_M
-	6'd46  : imux_out <=   frot;   // F_ROT
+	6'd46  : imux_out <=  frot ;   // F_ROT
+	6'd47  : imux_out <=  fadd ;   // F_SU1 (usa o mesmo circuito de soma)
+	6'd48  : imux_out <=  fadd ;   // F_SU2 (usa o mesmo circuito de soma)
 	default: imux_out <= {NUBITS{1'bx}};
 endcase
 
@@ -938,7 +943,9 @@ module ula
 	parameter   SRS   = 0,
 	
 	// operacoes especiais
-	parameter  F_ROT  = 0)
+	parameter F_ROT   = 0,
+	parameter F_SU1   = 0,
+	parameter F_SU2   = 0)
 (
 	input         [       5:0] op,
 	input  signed [NUBITS-1:0] in1, in2,
@@ -947,10 +954,12 @@ module ula
 
 // circito de desnormalização de ponto flutuante ------------------------------
 
-wire signed [NBEXPO-1:0] e_out;             // expoente  normalizado
-wire signed [NBMANT  :0] sm1_out, sm2_out;  // mantissas normalizadas
+wire signed [NBEXPO-1:0] e_out;                       // expoente  normalizado
+wire signed [NBMANT  :0] sm1_out, sm2_out;            // mantissas normalizadas
+wire					 su1 = F_SU1 & (op == 6'd47); // inverte o sinal de in1 pra F_SU1
+wire                     su2 = F_SU2 & (op == 6'd48); // inverte o sinal de in2 pra F_SU2
 
-generate if (F_ADD | F_GRE | F_LES) ula_denorm #(NBMANT,NBEXPO) denorm(in1, in2, e_out, sm1_out, sm2_out); endgenerate
+generate if (F_ADD | F_SU1 | F_SU2 | F_GRE | F_LES) ula_denorm #(NBMANT,NBEXPO) denorm(su1, su2, in1, in2, e_out, sm1_out, sm2_out); endgenerate
 
 // ADD ------------------------------------------------------------------------
 
@@ -962,7 +971,7 @@ generate if (ADD) ula_add #(NUBITS) my_add(in1, in2, add); else assign add = {NU
 
 wire signed [NUBITS-1:0] fadd;
 
-generate if (F_ADD) ula_fadd #(NBMANT,NBEXPO) my_fadd(e_out, sm1_out, sm2_out, fadd); else assign fadd = {NUBITS{1'bx}}; endgenerate
+generate if (F_ADD | F_SU1 | F_SU2) ula_fadd #(NBMANT,NBEXPO) my_fadd(e_out, sm1_out, sm2_out, fadd); else assign fadd = {NUBITS{1'bx}}; endgenerate
 
 // MLT ------------------------------------------------------------------------
 
@@ -1226,7 +1235,7 @@ generate if (F_ROT) ula_frot #(NBMANT,NBEXPO) my_frot(in2, frot); else assign fr
 
 wire signed [NUBITS-1:0] smx;
 
-generate if (I2F | I2F_M | F_ADD | F_MLT | F_DIV | F_ROT) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(op, fadd, fmlt, fdiv, i2f, i2fm, frot, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
+generate if (I2F | I2F_M | F_ADD | F_SU1 | F_SU2 | F_MLT | F_DIV | F_ROT) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(op, fadd, fmlt, fdiv, i2f, i2fm, frot, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
 
 // mux principal --------------------------------------------------------------
 
@@ -1291,6 +1300,8 @@ always @ (*) begin
 		3      : delta_float = (r_in1 + r_in2) - r_out; // soma
 		5      : delta_float = (r_in1 * r_in2) - r_out; // multiplicacao
 		7      : delta_float = (r_in1 / r_in2) - r_out; // divisao
+		47	   : delta_float = (r_in2 - r_in1) - r_out; // subracao
+		48	   : delta_float = (r_in1 - r_in2) - r_out; // subracao
 		default: delta_float = 0;
 	endcase
 end

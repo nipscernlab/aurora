@@ -66,7 +66,6 @@ function isClickableModule(moduleName) {
  * @property {string} [topLevelModule]
  * @property {string} [svgPath]
  * @property {string} [tempDir]
- * @property {boolean} [isProjectOriented]
  */
 
 /** @param {PrismCompilationResult | null} [compilationData] */
@@ -182,14 +181,6 @@ async function runYosysCompilationWithPaths(
   compilationPaths,
   topLevelModule,
   tempDir,
-  // isProjectOriented e isProjectVerilogOnly mantidos na assinatura
-  // por compatibilidade com chamadores antigos, mas a coleta de
-  // arquivos virou unificada — sem ramos "processor mode" vs
-  // "project mode". Tudo que esta no synthesizableFiles entra no
-  // yosys, com componentes/HDL/*.v como library base. Os params
-  // sao prefixados com _ pra marcar que sao ignorados.
-  _isProjectOriented,
-  _isProjectVerilogOnly,
 ) {
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   const hdlPath = compilationPaths.hdlPath;
@@ -414,53 +405,22 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     const tempDir = compilationPaths.tempPath;
     await fse.ensureDir(tempDir);
 
-    // Renderer used to send 'project-simulation' / 'project-verilog-only'
-    // and 'processor'. After the Verilog-Mode merge it sends just
-    // 'project' or 'processor', and we infer the verilog-only branch
-    // from projectOriented.json itself: no processors → verilog-only.
-    // Old 'project-*' values are still accepted for back-compat with
-    // any callers that haven't been redeployed yet.
-    const compilationMode = compilationPaths.compilationMode || 'processor';
-    const isProjectOriented =
-      compilationMode === 'project'
-      || compilationMode === 'project-simulation'
-      || compilationMode === 'project-verilog-only';
-
-    let topLevelModule;
-    let isProjectVerilogOnly = compilationMode === 'project-verilog-only';
-
-    if (isProjectOriented) {
-      const projectConfigPath = compilationPaths.projectOrientedConfigPath;
-      if (!(await fse.pathExists(projectConfigPath))) {
-        throw new Error('projectOriented.json not found in project root');
-      }
-      const configData = await fse.readJson(projectConfigPath);
-      topLevelModule = path.basename(configData.topLevelFile, '.v');
-      // For the unified 'project' mode, decide verilog-only from
-      // configured processors. Empty list (or missing field) means
-      // there's nothing to instantiate from per-processor HDL — feed
-      // Yosys just the synthesizable .v files.
-      if (compilationMode === 'project') {
-        isProjectVerilogOnly = !Array.isArray(configData.processors)
-          || configData.processors.length === 0;
-      }
-    } else {
-      const processorConfigPath = compilationPaths.processorConfigPath;
-      if (!(await fse.pathExists(processorConfigPath))) {
-        throw new Error('processorConfig.json not found in project root');
-      }
-      const configData = await fse.readJson(processorConfigPath);
-      const activeProcessor = configData.processors.find((proc) => proc.isActive === true);
-      if (!activeProcessor) throw new Error('No active processor found in processorConfig.json');
-      topLevelModule = activeProcessor.name;
+    // FASE 2: branch Processor Mode (le active processor de
+    // processorConfig.json) eliminado. Top-level vem sempre de
+    // projectOriented.topLevelFile. runYosysCompilationWithPaths ja
+    // foi unificado tambem — os params isProjectOriented/
+    // isProjectVerilogOnly sao ignorados la dentro.
+    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
+    if (!(await fse.pathExists(projectConfigPath))) {
+      throw new Error('projectOriented.json not found in project root');
     }
+    const configData = await fse.readJson(projectConfigPath);
+    const topLevelModule = path.basename(configData.topLevelFile, '.v');
 
     const hierarchyJsonPath = await runYosysCompilationWithPaths(
       compilationPaths,
       topLevelModule,
       tempDir,
-      isProjectOriented,
-      isProjectVerilogOnly,
     );
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
 
@@ -485,7 +445,6 @@ async function performPrismCompilationWithPaths(compilationPaths) {
       topLevelModule,
       svgPath,
       tempDir,
-      isProjectOriented,
     };
   } catch (error) {
     log.error('PRISM compilation error:', error);

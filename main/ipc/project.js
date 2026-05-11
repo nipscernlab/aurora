@@ -1,11 +1,13 @@
 // @ts-check
 /**
- * Project lifecycle (open/close/create), processor CRUD, and per-project
- * config (processorConfig.json) load/save.
+ * Project lifecycle (open/close/create) e processor CRUD.
+ *
+ * FASE 4: per-project config legado (processorConfig.json) foi
+ * eliminado — projectOriented.json e canonico, gerenciado pelo
+ * ProjectConfigStore no renderer.
  */
 
 const path = require('path');
-const fs = require('fs').promises;
 const fse = require('fs-extra');
 const os = require('os');
 const { app, BrowserWindow, ipcMain } = require('electron');
@@ -48,11 +50,6 @@ function updateProjectState(window, projectPath, spfPath) {
       isOpen: !!projectPath,
     });
   }
-}
-
-function getProjectConfigPath(projectPath) {
-  if (!projectPath) throw new Error('Project path is required for configuration operations');
-  return path.join(projectPath, 'processorConfig.json');
 }
 
 function register() {
@@ -386,86 +383,12 @@ void main()
     }
   });
 
-  // ---- per-project config ----
-
-  ipcMain.handle('save-config', async (_event, data) => {
-    try {
-      if (!state.currentOpenProjectPath) throw new Error('No project is currently open');
-
-      const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
-      const projectData = JSON.parse(spfData);
-      const projectPath = projectData.structure.basePath;
-
-      // Ensure exactly one processor is active.
-      if (data.processors && data.processors.length > 0) {
-        let hasActive = false;
-        data.processors = data.processors.map((proc) => {
-          if (proc.isActive === true && !hasActive) {
-            hasActive = true;
-            return { ...proc, isActive: true };
-          }
-          return { ...proc, isActive: false };
-        });
-        if (!hasActive) data.processors[0].isActive = true;
-      }
-
-      const configFilePath = getProjectConfigPath(projectPath);
-      await fs.writeFile(configFilePath, JSON.stringify(data, null, 2));
-      return { success: true };
-    } catch (error) {
-      log.error('Failed to save configuration file:', error);
-      throw error;
-    }
-  });
-
-  ipcMain.handle('load-config-from-path', async (_event, configFilePath) => {
-    try {
-      try {
-        await fs.access(configFilePath);
-      } catch {
-        const defaultConfig = {
-          processors: [],
-          iverilogFlags: [],
-          cmmCompFlags: [],
-          asmCompFlags: [],
-          testbenchFile: 'standard',
-          gtkwFile: 'standard',
-        };
-        await fs.writeFile(configFilePath, JSON.stringify(defaultConfig, null, 2));
-        return defaultConfig;
-      }
-
-      const fileContent = await fs.readFile(configFilePath, 'utf-8');
-      const config = JSON.parse(fileContent);
-
-      config.processors = config.processors.map((proc, index) => {
-        let isActive = false;
-        if (proc.isActive !== undefined) {
-          isActive = proc.isActive === true || proc.isActive === 'true';
-        } else if (index === 0) {
-          isActive = true;
-        }
-        return { ...proc, isActive };
-      });
-
-      const hasActiveProcessor = config.processors.some((p) => p.isActive === true);
-      if (!hasActiveProcessor && config.processors.length > 0) {
-        config.processors[0].isActive = true;
-      }
-
-      return config;
-    } catch (error) {
-      log.error('Failed to read configuration file:', error);
-      return {
-        processors: [],
-        iverilogFlags: [],
-        cmmCompFlags: [],
-        asmCompFlags: [],
-        testbenchFile: 'standard',
-        gtkwFile: 'standard',
-      };
-    }
-  });
+  // FASE 4: IPC handlers save-config / load-config-from-path removidos
+  // junto com processorConfig.json. Schema do legado (processors[] com
+  // cmmFile/clk/numClocks/isActive, iverilogFlags array, cmmCompFlags,
+  // asmCompFlags, testbenchFile='standard', gtkwFile='standard') agora
+  // vive em projectOriented.json (acessivel via ProjectConfigStore)
+  // ou foi descartado (defaults hardcoded em precompileAllProcessors).
 }
 
-module.exports = { register, ProjectFile, updateProjectState, getProjectConfigPath };
+module.exports = { register, ProjectFile, updateProjectState };

@@ -80,8 +80,6 @@ const projectOperations = {
 
   getProjectInfo:    (p) => ipcRenderer.invoke('project:getInfo', p),
   getCurrentProject: () => ipcRenderer.invoke('get-current-project'),
-  loadConfigFromPath:(p) => ipcRenderer.invoke('load-config-from-path', p),
-  saveConfig:        (config) => ipcRenderer.invoke('save-config', config),
 
   createProcessorProject: (formData) =>
     ipcRenderer.invoke('create-processor-project', formData),

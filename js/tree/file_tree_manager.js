@@ -232,6 +232,9 @@ function renderFileTree(files, container, level = 0, processor = null) {
     const filteredFiles = files.filter(file => {
         if (file.type === 'directory') return true;
         
+        // processorConfig.json mantido na lista pra projetos legados
+        // que ainda tem o arquivo em disco (Aurora nao le mais — fase 4
+        // — mas tambem nao apaga). Sem isso ele apareceria na tree.
         const ignoredFiles = ['projectOriented.json', 'processorConfig.json', 'fileOriented.json'];
         
         return !file.name.startsWith('.') && 

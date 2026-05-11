@@ -178,11 +178,11 @@
             </button>
         </div>
 
-        <!-- FASE 1: botao Settings escondido. Hoje abre um modal de
-             "Processor Settings" ou "Project Settings" dependendo do
-             modo — coisa do Processor Mode. Listeners ficam vivos
-             porque o elemento existe (settingsButton.addEventListener
-             em processor_oriented.js:707 nao pode receber null). -->
+        <!-- FASE 1/4: botao Settings escondido. Era usado pra abrir
+             modais de Processor/Project Settings — modal de Processor
+             foi removido na fase 4. Elemento mantido pra nao quebrar
+             listeners legados que fazem getElementById('settings') sem
+             null-check. -->
         <button id="settings" class="toolbar-button btn-settings" style="display:none">
             <i class="ph ph-gear-six"></i>
             <span>Settings</span>
@@ -486,119 +486,10 @@
      MODALS
      ============================================================ -->
 
-<!-- Processor Configuration Modal -->
-<div id="modalProcessorConfig" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container large" role="dialog" aria-labelledby="processor-modal-title" aria-modal="true">
-        <header class="modal-header">
-            <h2 id="processor-modal-title" class="modal-title">
-                <i class="ph ph-gear-six" aria-hidden="true"></i>
-                <span>Processor Mode Settings</span>
-            </h2>
-            <button id="closeModal" class="modal-close-btn" aria-label="Close Modal">
-                <i class="ph ph-x" aria-hidden="true"></i>
-            </button>
-        </header>
-
-        <main class="modal-body">
-            <section class="config-section">
-                <h3 class="section-title">
-                    <i class="ph ph-magic-wand" aria-hidden="true"></i>
-                    Synthesis Configuration
-                </h3>
-
-                <div class="form-group">
-                    <label for="processorSelect" class="form-label">Select Processor</label>
-                    <div class="select-with-actions">
-                        <div class="select-container">
-                            <select id="processorSelect" class="form-select">
-                                <option value="">Choose a processor...</option>
-                            </select>
-                        </div>
-                        <button id="deleteProcessor" class="icon-btn danger" aria-label="Delete Selected Processor">
-                            <i class="ph ph-trash" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="cmmFileSelect" class="form-label">C± File</label>
-                    <div class="select-container">
-                        <select id="cmmFileSelect" class="form-select" disabled>
-                            <option value="">Select C± File</option>
-                        </select>
-                    </div>
-                </div>
-            </section>
-
-            <section class="config-section">
-                <h3 class="section-title">
-                    <i class="ph ph-chart-line-up" aria-hidden="true"></i>
-                    Simulation Configuration
-                </h3>
-
-                <div class="form-group">
-                    <label for="processortestbenchSelect" class="form-label">Testbench File</label>
-                    <div class="select-container">
-                        <select id="processortestbenchSelect" class="form-select">
-                            <option value="">Select Testbench File</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="processorClk" class="form-label">CLK Frequency (MHz)</label>
-                        <input type="number" id="processorClk" class="form-input" placeholder="Enter frequency" min="1" max="1000" value="100">
-                        <small class="form-hint">Maximum of 1000MHz</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="processorNumClocks" class="form-label">Number of Clocks</label>
-                        <input type="text" id="processorNumClocks" class="form-input" placeholder="e.g., 200000" value="2000">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="processorSimulTime" class="form-label">Simulation Time (ps)</label>
-                        <input type="text" id="processorSimulTime" class="form-input" placeholder="e.g., 200000" value="200000">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="processorgtkwaveSelect" class="form-label">GTKWave File</label>
-                    <div class="select-container">
-                        <select id="processorgtkwaveSelect" class="form-select">
-                            <option value="">Select GTKWave File</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="showArraysInGtkwave" class="form-checkbox">
-                        <label for="showArraysInGtkwave" class="checkbox-label">
-                            Show C± arrays content in GTKWave
-                        </label>
-                    </div>
-                    <small class="form-hint">
-                        Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
-                    </small>
-                </div>
-            </section>
-        </main>
-
-        <footer class="modal-footer">
-            <div class="footer-actions">
-                <button id="cancelConfig" class="btn btn-secondary">
-                    <span>Cancel</span>
-                </button>
-                <button id="saveConfig" class="btn btn-primary">
-                    <i class="ph ph-floppy-disk" aria-hidden="true"></i>
-                    <span>Save</span>
-                </button>
-            </div>
-        </footer>
-    </div>
-</div>
+<!-- FASE 4: modalProcessorConfig (Processor Configuration legacy)
+     removido. Editor per-processador de cmmFile/clk/numClocks foi
+     descontinuado junto com processorConfig.json — defaults hardcoded
+     em precompileAllProcessors (clk=100, numClocks=2000, cmmFile=`${proc}.cmm`). -->
 
 <!-- Project Configuration Modal -->
 <div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
@@ -1241,7 +1132,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- ES modules (defer by default, dependency-resolved) -->
 <script src="./js/app/renderer.js" type="module"></script>
-<script src="./js/project/processor_oriented.js" type="module"></script>
 <script src="./js/project/project_oriented.js" type="module"></script>
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>

@@ -15,7 +15,6 @@ import { ProjectConfigStore } from '../project/project_config_store.js';
 class CompilationModule {
     constructor(projectPath) {
         this.projectPath = projectPath;
-        this.config = null;
         this.projectConfig = null;
         this.terminalManager = new TerminalManager();
         this.hierarchyData = null;
@@ -473,14 +472,10 @@ async loadConfig() {
             throw new Error('No current project path available for loading configuration');
         }
 
-        // processorConfig.json (legado) — best-effort load. Em projetos
-        // novos so projectOriented.json importa, mas projetos antigos
-        // ainda podem ter per-processor params (clk, numClocks) aqui.
-        const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
-        const config = await window.electronAPI.loadConfigFromPath(configFilePath);
-        this.config = config;
-
-        // projectOriented.json — fonte canonica de Project Mode.
+        // projectOriented.json — fonte canonica unica. processorConfig.json
+        // (legado) foi descontinuado na fase 4 — defaults pra cmm/asm
+        // (cmmFile=`${proc}.cmm`, clk=100, numClocks=2000) sao hardcoded
+        // em precompileAllProcessors.
         const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
         try {
             const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
@@ -514,15 +509,10 @@ async loadConfig() {
     }
 
     async getSelectedCmmFile(processor) {
-        let selectedCmmFile = null;
-        if (this.config && this.config.selectedCmmFile) {
-            selectedCmmFile = this.config.selectedCmmFile;
-        } else if (processor.cmmFile) {
-            selectedCmmFile = processor.cmmFile;
-        } else {
+        if (!processor.cmmFile) {
             throw new Error('No C± file selected. Please select one to compile.');
         }
-        return selectedCmmFile;
+        return processor.cmmFile;
     }
 
     async getTestbenchInfo(processor, cmmBaseName) {
@@ -639,11 +629,11 @@ end
     }
 
     async cmmCompilation(processor) {
-        const {
-            name,
-            showArraysInGtkwave
-        } = processor;
-        const showArraysFlag = showArraysInGtkwave === 1 ? '1' : '0';
+        const { name } = processor;
+        // showArraysInGtkwave era per-processador no processorConfig.json
+        // legado; agora vem do projectOriented.json (project-level — toggle
+        // global na UI de Project Settings).
+        const showArraysFlag = this.projectConfig?.showArraysInGtkwave === 1 ? '1' : '0';
         await this.terminalManager.clearTerminal('tcmm');
 
         this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);

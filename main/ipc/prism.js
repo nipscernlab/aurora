@@ -233,24 +233,22 @@ async function runYosysCompilationWithPaths(
   }
 
   // Fallback defensivo: varre <proj>/<proc>/Hardware/*.v para todos os
-  // processadores conhecidos (processorConfig + projectOriented + .spf).
-  // No happy-path Project Mode esses .v ja estao em synthesizableFiles
-  // via auto-descoberta — o dedup faz isso ser no-op. Mas em projetos
-  // mais antigos / Processor Mode classico onde synthesizableFiles
-  // pode estar vazio, esse scan garante que os modulos do processador
-  // entrem no yosys de qualquer jeito.
+  // processadores conhecidos (projectOriented + .spf). No happy-path
+  // esses .v ja estao em synthesizableFiles via auto-descoberta — o
+  // dedup faz isso ser no-op. Mas em projetos antigos onde
+  // synthesizableFiles pode estar vazio, esse scan garante que os
+  // modulos do processador entrem no yosys de qualquer jeito.
   const projectPath = compilationPaths.projectPath;
   const processorNames = new Set();
-  for (const cfgPath of [compilationPaths.processorConfigPath, projectOrientedConfigPath]) {
-    if (!cfgPath || !(await fse.pathExists(cfgPath))) continue;
+  if (projectOrientedConfigPath && await fse.pathExists(projectOrientedConfigPath)) {
     try {
-      const cfg = await fse.readJson(cfgPath);
+      const cfg = await fse.readJson(projectOrientedConfigPath);
       const list = Array.isArray(cfg.processors) ? cfg.processors : [];
       for (const p of list) {
         const n = typeof p === 'string' ? p : p?.name;
         if (n) processorNames.add(n);
       }
-    } catch (_e) { /* idem */ }
+    } catch (_e) { /* JSON parse fail tolerado */ }
   }
   if (state.currentOpenProjectPath && await fse.pathExists(state.currentOpenProjectPath)) {
     try {
@@ -498,7 +496,6 @@ function register() {
         tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
         yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
         netlistsvgPath: path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
-        processorConfigPath: path.join(projectPath, 'processorConfig.json'),
         projectOrientedConfigPath: path.join(projectPath, 'projectOriented.json'),
         topLevelPath: path.join(projectPath, 'TopLevel'),
       };

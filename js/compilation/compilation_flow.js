@@ -102,9 +102,9 @@ function findProcessorForPath(filePath, projectPath, processors) {
     const sub = segs[1];
     if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
     const procNameLower = segs[0];
-    // Tolera entradas como string (projectOriented.json) ou objeto com
-    // .name (processorConfig.json). Devolve sempre um objeto pra que
-    // o caller possa fazer { ...processor, cmmFile: ... }.
+    // Tolera entradas como string (.spf availableProcessors) ou objeto
+    // com .name (projectOriented.json processors). Devolve sempre um
+    // objeto pra que o caller possa fazer { ...processor, cmmFile: ... }.
     const match = processors.find((p) => {
         const n = typeof p === 'string' ? p : p?.name;
         return n && n.toLowerCase() === procNameLower;
@@ -137,11 +137,14 @@ async function cmmArtifactsExist(compiler, procName) {
  * sobre array vazio (projeto sem processador) e no-op natural — nao ha
  * branches sobre "tem processador?".
  *
- * Lista de processadores combina tres fontes pra cobrir projetos antigos
- * onde config/projectConfig podem estar fora de sincronia com o .spf:
- *   - compiler.config.processors (processorConfig.json legado)
+ * Lista de processadores combina duas fontes pra cobrir projetos
+ * antigos onde projectConfig pode estar fora de sincronia com o .spf:
  *   - compiler.projectConfig.processors (projectOriented.json)
  *   - window.availableProcessors (.spf)
+ *
+ * Defaults hardcoded — cmmFile=`${proc}.cmm` (convencao fixa), clk=100,
+ * numClocks=2000. Customizacao per-processador foi descontinuada na
+ * fase 4 junto com o processorConfig.json.
  *
  * Pulamos processadores cuja convencao <proj>/<proc>/Software/<proc>.cmm
  * nao existe em disco — sem .cmm, cmmcomp falharia.
@@ -152,7 +155,6 @@ async function cmmArtifactsExist(compiler, procName) {
 async function precompileAllProcessors(compiler, terminalId) {
     const seenProcs = new Map();
     const sources = [
-        compiler.config?.processors,
         compiler.projectConfig?.processors,
         (Array.isArray(window.availableProcessors) ? window.availableProcessors : [])
             .map((n) => (typeof n === 'string' ? { name: n } : n)),
@@ -200,15 +202,13 @@ async function precompileAllProcessors(compiler, terminalId) {
             continue;
         }
 
-        // Override igual ao usado pelos botoes C+- e ASM. clk/numClocks
-        // razoaveis pra processadores que vem do .spf sem esses campos.
+        // Defaults hardcoded — vide JSDoc da funcao.
         const overrideProcessor = {
             ...proc,
             cmmFile: cmmFileName,
             clk: 100,
             numClocks: 2000,
         };
-        if (compiler.config) compiler.config.selectedCmmFile = null;
 
         await compiler.ensureDirectories(proc.name);
         await compiler.cmmCompilation(overrideProcessor);
@@ -314,7 +314,6 @@ async runSingleStep(step) {
                     tempPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
                     yosysPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
                     netlistsvgPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
-                    processorConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
                     projectOrientedConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
                     topLevelPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
                     compilationMode: this.getCurrentMode()
@@ -357,13 +356,12 @@ async runSingleStep(step) {
 
                 // Em Project Mode os processadores podem estar listados em
                 // projectOriented.json (compiler.projectConfig) ou nao
-                // estar em nenhum dos dois JSONs (caso comum: o .spf lista
-                // a pasta ProcDTW/ mas processorConfig.json esta vazio).
+                // estar la (caso comum: o .spf lista a pasta ProcDTW/ mas
+                // projectOriented nao foi reescrito ainda).
                 // window.availableProcessors e a lista canonica vinda do
                 // .spf — e e o que o file tree usa pra agrupar arquivos.
-                // Combinamos as tres fontes pra cobrir qualquer setup.
+                // Combinamos as duas fontes pra cobrir qualquer setup.
                 const allProcessors = [
-                    ...(compiler.config?.processors || []),
                     ...(compiler.projectConfig?.processors || []),
                     ...(Array.isArray(window.availableProcessors) ? window.availableProcessors : []),
                 ];
@@ -379,9 +377,6 @@ async runSingleStep(step) {
                     );
                 }
 
-                // getSelectedCmmFile prioriza this.config.selectedCmmFile sobre
-                // processor.cmmFile — limpamos pra forcar o uso do override.
-                if (compiler.config) compiler.config.selectedCmmFile = null;
                 const cmmFileName = editingPath.split(/[\\/]/).pop();
                 const overrideProcessor = { ...procFromPath, cmmFile: cmmFileName };
 
@@ -430,7 +425,6 @@ async runSingleStep(step) {
                 await compiler.loadConfig();
 
                 const allProcessors = [
-                    ...(compiler.config?.processors || []),
                     ...(compiler.projectConfig?.processors || []),
                     ...(Array.isArray(window.availableProcessors) ? window.availableProcessors : []),
                 ];
@@ -446,7 +440,6 @@ async runSingleStep(step) {
                     );
                 }
 
-                if (compiler.config) compiler.config.selectedCmmFile = null;
                 // asmCompilation espera "<base>.cmm" e remove .cmm pra
                 // achar o .asm. Trocamos a extensao do arquivo aberto
                 // pra cmm pra cobrir ambos os casos (cmm aberto: o nome
@@ -641,7 +634,6 @@ async acquirePrismPaths() {
             yosysPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
             netlistsvgPath: toForwardSlashes(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
             // Project specific paths
-            processorConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
             projectOrientedConfigPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
             topLevelPath: toForwardSlashes(await window.electronAPI.joinPath(projectPath, 'TopLevel')),
             compilationMode: this.getCurrentMode()

@@ -59,6 +59,8 @@ const TR_BIN           = 0x00000008;
 const TR_RJUSTIFY      = 0x00000020;
 const TR_BLANK         = 0x00000200;
 const TR_SIGNED        = 0x00000400;
+const TR_FTRANSLATED   = 0x00002000;
+const TR_PTRANSLATED   = 0x00004000;
 const TR_REAL          = 0x00040000;
 const TR_REAL2BITS     = 0x08000000;
 const TR_ANALOG_STEP   = 0x00008000;
@@ -153,14 +155,24 @@ function emitGroupEnd(lines, text) {
 }
 
 /**
- * Emit one signal row with format + alias + color.
+ * Emit one signal row with format + alias + color, optionally with a
+ * file or process translation filter applied.
  *
- * Alias goes on its own line as `+{text} <path>` immediately after
- * the @flag — GTKWave parses that as "rename this trace to <text>".
+ * @param {object} [opts]
+ * @param {number} [opts.fileFilterId]  ID previously declared via
+ *      `^N <path>` in the file header. Sets TR_FTRANSLATED in the
+ *      flag and emits a `^N` selector line right before the signal.
+ * @param {number} [opts.procFilterId]  ID previously declared via
+ *      `^^N <path>`. Sets TR_PTRANSLATED and emits `^^N` selector.
  */
-function emitSignal(lines, sig, formatFlag, color, alias) {
+function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
     if (!sig) return;
-    lines.push(`@${hex(formatFlag)}`);
+    let flag = formatFlag;
+    if (opts.fileFilterId) flag |= TR_FTRANSLATED;
+    if (opts.procFilterId) flag |= TR_PTRANSLATED;
+    lines.push(`@${hex(flag)}`);
+    if (opts.fileFilterId) lines.push(`^${opts.fileFilterId}`);
+    if (opts.procFilterId) lines.push(`^^${opts.procFilterId}`);
     const ref = `${sig.fullName}${rangeSuffix(sig)}`;
     if (alias) {
         lines.push(`+{${alias}} ${ref}`);
@@ -199,12 +211,18 @@ function emitIoSection(lines, scopes, instancePath) {
     }
 }
 
-function emitInstructionsSection(lines, scopes, instancePath) {
+function emitInstructionsSection(lines, scopes, instancePath, filters) {
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
-    if (valr2) emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly');
+    if (valr2) {
+        emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly',
+            { fileFilterId: filters.tradOpcode });
+    }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
-    if (linetabs) emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C±');
+    if (linetabs) {
+        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C±',
+            { fileFilterId: filters.tradCmm });
+    }
 }
 
 // Pega variaveis com padrao "<prefix>_f_<func>_v_<var>_e_". Devolve a
@@ -226,19 +244,22 @@ function findTypedVars(scopes, instancePath, prefix) {
     return out;
 }
 
-function emitTypedVars(lines, scopes, instancePath) {
+function emitTypedVars(lines, scopes, instancePath, filters) {
     const ints   = findTypedVars(scopes, instancePath, 'me1_');
     const floats = findTypedVars(scopes, instancePath, 'me2_');
     const comps  = findTypedVars(scopes, instancePath, 'comp_me3_');
 
     for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC,   COLOR_ORANGE, `int ${v.var} in ${v.func}`);
     for (const v of floats) emitSignal(lines, v.sig, FMT_BITS_TO_REAL, COLOR_ORANGE, `float ${v.var} in ${v.func}`);
-    for (const v of comps)  emitSignal(lines, v.sig, FMT_BIN,          COLOR_ORANGE, `comp ${v.var} in ${v.func}`);
+    for (const v of comps) {
+        emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}`,
+            { procFilterId: filters.comp2gtkw });
+    }
 }
 
 // Arrays: nomes terminam com um sufixo numerico de 4 digitos. Agrupa
 // por base (sem o sufixo) e cria um group GTKWave por base.
-function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel) {
+function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, procFilterId) {
     const sigs = listSignalsInScope(scopes, instancePath);
     const groups = new Map(); // baseName -> [{ sig, idx }]
     for (const s of sigs) {
@@ -263,19 +284,20 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel) {
         emitGroupBegin(lines, groupLabel);
         let i = 0;
         for (const { sig } of items) {
-            emitSignal(lines, sig, fmt, COLOR_ORANGE, `${vr} ${i}`);
+            const opts = procFilterId ? { procFilterId } : undefined;
+            emitSignal(lines, sig, fmt, COLOR_ORANGE, `${vr} ${i}`, opts);
             i++;
         }
         emitGroupEnd(lines, groupLabel);
     }
 }
 
-function emitVariablesSection(lines, scopes, instancePath) {
+function emitVariablesSection(lines, scopes, instancePath, filters) {
     emitComment(lines, 'Variables **********');
-    emitTypedVars(lines, scopes, instancePath);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC,   'int');
-    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_BITS_TO_REAL, 'float');
-    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,          'comp');
+    emitTypedVars(lines, scopes, instancePath, filters);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC,   'int',   null);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_BITS_TO_REAL, 'float', null);
+    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,          'comp',  filters.comp2gtkw);
 }
 
 function emitFlagsSection(lines, scopes, corePath) {
@@ -315,16 +337,29 @@ function emitFlagsSection(lines, scopes, corePath) {
 
 /**
  * @param {object} input
- * @param {string} input.vcdPath  used in [dumpfile]
- * @param {string} input.gtkwPath used in [savefile]
- * @param {VcdScope[]} input.scopes  parsed VCD scope tree
- * @param {string} [input.tbModule]  testbench top scope; clk/rst are
- *                                   resolved relative to it
+ * @param {string} input.vcdPath      used in [dumpfile]
+ * @param {string} input.gtkwPath     used in [savefile]
+ * @param {VcdScope[]} input.scopes   parsed VCD scope tree
+ * @param {string} [input.tbModule]   testbench top scope; clk/rst are
+ *                                    resolved relative to it
+ * @param {string} [input.tempBaseDir]  Temp/ root (no per-proc subdir).
+ *                                      Used to resolve translation
+ *                                      files at `<tempBaseDir>/<proc>/
+ *                                      trad_opcode.txt` and trad_cmm.txt.
+ * @param {string} [input.binDir]     bin/ dir containing comp2gtkw.exe
+ *                                    (process filter for comp_me3* vars).
  * @returns {{ content: string|null, processorCount: number }}
  *      content: null when no processor instance is detected, so the
  *      caller can fall back to the simpler buildGtkwContent path.
  */
-export function buildProcessorAwareGtkw({ vcdPath, gtkwPath, scopes, tbModule }) {
+export function buildProcessorAwareGtkw({
+    vcdPath,
+    gtkwPath,
+    scopes,
+    tbModule,
+    tempBaseDir = null,
+    binDir = null,
+}) {
     if (!Array.isArray(scopes) || scopes.length === 0) {
         return { content: null, processorCount: 0 };
     }
@@ -334,7 +369,7 @@ export function buildProcessorAwareGtkw({ vcdPath, gtkwPath, scopes, tbModule })
     }
 
     const slashed = (p) => p.replace(/\\/g, '/');
-    const lines = [
+    const headerLines = [
         '[*]',
         '[*] Generated by Aurora (processor-aware)',
         '[*]',
@@ -342,6 +377,47 @@ export function buildProcessorAwareGtkw({ vcdPath, gtkwPath, scopes, tbModule })
         `[savefile] "${slashed(gtkwPath)}"`,
         '[timestart] 0',
     ];
+
+    // Filter declarations: cada processador tem seus dois file filters
+    // (trad_opcode.txt + trad_cmm.txt) com paths absolutos. comp2gtkw.exe
+    // e UM process filter compartilhado entre todos os processadores
+    // (mesmo binario, mesma logica).
+    //
+    // Filter IDs: file filters numerados sequencialmente comecando em 1;
+    // process filters seguem numeracao propria, tambem comecando em 1.
+    // GTKWave parseia `^N <path>` como file filter declaration e
+    // `^^N <path>` como process filter declaration.
+    const filterLines = [];
+    let nextFileFilterId = 1;
+    let nextProcFilterId = 1;
+    const perProcFilters = []; // [{ tradOpcode, tradCmm, comp2gtkw }]
+    const comp2gtkwUsed = procs.some((p) =>
+        listSignalsInScope(scopes, p.instancePath).some((s) =>
+            s.name.startsWith('comp_me3_') || s.name.startsWith('comp_arr_me3_')
+        ));
+    const comp2gtkwId = (binDir && comp2gtkwUsed)
+        ? (nextProcFilterId++)
+        : null;
+    if (comp2gtkwId !== null) {
+        const exePath = slashed(binDir.replace(/[\\/]$/, '') + '/comp2gtkw.exe');
+        filterLines.push(`^^${comp2gtkwId} ${exePath}`);
+    }
+    for (const proc of procs) {
+        const filters = { tradOpcode: null, tradCmm: null, comp2gtkw: comp2gtkwId };
+        if (tempBaseDir) {
+            // O folder em Temp/ usa o procType (nome do .v / pasta no
+            // projeto), NAO o instanceName (variavel no testbench).
+            // cmmcomp/asmcomp escrevem as trads em Temp/<procType>/.
+            const procTemp = slashed(tempBaseDir.replace(/[\\/]$/, '') + '/' + proc.procType);
+            filters.tradOpcode = nextFileFilterId++;
+            filterLines.push(`^${filters.tradOpcode} ${procTemp}/trad_opcode.txt`);
+            filters.tradCmm = nextFileFilterId++;
+            filterLines.push(`^${filters.tradCmm} ${procTemp}/trad_cmm.txt`);
+        }
+        perProcFilters.push(filters);
+    }
+
+    const lines = [...headerLines, ...filterLines];
 
     // clk + rst do testbench, sem cor/format especial. Procuramos no
     // top scope; se nao achar, ignora.
@@ -352,13 +428,14 @@ export function buildProcessorAwareGtkw({ vcdPath, gtkwPath, scopes, tbModule })
         if (rst) emitSignal(lines, rst, FMT_BIN, COLOR_NORMAL, null);
     }
 
-    for (const proc of procs) {
+    procs.forEach((proc, idx) => {
+        const filters = perProcFilters[idx];
         emitComment(lines, `${proc.instanceName} (${proc.procType}) ********`);
         emitIoSection(lines, scopes, proc.instancePath);
-        emitInstructionsSection(lines, scopes, proc.instancePath);
-        emitVariablesSection(lines, scopes, proc.instancePath);
+        emitInstructionsSection(lines, scopes, proc.instancePath, filters);
+        emitVariablesSection(lines, scopes, proc.instancePath, filters);
         emitFlagsSection(lines, scopes, proc.corePath);
-    }
+    });
 
     return { content: lines.join('\n') + '\n', processorCount: procs.length };
 }

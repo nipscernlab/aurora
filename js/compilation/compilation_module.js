@@ -2060,11 +2060,14 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         try {
             const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
             const scopes = parseVcdHeaderFromContent(vcdContent);
+            const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
             const proc = buildProcessorAwareGtkw({
                 vcdPath: vcdFile,
                 gtkwPath: autoGtkw,
                 scopes,
                 tbModule: simTopModule,
+                tempBaseDir,
+                binDir,
             });
             if (proc.content) {
                 await window.electronAPI.writeFile(autoGtkw, proc.content);

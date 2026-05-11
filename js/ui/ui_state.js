@@ -1,36 +1,30 @@
 /**
  * =====================================================================================
  * Aurora IDE - UI State Manager
- * Handles smooth transitions between Processor and Project modes.
- * Includes localStorage persistence and status indicator updates.
- * Phase A (commit d55261e) collapsed the legacy "Verilog Mode" into
- * Project Mode; legacy `aurora-ide-compilation-mode` localStorage
- * values containing 'Verilog Mode' are migrated to 'Project Mode'
- * on read by setInitialMode's validator.
+ *
+ * FASE 2 da elimicacao dos 3 modos: este manager foi simplificado pra
+ * gerenciar so o "Project Mode" — modo unico. O toggle de modo na
+ * toolbar esta escondido, e localStorage de mode foi descontinuado.
+ * Resta a logica de status indicator (#compmode no rodape) e
+ * transitions visuais — fica como utility code, ja que o body glow
+ * + status text continuam util ate alguem decidir tirar tambem.
  * =====================================================================================
  */
 
 class UIStateManager {
     constructor() {
         this.currentMode = null;
-        this.modeRadios = null;
         this.glowTimeout = null;
         this.statusElement = null;
-        this.storageKey = 'aurora-ide-compilation-mode';
 
         this.modeConfig = {
-            'Processor Mode': {
-                icon: 'fa-solid fa-microchip',
-                text: 'Processor Mode',
-            },
             'Project Mode': {
                 icon: 'fa-solid fa-compass-drafting',
                 text: 'Project Mode',
             },
         };
-        
+
         this.initializeStatusElement();
-        this.initializeEventListeners();
         this.setInitialMode();
     }
 
@@ -45,88 +39,13 @@ class UIStateManager {
     }
 
     /**
-     * Initialize event listeners for mode radio buttons
-     */
-    initializeEventListeners() {
-        this.modeRadios = document.querySelectorAll('input[name="mode"]');
-        
-        this.modeRadios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    this.handleModeChange(e.target.value);
-                }
-            });
-        });
-    }
-
-    /**
-     * Set initial mode based on localStorage, checked radio, or default to Project Mode
+     * Set initial mode. FASE 2: hardcoded 'Project Mode' — modo unico.
+     * Mantemos a chamada ao handleModeChange pra que o status
+     * indicator no rodape (#compmode) seja preenchido na primeira
+     * pintura, evitando flash de texto vazio.
      */
     setInitialMode() {
-        // Try to get saved mode from localStorage
-        const savedMode = this.loadModeFromStorage();
-
-        // Check if there's a checked radio
-        const checkedRadio = document.querySelector('input[name="mode"]:checked');
-
-        // Default is Project Mode — paired with Compile & Simulate OFF, this
-        // gives the user the verilog-only flow on first launch.
-        let initialMode = savedMode || (checkedRadio ? checkedRadio.value : 'Project Mode');
-
-        // Validate that the mode exists in our config and as a real radio.
-        // 'Verilog Mode' is the simulation-toggle id, NOT a radio — falling
-        // back to it would leave no mode selected.
-        const isRadioMode = (m) => m === 'Project Mode' || m === 'Processor Mode';
-        if (!this.modeConfig[initialMode] || !isRadioMode(initialMode)) {
-            console.warn(`Invalid mode "${initialMode}" loaded, defaulting to Project Mode`);
-            initialMode = 'Project Mode';
-        }
-
-        const targetRadio = document.getElementById(initialMode);
-        const radioToCheck = targetRadio || document.getElementById('Project Mode');
-        if (radioToCheck) {
-            radioToCheck.checked = true;
-            // Programmatically setting `.checked` does NOT fire a change event.
-            // Dispatch on the next tick so other DOMContentLoaded listeners
-            // (file_mode.js, compilation_flow.js) have already attached their
-            // handlers by the time the event arrives.
-            setTimeout(() => {
-                radioToCheck.dispatchEvent(new Event('change', { bubbles: true }));
-            }, 0);
-        }
-
-        // Don't show glow on initial load, but do update status
-        this.handleModeChange(initialMode, true);
-    }
-
-    /**
-     * Load mode from localStorage
-     * @returns {string|null} Saved mode or null if not found
-     */
-    loadModeFromStorage() {
-        try {
-            const savedMode = localStorage.getItem(this.storageKey);
-            if (savedMode) {
-                console.log(`Loaded mode from storage: ${savedMode}`);
-                return savedMode;
-            }
-        } catch (error) {
-            console.error('Error loading mode from localStorage:', error);
-        }
-        return null;
-    }
-
-    /**
-     * Save mode to localStorage
-     * @param {string} mode - Mode to save
-     */
-    saveModeToStorage(mode) {
-        try {
-            localStorage.setItem(this.storageKey, mode);
-            console.log(`Saved mode to storage: ${mode}`);
-        } catch (error) {
-            console.error('Error saving mode to localStorage:', error);
-        }
+        this.handleModeChange('Project Mode', true);
     }
 
 
@@ -173,94 +92,15 @@ class UIStateManager {
 }
 
     /**
-     * Handle mode change with smooth transitions
-     * @param {string} mode - The selected mode
-     * @param {boolean} skipGlow - Skip glow effect (for initial load)
+     * Aplica o estado de modo. FASE 2: so existe Project Mode, mas a
+     * funcao continua existindo pra atualizar o status indicator de
+     * forma idempotente (chamada de setInitialMode).
      */
     handleModeChange(mode, skipGlow = false) {
         if (this.currentMode === mode && !skipGlow) return;
-
-        console.log(`Switching from ${this.currentMode || 'initial'} to ${mode}`);
-        
-        // Update status indicator
         this.updateStatusIndicator(mode);
-        
-        // Save to localStorage
-        this.saveModeToStorage(mode);
-        
-        // Update body glow effect (only if not initial load)
-        if (!skipGlow) {
-            this.updateBodyGlow(mode);
-        }
-        
-        // Handle mode-specific UI changes
-        switch (mode) {
-            case 'Processor Mode':
-                this.activateProcessorMode();
-                break;
-            case 'Project Mode':
-                this.activateProjectMode();
-                break;
-            default:
-                console.warn(`Unknown mode: ${mode}`);
-        }
-
+        this.enableAllElements();
         this.currentMode = mode;
-    }
-
-    /**
-     * Update body glow effect based on mode (temporary, fades after 3 seconds)
-     * @param {string} mode - The selected mode
-     */
-    updateBodyGlow(mode) {
-        const body = document.body;
-        
-        // Clear any existing glow timeout
-        if (this.glowTimeout) {
-            clearTimeout(this.glowTimeout);
-        }
-        
-        // Remove all mode classes first
-        body.classList.remove('processor-mode-active', 'project-mode-active', 'glow-fading');
-
-        // Force reflow
-        void body.offsetWidth;
-
-        // Add appropriate mode class
-        switch (mode) {
-            case 'Processor Mode':
-                body.classList.add('processor-mode-active');
-                break;
-            case 'Project Mode':
-                body.classList.add('project-mode-active');
-                break;
-        }
-
-        // Remove glow after 3 seconds
-        this.glowTimeout = setTimeout(() => {
-            body.classList.add('glow-fading');
-
-            // After fade completes, remove all classes
-            setTimeout(() => {
-                body.classList.remove('processor-mode-active', 'project-mode-active', 'glow-fading');
-            }, 800); // Match CSS transition duration
-        }, 3000);
-    }
-
-    /**
-     * Activate Processor Mode - Show all buttons and tabs
-     */
-    activateProcessorMode() {
-        console.log('Activating Processor Mode');
-        this.enableAllElements();
-    }
-
-    /**
-     * Activate Project Mode - Show all buttons and tabs
-     */
-    activateProjectMode() {
-        console.log('Activating Project Mode');
-        this.enableAllElements();
     }
 
     /**
@@ -430,25 +270,6 @@ class UIStateManager {
         }
     }
 
-    /**
-     * Get current active mode
-     * @returns {string|null} Current mode
-     */
-    getCurrentMode() {
-        return this.currentMode;
-    }
-
-    /**
-     * Clear saved mode from localStorage (utility method)
-     */
-    clearSavedMode() {
-        try {
-            localStorage.removeItem(this.storageKey);
-            console.log('Cleared saved mode from storage');
-        } catch (error) {
-            console.error('Error clearing mode from localStorage:', error);
-        }
-    }
 }
 
 // Initialize UI State Manager when DOM is ready (constructor wires DOM listeners

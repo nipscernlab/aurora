@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Elements to be controlled
   const TOGGLE_BUTTON_ID = 'toggle-ui';
-  const SETTINGS_BUTTON_ID = 'settings'; // Adicionado
   const IMPORT_BTN_ID = 'importBtn';
   const HIDE_ELEMENTS = {
     buttons: ['cmmcomp', 'asmcomp'],
@@ -12,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let elementsVisible = true;
   
   const toggleButton = document.getElementById(TOGGLE_BUTTON_ID);
-  const settingsButton = document.getElementById(SETTINGS_BUTTON_ID); // Adicionado
   const importBtn = document.getElementById(IMPORT_BTN_ID);
 
   // Toggle UI button is optional (não está mais na toolbar v3).
@@ -51,39 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     toggleButton.addEventListener('click', toggleElementsVisibility);
-    
-    // --- NOVA LÓGICA PARA O BOTÃO SETTINGS ---
-    if (settingsButton) {
-    settingsButton.addEventListener('click', () => {
-        const processorMode = document.getElementById('Processor Mode');
-        const projectMode = document.getElementById('Project Mode');
-        
-        if (processorMode?.checked) {
-            // Open Processor Configuration Modal
-            const processorModal = document.getElementById('modalProcessorConfig');
-            if (processorModal) {
-                processorModal.setAttribute('aria-hidden', 'false');
-                processorModal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            } else {
-                console.error('Processor config modal not found');
-            }
-        } else if (projectMode?.checked) {
-            // Open Project Configuration Modal
-            const projectModal = document.getElementById('modalProjectConfig');
-            if (projectModal) {
-                projectModal.setAttribute('aria-hidden', 'false');
-                projectModal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            } else {
-                console.error('Project config modal not found');
-            }
-        }
-        // Verilog Mode: button is disabled, no action needed
-    });
-    }
-    // --- FIM DA NOVA LÓGICA ---
-    
+
+    // FASE 2.5: handler do botao Settings removido — o botao foi
+    // escondido na fase 1.5 e o modal de Processor Mode nao existe
+    // mais. Caso volte um Settings na toolbar, vai apontar direto
+    // pro #modalProjectConfig.
+
     toggleButton.addEventListener('mouseenter', () => {
       const icon = toggleButton.querySelector('i');
       if (icon && !elementsVisible) return;

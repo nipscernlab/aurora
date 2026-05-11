@@ -173,54 +173,21 @@ class CompilationFlowManager {
         // into Project Mode. The pipeline now decides simulate-or-not
         // from projectConfig.processors directly.
 
-        this.setupModeListeners();
-    }
-
-    setupModeListeners() {
-        // We listen to radio buttons to update UI states, 
-        // but the persistence of the toggle is handled in initialize()
-        const processorModeRadio = document.getElementById('Processor Mode');
-        const projectModeRadio = document.getElementById('Project Mode');
-        
-        // If user clicks Processor Mode, we might want to ensure buttons reflect the toggle
-        processorModeRadio?.addEventListener('change', () => this.updateButtonStates());
-        projectModeRadio?.addEventListener('change', () => this.updateButtonStates());
-        
-        // Initial update
         this.updateButtonStates();
     }
 
-    // Extracted logic to allow calling from multiple places
+    // FASE 2.5: setupModeListeners removido — escutava os radios de modo
+    // que ja foram escondidos. hasValidProjectConfig + isProcessorConfigured
+    // tambem deletados (orfaos).
 
-
-updateButtonStates() {
-    // All compilation buttons stay enabled in both modes; per-step
-    // gating happens inside runSingleStep / pipelines, which decide
-    // what to actually do based on processor count.
-    for (const id of ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
-        const btn = document.getElementById(id);
-        if (btn) btn.disabled = false;
-    }
-}
-
-hasValidProjectConfig() {
-    try {
-        const toggleButton = document.getElementById('toggle-ui');
-        const isProjectMode = toggleButton && toggleButton.classList.contains('active');
-        
-        if (!isProjectMode) return false;
-        
-        // Check if we have minimum required files for compilation
-        // This could be enhanced to actually check projectOriented.json
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-    isProcessorConfigured() {
-        const el = document.getElementById('processorNameID');
-        return el && !el.textContent.includes('No Processor Configured');
+    updateButtonStates() {
+        // All compilation buttons stay enabled; per-step gating happens
+        // inside runSingleStep / pipelines, which decide what to actually
+        // do based on processor count.
+        for (const id of ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
+            const btn = document.getElementById(id);
+            if (btn) btn.disabled = false;
+        }
     }
 
 // FASE 2: runPrismForCurrentMode removida — era orfa e chamava

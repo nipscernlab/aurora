@@ -117,37 +117,13 @@ setupEventListeners() {
     this.elements.addProcessorBtn?.addEventListener('click', () => this.addProcessorRow());
     this.elements.processorsList?.addEventListener('click', (e) => this.handleProcessorListClick(e));
     
-    // Settings button - Opens correct modal based on active mode
+    // Settings button — FASE 2.5: modo unico, sempre abre o Project
+    // Configuration Modal. O botao em si esta escondido na toolbar
+    // mas o listener fica caso a entrada volte via command palette.
     this.elements.settingsButton?.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
-        // Determine which mode is active
-        const _verilogModeRadio = document.getElementById('Verilog Mode');
-        const processorModeRadio = document.getElementById('Processor Mode');
-        const projectModeRadio = document.getElementById('Project Mode');
-        
-        if (processorModeRadio?.checked) {
-            // Open Processor Configuration Modal
-            const processorModal = document.getElementById('modalProcessorConfig');
-            if (processorModal) {
-                processorModal.setAttribute('aria-hidden', 'false');
-                processorModal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-                
-                // Initialize processor modal content if needed
-                if (typeof window.processorConfigManager !== 'undefined' && 
-                    typeof window.processorConfigManager.openModal === 'function') {
-                    await window.processorConfigManager.openModal();
-                }
-            } else {
-                console.error('Processor config modal not found');
-            }
-        } else if (projectModeRadio?.checked) {
-            // Open Project Configuration Modal
-            await this.openModal();
-        }
-        // Verilog Mode: button is disabled by ui_state.js, no action needed
+        await this.openModal();
     });
     
     // Keyboard shortcuts

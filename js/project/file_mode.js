@@ -90,8 +90,6 @@ class VerilogTreeManager {
             fileTreeContainer: document.querySelector('.file-tree-container'),
             openHdlButton: document.getElementById('open-hdl-button'),
             refreshButton: document.getElementById('refresh-button'),
-            processorModeRadio: document.getElementById('Processor Mode'),
-            projectModeRadio: document.getElementById('Project Mode'),
         };
 
         console.log('📦 Cached elements:', { fileTree: !!this.elements.fileTree });
@@ -101,36 +99,10 @@ class VerilogTreeManager {
      * Setup event listeners
      */
     setupEventListeners() {
-        // The verilog picker tree is the file tree for Project Mode (with
-        // or without processors). Processor Mode keeps the standard
-        // folder listing. There used to be a "Compile & Simulate" toggle
-        // that gated this; with the toggle removed the rule simplifies to
-        // "Project Mode → picker".
-        const shouldShowVerilogTree = () => this.elements.projectModeRadio?.checked === true;
-
-        const syncFromState = () => {
-            if (shouldShowVerilogTree()) {
-                this.activateVerilogMode();
-            } else {
-                this.deactivateVerilogMode();
-            }
-        };
-
-        // Initial state on load
-        syncFromState();
-
-        if (this.elements.processorModeRadio) {
-            this.elements.processorModeRadio.addEventListener('change', syncFromState);
-        }
-
-        if (this.elements.projectModeRadio) {
-            this.elements.projectModeRadio.addEventListener('change', syncFromState);
-        }
-
-        // Programmatic radio/checkbox flips (e.g. session restore via
-        // app_initializer.activateModeUI) do not fire a 'change' event, so
-        // app_initializer dispatches this custom event after switching modes.
-        document.addEventListener('mode-state-changed', syncFromState);
+        // FASE 2: o file tree do projeto sempre usa o verilog picker.
+        // Antes havia ramificacao Processor Mode (folder tree) vs Project
+        // Mode (picker); modo unico agora, listener de radio removido.
+        this.activateVerilogMode();
 
         // Project modal saves write projectOriented.json. The modal's own
         // saveConfiguration() already calls us when verilog mode is active,

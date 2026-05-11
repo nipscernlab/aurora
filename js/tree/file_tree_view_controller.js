@@ -80,14 +80,12 @@ class FileTreeViewController {
     }
 
     /**
-     * Flip to the file-mode view. "File mode" depends on the IDE
-     * mode radio: Project Mode → verilog picker; Processor Mode →
-     * standard folder listing. Centralising the decision here means
-     * nobody else needs to read the mode radio to figure it out.
+     * Flip to the file-mode view. FASE 2.5: modo unico — sempre o
+     * verilog picker. O renderer 'standard' continua registrado pra
+     * compat com codigo que invoca _showView('standard') direto.
      */
     showFileMode() {
-        const isProject = document.getElementById('Project Mode')?.checked === true;
-        this._showView(isProject ? 'verilog' : 'standard');
+        this._showView('verilog');
     }
 
     /**

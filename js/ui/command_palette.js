@@ -149,14 +149,7 @@ class CommandPalette {
       { id: 'switch-tveri', label: 'Show TVERI Terminal', description: 'Switch to Verilog terminal', category: 'Terminal', action: () => clickTerminalTab('tveri') },
       { id: 'switch-twave', label: 'Show TWAVE Terminal', description: 'Switch to waveform terminal', category: 'Terminal', action: () => clickTerminalTab('twave') },
 
-      { id: 'Processor Mode', label: 'Switch to Processor Mode', description: 'Set Processor mode', category: 'Mode', icon: 'fa-solid fa-microchip', action: () => {
-        const r = document.getElementById('Processor Mode'); if (r) { r.checked = true; r.dispatchEvent(new Event('change',{bubbles:true})); return true; } return false;
-      } },
-      { id: 'Project Mode', label: 'Switch to Project Mode', description: 'Set Project mode', category: 'Mode', icon: 'fa-solid fa-compass-drafting', action: () => {
-        const r = document.getElementById('Project Mode'); if (r) { r.checked = true; r.dispatchEvent(new Event('change',{bubbles:true})); return true; } return false;
-      } },
-
-      { id: 'save-file', label: 'Save Current File', description: 'Save active file', category: 'File', shortcut: 'Ctrl+S', action: () => {
+{ id: 'save-file', label: 'Save Current File', description: 'Save active file', category: 'File', shortcut: 'Ctrl+S', action: () => {
         const saveBtn = document.getElementById('save-file-btn') || document.getElementById('saveFileBtn');
         if (saveBtn) return clickIfPossible(saveBtn);
         if (window.TabManager && typeof window.TabManager.saveCurrentFile === 'function') return window.TabManager.saveCurrentFile();

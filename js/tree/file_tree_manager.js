@@ -570,13 +570,8 @@ class FileTreeManager {
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
             if (TreeViewState.isHierarchical) return;
-            const currentMode = this.getCurrentMode();
-            if (currentMode === 'project') {
-                // Project Mode uses the verilog picker tree.
-                window.verilogTreeManager?.refreshVerilogTree();
-            } else {
-                this.refresh();
-            }
+            // FASE 2: Project Mode unico — sempre o verilog picker.
+            window.verilogTreeManager?.refreshVerilogTree();
         });
 
         // Hierarchy toggle is owned by file_tree_view_controller.js —
@@ -585,20 +580,13 @@ class FileTreeManager {
         // on the same button stomped on each other before this
         // controller existed.
 
-        window.electronAPI.onDirectoryChanged((dir, files) => {
+        window.electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
-            const currentMode = this.getCurrentMode();
-            if (currentMode === 'project') {
-                // Picker reads projectOriented.json, but processor creation
-                // / deletion silently rewrites that file from
-                // processor_oriented.js → the picker won't pick the change
-                // up unless we re-load. Same trigger the manual refresh
-                // button uses.
-                window.verilogTreeManager?.refreshVerilogTree?.();
-            } else {
-                this.updateFileTree(files);
-            }
+            // FASE 2: Project Mode unico — verilog picker e o unico
+            // file tree. Re-le projectOriented.json pra pegar processor
+            // creation/deletion que rewrita o arquivo.
+            window.verilogTreeManager?.refreshVerilogTree?.();
         });
         
         document.addEventListener('refresh-file-tree', () => this.refresh());
@@ -618,17 +606,9 @@ class FileTreeManager {
     async initializeTreeBasedOnMode() {
         // Wait a tick for DOM listeners (and AppInitializer) to settle.
         await new Promise(resolve => setTimeout(resolve, 100));
-
-        const currentMode = this.getCurrentMode();
-        console.log('🌳 Initializing tree for mode:', currentMode);
-
-        if (currentMode === 'project') {
-            if (window.verilogTreeManager) {
-                await window.verilogTreeManager.activateVerilogMode();
-            }
-        } else {
-            // Processor Mode → standard folder tree
-            this.refresh();
+        // FASE 2: so existe Project Mode — sempre ativa o verilog picker.
+        if (window.verilogTreeManager) {
+            await window.verilogTreeManager.activateVerilogMode();
         }
     }
 
@@ -655,21 +635,7 @@ class FileTreeManager {
         });
     }
     
-/**
- * Get current mode — 'processor' or 'project'. Delegates to AppInitializer
- * when available; falls back to reading the radios for the early-startup
- * window before initialize() has run.
- */
-getCurrentMode() {
-    const fromInit = window.appInitializer?.getCurrentMode?.();
-    if (fromInit === 'processor' || fromInit === 'project') return fromInit;
-
-    const projectModeRadio = document.getElementById('Project Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
-    if (projectModeRadio?.checked) return 'project';
-    if (processorModeRadio?.checked) return 'processor';
-    return 'processor';
-}
+// FASE 2: getCurrentMode() removida — modo unico (Project).
 
 toggleHierarchyView() {
     // Delegate to the file-tree view controller — it owns the

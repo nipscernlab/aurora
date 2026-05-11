@@ -1,34 +1,30 @@
 /**
  * =====================================================================================
  * Aurora IDE - Application Initializer
- * Orchestrates startup, mode switching, and state persistence
+ *
+ * FASE 2.5 da elimicacao dos modos: AppInitializer reduzido a session
+ * restore + bookkeeping de last-project. Toda logica de mode switching
+ * (setupModeSwitchers, switchToMode, loadProjectConfiguration,
+ * switchToVerilogFileMode, switchToStandardFileTree, updateProcessorStatus,
+ * updateButtonStates, handlePostCompilation) foi removida — ja era dead
+ * code com Project Mode como modo unico. `getCurrentMode()` permanece
+ * como shim retornando 'project' pra callers externos.
  * =====================================================================================
  */
 
 import { showDialog } from '../ui/dialog_manager.js';
 import { projectManager } from '../project/project_manager.js';
-import { fileTreeManager } from '../tree/file_tree_manager.js';
 
 class AppInitializer {
     constructor() {
-        // Two modes now: 'processor' for the legacy single-processor PRISM
-        // workflow, 'project' for everything else (with or without
-        // processors — the pipeline auto-decides by checking
-        // projectConfig.processors). The old 'verilog' value is migrated
-        // on restore for backward-compat with stored localStorage.
-        this.currentMode = null;
         this.isInitialized = false;
         this.lastProjectPath = null;
 
         this.STORAGE_KEYS = {
             LAST_PROJECT: 'aurora-last-project-path',
-            LAST_MODE: 'aurora-last-mode',
         };
     }
 
-    /**
-     * Initialize the entire application
-     */
     async initialize() {
         if (this.isInitialized) {
             console.warn('⚠️ AppInitializer already initialized');
@@ -38,13 +34,9 @@ class AppInitializer {
         console.log('🚀 Initializing Aurora IDE...');
 
         try {
-            this.setupModeSwitchers();
             await this.restoreLastSession();
-            this.updateButtonStates();
-
             this.isInitialized = true;
             console.log('✅ Aurora IDE initialized successfully');
-
         } catch (error) {
             console.error('❌ Failed to initialize Aurora IDE:', error);
             await showDialog({
@@ -55,53 +47,19 @@ class AppInitializer {
         }
     }
 
-    /**
-     * Setup mode radio button listeners
-     */
-    setupModeSwitchers() {
-        const processorModeRadio = document.getElementById('Processor Mode');
-        const projectModeRadio = document.getElementById('Project Mode');
-        
-        if (processorModeRadio) {
-            processorModeRadio.addEventListener('change', () => {
-                if (processorModeRadio.checked) {
-                    this.switchToMode('processor');
-                }
-            });
-        }
-        
-        if (projectModeRadio) {
-            projectModeRadio.addEventListener('change', () => {
-                if (projectModeRadio.checked) {
-                    this.switchToMode('project');
-                }
-            });
-        }
-    }
-
-    /**
-     * Restore last session (project + mode)
-     */
     async restoreLastSession() {
         console.log('🔄 Attempting to restore last session...');
 
         const lastProjectPath = localStorage.getItem(this.STORAGE_KEYS.LAST_PROJECT);
-        // FASE 1 da elimicacao dos 3 modos: lastMode hardcoded em
-        // 'project'. As fases seguintes vao apagar LAST_MODE do
-        // localStorage e essa variavel inteira.
-        const lastMode = 'project';
-        
+
         if (!lastProjectPath) {
             console.log('ℹ️ No previous project found');
-            this.currentMode = lastMode;
-            this.activateModeUI(lastMode);
             return;
         }
-        
+
         try {
-            // Check if project file exists
             const exists = await window.electronAPI.fileExists(lastProjectPath);
-            
+
             if (!exists) {
                 console.warn('⚠️ Last project file not found');
                 localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
@@ -112,22 +70,15 @@ class AppInitializer {
                     message: 'The previously opened project could not be found.',
                     buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
                 });
-
-                this.currentMode = lastMode;
-                this.activateModeUI(lastMode);
                 return;
             }
-            
-            // Load the project
+
             console.log(`📂 Loading last project: ${lastProjectPath}`);
             await projectManager.loadProject(lastProjectPath);
             this.lastProjectPath = lastProjectPath;
-            
-            // Switch to last mode
-            await this.switchToMode(lastMode);
-            
+
             console.log('✅ Session restored successfully');
-            
+
         } catch (error) {
             console.error('❌ Failed to restore session:', error);
             localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
@@ -152,213 +103,6 @@ class AppInitializer {
     }
 
     /**
-     * Switch to a specific mode
-     */
-    async switchToMode(mode) {
-        console.log(`🔄 Switching to mode: ${mode}`);
-
-        if (mode === this.currentMode) {
-            console.log('ℹ️ Already in this mode');
-            return;
-        }
-
-        try {
-            this.currentMode = mode;
-            localStorage.setItem(this.STORAGE_KEYS.LAST_MODE, mode);
-
-            this.activateModeUI(mode);
-
-            if (mode === 'processor') {
-                await this.loadProcessorConfiguration();
-                this.switchToStandardFileTree();
-            } else if (mode === 'project') {
-                // Project Mode is unified: the verilog picker tree is the
-                // canonical view, and the pipeline auto-decides between
-                // full-simulation (with processors) and verilog-only
-                // (no processors) based on projectConfig.processors. The
-                // old "Compile & Simulate" toggle is gone.
-                await this.loadProjectConfiguration();
-                await this.switchToVerilogFileMode();
-            }
-
-            this.updateButtonStates();
-
-            console.log(`✅ Switched to ${mode} mode`);
-
-        } catch (error) {
-            console.error(`❌ Failed to switch to ${mode} mode:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Activate mode in UI (radio buttons)
-     */
-    activateModeUI(mode) {
-        const processorModeRadio = document.getElementById('Processor Mode');
-        const projectModeRadio = document.getElementById('Project Mode');
-
-        if (mode === 'processor') {
-            if (processorModeRadio) processorModeRadio.checked = true;
-        } else if (mode === 'project') {
-            if (projectModeRadio) projectModeRadio.checked = true;
-        }
-
-        // Programmatic .checked = ... does NOT fire a 'change' event, so any
-        // listener that derives state from the toolbar radios (e.g. file_mode.js
-        // deciding whether to show the synth/testbench picker) would miss the
-        // session-restore transition. Broadcast explicitly.
-        document.dispatchEvent(new CustomEvent('mode-state-changed', { detail: { mode } }));
-    }
-
-    /**
-     * Load processor configuration
-     */
-    async loadProcessorConfiguration() {
-        console.log('📋 Loading processor configuration...');
-        
-        try {
-            const projectPath = window.currentProjectPath;
-            if (!projectPath) return;
-            
-            const configPath = await window.electronAPI.joinPath(projectPath, 'processorConfig.json');
-            const exists = await window.electronAPI.fileExists(configPath);
-            
-            if (exists) {
-                const config = await window.electronAPI.loadConfigFromPath(configPath);
-                console.log('✅ Processor config loaded:', config);
-                
-                // Update processor status UI
-                this.updateProcessorStatus(config);
-            }
-            
-        } catch (error) {
-            console.error('❌ Failed to load processor configuration:', error);
-        }
-    }
-
-    /**
-     * Load project configuration
-     */
-    async loadProjectConfiguration() {
-        console.log('📋 Loading project configuration...');
-        
-        try {
-            const projectPath = window.currentProjectPath;
-            if (!projectPath) return;
-            
-            const configPath = await window.electronAPI.joinPath(projectPath, 'projectOriented.json');
-            const exists = await window.electronAPI.fileExists(configPath);
-            
-            if (exists) {
-                const configContent = await window.electronAPI.readFile(configPath);
-                const config = JSON.parse(configContent);
-                console.log('✅ Project config loaded:', config);
-                
-                // Update project status UI
-                this.updateProcessorStatus(config);
-                
-                return config;
-            }
-            
-        } catch (error) {
-            console.error('❌ Failed to load project configuration:', error);
-        }
-    }
-
-    /**
-     * Switch to standard file tree
-     */
-    switchToStandardFileTree() {
-        console.log('🌲 Switching to standard file tree');
-
-        // Deactivate Verilog Mode if active
-        if (window.verilogTreeManager && window.verilogTreeManager.isVerilogTreeActive) {
-            window.verilogTreeManager.deactivateVerilogMode();
-        }
-
-        // Controller resolves view + renderer.
-        window.fileTreeViewController?.showFileMode?.();
-        fileTreeManager.refresh();
-    }
-
-    /**
-     * Switch to Verilog File Mode tree
-     */
-    async switchToVerilogFileMode() {
-        console.log('🌲 Switching to Verilog File Mode tree');
-        
-        // Activate Verilog Mode Manager
-        if (window.verilogTreeManager) {
-            await window.verilogTreeManager.activateVerilogMode();
-        } else {
-            console.error('❌ VerilogModeManager not available');
-        }
-    }
-
-    /**
-     * Update processor status display
-     */
-    updateProcessorStatus(config) {
-        const statusEl = document.getElementById('processorNameID');
-        if (!statusEl) return;
-        
-        statusEl.style.opacity = '0';
-        
-        setTimeout(() => {
-            if (this.currentMode === 'processor') {
-                // Processor Mode
-                if (config.processors && config.processors.length > 0) {
-                    const activeProc = config.processors.find(p => p.isActive) || config.processors[0];
-                    statusEl.innerHTML = `${activeProc.name} &nbsp;<i class="fa-solid fa-gear"></i> ${activeProc.cmmFile || 'N/A'}`;
-                    statusEl.classList.add('has-processors');
-                } else {
-                    statusEl.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Processor Configured`;
-                    statusEl.classList.remove('has-processors');
-                }
-                
-            } else if (this.currentMode === 'project') {
-                // Project Mode
-                if (config.processors && config.processors.length > 0) {
-                    const types = config.processors.map(p => p.type);
-                    const unique = [...new Set(types)];
-                    const testbench = config.testbenchFile || 'None';
-                    statusEl.innerHTML = `${unique.join(' | ')}&nbsp;<i class="fa-solid fa-gear"></i> ${testbench}`;
-                    statusEl.classList.add('has-processors');
-                } else {
-                    statusEl.innerHTML = `<i class="fa-solid fa-xmark" style="color: #FF3131"></i> No Configuration`;
-                    statusEl.classList.remove('has-processors');
-                }
-            }
-            
-            statusEl.style.opacity = '1';
-        }, 300);
-    }
-
-    /**
-     * Update button states based on mode. Both modes leave every button
-     * enabled today — the per-button gating that used to live here has
-     * moved into the compilation flow itself, which auto-decides which
-     * stages to run based on whether processors are configured.
-     */
-    updateButtonStates() {
-        // Empty `buttons` map preserved for shape-compat with callers that
-        // still invoke this; if button-level gating returns later, plumb
-        // the IDs back in here.
-        console.log(`✅ Button states updated for ${this.currentMode} mode`);
-    }
-
-    /**
-     * Handle post-compilation tree switching
-     */
-    handlePostCompilation(success) {
-        if (!success) return;
-        // No-op now: setHierarchyData (called inside the hierarchy
-        // generators) enables the toggle automatically. Kept as a
-        // hook in case future post-compile state needs to live here.
-    }
-
-    /**
      * Save current project as last opened
      */
     saveCurrentProject(projectPath) {
@@ -371,8 +115,7 @@ class AppInitializer {
     /**
      * Forget the last-opened project. Called from close_project.js so a
      * "Close Project" + restart doesn't auto-reopen what the user just
-     * closed. Restoring on next launch happens via restoreLastSession,
-     * which reads the same key — clearing here breaks that loop cleanly.
+     * closed.
      */
     clearLastProject() {
         this.lastProjectPath = null;
@@ -384,31 +127,21 @@ class AppInitializer {
     }
 
     /**
-     * Get current mode.
-     *
-     * FASE 1 da elimicacao dos 3 modos: hardcoded 'project'. Aurora
-     * agora opera so em Project Mode — Processor e Verilog modes
-     * estao sendo retirados. Os callers continuam funcionando porque
-     * todos os `if (mode === 'project')` agora ramificam sempre pro
-     * caminho do project; os `else` (Processor Mode) viram dead code
-     * que sera deletado na fase 2.
+     * Compat shim — Aurora opera so em Project Mode. Callers externos
+     * (compilation_flow, compilation_module) delegam aqui pra leitura
+     * canonica de modo.
      */
     getCurrentMode() {
         return 'project';
     }
 }
 
-// Create and export singleton instance
 const appInitializer = new AppInitializer();
 
-// Globally exposed so non-module callers (and the file_tree_manager mode
-// fallback that always-true-branch was relying on) can consult the same
-// instance instead of re-deriving mode state from the DOM.
 if (typeof window !== 'undefined') {
     window.appInitializer = appInitializer;
 }
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => appInitializer.initialize());
 } else {

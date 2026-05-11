@@ -149,27 +149,11 @@ async function loadProject(spfPath) {
         updateProjectNameUI(projectData, spfPath);
         await TabManager.closeAllTabs();
 
-        // In Project Mode the tree is sourced from projectOriented.json
-        // (paths can point outside the project folder), not the
-        // project-folder listing — mirror the watcher skip in
-        // file_tree_manager.js. Processor Mode uses the standard tree.
-        const currentMode = fileTreeManager.getCurrentMode();
-        if (currentMode === 'project') {
-            // activateVerilogMode internally routes through the
-            // file-tree view controller (showFileMode), which in
-            // Project Mode flips the active view to the verilog
-            // picker.
-            if (window.verilogTreeManager) {
-                await window.verilogTreeManager.activateVerilogMode();
-            }
-        } else if (Array.isArray(result.files)) {
-            fileTreeManager.updateFileTree(result.files);
-            // Sync the controller too — updateFileTree writes into
-            // the standard subcontainer but doesn't itself flip the
-            // active view. showFileMode resolves to 'standard' in
-            // Processor Mode and invokes the standard renderer
-            // (which is a no-op-fast since refresh is already done).
-            window.fileTreeViewController?.showFileMode?.();
+        // FASE 2.5: modo unico (Project Mode). A tree e sempre sourced
+        // de projectOriented.json via verilogTreeManager — o branch de
+        // Processor Mode (que populava direto do listing) foi removido.
+        if (window.verilogTreeManager) {
+            await window.verilogTreeManager.activateVerilogMode();
         }
         fileTreeManager.watcher?.startWatching?.(window.currentProjectPath);
 

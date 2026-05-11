@@ -23,19 +23,49 @@
  * @property {boolean} needsWrite       Whether the original differs from `content`.
  *                                      If false, content === original.
  * @property {string} content           Instrumented (or original) Verilog.
- * @property {('user-defined'|'malformed'|'auto'|'auto-selection')} reason
+ * @property {('user-defined'|'malformed'|'auto'|'auto-selection'|'override-user')} reason
  *                                      Diagnostic — caller can log it.
+ *                                      'override-user': testbench had hand-written
+ *                                      $dumpfile/$dumpvars but the user has
+ *                                      customized the Wave Configuration, so we
+ *                                      commented those out and injected ours.
  */
+
+/**
+ * Substitui qualquer chamada a $dumpfile(...) ou $dumpvars(...) por
+ * um comentario — preserva a estrutura e o resto do testbench, so
+ * tira o efeito das chamadas. Lida com argumentos em multiplas
+ * linhas via lazy match ate o `;`.
+ */
+function commentOutDumpCalls(src) {
+    return src.replace(
+        /\$dump(file|vars)\s*\([^;]*?\)\s*;/g,
+        (match) => `/* Aurora: overridden by Wave Configuration ─ ${match.replace(/\n/g, ' ')} */`,
+    );
+}
 
 /**
  * @param {object} input
  * @param {string} input.originalContent  Source .v as-is from disk.
  * @param {string} input.tbModule         Testbench module name.
  * @param {string[]} [input.selectedSignals]  Picker selection.
+ * @param {boolean} [input.overrideUserDumpvars]  Se true, e o testbench
+ *      tem $dumpfile/$dumpvars hand-written, NAO cede o controle:
+ *      comenta as linhas originais e injeta o $dumpvars do Aurora
+ *      baseado em selectedSignals. Usado quando o usuario customiza
+ *      a Wave Configuration depois da primeira simulacao.
  * @returns {InstrumentResult}
  */
-export function instrumentTestbenchSource({ originalContent, tbModule, selectedSignals = [] }) {
-    if (/\$dumpfile/.test(originalContent) || /\$dumpvars/.test(originalContent)) {
+export function instrumentTestbenchSource({
+    originalContent,
+    tbModule,
+    selectedSignals = [],
+    overrideUserDumpvars = false,
+}) {
+    const hasUserDump = /\$dumpfile/.test(originalContent) || /\$dumpvars/.test(originalContent);
+
+    if (hasUserDump && !overrideUserDumpvars) {
+        // Sem override: cede o controle pro $dumpvars do testbench.
         return { needsWrite: false, content: originalContent, reason: 'user-defined' };
     }
 
@@ -46,6 +76,13 @@ export function instrumentTestbenchSource({ originalContent, tbModule, selectedS
         return { needsWrite: false, content: originalContent, reason: 'malformed' };
     }
 
+    // Se for override, primeiro neutraliza o $dumpfile/$dumpvars do
+    // usuario no source. Aurora injeta o seu logo abaixo.
+    const baseContent = hasUserDump ? commentOutDumpCalls(originalContent) : originalContent;
+    // O endmodule index muda apos o replace porque o tamanho do
+    // conteudo mudou. Recalcular.
+    const endmoduleIdx = baseContent.lastIndexOf('endmodule');
+
     const dumpvarsArgs = selectedSignals.length > 0
         ? `0, ${selectedSignals.join(', ')}`
         : `1, ${tbModule}`;
@@ -53,10 +90,13 @@ export function instrumentTestbenchSource({ originalContent, tbModule, selectedS
         ? `Signal list comes from the Wave Configuration picker (${selectedSignals.length} signals).`
         : 'Default: signals at the testbench module scope; configure via the Wave Configuration modal.';
 
+    const headerComment = hasUserDump
+        ? 'Aurora override: testbench had hand-written $dumpfile/$dumpvars but the user customized the Wave Configuration, so the originals were commented out and replaced.'
+        : '$dumpfile / $dumpvars added because the testbench did not declare any.';
+
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
-// $dumpfile / $dumpvars added because the testbench did not declare
-// any. ${note}
+// ${headerComment} ${note}
 initial begin
     $dumpfile("${tbModule}.vcd");
     $dumpvars(${dumpvarsArgs});
@@ -64,13 +104,14 @@ end
 // --------------------------------------------------
 `;
 
-    const content = originalContent.slice(0, lastEndmodule)
+    const content = baseContent.slice(0, endmoduleIdx)
         + injection
-        + originalContent.slice(lastEndmodule);
+        + baseContent.slice(endmoduleIdx);
 
-    return {
-        needsWrite: true,
-        content,
-        reason: selectedSignals.length > 0 ? 'auto-selection' : 'auto',
-    };
+    let reason;
+    if (hasUserDump) reason = 'override-user';
+    else if (selectedSignals.length > 0) reason = 'auto-selection';
+    else reason = 'auto';
+
+    return { needsWrite: true, content, reason };
 }

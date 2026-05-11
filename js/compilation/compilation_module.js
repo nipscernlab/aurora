@@ -1493,12 +1493,13 @@ async syntaxCheck() {
  * js/wave/testbench_instrumenter.js (unit-tested). This method is
  * the IO glue.
  */
-async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, selectedSignals = []) {
+async instrumentTestbenchNoProcessors(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
     const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
         originalContent,
         tbModule,
         selectedSignals,
+        overrideUserDumpvars,
     });
     if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
 
@@ -1588,22 +1589,25 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
             const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
             const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
 
+            // Override do $dumpvars do testbench so quando o usuario
+            // customizou a Wave Configuration (flag salvo no
+            // projectOriented.json). Antes disso, o testbench manda.
+            const customized = this.projectConfig?.waveSignalsCustomized === true;
             const { path: tbPath, reason } = await this.instrumentTestbenchNoProcessors(
                 config.testbenchFile,
                 simTopModule,
                 tempBaseDir,
                 selected,
+                customized,
             );
             fileSet.add(tbPath);
 
-            // Phase 3 — when the testbench has hand-written
-            // $dumpfile/$dumpvars, the user has taken control of
-            // what gets dumped. Forcing the WC picker selection into
-            // the .gtkw would create a layout that references signals
-            // outside the user's $dumpvars scope (silently empty
-            // traces). Cache an empty selection so the .gtkw step
-            // falls back to "default top-scope" — derived purely from
-            // what's actually in the VCD the user produced.
+            // Phase 3 — quando o testbench tem $dumpfile/$dumpvars
+            // hand-written E o usuario NAO customizou a Wave Configuration,
+            // o testbench tem o controle: descartamos a selecao do WC pra
+            // que a .gtkw nao referencie sinais fora do escopo dumpado.
+            // Se o usuario customizou, Aurora ja injetou o proprio
+            // $dumpvars (override-user) — a selecao manda.
             if (reason === 'user-defined') {
                 this._validatedWaveSelection = [];
                 if (rawSelected.length > 0) {
@@ -1612,10 +1616,14 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
                         'warning');
                 }
             } else {
-                // Cache so the .gtkw step in runGtkWaveNoProcessors
-                // reuses the same pruned list (no duplicate "stale
-                // signal" warning, and the .gtkw matches the VCD).
+                // 'auto', 'auto-selection' ou 'override-user' — em todos
+                // os casos a selecao do WC e o que define o VCD.
                 this._validatedWaveSelection = selected;
+                if (reason === 'override-user') {
+                    this.terminalManager.appendToTerminal('twave',
+                        `Note: testbench's hand-written $dumpfile/$dumpvars commented out — using Wave Configuration selection (${selected.length} signal(s)).`,
+                        'tips');
+                }
             }
 
             if (tbPath !== config.testbenchFile) {

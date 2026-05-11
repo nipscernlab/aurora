@@ -13,6 +13,7 @@
  */
 
 import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
+import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
@@ -25,6 +26,12 @@ class WaveConfigManager {
         this.selected = new Set();
         this.collapsedScopes = new Set();
         this._initialized = false;
+        // Snapshot da selecao no momento em que o modal abre. Usado em
+        // save() pra detectar se o usuario mudou algo — qualquer
+        // diferenca seta waveSignalsCustomized=true em
+        // projectOriented.json e o compile flow passa a injetar o
+        // proprio $dumpvars (override do testbench).
+        this._initialSelection = new Set();
     }
 
     initialize() {
@@ -189,12 +196,30 @@ class WaveConfigManager {
 
         this.tree = buildHierarchyTree(modules, topModule);
 
-        // Restore saved selection if present, else apply the default.
-        if (Array.isArray(config.waveSignals) && config.waveSignals.length > 0) {
-            this.selected = new Set(config.waveSignals);
+        // Estrategia de selecao inicial:
+        //  1. waveSignalsCustomized === true  -> usa a selecao salva
+        //     em waveSignals (usuario assumiu o controle).
+        //  2. testbench tem $dumpfile/$dumpvars hand-written E VCD
+        //     existe   -> deriva a selecao do VCD atual (mostra ao
+        //     usuario o que ESTA sendo dumpado pelo $dumpvars dele).
+        //  3. caso contrario -> usa waveSignals salvo, ou aplica o
+        //     default (signals do escopo do testbench).
+        const customized = config.waveSignalsCustomized === true;
+        if (customized) {
+            this.selected = new Set(Array.isArray(config.waveSignals) ? config.waveSignals : []);
         } else {
-            this._applyDefaultSelection();
+            const vcdDerived = await this._tryDeriveSelectionFromVcd(projectPath, config, topModule);
+            if (vcdDerived) {
+                this.selected = vcdDerived;
+            } else if (Array.isArray(config.waveSignals) && config.waveSignals.length > 0) {
+                this.selected = new Set(config.waveSignals);
+            } else {
+                this._applyDefaultSelection();
+            }
         }
+
+        // Snapshot pra detectar mudanca em save().
+        this._initialSelection = new Set(this.selected);
 
         // Open the modal with every nested module collapsed. The root
         // (testbench) stays expanded so the user lands on the most
@@ -222,6 +247,50 @@ class WaveConfigManager {
         if (!this.tree) return;
         for (const sig of this.tree.signals) {
             this.selected.add(`${this.tree.scopePath}.${sig.name}`);
+        }
+    }
+
+    /**
+     * Quando o testbench tem $dumpfile/$dumpvars hand-written, a primeira
+     * vez que o modal abre pra um projeto nao-customizado mostramos o
+     * que ESTA efetivamente sendo dumpado — i.e., parseamos o VCD
+     * gerado pela ultima simulacao e marcamos os sinais correspondentes.
+     *
+     * Devolve um Set<string> com os paths ou null se:
+     *   - testbench nao tem $dumpvars/$dumpfile (caso normal, segue
+     *     o fluxo default/waveSignals);
+     *   - VCD nao existe ainda (primeira simulacao nem rodou);
+     *   - parsing do testbench ou do VCD falhou.
+     */
+    async _tryDeriveSelectionFromVcd(projectPath, config, topModule) {
+        try {
+            // Precisa ter um testbenchFile pra verificar dumpvars.
+            if (!config.testbenchFile) return null;
+            const tbContent = await window.electronAPI.readFile(config.testbenchFile);
+            const hasUserDump = /\$dumpfile/.test(tbContent) || /\$dumpvars/.test(tbContent);
+            if (!hasUserDump) return null;
+
+            // VCD vive em components/Temp/<topModule>.vcd no fluxo
+            // no-processors. Outras configs podem ter outros paths
+            // mas esse e o caminho canonico do botao Wave.
+            const componentsPath = await window.electronAPI.getComponentsPath();
+            const vcdPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
+            const vcdExists = await window.electronAPI.fileExists(vcdPath);
+            if (!vcdExists) return null;
+
+            const vcdContent = await window.electronAPI.readFile(vcdPath);
+            const scopes = parseVcdHeaderFromContent(vcdContent);
+            if (!Array.isArray(scopes) || scopes.length === 0) return null;
+
+            const derived = new Set();
+            for (const scope of scopes) {
+                for (const sig of scope.signals) {
+                    derived.add(`${scope.path}.${sig.name}`);
+                }
+            }
+            return derived;
+        } catch (_e) {
+            return null;
         }
     }
 
@@ -414,8 +483,20 @@ class WaveConfigManager {
         }
         // Sort for stable diffs in projectOriented.json.
         const list = [...this.selected].sort();
+
+        // Detecta se o usuario mexeu na selecao. Comparacao por
+        // conjunto: tamanhos iguais E todos os elementos em comum.
+        const changed = this.selected.size !== this._initialSelection.size
+            || [...this.selected].some((s) => !this._initialSelection.has(s));
+
         await ProjectConfigStore.update(projectPath, (cfg) => {
             cfg.waveSignals = list;
+            // Uma vez setado true, permanece — o usuario assumiu o
+            // controle e o compile flow injeta seu proprio $dumpvars
+            // mesmo que o testbench tenha um. Pra "voltar" pro modo
+            // testbench-manda, editar projectOriented.json a mao
+            // (remover waveSignalsCustomized).
+            if (changed) cfg.waveSignalsCustomized = true;
         });
         this.close();
     }

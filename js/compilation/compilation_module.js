@@ -198,10 +198,44 @@ async generateProjectHierarchy() {
             const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
+            // components/HDL/ tem a biblioteca SAPHO (myFIFO, processor,
+            // core, ula, addr_dec, instr_dec, etc) — modulos referenciados
+            // pelo design do usuario mas nao listados em
+            // synthesizableFiles. Sem incluir esses .v no read_verilog,
+            // o yosys faz blackbox automatico mas nao cria entry em
+            // modules[], entao parseYosysHierarchy os trata como
+            // primitivos e eles somem da arvore (`hierarchy -libdir`
+            // existe na doc mas nao funciona nessa versao bundled).
+            //
+            // `hierarchy -top` remove modulos nao alcancaveis depois,
+            // entao incluir HDL/* todo nao polui o JSON final.
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            let hdlReadCmds = '';
+            try {
+                const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+                if (Array.isArray(hdlEntries)) {
+                    const hdlVerilogPaths = await Promise.all(
+                        hdlEntries
+                            .filter((n) => typeof n === 'string' && n.endsWith('.v') && !n.includes('_tb'))
+                            .map((n) => window.electronAPI.joinPath(hdlPath, n)),
+                    );
+                    hdlReadCmds = hdlVerilogPaths
+                        .map((p) => `read_verilog -sv "${p}"`)
+                        .join('\n');
+                }
+            } catch (_e) {
+                this.terminalManager.appendToTerminal(
+                    'tveri',
+                    `Warning: could not list ${hdlPath} — biblioteca SAPHO nao incluida na hierarquia.`,
+                    'warning',
+                );
+            }
+
             this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
 
             const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
             const yosysScript = `
+                ${hdlReadCmds}
                 ${synthesizableFiles.map(file => `read_verilog -sv "${file.path}"`).join('\n')}
                 hierarchy -top ${designTopModule}
                 proc

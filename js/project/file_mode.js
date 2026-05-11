@@ -110,10 +110,9 @@ class VerilogTreeManager {
         // fileTreeManager.initializeTreeBasedOnMode (coalescidas).
         this.activateVerilogMode();
 
-        // Project modal saves write projectOriented.json. The modal's own
-        // saveConfiguration() already calls us when verilog mode is active,
-        // but listening here catches any other path that updates the config
-        // (CLI tools, future flows, etc.) so the picker never goes stale.
+        // Qualquer escritor de projectOriented.json (gtkw_picker, CLI
+        // tools, futuros fluxos) dispara este evento — o picker re-le
+        // e re-renderiza pra nao ficar stale.
         document.addEventListener('project-config-saved', () => {
             if (this.isVerilogTreeActive) {
                 this.refreshVerilogTree();

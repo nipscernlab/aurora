@@ -156,10 +156,6 @@
             </button>
         </div>
 
-        <button id="settings" class="toolbar-button btn-settings" style="display:none">
-            <i class="ph ph-gear-six"></i>
-            <span>Settings</span>
-        </button>
         <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
             <i class="ph ph-sliders-horizontal"></i>
         </button>
@@ -458,142 +454,6 @@
      MODALS
      ============================================================ -->
 
-<!-- Project Configuration Modal -->
-<div id="modalProjectConfig" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container medium" role="dialog" aria-labelledby="project-modal-title" aria-modal="true">
-        <header class="modal-header">
-            <h2 id="project-modal-title" class="modal-title">
-                <i class="ph ph-gear" aria-hidden="true"></i>
-                <span>Project Settings</span>
-            </h2>
-            <button id="closeProjectModal" class="modal-close-btn" aria-label="Close Modal">
-                <i class="ph ph-x" aria-hidden="true"></i>
-            </button>
-        </header>
-
-        <main class="modal-body">
-            <section class="config-section">
-                <h3 class="section-title">
-                    <i class="ph ph-magic-wand" aria-hidden="true"></i>
-                    Synthesis Configuration
-                </h3>
-
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="ph ph-file-code" aria-hidden="true"></i>
-                        Synthesizable Files (.v)
-                    </label>
-
-                    <div class="file-drop-area" id="synthesizableDropArea">
-                        <div class="drop-zone">
-                            <div class="drop-zone-content">
-                                <i class="ph ph-cloud-arrow-up drop-icon" aria-hidden="true"></i>
-                                <h4>Import Verilog Files</h4>
-                                <p>Drag &amp; drop .v files here or click to browse</p>
-                                <button id="importSynthesizableBtn" class="btn btn-outline">
-                                    <i class="ph ph-file-arrow-down" aria-hidden="true"></i>
-                                    <span>Browse Files</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="file-list" id="synthesizableFileList">
-                            <div class="empty-state" id="synthesizableEmptyState">
-                                <i class="ph ph-file-code empty-icon" aria-hidden="true"></i>
-                                <span>No synthesizable files imported yet</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="ph ph-test-tube" aria-hidden="true"></i>
-                        Testbench &amp; GTKW Files (optional)
-                    </label>
-
-                    <div class="file-drop-area" id="testbenchDropArea">
-                        <div class="drop-zone">
-                            <div class="drop-zone-content">
-                                <i class="ph ph-cloud-arrow-up drop-icon" aria-hidden="true"></i>
-                                <h4>Import Testbench Files</h4>
-                                <p>Drag &amp; drop .v and .gtkw files here or click to browse</p>
-                                <button id="importTestbenchBtn" class="btn btn-outline">
-                                    <i class="ph ph-file-arrow-down" aria-hidden="true"></i>
-                                    <span>Browse Files</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="file-list" id="testbenchFileList">
-                            <div class="empty-state" id="testbenchEmptyState">
-                                <i class="ph ph-test-tube empty-icon" aria-hidden="true"></i>
-                                <span>No testbench or GTKW files imported yet</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="config-section simulation-settings-container">
-                <h3 class="section-title">
-                    <i class="ph ph-chart-line-up" aria-hidden="true"></i>
-                    Simulation Configuration
-                </h3>
-
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="ph ph-cpu" aria-hidden="true"></i>
-                        Processors Management
-                    </label>
-
-                    <div id="processorsList" class="processors-list"></div>
-
-                    <button id="addProcessor" class="btn btn-outline">
-                        <i class="ph ph-plus" aria-hidden="true"></i>
-                        <span>Add Processor</span>
-                    </button>
-                </div>
-
-                <div class="form-group">
-                    <label for="projectSimuDelay" class="form-label">Simulation Time (ps)</label>
-                    <input type="number" id="projectSimuDelay" class="form-input" name="simuDelay"
-                           placeholder="e.g., 200000" value="200000"
-                           min="1" max="100000000" step="1" required>
-                    <small class="form-hint">Positive integer between 1 and 100,000,000 ps. Used as the simulation duration in the testbench.</small>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="showArraysInGtkwave-project" class="form-checkbox">
-                        <label for="showArraysInGtkwave-project" class="checkbox-label">
-                            Show C± arrays content in GTKWave
-                        </label>
-                    </div>
-                    <small class="form-hint">
-                        <i class="ph ph-info" aria-hidden="true"></i>
-                        Arrays defined in C± code will be viewable in the simulation waveform. This may significantly increase simulation time.
-                    </small>
-                </div>
-            </section>
-        </main>
-
-        <footer class="modal-footer">
-            <div class="footer-actions">
-                <button id="cancelProjectConfig" class="btn btn-secondary">
-                    <span>Cancel</span>
-                </button>
-                <button id="saveProjectConfig" class="btn btn-primary">
-                    <i class="ph ph-floppy-disk" aria-hidden="true"></i>
-                    <span>Save Project</span>
-                </button>
-            </div>
-        </footer>
-    </div>
-</div>
-
-<input type="file" id="synthesizableFileInput" class="hidden" multiple accept=".v">
-<input type="file" id="testbenchFileInput" class="hidden" multiple accept=".v,.gtkw">
 
 <!-- Wave Configuration Modal -->
 <div id="modalWaveConfig" class="modal-overlay" aria-hidden="true">
@@ -995,7 +855,7 @@ function activateTerminal(terminalId) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const buttons = ['newProjectBtn', 'newProjectBtnWelcome', 'processorHub', 'openProjectBtn', 'openProjectBtnWelcome', 'settings', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
+    const buttons = ['newProjectBtn', 'newProjectBtnWelcome', 'processorHub', 'openProjectBtn', 'openProjectBtnWelcome', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
     buttons.forEach(id => {
         const button = document.getElementById(id);
         if (button) button.classList.add('button-highlight');
@@ -1099,7 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- ES modules (defer by default, dependency-resolved) -->
 <script src="./js/app/renderer.js" type="module"></script>
-<script src="./js/project/project_oriented.js" type="module"></script>
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>

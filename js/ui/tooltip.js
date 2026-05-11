@@ -65,7 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'importBtn': 'Import all files to the compilation environment. Supports drag & drop.',
         'line-number': 'Shows current line and column position in the editor.',
         'themeToggle': 'Switches between light and dark themes for optimal comfort based on your environment.',
-        'settings': 'Opens the processor configuration panel to customize hardware parameters and optimization settings.',
         'info-aurora': 'Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.',
         'processorHub': 'Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.',
         'aiButton': 'Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.',
@@ -91,14 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'close-button': 'Close the current project and return to the welcome screen.',
         'toggle-file-tree': 'Collapse or expand all folders in the file tree.',
         'clear-search': 'Clear the current file search query.',
-        'closeProjectModal': 'Close the project configuration modal without saving changes.',
-        'saveProjectConfig': 'Save the current project configuration settings.',
-        'cancelProjectConfig': 'Cancel and discard any changes made to the project configuration.',
-        'importSynthesizableBtn': 'Import synthesizable Verilog (.v) files into the project.',
-        'importTestbenchBtn': 'Import testbench and GTKWave (.v, .gtkw) files into the project.',
-        'addProcessor': 'Add a new processor configuration to the current project.',
-        'projectSimuDelay': 'Set the default simulation time value used in testbench timing calculations.',
-        'showArraysInGtkwave-project': 'Enable viewing of C± array contents in the waveform viewer for all processors (may slow simulation).',
         'browseBtn': 'Browse and select the directory where the new project will be created.',
         'generateProjectBtn': 'Generate the new project with the specified name and location.',
         'cancelProjectBtn': 'Cancel the new project creation and close the dialog.',
@@ -116,8 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'cancelProcessorHub': 'Cancel processor creation and return to the main interface.',
         'generateProcessor': 'Create the processor with the specified configuration.',
         'file-search-input': 'Search for files in the current project by name or extension.',
-        'synthesizableFileInput': 'Select synthesizable Verilog files to import.',
-        'testbenchFileInput': 'Select testbench or GTKWave files to import.',
         'power-off': 'Exit the AURORA IDE application safely.'
     };
     

@@ -11,9 +11,9 @@ import { ProjectStore } from './project_store.js';
 function disableCompileButtons() {
     const buttonIds = [
         /*
-        'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 
-        'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 
-        'projectInfo', 'settings-project' */
+        'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp',
+        'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn',
+        'projectInfo' */
     ];
 
     buttonIds.forEach(id => {

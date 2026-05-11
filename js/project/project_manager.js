@@ -63,7 +63,7 @@ function showProjectInfoDialog(projectData) {
 
 // CORREÇÃO AQUI: Atualização direta da UI sem depender de animações CSS
 function enableCompileButtons() {
-    const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'settings', 'importBtn', 'backupFolderBtn', 'projectInfo', 'settings-project'];
+    const buttons = ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 'projectInfo'];
     
     buttons.forEach(id => {
         

@@ -1,32 +1,30 @@
 /**
- * project_config_store.js — Single writer for projectOriented.json.
+ * project_config_store.js — Single writer pra projectOriented.json.
  *
- * Two managers used to do their own read-mutate-write cycles on
- * projectOriented.json independently:
+ * Escritores hoje:
+ *   - VerilogModeManager (file tree picker): synthesizableFiles,
+ *     testbenchFiles, topLevelFile, testbenchFile
+ *   - GtkwPickerManager (toolbar dropdown): gtkwFiles
+ *   - WaveConfigManager (modal Wave Configuration): waveSignals,
+ *     waveSignalsCustomizedFor
  *
- *   - VerilogModeManager.saveConfiguration: rewrote synthesizableFiles,
- *     testbenchFiles, topLevelFile, testbenchFile based on the picker
- *     state.
- *   - ProjectOrientedManager.saveConfiguration: rewrote the entire config
- *     from the Project Settings modal form, OVERWRITING anything the
- *     verilog manager had just written.
+ * Historicamente cada manager fazia seu proprio ciclo
+ * read-mutate-write no arquivo. Isso abriu duas classes de bug:
+ *   1. Race: se dois escreviam concorrentemente, o segundo lia um
+ *      snapshot stale e clobrava as mudancas do primeiro mesmo em
+ *      campos disjuntos.
+ *   2. Escritores que reescreviam tudo (era o caso do antigo modal
+ *      Project Settings) apagavam campos novos adicionados por
+ *      outros escritores.
  *
- * Two open issues fell out of that:
- *   1. Race: if both wrote concurrently, the later writer's "current
- *      config" snapshot was stale, so it clobbered the earlier write's
- *      changes — even on disjoint fields.
- *   2. The project modal wholesale-overwrote, so any field a future
- *      writer might add (or that someone edited via another path)
- *      vanished on save.
+ * Este store resolve (1) serializando updates per-project-path numa
+ * promise chain. Resolve (2) expondo so `update(projectPath, mutator)`
+ * — callers mutam os campos que possuem na config em memoria, e
+ * campos nao-tocados sobrevivem ao round trip.
  *
- * This store fixes (1) by serializing all updates per project-path
- * through a promise chain. It fixes (2) by exposing only an
- * `update(projectPath, mutator)` API: callers mutate the fields they own
- * on the in-memory object, and untouched fields survive the round trip.
- *
- * Defaults are merged on read, so a fresh config (file missing or
- * partial) lands at a known shape — no `undefined`/`NaN` leakage into
- * downstream consumers that didn't think about that case.
+ * Defaults sao mergeados na leitura, entao uma config nova (arquivo
+ * faltando ou parcial) sempre chega num shape conhecido — sem
+ * `undefined`/`NaN` vazando pra consumidores downstream.
  */
 
 const CONFIG_FILENAME = 'projectOriented.json';
@@ -37,20 +35,34 @@ const CONFIG_FILENAME = 'projectOriented.json';
 const writeChainByPath = new Map();
 
 const DEFAULTS = Object.freeze({
+  // Topo do design — marcado pelo usuario via context menu na file
+  // tree. Iverilog usa como -s no botao Verilog/PRISM (modo check).
   topLevelFile: '',
+  // Testbench-topo — idem, mas e o -s do botao Wave (modo simulacao).
   testbenchFile: '',
-  gtkwaveFile: '',
+  // Arquivos .v sinteticaveis (incluindo .v dos processadores).
+  // Populados pela auto-descoberta + drag-and-drop no file tree.
   synthesizableFiles: [],
+  // Arquivos .v de testbench.
   testbenchFiles: [],
+  // .gtkw save files registrados pelo gtkw_picker (toolbar dropdown).
+  // O entry com `isTopLevel: true` e o "ativo" lido em
+  // _waveResolveGtkwSaveFile (Source 1).
   gtkwFiles: [],
+  // Processadores configurados. Pos-fase 4, customizacao
+  // per-processador (cmmFile/clk/numClocks) saiu — esses campos
+  // viraram defaults hardcoded em precompileAllProcessors. Aqui resta
+  // {name, type, instance} usado por compilation_flow.collectProcessors.
   processors: [],
+  // Flags adicionais pra iverilog (sem UI hoje — sempre '').
   iverilogFlags: '',
+  // Delay base do testbench instrumentado (sem UI hoje).
   simuDelay: '200000',
+  // Toggle pra visualizar arrays C± no GTKWave (sem UI hoje).
   showArraysInGtkwave: 0,
-  // Wave Configuration picker — list of dotted scope paths
-  // ("tb_counter.dut.q") that should land in $dumpvars and the
-  // auto-generated .gtkw. Empty = use the default of "everything at
-  // the testbench module scope".
+  // Wave Configuration picker — lista de scope paths dotted
+  // ("tb_counter.dut.q") que entram em $dumpvars e na .gtkw
+  // auto-gerada. Vazio = "tudo no escopo do testbench top".
   waveSignals: [],
 });
 

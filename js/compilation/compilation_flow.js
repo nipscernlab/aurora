@@ -1,7 +1,6 @@
 // compilation_flow.js
 
 import { CompilationModule } from './compilation_module.js';
-import { showDialog } from '../ui/dialog_manager.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 
@@ -68,33 +67,8 @@ function endCompilation() {
 // PIPELINES (Updated to respect Toggle State)
 // ----------------------------------------------------------------------
 
-async function runProcessorPipeline(compiler) {
-    const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-    if (!activeProcessor) throw new Error("No active processor found.");
-
-    await compiler.ensureDirectories(activeProcessor.name);
-
-    // 1. CMM Compilation
-    switchTerminal('terminal-tcmm');
-    checkCancellation();
-    await compiler.cmmCompilation(activeProcessor);
-
-    // 2. ASM Compilation
-    switchTerminal('terminal-tasm');
-    checkCancellation();
-    await compiler.asmCompilation(activeProcessor, 0);
-
-    // 3. Verilog Simulation/Verification
-    switchTerminal('terminal-tveri');
-    checkCancellation();
-    await compiler.iverilogCompilation(activeProcessor);
-
-    // 4. Waveform Visualization
-    switchTerminal('terminal-twave');
-    checkCancellation();
-    await compiler.runGtkWave(activeProcessor);
-}
-
+// FASE 2: runProcessorPipeline (Processor Mode full build) removida —
+// runAll agora chama so runProjectPipeline.
 async function runProjectPipeline(compiler) {
     const processors = compiler.projectConfig?.processors ?? [];
 
@@ -249,54 +223,22 @@ hasValidProjectConfig() {
         return el && !el.textContent.includes('No Processor Configured');
     }
 
-async runPrismForCurrentMode() {
-  const currentMode = this.getCurrentMode();
-  const compiler = new CompilationModule(window.currentProjectPath);
-  
-  try {
-    if (currentMode === 'verilog') {
-      await compiler.prismVerilogModeCompilation();
-    } else if (currentMode === 'processor') {
-      await compiler.loadConfig();
-      const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-      if (!activeProcessor) throw new Error('No active processor found');
-      await compiler.prismProcessorCompilation(activeProcessor);
-    } else if (currentMode === 'project') {
-      await compiler.loadConfig();
-      await compiler.prismProjectCompilation();
-    }
-  } catch (error) {
-    console.error('PRISM compilation error:', error);
-    throw error;
-  }
-}
+// FASE 2: runPrismForCurrentMode removida — era orfa e chamava
+// CompilationModule.prismProjectCompilation() que nem existe (resto
+// de uma refatoracao incompleta antiga). PRISM hoje passa pelo
+// branch step==='prism' em runSingleStep que invoca diretamente o
+// IPC prism-compile-with-paths.
 
 async runAll() {
-    // Full Build runs every pipeline stage — clear all terminals.
+    // FASE 2: branch de Processor Mode deletado. Botao Full Build ja
+    // foi escondido na fase 1.5, mas runAll continua acessivel via
+    // command palette antigo / atalhos externos. So roda o project
+    // pipeline.
     startCompilation(ALL_TERMINALS);
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
-
-        const mode = this.getCurrentMode();
-
-        if (mode === 'processor') {
-            const hasProcessors = compiler.config?.processors?.length > 0;
-            if (!hasProcessors) {
-                await showDialog({
-                    title: 'Configuration Required',
-                    message: 'Run All in Processor Mode requires at least one configured processor.',
-                    buttons: [{ label: 'OK', type: 'cancel', action: 'close' }],
-                });
-                endCompilation();
-                return;
-            }
-            await runProcessorPipeline(compiler);
-        } else {
-            // Project Mode — pipeline auto-decides between full and
-            // verilog-only depending on whether processors are configured.
-            await runProjectPipeline(compiler);
-        }
+        await runProjectPipeline(compiler);
     } catch (error) {
         console.error('Compilation error:', error);
     } finally {
@@ -629,18 +571,9 @@ async runSingleStep(step) {
                     switchTerminal('terminal-twave');
                 }
 
-                // Continua com a logica de simulacao existente.
-                const currentMode = this.getCurrentMode();
-                if (currentMode === 'project') {
-                    await compiler.runProjectGtkWave();
-                } else {
-                    const activeProcessor = compiler.config?.processors?.find(p => p.isActive === true)
-                        || [...seenProcs.values()][0];
-                    if (!activeProcessor) {
-                        throw new Error('No processor available for waveform simulation.');
-                    }
-                    await compiler.runGtkWave(activeProcessor);
-                }
+                // FASE 2: branch Processor Mode (runGtkWave(activeProcessor))
+                // deletado. Project Mode e o unico modo.
+                await compiler.runProjectGtkWave();
             } catch (error) {
                 console.error('Erro na etapa wave:', error);
                 if (window.terminalManager?.appendToTerminal) {
@@ -652,54 +585,24 @@ async runSingleStep(step) {
             return;
         }
 
-        // 2. CMM, ASM, Verilog, Wave per-step buttons. Clear only the
-        //    terminal this step writes to so unrelated runs (e.g. a
-        //    previous CMM compile in tcmm) stay readable.
+        // 2. Verilog per-step button. cmm/asm/wave sao tratados em
+        //    early returns mais acima (usam o arquivo aberto no
+        //    Monaco / pre-compilam todos os processadores). Aqui so
+        //    restam Verilog e qualquer step desconhecido.
+        //
+        //    FASE 2: branch "Processor Mode com active processor" eliminado.
+        //    iverilogProjectCompilation funciona com 0 ou N processadores
+        //    (dispatcher interno por hasNoProcessors), entao virou o
+        //    unico caminho.
         startCompilation(STEP_TERMINALS[step]);
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
-            const currentMode = this.getCurrentMode();
-
-            // Project Mode: Verilog and Wave routes auto-pick between
-            // the project-pipeline and verilog-only pipeline based on
-            // whether processors are configured. CMM/ASM only make sense
-            // when there are processors.
-            if (currentMode === 'project') {
-                const hasProcessors = (compiler.projectConfig?.processors?.length ?? 0) > 0;
-
-                if (step === 'verilog') {
-                    switchTerminal('terminal-tveri');
-                    // iverilogProjectCompilation dispatches internally
-                    // by hasNoProcessors() — no need to branch here.
-                    await compiler.iverilogProjectCompilation();
-                    return;
-                }
-                // Nota: 'wave' nunca chega aqui — e tratado no early
-                // return mais acima, que pre-compila C+- + ASM de todos
-                // os processadores antes de delegar pro runProjectGtkWave.
-                if ((step === 'cmm' || step === 'asm') && !hasProcessors) {
-                    throw new Error('CMM/ASM require at least one configured processor in this project.');
-                }
-                // CMM/ASM with processors fall through to the processor flow below.
-            }
-
-            // Processor steps (Processor Mode, or CMM/ASM in Project Mode
-            // with processors) need an active processor.
-            const activeProcessor = compiler.config.processors.find(p => p.isActive === true);
-            if (!activeProcessor) {
-                throw new Error("Nenhum processador ativo configurado. Selecione um processador no Processor Hub.");
-            }
 
             switch (step) {
-                // Nota: 'cmm', 'asm' e 'wave' nunca chegam aqui — sao
-                // tratados em early returns mais acima. cmm/asm usam o
-                // arquivo aberto no Monaco; wave pre-compila todos os
-                // processadores antes da simulacao.
-
                 case 'verilog':
                     switchTerminal('terminal-tveri');
-                    await compiler.iverilogCompilation(activeProcessor);
+                    await compiler.iverilogProjectCompilation();
                     break;
 
                 default:

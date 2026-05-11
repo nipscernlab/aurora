@@ -182,125 +182,109 @@ async function runYosysCompilationWithPaths(
   compilationPaths,
   topLevelModule,
   tempDir,
-  isProjectOriented,
-  isProjectVerilogOnly,
+  // isProjectOriented e isProjectVerilogOnly mantidos na assinatura
+  // por compatibilidade com chamadores antigos, mas a coleta de
+  // arquivos virou unificada — sem ramos "processor mode" vs
+  // "project mode". Tudo que esta no synthesizableFiles entra no
+  // yosys, com componentes/HDL/*.v como library base. Os params
+  // sao prefixados com _ pra marcar que sao ignorados.
+  _isProjectOriented,
+  _isProjectVerilogOnly,
 ) {
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
-  const projectPath = compilationPaths.projectPath;
   const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
 
-  let fileList = [];
+  // Coleta unificada:
+  //   1. components/HDL/*.v  — biblioteca SAPHO (processor, addr_dec,
+  //      core, ula, myFIFO, instr_dec). Sempre incluida porque
+  //      qualquer top que seja um processador SAPHO depende disso.
+  //   2. projectOriented.synthesizableFiles[].path — fonte canonica
+  //      de TODOS os .v do projeto (auto-descobertos pelo file
+  //      tree + adicionados manualmente pelo usuario). Inclui o .v
+  //      de cada processador SAPHO via _discoverProcessorFiles.
+  //   3. <proj>/TopLevel/*.v se a pasta existir — wrapper top-level
+  //      (raro mas possivel).
+  //
+  // Dedup por path absoluto pra evitar duplicate-module errors do
+  // yosys quando o mesmo arquivo aparece em mais de uma fonte.
+  const fileSet = new Set();
 
-  if (isProjectVerilogOnly && isProjectOriented) {
-    // Verilog-only mode: synthesizable files from projectOriented.json.
-    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
-    if (!(await fse.pathExists(projectConfigPath))) {
-      throw new Error('projectOriented.json not found');
-    }
-
-    const projectConfig = await fse.readJson(projectConfigPath);
-    if (!projectConfig.synthesizableFiles || projectConfig.synthesizableFiles.length === 0) {
-      throw new Error('No synthesizable files found in projectOriented.json');
-    }
-
-    fileList = projectConfig.synthesizableFiles.map((file) => file.path);
-
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send(
-        'terminal-log',
-        'tveri',
-        `Verilog-only mode: ${fileList.length} files for synthesis`,
-        'info',
-      );
-    }
-  } else {
-    // Default: HDL + per-processor + (optional) TopLevel.
-
-    if (await fse.pathExists(hdlPath)) {
-      const hdlFiles = await fse.readdir(hdlPath);
-      const vFiles = hdlFiles.filter(
-        (file) => file.endsWith('.v') && !file.includes('_tb') && !file.toLowerCase().includes('test'),
-      );
-      fileList = fileList.concat(vFiles.map((file) => path.join(hdlPath, file)));
-    }
-
-    // Coleta processadores de TODAS as fontes possiveis:
-    //   1. processorConfig.json (Processor Mode classico)
-    //   2. projectOriented.json (Project Mode com processors no SPF)
-    //   3. .spf (state.currentOpenProjectPath) — fonte canonica
-    // Algumas configs deixam o array vazio em uma fonte e populado em
-    // outra; combinar tudo evita o caso "tem ZeroCross no projeto mas
-    // PRISM nao acha porque processorConfig esta vazio".
-    const processorNames = new Set();
-    const processorConfigPath = compilationPaths.processorConfigPath;
-    if (await fse.pathExists(processorConfigPath)) {
-      const processorConfig = await fse.readJson(processorConfigPath);
-      if (Array.isArray(processorConfig.processors)) {
-        for (const p of processorConfig.processors) {
-          const n = typeof p === 'string' ? p : p?.name;
-          if (n) processorNames.add(n);
-        }
-      }
-    }
-    const projectOrientedConfigPath = compilationPaths.projectOrientedConfigPath;
-    if (await fse.pathExists(projectOrientedConfigPath)) {
-      try {
-        const proj = await fse.readJson(projectOrientedConfigPath);
-        if (Array.isArray(proj.processors)) {
-          for (const p of proj.processors) {
-            const n = typeof p === 'string' ? p : p?.name;
-            if (n) processorNames.add(n);
-          }
-        }
-      } catch (_e) { /* JSON parse fail tolerado */ }
-    }
-    if (state.currentOpenProjectPath && await fse.pathExists(state.currentOpenProjectPath)) {
-      try {
-        const spf = await fse.readJson(state.currentOpenProjectPath);
-        const fromSpf = spf?.structure?.processors;
-        if (Array.isArray(fromSpf)) {
-          for (const p of fromSpf) {
-            const n = typeof p === 'string' ? p : p?.name;
-            if (n) processorNames.add(n);
-          }
-        }
-      } catch (_e) { /* idem */ }
-    }
-
-    for (const processorName of processorNames) {
-      const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
-      const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
-
-      if (await fse.pathExists(processorVFile)) fileList.push(processorVFile);
-
-      if (await fse.pathExists(processorHardwareDir)) {
-        const hardwareFiles = await fse.readdir(processorHardwareDir);
-        const vFiles = hardwareFiles.filter(
-          (file) => file.endsWith('.v') && !file.includes('_tb') && file !== `${processorName}.v`,
-        );
-        fileList = fileList.concat(vFiles.map((file) => path.join(processorHardwareDir, file)));
-      }
-    }
-
-    if (isProjectOriented) {
-      const topLevelDir = compilationPaths.topLevelPath;
-      const projectConfig = await fse.readJson(compilationPaths.projectOrientedConfigPath);
-      const topLevelFileName = path.basename(projectConfig.topLevelFile);
-
-      if (await fse.pathExists(topLevelDir)) {
-        const topLevelFiles = await fse.readdir(topLevelDir);
-        const vFiles = topLevelFiles.filter(
-          (file) => file.endsWith('.v') && !file.includes('_tb') && file !== topLevelFileName,
-        );
-        fileList = fileList.concat(vFiles.map((file) => path.join(topLevelDir, file)));
-
-        const topLevelFilePath = path.join(topLevelDir, topLevelFileName);
-        if (await fse.pathExists(topLevelFilePath)) fileList.push(topLevelFilePath);
+  if (await fse.pathExists(hdlPath)) {
+    const hdlFiles = await fse.readdir(hdlPath);
+    for (const f of hdlFiles) {
+      if (f.endsWith('.v') && !f.includes('_tb') && !f.toLowerCase().includes('test')) {
+        fileSet.add(path.join(hdlPath, f));
       }
     }
   }
 
+  const projectOrientedConfigPath = compilationPaths.projectOrientedConfigPath;
+  if (await fse.pathExists(projectOrientedConfigPath)) {
+    try {
+      const proj = await fse.readJson(projectOrientedConfigPath);
+      if (Array.isArray(proj.synthesizableFiles)) {
+        for (const f of proj.synthesizableFiles) {
+          const p = typeof f === 'string' ? f : f?.path;
+          if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p);
+        }
+      }
+      const topLevelDir = compilationPaths.topLevelPath;
+      if (topLevelDir && await fse.pathExists(topLevelDir)) {
+        const topLevelFiles = await fse.readdir(topLevelDir);
+        for (const f of topLevelFiles) {
+          if (f.endsWith('.v') && !f.includes('_tb')) {
+            fileSet.add(path.join(topLevelDir, f));
+          }
+        }
+      }
+    } catch (_e) { /* JSON parse fail tolerado */ }
+  }
+
+  // Fallback defensivo: varre <proj>/<proc>/Hardware/*.v para todos os
+  // processadores conhecidos (processorConfig + projectOriented + .spf).
+  // No happy-path Project Mode esses .v ja estao em synthesizableFiles
+  // via auto-descoberta — o dedup faz isso ser no-op. Mas em projetos
+  // mais antigos / Processor Mode classico onde synthesizableFiles
+  // pode estar vazio, esse scan garante que os modulos do processador
+  // entrem no yosys de qualquer jeito.
+  const projectPath = compilationPaths.projectPath;
+  const processorNames = new Set();
+  for (const cfgPath of [compilationPaths.processorConfigPath, projectOrientedConfigPath]) {
+    if (!cfgPath || !(await fse.pathExists(cfgPath))) continue;
+    try {
+      const cfg = await fse.readJson(cfgPath);
+      const list = Array.isArray(cfg.processors) ? cfg.processors : [];
+      for (const p of list) {
+        const n = typeof p === 'string' ? p : p?.name;
+        if (n) processorNames.add(n);
+      }
+    } catch (_e) { /* idem */ }
+  }
+  if (state.currentOpenProjectPath && await fse.pathExists(state.currentOpenProjectPath)) {
+    try {
+      const spf = await fse.readJson(state.currentOpenProjectPath);
+      const fromSpf = spf?.structure?.processors;
+      if (Array.isArray(fromSpf)) {
+        for (const p of fromSpf) {
+          const n = typeof p === 'string' ? p : p?.name;
+          if (n) processorNames.add(n);
+        }
+      }
+    } catch (_e) { /* idem */ }
+  }
+  for (const procName of processorNames) {
+    const hardwareDir = path.join(projectPath, procName, 'Hardware');
+    if (!(await fse.pathExists(hardwareDir))) continue;
+    const hardwareFiles = await fse.readdir(hardwareDir);
+    for (const f of hardwareFiles) {
+      if (f.endsWith('.v') && !f.includes('_tb')) {
+        fileSet.add(path.join(hardwareDir, f));
+      }
+    }
+  }
+
+  const fileList = [...fileSet];
   if (fileList.length === 0) throw new Error('No Verilog files found for compilation');
 
   const readCommands = fileList.map((file) => `read_verilog "${file}"`).join('\n');

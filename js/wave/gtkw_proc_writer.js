@@ -95,29 +95,67 @@ const hex = (n) => n.toString(16);
 /**
  * Scan VCD scopes and return processor instances found inside.
  *
+ * Heuristica: um scope e instancia de processador SAPHO se contem
+ * AMBOS `valr2` e `linetabs` (registradores caracteristicos do
+ * processador, emitidos pelo asmcomp em hdl_vv_file).
+ *
+ * Quando existe um sub-escopo `<inst>.p_<procType>.core`, extraimos
+ * procType + corePath a partir dele (caminho rico, usado pelos
+ * groups de Stack/ULA). Quando o $dumpvars do testbench nao desceu
+ * tao fundo (caso da maioria dos projetos com um so processador),
+ * corePath fica null e o template omite os groups de Stack/ULA.
+ * procType nesse caso e inferido do escopo do testbench (ex:
+ * "ProcDTW_tb" -> "ProcDTW"); se nem isso bater, cai no instanceName.
+ *
  * @param {VcdScope[]} scopes
- * @returns {Array<{ instancePath: string, instanceName: string, procType: string, corePath: string }>}
+ * @returns {Array<{ instancePath: string, instanceName: string, procType: string, corePath: string|null }>}
  */
 export function detectProcessors(scopes) {
-    const found = new Map();
+    const found = [];
+    const seenInst = new Set();
     for (const scope of scopes) {
+        const sigs = scope.signals || [];
+        const hasValr2 = sigs.some((s) => s.name === 'valr2');
+        const hasLinetabs = sigs.some((s) => s.name === 'linetabs');
+        if (!(hasValr2 && hasLinetabs)) continue;
+        if (seenInst.has(scope.path)) continue;
+        seenInst.add(scope.path);
+
         const parts = scope.path.split('.');
-        for (let i = 2; i < parts.length; i++) {
-            if (parts[i] === 'core' && parts[i - 1].startsWith('p_')) {
-                const instPath = parts.slice(0, i - 1).join('.');
-                if (!found.has(instPath)) {
-                    found.set(instPath, {
-                        instancePath: instPath,
-                        instanceName: parts[i - 2],
-                        procType: parts[i - 1].slice(2),
-                        corePath: parts.slice(0, i + 1).join('.'),
-                    });
-                }
+        const instanceName = parts[parts.length - 1];
+
+        // Procura um child scope <instPath>.p_<X>.core em qualquer
+        // posicao mais profunda. Se existe, da pra extrair procType e
+        // corePath canonicos. Senao, corePath = null e procType e
+        // inferido do testbench top.
+        let procType = null;
+        let corePath = null;
+        for (const other of scopes) {
+            if (!other.path.startsWith(scope.path + '.')) continue;
+            const tail = other.path.slice(scope.path.length + 1);
+            const m = tail.match(/^p_([^.]+)\.core(?:\.|$)/);
+            if (m) {
+                procType = m[1];
+                corePath = `${scope.path}.p_${m[1]}.core`;
                 break;
             }
         }
+
+        if (!procType) {
+            // Fallback: testbench costuma chamar-se "<procType>_tb".
+            const tbScope = parts[0];
+            if (/_tb$/i.test(tbScope)) procType = tbScope.replace(/_tb$/i, '');
+            else procType = instanceName;
+        }
+
+        found.push({
+            instancePath: scope.path,
+            instanceName,
+            procType,
+            corePath,
+        });
     }
-    return [...found.values()];
+    return found;
 }
 
 // ---- internal helpers --------------------------------------------------
@@ -349,6 +387,12 @@ function emitVariablesSection(lines, scopes, instancePath, paths, counter, filte
 }
 
 function emitFlagsSection(lines, scopes, corePath, filter) {
+    // Sem corePath (caso comum quando o $dumpvars nao desceu ate o
+    // p_<X>.core do processador) nao ha como emitir os groups de
+    // Stack/ULA — pula a secao inteira pra nao deixar um comentario
+    // "Flags ***" orfao.
+    if (!corePath) return;
+
     emitComment(lines, 'Flags **************');
 
     // Stack: data stack (sp) + instruction stack (isp). Cada um tem

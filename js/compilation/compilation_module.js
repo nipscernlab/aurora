@@ -143,60 +143,6 @@ class CompilationModule {
         }, 2000);
     }
 
-    async generateProcessorHierarchy(processor) {
-        try {
-            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
-            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', processor.name);
-            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-            const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
-            const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const designTopModule = selectedCmmFile.replace(/\.cmm$/i, '');
-
-            this.terminalManager.appendToTerminal('tveri', 'Generating module hierarchy with Yosys...');
-
-            const verilogFiles = ['addr_dec.v', 'core.v', 'instr_dec.v', 'myFIFO.v', 'processor.v', 'ula.v'];
-            const hardwareFile = await window.electronAPI.joinPath(hardwarePath, `${designTopModule}.v`);
-
-            const yosysScript = `
-                ${verilogFiles.map(f => `read_verilog -sv "${hdlPath}\\${f}"`).join('\n')}
-                read_verilog -sv "${hardwareFile}"
-                hierarchy -top ${designTopModule}
-                proc
-                write_json "${tempPath}\\hierarchy.json"
-            `;
-
-            const scriptPath = await window.electronAPI.joinPath(tempPath, 'hierarchy_gen.ys');
-            await window.electronAPI.writeFile(scriptPath, yosysScript);
-
-            const yosysCmd = `cd "${tempPath}" && "${yosysPath}" -s "${scriptPath}"`;
-            const result = await window.electronAPI.execCommand(yosysCmd);
-
-            if (result.code !== 0) {
-                throw new Error(`Yosys hierarchy generation failed.`);
-            }
-
-            const jsonPath = await window.electronAPI.joinPath(tempPath, 'hierarchy.json');
-            const jsonContent = await window.electronAPI.readFile(jsonPath, {
-                encoding: 'utf8'
-            });
-            const hierarchyJson = JSON.parse(jsonContent);
-
-            this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
-            // Sync to the shared store so the hierarchy toggle (and any
-            // other consumer holding a different CompilationModule
-            // reference) sees the fresh data. Without this, file_tree_*
-            // sees stale or null hierarchy after a re-compile.
-            // setHierarchyData enables the toggle automatically; no
-            // separate enableToggle call needed.
-            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-            this.terminalManager.appendToTerminal('tveri', 'Module hierarchy generated successfully', 'success');
-            return true;
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', `Hierarchy generation error: ${error.message}`, 'warning');
-            return false;
-        }
-    }
-
 async generateProjectHierarchy() {
     // Skip hierarchy generation in Verilog-only mode if no processors
     // Hierarchy generation runs whenever there's at least one synthesizable
@@ -525,8 +471,11 @@ async generateProjectHierarchy() {
 
 async loadConfig() {
     try {
-        const projectModeRadio = document.getElementById('Project Mode');
-        this.isProjectOriented = projectModeRadio?.checked || false;
+        // FASE 2: isProjectOriented era set via radio em Processor Mode
+        // vs Project Mode. Agora hardcoded true; o campo continua
+        // sendo mantido por compat com codigo legado que le
+        // this.isProjectOriented (nas fases 3+ ele tambem some).
+        this.isProjectOriented = true;
 
         const projectInfo = await window.electronAPI.getCurrentProject();
         const currentProjectPath = projectInfo.projectPath || this.projectPath;
@@ -535,23 +484,21 @@ async loadConfig() {
             throw new Error('No current project path available for loading configuration');
         }
 
-        // Always load processor config
+        // processorConfig.json (legado) — best-effort load. Em projetos
+        // novos so projectOriented.json importa, mas projetos antigos
+        // ainda podem ter per-processor params (clk, numClocks) aqui.
         const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
         const config = await window.electronAPI.loadConfigFromPath(configFilePath);
         this.config = config;
-        console.log("Processor config loaded:", config);
 
-        // If in Project Mode, also load project config
-        if (this.isProjectOriented) {
-            const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
-            try {
-                const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
-                this.projectConfig = JSON.parse(projectConfigData);
-                console.log("✅ Project config loaded:", this.projectConfig);
-            } catch (error) {
-                console.warn("⚠️ Could not load projectOriented.json:", error);
-                this.projectConfig = null;
-            }
+        // projectOriented.json — fonte canonica de Project Mode.
+        const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
+        try {
+            const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
+            this.projectConfig = JSON.parse(projectConfigData);
+        } catch (error) {
+            console.warn("Could not load projectOriented.json:", error);
+            this.projectConfig = null;
         }
     } catch (error) {
         console.error("Failed to load configuration:", error);
@@ -594,14 +541,11 @@ async loadConfig() {
         const testbenchFilePath = processor.testbenchFile;
 
         if (testbenchFilePath && testbenchFilePath !== 'standard') {
-            if (this.isProjectOriented) {
-                tbFile = testbenchFilePath;
-            } else {
-                const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
-                tbFile = await window.electronAPI.joinPath(simulationPath, testbenchFilePath);
-            }
-            const tbFileName = testbenchFilePath.split(/[\\\\/]/)
-                .pop();
+            // FASE 2: branch Processor Mode (caminho relativo a
+            // <proj>/<proc>/Simulation) deletado — Project Mode usa
+            // path absoluto direto do projectOriented.testbenchFile.
+            tbFile = testbenchFilePath;
+            const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop();
             tbModule = tbFileName.replace(/\.v$/i, '');
         } else {
             tbModule = `${cmmBaseName}_tb`;
@@ -705,16 +649,6 @@ end
         }
     }
 
-    getSimulationDelay(processor = null) {
-        if (this.isProjectOriented && this.projectConfig && this.projectConfig.simuDelay) {
-            return this.projectConfig.simuDelay;
-        }
-        if (!this.isProjectOriented && processor && processor.numClocks) {
-            return processor.numClocks;
-        }
-        return "200000";
-    }
-
     async cmmCompilation(processor) {
         const {
             name,
@@ -816,7 +750,9 @@ end
             }
 
             if (projectParam === null) {
-                projectParam = this.isProjectOriented ? 1 : 0;
+                // FASE 2: era ternario sobre isProjectOriented; Project
+                // Mode (unico modo) -> 1 (sem auto $finish no testbench).
+                projectParam = 1;
             }
 
             cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
@@ -2418,11 +2354,9 @@ end
             this._hierarchyGenerationInProgress = true;
             let success = false;
 
-            if (this.isProjectOriented) {
-                success = await this.generateProjectHierarchy();
-            } else if (processor) {
-                success = await this.generateProcessorHierarchy(processor);
-            }
+            // FASE 2: branch generateProcessorHierarchy(processor)
+            // eliminado. Project Mode usa generateProjectHierarchy.
+            success = await this.generateProjectHierarchy();
 
             if (success) {
                 this.hierarchyGenerated = true;
@@ -2838,58 +2772,6 @@ getCurrentMode() {
         return `${parentNumber}.${moduleIndex + 1}`;
     }
 
-    async launchFractalVisualizerAsync(processorName, palette = 'grayscale') {
-        try {
-            const outputFilePath = await window.electronAPI.joinPath(
-                this.projectPath, processorName, 'Simulation', 'output_0.txt'
-            );
-
-            const fancyFractalPath = await window.electronAPI.joinPath(
-                this.componentsPath, 'Packages', 'FFPGA', 'fancyFractal.exe'
-            );
-
-
-            const executableExists = await window.electronAPI.pathExists(fancyFractalPath);
-            if (!executableExists) {
-                throw new Error(`Visualizador não encontrado em: ${fancyFractalPath}`);
-            }
-
-            const command = `"${fancyFractalPath}" "${outputFilePath}"`;
-
-            await window.electronAPI.deleteFileOrDirectory(outputFilePath);
-
-            this.terminalManager.appendToTerminal('tcmm', `Iniciando visualizador de fractal (${palette})...`);
-            this.terminalManager.appendToTerminal('tcmm', `Comando: ${command}`);
-
-            window.electronAPI.execCommand(command)
-                .then(result => {
-                    if (result.code === 0) {
-                        this.terminalManager.appendToTerminal('tcmm', `Visualizador concluído com sucesso`);
-                    } else {
-                        this.terminalManager.appendToTerminal('tcmm', `Visualizador finalizou com código: ${result.code}`, 'warning');
-                    }
-                })
-                .catch(error => {
-                    this.terminalManager.appendToTerminal('tcmm', `Erro no visualizador: ${error.message}`, 'error');
-                });
-
-            return true;
-
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tcmm', `Erro ao iniciar visualizador: ${error.message}`, 'error');
-            console.error('Falha ao iniciar visualizador:', error);
-            return false;
-        }
-    }
-
-    async launchFractalVisualizersForProject(palette = 'fire') {
-        if (!this.isProjectOriented) {
-            const activeProcessor = this.config.processors.find(p => p.isActive === true);
-            if (activeProcessor) {
-                await this.launchFractalVisualizerAsync(activeProcessor.name, palette);
-            }
-        }
-    }
 
 }
 

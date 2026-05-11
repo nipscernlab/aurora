@@ -294,7 +294,13 @@ void main()
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
 
         if (state.mainWindow) {
-          state.mainWindow.webContents.send('processor-created', {
+          // Channel `processor:created` — preload.js (onProcessorCreated)
+          // escuta com esse nome (colon-separated, mesmo padrao de
+          // `project:opened` e `project:processors`). O nome anterior
+          // `processor-created` era um typo: o listener nunca disparava,
+          // entao um novo processador so era refletido em
+          // window.availableProcessors / file tree apos restart do app.
+          state.mainWindow.webContents.send('processor:created', {
             processorName: formData.processorName,
             projectPath: formData.projectLocation,
           });

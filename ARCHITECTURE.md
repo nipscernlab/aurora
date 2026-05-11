@@ -20,8 +20,8 @@ The order matters in three groups:
 
 **Concrete dependencies:**
 
-- [`file_mode.js`](js/project/file_mode.js) registers `DOMContentLoaded` listeners in its constructor and must load **before** [`app_initializer.js`](js/app/app_initializer.js). The latter dispatches `mode-state-changed` (see §6) which the former listens for.
-- [`monaco_editor.js`](js/editor/monaco_editor.js) must be initialized before any `TabManager.addTab` runs against a text file. The `EditorManager.ready` promise (see §8) gates this.
+- [`file_mode.js`](js/project/file_mode.js) registers `DOMContentLoaded` listeners in its constructor and must load **before** [`app_initializer.js`](js/app/app_initializer.js). Ambos chamam `activateVerilogMode` no mesmo tick (loadProject + initializeTreeBasedOnMode), coalescido via §6.
+- [`monaco_editor.js`](js/editor/monaco_editor.js) must be initialized before any `TabManager.addTab` runs against a text file. The `EditorManager.ready` promise (see §7) gates this.
 
 If you reorder these, things break in ways that don't always show up in dev.
 
@@ -34,7 +34,7 @@ Drift between multiple "sources of truth" was responsible for several bugs in 20
 | Concept | Owner | How others read |
 |---|---|---|
 | Current project (path + spf) | [`ProjectStore`](js/project/project_store.js) | `ProjectStore.getProjectPath()` / `getSpfPath()`, mirrored to `window.currentProjectPath` / `window.currentSpfPath` for legacy reads |
-| Current IDE mode (`processor` / `project` / `verilog`) | `AppInitializer.currentMode` ([app_initializer.js](js/app/app_initializer.js)) | `window.appInitializer.getCurrentMode()` — every other `getCurrentMode()` delegates here. `compilation_flow.getCurrentMode()` is the **only** exception: it answers a different question (returns `'project-verilog-only'` etc. for compilation routing) |
+| Current IDE mode (hardcoded `'project'` post-2026-05) | `AppInitializer.getCurrentMode()` ([app_initializer.js](js/app/app_initializer.js)) — compat shim, sempre retorna `'project'` | `window.appInitializer.getCurrentMode()`. Existiam tres modos (processor/project/verilog) antes da consolidacao; o shim fica pra nao quebrar callers historicos. **Nao volte a derivar do DOM** (ver §8). |
 | Open tabs (filePath → content) | `TabManager.tabs` Map ([tab_manager.js](js/tabs/tab_manager.js)) | `TabManager.tabs.get(filePath)` |
 | Monaco editor instances (filePath → `{editor, container}`) | `EditorManager.editors` Map ([monaco_editor.js](js/editor/monaco_editor.js)) | `EditorManager.getEditorForFile(filePath)` |
 | Shared text models (filePath → `{model, refCount, savedAltVersionId}`) | `SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) | `SharedModelRegistry.getModel(filePath)` |
@@ -54,7 +54,6 @@ Some shared resources have a designated writer. Other call sites must not write 
 |---|---|---|
 | Monaco editor instances (creation) | `TabManager.addTab` IIFE ([tab_manager.js:565](js/tabs/tab_manager.js#L565)) | An auto-create fallback in `setActiveEditor` racing this path produced two stacked editor divs sharing a model. User saw artefacts and "can't type". Removed in `e2c82f8`. |
 | `window.currentProjectPath` / `window.currentSpfPath` | `ProjectStore.setProject` / `clearProject` | Multiple writers drift; the cache vs. live state mismatch caused the "file outside folder disappears on reopen" bug. Migrated in `e01e406`. |
-| `appInitializer.currentMode` | `AppInitializer.switchToMode` only | Anyone setting it directly bypasses the persisted-mode `localStorage` write, the radio sync, and the `mode-state-changed` dispatch. |
 
 **`projectOriented.json` writes go through [ProjectConfigStore](js/project/project_config_store.js).** Two managers update it (`VerilogModeManager` for the picker, `ProjectOrientedManager` for the modal); both call `ProjectConfigStore.update(projectPath, mutator)` which serializes per-path read-mutate-write. Each mutator only touches the fields its manager owns; defaults for everything else come from `ProjectConfigStore.DEFAULTS`, so unknown fields a future writer might add survive the round trip. **If you're adding a third writer, use `update()` — don't write the file directly.**
 
@@ -88,9 +87,9 @@ The IIFE in `addTab` ([tab_manager.js:565](js/tabs/tab_manager.js#L565)):
 
 ## 5. Startup sequence
 
-Two IDE modes today: **Processor** (legacy single-processor PRISM workflow) and **Project** (everything else — synth/sim of `.v` files, with or without configured processors). The old "Verilog Mode" was a third mode driven by a Compile & Simulate checkbox; it merged into Project Mode in May 2026 and the pipeline now auto-decides full-simulation vs verilog-only by checking `projectConfig.processors`.
+Aurora roda em modo unico hoje (**Project**). Historicamente existiram tres modos — Processor (PRISM single-processor), Project (com ou sem processadores), e Verilog (gated por um checkbox "Compile & Simulate"). Verilog merged em Project em maio/2026; Processor foi removido nas fases 1–2.5 (commits `b66bd6d` em diante). O pipeline auto-decide hoje sim-completa vs verilog-only via `projectConfig.processors`.
 
-Roughly, on app start:
+Em app start:
 
 ```
 DOMContentLoaded
@@ -106,58 +105,36 @@ DOMContentLoaded
 │   └── ...
 │
 └── app_initializer.js DOMContentLoaded handler
-    ├── setupModeSwitchers()            // attach radio change listeners
     └── await restoreLastSession()
-        ├── await projectManager.loadProject(lastSpf)
-        │   ├── ProjectStore.setProject(spf, base)
-        │   ├── if mode==='project': activateVerilogMode()
-        │   │   else (processor): fileTreeManager.updateFileTree(files)
-        │   └── ...
-        └── await switchToMode(lastMode)         // 'verilog' migrates to 'project'
-            ├── this.currentMode = mode
-            ├── activateModeUI(mode)    // sets radios programmatically
-            ├── dispatch('mode-state-changed')   // see §6
-            ├── if mode==='project': switchToVerilogFileMode → activateVerilogMode (coalesced, see §7)
+        └── await projectManager.loadProject(lastSpf)
+            ├── ProjectStore.setProject(spf, base)
+            ├── activateVerilogMode()   // sempre (modo unico)
             └── ...
 ```
 
 **Gotchas:**
 
-- `activateModeUI` writes `radio.checked` programmatically. **Programmatic `.checked = ...` does NOT fire a `change` event.** That's why `mode-state-changed` was added (see §6).
-- `initializeTreeBasedOnMode` runs after a `setTimeout(100ms)` in `fileTreeManager.initialize`. By that time `restoreLastSession` may or may not have called `activateModeUI` yet. The mode it reads is racy. Don't depend on this firing in any specific order relative to `switchToMode`.
+- `initializeTreeBasedOnMode` em [`fileTreeManager.initialize`](js/tree/file_tree_manager.js) roda apos `setTimeout(100ms)` e tambem chama `activateVerilogMode`. A coalescencia interna (§6) garante que so um `loadConfiguration` roda mesmo se as duas chamadas batem no mesmo tick.
 - Monaco's AMD modules load asynchronously. A `TabManager.addTab` call before `EditorManager.ready` resolves will block on the IIFE's `await` — the tab DOM is created immediately, the editor isn't.
 
 ---
 
-## 6. The `mode-state-changed` event
+## 6. `activateVerilogMode` is coalesced
 
-`AppInitializer.activateModeUI` sets `projectModeRadio.checked` programmatically. Programmatic `.checked` writes don't fire `change` events, so listeners that derive state from the toolbar (e.g. `file_mode.js`'s `syncFromState`) miss session-restore transitions.
+[`file_mode.js`](js/project/file_mode.js) wraps `activateVerilogMode` in a `_activatePromise` que retorna a mesma promise in-flight pra callers concorrentes. Pelo menos duas paths podem chama-la no mesmo tick durante session-restore:
 
-**Fix:** [`activateModeUI`](js/app/app_initializer.js) dispatches `document.dispatchEvent(new CustomEvent('mode-state-changed', { detail: { mode } }))` after every programmatic flip.
+1. `projectManager.loadProject` → `activateVerilogMode`
+2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateVerilogMode`
 
-**Listeners:**
-- [`file_mode.js`](js/project/file_mode.js) — calls `syncFromState`, which (de)activates the verilog picker.
+Sem coalescencia, ambos rodavam `loadConfiguration` em paralelo — cada um fazia `verilogFiles = []` e aguardava I/O — entao o reset da chamada B limpava os pushes da chamada A em pleno meio de iteracao, deixando linhas duplicadas.
 
-**If you add a new listener:** the event fires once per `switchToMode` call. Coalesce if your handler is expensive.
+**A promise tambem e gated em `this.initPromise`** (cache de elementos DOM) pra que uma ativacao programatica precoce nao caia antes do `cacheElements()` rodar.
 
----
-
-## 7. `activateVerilogMode` is coalesced
-
-[`file_mode.js`](js/project/file_mode.js) wraps `activateVerilogMode` in a `_activatePromise` that returns the same in-flight promise to concurrent callers. Two paths can call it in the same tick during session-restore:
-
-1. `mode-state-changed` → `syncFromState` → `activateVerilogMode`
-2. `app_initializer.switchToVerilogFileMode` → `activateVerilogMode`
-
-Without coalescing, both ran `loadConfiguration` in parallel — each did `verilogFiles = []` then awaited disk I/O — so call B's reset wiped call A's pushes mid-iteration, leaving duplicate rows.
-
-**The promise is also gated on `this.initPromise`** (DOM-element caching) so an early programmatic activation can't land before `cacheElements()` runs.
-
-**Don't call `activateVerilogMode` from inside it** (recursion), and don't bypass the wrapper to call `loadConfiguration` directly.
+**Nao chame `activateVerilogMode` de dentro dela** (recursao), e nao contorne o wrapper chamando `loadConfiguration` direto.
 
 ---
 
-## 8. `EditorManager.ready`
+## 7. `EditorManager.ready`
 
 [`monaco_editor.js`](js/editor/monaco_editor.js) exposes `EditorManager.ready` — a promise resolved (in `finally`) after `initMonaco()` and `EditorManager.initialize()` complete or throw.
 
@@ -167,7 +144,7 @@ Without coalescing, both ran `loadConfiguration` in parallel — each did `veril
 
 ---
 
-## 9. Known fragilities (don't refactor without thinking)
+## 8. Known fragilities (don't refactor without thinking)
 
 These are areas where we have evidence things break in non-obvious ways. Touch with care.
 
@@ -175,7 +152,7 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
   The same script auto-watches any other dependency you pin exactly. To opt a package into strict checking, drop its caret/tilde in package.json — no other plumbing needed.
 
-- **`getCurrentMode` callers' tolerance for `null`.** Pre-`b046e5a`, `appInitializer.getCurrentMode()` returned `null` until `switchToMode` ran. Most callers compared against literal mode strings, so `null` silently meant "treat as not-this-mode". A 2026-05 attempt (`b046e5a`, reverted in `ecb3591`) made it derive from DOM instead — reproducibly broke Monaco editing in restored sessions. The interaction was not pinned down. **If you change what `getCurrentMode` returns at startup, run the full open-close-reopen-edit smoke test manually** until we have an integration test that catches this class of regression.
+- **`getCurrentMode` e um shim hardcoded — nao volte a deriva-lo do DOM.** Pre-`b046e5a`, `appInitializer.getCurrentMode()` retornava `null` ate `switchToMode` rodar. A maioria dos callers comparava contra literais de modo, entao `null` significava "trate como nao-esse-modo". Uma tentativa em 2026-05 (`b046e5a`, revertida em `ecb3591`) fez derivar do DOM — quebrou Monaco editing em sessoes restauradas, de forma reproducivel mas com interacao nao pinada. Apos a consolidacao de modos (fases 1–2.5), o shim retorna literal `'project'` e nao deve ler DOM. **Se voce repensar getCurrentMode (ex: trazer modos de volta), rode o smoke test open-close-reopen-edit manualmente** ate termos um integration test que pegue essa classe de regressao.
 - **`#file-tree` has three view subcontainers + ONE controller.** Three views render the file tree (standard folder listing, verilog picker, module hierarchy). The whole subsystem went through a five-bug debugging chain before settling on a two-layer design that prevents the regression class entirely:
 
   **Layer 1 — physically separate DOM subtrees** ([`treeView`](js/tree/tree_view.js)). Each view writes only into its own subtree. Renderers literally cannot collide.
@@ -183,7 +160,7 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
     - the toggle button click listener (exactly one, attached once),
     - the active-view name (`'standard' | 'verilog' | 'hierarchy'`),
     - the hierarchy data (so the toggle's enabled state is a function of "is data available"),
-    - the "what does file-mode mean?" decision (Project Mode → verilog, Processor Mode → standard).
+    - the "what does file-mode mean?" decision (modo unico hoje — sempre verilog picker; o branch standard fica como renderer registrado pra compat).
     ```html
     <div id="file-tree" data-active-view="…">
       <div class="tree-view tree-view-standard">…</div>
@@ -202,7 +179,7 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
 ---
 
-## 10. Wave flow — VCD is the ground truth
+## 9. Wave flow — VCD is the ground truth
 
 The Wave button (Verilog-Only) goes through eight named phases. The orchestrator is `runVerilogOnlyGtkWave` in [compilation_module.js](js/compilation/compilation_module.js); each phase is a private `_wave*` method right below it. The orchestrator is intentionally short — it documents the order of operations, nothing else. **All wave-flow behaviour changes belong inside one phase.** If you find yourself touching two phases for one feature, you've found a missing abstraction; surface it before merging.
 
@@ -276,26 +253,26 @@ The Wave button (Verilog-Only) goes through three steps with a single guiding ru
 
 ---
 
-## 11. Refactoring checklist
+## 10. Refactoring checklist
 
 Before merging any change to this layer, walk through:
 
 - [ ] Did you add or remove a `window.*` global? If yes, update §2.
 - [ ] Did you change script load order in [index.html](index.html)? If yes, sanity-check §1.
 - [ ] Did you add a writer to a single-writer resource (§3)? Don't.
-- [ ] Did you add a `getCurrentMode()` reader? It should delegate to `window.appInitializer.getCurrentMode()`, not re-derive from DOM.
-- [ ] Did you cache project path or mode on `this.*`? Don't — read from the owner.
+- [ ] Did you add a `getCurrentMode()` reader? Hoje e modo unico (`'project'`) — se voce volta a precisar de modos, leia de `window.appInitializer.getCurrentMode()`, nao redirive do DOM (ver §8).
+- [ ] Did you cache project path on `this.*`? Don't — read from the owner.
 - [ ] Did you call `EditorManager.createEditorInstance` outside `TabManager.addTab`? See §4.
-- [ ] Did you change what `getCurrentMode` returns at startup or how soon? Smoke-test open-close-reopen-edit manually.
+- [ ] Did you re-introduzir modos diferentes? Smoke-test open-close-reopen-edit manualmente — historicamente quebra Monaco em sessoes restauradas (ver §8).
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
-- [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §10 — if the path bypasses `validateSelection` or `pickSignalsToEmit`, you're recreating a class of bug we've already fixed.
+- [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `validateSelection` or `pickSignalsToEmit`, you're recreating a class of bug we've already fixed.
 
 Smoke test (manual, ~2 min):
-1. Open Aurora. Last project should auto-load in saved mode.
+1. Open Aurora. Last project should auto-load.
 2. Click a `.v` file in the tree. Editor should open. Type — text should insert at cursor.
 3. Close project, reopen via Recent. Editor + edit should still work.
 4. Toggle simulation on/off. Trees should swap cleanly. Edit should still work.
-5. Switch Processor ↔ Project mode. No console errors.
+5. Sem mais switch Processor ↔ Project — modo unico hoje.
 
 Smoke test (automated, runs in CI):
 - [tests/e2e/smoke.test.js](tests/e2e/smoke.test.js) launches a real Aurora via Playwright's Electron API and asserts Monaco initializes without the failure markers we've hit (notably "EditorManager has not been initialized" and the Monaco 0.53 contribution-module crash). Run locally with `npm run test:e2e`.

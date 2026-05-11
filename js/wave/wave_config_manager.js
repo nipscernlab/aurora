@@ -197,14 +197,21 @@ class WaveConfigManager {
         this.tree = buildHierarchyTree(modules, topModule);
 
         // Estrategia de selecao inicial:
-        //  1. waveSignalsCustomized === true  -> usa a selecao salva
-        //     em waveSignals (usuario assumiu o controle).
+        //  1. waveSignalsCustomizedFor === testbench atual  -> usa a
+        //     selecao salva em waveSignals (usuario assumiu o controle
+        //     PARA ESTE testbench).
         //  2. testbench tem $dumpfile/$dumpvars hand-written E VCD
         //     existe   -> deriva a selecao do VCD atual (mostra ao
         //     usuario o que ESTA sendo dumpado pelo $dumpvars dele).
         //  3. caso contrario -> usa waveSignals salvo, ou aplica o
         //     default (signals do escopo do testbench).
-        const customized = config.waveSignalsCustomized === true;
+        //
+        // O flag e atrelado ao path do testbench, nao um boolean
+        // global — trocar o testbench naturalmente "expira" a
+        // customizacao porque os paths nao batem mais.
+        const customized = config.waveSignalsCustomizedFor
+            && config.testbenchFile
+            && config.waveSignalsCustomizedFor === config.testbenchFile;
         if (customized) {
             this.selected = new Set(Array.isArray(config.waveSignals) ? config.waveSignals : []);
         } else {
@@ -491,12 +498,13 @@ class WaveConfigManager {
 
         await ProjectConfigStore.update(projectPath, (cfg) => {
             cfg.waveSignals = list;
-            // Uma vez setado true, permanece — o usuario assumiu o
-            // controle e o compile flow injeta seu proprio $dumpvars
-            // mesmo que o testbench tenha um. Pra "voltar" pro modo
-            // testbench-manda, editar projectOriented.json a mao
-            // (remover waveSignalsCustomized).
-            if (changed) cfg.waveSignalsCustomized = true;
+            // O flag e atrelado ao path do testbench atual. Trocar o
+            // testbench depois "expira" automaticamente — o novo
+            // testbench cai no caminho "pre-popular do VCD" porque o
+            // path nao bate mais.
+            if (changed && cfg.testbenchFile) {
+                cfg.waveSignalsCustomizedFor = cfg.testbenchFile;
+            }
         });
         this.close();
     }

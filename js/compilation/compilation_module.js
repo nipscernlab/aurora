@@ -1590,9 +1590,14 @@ async iverilogCompileNoProcessors({ buildVvp = false } = {}) {
             const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
 
             // Override do $dumpvars do testbench so quando o usuario
-            // customizou a Wave Configuration (flag salvo no
-            // projectOriented.json). Antes disso, o testbench manda.
-            const customized = this.projectConfig?.waveSignalsCustomized === true;
+            // customizou a Wave Configuration PARA ESTE testbench
+            // especificamente (waveSignalsCustomizedFor === path).
+            // Trocar o testbench expira a customizacao automaticamente.
+            const customized = !!(
+                this.projectConfig?.waveSignalsCustomizedFor
+                && config.testbenchFile
+                && this.projectConfig.waveSignalsCustomizedFor === config.testbenchFile
+            );
             const { path: tbPath, reason } = await this.instrumentTestbenchNoProcessors(
                 config.testbenchFile,
                 simTopModule,

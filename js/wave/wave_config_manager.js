@@ -128,13 +128,14 @@ class WaveConfigManager {
             // gate the modal but that created a dead-end (if a stale
             // selection caused the iverilog failure, the user
             // couldn't reach the picker to clean it up). Now purely
-            // informational; modal opens regardless.
-            if (compiler.hasNoProcessors()) {
-                if (typeof window.switchTerminal === 'function') {
-                    window.switchTerminal('terminal-tveri');
-                }
-                await compiler.syntaxCheck();
+            // informational; modal opens regardless. Roda pros dois
+            // fluxos (com e sem processador) — syntaxCheck usa
+            // -y components/HDL que resolve a biblioteca SAPHO, entao
+            // funciona em projeto com processador tambem.
+            if (typeof window.switchTerminal === 'function') {
+                window.switchTerminal('terminal-tveri');
             }
+            await compiler.syntaxCheck();
         }
 
         await this.refresh();

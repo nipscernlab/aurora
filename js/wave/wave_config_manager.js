@@ -15,6 +15,7 @@
 import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { buildAliasMap } from './gtkw_proc_writer.js';
+import { hasUserDumpCalls } from './testbench_instrumenter.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
@@ -300,8 +301,9 @@ class WaveConfigManager {
             // Precisa ter um testbenchFile pra verificar dumpvars.
             if (!config.testbenchFile) return null;
             const tbContent = await window.electronAPI.readFile(config.testbenchFile);
-            const hasUserDump = /\$dumpfile/.test(tbContent) || /\$dumpvars/.test(tbContent);
-            if (!hasUserDump) return null;
+            // hasUserDumpCalls strip-a comentarios antes de testar,
+            // pra que `// $dumpvars(0, tb);` NAO conte como user-defined.
+            if (!hasUserDumpCalls(tbContent)) return null;
 
             // VCD vive em components/Temp/<topModule>.vcd no fluxo
             // no-processors. Outras configs podem ter outros paths

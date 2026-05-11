@@ -7,7 +7,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { buildGtkwContent, extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildProcessorAwareGtkw } from '../wave/gtkw_proc_writer.js';
-import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
+import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
@@ -2328,9 +2328,11 @@ async instrumentProjectTestbench(sourcePath, destPath, tempDir, tbModuleName, to
     try {
         const originalContent = await window.electronAPI.readFile(sourcePath, { encoding: 'utf8' });
         
-        const hasDumpVars = /\$dumpvars/.test(originalContent);
-        const hasDumpFile = /\$dumpfile/.test(originalContent);
-        const userHasVcdLogic = hasDumpVars || hasDumpFile;
+        // Deteccao via hasUserDumpCalls — strip-a comentarios antes
+        // de testar. Sem isso, um `// $dumpvars(0, tb);` comentado
+        // pelo usuario era classificado como user-defined e Aurora
+        // nao injetava o dumpfile -> nenhum VCD gerado.
+        const userHasVcdLogic = hasUserDumpCalls(originalContent);
 
         let content = originalContent
             .replace(/\$finish\s*;/g, '// $finish; (Aurora controlled)');

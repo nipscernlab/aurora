@@ -45,6 +45,62 @@ function commentOutDumpCalls(src) {
 }
 
 /**
+ * Remove comentarios Verilog (linha-dupla-barra e bloco barra-asterisco)
+ * de um source. Usado pra deteccoes que precisam ignorar codigo
+ * comentado — ex: $dumpfile dentro de comentario NAO deve contar
+ * como "user-defined dump".
+ *
+ * Heuristica de strings: pula conteudo entre aspas duplas pra nao
+ * confundir duas barras dentro de uma string. Verilog real raramente
+ * tem isso mas eh defensivo. Nao trata escape sequences.
+ */
+export function stripVerilogComments(src) {
+    let out = '';
+    let i = 0;
+    while (i < src.length) {
+        const c = src[i];
+        const next = src[i + 1];
+        if (c === '"') {
+            // String literal — passa direto ate a proxima aspa nao-escapada.
+            out += c;
+            i++;
+            while (i < src.length && src[i] !== '"') {
+                if (src[i] === '\\' && i + 1 < src.length) {
+                    out += src[i] + src[i + 1];
+                    i += 2;
+                } else {
+                    out += src[i++];
+                }
+            }
+            if (i < src.length) { out += src[i++]; }
+        } else if (c === '/' && next === '/') {
+            // Comentario de linha: pula ate \n (mantem o \n pra
+            // preservar numeracao de linhas em erros do iverilog).
+            while (i < src.length && src[i] !== '\n') i++;
+        } else if (c === '/' && next === '*') {
+            // Comentario de bloco: pula ate */.
+            i += 2;
+            while (i < src.length - 1 && !(src[i] === '*' && src[i + 1] === '/')) i++;
+            i += 2;
+        } else {
+            out += c;
+            i++;
+        }
+    }
+    return out;
+}
+
+/**
+ * Retorna true se o source tem chamada hand-written a $dumpfile ou
+ * $dumpvars (i.e., NAO em comentario). Usado pra decidir se o
+ * Aurora cede o controle do dump pro usuario ou injeta o seu proprio.
+ */
+export function hasUserDumpCalls(src) {
+    const stripped = stripVerilogComments(src);
+    return /\$dumpfile/.test(stripped) || /\$dumpvars/.test(stripped);
+}
+
+/**
  * @param {object} input
  * @param {string} input.originalContent  Source .v as-is from disk.
  * @param {string} input.tbModule         Testbench module name.
@@ -62,7 +118,7 @@ export function instrumentTestbenchSource({
     selectedSignals = [],
     overrideUserDumpvars = false,
 }) {
-    const hasUserDump = /\$dumpfile/.test(originalContent) || /\$dumpvars/.test(originalContent);
+    const hasUserDump = hasUserDumpCalls(originalContent);
 
     if (hasUserDump && !overrideUserDumpvars) {
         // Sem override: cede o controle pro $dumpvars do testbench.

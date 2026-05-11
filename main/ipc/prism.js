@@ -225,25 +225,61 @@ async function runYosysCompilationWithPaths(
       fileList = fileList.concat(vFiles.map((file) => path.join(hdlPath, file)));
     }
 
+    // Coleta processadores de TODAS as fontes possiveis:
+    //   1. processorConfig.json (Processor Mode classico)
+    //   2. projectOriented.json (Project Mode com processors no SPF)
+    //   3. .spf (state.currentOpenProjectPath) — fonte canonica
+    // Algumas configs deixam o array vazio em uma fonte e populado em
+    // outra; combinar tudo evita o caso "tem ZeroCross no projeto mas
+    // PRISM nao acha porque processorConfig esta vazio".
+    const processorNames = new Set();
     const processorConfigPath = compilationPaths.processorConfigPath;
     if (await fse.pathExists(processorConfigPath)) {
       const processorConfig = await fse.readJson(processorConfigPath);
-      if (processorConfig.processors && Array.isArray(processorConfig.processors)) {
-        for (const processor of processorConfig.processors) {
-          const processorName = processor.name;
-          const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
-          const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
-
-          if (await fse.pathExists(processorVFile)) fileList.push(processorVFile);
-
-          if (await fse.pathExists(processorHardwareDir)) {
-            const hardwareFiles = await fse.readdir(processorHardwareDir);
-            const vFiles = hardwareFiles.filter(
-              (file) => file.endsWith('.v') && !file.includes('_tb') && file !== `${processorName}.v`,
-            );
-            fileList = fileList.concat(vFiles.map((file) => path.join(processorHardwareDir, file)));
+      if (Array.isArray(processorConfig.processors)) {
+        for (const p of processorConfig.processors) {
+          const n = typeof p === 'string' ? p : p?.name;
+          if (n) processorNames.add(n);
+        }
+      }
+    }
+    const projectOrientedConfigPath = compilationPaths.projectOrientedConfigPath;
+    if (await fse.pathExists(projectOrientedConfigPath)) {
+      try {
+        const proj = await fse.readJson(projectOrientedConfigPath);
+        if (Array.isArray(proj.processors)) {
+          for (const p of proj.processors) {
+            const n = typeof p === 'string' ? p : p?.name;
+            if (n) processorNames.add(n);
           }
         }
+      } catch (_e) { /* JSON parse fail tolerado */ }
+    }
+    if (state.currentOpenProjectPath && await fse.pathExists(state.currentOpenProjectPath)) {
+      try {
+        const spf = await fse.readJson(state.currentOpenProjectPath);
+        const fromSpf = spf?.structure?.processors;
+        if (Array.isArray(fromSpf)) {
+          for (const p of fromSpf) {
+            const n = typeof p === 'string' ? p : p?.name;
+            if (n) processorNames.add(n);
+          }
+        }
+      } catch (_e) { /* idem */ }
+    }
+
+    for (const processorName of processorNames) {
+      const processorHardwareDir = path.join(projectPath, processorName, 'Hardware');
+      const processorVFile = path.join(processorHardwareDir, `${processorName}.v`);
+
+      if (await fse.pathExists(processorVFile)) fileList.push(processorVFile);
+
+      if (await fse.pathExists(processorHardwareDir)) {
+        const hardwareFiles = await fse.readdir(processorHardwareDir);
+        const vFiles = hardwareFiles.filter(
+          (file) => file.endsWith('.v') && !file.includes('_tb') && file !== `${processorName}.v`,
+        );
+        fileList = fileList.concat(vFiles.map((file) => path.join(processorHardwareDir, file)));
       }
     }
 

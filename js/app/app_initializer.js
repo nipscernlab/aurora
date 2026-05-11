@@ -86,11 +86,10 @@ class AppInitializer {
         console.log('🔄 Attempting to restore last session...');
 
         const lastProjectPath = localStorage.getItem(this.STORAGE_KEYS.LAST_PROJECT);
-        // Backward-compat: the old 'verilog' value (Project Mode + sim
-        // OFF) collapses into 'project'. The pipeline now auto-decides
-        // verilog-only vs full-simulation based on processor count.
-        const rawLastMode = localStorage.getItem(this.STORAGE_KEYS.LAST_MODE) || 'processor';
-        const lastMode = rawLastMode === 'verilog' ? 'project' : rawLastMode;
+        // FASE 1 da elimicacao dos 3 modos: lastMode hardcoded em
+        // 'project'. As fases seguintes vao apagar LAST_MODE do
+        // localStorage e essa variavel inteira.
+        const lastMode = 'project';
         
         if (!lastProjectPath) {
             console.log('ℹ️ No previous project found');
@@ -385,10 +384,17 @@ class AppInitializer {
     }
 
     /**
-     * Get current mode — 'processor' or 'project'.
+     * Get current mode.
+     *
+     * FASE 1 da elimicacao dos 3 modos: hardcoded 'project'. Aurora
+     * agora opera so em Project Mode — Processor e Verilog modes
+     * estao sendo retirados. Os callers continuam funcionando porque
+     * todos os `if (mode === 'project')` agora ramificam sempre pro
+     * caminho do project; os `else` (Processor Mode) viram dead code
+     * que sera deletado na fase 2.
      */
     getCurrentMode() {
-        return this.currentMode;
+        return 'project';
     }
 }
 

@@ -3196,14 +3196,9 @@ switchToHierarchicalView() {
  * the early-startup window.
  */
 getCurrentMode() {
-    const fromInit = window.appInitializer?.getCurrentMode?.();
-    if (fromInit === 'processor' || fromInit === 'project') return fromInit;
-
-    const projectModeRadio = document.getElementById('Project Mode');
-    const processorModeRadio = document.getElementById('Processor Mode');
-    if (projectModeRadio?.checked) return 'project';
-    if (processorModeRadio?.checked) return 'processor';
-    return 'processor';
+    // FASE 1: lockado em 'project'. Ver comentario em
+    // app_initializer.getCurrentMode().
+    return 'project';
 }
 
     updateToggleButton(isHierarchical) {

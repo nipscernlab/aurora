@@ -75,6 +75,40 @@ describe('parseVcdScopes', () => {
         expect(parseVcdScopes('   \n\n  ')).toEqual([]);
     });
 
+    it('merges signals across re-opened scopes with the same path', () => {
+        // VCDs onde cada $var fica num bloco $scope/$upscope proprio
+        // (caso comum quando o testbench dispara varios $dumpvars
+        // direcionados a sub-escopos especificos — formato que o
+        // asmcomp do SAPHO gera) precisam ter os sinais mergeados
+        // dentro de UMA scope por path. Sem isso, lookup por path
+        // so acha o primeiro.
+        const header = `
+            $scope module tb $end
+            $var reg 1 ! clk $end
+            $upscope $end
+            $scope module tb $end
+            $var reg 1 " rst $end
+            $upscope $end
+            $scope module tb $end
+            $scope module dut $end
+            $var reg 4 # q [3:0] $end
+            $upscope $end
+            $upscope $end
+            $scope module tb $end
+            $scope module dut $end
+            $var reg 4 $ d [3:0] $end
+            $upscope $end
+            $upscope $end
+        `;
+        const scopes = parseVcdScopes(header);
+        // 1 tb + 1 dut, nao 4 tbs + 2 duts.
+        expect(scopes).toHaveLength(2);
+        const tb = scopes.find((s) => s.path === 'tb');
+        expect(tb.signals.map((s) => s.name).sort()).toEqual(['clk', 'rst']);
+        const dut = scopes.find((s) => s.path === 'tb.dut');
+        expect(dut.signals.map((s) => s.name).sort()).toEqual(['d', 'q']);
+    });
+
     it('stops at $enddefinitions even if more text follows', () => {
         const text = `
             $scope module tb $end

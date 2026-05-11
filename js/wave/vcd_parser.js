@@ -42,6 +42,14 @@ export function parseVcdScopes(vcdHeader) {
     const stack = [];
     /** @type {VcdScope[]} */
     const scopes = [];
+    /** @type {Map<string, VcdScope>} */
+    // Indexed by path. VCDs gerados por iverilog quando o testbench tem
+    // varios `$dumpvars` espalhados (caso do asmcomp) reentram o mesmo
+    // escopo varias vezes — cada `$scope module X` reabre X em vez de
+    // continuar acumulando. Sem deduplicar por path, terminamos com N
+    // objetos VcdScope com `path === 'tb.proc'` cada um carregando UM
+    // sinal, e consumers que fazem lookup-por-path so acham o primeiro.
+    const byPath = new Map();
 
     const skipToEnd = (i) => {
         while (i < tokens.length && tokens[i] !== '$end') i++;
@@ -57,9 +65,13 @@ export function parseVcdScopes(vcdHeader) {
             if (scopeType === 'module') {
                 const parent = stack.slice().reverse().find((s) => s !== null);
                 const path = parent ? `${parent.path}.${name}` : name;
-                const newScope = { name, path, signals: [] };
-                scopes.push(newScope);
-                stack.push(newScope);
+                let scope = byPath.get(path);
+                if (!scope) {
+                    scope = { name, path, signals: [] };
+                    scopes.push(scope);
+                    byPath.set(path, scope);
+                }
+                stack.push(scope);
             } else {
                 stack.push(null);
             }
@@ -81,7 +93,11 @@ export function parseVcdScopes(vcdHeader) {
             // procedural construct, not to the module that contains the
             // task. The picker can't address task-locals anyway.
             const current = stack[stack.length - 1];
-            if (current) current.signals.push({ name, width, range, type });
+            if (!current) continue;
+            // Dedupe signals tambem: se o mesmo $var aparece em duas
+            // reaberturas, mantemos o primeiro.
+            if (current.signals.some((s) => s.name === name)) continue;
+            current.signals.push({ name, width, range, type });
         } else if (token === '$enddefinitions') {
             break;
         }

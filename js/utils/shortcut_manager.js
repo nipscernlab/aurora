@@ -5,21 +5,19 @@
 (() => {
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
 
+    // FASE 1 da elimicacao dos 3 modos: 'compileAll' (Ctrl+Shift+B) e
+    // 'openSettings' (Ctrl+Shift+C) removidos. Os botoes correspondentes
+    // (allcomp, settings) foram escondidos por serem mode-dependent.
     const defaultShortcuts = {
-        'compileAll': { ctrlKey: true, shiftKey: true, altKey: false, key: 'B' },
         'closeTab': { ctrlKey: true, shiftKey: false, altKey: false, key: 'W' },
         'reopenTab': { ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },
         'saveFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
         'saveAllFiles': { ctrlKey: true, shiftKey: true, altKey: false, key: 'S' },
-        'openSettings': { ctrlKey: true, shiftKey: true, altKey: false, key: 'C' }
     };
 
     let activeShortcuts = {};
 
     const actions = {
-        compileAll: () => {
-            document.getElementById('allcomp')?.click();
-        },
         closeTab: () => {
             // Supondo que você tenha um TabManager global
             if (window.TabManager && TabManager.activeTab) {
@@ -35,15 +33,6 @@
         saveAllFiles: () => {
             if (window.TabManager) TabManager.saveAllFiles();
         },
-        openSettings: () => {
-            // Lógica para abrir settings de projeto ou o modal principal
-            const toggleUi = document.getElementById('toggle-ui');
-            if (toggleUi && toggleUi.classList.contains('active')) {
-                document.getElementById('settings-project')?.showModal();
-            } else {
-                document.getElementById('aurora-settings')?.click();
-            }
-        }
     };
     
     function loadShortcuts() {

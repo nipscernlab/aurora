@@ -134,10 +134,11 @@ class CommandPalette {
         }
         return clickIfPossible('prismcomp');
       } },
-      { id: 'allcomp', label: 'Full Build', description: 'Execute complete build process', category: 'Compilation', shortcut: 'Ctrl+Shift+B', action: () => clickIfPossible('allcomp') },
+      // FASE 1 da elimicacao dos 3 modos: Full Build (allcomp) e
+      // Settings (settings) escondidos do toolbar tambem somem do
+      // command palette — eram entries mode-dependent.
       { id: 'cancel-everything', label: 'Cancel Build', description: 'Cancel all running compilations', category: 'Compilation', action: () => clickIfPossible('cancel-everything') },
 
-      { id: 'settings', label: 'Project / Processor Settings', description: 'Open settings modal', category: 'Settings', action: () => clickIfPossible('settings') },
       { id: 'processorHub', label: 'Processor Hub', description: 'Create / manage processors', category: 'Settings', action: () => clickIfPossible('processorHub') },
       { id: 'aurora-settings', label: 'Aurora Settings', description: 'Open Aurora settings', category: 'Settings', action: () => clickIfPossible('aurora-settings') },
       { id: 'aiButton', label: 'AI Assistant', description: 'Toggle AI assistant', category: 'Tools', action: () => clickIfPossible('aiButton') },

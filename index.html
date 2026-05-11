@@ -165,13 +165,25 @@
             <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
                 <i class="ph ph-stop-circle"></i>
             </button>
-            <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build">
+            <!-- FASE 1 da elimicacao dos 3 modos: o botao Full Build
+                 disparava runAll() que era mode-dependent (processor
+                 pipeline vs project pipeline). Escondido por enquanto
+                 — pode voltar como uma versao unica + simplificada se
+                 fizer sentido depois. Listeners legacy continuam vivos
+                 porque o elemento existe; fases seguintes removem
+                 markup + listeners. -->
+            <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" style="display:none">
                 <i class="ph ph-hammer"></i>
                 <span>Full Build</span>
             </button>
         </div>
 
-        <button id="settings" class="toolbar-button btn-settings">
+        <!-- FASE 1: botao Settings escondido. Hoje abre um modal de
+             "Processor Settings" ou "Project Settings" dependendo do
+             modo — coisa do Processor Mode. Listeners ficam vivos
+             porque o elemento existe (settingsButton.addEventListener
+             em processor_oriented.js:707 nao pode receber null). -->
+        <button id="settings" class="toolbar-button btn-settings" style="display:none">
             <i class="ph ph-gear-six"></i>
             <span>Settings</span>
         </button>

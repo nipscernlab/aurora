@@ -164,6 +164,30 @@ class WaveConfigManager {
         if (config.testbenchFile) filePaths.add(config.testbenchFile);
         (config.testbenchFiles || []).forEach((f) => f?.path && filePaths.add(f.path));
 
+        // components/HDL/*.v — biblioteca SAPHO (core.v, myFIFO.v,
+        // processor.v, ula.v, etc). Esses modulos sao instanciados
+        // dentro do .v gerado pelo asmcomp mas nao aparecem em
+        // synthesizableFiles. Sem incluir aqui, o Wave Config picker
+        // nao mostra sinais tipo `core.sp.pointeri`, `core.ula.delta_int`
+        // — e ai o $dumpvars gerado nao inclui esses sinais no VCD,
+        // sumindo a secao Flags do .gtkw final.
+        try {
+            const componentsPath = await window.electronAPI.getComponentsPath();
+            const hdlPath = await window.electronAPI.joinPath(componentsPath, 'HDL');
+            const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+            if (Array.isArray(hdlEntries)) {
+                for (const name of hdlEntries) {
+                    if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                        const full = await window.electronAPI.joinPath(hdlPath, name);
+                        filePaths.add(full);
+                    }
+                }
+            }
+        } catch (_e) {
+            // HDL nao acessivel — segue sem (picker fica sem sinais
+            // SAPHO mas resto do projeto continua).
+        }
+
         if (filePaths.size === 0) {
             this.tree = null;
             this.renderTree();

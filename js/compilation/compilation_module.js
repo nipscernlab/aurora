@@ -1217,8 +1217,24 @@ async iverilogCompile({ buildVvp = false } = {}) {
             const rawSelected = Array.isArray(this.projectConfig?.waveSignals)
                 ? this.projectConfig.waveSignals
                 : [];
-            const filePaths = [...new Set([...config.synthesizableFiles, config.testbenchFile].filter(Boolean))];
-            const selected = await this._validateWaveSelection(rawSelected, filePaths, simTopModule);
+            // Inclui components/HDL/*.v alem dos sources do projeto —
+            // assim validateSelection conhece sinais SAPHO (core,
+            // ula, myFIFO, etc) e nao descarta selecoes Stack/ULA
+            // como "stale".
+            const filePaths = new Set(config.synthesizableFiles);
+            if (config.testbenchFile) filePaths.add(config.testbenchFile);
+            try {
+                const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+                const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+                if (Array.isArray(hdlEntries)) {
+                    for (const name of hdlEntries) {
+                        if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                            filePaths.add(await window.electronAPI.joinPath(hdlPath, name));
+                        }
+                    }
+                }
+            } catch (_e) { /* HDL nao acessivel — segue sem */ }
+            const selected = await this._validateWaveSelection(rawSelected, [...filePaths], simTopModule);
 
             // Override do $dumpvars do testbench so quando o usuario
             // customizou a Wave Configuration PARA ESTE testbench
@@ -1876,8 +1892,26 @@ async _parseProjectSources() {
         const tbFile = this.projectConfig?.testbenchFile;
         const tbFiles = (this.projectConfig?.testbenchFiles ?? [])
             .map((f) => f && f.path).filter(Boolean);
-        const paths = [...new Set([...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles])];
-        if (paths.length === 0) return null;
+        const paths = new Set([...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles]);
+
+        // components/HDL/*.v — biblioteca SAPHO. Inclui pra que
+        // buildSignedSet/resolveScopeModules conhecam modulos como
+        // `core`, `ula`, `myFIFO`. Sem isso, sinais dentro de
+        // <inst>.core.sp.pointeri ficam com moduleType=null e nao
+        // recebem decoracao SAPHO no .gtkw.
+        try {
+            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+            if (Array.isArray(hdlEntries)) {
+                for (const name of hdlEntries) {
+                    if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                        paths.add(await window.electronAPI.joinPath(hdlPath, name));
+                    }
+                }
+            }
+        } catch (_e) { /* HDL nao acessivel — segue sem */ }
+
+        if (paths.size === 0) return null;
 
         const files = [];
         for (const p of paths) {

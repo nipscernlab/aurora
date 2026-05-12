@@ -36,12 +36,18 @@
  *   - SystemVerilog typedefs / packages / interfaces: not supported.
  */
 
+// Tipos de declaracao de signal que queremos capturar. Note: `real`,
+// `integer`, `time` sao tipos non-synth mas aparecem no source gerado
+// pelo asmcomp pra variaveis C± float (real), int (integer/reg), etc.
+// Sem isso o Wave Config picker nao mostra variaveis `real` (= C±
+// float), o $dumpvars nao inclui, e o VCD/.gtkw ficam sem.
 const KIND_TOKENS = ['input', 'output', 'inout', 'wire', 'reg', 'logic',
-    'signed', 'tri', 'tri0', 'tri1', 'wand', 'wor'];
+    'signed', 'tri', 'tri0', 'tri1', 'wand', 'wor',
+    'real', 'integer', 'time'];
 const KIND_RE_SOURCE = `(?:${KIND_TOKENS.join('|')})`;
 const PRIMARY_KIND_PRIORITY = {
     input: 4, output: 4, inout: 4,
-    reg: 3, logic: 3,
+    reg: 3, logic: 3, real: 3, integer: 3, time: 3,
     wire: 2, tri: 2, tri0: 2, tri1: 2, wand: 2, wor: 2,
     signed: 1,
 };
@@ -52,8 +58,8 @@ const RESERVED_KEYWORDS = new Set([
     'endtable', 'endtask', 'for', 'forever', 'function', 'generate',
     'genvar', 'if', 'initial', 'localparam', 'parameter', 'posedge',
     'negedge', 'repeat', 'specify', 'task', 'while', 'fork', 'join',
-    'wait', 'release', 'force', 'deassign', 'disable', 'integer',
-    'real', 'time', 'event', 'module', 'macromodule', 'primitive',
+    'wait', 'release', 'force', 'deassign', 'disable',
+    'event', 'module', 'macromodule', 'primitive',
     'endprimitive', 'defparam', 'pulldown', 'pullup', 'tran', 'tranif0',
     'tranif1', 'rtran', 'rtranif0', 'rtranif1',
     ...KIND_TOKENS,

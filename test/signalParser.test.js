@@ -211,4 +211,30 @@ describe('buildHierarchyTree', () => {
         // problem they'll see when iverilog complains.
         expect(tree.children).toEqual([]);
     });
+
+    it('captura tipos non-synth: real (C± float), integer, time', () => {
+        // O .v gerado pelo asmcomp declara C± float como `real foo = 0.0;`.
+        // Antes, signal_parser nao reconhecia `real` como kind, entao
+        // essas vars sumiam do Wave Config picker — e por extensao do
+        // $dumpvars, VCD, e .gtkw final. Mesma coisa pra `integer` e
+        // `time`.
+        const files = [{
+            path: 'proc.v',
+            content: `
+                module proc;
+                    real    me2_f_global_v_x_e_ = 0.0;
+                    integer me1_f_global_v_count_e_;
+                    time    me1_f_global_v_now_e_;
+                endmodule
+            `,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const names = modules.get('proc').signals.map((s) => s.name).sort();
+        expect(names).toContain('me2_f_global_v_x_e_');
+        expect(names).toContain('me1_f_global_v_count_e_');
+        expect(names).toContain('me1_f_global_v_now_e_');
+
+        const x = modules.get('proc').signals.find((s) => s.name === 'me2_f_global_v_x_e_');
+        expect(x.kind).toBe('real');
+    });
 });

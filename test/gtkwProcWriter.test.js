@@ -195,11 +195,53 @@ describe('buildAuroraGtkw', () => {
         ];
         const { content } = buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes,
+            binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
         });
         // Os tres apareem com o alias correto
         expect(content).toContain('int count in global');
         expect(content).toContain('float ratio in main()');
         expect(content).toContain('comp z in main()');
+    });
+
+    it('process filter pra comp usa sintaxe `^>N <path>` (nao `^^N`)', () => {
+        // GTKWave aceita dois prefixos de filter inline:
+        //   ^N  <path>  → file filter (translation table .txt)
+        //   ^>N <path>  → process filter (executable que traduz)
+        // Aurora estava emitindo `^^N` (errado), entao o comp2gtkw
+        // nao era invocado pelo GTKWave — variaveis comp viravam
+        // binario bruto na visualizacao.
+        const scopes = [
+            scope('tb.proc', [
+                { name: 'valr2' }, { name: 'linetabs' },
+                { name: 'comp_me3_f_main_v_z_e_', width: 64, range: '63:0' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes,
+            binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+        });
+        expect(content).toMatch(/\^>\d+ .*comp2gtkw\.exe/);
+        expect(content).not.toMatch(/\^\^\d+ .*comp2gtkw\.exe/);
+    });
+
+    it('file filter pra valr2/linetabs usa sintaxe `^N <path>`', () => {
+        // Confirmando que NAO confundimos: trad files (.txt) usam UMA
+        // caret, processo (.exe) usa caret + maior-que.
+        const scopes = [
+            scope('tb.proc', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes,
+            tempBaseDir: 'C:\\Temp',
+        });
+        // Uma caret, depois numero, depois espaco, depois path
+        expect(content).toMatch(/\^\d+ .*trad_opcode\.txt/);
+        expect(content).toMatch(/\^\d+ .*trad_cmm\.txt/);
+        // NAO duas carets nem caret+>
+        expect(content).not.toMatch(/\^\^\d+ .*trad_/);
+        expect(content).not.toMatch(/\^>\d+ .*trad_/);
     });
 
     it('banner usa o instanceName (nao o procType) pra distinguir instancias', () => {

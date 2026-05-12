@@ -354,8 +354,13 @@ function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
         lines.push(`^${id} ${opts.fileFilterPath}`);
     }
     if (opts.procFilterPath) {
+        // Process filter (executavel — comp2gtkw.exe traduz binario bruto
+        // pro literal C±). Sintaxe `^>N <path>` — caret + maior-que.
+        // NAO confundir com `^^N <path>` (que e outra coisa); o file
+        // filter (table .txt como trad_opcode.txt) usa `^N <path>` com
+        // uma caret so.
         const id = ++opts.counter.proc;
-        lines.push(`^^${id} ${opts.procFilterPath}`);
+        lines.push(`^>${id} ${opts.procFilterPath}`);
     }
     const ref = `${sig.fullName}${rangeSuffix(sig)}`;
     if (alias) {

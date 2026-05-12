@@ -1,31 +1,32 @@
 /**
  * gtkw_picker.js — Toolbar dropdown for the active GTKWave save file.
  *
- * The user-facing companion to projectOriented.json's `gtkwFiles[]`.
- * Exposes a <select> in the toolbar that:
- *   - Lists every registered .gtkw by filename.
- *   - Has a "default" option that clears the selection (wave flow
- *     will then auto-generate a layout from the VCD's testbench scope).
- *   - Has an "+ Add .gtkw file..." action that opens a file dialog,
- *     registers the picked file in `gtkwFiles[]`, and marks it active.
+ * Companion to the WaveStore: cada testbench tem sua propria lista
+ * `gtkwFiles[]` com um entry marcado `isActive: true`. O picker mostra
+ * a lista do testbench ATUAL (definido por `testbenchFile` em
+ * projectOriented.json) e troca de lista automaticamente quando o
+ * testbench muda — listas isoladas, tb A nao ve .gtkw de tb B.
  *
- * Selection mechanics: there's exactly one active .gtkw per project,
- * tracked via the existing `isTopLevel` flag on each entry — same
- * field the wave flow's `_waveResolveGtkwSaveFile` reads (Source 1).
- * Picking a value sets that entry's flag and clears it on the others.
+ * Operacoes:
+ *   - Listar registrados, escolher o ativo (atualiza `isActive`).
+ *   - "default" limpa a selecao (wave flow auto-gera o layout).
+ *   - "+ Add .gtkw file..." abre dialog, registra no WaveStore.
  *
- * Persistence goes through `ProjectConfigStore.update` so concurrent
- * writes from Project Settings serialize cleanly.
- *
- * The wave flow itself is unchanged — this module is purely a
- * shortcut UI for what was previously buried inside Project Settings.
+ * Persistencia via `WaveStore.update(projectPath, tbKey, ...)`. Escritas
+ * concorrentes serializam per-(projectPath, tbKey).
  */
 
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
+import { WaveStore } from './wave_state_store.js';
 
 const NONE_VALUE = '';
 const ADD_VALUE = '__add__';
+
+function tbKeyFromPath(tbPath) {
+    if (!tbPath) return '';
+    return tbPath.split(/[\\/]/).pop().replace(/\.v$/i, '');
+}
 
 class GtkwPickerManager {
     constructor() {
@@ -34,6 +35,9 @@ class GtkwPickerManager {
         // Cached so we can revert the <select> on a cancelled "Add file"
         // dialog without re-reading the config.
         this._lastValue = NONE_VALUE;
+        // tbKey do testbench atual — recalculado em cada refresh. Vazio
+        // = sem testbench selecionado (= picker disabled).
+        this._currentTbKey = '';
     }
 
     initialize() {
@@ -48,34 +52,47 @@ class GtkwPickerManager {
     }
 
     /**
-     * Re-read the project config and rebuild the <select> options.
-     * Safe to call any time; idempotent.
+     * Re-read the active testbench's WaveStore entry and rebuild the
+     * <select>. Safe to call any time; idempotent.
      *
      * Called on:
      *   - first init (constructor)
      *   - after a project loads (project_manager wiring)
-     *   - after Project Settings save (so manual edits there reflect)
+     *   - after the user changes the testbench top (file tree marks a
+     *     different .v as testbench) — caller invokes this manually
      */
     async refresh() {
         if (!this.select) return;
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath) {
-            this._renderEmpty();
+            this._renderEmpty('No project loaded');
             return;
         }
         const config = await ProjectConfigStore.read(projectPath);
-        const files = Array.isArray(config.gtkwFiles) ? config.gtkwFiles : [];
-        const active = files.find((f) => f && f.isTopLevel === true);
+        const tbKey = tbKeyFromPath(config.testbenchFile);
+        this._currentTbKey = tbKey;
+        if (!tbKey) {
+            this._renderEmpty('No testbench selected');
+            return;
+        }
+        const state = await WaveStore.read(projectPath, tbKey);
+        const files = Array.isArray(state.gtkwFiles) ? state.gtkwFiles : [];
+        const active = files.find((f) => f && f.isActive === true);
         this._renderOptions(files, active?.path ?? NONE_VALUE);
     }
 
-    _renderEmpty() {
+    _renderEmpty(reason) {
         this.select.innerHTML = '';
-        this.select.appendChild(this._makeOption(NONE_VALUE, 'default'));
+        const placeholder = this._makeOption(NONE_VALUE, reason || 'default');
+        this.select.appendChild(placeholder);
         this.select.appendChild(this._makeOption(ADD_VALUE, '+ Add .gtkw file...'));
         this.select.value = NONE_VALUE;
         this._lastValue = NONE_VALUE;
-        this.select.disabled = true;
+        // Mantemos o select habilitado pra que "Add file" continue
+        // funcionando mesmo sem testbench (caso o usuario queira
+        // registrar a .gtkw antes de marcar o testbench). Mas se nao
+        // tem project, ai sim disable.
+        this.select.disabled = !ProjectStore.getProjectPath();
     }
 
     _renderOptions(files, selectedPath) {
@@ -116,6 +133,12 @@ class GtkwPickerManager {
         // cancels, the <select> shouldn't sit on the "Add" sentinel.
         this.select.value = this._lastValue;
 
+        const projectPath = ProjectStore.getProjectPath();
+        if (!projectPath) return;
+        // tbKey vem do refresh — se nao tem tb selecionado, abortar
+        // (o "Add" so faz sentido vinculado a um tb).
+        if (!this._currentTbKey) return;
+
         const result = await window.electronAPI.showOpenDialogImport({
             properties: ['openFile'],
             filters: [
@@ -127,21 +150,20 @@ class GtkwPickerManager {
 
         const filePath = result.filePaths[0];
         const fileName = filePath.split(/[\\/]/).pop();
-        const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) return;
+        const tbKey = this._currentTbKey;
 
-        await ProjectConfigStore.update(projectPath, (cfg) => {
+        await WaveStore.update(projectPath, tbKey, (cfg) => {
             const files = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
-            // De-dup by absolute path: if the same .gtkw was added
-            // before, just toggle it active rather than appending a
-            // second entry.
+            // De-dup pelo path absoluto: se o mesmo .gtkw foi adicionado
+            // antes pra ESTE testbench, so toggle active em vez de
+            // dupliar.
             let existing = files.find((f) => f?.path === filePath);
             if (!existing) {
-                existing = { name: fileName, path: filePath, isTopLevel: false };
+                existing = { name: fileName, path: filePath, isActive: false };
                 files.push(existing);
             }
             for (const f of files) {
-                f.isTopLevel = (f === existing);
+                f.isActive = (f === existing);
             }
             cfg.gtkwFiles = files;
         });
@@ -150,11 +172,11 @@ class GtkwPickerManager {
 
     async _setActive(targetPath) {
         const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) return;
-        await ProjectConfigStore.update(projectPath, (cfg) => {
+        if (!projectPath || !this._currentTbKey) return;
+        await WaveStore.update(projectPath, this._currentTbKey, (cfg) => {
             const files = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
             for (const f of files) {
-                f.isTopLevel = (f?.path === targetPath);
+                f.isActive = (f?.path === targetPath);
             }
             cfg.gtkwFiles = files;
         });

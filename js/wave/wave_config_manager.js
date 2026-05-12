@@ -16,9 +16,15 @@ import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { buildAliasMap } from './gtkw_proc_writer.js';
 import { hasUserDumpCalls } from './testbench_instrumenter.js';
+import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { ProjectConfigStore } from '../project/project_config_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
+
+function tbKeyFromPath(tbPath) {
+    if (!tbPath) return '';
+    return tbPath.split(/[\\/]/).pop().replace(/\.v$/i, '');
+}
 
 class WaveConfigManager {
     constructor() {
@@ -108,8 +114,8 @@ class WaveConfigManager {
             // entries that no longer exist. Cheap regex parse, runs
             // BEFORE any iverilog work so a stale selection from a
             // previous code edit can't outlive the rename. The
-            // notification (twave) and the projectOriented.json write
-            // happen inside _validateWaveSelection.
+            // notification (twave) and the WaveStore write happen
+            // inside _validateWaveSelection.
             const cfg = await ProjectConfigStore.read(projectPath);
             const filePaths = [
                 ...(cfg.synthesizableFiles || []).map((f) => f?.path),
@@ -119,9 +125,13 @@ class WaveConfigManager {
             const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
             const tbModule = moduleNameFromPath(cfg.testbenchFile)
                 || moduleNameFromPath(cfg.topLevelFile);
-            const rawSelected = Array.isArray(cfg.waveSignals) ? cfg.waveSignals : [];
+            // waveSignals agora vive no WaveStore per-testbench, nao no
+            // projectOriented.json. Le do tb atual.
+            const tbKey = tbKeyFromPath(cfg.testbenchFile);
+            const tbState = tbKey ? await WaveStore.read(projectPath, tbKey) : null;
+            const rawSelected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
             if (tbModule && filePaths.length > 0) {
-                await compiler._validateWaveSelection(rawSelected, filePaths, tbModule);
+                await compiler._validateWaveSelection(rawSelected, filePaths, tbModule, tbKey);
             }
 
             // STEP 2 — informational iverilog syntax check. Used to
@@ -228,30 +238,29 @@ class WaveConfigManager {
         // modal bate com o que vai aparecer no GTKWave.
         this.aliasMap = buildAliasMap(this._hierarchyToScopes(this.tree));
 
-        // Estrategia de selecao inicial:
-        //  1. waveSignalsCustomizedFor === testbench atual  -> usa a
-        //     selecao salva em waveSignals (usuario assumiu o controle
-        //     PARA ESTE testbench).
+        // Estrategia de selecao inicial — usando WaveStore per-tb:
+        //  1. state.wcCustomized = true  -> usa state.waveSignals
+        //     (usuario assumiu o controle para ESTE testbench).
         //  2. testbench tem $dumpfile/$dumpvars hand-written E VCD
         //     existe   -> deriva a selecao do VCD atual (mostra ao
         //     usuario o que ESTA sendo dumpado pelo $dumpvars dele).
-        //  3. caso contrario -> usa waveSignals salvo, ou aplica o
-        //     default (signals do escopo do testbench).
+        //  3. state.waveSignals nao-vazio -> usa.
+        //  4. caso contrario -> aplica o default (signals do escopo do
+        //     testbench).
         //
-        // O flag e atrelado ao path do testbench, nao um boolean
-        // global — trocar o testbench naturalmente "expira" a
-        // customizacao porque os paths nao batem mais.
-        const customized = config.waveSignalsCustomizedFor
-            && config.testbenchFile
-            && config.waveSignalsCustomizedFor === config.testbenchFile;
-        if (customized) {
-            this.selected = new Set(Array.isArray(config.waveSignals) ? config.waveSignals : []);
+        // Como o state e per-(projectPath, tbKey), trocar o testbench
+        // naturalmente "expira" a customizacao do anterior.
+        const tbKey = tbKeyFromPath(config.testbenchFile);
+        const tbState = tbKey ? await WaveStore.read(projectPath, tbKey) : null;
+        const savedSignals = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
+        if (tbState?.wcCustomized) {
+            this.selected = new Set(savedSignals);
         } else {
             const vcdDerived = await this._tryDeriveSelectionFromVcd(projectPath, config, topModule);
             if (vcdDerived) {
                 this.selected = vcdDerived;
-            } else if (Array.isArray(config.waveSignals) && config.waveSignals.length > 0) {
-                this.selected = new Set(config.waveSignals);
+            } else if (savedSignals.length > 0) {
+                this.selected = new Set(savedSignals);
             } else {
                 this._applyDefaultSelection();
             }
@@ -552,7 +561,14 @@ class WaveConfigManager {
             this.close();
             return;
         }
-        // Sort for stable diffs in projectOriented.json.
+        const cfg = await ProjectConfigStore.read(projectPath);
+        const tbKey = tbKeyFromPath(cfg.testbenchFile);
+        if (!tbKey) {
+            // Sem testbench definido — nao temos onde persistir.
+            this.close();
+            return;
+        }
+        // Sort for stable diffs in the wavestate JSON.
         const list = [...this.selected].sort();
 
         // Detecta se o usuario mexeu na selecao. Comparacao por
@@ -560,15 +576,15 @@ class WaveConfigManager {
         const changed = this.selected.size !== this._initialSelection.size
             || [...this.selected].some((s) => !this._initialSelection.has(s));
 
-        await ProjectConfigStore.update(projectPath, (cfg) => {
-            cfg.waveSignals = list;
-            // O flag e atrelado ao path do testbench atual. Trocar o
-            // testbench depois "expira" automaticamente — o novo
-            // testbench cai no caminho "pre-popular do VCD" porque o
-            // path nao bate mais.
-            if (changed && cfg.testbenchFile) {
-                cfg.waveSignalsCustomizedFor = cfg.testbenchFile;
-            }
+        await WaveStore.update(projectPath, tbKey, (state) => {
+            state.tbPath = cfg.testbenchFile;
+            state.tbModule = tbKey;
+            state.waveSignals = list;
+            state.wcInitialized = true;
+            // wcCustomized so liga; uma vez customizado, fica. O reset
+            // implicito vem da troca de testbench (cada tb tem flag
+            // propria).
+            if (changed) state.wcCustomized = true;
         });
         this.close();
     }

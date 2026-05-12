@@ -35,11 +35,20 @@ export function extractSignalRefs(gtkwContent) {
     if (typeof gtkwContent !== 'string' || gtkwContent.length === 0) return [];
     const paths = new Set();
     for (const rawLine of gtkwContent.split(/\r?\n/)) {
-        const line = rawLine.trim();
+        let line = rawLine.trim();
         if (!line) continue;
         // Decoration / metadata: skip.
         if (line.startsWith('[') || line.startsWith('@') || line.startsWith('-')
-            || line.startsWith('*') || line.startsWith('#')) continue;
+            || line.startsWith('*') || line.startsWith('#')
+            || line.startsWith('^')) continue;
+        // Alias-prefixed signal: `+{alias} <path>` — strip the prefix
+        // and keep the path. buildAuroraGtkw emits these for any
+        // signal with a human-friendly label (Stack, ULA, typed vars).
+        if (line.startsWith('+')) {
+            const m = line.match(/^\+\{[^}]*\}\s+(.+)$/);
+            if (!m) continue;
+            line = m[1].trim();
+        }
         // Signal candidate: must start with [a-zA-Z_], contain at least one
         // `.`, and use a dotted-identifier shape. Strip a trailing range.
         const noRange = line.replace(/\[[^\]]*\]\s*$/, '').trim();

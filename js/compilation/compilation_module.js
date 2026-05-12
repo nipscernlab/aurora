@@ -49,10 +49,10 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
-import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
+import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
-import { ProjectConfigStore } from '../project/project_config_store.js';
+import { WaveStore } from '../wave/wave_state_store.js';
 
 class CompilationModule {
     constructor(projectPath) {
@@ -967,7 +967,7 @@ _pickSingleTop(files, category) {
  * raw selection — better to let iverilog produce a real error than
  * to silently strip the user's choice on a transient parse hiccup.
  */
-async _validateWaveSelection(rawSelected, filePaths, simTopModule) {
+async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null) {
     if (!Array.isArray(rawSelected) || rawSelected.length === 0) return [];
     try {
         const fileContents = await Promise.all(
@@ -998,19 +998,19 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule) {
             // once, not on every compile. We can't tell the user to
             // "uncheck" a stale entry — the picker only shows signals
             // that exist in the parsed hierarchy, so a missing path
-            // has no UI to remove it from. The cleanup runs through
-            // ProjectConfigStore.update so it serializes against any
-            // concurrent writes from the modal/save flow.
-            try {
-                await ProjectConfigStore.update(this.projectPath, (cfg) => {
-                    cfg.waveSignals = valid;
-                });
-                if (Array.isArray(this.projectConfig?.waveSignals)) {
-                    this.projectConfig.waveSignals = valid;
+            // has no UI to remove it from. waveSignals agora vive
+            // per-testbench no WaveStore; sem tbKey resolvido (caso
+            // raro: topLevelFile sem testbenchFile) skip o write — o
+            // run em si ja procede com `valid`.
+            if (tbKey) {
+                try {
+                    await WaveStore.update(this.projectPath, tbKey, (cfg) => {
+                        cfg.waveSignals = valid;
+                    });
+                } catch (_persistErr) {
+                    // Non-fatal: o run ja procede com `valid`.
+                    // Proxima compilacao re-detecta e re-tenta.
                 }
-            } catch (_persistErr) {
-                // Non-fatal: the run already proceeds with `valid`.
-                // Next compile will re-detect and re-try the cleanup.
             }
         }
         return valid;
@@ -1122,6 +1122,142 @@ async syntaxCheck() {
  * js/wave/testbench_instrumenter.js (unit-tested). This method is
  * the IO glue.
  */
+/**
+ * Decide o que vai dentro do `$dumpvars` injetado e se devemos
+ * sobrescrever um `$dumpvars` hand-written do usuario. Tres axes
+ * agem em conjunto, com a precedencia (de maior a menor):
+ *
+ *   1. **.gtkw selecionado** (state.gtkwFiles ∩ isActive=true).
+ *      Aurora le o arquivo, extrai signal refs com extractSignalRefs,
+ *      valida contra a hierarquia do source atual e usa esse conjunto.
+ *      Signals referenciados no .gtkw mas que sumiram do source geram
+ *      twave warning + toast — o build segue sem eles.
+ *   2. **Wave Configuration customizada** (state.wcCustomized=true).
+ *      state.waveSignals dita o $dumpvars. Override do $dumpvars
+ *      do usuario se houver — o WC e a fonte canonica nesse caso.
+ *   3. **Testbench com $dumpvars hand-written na 1a visita**
+ *      (state.hadOriginalDumpvars). NAO injetamos nada; o testbench
+ *      domina o que vai pro VCD.
+ *   4. **Default**: `$dumpvars(1, tbModule)` — signals so do scope
+ *      do testbench, sem descer no DUT. Sem override.
+ *
+ * Side effects: registra o tb no WaveStore na 1a visita (snapshot
+ * de hadOriginalDumpvars pra usar nas visitas futuras).
+ *
+ * @param {object} input
+ * @param {object} input.config        projectOriented.json (precisa testbenchFile)
+ * @param {string} input.simTopModule  nome do module top da simulacao
+ * @param {string[]} input.filePaths   .v files pra parsear (synth + tb + HDL)
+ * @returns {Promise<{
+ *   signalsToDump: string[],
+ *   overrideUserDumpvars: boolean,
+ *   source: 'gtkw'|'wc'|'tb'|'default',
+ *   tbKey: string,
+ * }>}
+ */
+async _resolveWaveSelection({ config, simTopModule, filePaths }) {
+    const tbKey = config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+
+    // 1a visita: snapshot do estado original do testbench. Idempotente
+    // — re-chamadas nao mudam o flag.
+    const tbContent = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const hadOriginalDumpvars = hasUserDumpCalls(tbContent);
+    await WaveStore.ensureRegistered(this.projectPath, tbKey, {
+        tbPath: config.testbenchFile,
+        tbModule: tbKey,
+        hadOriginalDumpvars,
+    });
+    const state = await WaveStore.read(this.projectPath, tbKey);
+
+    // Parse de source on-demand — so se precisarmos validar um conjunto
+    // de signals (vem do .gtkw ou do WC).
+    let cachedTree = null;
+    const buildTree = async () => {
+        if (cachedTree !== null) return cachedTree;
+        const contents = await Promise.all(
+            filePaths.map(async (p) => ({
+                path: p,
+                content: await window.electronAPI.readFile(p, { encoding: 'utf8' }),
+            })),
+        );
+        const { modules } = parseVerilogModules(contents);
+        cachedTree = simTopModule && modules.has(simTopModule)
+            ? buildHierarchyTree(modules, simTopModule)
+            : null;
+        return cachedTree;
+    };
+
+    // (d) .gtkw ativo vence — varredura do arquivo dita o $dumpvars.
+    const activeGtkw = (state.gtkwFiles || []).find((f) => f && f.isActive === true);
+    if (activeGtkw && activeGtkw.path) {
+        try {
+            const gtkwContent = await window.electronAPI.readFile(activeGtkw.path, { encoding: 'utf8' });
+            const refs = extractSignalRefs(gtkwContent);
+            if (refs.length > 0) {
+                const tree = await buildTree();
+                const { valid, dropped } = validateSelection(refs, tree);
+                if (dropped.length > 0) {
+                    const gtkwName = activeGtkw.path.split(/[\\/]/).pop();
+                    const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
+                    const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
+                    const msg = dropped.length === 1
+                        ? `Signal ${preview} referenced by ${gtkwName} no longer exists; omitted from $dumpvars.`
+                        : `${dropped.length} signals referenced by ${gtkwName} no longer exist and were omitted from $dumpvars: ${preview}${more}.`;
+                    this.terminalManager.appendToTerminal('twave', msg, 'warning');
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification(msg, 'warning', 6000, 'Wave Selection');
+                    }
+                }
+                return {
+                    signalsToDump: valid,
+                    overrideUserDumpvars: true,
+                    source: 'gtkw',
+                    tbKey,
+                };
+            }
+        } catch (err) {
+            this.terminalManager.appendToTerminal('twave',
+                `Could not read selected .gtkw (${activeGtkw.path.split(/[\\/]/).pop()}): ${err.message}. Falling back to Wave Configuration / default.`,
+                'warning');
+        }
+    }
+
+    // (c) Wave Configuration customizada.
+    if (state.wcCustomized
+        && Array.isArray(state.waveSignals)
+        && state.waveSignals.length > 0) {
+        // Mesma validacao: signals podem ter sumido entre o save do WC
+        // e este compile. _validateWaveSelection ja faz isso e auto-prune.
+        const valid = await this._validateWaveSelection(
+            state.waveSignals, filePaths, simTopModule, tbKey,
+        );
+        return {
+            signalsToDump: valid,
+            overrideUserDumpvars: true,
+            source: 'wc',
+            tbKey,
+        };
+    }
+
+    // (a) Testbench tem $dumpvars hand-written: nao instrumentamos.
+    if (state.hadOriginalDumpvars) {
+        return {
+            signalsToDump: [],
+            overrideUserDumpvars: false,
+            source: 'tb',
+            tbKey,
+        };
+    }
+
+    // (default) $dumpvars(1, tbModule) — signals do escopo do tb.
+    return {
+        signalsToDump: [],
+        overrideUserDumpvars: false,
+        source: 'default',
+        tbKey,
+    };
+}
+
 async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
     const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
@@ -1212,15 +1348,9 @@ async iverilogCompile({ buildVvp = false } = {}) {
         //     so Wave just works on first click.
         const fileSet = new Set(config.synthesizableFiles);
         if (buildVvp && config.testbenchFile) {
-            // Pull the user's Wave Configuration selection (if any).
-            // Empty = stick with the testbench-scope default.
-            const rawSelected = Array.isArray(this.projectConfig?.waveSignals)
-                ? this.projectConfig.waveSignals
-                : [];
-            // Inclui components/HDL/*.v alem dos sources do projeto —
-            // assim validateSelection conhece sinais SAPHO (core,
-            // ula, myFIFO, etc) e nao descarta selecoes Stack/ULA
-            // como "stale".
+            // Reunir o conjunto de .v files que entram na validacao de
+            // signals: synth + testbench + components/HDL/*.v (assim
+            // selecoes Stack/ULA/SAPHO nao sao descartadas como "stale").
             const filePaths = new Set(config.synthesizableFiles);
             if (config.testbenchFile) filePaths.add(config.testbenchFile);
             try {
@@ -1234,56 +1364,53 @@ async iverilogCompile({ buildVvp = false } = {}) {
                     }
                 }
             } catch (_e) { /* HDL nao acessivel — segue sem */ }
-            const selected = await this._validateWaveSelection(rawSelected, [...filePaths], simTopModule);
 
-            // Override do $dumpvars do testbench so quando o usuario
-            // customizou a Wave Configuration PARA ESTE testbench
-            // especificamente (waveSignalsCustomizedFor === path).
-            // Trocar o testbench expira a customizacao automaticamente.
-            const customized = !!(
-                this.projectConfig?.waveSignalsCustomizedFor
-                && config.testbenchFile
-                && this.projectConfig.waveSignalsCustomizedFor === config.testbenchFile
-            );
+            // _resolveWaveSelection cuida da precedencia: .gtkw > WC >
+            // tb-with-dumpvars > default. Tambem registra o tb no
+            // WaveStore na 1a visita.
+            const decision = await this._resolveWaveSelection({
+                config,
+                simTopModule,
+                filePaths: [...filePaths],
+            });
+
             const { path: tbPath, reason } = await this.instrumentTestbench(
                 config.testbenchFile,
                 simTopModule,
                 tempBaseDir,
-                selected,
-                customized,
+                decision.signalsToDump,
+                decision.overrideUserDumpvars,
             );
             fileSet.add(tbPath);
 
-            // Phase 3 — quando o testbench tem $dumpfile/$dumpvars
-            // hand-written E o usuario NAO customizou a Wave Configuration,
-            // o testbench tem o controle: descartamos a selecao do WC pra
-            // que a .gtkw nao referencie sinais fora do escopo dumpado.
-            // Se o usuario customizou, Aurora ja injetou o proprio
-            // $dumpvars (override-user) — a selecao manda.
-            if (reason === 'user-defined') {
-                this._validatedWaveSelection = [];
-                if (rawSelected.length > 0) {
-                    this.terminalManager.appendToTerminal('twave',
-                        `Note: testbench has hand-written $dumpvars/$dumpfile — Wave Configuration selection (${rawSelected.length} signal(s)) ignored; .gtkw will mirror the VCD's top-scope.`,
-                        'warning');
-                }
-            } else {
-                // 'auto', 'auto-selection' ou 'override-user' — em todos
-                // os casos a selecao do WC e o que define o VCD.
-                this._validatedWaveSelection = selected;
-                if (reason === 'override-user') {
-                    this.terminalManager.appendToTerminal('twave',
-                        `Note: testbench's hand-written $dumpfile/$dumpvars commented out — using Wave Configuration selection (${selected.length} signal(s)).`,
-                        'tips');
-                }
+            // Quando o tb domina (`user-defined`), a selecao usada pelo
+            // .gtkw auto-gerado fica vazia — buildAuroraGtkw cai no
+            // layout completo do VCD. Pros outros casos, _validatedWaveSelection
+            // = signals escolhidos, e o auto-gtkw filtra por eles.
+            this._validatedWaveSelection = reason === 'user-defined'
+                ? []
+                : decision.signalsToDump;
+
+            // Log diagnostico — mostra qual axe ditou a selecao,
+            // pra debuggar quando o user esperava outra coisa.
+            const sourceLabel = {
+                gtkw: `from selected .gtkw (${decision.signalsToDump.length} signal(s))`,
+                wc: `from Wave Configuration (${decision.signalsToDump.length} signal(s))`,
+                tb: 'testbench owns $dumpvars (hand-written, no override)',
+                default: 'default ($dumpvars(1, <tb>) — signals at testbench scope)',
+            }[decision.source] || decision.source;
+            this.terminalManager.appendToTerminal('twave',
+                `Wave source: ${sourceLabel}`, 'info');
+
+            if (reason === 'override-user') {
+                this.terminalManager.appendToTerminal('twave',
+                    `Note: testbench's hand-written $dumpfile/$dumpvars commented out — Aurora's $dumpvars takes over.`,
+                    'tips');
             }
 
             if (tbPath !== config.testbenchFile) {
-                const note = selected.length > 0
-                    ? `${selected.length} picker-selected signal(s)`
-                    : 'testbench-scope default';
                 this.terminalManager.appendToTerminal('tveri',
-                    `Auto-instrumented testbench (${note}) → ${tbPath.split(/[\\/]/).pop()}`, 'info');
+                    `Auto-instrumented testbench → ${tbPath.split(/[\\/]/).pop()}`, 'info');
             }
         }
         const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
@@ -1793,26 +1920,43 @@ async _waveStageFixVcd(tools) {
  * Ver ARCHITECTURE.md §9 pro racional de precedencia.
  */
 async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
-    // Source 1: user-curated .gtkw.
-    if (this.projectConfig.gtkwFiles && this.projectConfig.gtkwFiles.length > 0) {
-        const gtkwFile = this.projectConfig.gtkwFiles.find((f) => f.isTopLevel === true);
-        if (gtkwFile) {
-            const userGtkw = gtkwFile.path;
-            this.terminalManager.appendToTerminal('twave',
-                `Using GTKWave save file: ${userGtkw.split(/[\\/]/).pop()}`, 'info');
-            await this._waveValidateUserGtkwAgainstVcd(userGtkw, vcdFile);
-            return userGtkw;
+    // Source 1: user-curated .gtkw — entrada com `isActive: true` na
+    // lista per-testbench do WaveStore. Cada testbench tem sua propria
+    // lista (gtkwFiles isolados por tb), entao a resolucao aqui depende
+    // do `testbenchFile` corrente.
+    const tbKey = (this.projectConfig.testbenchFile || '')
+        .split(/[\\/]/).pop().replace(/\.v$/i, '');
+    if (tbKey) {
+        const state = await WaveStore.get(this.projectPath, tbKey);
+        const files = state?.gtkwFiles;
+        if (Array.isArray(files) && files.length > 0) {
+            const gtkwFile = files.find((f) => f && f.isActive === true);
+            if (gtkwFile) {
+                const userGtkw = gtkwFile.path;
+                this.terminalManager.appendToTerminal('twave',
+                    `Using GTKWave save file: ${userGtkw.split(/[\\/]/).pop()}`, 'info');
+                await this._waveValidateUserGtkwAgainstVcd(userGtkw, vcdFile);
+                return userGtkw;
+            }
         }
     }
 
     // Source 2: auto-gerado. buildAuroraGtkw cobre o caso geral —
     // top-level flat + secoes por processador SAPHO detectado.
     const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
-    const selected = Array.isArray(this._validatedWaveSelection)
-        ? this._validatedWaveSelection
-        : (Array.isArray(this.projectConfig?.waveSignals)
-            ? this.projectConfig.waveSignals
-            : []);
+    // Preferencia: a selecao ja validada (escrita por _validateWaveSelection
+    // durante o passo de instrumentacao). Senao, le do WaveStore — caso
+    // onde o auto-gtkw e chamado sem o pipeline de instrumentacao
+    // (defensivo; o flow normal sempre seta _validatedWaveSelection).
+    let selected;
+    if (Array.isArray(this._validatedWaveSelection)) {
+        selected = this._validatedWaveSelection;
+    } else if (tbKey) {
+        const tbState = await WaveStore.get(this.projectPath, tbKey);
+        selected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
+    } else {
+        selected = [];
+    }
     try {
         const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);

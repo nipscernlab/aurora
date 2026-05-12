@@ -4,9 +4,11 @@
  * Escritores hoje:
  *   - VerilogModeManager (file tree picker): synthesizableFiles,
  *     testbenchFiles, topLevelFile, testbenchFile
- *   - GtkwPickerManager (toolbar dropdown): gtkwFiles
- *   - WaveConfigManager (modal Wave Configuration): waveSignals,
- *     waveSignalsCustomizedFor
+ *
+ * Estado especifico de wave-flow (gtkwFiles, waveSignals,
+ * wcInitialized/wcCustomized) NAO vive aqui — fica per-testbench no
+ * WaveStore (`<project>/testbench/<tbKey>.json`). Ver
+ * js/wave/wave_state_store.js.
  *
  * Historicamente cada manager fazia seu proprio ciclo
  * read-mutate-write no arquivo. Isso abriu duas classes de bug:
@@ -45,10 +47,6 @@ const DEFAULTS = Object.freeze({
   synthesizableFiles: [],
   // Arquivos .v de testbench.
   testbenchFiles: [],
-  // .gtkw save files registrados pelo gtkw_picker (toolbar dropdown).
-  // O entry com `isTopLevel: true` e o "ativo" lido em
-  // _waveResolveGtkwSaveFile (Source 1).
-  gtkwFiles: [],
   // Processadores configurados. Pos-fase 4, customizacao
   // per-processador (cmmFile/clk/numClocks) saiu — esses campos
   // viraram defaults hardcoded em precompileAllProcessors. Aqui resta
@@ -60,10 +58,6 @@ const DEFAULTS = Object.freeze({
   simuDelay: '200000',
   // Toggle pra visualizar arrays C± no GTKWave (sem UI hoje).
   showArraysInGtkwave: 0,
-  // Wave Configuration picker — lista de scope paths dotted
-  // ("tb_counter.dut.q") que entram em $dumpvars e na .gtkw
-  // auto-gerada. Vazio = "tudo no escopo do testbench top".
-  waveSignals: [],
 });
 
 async function configPathFor(projectPath) {

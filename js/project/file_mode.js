@@ -1498,6 +1498,11 @@ async saveConfiguration() {
             cfg.testbenchFile = tbPath;
         });
 
+        // O dropdown da .gtkw na toolbar mostra a lista do testbench
+        // atual (per-tb). Marcar/trocar testbench muda esse contexto —
+        // refresh pra repopular sem precisar recarregar o projeto.
+        window.gtkwPickerManager?.refresh?.();
+
         console.log('Saved configuration with categories');
     } catch (error) {
         console.error('Error saving configuration:', error);

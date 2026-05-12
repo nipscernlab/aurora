@@ -36,10 +36,21 @@ class WaveConfigManager {
         this._initialized = false;
         // Snapshot da selecao no momento em que o modal abre. Usado em
         // save() pra detectar se o usuario mudou algo — qualquer
-        // diferenca seta waveSignalsCustomized=true em
-        // projectOriented.json e o compile flow passa a injetar o
-        // proprio $dumpvars (override do testbench).
+        // diferenca seta wcCustomized=true no WaveStore e o compile
+        // flow passa a injetar o proprio $dumpvars (override do testbench).
         this._initialSelection = new Set();
+        // Filtro visual "Show processor signals only" — quando ligado,
+        // mostra apenas signals "codificados" do processador (os que
+        // tem alias no aliasMap, renderizados em negrito + cor accent
+        // pelo .signal-alias). Engloba Stack/ULA, Assembly/C+-, e
+        // typed vars (int/float/comp). Estado UI-only: nao persiste,
+        // comeca desligado a cada open().
+        this._processorOnly = false;
+        // Cache populado em refresh(): scopePaths que tem PELO MENOS UM
+        // signal aliased em si ou em descendentes. Modules fora desse
+        // conjunto somem quando o filtro liga (junto com seus signals).
+        // Consultado por _procFilterVisibility.
+        this._scopesWithAliasedSignal = new Set();
     }
 
     initialize() {
@@ -65,6 +76,7 @@ class WaveConfigManager {
             selectDefaultBtn:  document.getElementById('waveConfigSelectDefault'),
             selectAllBtn:      document.getElementById('waveConfigSelectAll'),
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
+            processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
         };
@@ -78,6 +90,22 @@ class WaveConfigManager {
         this.elements.selectDefaultBtn?.addEventListener('click', () => this.selectDefault());
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());
         this.elements.selectNoneBtn?.addEventListener('click', () => this.selectNone());
+        this.elements.processorOnlyCb?.addEventListener('change', (e) => {
+            this._processorOnly = !!e.target.checked;
+            if (this._processorOnly) {
+                // Default e abrir tudo colapsado menos o root, o que
+                // esconderia os signals do processador atras de varios
+                // niveis (top_level_inst → DTWv4_inst → p_ProcDTW →
+                // core → sp/ula...). Quando o filtro liga, abrimos o
+                // caminho ate cada module com signal aliased pra que
+                // o usuario veja imediatamente o que pediu — caso
+                // contrario a tela parece vazia.
+                for (const path of this._scopesWithAliasedSignal) {
+                    this.collapsedScopes.delete(path);
+                }
+            }
+            this.renderTree();
+        });
 
         // Toolbar button — primary entry point for the modal. Also
         // wired up here (rather than in renderer.js / compilation_flow)
@@ -148,6 +176,13 @@ class WaveConfigManager {
             await compiler.syntaxCheck();
         }
 
+        // O filtro "processor only" e UI-only e nao persiste — comeca
+        // desligado a cada open(). Mantemos o estado interno em sync
+        // com o DOM checkbox antes do refresh pra evitar render duplo.
+        this._processorOnly = false;
+        if (this.elements.processorOnlyCb) {
+            this.elements.processorOnlyCb.checked = false;
+        }
         await this.refresh();
         this.modal?.setAttribute('aria-hidden', 'false');
         this.modal?.classList.add('show');
@@ -236,7 +271,16 @@ class WaveConfigManager {
         // Constroi um alias map a partir da hierarquia parseada. Mesmas
         // regras que o gtkw writer aplica, entao o rotulo mostrado no
         // modal bate com o que vai aparecer no GTKWave.
-        this.aliasMap = buildAliasMap(this._hierarchyToScopes(this.tree));
+        const flatScopes = this._hierarchyToScopes(this.tree);
+        this.aliasMap = buildAliasMap(flatScopes);
+
+        // Pre-computa o set de scopePaths que carregam (em si ou em
+        // descendentes) pelo menos um signal com alias — alimenta o
+        // filtro "Show processor signals only". Inclui os scopes que
+        // sao ancestrais de signals aliased pra que a arvore mantenha
+        // contiguidade visual (caso contrario um filho aliased ficaria
+        // sem pai renderizado).
+        this._scopesWithAliasedSignal = this._computeScopesWithAliasedSignal();
 
         // Estrategia de selecao inicial — usando WaveStore per-tb:
         //  1. state.wcCustomized = true  -> usa state.waveSignals
@@ -369,20 +413,53 @@ class WaveConfigManager {
     }
 
     selectAll() {
-        this.selected = new Set();
-        if (!this.tree) return;
-        const walk = (node) => {
-            for (const sig of node.signals) {
-                this.selected.add(`${node.scopePath}.${sig.name}`);
-            }
-            for (const child of node.children) walk(child);
-        };
-        walk(this.tree);
+        if (!this.tree) {
+            this.selected = new Set();
+            this.renderTree();
+            return;
+        }
+        // Filtro ligado: o usuario ve so signals aliased — "Select all"
+        // opera sobre o que ele esta vendo (signals do processador),
+        // preservando o estado dos outros pra nao mexer no que esta
+        // escondido. Filtro desligado: comportamento classico (todos).
+        if (this._processorOnly) {
+            const walk = (node) => {
+                for (const sig of node.signals) {
+                    const full = `${node.scopePath}.${sig.name}`;
+                    if (this._shouldRenderSignal(full)) this.selected.add(full);
+                }
+                for (const child of node.children) walk(child);
+            };
+            walk(this.tree);
+        } else {
+            this.selected = new Set();
+            const walk = (node) => {
+                for (const sig of node.signals) {
+                    this.selected.add(`${node.scopePath}.${sig.name}`);
+                }
+                for (const child of node.children) walk(child);
+            };
+            walk(this.tree);
+        }
         this.renderTree();
     }
 
     selectNone() {
-        this.selected = new Set();
+        // Filtro ligado: limpa so signals aliased (visiveis); o que esta
+        // escondido pelo filtro fica intocado. Filtro desligado: limpa
+        // tudo.
+        if (this._processorOnly && this.tree) {
+            const walk = (node) => {
+                for (const sig of node.signals) {
+                    const full = `${node.scopePath}.${sig.name}`;
+                    if (this._shouldRenderSignal(full)) this.selected.delete(full);
+                }
+                for (const child of node.children) walk(child);
+            };
+            walk(this.tree);
+        } else {
+            this.selected = new Set();
+        }
         this.renderTree();
     }
 
@@ -406,19 +483,92 @@ class WaveConfigManager {
         }
 
         const walk = (node, depth, parentVisible) => {
-            treeEl.appendChild(this._renderModuleRow(node, depth, parentVisible));
+            const vis = this._procFilterVisibility(node.scopePath);
+            if (vis.module) {
+                treeEl.appendChild(this._renderModuleRow(node, depth, parentVisible));
+            }
             const collapsed = this.collapsedScopes.has(node.scopePath);
-            const childrenVisible = parentVisible && !collapsed;
-            for (const sig of node.signals) {
-                treeEl.appendChild(this._renderSignalRow(node, sig, depth + 1, childrenVisible));
+            const childrenVisible = vis.module && parentVisible && !collapsed;
+            if (vis.module) {
+                for (const sig of node.signals) {
+                    const fullName = `${node.scopePath}.${sig.name}`;
+                    if (!this._shouldRenderSignal(fullName)) continue;
+                    treeEl.appendChild(this._renderSignalRow(node, sig, depth + 1, childrenVisible));
+                }
             }
             for (const child of node.children) {
-                walk(child, depth + 1, childrenVisible);
+                // Mantem o depth do filho mesmo se o pai foi escondido —
+                // assim a indentacao reflete a hierarquia real, nao a
+                // posicao visual no filtro. Filtro afeta visibilidade,
+                // nao geometria.
+                walk(child, vis.module ? depth + 1 : depth, childrenVisible);
             }
         };
         walk(this.tree, 0, true);
 
         this._updateCounter();
+    }
+
+    /**
+     * Visibilidade do node sob o filtro "processor signals only".
+     *
+     *   - filtro desligado: tudo visivel.
+     *   - ligado: module visivel se ele ou algum descendente tem
+     *     signal aliased. Signals individuais sao decididos no
+     *     renderTree (`shouldRenderSignal`), porque o filtro precisa
+     *     casar com aliasMap.has(fullName).
+     *
+     * @param {string} scopePath
+     * @returns {{ module: boolean }}
+     */
+    _procFilterVisibility(scopePath) {
+        if (!this._processorOnly) return { module: true };
+        return { module: this._scopesWithAliasedSignal.has(scopePath) };
+    }
+
+    /**
+     * Decide se um signal individual entra na arvore sob o filtro:
+     * presente no aliasMap (= "codificado" do processador, renderizado
+     * em negrito).
+     *
+     * @param {string} fullName  `scope.path.sig`
+     * @returns {boolean}
+     */
+    _shouldRenderSignal(fullName) {
+        if (!this._processorOnly) return true;
+        return !!this.aliasMap?.has(fullName);
+    }
+
+    /**
+     * Constroi o set de scopePaths que tem (em si OU em descendentes)
+     * pelo menos um signal aliased. O walk bottom-up garante que se um
+     * filho qualifica, todos os ancestrais tambem qualificam — assim a
+     * arvore mantem caminho do root ate o signal aliased sem buracos.
+     *
+     * Roda uma vez por refresh() — depois cada renderTree consulta o
+     * set em O(1).
+     *
+     * @returns {Set<string>}
+     */
+    _computeScopesWithAliasedSignal() {
+        const out = new Set();
+        if (!this.tree || !this.aliasMap) return out;
+        const walk = (node) => {
+            let qualifies = false;
+            for (const sig of node.signals) {
+                if (this.aliasMap.has(`${node.scopePath}.${sig.name}`)) {
+                    qualifies = true;
+                    break;
+                }
+            }
+            for (const child of node.children) {
+                if (walk(child)) qualifies = true;
+            }
+            if (qualifies) out.add(node.scopePath);
+            return qualifies;
+        };
+        walk(this.tree);
+        return out;
     }
 
     _renderModuleRow(node, depth, visible) {

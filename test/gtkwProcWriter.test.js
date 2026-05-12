@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
     detectProcessors,
     buildAuroraGtkw,
+    buildSignedSet,
 } from '../js/wave/gtkw_proc_writer.js';
+import { parseVerilogModules } from '../js/wave/signal_parser.js';
 
 /**
  * Scope shape esperado pelos helpers — espelha o que o vcd_parser
@@ -150,5 +152,83 @@ describe('buildAuroraGtkw', () => {
         expect(buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes: [],
         })).toEqual({ content: null, processorCount: 0 });
+    });
+
+    it('usa FMT_SIGNED_DEC pra bus signed e FMT_DEC pra unsigned', () => {
+        const scopes = [
+            scope('tb', [
+                { name: 'clk' },                               // 1-bit → FMT_BIN (0x28)
+                { name: 'count', width: 8, range: '7:0' },     // bus unsigned → FMT_DEC (0x24)
+                { name: 'delta', width: 8, range: '7:0' },     // bus signed → FMT_SIGNED_DEC (0x420)
+            ]),
+        ];
+        const signedSet = new Set(['tb.delta']);
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, signedSet,
+        });
+        // clk vem antes, com FMT_BIN
+        expect(content).toMatch(/@28\b[\s\S]*?tb\.clk/);
+        // count vem depois com FMT_DEC (0x24)
+        expect(content).toMatch(/@24\b[\s\S]*?tb\.count\[7:0\]/);
+        // delta vem com FMT_SIGNED_DEC (0x420)
+        expect(content).toMatch(/@420\b[\s\S]*?tb\.delta\[7:0\]/);
+    });
+});
+
+describe('buildSignedSet', () => {
+    it('marca sinais signed do source verilog', () => {
+        const { modules } = parseVerilogModules([{
+            path: 'foo.v',
+            content: `
+                module foo (
+                    input wire clk,
+                    output reg signed [7:0] delta,
+                    output reg [7:0] count
+                );
+                endmodule
+            `,
+        }]);
+        const scopes = [scope('foo', [
+            { name: 'clk' },
+            { name: 'delta', range: '7:0' },
+            { name: 'count', range: '7:0' },
+        ])];
+        const set = buildSignedSet(scopes, modules);
+        expect(set.has('foo.delta')).toBe(true);
+        expect(set.has('foo.count')).toBe(false);
+        expect(set.has('foo.clk')).toBe(false);
+    });
+
+    it('resolve module de sub-instancias via instances[]', () => {
+        const { modules } = parseVerilogModules([{
+            path: 'd.v',
+            content: `
+                module child (
+                    output reg signed [3:0] s,
+                    output reg [3:0] u
+                );
+                endmodule
+
+                module parent (input wire clk);
+                    child c_inst ();
+                endmodule
+            `,
+        }]);
+        const scopes = [
+            scope('parent', [{ name: 'clk' }]),
+            scope('parent.c_inst', [
+                { name: 's', range: '3:0' },
+                { name: 'u', range: '3:0' },
+            ]),
+        ];
+        const set = buildSignedSet(scopes, modules);
+        expect(set.has('parent.c_inst.s')).toBe(true);
+        expect(set.has('parent.c_inst.u')).toBe(false);
+    });
+
+    it('devolve Set vazio se modules e vazio ou nulo', () => {
+        const scopes = [scope('tb', [{ name: 'clk' }])];
+        expect(buildSignedSet(scopes, new Map())).toEqual(new Set());
+        expect(buildSignedSet(scopes, null)).toEqual(new Set());
     });
 });

@@ -48,7 +48,7 @@ import { TerminalManager } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
+import { buildAuroraGtkw, buildSignedSet } from '../wave/gtkw_proc_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -1822,6 +1822,13 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             }
         }
 
+        // Parseia o source verilog (synthesizableFiles + testbenchFiles)
+        // pra extrair declaracoes `signed`. emitTopLevelSection usa
+        // pra decidir Decimal vs Signed Decimal nos barramentos top.
+        // Best-effort: falha de I/O ou parse vira signedSet vazio
+        // (todo multi-bit fica DEC, GTKWave abre normalmente).
+        const signedSet = await this._buildSignedSetFromSources(scopes);
+
         const result = buildAuroraGtkw({
             vcdPath: vcdFile,
             gtkwPath: autoGtkw,
@@ -1830,6 +1837,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             tempBaseDir,
             binDir,
             selectedSignals: selected.length > 0 ? selected : null,
+            signedSet,
         });
         if (!result.content) return null;
 
@@ -1847,6 +1855,44 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave',
             `Warning: could not auto-generate .gtkw — ${err.message}`, 'warning');
         return null;
+    }
+}
+
+/**
+ * Le os arquivos verilog do projeto (synthesizableFiles +
+ * testbenchFiles), parseia pra extrair declaracoes `signed`, e
+ * devolve um Set<string> com os full-paths dos sinais signed —
+ * formato esperado por `buildAuroraGtkw.signedSet`.
+ *
+ * Best-effort: erros de I/O ou parse viram Set vazio (todos os
+ * multi-bit ficam Decimal sem perder o wave inteiro).
+ */
+async _buildSignedSetFromSources(scopes) {
+    try {
+        const synthFiles = (this.projectConfig?.synthesizableFiles ?? [])
+            .map((f) => f && f.path).filter(Boolean);
+        const tbFile = this.projectConfig?.testbenchFile;
+        const tbFiles = (this.projectConfig?.testbenchFiles ?? [])
+            .map((f) => f && f.path).filter(Boolean);
+        const paths = [...new Set([...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles])];
+        if (paths.length === 0) return new Set();
+
+        const files = [];
+        for (const p of paths) {
+            try {
+                const content = await window.electronAPI.readFile(p, { encoding: 'utf8' });
+                files.push({ path: p, content });
+            } catch (_e) { /* arquivo sumiu — ignora */ }
+        }
+        if (files.length === 0) return new Set();
+
+        const { modules } = parseVerilogModules(files);
+        return buildSignedSet(scopes, modules);
+    } catch (err) {
+        this.terminalManager.appendToTerminal('twave',
+            `Note: could not derive signed-signal map (${err.message}); top-level bus signals shown as unsigned decimal.`,
+            'tips');
+        return new Set();
     }
 }
 

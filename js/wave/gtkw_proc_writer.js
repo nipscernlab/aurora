@@ -111,6 +111,66 @@ const hex = (n) => n.toString(16);
  * @param {VcdScope[]} scopes
  * @returns {Array<{ instancePath: string, instanceName: string, procType: string, corePath: string|null }>}
  */
+/**
+ * Constroi um Set de full signal paths (scope.path + '.' + name) que
+ * sao declarados `signed` no source. Usado em `emitTopLevelSection`
+ * pra escolher entre FMT_DEC e FMT_SIGNED_DEC.
+ *
+ * Pra mapear scope path do VCD → moduleName, descemos a hierarquia
+ * a partir do root (testbench top, cujo instanceName conventionalmente
+ * coincide com o moduleName) lookando o `instances[]` de cada module
+ * parseado.
+ *
+ * @param {VcdScope[]} scopes
+ * @param {Map<string, {signals, instances}>} modules  output do
+ *   `parseVerilogModules` (signal_parser.js)
+ * @returns {Set<string>}
+ */
+export function buildSignedSet(scopes, modules) {
+    if (!modules || modules.size === 0 || !Array.isArray(scopes)) {
+        return new Set();
+    }
+
+    // Cache: scope.path → moduleName (ou null se nao resolve).
+    const cache = new Map();
+    const resolve = (scopePath) => {
+        if (cache.has(scopePath)) return cache.get(scopePath);
+        const parts = scopePath.split('.');
+        if (parts.length === 1) {
+            // Root: convencao do testbench top — instanceName === moduleName.
+            const root = parts[0];
+            const m = modules.has(root) ? root : null;
+            cache.set(scopePath, m);
+            return m;
+        }
+        const parentPath = parts.slice(0, -1).join('.');
+        const childInst = parts[parts.length - 1];
+        const parentMod = resolve(parentPath);
+        if (!parentMod) { cache.set(scopePath, null); return null; }
+        const info = modules.get(parentMod);
+        if (!info) { cache.set(scopePath, null); return null; }
+        const inst = info.instances.find((x) => x.instanceName === childInst);
+        const result = inst ? inst.moduleType : null;
+        cache.set(scopePath, result);
+        return result;
+    };
+
+    const signedSet = new Set();
+    for (const scope of scopes) {
+        const mod = resolve(scope.path);
+        if (!mod) continue;
+        const info = modules.get(mod);
+        if (!info) continue;
+        for (const sig of scope.signals) {
+            const decl = info.signals.find((s) => s.name === sig.name);
+            if (decl && decl.isSigned) {
+                signedSet.add(`${scope.path}.${sig.name}`);
+            }
+        }
+    }
+    return signedSet;
+}
+
 export function detectProcessors(scopes) {
     const found = [];
     const seenInst = new Set();
@@ -279,15 +339,24 @@ function emitSignal(lines, sig, formatFlag, color, alias, opts = {}) {
 
 /**
  * Emite a secao top-level: todos os sinais que NAO estao dentro de
- * uma instancia de processador. Lista flat com formato default
- * (`@28` = TR_RJUSTIFY | TR_BIN — GTKWave usa hex pra multi-bit, bin
- * pra single bit).
+ * uma instancia de processador.
+ *
+ * Format por sinal:
+ *   - single-bit (sem range): FMT_BIN (`0` ou `1`)
+ *   - multi-bit signed: FMT_SIGNED_DEC (declarado `reg signed [...]`
+ *     ou `wire signed [...]` no source — detectado via signedSet)
+ *   - multi-bit unsigned: FMT_DEC (qualquer outro barramento)
+ *
+ * Emite `@<flag>` so quando muda — flags persistem ate o proximo `@`
+ * no .gtkw (GTKWave aplica em cascade).
  *
  * @param {string[]} processorInstancePaths  paths-raiz das instancias
  *   de processador (qualquer scope cujo path comeca com `<root>.` e
  *   "interno" e pulado aqui — sera emitido na secao do proc).
+ * @param {Set<string>} [signedSet]  full-paths de sinais declarados
+ *   `signed` no source. Opcional — sem ele todo multi-bit vira DEC.
  */
-function emitTopLevelSection(lines, scopes, processorInstancePaths, filter) {
+function emitTopLevelSection(lines, scopes, processorInstancePaths, filter, signedSet) {
     const isInsideProcessor = (scopePath) => processorInstancePaths.some(
         (proc) => scopePath === proc || scopePath.startsWith(proc + '.'),
     );
@@ -303,9 +372,20 @@ function emitTopLevelSection(lines, scopes, processorInstancePaths, filter) {
     }
     if (emitList.length === 0) return;
 
+    const pickFlag = (sig) => {
+        if (sig.range === null) return FMT_BIN;
+        if (signedSet && signedSet.has(sig.fullName)) return FMT_SIGNED_DEC;
+        return FMT_DEC;
+    };
+
     emitComment(lines, '###### Top-level');
-    lines.push(`@${hex(FMT_BIN)}`);
+    let lastFlag = null;
     for (const s of emitList) {
+        const flag = pickFlag(s);
+        if (flag !== lastFlag) {
+            lines.push(`@${hex(flag)}`);
+            lastFlag = flag;
+        }
         lines.push(s.range ? `${s.fullName}[${s.range}]` : s.fullName);
     }
 }
@@ -607,6 +687,10 @@ function addProcessorAliases(map, scopes, proc) {
  * @param {string[]} [input.selectedSignals]  filter — quando setado,
  *      so emite sinais cujo full-path bate. Mantem decoracao
  *      (cor/alias) onde aplicavel.
+ * @param {Set<string>} [input.signedSet]  full-paths de sinais
+ *      declarados `signed` no source. Usado na secao top-level pra
+ *      escolher entre FMT_DEC e FMT_SIGNED_DEC. Sem ele, todo
+ *      multi-bit vira DEC.
  * @returns {{ content: string|null, processorCount: number }}
  *      content: null so quando scopes esta vazio (VCD invalido).
  *      Caso contrario sempre retorna o layout, mesmo sem processadores
@@ -620,6 +704,7 @@ export function buildAuroraGtkw({
     tempBaseDir = null,
     binDir = null,
     selectedSignals = null,
+    signedSet = null,
 }) {
     // Filter opcional: lista de full-paths (strings). Quando setado,
     // o layout completo e percorrido — comentarios, grupos, cores,
@@ -649,7 +734,7 @@ export function buildAuroraGtkw({
 
     // Top-level: tudo que nao esta dentro de um processador. Sempre
     // primeiro pra dar contexto antes das secoes internas.
-    emitTopLevelSection(lines, scopes, procs.map((p) => p.instancePath), filter);
+    emitTopLevelSection(lines, scopes, procs.map((p) => p.instancePath), filter, signedSet);
 
     // Contador global de filter IDs. file e proc filters tem
     // numeracoes independentes; cada novo `^N <path>` ou `^^N <path>`

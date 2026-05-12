@@ -123,6 +123,11 @@ function extractSignals(body) {
         const primary = kinds.reduce((best, k) =>
             (PRIMARY_KIND_PRIORITY[k] ?? 0) > (PRIMARY_KIND_PRIORITY[best] ?? 0) ? k : best,
         kinds[0]);
+        // `signed` e modificador independente do primary kind. Preserva
+        // aparte porque consumers (e.g. .gtkw writer escolhendo entre
+        // Decimal vs Signed Decimal) precisam disso, e o reduce acima
+        // descarta o keyword.
+        const isSigned = kinds.includes('signed');
         const names = namesPart.split(',').map((n) => n.trim()).filter(Boolean);
         for (const rawName of names) {
             const cleaned = rawName.replace(/=.*$/, '').trim();
@@ -130,19 +135,27 @@ function extractSignals(body) {
             collected.push({
                 name: cleaned,
                 kind: primary,
+                isSigned,
                 range: range ? range.slice(1, -1) : null,
             });
         }
     }
 
-    // De-dup: a port can be re-declared inside the body (non-ANSI style)
-    // — keep one entry, preferring the higher-priority kind so we end
-    // up reporting "input" rather than the redundant "wire".
+    // De-dup: uma port pode ser re-declarada no body (non-ANSI) — manter
+    // uma entry, preferindo o kind de maior prioridade. Se qualquer
+    // declaracao for `signed`, propaga.
     const dedup = new Map();
     for (const s of collected) {
         const prev = dedup.get(s.name);
         if (!prev || (PRIMARY_KIND_PRIORITY[s.kind] ?? 0) > (PRIMARY_KIND_PRIORITY[prev.kind] ?? 0)) {
-            dedup.set(s.name, s);
+            dedup.set(s.name, {
+                ...s,
+                isSigned: s.isSigned || (prev ? prev.isSigned : false),
+            });
+        } else if (s.isSigned && !prev.isSigned) {
+            // Mesma prioridade mas esta declaracao tem signed que a anterior
+            // nao tinha → atualiza so o flag.
+            dedup.set(s.name, { ...prev, isSigned: true });
         }
     }
     return [...dedup.values()];

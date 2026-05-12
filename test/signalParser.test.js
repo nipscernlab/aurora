@@ -212,6 +212,30 @@ describe('buildHierarchyTree', () => {
         expect(tree.children).toEqual([]);
     });
 
+    it('extractInstances pula instances dentro de `generate if`', () => {
+        // Geracao condicional so elabora pra certos param values.
+        // Capturar a instance como se sempre existisse faz iverilog
+        // explodir com "Unable to bind" quando $dumpvars referencia
+        // um path que so existe se XOR=1 (etc).
+        const files = [{
+            path: 'g.v',
+            content: `
+                module subm (input a, output b);
+                endmodule
+
+                module top (input clk);
+                    generate if (COND_A) subm s_yes (clk, clk); else assign x = 0; endgenerate
+                    generate if (COND_B) subm s_maybe (clk, clk); endgenerate
+                    subm s_always (clk, clk);
+                endmodule
+            `,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const names = modules.get('top').instances.map((i) => i.instanceName).sort();
+        // So a instance "sempre ativa" (fora do generate-if) sobrevive
+        expect(names).toEqual(['s_always']);
+    });
+
     it('extractInstances lida com #(...) com parens aninhados + `ifdef no meio', () => {
         // Bug observado em ProcDTW.v: regex non-greedy `#\(.*?\)`
         // emparelhava `processor` (instancia parametrizada) com

@@ -183,6 +183,24 @@ function stripDirectives(body) {
 }
 
 /**
+ * Remove blocos `generate if (...)` e `generate case (...)` —
+ * elaboracao Verilog so instancia esses corpos quando a condicao e
+ * verdade na compilacao. O signal_parser nao avalia parameters,
+ * entao captura instancias condicionais como se sempre existissem.
+ * Iverilog depois falha com "Unable to bind" quando $dumpvars
+ * referencia paths que so seriam validos sob certo param value.
+ *
+ * Estrategia: stripar de `generate if/case` ate o `endgenerate`
+ * mais proximo (non-greedy). Ignora aninhamento — raros na pratica;
+ * pior caso e stripar um bloco interno maior. Generates SEM
+ * condicao (e.g. `generate for (...) ...`) sao preservados porque
+ * elaboram sempre.
+ */
+function stripConditionalGenerates(body) {
+    return body.replace(/\bgenerate\s+(?:if|case)\b[\s\S]*?\bendgenerate\b/g, ' ');
+}
+
+/**
  * Substitui blocos `#(...)` por `#()` no source (parens balanceados,
  * string-literal aware). Necessario porque a parameter list de
  * instanciacoes parametrizadas costuma ter parens aninhados (e.g.
@@ -234,10 +252,14 @@ function stripParamLists(body) {
  */
 function extractInstances(body, knownModuleNames) {
     const seen = new Map();   // instanceName → moduleType, pra dedup
-    // Strip ordem importa: diretivas primeiro (substitui por whitespace),
-    // params depois (balanceada). Apos isso o regex non-greedy `#\s*\(\)`
-    // casa apenas com parens vazios e nao sofre backtracking.
-    const stripped = stripParamLists(stripDirectives(body));
+    // Strip ordem importa:
+    //  1. diretivas `ifdef/etc → whitespace
+    //  2. blocos `generate if/case` → whitespace (instances condicionais
+    //     que so elaboram em certos param values; iverilog tira essas
+    //     instancias depois, mas o parser nao consegue saber)
+    //  3. parameter lists com parens aninhados → #()
+    // Apos isso o regex non-greedy casa parens vazios apenas.
+    const stripped = stripParamLists(stripConditionalGenerates(stripDirectives(body)));
     const re = /\b([A-Za-z_][\w$]*)\s*(?:#\s*\(\)\s*)?([A-Za-z_][\w$]*)\s*\(/g;
     let m;
     while ((m = re.exec(stripped)) !== null) {

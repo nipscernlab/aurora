@@ -574,7 +574,7 @@ class FileTreeManager {
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
             if (TreeViewState.isHierarchical) return;
-            window.verilogTreeManager?.refreshVerilogTree();
+            window.projectTreeManager?.refreshTree();
         });
 
         // Hierarchy toggle e owned por file_tree_view_controller.js —
@@ -587,7 +587,7 @@ class FileTreeManager {
             if (TreeViewState.isHierarchical) return;
             // Re-le o .spf pra pegar processor creation/
             // deletion que reescreve o arquivo.
-            window.verilogTreeManager?.refreshVerilogTree?.();
+            window.projectTreeManager?.refreshTree?.();
         });
         
         document.addEventListener('refresh-file-tree', () => this.refresh());
@@ -609,14 +609,14 @@ class FileTreeManager {
      * AppInitializer assentarem, depois dispara o verilog picker.
      *
      * O nome "initializeTreeBasedOnMode" e historico (era um branch
-     * sobre IDE mode). Modo unico hoje — chama activateVerilogMode
-     * direto. A coalescencia em activateVerilogMode garante que isso
+     * sobre IDE mode). Modo unico hoje — chama activateTree
+     * direto. A coalescencia em activateTree garante que isso
      * + projectManager.loadProject nao gerem duplo loadConfiguration.
      */
     async initializeTreeBasedOnMode() {
         await new Promise(resolve => setTimeout(resolve, 100));
-        if (window.verilogTreeManager) {
-            await window.verilogTreeManager.activateVerilogMode();
+        if (window.projectTreeManager) {
+            await window.projectTreeManager.activateTree();
         }
     }
 

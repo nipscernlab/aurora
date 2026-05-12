@@ -115,7 +115,7 @@ function logFatalError(terminalId, error) {
  *   <projectPath>/<procName>/{Hardware|Software|Simulation}/<arquivo>
  * Devolve o objeto do processador (preservando casing original) ou null.
  *
- * Mirrors VerilogTreeManager._getProcessorForFile (replicado aqui pra
+ * Mirrors ProjectTreeManager._getProcessorForFile (replicado aqui pra
  * evitar acoplamento entre o pipeline de compilacao e o file tree).
  */
 function findProcessorForPath(filePath, projectPath, processors) {

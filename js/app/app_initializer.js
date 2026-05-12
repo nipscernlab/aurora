@@ -5,13 +5,10 @@
  *   1. Restaurar a ultima sessao (auto-abre o ultimo projeto salvo em
  *      localStorage), se houver.
  *   2. Bookkeeping do last-project pra Recent Projects.
- *   3. Expor um shim getCurrentMode() (hardcoded 'project') usado por
- *      callers historicos que ainda perguntam o "modo" da IDE — Aurora
- *      so tem um modo desde 2026-05.
  *
  * Mode-switching, radio listeners, e o evento mode-state-changed
  * sairam quando os tres modos (Processor/Project/Verilog) viraram um
- * so. Ver ARCHITECTURE.md §2 (tabela de owners de estado).
+ * so. Aurora roda em modo unico desde 2026-05.
  */
 
 import { showDialog } from '../ui/dialog_manager.js';
@@ -128,15 +125,6 @@ class AppInitializer {
         }
     }
 
-    /**
-     * Compat shim — sempre retorna 'project'. Existiram 3 modos
-     * (Processor / Project / Verilog) ate 2026-05; o shim fica pra nao
-     * quebrar callers historicos que comparam contra strings literais
-     * de modo. Nao volte a derivar do DOM (ver ARCHITECTURE.md §8).
-     */
-    getCurrentMode() {
-        return 'project';
-    }
 }
 
 const appInitializer = new AppInitializer();

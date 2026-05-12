@@ -156,12 +156,12 @@ async function loadProject(spfPath) {
         await TabManager.closeAllTabs();
 
         // Tree e sempre populada do .spf via
-        // verilogTreeManager. A coalescencia interna em
-        // activateVerilogMode garante que isso + a chamada de
+        // projectTreeManager. A coalescencia interna em
+        // activateTree garante que isso + a chamada de
         // fileTreeManager.initializeTreeBasedOnMode nao gerem duplo
         // loadConfiguration (ver ARCHITECTURE.md §6).
-        if (window.verilogTreeManager) {
-            await window.verilogTreeManager.activateVerilogMode();
+        if (window.projectTreeManager) {
+            await window.projectTreeManager.activateTree();
         }
         fileTreeManager.watcher?.startWatching?.(window.currentProjectPath);
 

@@ -132,9 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Reset do verilog tree pra que reabrir dispare um
                 // re-activate full (le o .spf fresco,
                 // pega arquivos fora da pasta do projeto). Sem isso,
-                // isVerilogTreeActive fica true e o proximo activate
+                // isTreeActive fica true e o proximo activate
                 // cai no early-return.
-                window.verilogTreeManager?.reset?.();
+                window.projectTreeManager?.reset?.();
 
                 window.SplitEditorManager?.refreshLayout?.();
             } else {

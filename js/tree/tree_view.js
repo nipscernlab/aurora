@@ -16,7 +16,7 @@
  *     had to know how to clean — which only worked if every renderer
  *     was kept in sync with every other.
  *   - State spread across multiple flags (TreeViewState.isHierarchical,
- *     verilogTreeManager.isVerilogTreeActive, mode radios) drifted
+ *     projectTreeManager.isTreeActive, mode radios) drifted
  *     out of sync.
  *
  * This controller replaces the lock pattern with three physically

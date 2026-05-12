@@ -4,7 +4,7 @@
  *
  * Pre-controller, esse estado estava espalhado por 6+ lugares
  * (TreeViewState.isHierarchical, .hierarchyData, .compilationModule;
- * verilogTreeManager.isVerilogTreeActive; mode radios; dois click
+ * projectTreeManager.isTreeActive; mode radios; dois click
  * listeners diferentes no mesmo botao). Cada refactor que fechava um
  * bug abria outro. O design atual centraliza tudo aqui.
  *
@@ -189,7 +189,7 @@ if (document.readyState === 'loading') {
 // the freshest instance.
 
 fileTreeViewController.registerRenderer('verilog', () => {
-    window.verilogTreeManager?.renderVerilogTree?.();
+    window.projectTreeManager?.renderVerilogTree?.();
 });
 
 fileTreeViewController.registerRenderer('standard', () => {

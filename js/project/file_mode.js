@@ -1,22 +1,21 @@
 /**
- * file_mode.js — VerilogTreeManager.
+ * file_mode.js — ProjectTreeManager.
  *
- * Renderiza a "verilog picker tree" — a unica vista de arquivos que
- * Aurora mostra hoje. O nome "VerilogTreeManager" / "Verilog Mode"
- * vem da epoca de 3 modos; hoje e simplesmente o file tree do
- * projeto, listando arquivos a partir do .spf (structure.
- * synthesizableFiles + testbenchFiles + per-proc Software/Hardware/
- * Simulation auto-descoberto).
+ * Renderiza a file tree do projeto — a unica vista de arquivos que
+ * Aurora mostra hoje. Lista arquivos a partir do .spf
+ * (structure.synthesizableFiles + testbenchFiles + per-processador
+ * Software/Hardware/Simulation auto-descoberto).
  *
  * Pontos de entrada externos:
- *   activateVerilogMode()   — chamada por projectManager.loadProject
- *                             e por fileTreeManager.initializeTreeBasedOnMode.
- *                             Coalescida via _activatePromise (ver
- *                             ARCHITECTURE.md §6).
- *   refreshVerilogTree()    — re-le o .spf e re-renderiza
- *                             (idempotente; key-based reconciler).
- *   deactivateVerilogMode() — esconde a tree. Usada hoje so em
- *                             close_project.
+ *   activateTree()  — chamada por projectManager.loadProject e por
+ *                     fileTreeManager.initializeTreeBasedOnMode.
+ *                     Coalescida via _activatePromise (ver
+ *                     ARCHITECTURE.md §6).
+ *   refreshTree()   — re-le o .spf e re-renderiza (idempotente;
+ *                     key-based reconciler).
+ *   reset()         — limpa estado transiente; chamado por
+ *                     close_project pra que reabrir um projeto
+ *                     dispare uma ativacao limpa.
  */
 
 import { TabManager } from '../tabs/tab_manager.js';
@@ -24,7 +23,7 @@ import { ProjectStore } from './project_store.js';
 import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 
-class VerilogTreeManager {
+class ProjectTreeManager {
     constructor() {
         // File tree drag-and-drop / Open HDL accept Verilog source and
         // header files only. .gtkw save files have a dedicated entry
@@ -43,9 +42,9 @@ class VerilogTreeManager {
         // here anymore — it lives in ProjectStore (single source of truth).
         // Caching it on the manager was the root cause of files-disappearing
         // on close+reopen, since close didn't reset it and the early-return
-        // branch in activateVerilogMode used the stale path.
+        // branch in activateTree used the stale path.
         this.verilogFiles = [];
-        this.isVerilogTreeActive = false;
+        this.isTreeActive = false;
         
         // DOM element cache
         this.elements = {};
@@ -81,9 +80,9 @@ class VerilogTreeManager {
             // injetados em runtime via injectStyles(), o que criava uma
             // terceira definicao de .confirm-modal que brigava com a
             // canonica.
-            console.log('✅ VerilogTreeManager initialized');
+            console.log('✅ ProjectTreeManager initialized');
         } catch (error) {
-            console.error('❌ Failed to initialize VerilogTreeManager:', error);
+            console.error('❌ Failed to initialize ProjectTreeManager:', error);
         }
     }
 
@@ -106,14 +105,14 @@ class VerilogTreeManager {
         // Atalho do construtor pra primeira pintura — chamadas
         // subsequentes vem via projectManager.loadProject e
         // fileTreeManager.initializeTreeBasedOnMode (coalescidas).
-        this.activateVerilogMode();
+        this.activateTree();
 
         // Qualquer escritor do .spf (gtkw_picker, CLI
         // tools, futuros fluxos) dispara este evento — o picker re-le
         // e re-renderiza pra nao ficar stale.
         document.addEventListener('project-config-saved', () => {
-            if (this.isVerilogTreeActive) {
-                this.refreshVerilogTree();
+            if (this.isTreeActive) {
+                this.refreshTree();
             }
         });
 
@@ -128,7 +127,7 @@ class VerilogTreeManager {
             // survive sorting and in-place updates — no closure-captured
             // stale index can mis-target a row.
             this.elements.fileTree.addEventListener('click', async (e) => {
-                if (!this.isVerilogTreeActive) return;
+                if (!this.isTreeActive) return;
                 const row = e.target.closest('.verilog-file-item');
                 if (!row) return;
                 const path = row.dataset.filePath;
@@ -161,14 +160,14 @@ class VerilogTreeManager {
         }
 
         this.elements.openHdlButton?.addEventListener('click', () => {
-            if (this.isVerilogTreeActive) {
+            if (this.isTreeActive) {
                 this.handleImportClick();
             }
         });
         
         this.elements.refreshButton?.addEventListener('click', () => {
-            if (this.isVerilogTreeActive) {
-                this.refreshVerilogTree();
+            if (this.isTreeActive) {
+                this.refreshTree();
             }
         });
         
@@ -193,7 +192,7 @@ class VerilogTreeManager {
         
         // Handle drag over
         dropArea.addEventListener('dragover', (e) => {
-            if (this.isVerilogTreeActive) {
+            if (this.isTreeActive) {
                 e.preventDefault();
                 dropArea.classList.add('verilog-dragover');
             }
@@ -218,7 +217,7 @@ class VerilogTreeManager {
      * Handle drag enter
      */
     handleDragEnter() {
-        if (this.isVerilogTreeActive) {
+        if (this.isTreeActive) {
             this.elements.fileTree.classList.add('verilog-dragover');
         }
     }
@@ -227,7 +226,7 @@ class VerilogTreeManager {
      * Handle drag leave
      */
     handleDragLeave(e) {
-        if (this.isVerilogTreeActive) {
+        if (this.isTreeActive) {
             const rect = this.elements.fileTree.getBoundingClientRect();
             if (e.clientX < rect.left || e.clientX >= rect.right ||
                 e.clientY < rect.top || e.clientY >= rect.bottom) {
@@ -242,7 +241,7 @@ class VerilogTreeManager {
     async handleDrop(e) {
         this.elements.fileTree.classList.remove('verilog-dragover');
         
-        if (!this.isVerilogTreeActive) return;
+        if (!this.isTreeActive) return;
         
         const droppedFiles = e.dataTransfer.files;
         
@@ -532,7 +531,7 @@ class VerilogTreeManager {
     /**
      * Ativa o verilog picker tree
      */
-   async activateVerilogMode() {
+   async activateTree() {
         // Coalesce concurrent activations. Session-restore fires us from TWO
         // paths in the same tick (projectManager.loadProject AND
         // fileTreeManager.initializeTreeBasedOnMode). Sem este guard,
@@ -550,11 +549,11 @@ class VerilogTreeManager {
                 try { await this.initPromise; } catch (_) { /* init logs its own errors */ }
             }
 
-            if (this.isVerilogTreeActive) {
+            if (this.isTreeActive) {
                 // Already active but a new project may have been opened —
                 // refresh the configuration and re-render rather than
                 // returning a stale tree.
-                await this.refreshVerilogTree();
+                await this.refreshTree();
                 return;
             }
 
@@ -588,7 +587,7 @@ class VerilogTreeManager {
             // call (project_manager.loadProject after setProject lands)
             // will run this body to completion.
             //
-            // Critically, isVerilogTreeActive is NOT set to true here —
+            // Critically, isTreeActive is NOT set to true here —
             // otherwise the next call would hit the early-return refresh
             // branch and skip the full activation we still need.
             if (!ProjectStore.hasProject()) {
@@ -596,7 +595,7 @@ class VerilogTreeManager {
                 return;
             }
 
-            this.isVerilogTreeActive = true;
+            this.isTreeActive = true;
 
             console.log('📂 Project path:', ProjectStore.getProjectPath());
 
@@ -626,32 +625,10 @@ class VerilogTreeManager {
      * instead of the early-return branch with stale data.
      */
     reset() {
-        this.isVerilogTreeActive = false;
+        this.isTreeActive = false;
         this.verilogFiles = [];
         // Tree DOM is already cleared by clearProjectInterface in
         // close_project.js; nothing to do here.
-    }
-    
-    /**
-     * Deactivate the Verilog tree (volta pra view "standard" — folder
-     * listing direto). Hoje so e chamada por close_project; o resto
-     * do fluxo assume verilog tree sempre ativa.
-     */
-    deactivateVerilogMode() {
-        if (!this.isVerilogTreeActive) {
-            return;
-        }
-
-        console.log('🛑 Deactivating Verilog tree...');
-        this.isVerilogTreeActive = false;
-
-        // Switch the active view back to standard. Nosso verilog
-        // subcontainer mantem suas rows no DOM mas com display:none —
-        // reativar depois e uma mudanca de atributo, com rows ja la.
-        window.treeView?.setActive('standard');
-        document.dispatchEvent(new Event('refresh-file-tree'));
-
-        console.log('✅ Verilog tree deactivated — standard tree restored');
     }
     
     /**
@@ -1049,7 +1026,7 @@ showContextMenu(event, file, index) {
 
 
    async handleTreeContextMenu(event) {
-        if (!this.isVerilogTreeActive) return;
+        if (!this.isTreeActive) return;
 
         // Right-click landed on a file row → per-row context menu (the
         // category/top-level/delete options). Per-row listeners are
@@ -1455,7 +1432,7 @@ async saveConfiguration() {
         // race: between the click and the mutator firing, our own
         // file watcher (file_tree_manager.js's onDirectoryChanged)
         // sees the .spf change from a previous write, fires
-        // refreshVerilogTree, which calls loadConfiguration, which
+        // refreshTree, which calls loadConfiguration, which
         // sets `this.verilogFiles = []` and reloads from the OLD
         // on-disk state — wiping the in-memory category change the
         // user just made. The mutator then writes the now-rebuilt
@@ -1608,8 +1585,8 @@ async loadConfiguration() {
     /**
      * Re-le o .spf e re-renderiza
      */
-    async refreshVerilogTree() {
-        // Same coalescing pattern as activateVerilogMode: two refresh calls
+    async refreshTree() {
+        // Same coalescing pattern as activateTree: two refresh calls
         // arriving in the same tick (e.g. from project-config-saved + a tab
         // event) would each reset verilogFiles=[] and interleave pushes.
         //
@@ -1648,10 +1625,10 @@ async loadConfiguration() {
 }
 
 // Create and export single instance
-const verilogTreeManager = new VerilogTreeManager();
+const projectTreeManager = new ProjectTreeManager();
 
 // Make globally accessible
-window.verilogTreeManager = verilogTreeManager;
+window.projectTreeManager = projectTreeManager;
 
 // Export
-export { VerilogTreeManager, verilogTreeManager };
+export { ProjectTreeManager, projectTreeManager };

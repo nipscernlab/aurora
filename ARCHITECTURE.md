@@ -10,7 +10,7 @@ When you change something here, update this doc.
 
 ## 1. Script load order is part of the contract
 
-[index.html](index.html) loads renderer scripts in a specific order. Some pieces (like `window.appInitializer`, `window.verilogModeManager`, `window.SharedModelRegistry`) are exposed via `window.*` for non-module callers and are referenced by name elsewhere. Loading them out of order produces silent `undefined` reads.
+[index.html](index.html) loads renderer scripts in a specific order. Some pieces (like `window.appInitializer`, `window.projectTreeManager`, `window.SharedModelRegistry`) are exposed via `window.*` for non-module callers and are referenced by name elsewhere. Loading them out of order produces silent `undefined` reads.
 
 The order matters in three groups:
 
@@ -20,7 +20,7 @@ The order matters in three groups:
 
 **Concrete dependencies:**
 
-- [`file_mode.js`](js/project/file_mode.js) registers `DOMContentLoaded` listeners in its constructor and must load **before** [`app_initializer.js`](js/app/app_initializer.js). Ambos chamam `activateVerilogMode` no mesmo tick (loadProject + initializeTreeBasedOnMode), coalescido via §6.
+- [`file_mode.js`](js/project/file_mode.js) registers `DOMContentLoaded` listeners in its constructor and must load **before** [`app_initializer.js`](js/app/app_initializer.js). Ambos chamam `activateTree` no mesmo tick (loadProject + initializeTreeBasedOnMode), coalescido via §6.
 - [`monaco_editor.js`](js/editor/monaco_editor.js) must be initialized before any `TabManager.addTab` runs against a text file. The `EditorManager.ready` promise (see §7) gates this.
 
 If you reorder these, things break in ways that don't always show up in dev.
@@ -34,15 +34,14 @@ Drift between multiple "sources of truth" was responsible for several bugs in 20
 | Concept | Owner | How others read |
 |---|---|---|
 | Current project (path + spf) | [`ProjectStore`](js/project/project_store.js) | `ProjectStore.getProjectPath()` / `getSpfPath()`, mirrored to `window.currentProjectPath` / `window.currentSpfPath` for legacy reads |
-| Current IDE mode (hardcoded `'project'` post-2026-05) | `AppInitializer.getCurrentMode()` ([app_initializer.js](js/app/app_initializer.js)) — compat shim, sempre retorna `'project'` | `window.appInitializer.getCurrentMode()`. Existiam tres modos (processor/project/verilog) antes da consolidacao; o shim fica pra nao quebrar callers historicos. **Nao volte a derivar do DOM** (ver §8). |
 | Open tabs (filePath → content) | `TabManager.tabs` Map ([tab_manager.js](js/tabs/tab_manager.js)) | `TabManager.tabs.get(filePath)` |
 | Monaco editor instances (filePath → `{editor, container}`) | `EditorManager.editors` Map ([monaco_editor.js](js/editor/monaco_editor.js)) | `EditorManager.getEditorForFile(filePath)` |
 | Shared text models (filePath → `{model, refCount, savedAltVersionId}`) | `SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) | `SharedModelRegistry.getModel(filePath)` |
-| Verilog tree state (`isVerilogModeActive`, `verilogFiles`) | `VerilogModeManager` ([file_mode.js](js/project/file_mode.js)) | Don't read from outside; call its methods |
+| Verilog tree state (`isTreeActive`, `verilogFiles`) | `ProjectTreeManager` ([file_mode.js](js/project/file_mode.js)) | Don't read from outside; call its methods |
 
 **Rule:** if you find yourself caching one of these on `this.*` somewhere, you're recreating the bug. Read from the owner.
 
-**Resetting state:** owners must expose explicit `reset()` / `clearProject()` rather than letting external code mutate fields. [`close_project.js`](js/project/close_project.js) calls `ProjectStore.clearProject()` and `verilogModeManager.reset()` — that's the pattern.
+**Resetting state:** owners must expose explicit `reset()` / `clearProject()` rather than letting external code mutate fields. [`close_project.js`](js/project/close_project.js) calls `ProjectStore.clearProject()` and `projectTreeManager.reset()` — that's the pattern.
 
 ---
 
@@ -55,7 +54,7 @@ Some shared resources have a designated writer. Other call sites must not write 
 | Monaco editor instances (creation) | `TabManager.addTab` IIFE ([tab_manager.js:565](js/tabs/tab_manager.js#L565)) | An auto-create fallback in `setActiveEditor` racing this path produced two stacked editor divs sharing a model. User saw artefacts and "can't type". Removed in `e2c82f8`. |
 | `window.currentProjectPath` / `window.currentSpfPath` | `ProjectStore.setProject` / `clearProject` | Multiple writers drift; the cache vs. live state mismatch caused the "file outside folder disappears on reopen" bug. Migrated in `e01e406`. |
 
-**`.spf` writes from the renderer go through [SpfStore](js/project/spf_store.js).** O escritor canonico do renderer e `VerilogModeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile). Chama `SpfStore.update(spfPath, mutator)` que serializa read-mutate-write por path e preserva `metadata`. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `SpfStore.STRUCTURE_DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um segundo escritor renderer-side, use `update()` — nao escreva o arquivo direto.** O main process tambem escreve o `.spf` em events de lifecycle (open/create-processor/delete-processor); race teorica com o renderer e aceitavel porque os dois sao acionados por interacao UI sequencial. Pre-2026-05 o estado de tree/picker vivia em `projectOriented.json` separado — consolidado no `.spf` pra ter uma fonte unica de config per-project.
+**`.spf` writes from the renderer go through [SpfStore](js/project/spf_store.js).** O escritor canonico do renderer e `ProjectTreeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile). Chama `SpfStore.update(spfPath, mutator)` que serializa read-mutate-write por path e preserva `metadata`. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `SpfStore.STRUCTURE_DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um segundo escritor renderer-side, use `update()` — nao escreva o arquivo direto.** O main process tambem escreve o `.spf` em events de lifecycle (open/create-processor/delete-processor); race teorica com o renderer e aceitavel porque os dois sao acionados por interacao UI sequencial. Pre-2026-05 o estado de tree/picker vivia em `projectOriented.json` separado — consolidado no `.spf` pra ter uma fonte unica de config per-project.
 
 ---
 
@@ -108,29 +107,29 @@ DOMContentLoaded
     └── await restoreLastSession()
         └── await projectManager.loadProject(lastSpf)
             ├── ProjectStore.setProject(spf, base)
-            ├── activateVerilogMode()   // sempre (modo unico)
+            ├── activateTree()   // sempre (modo unico)
             └── ...
 ```
 
 **Gotchas:**
 
-- `initializeTreeBasedOnMode` em [`fileTreeManager.initialize`](js/tree/file_tree_manager.js) roda apos `setTimeout(100ms)` e tambem chama `activateVerilogMode`. A coalescencia interna (§6) garante que so um `loadConfiguration` roda mesmo se as duas chamadas batem no mesmo tick.
+- `initializeTreeBasedOnMode` em [`fileTreeManager.initialize`](js/tree/file_tree_manager.js) roda apos `setTimeout(100ms)` e tambem chama `activateTree`. A coalescencia interna (§6) garante que so um `loadConfiguration` roda mesmo se as duas chamadas batem no mesmo tick.
 - Monaco's AMD modules load asynchronously. A `TabManager.addTab` call before `EditorManager.ready` resolves will block on the IIFE's `await` — the tab DOM is created immediately, the editor isn't.
 
 ---
 
-## 6. `activateVerilogMode` is coalesced
+## 6. `activateTree` is coalesced
 
-[`file_mode.js`](js/project/file_mode.js) wraps `activateVerilogMode` in a `_activatePromise` que retorna a mesma promise in-flight pra callers concorrentes. Pelo menos duas paths podem chama-la no mesmo tick durante session-restore:
+[`file_mode.js`](js/project/file_mode.js) wraps `activateTree` in a `_activatePromise` que retorna a mesma promise in-flight pra callers concorrentes. Pelo menos duas paths podem chama-la no mesmo tick durante session-restore:
 
-1. `projectManager.loadProject` → `activateVerilogMode`
-2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateVerilogMode`
+1. `projectManager.loadProject` → `activateTree`
+2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateTree`
 
 Sem coalescencia, ambos rodavam `loadConfiguration` em paralelo — cada um fazia `verilogFiles = []` e aguardava I/O — entao o reset da chamada B limpava os pushes da chamada A em pleno meio de iteracao, deixando linhas duplicadas.
 
 **A promise tambem e gated em `this.initPromise`** (cache de elementos DOM) pra que uma ativacao programatica precoce nao caia antes do `cacheElements()` rodar.
 
-**Nao chame `activateVerilogMode` de dentro dela** (recursao), e nao contorne o wrapper chamando `loadConfiguration` direto.
+**Nao chame `activateTree` de dentro dela** (recursao), e nao contorne o wrapper chamando `loadConfiguration` direto.
 
 ---
 
@@ -152,7 +151,6 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
   The same script auto-watches any other dependency you pin exactly. To opt a package into strict checking, drop its caret/tilde in package.json — no other plumbing needed.
 
-- **`getCurrentMode` e um shim hardcoded — nao volte a deriva-lo do DOM.** Pre-`b046e5a`, `appInitializer.getCurrentMode()` retornava `null` ate `switchToMode` rodar. A maioria dos callers comparava contra literais de modo, entao `null` significava "trate como nao-esse-modo". Uma tentativa em 2026-05 (`b046e5a`, revertida em `ecb3591`) fez derivar do DOM — quebrou Monaco editing em sessoes restauradas, de forma reproducivel mas com interacao nao pinada. Apos a consolidacao de modos (fases 1–2.5), o shim retorna literal `'project'` e nao deve ler DOM. **Se voce repensar getCurrentMode (ex: trazer modos de volta), rode o smoke test open-close-reopen-edit manualmente** ate termos um integration test que pegue essa classe de regressao.
 - **`#file-tree` has three view subcontainers + ONE controller.** Three views render the file tree (standard folder listing, verilog picker, module hierarchy). The whole subsystem went through a five-bug debugging chain before settling on a two-layer design that prevents the regression class entirely:
 
   **Layer 1 — physically separate DOM subtrees** ([`treeView`](js/tree/tree_view.js)). Each view writes only into its own subtree. Renderers literally cannot collide.
@@ -175,7 +173,7 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
     - **The verilog renderer is a key-based reconciler** ([file_mode.js](js/project/file_mode.js) `renderVerilogTree`) — diffs `verilogFiles` against existing `.verilog-file-item` rows by `data-file-path` and applies minimal DOM mutations. Multiple identical-data renders are zero-mutation no-ops. Don't replace this with destroy-and-rebuild.
     - **Adding a fourth view?** Add the name to `VIEW_NAMES` in tree_view.js, add the corresponding CSS rule in file_tree.css, write a renderer that targets `treeView.getContainer('<name>')`, and register it via `fileTreeViewController.registerRenderer(name, fn)`. Don't introduce a writer that touches `#file-tree` directly or attaches its own click listener to the toggle button.
     - **Don't go back to lock-based ownership or duplicate state.** Six previous attempts (commits `f196e2d`, `02f7e9c`, `b379dd4`, `c4c59ce`, `fb43adb`, `b6ec26a`, plus smaller patches) tried variations on shared-DOM-with-class-lock or per-instance hierarchyData fields synchronised by hand. Each closed the visible bug but left a new corner case open. The separate-subtree + single-controller design has no equivalent corner case — the properties are enforced by physics (separate DOMs) and by topology (one click listener, one data slot).
-- **Manager constructors do I/O.** `VerilogModeManager`, `GtkwPickerManager`, etc. chamam `this.init()` no construtor, que aguarda `DOMContentLoaded`, cacheia elementos do DOM, attacha listeners, possivelmente bate em IPC. A ordem de load de scripts (§1) e a ordem implicita de init. **Mover essas chamadas e exatamente a classe de mudanca que quebra startup de forma sutil.**
+- **Manager constructors do I/O.** `ProjectTreeManager`, `GtkwPickerManager`, etc. chamam `this.init()` no construtor, que aguarda `DOMContentLoaded`, cacheia elementos do DOM, attacha listeners, possivelmente bate em IPC. A ordem de load de scripts (§1) e a ordem implicita de init. **Mover essas chamadas e exatamente a classe de mudanca que quebra startup de forma sutil.**
 
 ---
 
@@ -260,10 +258,9 @@ Before merging any change to this layer, walk through:
 - [ ] Did you add or remove a `window.*` global? If yes, update §2.
 - [ ] Did you change script load order in [index.html](index.html)? If yes, sanity-check §1.
 - [ ] Did you add a writer to a single-writer resource (§3)? Don't.
-- [ ] Did you add a `getCurrentMode()` reader? Hoje e modo unico (`'project'`) — se voce volta a precisar de modos, leia de `window.appInitializer.getCurrentMode()`, nao redirive do DOM (ver §8).
 - [ ] Did you cache project path on `this.*`? Don't — read from the owner.
 - [ ] Did you call `EditorManager.createEditorInstance` outside `TabManager.addTab`? See §4.
-- [ ] Did you re-introduzir modos diferentes? Smoke-test open-close-reopen-edit manualmente — historicamente quebra Monaco em sessoes restauradas (ver §8).
+- [ ] Did you re-introduzir modos diferentes? Aurora roda em modo unico desde 2026-05 — re-introduzir multimodos exige smoke-test manual open-close-reopen-edit; historicamente quebrou Monaco em sessoes restauradas.
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
 - [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `validateSelection` or `pickSignalsToEmit`, you're recreating a class of bug we've already fixed.
 

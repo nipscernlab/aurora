@@ -3,7 +3,7 @@
  *
  * Aurora used to track the current project in three places that drifted:
  *   - window.currentProjectPath / window.currentSpfPath (set by loadProject)
- *   - VerilogTreeManager.currentProjectPath (cached on activate)
+ *   - ProjectTreeManager.currentProjectPath (cached on activate)
  *   - main-process state read via getCurrentProject() IPC
  *
  * That drift caused real bugs (e.g. closing a project left the verilog

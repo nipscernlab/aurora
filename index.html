@@ -100,6 +100,9 @@
                 </svg>
               </span>
           </button>
+          <button id="procConfigToggle" class="toolbar-button icon-only" data-tooltip="Processor build settings" disabled>
+              <i class="ph ph-caret-down"></i>
+          </button>
       </div>
       <div class="toolbar-separator" aria-hidden="true"></div>
 
@@ -191,6 +194,30 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- Popover de configuracoes do processador ativo (ancorado abaixo do
+       botao C±). Posicionado por processor_config_panel.js apos o anchor
+       boundingClientRect; fica fora da toolbar pra nao herdar a regiao
+       de drag dela e pra escapar do overflow horizontal. -->
+  <div id="procConfigPanel" class="proc-config-panel hidden" role="dialog" aria-labelledby="procConfigPanelTitle">
+      <div class="proc-config-panel-header">
+          <span id="procConfigPanelTitle">No active processor</span>
+      </div>
+      <div class="proc-config-panel-body">
+          <label class="proc-config-field">
+              <span>Clock frequency (MHz)</span>
+              <input type="number" id="procConfigClk" min="1" step="1" disabled />
+          </label>
+          <label class="proc-config-field">
+              <span>Number of clocks</span>
+              <input type="number" id="procConfigNumClocks" min="1" step="1" disabled />
+          </label>
+          <label class="proc-config-field proc-config-field-check">
+              <input type="checkbox" id="procConfigShowArrays" disabled />
+              <span>Show arrays in GTKWave</span>
+          </label>
+      </div>
   </div>
 
   <!-- ============================================================
@@ -976,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/utils/shortcut_manager.js"></script>
 <script src="./js/ui/status_updater.js"></script>
 <script src="./js/ui/status_bar.js"></script>
+<script src="./js/processors/processor_config_panel.js"></script>
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>
 <script src="./js/utils/zoom.js"></script>

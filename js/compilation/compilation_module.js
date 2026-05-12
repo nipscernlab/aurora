@@ -655,7 +655,7 @@ async loadConfig() {
     }
 
     async cmmCompilation(processor) {
-        const { name } = processor;
+        const { name, showArrays } = processor;
         await this.terminalManager.clearTerminal('tcmm');
 
         this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
@@ -683,10 +683,11 @@ async loadConfig() {
             statusUpdater.startCompilation('cmm');
 
             // 3. Comando (Voltou a usar "${macrosPath}" como argumento único para macros)
-            // O ultimo arg historicamente era showArrays (0/1); hardcoded
-            // em 0 desde que o toggle saiu da UI. Se voltar a ser preciso,
-            // re-adicionar como campo do .spf e ler aqui.
-            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" 0`;
+            // Ultimo arg = showArrays (0/1). Sai do .spf (campo per-
+            // processador) via readProcessorConfig no flow; default 0
+            // se a entry nao tiver o campo (.spf antigo).
+            const showArraysFlag = showArrays ? 1 : 0;
+            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
             
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 

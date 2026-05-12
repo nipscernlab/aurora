@@ -160,14 +160,31 @@ function collectProcessors() {
 // Pre-flight comum: roda cmm + asm pra cada processador
 // =====================================================================
 
-// Defaults aplicados em cada processador antes de compilar. cmmFile
-// segue a convencao fixa <procName>.cmm. clk/numClocks foram
-// hardcoded quando o editor per-proc saiu (fase 4) — se voltar a
-// precisar de customizacao, sai daqui pro .spf.
+// Fallback per-processador quando o .spf nao tem config explicita
+// (entries antigas no schema string-only ou criadas antes do painel
+// de config sair). O painel grava no .spf — leitura aqui defaultar
+// pros mesmos valores que o painel mostra como placeholder garante
+// que rodar sem abrir o painel comporta-se como antes.
 const PROC_DEFAULTS = Object.freeze({
     clk: 100,
     numClocks: 2000,
+    showArrays: false,
 });
+
+/**
+ * Extrai a config per-processador armazenada na entry de
+ * `structure.processors[i]`. Entries string-only (.spf antigo) e
+ * entries sem campos retornam os defaults. clk/numClocks viram numero,
+ * showArrays vira boolean.
+ */
+function readProcessorConfig(procEntry) {
+    if (!procEntry || typeof procEntry === 'string') return { ...PROC_DEFAULTS };
+    return {
+        clk: Number.isFinite(procEntry.clk) ? procEntry.clk : PROC_DEFAULTS.clk,
+        numClocks: Number.isFinite(procEntry.numClocks) ? procEntry.numClocks : PROC_DEFAULTS.numClocks,
+        showArrays: !!procEntry.showArrays,
+    };
+}
 
 /**
  * Pre-flight comum aos botoes Verilog / Wave / PRISM: pra cada
@@ -181,7 +198,16 @@ const PROC_DEFAULTS = Object.freeze({
  * @returns contagem de processadores efetivamente compilados.
  */
 async function precompileAllProcessors(compiler, terminalId) {
-    const procs = collectProcessors();
+    // Prioriza as entries completas do .spf (com clk/numClocks/showArrays
+    // setados pelo painel de config) sobre window.availableProcessors,
+    // que so guarda nomes. Cai pro collectProcessors() so se o
+    // projectConfig do compiler nao tem entries — algo upstream estaria
+    // errado, mas evita perder o pipeline.
+    const fromSpf = Array.isArray(compiler.projectConfig?.processors)
+        ? compiler.projectConfig.processors.filter((p) => p && (typeof p === 'string' ? p : p.name))
+        : null;
+    const procs = (fromSpf && fromSpf.length > 0 ? fromSpf : collectProcessors())
+        .map((p) => (typeof p === 'string' ? { name: p } : p));
     if (procs.length === 0) return 0;
 
     // componentsPath e populado pelo construtor sem await (background
@@ -214,7 +240,7 @@ async function precompileAllProcessors(compiler, terminalId) {
 
         const overrideProcessor = {
             ...proc,
-            ...PROC_DEFAULTS,
+            ...readProcessorConfig(proc),
             cmmFile: cmmFileName,
         };
 
@@ -279,8 +305,16 @@ async function handleCmmStep() {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
 
+        // Prefere entries do .spf (clk/numClocks/showArrays setados pelo
+        // painel de config). Fallback pra availableProcessors so se o
+        // .spf nao tiver `processors` populado.
+        const procsFromSpf = Array.isArray(compiler.projectConfig?.processors)
+            ? compiler.projectConfig.processors
+            : null;
         const procFromPath = findProcessorForPath(
-            editingPath, window.currentProjectPath, collectProcessors(),
+            editingPath,
+            window.currentProjectPath,
+            (procsFromSpf && procsFromSpf.length > 0) ? procsFromSpf : collectProcessors(),
         );
         if (!procFromPath) {
             throw new Error(
@@ -290,11 +324,11 @@ async function handleCmmStep() {
         }
 
         const cmmFileName = editingPath.split(/[\\/]/).pop();
-        // PROC_DEFAULTS (clk, numClocks) sao necessarios pro asmcomp;
-        // cmmcomp tambem aceita sobras sem reclamar.
+        // clk/numClocks/showArrays vem do .spf via readProcessorConfig
+        // (defaults aplicados pra entries sem config).
         const overrideProcessor = {
             ...procFromPath,
-            ...PROC_DEFAULTS,
+            ...readProcessorConfig(procFromPath),
             cmmFile: cmmFileName,
         };
 

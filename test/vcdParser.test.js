@@ -146,3 +146,29 @@ describe('parseVcdHeaderFromContent', () => {
         expect(scopes[0].signals[0].name).toBe('a');
     });
 });
+
+describe('parseVcdScopes — VCD identifier `[` no $var', () => {
+    it('nao colapsa scopes quando ID do signal e `[`', async () => {
+        const { parseVcdScopes } = await import('../js/wave/vcd_parser.js');
+        // Iverilog usa ASCII printable (`!`..`~`) como IDs. `[` e `]`
+        // sao validos. Bug antigo: regex `\[[^\]]+\]` capturava do
+        // `[` (ID) ate o proximo `]` no file todo, comendo $scope/
+        // $upscope/etc — paths viravam tipo "tb.tb.tb.inst.foo".
+        const vcd = `
+            $scope module tb $end
+            $var reg 1 [ out_en $end
+            $upscope $end
+            $scope module tb $end
+            $scope module sub $end
+            $var reg 1 ! sig $end
+            $upscope $end
+            $upscope $end
+        `;
+        const scopes = parseVcdScopes(vcd);
+        const paths = scopes.map((s) => s.path).sort();
+        expect(paths).toEqual(['tb', 'tb.sub']);
+        // O scope `tb.sub` nao pode ter virado `tb.tb.sub` por causa
+        // do colchete consumido fora de propósito.
+        expect(paths.every((p) => !p.includes('tb.tb'))).toBe(true);
+    });
+});

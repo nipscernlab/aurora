@@ -33,10 +33,18 @@
  * @returns {VcdScope[]}
  */
 export function parseVcdScopes(vcdHeader) {
-    // Tokenise: keep `[a:b]` ranges as one token, everything else
-    // whitespace-delimited. VCD headers are small and whitespace-only —
-    // a regex split is fast enough.
-    const tokens = vcdHeader.match(/\[[^\]]+\]|\S+/g) || [];
+    // Tokenise: keep `[a:b]` / `[N]` ranges as one token, everything
+    // else whitespace-delimited.
+    //
+    // Note `[^\]\s]+` (no whitespace inside brackets) — antes era
+    // `[^\]]+` que casava tudo ate o proximo `]`, inclusive `\r\n`
+    // e centenas de outros tokens depois. Iverilog usa caracteres
+    // ASCII printable (incluindo `[`) como signal IDs em $var, e
+    // havia VCDs com `$var reg 1 [ out_en_sim_2 $end` onde o `[`
+    // sozinho era o ID. O regex antigo ia ate o proximo `]` no
+    // file todo, consumindo \$scope/\$upscope/etc no caminho —
+    // resultava em paths com `top_level_tb.top_level_tb` ou pior.
+    const tokens = vcdHeader.match(/\[[^\]\s]+\]|\S+/g) || [];
 
     /** @type {(VcdScope|null)[]} */
     const stack = [];

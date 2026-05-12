@@ -167,6 +167,25 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* ---------------------------------------------------------------------------
+ *  Zones — left / center / right.
+ *
+ *  Three zones with flex 1/auto/1 keep the center cluster anchored at
+ *  the toolbar's visual midpoint regardless of how wide the left/right
+ *  sides grow. Same trick the status bar uses (1fr auto 1fr grid). The
+ *  side zones own all the leftover horizontal space, so adding/removing
+ *  buttons on the edges does not shift the center.
+ * ------------------------------------------------------------------------- */
+.toolbar-zone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 100%;
+}
+.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; min-width: 0; }
+.toolbar-zone-center { flex: 0 0 auto; justify-content: center; }
+.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; min-width: 0; }
+
+/* ---------------------------------------------------------------------------
  *  Groups
  * ------------------------------------------------------------------------- */
 /* Group container: each "logical cluster" of buttons sits inside one
@@ -196,12 +215,10 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   align-self: center;
 }
 
-/* The "everything else" group hugs the right edge so the window
-   controls (min/max/close) sit flush against the corner. Nested
-   sub-clusters keep their own gap so .toggle-group's pill style and
-   the build/cancel pair don't collapse onto the icon buttons. */
-.toolbar-group-rest {
-  margin-left: auto;
+/* Legacy alias — keep the right zone's group gap consistent with the
+   previous .toolbar-group-rest spacing. The margin-left:auto trick is
+   gone (zones own the layout now), only the gap remains. */
+.toolbar-zone-right > .toolbar-group {
   gap: var(--space-1);
 }
 

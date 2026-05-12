@@ -45,121 +45,131 @@
 
   <!-- Toolbar = custom title bar (drag region + tools + traffic lights)
 
-       Groups, left-to-right:
-         1. file / project actions
-         2. processor toolchain (Processor Hub, C±, ASM)
-         3. synthesize (Verilog + PRISM)
-         4. waves (Analyse Verilog, Wave Configuration, .gtkw picker)
-         5. everything else (mode toggle, build, settings, AI, ...)
+       Layout: three zones — left / center / right — wrapping the groups
+       below. The center zone (Processor Hub → gtkw picker) is anchored
+       at the toolbar's visual midpoint via flex 1/auto/1 (same trick
+       the status bar uses).
 
-       Each group is wrapped in `.toolbar-group`; vertical-line
-       `.toolbar-separator`s sit between adjacent groups. Group 5 has
-       `.toolbar-group-rest` to push it (and the window controls)
-       against the right edge. -->
+         left   : file / project actions
+         center : processor toolchain (Processor Hub, C±) │ synthesize
+                  (Verilog + PRISM) │ waves (Analyse Verilog, Wave
+                  Configuration, .gtkw picker)
+         right  : cancel, settings, split, AI + window controls
+
+       Each cluster is wrapped in `.toolbar-group`; vertical hairlines
+       between center groups use `.toolbar-separator`. -->
   <div class="toolbar" id="custom-titlebar">
-    <!-- Group 1: file / project actions -->
-    <div class="toolbar-group">
-        <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar">
-            <i class="ph ph-sidebar-simple"></i>
-        </button>
-        <button id="newProjectBtn" class="toolbar-button">
-            <i class="ph ph-folder-plus"></i>
-            <span>New Project</span>
-        </button>
-        <button id="openProjectBtn" class="toolbar-button">
-            <i class="ph ph-folder-open"></i>
-            <span>Open Project</span>
-        </button>
-    </div>
-    <div class="toolbar-separator" aria-hidden="true"></div>
+    <!-- Tres zonas (left / center / right) com flex 1/auto/1 — o
+         centro fica no meio absoluto da toolbar independente da largura
+         dos lados. Mesmo padrao da status bar. Window-controls vivem
+         dentro da zone-right pra ancorar no canto. -->
 
-    <!-- Group 2: processor toolchain -->
-    <div class="toolbar-group">
-        <button id="processorHub" class="toolbar-button icon-only" data-tooltip="Processor Hub">
-            <i class="ph ph-graph"></i>
-        </button>
-        <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±">
-            <span class="glyph glyph-cpm" aria-hidden="true">
-              <svg viewBox="0 0 24 16">
-                <!-- C arc: open to the right, centred on x=7 y=8 -->
-                <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
-                <!-- Plus sign, centred on x=18 y=6 -->
-                <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
-                <!-- Minus sign, centred on x=18 y=11.2 (no divider between them) -->
-                <path d="M16.2 11.2 h3.6"/>
-              </svg>
-            </span>
-        </button>
-    </div>
-    <div class="toolbar-separator" aria-hidden="true"></div>
-
-    <!-- Group 3: synthesize -->
-    <div class="toolbar-group">
-        <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog">
-            <span class="glyph glyph-veri" aria-hidden="true">
-              <svg viewBox="0 0 16 16">
-                <!-- Quill pen, top-right shaft sweeping into a sharp nib at bottom-left -->
-                <path d="M13.5 2.5 L8 8 L4 12 L2 14"/>
-                <path d="M13.5 2.5 L11 1.5 L8 4.5 L8 8 L11.5 8 L14.5 5 L13.5 2.5 Z"/>
-                <line x1="6" y1="10" x2="9" y2="13"/>
-              </svg>
-            </span>
-        </button>
-        <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
-            <img src="./assets/icons/aurora_prism.svg" alt="">
-            <span>PRISM</span>
-        </button>
-    </div>
-    <div class="toolbar-separator" aria-hidden="true"></div>
-
-    <!-- Group 4: waves -->
-    <div class="toolbar-group">
-        <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)">
-            <span class="glyph glyph-wave" aria-hidden="true">
-              <svg viewBox="0 0 16 16">
-                <!-- Symmetric square wave: low → high → low → high → low across the viewport -->
-                <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
-              </svg>
-            </span>
-        </button>
-        <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump">
-            <i class="ph ph-list-checks"></i>
-        </button>
-        <select id="gtkwPickerSelect" class="toolbar-select" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave">
-            <option value="">default</option>
-            <option value="__add__">+ Add .gtkw file...</option>
-        </select>
-    </div>
-    <div class="toolbar-separator" aria-hidden="true"></div>
-
-    <!-- Group 5: cancel + Full Build + Settings. Pushed against the
-         right edge so the window controls hug the corner. Full Build
-         e Settings ficam escondidos (display:none) hoje — mantidos no
-         DOM pra nao quebrar listeners legados. -->
-    <div class="toolbar-group toolbar-group-rest">
-        <div class="compile-all-group">
-            <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
-                <i class="ph ph-stop-circle"></i>
-            </button>
-            <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" style="display:none">
-                <i class="ph ph-hammer"></i>
-                <span>Full Build</span>
-            </button>
-        </div>
-
-        <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
-            <i class="ph ph-sliders-horizontal"></i>
-        </button>
-        <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split">
-            <i class="ph ph-columns"></i>
-        </button>
-        <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant">
-            <i class="ph ph-sparkle"></i>
-        </button>
+    <!-- Zone left: file / project actions -->
+    <div class="toolbar-zone toolbar-zone-left">
+      <div class="toolbar-group">
+          <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar">
+              <i class="ph ph-sidebar-simple"></i>
+          </button>
+          <button id="newProjectBtn" class="toolbar-button">
+              <i class="ph ph-folder-plus"></i>
+              <span>New Project</span>
+          </button>
+          <button id="openProjectBtn" class="toolbar-button">
+              <i class="ph ph-folder-open"></i>
+              <span>Open Project</span>
+          </button>
+      </div>
     </div>
 
-    <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
-    <div class="window-controls" data-no-tooltip>
+    <!-- Zone center: processor toolchain + synthesize + waves. -->
+    <div class="toolbar-zone toolbar-zone-center">
+      <!-- Group: processor toolchain -->
+      <div class="toolbar-group">
+          <button id="processorHub" class="toolbar-button icon-only" data-tooltip="Processor Hub">
+              <i class="ph ph-graph"></i>
+          </button>
+          <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±">
+              <span class="glyph glyph-cpm" aria-hidden="true">
+                <svg viewBox="0 0 24 16">
+                  <!-- C arc: open to the right, centred on x=7 y=8 -->
+                  <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                  <!-- Plus sign, centred on x=18 y=6 -->
+                  <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                  <!-- Minus sign, centred on x=18 y=11.2 (no divider between them) -->
+                  <path d="M16.2 11.2 h3.6"/>
+                </svg>
+              </span>
+          </button>
+      </div>
+      <div class="toolbar-separator" aria-hidden="true"></div>
+
+      <!-- Group: synthesize -->
+      <div class="toolbar-group">
+          <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog">
+              <span class="glyph glyph-veri" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <!-- Quill pen, top-right shaft sweeping into a sharp nib at bottom-left -->
+                  <path d="M13.5 2.5 L8 8 L4 12 L2 14"/>
+                  <path d="M13.5 2.5 L11 1.5 L8 4.5 L8 8 L11.5 8 L14.5 5 L13.5 2.5 Z"/>
+                  <line x1="6" y1="10" x2="9" y2="13"/>
+                </svg>
+              </span>
+          </button>
+          <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
+              <img src="./assets/icons/aurora_prism.svg" alt="">
+              <span>PRISM</span>
+          </button>
+      </div>
+      <div class="toolbar-separator" aria-hidden="true"></div>
+
+      <!-- Group: waves -->
+      <div class="toolbar-group">
+          <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)">
+              <span class="glyph glyph-wave" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <!-- Symmetric square wave: low → high → low → high → low across the viewport -->
+                  <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
+                </svg>
+              </span>
+          </button>
+          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump">
+              <i class="ph ph-list-checks"></i>
+          </button>
+          <select id="gtkwPickerSelect" class="toolbar-select" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave">
+              <option value="">default</option>
+              <option value="__add__">+ Add .gtkw file...</option>
+          </select>
+      </div>
+    </div>
+
+    <!-- Zone right: cancel + Full Build + Settings + window controls.
+         Full Build e Settings ficam escondidos (display:none) hoje —
+         mantidos no DOM pra nao quebrar listeners legados. -->
+    <div class="toolbar-zone toolbar-zone-right">
+      <div class="toolbar-group">
+          <div class="compile-all-group">
+              <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
+                  <i class="ph ph-stop-circle"></i>
+              </button>
+              <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" style="display:none">
+                  <i class="ph ph-hammer"></i>
+                  <span>Full Build</span>
+              </button>
+          </div>
+
+          <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
+              <i class="ph ph-sliders-horizontal"></i>
+          </button>
+          <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split">
+              <i class="ph ph-columns"></i>
+          </button>
+          <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant">
+              <i class="ph ph-sparkle"></i>
+          </button>
+      </div>
+
+      <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
+      <div class="window-controls" data-no-tooltip>
         <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-no-tooltip>
             <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
                 <path d="M2 6 H10" />
@@ -179,6 +189,7 @@
                 <path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" />
             </svg>
         </button>
+      </div>
     </div>
   </div>
 

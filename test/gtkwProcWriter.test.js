@@ -317,6 +317,90 @@ describe('detectProcessors with scopeModules', () => {
         // instanceName = nome da instancia no VCD
         expect(procs[0].instanceName).toBe('DTWv4_inst');
     });
+
+    it('corePath aponta pro `.p_<X>.core` mesmo quando procType ja foi resolvido pelo source', async () => {
+        // Bug teste345: scopeModules resolvia procType corretamente
+        // ("ProcDTW"), mas o codigo so descia pro sub-scope `.p_X.core`
+        // se procType estivesse null. Resultado: corePath ficava em
+        // DTWv4_inst (instancePath), e o emitFlagsSection nao achava
+        // sp/isp/ula que so existem em DTWv4_inst.p_ProcDTW.core.
+        const { resolveScopeModules } = await import('../js/wave/gtkw_proc_writer.js');
+        const { modules } = parseVerilogModules([{
+            path: 'p.v',
+            content: `
+                module ProcDTW;
+                    reg [31:0] valr2;
+                    reg [19:0] linetabs;
+                endmodule
+
+                module tb;
+                    ProcDTW DTWv4_inst();
+                endmodule
+            `,
+        }]);
+        const scopes = [
+            scope('tb.DTWv4_inst', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+            // Sub-escopo onde Stack/ULA realmente vivem no VCD do iverilog.
+            scope('tb.DTWv4_inst.p_ProcDTW.core', [{ name: 'clk' }]),
+            scope('tb.DTWv4_inst.p_ProcDTW.core.sp', [
+                { name: 'pointeri', range: '4:0' },
+            ]),
+        ];
+        const scopeModules = resolveScopeModules(scopes, modules);
+        const procs = detectProcessors(scopes, scopeModules);
+        expect(procs[0].procType).toBe('ProcDTW');
+        // CRITICAL: corePath deve ser o `.p_ProcDTW.core` (onde sp vive),
+        // nao o instancePath.
+        expect(procs[0].corePath).toBe('tb.DTWv4_inst.p_ProcDTW.core');
+    });
+
+    it('Flags section emite Stack/ULA quando source resolve procType + .p_<X>.core existe', () => {
+        // Integration test: corePath errado fazia o emitFlagsSection
+        // pular o group inteiro. Esse teste cobre o path completo
+        // buildAuroraGtkw -> detectProcessors -> emitFlagsSection.
+        const { modules } = parseVerilogModules([{
+            path: 'p.v',
+            content: `
+                module ProcDTW;
+                    reg [31:0] valr2;
+                    reg [19:0] linetabs;
+                endmodule
+
+                module tb;
+                    ProcDTW DTWv4_inst();
+                endmodule
+            `,
+        }]);
+        const scopes = [
+            scope('tb.DTWv4_inst', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+            scope('tb.DTWv4_inst.p_ProcDTW.core.sp', [
+                { name: 'pointeri', range: '4:0' },
+                { name: 'fl_max', range: '4:0' },
+                { name: 'fl_full' },
+            ]),
+            scope('tb.DTWv4_inst.p_ProcDTW.core.isp', [
+                { name: 'pointeri', range: '4:0' },
+            ]),
+            scope('tb.DTWv4_inst.p_ProcDTW.core.ula', [
+                { name: 'delta_int', range: '31:0' },
+                { name: 'delta_float', range: '31:0' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, modules,
+        });
+        expect(content).toContain('Flags **************');
+        expect(content).toContain('Data Stack Pointer');
+        expect(content).toContain('Data Stack Max');
+        expect(content).toContain('Data Stack Overflow');
+        expect(content).toContain('Inst Stack Pointer');
+        expect(content).toContain('Rounding Error (int)');
+        expect(content).toContain('Rounding Error (float)');
+    });
 });
 
 describe('buildSignedSet', () => {

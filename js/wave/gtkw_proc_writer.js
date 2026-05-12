@@ -206,31 +206,42 @@ export function detectProcessors(scopes, scopeModules = null) {
         let procType = null;
         let corePath = null;
 
-        // (1) Preferido: moduleType resolvido pelo source. Bate com
-        // Temp/<procType>/ onde cmmcomp escreve os trad files.
-        // Ex: instance `DTWv4_inst` no source eh do tipo `ProcDTW` —
-        // esse e o nome certo (e o que o wrapper `ProcDTWv4` cobre).
-        if (scopeModules) {
-            const mod = scopeModules.get(scope.path);
-            if (mod) {
-                procType = mod;
-                corePath = scope.path;
+        // procType e corePath sao resolvidos SEPARADAMENTE:
+        //
+        // procType (= nome do module / pasta Temp/<procType>/ com trad
+        // files), preferencia: scopeModules (resolvido pelo source) >
+        // pattern `<inst>.p_<X>.core` no VCD > heuristica parent _inst
+        // > fallback root _tb > instanceName.
+        //
+        // corePath (= scope onde clk/rst/itr e sp/ula vivem),
+        // preferencia: `<inst>.p_<X>.core` no VCD se existir >
+        // instancePath caso contrario. CRITICAL: mesmo quando procType
+        // veio do source, corePath ainda deve preferir o sub-escopo
+        // `.p_<X>.core` se ele existe — Stack/ULA groups so vivem la.
+        let pCoreType = null;
+        let pCorePath = null;
+        for (const other of scopes) {
+            if (!other.path.startsWith(scope.path + '.')) continue;
+            const tail = other.path.slice(scope.path.length + 1);
+            const m = tail.match(/^p_([^.]+)\.core(?:\.|$)/);
+            if (m) {
+                pCoreType = m[1];
+                pCorePath = `${scope.path}.p_${m[1]}.core`;
+                break;
             }
         }
 
-        // (2) Pattern SAPHO antigo: <instPath>.p_<X>.core em qualquer
-        // sub-escopo. Quando bate, procType e corePath sao canonicos.
-        if (!procType) {
-            for (const other of scopes) {
-                if (!other.path.startsWith(scope.path + '.')) continue;
-                const tail = other.path.slice(scope.path.length + 1);
-                const m = tail.match(/^p_([^.]+)\.core(?:\.|$)/);
-                if (m) {
-                    procType = m[1];
-                    corePath = `${scope.path}.p_${m[1]}.core`;
-                    break;
-                }
-            }
+        // (1) Preferido: moduleType resolvido pelo source. Bate com
+        // Temp/<procType>/ onde cmmcomp escreve os trad files.
+        if (scopeModules) {
+            const mod = scopeModules.get(scope.path);
+            if (mod) procType = mod;
+        }
+
+        // (2) Pattern SAPHO `<inst>.p_<X>.core` — procType extraido
+        // do nome do scope intermediario.
+        if (!procType && pCoreType) {
+            procType = pCoreType;
         }
 
         // (3) Heuristica parent _inst (sem source). NAO bate quando o
@@ -240,7 +251,6 @@ export function detectProcessors(scopes, scopeModules = null) {
             const parentName = parts[parts.length - 2];
             if (/_inst$/i.test(parentName)) {
                 procType = parentName.replace(/_inst$/i, '');
-                corePath = scope.path;
             }
         }
 
@@ -251,6 +261,13 @@ export function detectProcessors(scopes, scopeModules = null) {
                 procType = tbScope.replace(/_tb$/i, '');
             }
         }
+
+        // corePath: prefere `p_<X>.core` se existir no VCD, senao
+        // cai pro proprio instancePath. Pra cobrir caso o
+        // $dumpvars do testbench nao tenha descido tao fundo, o
+        // findCoreOrTb mais tarde tenta clk/rst no testbench top
+        // como fallback final.
+        corePath = pCorePath || scope.path;
 
         // (5) Last resort: o proprio instanceName, com strip `_inst`.
         if (!procType) {

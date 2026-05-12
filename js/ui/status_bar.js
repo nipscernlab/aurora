@@ -1,9 +1,8 @@
 /**
- * status_bar.js — Renderiza o estado do design (top-level / testbench)
- * na zona direita da status bar.
+ * status_bar.js — Renderiza tres indicadores do projeto na status bar.
  *
- * Le `structure.topLevelFile` e `structure.testbenchFile` do .spf do
- * projeto aberto. Tres estados:
+ * Zona direita (design — top-level + testbench):
+ *   Le `structure.topLevelFile` e `structure.testbenchFile` do .spf.
  *   - ambos vazios (ou sem projeto): mostra apenas #designEmptyStatus
  *     com X "No top-level or testbench yet";
  *   - caso contrario: mostra #topLevelStatus e #testbenchStatus lado a
@@ -11,12 +10,26 @@
  *     quando configurado, ou X vermelho + "No top-level"/"No testbench"
  *     quando faltando.
  *
+ * Zona esquerda (processador ativo):
+ *   Cruza `structure.processors` do .spf com o .cmm em foco no Monaco
+ *   (TabManager.getEditingFilePath — mesmo sinal que gate-ia o botao
+ *   C±). Tres estados:
+ *   - projeto sem processadores: #activeProcessorStatus hidden. Nao faz
+ *     sentido falar de ativo/inativo sem candidatos.
+ *   - tem processadores mas o arquivo em foco nao mapeia pra nenhum:
+ *     X vermelho + "No active processor".
+ *   - .cmm em foco mapeia pra um processador conhecido: check verde +
+ *     nome do processador.
+ *
  * Refresh hooks:
- *   - ProjectStore.subscribe — captura open/close de projeto automatico
- *     (setProject e clearProject disparam notify).
+ *   - ProjectStore.subscribe — captura open/close de projeto.
+ *   - aurora:editing-file-changed — captura mudanca do .cmm em foco.
+ *   - electronAPI.onProcessorCreated / onProcessorsUpdated — captura
+ *     criar/deletar processadores em runtime (o .spf ja foi reescrito
+ *     pelo main process quando esses chegam).
  *   - window.statusBarManager.refresh() — chamada explicita pelo
- *     ProjectTreeManager apos saveConfiguration, ja que mudancas no
- *     conteudo do .spf nao alteram o spfPath e portanto nao disparam
+ *     ProjectTreeManager apos saveConfiguration; mudancas no conteudo
+ *     do .spf nao alteram o spfPath e portanto nao disparam
  *     subscribers do ProjectStore.
  */
 
@@ -25,6 +38,7 @@ class StatusBarManager {
         this.topEl = null;
         this.tbEl = null;
         this.emptyEl = null;
+        this.activeProcEl = null;
         // _refreshSeq guarda a ultima refresh disparada. Se uma segunda
         // refresh chega enquanto a primeira esta no await SpfStore.read,
         // a primeira nao pode mais pintar — ficaria stale. Comparar
@@ -42,13 +56,20 @@ class StatusBarManager {
         this.topEl = document.getElementById('topLevelStatus');
         this.tbEl = document.getElementById('testbenchStatus');
         this.emptyEl = document.getElementById('designEmptyStatus');
-        if (!this.topEl || !this.tbEl || !this.emptyEl) {
+        this.activeProcEl = document.getElementById('activeProcessorStatus');
+        if (!this.topEl || !this.tbEl || !this.emptyEl || !this.activeProcEl) {
             console.warn('StatusBarManager: status bar elements not found');
             return;
         }
-        // Auto-refresh quando o projeto e aberto/fechado. Subscribe
-        // retorna unsubscribe, mas o manager vive enquanto a janela vive.
+        // Auto-refresh quando o projeto e aberto/fechado.
         window.ProjectStore?.subscribe?.(() => this.refresh());
+        // Mudanca do arquivo em foco no Monaco (mesmo evento que gate-ia
+        // o botao C±).
+        document.addEventListener('aurora:editing-file-changed', () => this.refresh());
+        // Criacao/delete de processadores no main process — o .spf ja
+        // foi reescrito quando esses eventos chegam aqui.
+        window.electronAPI?.onProcessorCreated?.(() => this.refresh());
+        window.electronAPI?.onProcessorsUpdated?.(() => this.refresh());
         // Pintura inicial — caso o app abra direto num projeto (auto-
         // reopen) o setProject pode ja ter rodado antes do nosso init.
         this.refresh();
@@ -59,29 +80,78 @@ class StatusBarManager {
         const seq = ++this._refreshSeq;
         let topPath = '';
         let tbPath = '';
+        let processors = [];
         const spfPath = window.ProjectStore?.getSpfPath?.();
         if (spfPath && window.SpfStore) {
             try {
                 const structure = await window.SpfStore.read(spfPath);
                 topPath = structure.topLevelFile || '';
                 tbPath = structure.testbenchFile || '';
+                processors = (structure.processors || [])
+                    .map((p) => (typeof p === 'string' ? p : p?.name))
+                    .filter(Boolean);
             } catch (err) {
                 console.warn('StatusBarManager: failed reading .spf', err);
             }
         }
         if (seq !== this._refreshSeq) return;
-        this._render(topPath, tbPath);
+        this._renderDesign(topPath, tbPath);
+        this._renderActiveProcessor(processors);
     }
 
-    _render(topPath, tbPath) {
+    _renderDesign(topPath, tbPath) {
         const bothEmpty = !topPath && !tbPath;
         this._toggle(this.emptyEl, bothEmpty);
         this._toggle(this.topEl, !bothEmpty);
         this._toggle(this.tbEl, !bothEmpty);
         if (!bothEmpty) {
-            this._setSlot(this.topEl, topPath, 'No top-level');
-            this._setSlot(this.tbEl, tbPath, 'No testbench');
+            this._setSlot(this.topEl, topPath, 'No top-level', /\.v$/i);
+            this._setSlot(this.tbEl, tbPath, 'No testbench', /\.v$/i);
         }
+    }
+
+    _renderActiveProcessor(processors) {
+        if (!this.activeProcEl) return;
+        // Sem processadores no projeto: nada a dizer sobre ativo/inativo.
+        if (processors.length === 0) {
+            this._toggle(this.activeProcEl, false);
+            return;
+        }
+        this._toggle(this.activeProcEl, true);
+
+        const editingPath = window.TabManager?.getEditingFilePath?.() || '';
+        const activeName = this._matchProcessorFromPath(editingPath, processors);
+
+        const icon = this.activeProcEl.querySelector('i');
+        const text = this.activeProcEl.querySelector('span');
+        if (!icon || !text) return;
+        if (activeName) {
+            icon.className = 'ph ph-check-circle status-icon-success';
+            text.textContent = activeName;
+        } else {
+            icon.className = 'ph ph-x-circle status-icon-error';
+            text.textContent = 'No active processor';
+        }
+    }
+
+    /**
+     * Determina o processador "ativo" a partir do .cmm em foco. Aceita
+     * o caminho convencional `<projectDir>/<procName>/Software/<x>.cmm`
+     * (prioriza o segmento de pasta — robusto a renames do .cmm) e cai
+     * pro basename como fallback. Retorna null se o arquivo em foco
+     * nao for .cmm ou nao casar com nenhum processador.
+     */
+    _matchProcessorFromPath(filePath, processors) {
+        if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
+        const parts = filePath.split(/[\\/]/);
+        const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
+        if (swIdx > 0) {
+            const candidate = parts[swIdx - 1];
+            if (processors.includes(candidate)) return candidate;
+        }
+        const base = parts[parts.length - 1].replace(/\.cmm$/i, '');
+        if (processors.includes(base)) return base;
+        return null;
     }
 
     _toggle(el, visible) {
@@ -89,13 +159,13 @@ class StatusBarManager {
         el.classList.toggle('hidden', !visible);
     }
 
-    _setSlot(el, filePath, missingLabel) {
+    _setSlot(el, filePath, missingLabel, stripExtRegex) {
         if (!el) return;
         const icon = el.querySelector('i');
         const text = el.querySelector('span');
         if (!icon || !text) return;
         if (filePath) {
-            const name = filePath.split(/[\\/]/).pop().replace(/\.v$/i, '');
+            const name = filePath.split(/[\\/]/).pop().replace(stripExtRegex, '');
             icon.className = 'ph ph-check-circle status-icon-success';
             text.textContent = name;
         } else {

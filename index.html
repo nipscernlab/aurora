@@ -416,6 +416,15 @@
             <span class="status-dot status-dot-error"></span>
             <span id="status-text">Not Ready</span>
         </div>
+        <!-- Processador "ativo" — populado por status_bar.js a partir
+             do .cmm em foco no Monaco (TabManager.getEditingFilePath
+             cruzado com structure.processors). Hidden quando o projeto
+             nao tem processadores: nao faz sentido falar de "ativo / nao
+             ativo" sem candidatos. -->
+        <div class="status-item hidden" id="activeProcessorStatus">
+            <i class="ph ph-x-circle status-icon-error"></i>
+            <span>No active processor</span>
+        </div>
     </div>
     <div class="status-zone status-zone-center">
         <div class="status-item" id="statusUpdater">

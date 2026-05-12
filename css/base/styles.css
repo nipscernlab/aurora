@@ -289,6 +289,7 @@ button:disabled,
 #topLevelStatus,
 #testbenchStatus,
 #designEmptyStatus,
+#activeProcessorStatus,
 #editorStatus,
 #status-text {
   transition: color var(--transition-fast), opacity var(--transition-fast);

@@ -180,6 +180,28 @@ describe('buildAuroraGtkw', () => {
         expect(content).toMatch(/@420\b[\s\S]*?tb\.delta\[7:0\]/);
     });
 
+    it('emite variaveis me1 (int), me2 (float) e comp_me3 (comp) na secao Variables', () => {
+        // Antes, o regex pra extrair func/var nao casava com o prefix
+        // `comp_me3_` (porque `[^_]+` parava no primeiro underscore),
+        // entao variaveis comp sumiam. Padrao TCL: me1=int (Signed_Dec),
+        // me2=float (BitsToReal), comp_me3=comp (Binary + comp2gtkw).
+        const scopes = [
+            scope('tb.proc', [
+                { name: 'valr2' }, { name: 'linetabs' },
+                { name: 'me1_f_global_v_count_e_', width: 32, range: '31:0' },
+                { name: 'me2_f_main_v_ratio_e_', width: 32, range: '31:0' },
+                { name: 'comp_me3_f_main_v_z_e_', width: 32, range: '31:0' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes,
+        });
+        // Os tres apareem com o alias correto
+        expect(content).toContain('int count in global');
+        expect(content).toContain('float ratio in main()');
+        expect(content).toContain('comp z in main()');
+    });
+
     it('banner usa o instanceName (nao o procType) pra distinguir instancias', () => {
         // Wrapper "ProcDTWv4" instancia o core "ProcDTW". O VCD ve o
         // scope no fim como DTWv4_inst. O banner deve usar o

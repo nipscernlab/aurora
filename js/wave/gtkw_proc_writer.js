@@ -480,7 +480,10 @@ function findTypedVars(scopes, instancePath, prefix) {
     const out = [];
     for (const s of sigs) {
         if (!s.name.startsWith(prefix)) continue;
-        const m = s.name.match(/^[^_]+_f_(.*?)_v_(.*?)_e_$/);
+        // Captura funcao e variavel do padrao `<...>_f_<func>_v_<var>_e_`.
+        // Sem ancora no inicio: o prefix filter ja garantiu a categoria,
+        // e o prefix pode ter underscores (e.g. `comp_me3_`).
+        const m = s.name.match(/_f_(.*?)_v_(.*?)_e_$/);
         if (!m) continue;
         const fn = m[1];
         const vr = m[2];
@@ -524,7 +527,8 @@ function emitArrayVars(lines, scopes, instancePath, prefix, fmt, typeLabel, proc
     }
     for (const baseName of [...groups.keys()].sort()) {
         const items = groups.get(baseName).sort((a, b) => a.idx - b.idx);
-        const m = baseName.match(/^[^_]+_f_(.*?)_v_(.*?)_e_/);
+        // Sem ancora no inicio — mesmo motivo de findTypedVars.
+        const m = baseName.match(/_f_(.*?)_v_(.*?)_e_/);
         const fn = m ? m[1] : '';
         const vr = m ? m[2] : baseName;
         const funcLabel = fn === 'global' ? 'global' : `${fn}()`;
@@ -640,7 +644,9 @@ function addProcessorAliases(map, scopes, proc) {
 
     // Typed scalar vars: me1 (int), me2 (float), comp_me3 (comp).
     const aliasFromVarName = (s, label) => {
-        const m = s.name.match(/^[^_]+_f_(.*?)_v_(.*?)_e_$/);
+        // Sem ancora no inicio — prefix filter ja distinguiu o tipo,
+        // e prefixos com underscore (comp_me3) nao batem em `[^_]+`.
+        const m = s.name.match(/_f_(.*?)_v_(.*?)_e_$/);
         if (!m) return null;
         const fn = m[1];
         const vr = m[2];
@@ -671,7 +677,7 @@ function addProcessorAliases(map, scopes, proc) {
         for (const items of groups.values()) {
             items.sort((a, b) => a.idx - b.idx);
             const baseName = items[0].sig.name.match(/^(.*?)\d{4}$/)?.[1] || '';
-            const m = baseName.match(/^[^_]+_f_(.*?)_v_(.*?)_e_/);
+            const m = baseName.match(/_f_(.*?)_v_(.*?)_e_/);
             const vr = m ? m[2] : baseName;
             items.forEach((it, i) => map.set(it.sig.fullName, `${vr} ${i}`));
         }

@@ -111,8 +111,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-#compmode-text { font-weight: var(--font-medium); }
-
 .status-icon-bolt    { color: var(--accent); }
 .status-icon-error   { color: var(--status-error); }
 .status-icon-success { color: var(--status-success); }

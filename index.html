@@ -416,12 +416,6 @@
             <span class="status-dot status-dot-error"></span>
             <span id="status-text">Not Ready</span>
         </div>
-        <div class="status-item" id="compmode">
-            <i class="ph ph-code"></i>
-            <!-- Preenchido por ui_state.js na primeira pintura. Vazio
-                 aqui pra evitar flash de texto stale antes do JS rodar. -->
-            <span id="compmode-text"></span>
-        </div>
     </div>
     <div class="status-zone status-zone-center">
         <div class="status-item" id="statusUpdater">
@@ -965,7 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>
 <script src="./js/utils/zoom.js"></script>
-<script src="./js/ui/ui_state.js"></script>
 
 <!-- ES modules (defer by default, dependency-resolved) -->
 <script src="./js/app/renderer.js" type="module"></script>

@@ -217,11 +217,6 @@ export class TabManager {
         if (this.isBinaryFile(filePath)) {
             const fileType = this.isImageFile(filePath) ? 'Image' : 'PDF';
             html += `<span class="file-type-indicator">${fileType}</span>`;
-        } else {
-            // Add formatting button (broom icon) only for text files
-        //html += `<img src="./assets/icons/onirama_loader.gif" alt="Code Formatter" class="context-refactor-button toolbar-button" title="Code Formatter" style="margin-left: auto; width: 100px; cursor: pointer;"/>`;
-
-            //html += `<i class="fa-solid fa-table-columns context-split-button toolbar-button" title="Split Monaco Editor" style="margin-left: auto; cursor: pointer;"></i>`;
         }
 
         contextContainer.innerHTML = html;

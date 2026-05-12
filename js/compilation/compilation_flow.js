@@ -409,6 +409,32 @@ async function buildPrismCompilationPaths(projectPath) {
 }
 
 // =====================================================================
+// Botão C±: gating por arquivo em evidência
+// =====================================================================
+
+/**
+ * Habilita o botao C± so quando o arquivo em foco no Monaco e .cmm.
+ * Chamado por listeners do evento `aurora:editing-file-changed` e por
+ * `updateButtonStates` (apos runs / cancel / project load).
+ *
+ * Window-exposto pra que `enableCompileButtons` em project_manager.js
+ * possa re-sincronizar depois de fazer o "habilita tudo" geral, sem
+ * deixar o C± erroneamente habilitado quando nao ha .cmm em foco.
+ */
+function syncCmmcompEnabled() {
+    const btn = document.getElementById('cmmcomp');
+    if (!btn) return;
+    const path = TabManager.getEditingFilePath?.();
+    const isCmm = !!path && path.toLowerCase().endsWith('.cmm');
+    btn.disabled = !isCmm;
+    btn.style.cursor = isCmm ? 'pointer' : 'not-allowed';
+}
+
+if (typeof window !== 'undefined') {
+    window.syncCmmcompEnabled = syncCmmcompEnabled;
+}
+
+// =====================================================================
 // Manager class — dispatcher publico
 // =====================================================================
 
@@ -421,20 +447,25 @@ class CompilationFlowManager {
         document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
         document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
 
+        // C± so faz sentido com .cmm em foco — atualiza disabled toda
+        // vez que o arquivo em evidencia muda (TabManager.activateTab
+        // / SplitEditorManager.setFocus disparam o evento).
+        document.addEventListener('aurora:editing-file-changed', () => syncCmmcompEnabled());
+
         this.updateButtonStates();
     }
 
     /**
-     * Todos os botoes ficam habilitados — o gating de comportamento
-     * acontece dentro de cada handler (e.g. botao C± verifica se ha
-     * .cmm aberto no Monaco). Mantida pra acoes pos-init que
-     * eventualmente precisem reativar buttons (ex: cancel).
+     * Re-habilita botoes de compilacao apos um run/cancel. cmmcomp
+     * segue regra propria (so habilitado com .cmm em foco), entao
+     * delega pra syncCmmcompEnabled em vez de forcar disabled=false.
      */
     updateButtonStates() {
-        for (const id of ['cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
+        for (const id of ['vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
             const btn = document.getElementById(id);
             if (btn) btn.disabled = false;
         }
+        syncCmmcompEnabled();
     }
 
     async runAll() {

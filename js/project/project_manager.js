@@ -63,16 +63,22 @@ function showProjectInfoDialog(projectData) {
 
 // CORREÇÃO AQUI: Atualização direta da UI sem depender de animações CSS
 function enableCompileButtons() {
-    const buttons = ['cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 'projectInfo'];
-    
+    // cmmcomp NAO entra aqui: tem regra propria (so habilitado com .cmm
+    // em foco no Monaco), gerenciada por syncCmmcompEnabled em
+    // compilation_flow.js. Forcar disabled=false aqui o deixaria
+    // erroneamente clicavel ate o proximo aurora:editing-file-changed.
+    const buttons = ['vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 'projectInfo'];
+
     buttons.forEach(id => {
-        
+
         const button = document.getElementById(id);
         if (button) {
             button.disabled = false;
             button.style.cursor = 'pointer';
-        } 
+        }
     });
+
+    window.syncCmmcompEnabled?.();
 
     const statusElement = document.getElementById('ready');
     const statusText = document.getElementById('status-text');

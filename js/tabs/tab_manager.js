@@ -629,6 +629,11 @@ export class TabManager {
         if (activeTab) {
             activeTab.classList.add('active');
             this.activeTab = filePath;
+            // Notifica botoes gated-por-extensao (ex: C± so habilitado em
+            // .cmm). Listeners em compilation_flow.js / outros consumers.
+            document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
+                detail: { filePath },
+            }));
 
             // Update context path
             this.updateContextPath(filePath);
@@ -821,6 +826,9 @@ export class TabManager {
             } else {
                 this.activeTab = null;
                 this.showOverlay();
+                document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
+                    detail: { filePath: null },
+                }));
             }
         }
     }
@@ -956,6 +964,9 @@ export class TabManager {
                     this.activeTab = null;
                     this.updateContextPath(null);
                     this.showOverlay();
+                    document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
+                        detail: { filePath: null },
+                    }));
 
                     // Clear the editor
                     const mainEditor = EditorManager.activeEditor;

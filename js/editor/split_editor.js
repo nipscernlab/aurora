@@ -212,6 +212,16 @@ class SplitPane {
             setTimeout(() => info.editor.layout(), 0);
             info.editor.focus();
         }
+
+        // Se esta pane esta focada, mudar activeFile muda o resultado
+        // de SplitEditorManager.getFocusedFile() — notifica consumers
+        // gated-por-extensao (ex: botão C± so em .cmm).
+        const splitMgr = window.SplitEditorManager;
+        if (splitMgr && splitMgr.focusedPane === this.paneIndex) {
+            document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
+                detail: { filePath },
+            }));
+        }
     }
 
     async _closeFile(filePath) {
@@ -510,6 +520,11 @@ const SplitEditorManager = {
         this.focusedPane = paneIndex;
         this.mainShell?.classList.toggle('split-pane-dimmed', paneIndex !== 0);
         this.panes.forEach(p => p.setDimmed(p.paneIndex !== paneIndex));
+        // Foco entre panes muda qual arquivo TabManager.getEditingFilePath
+        // retorna — propaga pra botoes gated-por-extensao (ex: C± so em .cmm).
+        document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
+            detail: { filePath: this.getFocusedFile() },
+        }));
     },
 
     /**

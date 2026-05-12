@@ -252,14 +252,12 @@ function stripParamLists(body) {
  */
 function extractInstances(body, knownModuleNames) {
     const seen = new Map();   // instanceName → moduleType, pra dedup
-    // Strip ordem importa:
-    //  1. diretivas `ifdef/etc → whitespace
-    //  2. blocos `generate if/case` → whitespace (instances condicionais
-    //     que so elaboram em certos param values; iverilog tira essas
-    //     instancias depois, mas o parser nao consegue saber)
-    //  3. parameter lists com parens aninhados → #()
-    // Apos isso o regex non-greedy casa parens vazios apenas.
-    const stripped = stripParamLists(stripConditionalGenerates(stripDirectives(body)));
+    // `body` ja vem stripado de diretivas e blocos generate-if (feito
+    // em parseVerilogModules pra que signals/instances vejam a mesma
+    // view). Aqui so resta stripar parameter lists com parens aninhados
+    // (`#(...)` → `#()`) pra que o regex non-greedy nao confunda
+    // instancias adjacentes.
+    const stripped = stripParamLists(body);
     const re = /\b([A-Za-z_][\w$]*)\s*(?:#\s*\(\)\s*)?([A-Za-z_][\w$]*)\s*\(/g;
     let m;
     while ((m = re.exec(stripped)) !== null) {
@@ -300,10 +298,20 @@ export function parseVerilogModules(files) {
     // Second pass: extract signals + instances per module.
     for (const { path, src } of stripped) {
         for (const block of extractModules(src)) {
+            // Pre-strip body de constructos cuja elaboracao depende
+            // de parameter values:
+            //  - diretivas `ifdef → whitespace (mantem ambos os ramos
+            //    se houver `else)
+            //  - blocos `generate if/case` → whitespace (eliminados
+            //    se a condicao falha em elaboracao). Tanto signals
+            //    quanto instances declarados dentro sao tratados como
+            //    "podem nao existir" e descartados aqui — melhor que
+            //    iverilog falhar com "Unable to bind".
+            const cleanBody = stripConditionalGenerates(stripDirectives(block.body));
             modules.set(block.name, {
                 file: path,
-                signals: extractSignals(block.body),
-                instances: extractInstances(block.body, knownModuleNames),
+                signals: extractSignals(cleanBody),
+                instances: extractInstances(cleanBody, knownModuleNames),
             });
         }
     }

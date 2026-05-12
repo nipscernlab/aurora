@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const TOGGLE_BUTTON_ID = 'toggle-ui';
   const IMPORT_BTN_ID = 'importBtn';
   const HIDE_ELEMENTS = {
-    buttons: ['cmmcomp', 'asmcomp'],
+    buttons: ['cmmcomp'],
     tabs: ['tcmm', 'tasm']
   };
   

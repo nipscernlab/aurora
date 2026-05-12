@@ -2,9 +2,11 @@
 /**
  * Project lifecycle (open/close/create) e processor CRUD (main process).
  *
- * Per-project config: projectOriented.json e a fonte canonica, mas
- * a leitura/escrita acontece no renderer via ProjectConfigStore —
- * este modulo nao mexe nesse arquivo.
+ * Per-project config: o .spf e a fonte canonica unica. Este modulo
+ * cuida do lifecycle (open/close/create-project, create/delete-
+ * processor) e reescreve o .spf nesses eventos. Mudancas de tree/
+ * picker (synth files, top, testbench top) vivem no renderer via
+ * SpfStore.update.
  */
 
 const path = require('path');
@@ -31,6 +33,10 @@ class ProjectFile {
       basePath: projectPath,
       processors: [],
       folders: [],
+      topLevelFile: '',
+      testbenchFile: '',
+      synthesizableFiles: [],
+      testbenchFiles: [],
     };
   }
 
@@ -275,17 +281,6 @@ void main()
 
         spfData.structure.processors.push({
           name: formData.processorName,
-          config: {
-            pointType: formData.pointType,
-            nBits: formData.nBits,
-            nbMantissa: formData.nbMantissa,
-            nbExponent: formData.nbExponent,
-            dataStackSize: formData.dataStackSize,
-            instructionStackSize: formData.instructionStackSize,
-            inputPorts: formData.inputPorts,
-            outputPorts: formData.outputPorts,
-            gain: formData.gain,
-          },
         });
 
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));

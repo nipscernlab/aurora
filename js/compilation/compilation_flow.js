@@ -15,7 +15,7 @@
  *     PRISM   = Verilog                                   + yosys
  *     Wave    =        cmm + asm + iverilog(-o vvp, tb)   + vvp + gtkwave
  *
- *   Loops cmm+asm sao sobre projectConfig.processors (no-op natural
+ *   Loops cmm+asm sao sobre window.availableProcessors (no-op natural
  *   pra projetos verilog puro — array vazio = loop vazio). Nao ha
  *   branches `if (hasProcessor)` no pipeline.
  *
@@ -52,8 +52,9 @@ if (typeof window !== 'undefined') {
 // targetado no startCompilation: rodar so Wave nao apaga o tcmm do
 // CMM rodado antes. Manter em sync com os branches de runSingleStep.
 const STEP_TERMINALS = Object.freeze({
-    cmm:     ['tcmm'],
-    asm:     ['tasm'],
+    // C± roda cmm + asm em sequencia (gera .asm via cmmcomp, depois
+    // <proc>.v via asmcomp). Limpa ambos os terminais.
+    cmm:     ['tcmm', 'tasm'],
     verilog: ['tveri'],
     wave:    ['twave'],
     prism:   ['tveri'],
@@ -63,7 +64,6 @@ const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 // Map per-step → terminal pra mensagens de erro fatal.
 const ERROR_TERMINAL = Object.freeze({
     cmm:     'tcmm',
-    asm:     'tasm',
     verilog: 'tveri',
     wave:    'twave',
     prism:   'tveri',
@@ -130,8 +130,8 @@ function findProcessorForPath(filePath, projectPath, processors) {
     const sub = segs[1];
     if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
     const procNameLower = segs[0];
-    // Tolera entrada como string (.spf availableProcessors) ou objeto
-    // com .name (projectOriented.json processors).
+    // Tolera entrada como string (window.availableProcessors) ou
+    // objeto com .name (.spf structure.processors).
     const match = processors.find((p) => {
         const n = typeof p === 'string' ? p : p?.name;
         return n && n.toLowerCase() === procNameLower;
@@ -141,47 +141,19 @@ function findProcessorForPath(filePath, projectPath, processors) {
 }
 
 /**
- * Coleta a lista canonica de processadores conhecidos do projeto,
- * mesclando projectOriented.json + .spf (window.availableProcessors).
- * As duas fontes podem estar fora de sincronia em projetos antigos —
- * combinamos pra cobrir os casos.
+ * Coleta a lista canonica de processadores conhecidos do projeto.
+ * Le de window.availableProcessors (semeado pelo project_manager a
+ * partir do .spf structure.processors). compiler.projectConfig.
+ * processors aponta pra mesma fonte — usamos so essa via pra evitar
+ * duplicacao.
  */
-function collectProcessors(compiler) {
-    const seen = new Map();
-    const sources = [
-        compiler.projectConfig?.processors,
-        (Array.isArray(window.availableProcessors) ? window.availableProcessors : [])
-            .map((n) => (typeof n === 'string' ? { name: n } : n)),
-    ];
-    for (const src of sources) {
-        if (!Array.isArray(src)) continue;
-        for (const p of src) {
-            const n = typeof p === 'string' ? p : p?.name;
-            if (!n) continue;
-            const key = n.toLowerCase();
-            if (!seen.has(key)) {
-                seen.set(key, typeof p === 'string' ? { name: p } : p);
-            }
-        }
-    }
-    return [...seen.values()];
-}
-
-/**
- * Verifica se o cmmcomp ja gerou seus artefatos pra esse processador.
- * asmcomp depende deles — principalmente cmm_log.txt, lido em
- * yanc/ASM/Sources/eval.c:eval_init pra num_ins, prname, n_dat,
- * nubits, nbmant, nbexpo, itr_addr.
- *
- * Se aparecerem mais pre-condicoes (pc_<name>_mem.txt, trad_cmm.txt),
- * encadear com && no return.
- */
-async function cmmArtifactsExist(compiler, procName) {
-    const tempProc = await window.electronAPI.joinPath(
-        compiler.componentsPath, 'Temp', procName,
-    );
-    const cmmLog = await window.electronAPI.joinPath(tempProc, 'cmm_log.txt');
-    return await window.electronAPI.fileExists(cmmLog);
+function collectProcessors() {
+    const list = Array.isArray(window.availableProcessors)
+        ? window.availableProcessors
+        : [];
+    return list
+        .map((p) => (typeof p === 'string' ? { name: p } : p))
+        .filter((p) => p && p.name);
 }
 
 // =====================================================================
@@ -191,7 +163,7 @@ async function cmmArtifactsExist(compiler, procName) {
 // Defaults aplicados em cada processador antes de compilar. cmmFile
 // segue a convencao fixa <procName>.cmm. clk/numClocks foram
 // hardcoded quando o editor per-proc saiu (fase 4) — se voltar a
-// precisar de customizacao, sai daqui pro projectOriented.json.
+// precisar de customizacao, sai daqui pro .spf.
 const PROC_DEFAULTS = Object.freeze({
     clk: 100,
     numClocks: 2000,
@@ -209,7 +181,7 @@ const PROC_DEFAULTS = Object.freeze({
  * @returns contagem de processadores efetivamente compilados.
  */
 async function precompileAllProcessors(compiler, terminalId) {
-    const procs = collectProcessors(compiler);
+    const procs = collectProcessors();
     if (procs.length === 0) return 0;
 
     // componentsPath e populado pelo construtor sem await (background
@@ -278,9 +250,17 @@ async function runProjectPipeline(compiler) {
 // =====================================================================
 
 /**
- * Botao C±: compila o .cmm aberto no Monaco (ignorando "active
- * processor" — esse conceito saiu na fase 4). Se o arquivo em foco
- * nao for .cmm, no-op com mensagem.
+ * Botao C±: roda o pipeline completo do processador a partir do .cmm
+ * aberto no Monaco:
+ *   1. cmmcomp.exe   -> Software/<base>.asm + cmm_log.txt
+ *   2. asmcomp.exe   -> Hardware/<proc>.v + pc_<proc>_mem.txt +
+ *                       Simulation/<proc>_tb.v
+ *
+ * Antes (pre-2026-05) este botao parava no passo 1. Foi unificado pra
+ * deixar o fluxo "do .cmm ate o .v" num clique so — quem quer parar
+ * no .asm usa o botao ASM (que tambem aceita .asm em foco).
+ *
+ * Se o arquivo em foco nao for .cmm, no-op com mensagem.
  */
 async function handleCmmStep() {
     const editingPath = TabManager.getEditingFilePath?.();
@@ -300,7 +280,7 @@ async function handleCmmStep() {
         await compiler.loadConfig();
 
         const procFromPath = findProcessorForPath(
-            editingPath, window.currentProjectPath, collectProcessors(compiler),
+            editingPath, window.currentProjectPath, collectProcessors(),
         );
         if (!procFromPath) {
             throw new Error(
@@ -310,88 +290,28 @@ async function handleCmmStep() {
         }
 
         const cmmFileName = editingPath.split(/[\\/]/).pop();
-        const overrideProcessor = { ...procFromPath, cmmFile: cmmFileName };
-
-        switchTerminal('terminal-tcmm');
-        await compiler.ensureDirectories(overrideProcessor.name);
-        await compiler.cmmCompilation(overrideProcessor);
-    } catch (error) {
-        console.error('Erro na etapa cmm:', error);
-        logFatalError('tcmm', error);
-    } finally {
-        endCompilation();
-    }
-}
-
-/**
- * Botao ASM: aceita .cmm OU .asm em foco. asmCompilation deriva o
- * .asm a partir do basename do "cmmFile" recebido — entao mesmo se
- * usuario abriu o .asm direto, montamos um cmmFile sintetico
- * "<base>.cmm" e o asmcomp acaba no .asm correto.
- *
- * Se cmm_log.txt nao existe pro processador, recompila o C± antes
- * (asmcomp depende dele — yanc/ASM/Sources/eval.c). Preamble explica
- * pro usuario na UI.
- */
-async function handleAsmStep() {
-    const editingPath = TabManager.getEditingFilePath?.();
-    const lower = (editingPath || '').toLowerCase();
-    if (!editingPath || (!lower.endsWith('.cmm') && !lower.endsWith('.asm'))) {
-        switchTerminal('terminal-tasm');
-        window.terminalManager?.appendToTerminal?.(
-            'tasm',
-            'No .cmm or .asm file is open in the editor. Open one and try again.',
-            'tips',
-        );
-        return;
-    }
-
-    startCompilation(STEP_TERMINALS.asm);
-    try {
-        const compiler = new CompilationModule(window.currentProjectPath);
-        await compiler.loadConfig();
-
-        const procFromPath = findProcessorForPath(
-            editingPath, window.currentProjectPath, collectProcessors(compiler),
-        );
-        if (!procFromPath) {
-            throw new Error(
-                `Cannot resolve a processor for "${editingPath}". ` +
-                `The file must live in <project>/<processor>/{Software,Hardware,Simulation}/.`,
-            );
-        }
-
-        const baseName = editingPath.split(/[\\/]/).pop().replace(/\.(cmm|asm)$/i, '');
+        // PROC_DEFAULTS (clk, numClocks) sao necessarios pro asmcomp;
+        // cmmcomp tambem aceita sobras sem reclamar.
         const overrideProcessor = {
             ...procFromPath,
             ...PROC_DEFAULTS,
-            cmmFile: `${baseName}.cmm`,
+            cmmFile: cmmFileName,
         };
 
-        switchTerminal('terminal-tasm');
         await compiler.ensureDirectories(overrideProcessor.name);
 
-        // asmcomp depende de cmm_log.txt — se faltar (usuario nunca rodou
-        // C± antes, ou Temp/ foi limpo), recompila o cmm primeiro.
-        let asmPreamble = null;
-        if (!(await cmmArtifactsExist(compiler, overrideProcessor.name))) {
-            await compiler.cmmCompilation(overrideProcessor);
-            // Foco volta pro tasm depois do cmm pra que as mensagens
-            // do asmCompilation cheguem no terminal que o usuario
-            // clicou (cmmCompilation deixa foco em tcmm).
-            switchTerminal('terminal-tasm');
-            // Preamble vai como param do asmCompilation pra sobreviver
-            // ao clearTerminal que ele faz logo no inicio.
-            asmPreamble = 'Info: cmm_log.txt was missing — C± was recompiled first. See tcmm terminal for its output.';
-        }
+        // Passo 1 — C± (cmmcomp)
+        switchTerminal('terminal-tcmm');
+        await compiler.cmmCompilation(overrideProcessor);
 
-        // projectParam=1 — asmcomp NAO inclui o bloco "$finish quando
-        // atinge @fim" no testbench gerado. Decisao: o usuario controla
-        // parada via testbench externo ou parametros do iverilog/vvp.
-        await compiler.asmCompilation(overrideProcessor, 1, asmPreamble);
+        // Passo 2 — ASM (asmcomp). Foco vai pro tasm pra que o output
+        // do asmcomp apareca no terminal certo. projectParam=1 segue
+        // o mesmo default do botao ASM standalone (sem $finish auto).
+        switchTerminal('terminal-tasm');
+        await compiler.asmCompilation(overrideProcessor, 1, null);
     } catch (error) {
-        console.error('Erro na etapa asm:', error);
-        logFatalError('tasm', error);
+        console.error('Erro na etapa cmm:', error);
+        logFatalError('tcmm', error);
     } finally {
         endCompilation();
     }
@@ -483,7 +403,7 @@ async function buildPrismCompilationPaths(projectPath) {
         tempPath:                  toForwardSlashes(await join(rawComponentsPath, 'Temp', 'PRISM')),
         yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
         netlistsvgPath:            toForwardSlashes(await join(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
-        projectOrientedConfigPath: toForwardSlashes(await join(projectPath, 'projectOriented.json')),
+        spfPath:                   toForwardSlashes(window.currentSpfPath || ''),
         topLevelPath:              toForwardSlashes(await join(projectPath, 'TopLevel')),
     };
 }
@@ -495,7 +415,6 @@ async function buildPrismCompilationPaths(projectPath) {
 class CompilationFlowManager {
     initialize() {
         document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
-        document.getElementById('asmcomp')?.addEventListener('click', () => this.runSingleStep('asm'));
         document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
         document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
         document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
@@ -512,7 +431,7 @@ class CompilationFlowManager {
      * eventualmente precisem reativar buttons (ex: cancel).
      */
     updateButtonStates() {
-        for (const id of ['cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
+        for (const id of ['cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
             const btn = document.getElementById(id);
             if (btn) btn.disabled = false;
         }
@@ -534,7 +453,6 @@ class CompilationFlowManager {
     async runSingleStep(step) {
         switch (step) {
             case 'cmm':     return handleCmmStep();
-            case 'asm':     return handleAsmStep();
             case 'verilog': return handleVerilogStep();
             case 'wave':    return handleWaveStep();
             case 'prism':   return handlePrismStep();

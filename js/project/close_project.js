@@ -11,7 +11,7 @@ import { ProjectStore } from './project_store.js';
 function disableCompileButtons() {
     const buttonIds = [
         /*
-        'cmmcomp', 'asmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp',
+        'cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp',
         'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn',
         'projectInfo' */
     ];
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.appInitializer?.clearLastProject?.();
 
                 // Reset do verilog tree pra que reabrir dispare um
-                // re-activate full (le projectOriented.json fresco,
+                // re-activate full (le o .spf fresco,
                 // pega arquivos fora da pasta do projeto). Sem isso,
                 // isVerilogTreeActive fica true e o proximo activate
                 // cai no early-return.

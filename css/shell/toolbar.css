@@ -388,7 +388,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 /* Semantic color per tool — single source of truth in theme_variables.css. */
 #cmmcomp .glyph    { color: var(--color-cmm); }
-#asmcomp .glyph    { color: var(--color-asm); }
 #vericomp .glyph   { color: var(--color-veri); }
 #wavecomp .glyph   { color: var(--color-wave); }
 

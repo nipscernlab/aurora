@@ -3,8 +3,9 @@
  *
  * Hierarchical signal picker: walks the project's Verilog files, builds
  * a tree rooted at the testbench module, lets the user check which
- * signals get $dumpvars'd. Selection persists to projectOriented.json
- * as `waveSignals: [...]`.
+ * signals get $dumpvars'd. Selection persists per-testbench in the
+ * WaveStore (`<project>/testbench/<tbKey>.json`) as
+ * `waveSignals: [...]`.
  *
  * Default selection (no `waveSignals` saved or "Reset to default"):
  * every signal at the testbench-module scope. Mirrors Phase 1's
@@ -18,7 +19,7 @@ import { buildAliasMap } from './gtkw_proc_writer.js';
 import { hasUserDumpCalls } from './testbench_instrumenter.js';
 import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
-import { ProjectConfigStore } from '../project/project_config_store.js';
+import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 
 function tbKeyFromPath(tbPath) {
@@ -132,8 +133,9 @@ class WaveConfigManager {
 
     async open() {
         const projectPath = ProjectStore.getProjectPath();
+        const spfPath = ProjectStore.getSpfPath();
 
-        if (projectPath) {
+        if (projectPath && spfPath) {
             const compiler = new CompilationModule(projectPath);
             await compiler.loadConfig();
 
@@ -144,7 +146,7 @@ class WaveConfigManager {
             // previous code edit can't outlive the rename. The
             // notification (twave) and the WaveStore write happen
             // inside _validateWaveSelection.
-            const cfg = await ProjectConfigStore.read(projectPath);
+            const cfg = await SpfStore.read(spfPath);
             const filePaths = [
                 ...(cfg.synthesizableFiles || []).map((f) => f?.path),
                 cfg.testbenchFile,
@@ -153,8 +155,7 @@ class WaveConfigManager {
             const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
             const tbModule = moduleNameFromPath(cfg.testbenchFile)
                 || moduleNameFromPath(cfg.topLevelFile);
-            // waveSignals agora vive no WaveStore per-testbench, nao no
-            // projectOriented.json. Le do tb atual.
+            // waveSignals vive no WaveStore per-testbench. Le do tb atual.
             const tbKey = tbKeyFromPath(cfg.testbenchFile);
             const tbState = tbKey ? await WaveStore.read(projectPath, tbKey) : null;
             const rawSelected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
@@ -197,13 +198,14 @@ class WaveConfigManager {
 
     async refresh() {
         const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (!projectPath || !spfPath) {
             this.tree = null;
             this.renderTree();
             return;
         }
 
-        const config = await ProjectConfigStore.read(projectPath);
+        const config = await SpfStore.read(spfPath);
         const filePaths = new Set();
         (config.synthesizableFiles || []).forEach((f) => f?.path && filePaths.add(f.path));
         if (config.testbenchFile) filePaths.add(config.testbenchFile);
@@ -707,11 +709,12 @@ class WaveConfigManager {
 
     async save() {
         const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (!projectPath || !spfPath) {
             this.close();
             return;
         }
-        const cfg = await ProjectConfigStore.read(projectPath);
+        const cfg = await SpfStore.read(spfPath);
         const tbKey = tbKeyFromPath(cfg.testbenchFile);
         if (!tbKey) {
             // Sem testbench definido — nao temos onde persistir.

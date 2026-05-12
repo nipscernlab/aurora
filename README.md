@@ -108,8 +108,7 @@ AURORA orchestrates these tools, all driven from the toolbar's compile group:
 
 | Step  | Button     | Backing tool        | Notes |
 |-------|------------|---------------------|-------|
-| C±    | `cmmcomp`  | SAPHO CMM compiler  | Per-processor |
-| ASM   | `asmcomp`  | SAPHO assembler     | Per-processor |
+| C±    | `cmmcomp`  | cmmcomp + asmcomp   | Per-processor; runs CMM then ASM |
 | Veri  | `vericomp` | Icarus Verilog      | Synthesises top-level |
 | Wave  | `wavecomp` | GTKWave             | Always opens `fix.vcd` |
 | PRISM | `prismcomp`| Yosys + netlistsvg  | RTL viewer |
@@ -118,7 +117,7 @@ The mode toggle (`Processor` / `Project`) and the Compile-&-Simulate switch
 together pick the pipeline:
 
 - **Processor** — single active processor, full CMM → ASM → IVL → Wave loop.
-- **Project + Simulate** — every processor in `projectOriented.json`, then
+- **Project + Simulate** — every processor in the `.spf`, then
   testbench-driven simulation.
 - **Project + Compile only** — Verilog-only synthesis; no CMM/ASM steps.
 

@@ -7,7 +7,7 @@
  * disparados em compilation_flow.js. Cada metodo publico corresponde
  * a uma etapa da pipeline:
  *
- *   loadConfig()            le projectOriented.json em this.projectConfig
+ *   loadConfig()            le o .spf em this.projectConfig
  *   ensureDirectories(name) cria components/Temp/<name>
  *   cmmCompilation(proc)    cmmcomp.exe -> Software/<proc>.asm + cmm_log.txt
  *   asmCompilation(proc, ...)
@@ -27,10 +27,10 @@
  *      (projeto verilog puro). Branches estruturais foram
  *      removidos na fase 3.
  *
- *   2. projectOriented.json e a unica fonte de config. O
- *      processorConfig.json legado saiu na fase 4 — defaults pra
- *      clk/numClocks/cmmFile estao hardcoded em precompileAllProcessors
- *      (compilation_flow.js).
+ *   2. .spf e a unica fonte de config. projectOriented.json e
+ *      processorConfig.json (legado) foram consolidados no .spf.
+ *      Defaults pra clk/numClocks/cmmFile estao hardcoded em
+ *      precompileAllProcessors (compilation_flow.js).
  *
  *   3. synthesizableFiles[] (populado pelo file tree) ja inclui os
  *      .v dos processadores. -y components/HDL e sempre adicionado
@@ -47,6 +47,7 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
+import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
 import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
@@ -192,7 +193,7 @@ async generateProjectHierarchy() {
             if (!this.projectConfig) throw new Error("Project configuration not loaded");
 
             const topLevelFilePath = this.projectConfig.topLevelFile;
-            if (!topLevelFilePath) throw new Error("'topLevelFile' not found in projectOriented.json");
+            if (!topLevelFilePath) throw new Error("'topLevelFile' not found in .spf");
 
             const designTopModule = topLevelFilePath.split(/[\\\\/]/).pop().replace(/\.v$/i, '');
             const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
@@ -548,16 +549,16 @@ async loadConfig() {
             throw new Error('No current project path available for loading configuration');
         }
 
-        // projectOriented.json — fonte canonica unica. processorConfig.json
-        // (legado) foi descontinuado na fase 4 — defaults pra cmm/asm
-        // (cmmFile=`${proc}.cmm`, clk=100, numClocks=2000) sao hardcoded
-        // em precompileAllProcessors.
-        const projectConfigPath = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
+        // .spf — fonte canonica unica. projectOriented.json (legado) e
+        // processorConfig.json (legado) foram consolidados no .spf.
+        // Defaults pra cmm/asm (cmmFile=`${proc}.cmm`, clk=100,
+        // numClocks=2000) sao hardcoded em precompileAllProcessors.
+        const spfPath = projectInfo.spfPath;
         try {
-            const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
-            this.projectConfig = JSON.parse(projectConfigData);
+            if (!spfPath) throw new Error('No spf path');
+            this.projectConfig = await SpfStore.read(spfPath);
         } catch (error) {
-            console.warn("Could not load projectOriented.json:", error);
+            console.warn("Could not load .spf:", error);
             this.projectConfig = null;
         }
     } catch (error) {
@@ -596,7 +597,7 @@ async loadConfig() {
      * <proj>/<proc>/Simulation/. Duas formas:
      *
      *   - processor.testbenchFile e um path absoluto → usa direto
-     *     (testbench custom, salvo pelo projectOriented.json).
+     *     (testbench custom, salvo no .spf).
      *   - caso contrario → convencao "<cmmBase>_tb.v" dentro de
      *     <proj>/<proc>/Simulation/ (testbench auto-gerado pelo
      *     asmcomp).
@@ -621,64 +622,6 @@ async loadConfig() {
         };
     }
 
-    /**
-     * Modifica o testbench injetando o bloco de simulação específico do Aurora
-     * (Barra de progresso e Dumpvars escopado)
-     */
-    async modifyTestbenchForSimulation(testbenchPath, tbModuleName, tempBaseDir, simuDelay = "200000") {
-        try {
-            const originalContent = await window.electronAPI.readFile(testbenchPath, {
-                encoding: 'utf8'
-            });
-
-            // Normaliza caminhos para escrita no arquivo Verilog (escape duplo para Windows)
-            const fixedTempBaseDir = tempBaseDir.replace(/\\/g, '\\\\');
-            
-            // Garante que o delay seja numérico
-            const numericSimuDelay = parseFloat(simuDelay) || 200000.0;
-            const vcdFileName = `${tbModuleName}.vcd`;
-
-            // Bloco de simulação solicitado
-            const newSimulationCode = `
-// --- AURORA SIMULATION BLOCK ---
-integer progress, chrys;
-initial begin
-    $dumpfile("${vcdFileName}");
-    $dumpvars(0, ${tbModuleName});
-    progress = $fopen("${fixedTempBaseDir}\\\\progress.txt", "w");
-    for (chrys = 10; chrys <= 100; chrys = chrys + 10) begin
-        #${numericSimuDelay};
-        $fdisplay(progress,"%0d",chrys);
-        $fflush(progress);
-    end
-    $fclose(progress);
-    $finish;
-end
-// -------------------------------
-`;
-
-            // Limpeza de comandos antigos ($dumpfile/$dumpvars) para evitar conflitos
-            let content = originalContent.replace(/\$dumpfile\s*\([^)]+\)\s*;/g, '')
-                                         .replace(/\$dumpvars\s*\([^)]+\)\s*;/g, '')
-                                         .replace(/\$dumpvars\s*;/g, '');
-
-            // Inserir antes do último 'endmodule'
-            const lastEndmoduleIndex = content.lastIndexOf('endmodule');
-            if (lastEndmoduleIndex === -1) throw new Error("'endmodule' not found in testbench.");
-
-            const newContent = content.slice(0, lastEndmoduleIndex) + newSimulationCode + content.slice(lastEndmoduleIndex);
-
-            // Salva o arquivo instrumentado na pasta Temp
-            const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${testbenchPath.split(/[\\/]/).pop()}`);
-            await window.electronAPI.writeFile(instrumentedPath, newContent);
-            
-            return instrumentedPath;
-
-        } catch (error) {
-            console.error("Failed to modify testbench:", error);
-            throw error;
-        }
-    }
     /**
      * Cria o arquivo tcl_infos.txt necessário para o script TCL configurar o GTKWave.
      * Estrutura baseada no padrão que o script TCL lê:
@@ -713,10 +656,6 @@ end
 
     async cmmCompilation(processor) {
         const { name } = processor;
-        // showArraysInGtkwave era per-processador no processorConfig.json
-        // legado; agora vem do projectOriented.json (project-level — toggle
-        // global na UI de Project Settings).
-        const showArraysFlag = this.projectConfig?.showArraysInGtkwave === 1 ? '1' : '0';
         await this.terminalManager.clearTerminal('tcmm');
 
         this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
@@ -744,7 +683,10 @@ end
             statusUpdater.startCompilation('cmm');
 
             // 3. Comando (Voltou a usar "${macrosPath}" como argumento único para macros)
-            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
+            // O ultimo arg historicamente era showArrays (0/1); hardcoded
+            // em 0 desde que o toggle saiu da UI. Se voltar a ser preciso,
+            // re-adicionar como campo do .spf e ler aqui.
+            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" 0`;
             
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 
@@ -835,7 +777,7 @@ end
             // usa o testbench "standard" — i.e., nao tem um testbench
             // customizado configurado. O testbench auto-gerado e
             // per-processador (Simulation/<base>_tb.v), distinto do
-            // testbench-top que o projectOriented aponta, entao nao
+            // testbench-top que o .spf aponta, entao nao
             // conflita com nada.
             const usesStandardTestbench =
                 !processor.testbenchFile || processor.testbenchFile === 'standard';
@@ -918,8 +860,8 @@ validateConfig() {
  *
  * The set-top-level UI clears the flag from siblings before applying
  * it, so within a single Aurora session you can't end up with two
- * tops in the same category. But projectOriented.json can be
- * hand-edited, migrated from older builds, or written by a buggy
+ * tops in the same category. But the .spf can be hand-edited,
+ * migrated from older builds, or written by a buggy
  * version — and a silent "first match wins" turns those cases into
  * "I marked counter.v as top but the build keeps using oldcounter.v"
  * mysteries. Surface the conflict in tveri instead.
@@ -1072,10 +1014,8 @@ async syntaxCheck() {
         const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
         const libraryArgs = `-y "${hdlPath}"`;
 
-        const flags = this.projectConfig?.iverilogFlags || '';
         const cmd = [
             `"${iveriCompPath}"`,
-            flags,
             libraryArgs,
             '-tnull',
             `-s ${simTopModule}`,
@@ -1145,7 +1085,7 @@ async syntaxCheck() {
  * de hadOriginalDumpvars pra usar nas visitas futuras).
  *
  * @param {object} input
- * @param {object} input.config        projectOriented.json (precisa testbenchFile)
+ * @param {object} input.config        .spf structure (precisa testbenchFile)
  * @param {string} input.simTopModule  nome do module top da simulacao
  * @param {string[]} input.filePaths   .v files pra parsear (synth + tb + HDL)
  * @returns {Promise<{
@@ -1415,8 +1355,6 @@ async iverilogCompile({ buildVvp = false } = {}) {
         }
         const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
 
-        const flags = this.projectConfig.iverilogFlags || '';
-
         // -y tells iverilog to resolve any module referenced but not
         // listed in the source set by looking for `<moduleName>.v` in
         // these directories. components/HDL tem tanto componentes do
@@ -1430,7 +1368,6 @@ async iverilogCompile({ buildVvp = false } = {}) {
         const cmdParts = buildVvp
             ? [
                 `"${iveriCompPath}"`,
-                flags,
                 libraryArgs,
                 `-s ${simTopModule}`,
                 `-o "${outputFile}"`,
@@ -1438,7 +1375,6 @@ async iverilogCompile({ buildVvp = false } = {}) {
             ]
             : [
                 `"${iveriCompPath}"`,
-                flags,
                 libraryArgs,
                 // -tnull tells iverilog to elaborate but skip code-gen, so
                 // we get the parse + type-check without producing a .vvp.
@@ -2168,9 +2104,11 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
         this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');
 
-        const projectConfigPath = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
-        const projectConfigData = await window.electronAPI.readFile(projectConfigPath);
-        this.projectConfig = JSON.parse(projectConfigData);
+        const spfPath = window.currentSpfPath;
+        if (!spfPath) {
+            throw new Error('No spf path available for loading project configuration');
+        }
+        this.projectConfig = await SpfStore.read(spfPath);
 
         const topLevelFile = this.projectConfig.topLevelFile;
         if (!topLevelFile) {

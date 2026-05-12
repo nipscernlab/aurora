@@ -13,7 +13,7 @@
  * `tbKey` = nome do .v sem extensao (e.g. `top_level_tb`). Vivem todos
  * juntos na pasta `testbench/` na raiz do projeto.
  *
- * API espelha `ProjectConfigStore` — `read` puro, `update` atomico via
+ * API espelha `SpfStore` — `read` puro, `update` atomico via
  * promise chain serializada per-(projectPath, tbKey).
  */
 
@@ -192,6 +192,6 @@ export const WaveStore = {
 };
 
 if (typeof window !== 'undefined') {
-  // Exposed for non-module callers, mirroring ProjectConfigStore.
+  // Exposed for non-module callers, mirroring SpfStore.
   window.WaveStore = WaveStore;
 }

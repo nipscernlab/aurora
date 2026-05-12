@@ -2,8 +2,8 @@
  * selection_validator.js — Filter a saved Wave Configuration selection
  * against the current parsed Verilog hierarchy.
  *
- * The picker stores selections as dotted-path strings in
- * projectOriented.json (`waveSignals: ["tb.dut.q_next", ...]`). When
+ * The picker stores selections as dotted-path strings in the
+ * per-testbench WaveStore (`waveSignals: ["tb.dut.q_next", ...]`). When
  * the user later renames an instance, removes a signal, or edits the
  * testbench, the saved entries can dangle. Feeding dangling paths
  * verbatim to `$dumpvars(0, ...)` makes iverilog fail with a cryptic

@@ -4,16 +4,16 @@
  * Renderiza a "verilog picker tree" — a unica vista de arquivos que
  * Aurora mostra hoje. O nome "VerilogTreeManager" / "Verilog Mode"
  * vem da epoca de 3 modos; hoje e simplesmente o file tree do
- * projeto, listando arquivos a partir de projectOriented.json
- * (synthesizableFiles + testbenchFiles + gtkwFiles + per-proc
- * Software/Hardware/Simulation).
+ * projeto, listando arquivos a partir do .spf (structure.
+ * synthesizableFiles + testbenchFiles + per-proc Software/Hardware/
+ * Simulation auto-descoberto).
  *
  * Pontos de entrada externos:
  *   activateVerilogMode()   — chamada por projectManager.loadProject
  *                             e por fileTreeManager.initializeTreeBasedOnMode.
  *                             Coalescida via _activatePromise (ver
  *                             ARCHITECTURE.md §6).
- *   refreshVerilogTree()    — re-le projectOriented.json e re-renderiza
+ *   refreshVerilogTree()    — re-le o .spf e re-renderiza
  *                             (idempotente; key-based reconciler).
  *   deactivateVerilogMode() — esconde a tree. Usada hoje so em
  *                             close_project.
@@ -21,13 +21,11 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
-import { ProjectConfigStore } from './project_config_store.js';
+import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 
 class VerilogTreeManager {
     constructor() {
-        // Configuration - Points to the main project config
-        this.CONFIG_FILENAME = 'projectOriented.json';
         // File tree drag-and-drop / Open HDL accept Verilog source and
         // header files only. .gtkw save files have a dedicated entry
         // point — the toolbar's gtkw picker (+ Add .gtkw file...) —
@@ -38,7 +36,7 @@ class VerilogTreeManager {
         // Extensoes "software" — moram em <proc>/Software/, nao em
         // Hardware/. Aparecem na arvore agrupadas com o processador,
         // mas nao recebem toggle synth/tb, delete, nem entram no
-        // synthesizableFiles do projectOriented.json.
+        // synthesizableFiles do .spf.
         this.SOFTWARE_EXTENSIONS = ['.cmm', '.asm'];
         this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
         // State management. currentProjectPath is intentionally NOT cached
@@ -110,7 +108,7 @@ class VerilogTreeManager {
         // fileTreeManager.initializeTreeBasedOnMode (coalescidas).
         this.activateVerilogMode();
 
-        // Qualquer escritor de projectOriented.json (gtkw_picker, CLI
+        // Qualquer escritor do .spf (gtkw_picker, CLI
         // tools, futuros fluxos) dispara este evento — o picker re-le
         // e re-renderiza pra nao ficar stale.
         document.addEventListener('project-config-saved', () => {
@@ -427,7 +425,7 @@ class VerilogTreeManager {
         // com extensao Verilog ou Software, independente da pasta. A
         // categoria (synth vs software) e decidida pela EXTENSAO, nao pela
         // pasta:
-        //   .v / .sv / .vh   → synth, persistido em projectOriented.json
+        //   .v / .sv / .vh   → synth, persistido no .spf
         //   .cmm / .asm      → software, isSoftware=true, NAO persistido
         //                       (re-descoberto a cada load para evitar
         //                       loop com o file watcher)
@@ -1343,7 +1341,7 @@ toggleFileStar(index, type) {
         this.updateFileList('synthesizable');
     }, 100);
     
-    // Sync to projectOriented.json
+    // Sync to .spf
     this.saveConfiguration();
     
     const action = targetFile.isTopLevel ? 'set as top level' : 'removed from top level';
@@ -1437,33 +1435,32 @@ async importFiles(files) {
   /**
  * Save configuration (keeps existing function name).
  *
- * Routes through ProjectConfigStore.update so our writes serialize
- * cleanly with the Project Settings modal's writes; field defaults
- * (gtkwFiles, processors, etc.) come from the store, so this manager
- * only mutates what it actually owns.
+ * Routes through SpfStore.update so our writes serialize cleanly
+ * with other .spf writers; field defaults come from the store, so
+ * this manager only mutates what it actually owns.
  */
 async saveConfiguration() {
     try {
-        const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) {
-            console.error('Project path not available for sync');
+        const spfPath = ProjectStore.getSpfPath();
+        if (!spfPath) {
+            console.error('Spf path not available for sync');
             return;
         }
 
         // SNAPSHOT BEFORE AWAIT.
         //
-        // ProjectConfigStore.update queues onto a per-project promise
-        // chain, so the mutator below doesn't run until any earlier
-        // update settles. Reading `this.verilogFiles` from inside the
-        // mutator was a race: between the click and the mutator
-        // firing, our own file watcher (file_tree_manager.js's
-        // onDirectoryChanged) sees projectOriented.json change from
-        // a previous write, fires refreshVerilogTree, which calls
-        // loadConfiguration, which sets `this.verilogFiles = []` and
-        // reloads from the OLD on-disk state — wiping the in-memory
-        // category change the user just made. The mutator then writes
-        // the now-rebuilt (still old-state) array back to disk, and
-        // the testbench mark is silently lost.
+        // SpfStore.update queues onto a per-spf promise chain, so the
+        // mutator below doesn't run until any earlier update settles.
+        // Reading `this.verilogFiles` from inside the mutator was a
+        // race: between the click and the mutator firing, our own
+        // file watcher (file_tree_manager.js's onDirectoryChanged)
+        // sees the .spf change from a previous write, fires
+        // refreshVerilogTree, which calls loadConfiguration, which
+        // sets `this.verilogFiles = []` and reloads from the OLD
+        // on-disk state — wiping the in-memory category change the
+        // user just made. The mutator then writes the now-rebuilt
+        // (still old-state) array back to disk, and the testbench
+        // mark is silently lost.
         //
         // Building the patch synchronously here means the mutator is
         // pure assignment; whatever load/refresh runs in parallel
@@ -1491,7 +1488,7 @@ async saveConfiguration() {
         const topPath = topFile ? topFile.path : '';
         const tbPath = tbTopFile ? tbTopFile.path : '';
 
-        await ProjectConfigStore.update(projectPath, (cfg) => {
+        await SpfStore.update(spfPath, (cfg) => {
             cfg.synthesizableFiles = synthFiles;
             cfg.testbenchFiles = tbFiles;
             cfg.topLevelFile = topPath;
@@ -1514,14 +1511,11 @@ async saveConfiguration() {
  */
 async loadConfiguration() {
     try {
-        const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) {
-            console.error('Project path not available');
+        const spfPath = ProjectStore.getSpfPath();
+        if (!spfPath) {
+            console.error('Spf path not available');
             return;
         }
-
-        const configPath = await window.electronAPI.joinPath(projectPath, this.CONFIG_FILENAME);
-        const configExists = await window.electronAPI.fileExists(configPath);
 
         // Build the new list LOCALLY first, only swap into `this.verilogFiles`
         // at the end. Two reasons:
@@ -1531,75 +1525,69 @@ async loadConfiguration() {
         //      in-memory state survives instead of being half-wiped.
         const nextFiles = [];
 
-        if (configExists) {
-            const configContent = await window.electronAPI.readFile(configPath);
-            const configData = JSON.parse(configContent);
+        const configData = await SpfStore.read(spfPath);
+        console.log('Loading configuration from:', spfPath);
 
-            console.log('Loading configuration from:', configPath);
+        if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
+            for (const fileData of configData.synthesizableFiles) {
+                if (fileData.path && fileData.name) {
+                    try {
+                        const exists = await window.electronAPI.fileExists(fileData.path);
 
-            if (configData.synthesizableFiles && Array.isArray(configData.synthesizableFiles)) {
-                for (const fileData of configData.synthesizableFiles) {
-                    if (fileData.path && fileData.name) {
-                        try {
-                            const exists = await window.electronAPI.fileExists(fileData.path);
-
-                            if (exists) {
-                                nextFiles.push({
-                                    name: fileData.name,
-                                    path: fileData.path,
-                                    isTopLevel: fileData.isTopLevel || false,
-                                    category: 'synthesizable',
-                                });
-                            } else {
-                                console.warn(`File no longer exists: ${fileData.path}`);
-                            }
-                        } catch (error) {
-                            console.error(`Error validating file ${fileData.path}:`, error);
+                        if (exists) {
+                            nextFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                isTopLevel: fileData.isTopLevel || false,
+                                category: 'synthesizable',
+                            });
+                        } else {
+                            console.warn(`File no longer exists: ${fileData.path}`);
                         }
+                    } catch (error) {
+                        console.error(`Error validating file ${fileData.path}:`, error);
                     }
                 }
             }
-
-            if (configData.testbenchFiles && Array.isArray(configData.testbenchFiles)) {
-                for (const fileData of configData.testbenchFiles) {
-                    if (fileData.path && fileData.name) {
-                        try {
-                            const exists = await window.electronAPI.fileExists(fileData.path);
-
-                            if (exists) {
-                                // Backward-compat: an older codepath persisted
-                                // the testbench-top mark as `isMarkedTestbench`.
-                                // Treat both fields equivalently on read; the
-                                // next save normalises to `isTopLevel` only.
-                                const isTop = fileData.isTopLevel === true
-                                    || fileData.isMarkedTestbench === true;
-                                nextFiles.push({
-                                    name: fileData.name,
-                                    path: fileData.path,
-                                    isTopLevel: isTop,
-                                    category: 'testbench',
-                                });
-                            } else {
-                                console.warn(`File no longer exists: ${fileData.path}`);
-                            }
-                        } catch (error) {
-                            console.error(`Error validating file ${fileData.path}:`, error);
-                        }
-                    }
-                }
-            }
-
-            console.log('Loaded', nextFiles.length, 'files from configuration');
-        } else {
-            console.log('projectOriented.json not found, starting with empty list');
         }
+
+        if (configData.testbenchFiles && Array.isArray(configData.testbenchFiles)) {
+            for (const fileData of configData.testbenchFiles) {
+                if (fileData.path && fileData.name) {
+                    try {
+                        const exists = await window.electronAPI.fileExists(fileData.path);
+
+                        if (exists) {
+                            // Backward-compat: an older codepath persisted
+                            // the testbench-top mark as `isMarkedTestbench`.
+                            // Treat both fields equivalently on read; the
+                            // next save normalises to `isTopLevel` only.
+                            const isTop = fileData.isTopLevel === true
+                                || fileData.isMarkedTestbench === true;
+                            nextFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                isTopLevel: isTop,
+                                category: 'testbench',
+                            });
+                        } else {
+                            console.warn(`File no longer exists: ${fileData.path}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error validating file ${fileData.path}:`, error);
+                    }
+                }
+            }
+        }
+
+        console.log('Loaded', nextFiles.length, 'files from configuration');
 
         this.verilogFiles = nextFiles;
 
         // Auto-descobre arquivos dentro das pastas Hardware/ e Software/
         // de cada processador configurado. Hardware/ entra como synth e
-        // PRECISA ser persistido em projectOriented.json (e o que o
-        // iverilog le). Software/ aparece na arvore mas nao e persistido —
+        // PRECISA ser persistido no .spf (e o que o iverilog le).
+        // Software/ aparece na arvore mas nao e persistido —
         // sao re-descobertos a cada load.
         //
         // Persistir tambem os de Software causaria loop: o save mudaria
@@ -1618,7 +1606,7 @@ async loadConfiguration() {
     }
 }
     /**
-     * Re-le projectOriented.json e re-renderiza
+     * Re-le o .spf e re-renderiza
      */
     async refreshVerilogTree() {
         // Same coalescing pattern as activateVerilogMode: two refresh calls

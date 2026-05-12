@@ -190,7 +190,7 @@ async function runYosysCompilationWithPaths(
   //   1. components/HDL/*.v  — biblioteca SAPHO (processor, addr_dec,
   //      core, ula, myFIFO, instr_dec). Sempre incluida porque
   //      qualquer top que seja um processador SAPHO depende disso.
-  //   2. projectOriented.synthesizableFiles[].path — fonte canonica
+  //   2. .spf structure.synthesizableFiles[].path — fonte canonica
   //      de TODOS os .v do projeto (auto-descobertos pelo file
   //      tree + adicionados manualmente pelo usuario). Inclui o .v
   //      de cada processador SAPHO via _discoverProcessorFiles.
@@ -210,57 +210,46 @@ async function runYosysCompilationWithPaths(
     }
   }
 
-  const projectOrientedConfigPath = compilationPaths.projectOrientedConfigPath;
-  if (await fse.pathExists(projectOrientedConfigPath)) {
+  // Le o .spf uma unica vez — usado tanto pra synthesizableFiles
+  // quanto pra lista de processadores (fallback Hardware/*.v).
+  const spfPath = compilationPaths.spfPath;
+  let spfStructure = null;
+  if (spfPath && await fse.pathExists(spfPath)) {
     try {
-      const proj = await fse.readJson(projectOrientedConfigPath);
-      if (Array.isArray(proj.synthesizableFiles)) {
-        for (const f of proj.synthesizableFiles) {
-          const p = typeof f === 'string' ? f : f?.path;
-          if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p);
-        }
-      }
-      const topLevelDir = compilationPaths.topLevelPath;
-      if (topLevelDir && await fse.pathExists(topLevelDir)) {
-        const topLevelFiles = await fse.readdir(topLevelDir);
-        for (const f of topLevelFiles) {
-          if (f.endsWith('.v') && !f.includes('_tb')) {
-            fileSet.add(path.join(topLevelDir, f));
-          }
-        }
-      }
+      const spf = await fse.readJson(spfPath);
+      spfStructure = spf?.structure ?? null;
     } catch (_e) { /* JSON parse fail tolerado */ }
   }
 
+  if (spfStructure && Array.isArray(spfStructure.synthesizableFiles)) {
+    for (const f of spfStructure.synthesizableFiles) {
+      const p = typeof f === 'string' ? f : f?.path;
+      if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p);
+    }
+  }
+  const topLevelDir = compilationPaths.topLevelPath;
+  if (topLevelDir && await fse.pathExists(topLevelDir)) {
+    const topLevelFiles = await fse.readdir(topLevelDir);
+    for (const f of topLevelFiles) {
+      if (f.endsWith('.v') && !f.includes('_tb')) {
+        fileSet.add(path.join(topLevelDir, f));
+      }
+    }
+  }
+
   // Fallback defensivo: varre <proj>/<proc>/Hardware/*.v para todos os
-  // processadores conhecidos (projectOriented + .spf). No happy-path
-  // esses .v ja estao em synthesizableFiles via auto-descoberta — o
-  // dedup faz isso ser no-op. Mas em projetos antigos onde
-  // synthesizableFiles pode estar vazio, esse scan garante que os
-  // modulos do processador entrem no yosys de qualquer jeito.
+  // processadores conhecidos do .spf. No happy-path esses .v ja estao
+  // em synthesizableFiles via auto-descoberta — o dedup faz isso ser
+  // no-op. Mas em projetos antigos onde synthesizableFiles pode estar
+  // vazio, esse scan garante que os modulos do processador entrem no
+  // yosys de qualquer jeito.
   const projectPath = compilationPaths.projectPath;
   const processorNames = new Set();
-  if (projectOrientedConfigPath && await fse.pathExists(projectOrientedConfigPath)) {
-    try {
-      const cfg = await fse.readJson(projectOrientedConfigPath);
-      const list = Array.isArray(cfg.processors) ? cfg.processors : [];
-      for (const p of list) {
-        const n = typeof p === 'string' ? p : p?.name;
-        if (n) processorNames.add(n);
-      }
-    } catch (_e) { /* JSON parse fail tolerado */ }
-  }
-  if (state.currentOpenProjectPath && await fse.pathExists(state.currentOpenProjectPath)) {
-    try {
-      const spf = await fse.readJson(state.currentOpenProjectPath);
-      const fromSpf = spf?.structure?.processors;
-      if (Array.isArray(fromSpf)) {
-        for (const p of fromSpf) {
-          const n = typeof p === 'string' ? p : p?.name;
-          if (n) processorNames.add(n);
-        }
-      }
-    } catch (_e) { /* idem */ }
+  if (spfStructure && Array.isArray(spfStructure.processors)) {
+    for (const p of spfStructure.processors) {
+      const n = typeof p === 'string' ? p : p?.name;
+      if (n) processorNames.add(n);
+    }
   }
   for (const procName of processorNames) {
     const hardwareDir = path.join(projectPath, procName, 'Hardware');
@@ -403,13 +392,13 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     const tempDir = compilationPaths.tempPath;
     await fse.ensureDir(tempDir);
 
-    // Top-level vem sempre de projectOriented.topLevelFile.
-    const projectConfigPath = compilationPaths.projectOrientedConfigPath;
-    if (!(await fse.pathExists(projectConfigPath))) {
-      throw new Error('projectOriented.json not found in project root');
+    // Top-level vem sempre de spf.structure.topLevelFile.
+    const spfPath = compilationPaths.spfPath;
+    if (!spfPath || !(await fse.pathExists(spfPath))) {
+      throw new Error('.spf not found');
     }
-    const configData = await fse.readJson(projectConfigPath);
-    const topLevelModule = path.basename(configData.topLevelFile, '.v');
+    const spfData = await fse.readJson(spfPath);
+    const topLevelModule = path.basename(spfData?.structure?.topLevelFile || '', '.v');
 
     const hierarchyJsonPath = await runYosysCompilationWithPaths(
       compilationPaths,
@@ -496,7 +485,7 @@ function register() {
         tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
         yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
         netlistsvgPath: path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
-        projectOrientedConfigPath: path.join(projectPath, 'projectOriented.json'),
+        spfPath: state.currentOpenProjectPath || '',
         topLevelPath: path.join(projectPath, 'TopLevel'),
       };
     } catch (error) {

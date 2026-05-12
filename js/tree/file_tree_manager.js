@@ -229,10 +229,9 @@ function renderFileTree(files, container, level = 0, processor = null) {
     }
 
     // Filtra arquivos que nao devem aparecer na tree:
-    //   - projectOriented.json — config canonica do projeto (gerenciada
-    //     pela UI, nao pelo usuario direto)
-    //   - processorConfig.json — config legado descontinuado; Aurora
-    //     nao le mais mas projetos antigos podem ter o arquivo
+    //   - projectOriented.json — config legado (consolidada no .spf);
+    //     projetos antigos podem ter o arquivo
+    //   - processorConfig.json — config legado descontinuado
     //   - fileOriented.json — outro config historico
     //   - .* (dotfiles)
     //   - .spf (arquivo de projeto raiz)
@@ -586,7 +585,7 @@ class FileTreeManager {
         window.electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
-            // Re-le projectOriented.json pra pegar processor creation/
+            // Re-le o .spf pra pegar processor creation/
             // deletion que reescreve o arquivo.
             window.verilogTreeManager?.refreshVerilogTree?.();
         });

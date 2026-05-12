@@ -4,7 +4,7 @@
  * Companion to the WaveStore: cada testbench tem sua propria lista
  * `gtkwFiles[]` com um entry marcado `isActive: true`. O picker mostra
  * a lista do testbench ATUAL (definido por `testbenchFile` em
- * projectOriented.json) e troca de lista automaticamente quando o
+ * structure do .spf) e troca de lista automaticamente quando o
  * testbench muda — listas isoladas, tb A nao ve .gtkw de tb B.
  *
  * Operacoes:
@@ -17,7 +17,7 @@
  */
 
 import { ProjectStore } from '../project/project_store.js';
-import { ProjectConfigStore } from '../project/project_config_store.js';
+import { SpfStore } from '../project/spf_store.js';
 import { WaveStore } from './wave_state_store.js';
 
 const NONE_VALUE = '';
@@ -64,11 +64,12 @@ class GtkwPickerManager {
     async refresh() {
         if (!this.select) return;
         const projectPath = ProjectStore.getProjectPath();
-        if (!projectPath) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (!projectPath || !spfPath) {
             this._renderEmpty('No project loaded');
             return;
         }
-        const config = await ProjectConfigStore.read(projectPath);
+        const config = await SpfStore.read(spfPath);
         const tbKey = tbKeyFromPath(config.testbenchFile);
         this._currentTbKey = tbKey;
         if (!tbKey) {

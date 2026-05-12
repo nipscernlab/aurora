@@ -55,7 +55,7 @@ Some shared resources have a designated writer. Other call sites must not write 
 | Monaco editor instances (creation) | `TabManager.addTab` IIFE ([tab_manager.js:565](js/tabs/tab_manager.js#L565)) | An auto-create fallback in `setActiveEditor` racing this path produced two stacked editor divs sharing a model. User saw artefacts and "can't type". Removed in `e2c82f8`. |
 | `window.currentProjectPath` / `window.currentSpfPath` | `ProjectStore.setProject` / `clearProject` | Multiple writers drift; the cache vs. live state mismatch caused the "file outside folder disappears on reopen" bug. Migrated in `e01e406`. |
 
-**`projectOriented.json` writes go through [ProjectConfigStore](js/project/project_config_store.js).** Os escritores hoje sao `VerilogModeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile) e `GtkwPickerManager` (toolbar — gtkwFiles). Todos chamam `ProjectConfigStore.update(projectPath, mutator)` que serializa read-mutate-write por path. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `ProjectConfigStore.DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um terceiro escritor, use `update()` — nao escreva o arquivo direto.**
+**`.spf` writes from the renderer go through [SpfStore](js/project/spf_store.js).** O escritor canonico do renderer e `VerilogModeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile). Chama `SpfStore.update(spfPath, mutator)` que serializa read-mutate-write por path e preserva `metadata`. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `SpfStore.STRUCTURE_DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um segundo escritor renderer-side, use `update()` — nao escreva o arquivo direto.** O main process tambem escreve o `.spf` em events de lifecycle (open/create-processor/delete-processor); race teorica com o renderer e aceitavel porque os dois sao acionados por interacao UI sequencial. Pre-2026-05 o estado de tree/picker vivia em `projectOriented.json` separado — consolidado no `.spf` pra ter uma fonte unica de config per-project.
 
 ---
 
@@ -87,7 +87,7 @@ The IIFE in `addTab` ([tab_manager.js:565](js/tabs/tab_manager.js#L565)):
 
 ## 5. Startup sequence
 
-Aurora roda em modo unico hoje (**Project**). Historicamente existiram tres modos — Processor (PRISM single-processor), Project (com ou sem processadores), e Verilog (gated por um checkbox "Compile & Simulate"). Verilog merged em Project em maio/2026; Processor foi removido nas fases 1–2.5 (commits `b66bd6d` em diante). O pipeline auto-decide hoje sim-completa vs verilog-only via `projectConfig.processors`.
+Aurora roda em modo unico hoje (**Project**). Historicamente existiram tres modos — Processor (PRISM single-processor), Project (com ou sem processadores), e Verilog (gated por um checkbox "Compile & Simulate"). Verilog merged em Project em maio/2026; Processor foi removido nas fases 1–2.5 (commits `b66bd6d` em diante). O pipeline auto-decide hoje sim-completa vs verilog-only via `window.availableProcessors` (semeado do `.spf`).
 
 Em app start:
 
@@ -240,7 +240,7 @@ The Wave button (Verilog-Only) goes through three steps with a single guiding ru
 - **VCD-vs-selection cross-check em `_waveResolveGtkwSaveFile`** ([compilation_module.js](js/compilation/compilation_module.js)) — depois do vvp produzir o VCD, Aurora compara cada item de `_validatedWaveSelection` contra os scope paths parseados do VCD. Sinais ausentes geram um aviso `Note: ... not in the generated VCD and were omitted from the .gtkw layout.` em `twave`. Cobre o gap "selection era valida contra sources mas o `$dumpvars` rodante dumpou menos sinais que o esperado". Last-line-of-defense antes do GTKWave abrir.
 - `instrumentTestbenchSource.reason` — the user-defined override. The compile-flow caller ([compilation_module.js](js/compilation/compilation_module.js)) reads this and zeroes the cached selection, which is what makes the .gtkw fall back to default top-scope when the user has hand-written `$dumpvars`.
 
-**Why the cache `_validatedWaveSelection`:** a validacao roda durante `iverilogCompile({buildVvp: true})`. A .gtkw e escrita depois, em `runGtkWave` apos vvp produzir o VCD. Os dois passos precisam da mesma selecao pruned-e-talvez-zerada, entao o passo de compile escreve em `this._validatedWaveSelection` pro passo de .gtkw ler. Sem o cache, ou voce re-roda (regex parse + projectOriented.json write) ou re-avisa o usuario sobre sinais ja pruned.
+**Why the cache `_validatedWaveSelection`:** a validacao roda durante `iverilogCompile({buildVvp: true})`. A .gtkw e escrita depois, em `runGtkWave` apos vvp produzir o VCD. Os dois passos precisam da mesma selecao pruned-e-talvez-zerada, entao o passo de compile escreve em `this._validatedWaveSelection` pro passo de .gtkw ler. Sem o cache, ou voce re-roda (regex parse + WaveStore write) ou re-avisa o usuario sobre sinais ja pruned.
 
 **What you can't change without thinking:**
 

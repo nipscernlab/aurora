@@ -48,10 +48,9 @@ async function waitForMainWindow(app, timeoutMs = 20_000) {
 
 /**
  * Build a minimal Verilog project on disk: counter.v + tb_counter.v + the
- * projectOriented.json and .spf that Aurora needs to recognize the folder
- * as a project. Paths inside the JSON have to be absolute (Aurora uses
- * them verbatim), so we generate the fixture at test time rather than
- * checking it in static.
+ * .spf that Aurora needs to recognize the folder as a project. Paths
+ * inside the .spf have to be absolute (Aurora uses them verbatim), so we
+ * generate the fixture at test time rather than checking it in static.
  */
 function writeFixtureProject(rootDir) {
   const counterPath = path.join(rootDir, 'counter.v');
@@ -88,20 +87,6 @@ function writeFixtureProject(rootDir) {
     `endmodule\n`
   );
 
-  const cfg = {
-    synthesizableFiles: [
-      { name: 'counter.v', path: counterPath, isTopLevel: true },
-    ],
-    testbenchFiles: [
-      { name: 'tb_counter.v', path: tbPath, isTopLevel: false },
-    ],
-    topLevelFile: counterPath,
-    testbenchFile: tbPath,
-    gtkwFiles: [],
-    processors: [],
-  };
-  fs.writeFileSync(path.join(rootDir, 'projectOriented.json'), JSON.stringify(cfg, null, 2));
-
   const spfPath = path.join(rootDir, 'counter.spf');
   fs.writeFileSync(spfPath, JSON.stringify({
     metadata: {
@@ -112,7 +97,19 @@ function writeFixtureProject(rootDir) {
       appVersion: '0.0.0-test',
       projectPath: rootDir,
     },
-    structure: { basePath: rootDir, processors: [], folders: [] },
+    structure: {
+      basePath: rootDir,
+      processors: [],
+      folders: [],
+      topLevelFile: counterPath,
+      testbenchFile: tbPath,
+      synthesizableFiles: [
+        { name: 'counter.v', path: counterPath, isTopLevel: true },
+      ],
+      testbenchFiles: [
+        { name: 'tb_counter.v', path: tbPath, isTopLevel: false },
+      ],
+    },
   }, null, 2));
 
   return { spfPath, counterPath, tbPath };

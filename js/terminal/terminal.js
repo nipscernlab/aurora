@@ -35,10 +35,6 @@ document.getElementById('cmmcomp')?.addEventListener('click', () => {
   switchTerminal('terminal-tcmm');
 });
 
-document.getElementById('asmcomp')?.addEventListener('click', () => {
-  switchTerminal('terminal-tasm');
-});
-
 document.getElementById('vericomp')?.addEventListener('click', () => {
   switchTerminal('terminal-tveri');
 });
@@ -63,10 +59,6 @@ document.querySelectorAll('.tab').forEach(tab => {
 // Event listeners for compilation buttons
 document.getElementById('cmmcomp').addEventListener('click', () => {
   switchTerminal('terminal-tcmm'); // Switch to the CMM terminal
-});
-
-document.getElementById('asmcomp').addEventListener('click', () => {
-  switchTerminal('terminal-tasm'); // Switch to the ASM terminal
 });
 
 document.getElementById('vericomp').addEventListener('click', () => {

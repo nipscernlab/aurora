@@ -122,8 +122,7 @@ class CommandPalette {
       { id: 'toggle-file-tree', label: 'Toggle File Tree', description: 'Minimize / expand the file tree', category: 'Project', action: () => clickIfPossible('#toggle-file-tree') },
       { id: 'alternate-tree-toggle', label: 'Toggle Hierarchical View', description: 'Switch hierarchical view', category: 'Project', action: () => clickIfPossible('alternate-tree-toggle') },
 
-      { id: 'cmmcomp', label: 'Compile C± (CMM)', description: 'Run C± compiler', category: 'Compilation', action: () => clickIfPossible('cmmcomp') },
-      { id: 'asmcomp', label: 'Compile ASM', description: 'Run ASM compilation', category: 'Compilation', action: () => clickIfPossible('asmcomp') },
+      { id: 'cmmcomp', label: 'Compile C± (CMM → ASM → Verilog)', description: 'Run C± compiler then asmcomp', category: 'Compilation', action: () => clickIfPossible('cmmcomp') },
       { id: 'vericomp', label: 'Compile Verilog', description: 'Run Verilog compilation', category: 'Compilation', action: () => clickIfPossible('vericomp') },
       { id: 'wavecomp', label: 'Open Waveform Viewer', description: 'Open waveform viewer', category: 'Compilation', action: () => clickIfPossible('wavecomp') },
       { id: 'waveConfigBtn', label: 'Wave Configuration', description: 'Pick signals to dump for the waveform viewer', category: 'Compilation', action: () => clickIfPossible('waveConfigBtn') },

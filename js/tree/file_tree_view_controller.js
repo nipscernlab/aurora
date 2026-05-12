@@ -189,7 +189,7 @@ if (document.readyState === 'loading') {
 // the freshest instance.
 
 fileTreeViewController.registerRenderer('verilog', () => {
-    window.projectTreeManager?.renderVerilogTree?.();
+    window.projectTreeManager?.renderTree?.();
 });
 
 fileTreeViewController.registerRenderer('standard', () => {

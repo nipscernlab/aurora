@@ -430,9 +430,23 @@
         </div>
     </div>
     <div class="status-zone status-zone-right">
-        <div class="status-item" id="processorNameID">
+        <!-- Top-level / testbench do projeto aberto. Populados por
+             status_bar.js a partir de structure.topLevelFile /
+             testbenchFile no .spf. Quando ambos estao vazios,
+             #designEmptyStatus aparece sozinho; caso contrario, os dois
+             items individuais sao mostrados (cada um com seu proprio
+             icone success/error). -->
+        <div class="status-item hidden" id="topLevelStatus">
             <i class="ph ph-x status-icon-error"></i>
-            <span>No Processor Configured</span>
+            <span>No top-level</span>
+        </div>
+        <div class="status-item hidden" id="testbenchStatus">
+            <i class="ph ph-x status-icon-error"></i>
+            <span>No testbench</span>
+        </div>
+        <div class="status-item" id="designEmptyStatus">
+            <i class="ph ph-x status-icon-error"></i>
+            <span>No top-level or testbench yet</span>
         </div>
         <div class="status-item" id="editorStatus">
             <i class="ph ph-text-align-left"></i>
@@ -947,6 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/project/import_file.js"></script>
 <script src="./js/utils/shortcut_manager.js"></script>
 <script src="./js/ui/status_updater.js"></script>
+<script src="./js/ui/status_bar.js"></script>
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>
 <script src="./js/utils/zoom.js"></script>

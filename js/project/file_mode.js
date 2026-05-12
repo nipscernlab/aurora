@@ -539,6 +539,11 @@ class ProjectTreeManager {
             // — refresh pra repopular sem precisar recarregar o projeto.
             window.gtkwPickerManager?.refresh?.();
 
+            // Status bar (zona direita) reflete topLevelFile/testbenchFile.
+            // Mesmo spfPath, conteudo mudou — ProjectStore.subscribe nao
+            // dispara aqui, precisa de chamada explicita.
+            window.statusBarManager?.refresh?.();
+
             console.log('Saved configuration with categories');
         } catch (error) {
             console.error('Error saving configuration:', error);

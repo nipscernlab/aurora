@@ -48,7 +48,7 @@ import { TerminalManager } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw, buildSignedSet } from '../wave/gtkw_proc_writer.js';
+import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -1823,11 +1823,12 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         }
 
         // Parseia o source verilog (synthesizableFiles + testbenchFiles)
-        // pra extrair declaracoes `signed`. emitTopLevelSection usa
-        // pra decidir Decimal vs Signed Decimal nos barramentos top.
-        // Best-effort: falha de I/O ou parse vira signedSet vazio
-        // (todo multi-bit fica DEC, GTKWave abre normalmente).
-        const signedSet = await this._buildSignedSetFromSources(scopes);
+        // pra extrair declaracoes (signed → format dos barramentos;
+        // instances → resolve scope.path → moduleType pra ter o
+        // procType correto = nome da pasta Temp/<procType>/ onde
+        // cmmcomp escreveu trad files). Best-effort: falha vira null
+        // (cai nas heuristicas baseadas em nome de scope).
+        const modules = await this._parseProjectSources();
 
         const result = buildAuroraGtkw({
             vcdPath: vcdFile,
@@ -1837,7 +1838,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             tempBaseDir,
             binDir,
             selectedSignals: selected.length > 0 ? selected : null,
-            signedSet,
+            modules,
         });
         if (!result.content) return null;
 
@@ -1859,15 +1860,16 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
 }
 
 /**
- * Le os arquivos verilog do projeto (synthesizableFiles +
- * testbenchFiles), parseia pra extrair declaracoes `signed`, e
- * devolve um Set<string> com os full-paths dos sinais signed —
- * formato esperado por `buildAuroraGtkw.signedSet`.
+ * Le e parseia os arquivos verilog do projeto (synthesizableFiles +
+ * testbenchFiles), devolvendo o `modules` map de
+ * `parseVerilogModules`. Usado por `buildAuroraGtkw` pra:
+ *   - extrair declaracoes `signed` (FMT_DEC vs FMT_SIGNED_DEC)
+ *   - resolver scope.path → moduleType (procType correto)
  *
- * Best-effort: erros de I/O ou parse viram Set vazio (todos os
- * multi-bit ficam Decimal sem perder o wave inteiro).
+ * Best-effort: erros de I/O ou parse viram `null`, e buildAuroraGtkw
+ * cai nas heuristicas baseadas em nome de scope.
  */
-async _buildSignedSetFromSources(scopes) {
+async _parseProjectSources() {
     try {
         const synthFiles = (this.projectConfig?.synthesizableFiles ?? [])
             .map((f) => f && f.path).filter(Boolean);
@@ -1875,7 +1877,7 @@ async _buildSignedSetFromSources(scopes) {
         const tbFiles = (this.projectConfig?.testbenchFiles ?? [])
             .map((f) => f && f.path).filter(Boolean);
         const paths = [...new Set([...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles])];
-        if (paths.length === 0) return new Set();
+        if (paths.length === 0) return null;
 
         const files = [];
         for (const p of paths) {
@@ -1884,15 +1886,15 @@ async _buildSignedSetFromSources(scopes) {
                 files.push({ path: p, content });
             } catch (_e) { /* arquivo sumiu — ignora */ }
         }
-        if (files.length === 0) return new Set();
+        if (files.length === 0) return null;
 
         const { modules } = parseVerilogModules(files);
-        return buildSignedSet(scopes, modules);
+        return modules;
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',
-            `Note: could not derive signed-signal map (${err.message}); top-level bus signals shown as unsigned decimal.`,
+            `Note: could not parse project sources (${err.message}); falling back to scope-name heuristics for processor detection.`,
             'tips');
-        return new Set();
+        return null;
     }
 }
 

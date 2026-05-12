@@ -155,23 +155,66 @@ describe('buildAuroraGtkw', () => {
     });
 
     it('usa FMT_SIGNED_DEC pra bus signed e FMT_DEC pra unsigned', () => {
+        const { modules } = parseVerilogModules([{
+            path: 'tb.v',
+            content: `
+                module tb;
+                    wire clk;
+                    reg [7:0] count;
+                    reg signed [7:0] delta;
+                endmodule
+            `,
+        }]);
         const scopes = [
             scope('tb', [
-                { name: 'clk' },                               // 1-bit → FMT_BIN (0x28)
-                { name: 'count', width: 8, range: '7:0' },     // bus unsigned → FMT_DEC (0x24)
-                { name: 'delta', width: 8, range: '7:0' },     // bus signed → FMT_SIGNED_DEC (0x420)
+                { name: 'clk' },                                // 1-bit → FMT_BIN
+                { name: 'count', width: 8, range: '7:0' },      // bus unsigned → FMT_DEC
+                { name: 'delta', width: 8, range: '7:0' },      // bus signed → FMT_SIGNED_DEC
             ]),
         ];
-        const signedSet = new Set(['tb.delta']);
         const { content } = buildAuroraGtkw({
-            vcdPath: 'a', gtkwPath: 'b', scopes, signedSet,
+            vcdPath: 'a', gtkwPath: 'b', scopes, modules,
         });
-        // clk vem antes, com FMT_BIN
         expect(content).toMatch(/@28\b[\s\S]*?tb\.clk/);
-        // count vem depois com FMT_DEC (0x24)
         expect(content).toMatch(/@24\b[\s\S]*?tb\.count\[7:0\]/);
-        // delta vem com FMT_SIGNED_DEC (0x420)
         expect(content).toMatch(/@420\b[\s\S]*?tb\.delta\[7:0\]/);
+    });
+
+    it('usa moduleType resolvido pelo source como procType (em vez do parent _inst)', () => {
+        // Wrapper "ProcDTWv4" instancia o core "ProcDTW". O VCD ve o
+        // scope no fim como DTWv4_inst. O procType esperado eh
+        // "ProcDTW" (nome do module type, bate com Temp/ProcDTW/).
+        const { modules } = parseVerilogModules([{
+            path: 'p.v',
+            content: `
+                module ProcDTW;
+                    reg [31:0] valr2;
+                    reg [19:0] linetabs;
+                endmodule
+
+                module ProcDTWv4;
+                    ProcDTW DTWv4_inst();
+                endmodule
+
+                module top_level;
+                    ProcDTWv4 ProcDTWv4_inst();
+                endmodule
+
+                module top_level_tb;
+                    top_level top_level_inst();
+                endmodule
+            `,
+        }]);
+        const scopes = [
+            scope('top_level_tb.top_level_inst.ProcDTWv4_inst.DTWv4_inst', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, modules,
+        });
+        expect(content).toContain('###### ProcDTW');
+        expect(content).not.toContain('###### ProcDTWv4');
     });
 });
 

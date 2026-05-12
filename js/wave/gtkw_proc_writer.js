@@ -112,32 +112,30 @@ const hex = (n) => n.toString(16);
  * @returns {Array<{ instancePath: string, instanceName: string, procType: string, corePath: string|null }>}
  */
 /**
- * Constroi um Set de full signal paths (scope.path + '.' + name) que
- * sao declarados `signed` no source. Usado em `emitTopLevelSection`
- * pra escolher entre FMT_DEC e FMT_SIGNED_DEC.
+ * Mapeia cada scope do VCD pro nome do module Verilog correspondente.
  *
- * Pra mapear scope path do VCD → moduleName, descemos a hierarquia
- * a partir do root (testbench top, cujo instanceName conventionalmente
- * coincide com o moduleName) lookando o `instances[]` de cada module
- * parseado.
+ * Algoritmo: desce a hierarquia a partir do root (testbench top, cujo
+ * instanceName conventionalmente coincide com o moduleName) lookando
+ * `instances[]` de cada module parseado pra resolver o tipo de cada
+ * sub-instance.
+ *
+ * Saida: Map<scope.path, moduleName | null>. null quando a resolucao
+ * falha (root nao bate, instance nao listada no parent, etc).
  *
  * @param {VcdScope[]} scopes
  * @param {Map<string, {signals, instances}>} modules  output do
  *   `parseVerilogModules` (signal_parser.js)
- * @returns {Set<string>}
+ * @returns {Map<string, string|null>}
  */
-export function buildSignedSet(scopes, modules) {
-    if (!modules || modules.size === 0 || !Array.isArray(scopes)) {
-        return new Set();
-    }
-
-    // Cache: scope.path → moduleName (ou null se nao resolve).
+export function resolveScopeModules(scopes, modules) {
     const cache = new Map();
+    if (!modules || modules.size === 0 || !Array.isArray(scopes)) {
+        return cache;
+    }
     const resolve = (scopePath) => {
         if (cache.has(scopePath)) return cache.get(scopePath);
         const parts = scopePath.split('.');
         if (parts.length === 1) {
-            // Root: convencao do testbench top — instanceName === moduleName.
             const root = parts[0];
             const m = modules.has(root) ? root : null;
             cache.set(scopePath, m);
@@ -154,10 +152,30 @@ export function buildSignedSet(scopes, modules) {
         cache.set(scopePath, result);
         return result;
     };
+    for (const scope of scopes) resolve(scope.path);
+    return cache;
+}
 
+/**
+ * Constroi um Set de full signal paths (scope.path + '.' + name) que
+ * sao declarados `signed` no source. Usado em `emitTopLevelSection`
+ * pra escolher entre FMT_DEC e FMT_SIGNED_DEC.
+ *
+ * @param {VcdScope[]} scopes
+ * @param {Map<string, {signals, instances}>} modules  output do
+ *   `parseVerilogModules` (signal_parser.js)
+ * @param {Map<string, string|null>} [scopeModules]  cache opcional
+ *   de `resolveScopeModules`. Quando passado, evita rebuild.
+ * @returns {Set<string>}
+ */
+export function buildSignedSet(scopes, modules, scopeModules) {
+    if (!modules || modules.size === 0 || !Array.isArray(scopes)) {
+        return new Set();
+    }
+    const map = scopeModules || resolveScopeModules(scopes, modules);
     const signedSet = new Set();
     for (const scope of scopes) {
-        const mod = resolve(scope.path);
+        const mod = map.get(scope.path);
         if (!mod) continue;
         const info = modules.get(mod);
         if (!info) continue;
@@ -171,7 +189,7 @@ export function buildSignedSet(scopes, modules) {
     return signedSet;
 }
 
-export function detectProcessors(scopes) {
+export function detectProcessors(scopes, scopeModules = null) {
     const found = [];
     const seenInst = new Set();
     for (const scope of scopes) {
@@ -185,25 +203,39 @@ export function detectProcessors(scopes) {
         const parts = scope.path.split('.');
         const instanceName = parts[parts.length - 1];
 
-        // (1) Pattern SAPHO antigo: <instPath>.p_<X>.core em qualquer
-        // sub-escopo. Quando bate, procType e corePath sao canonicos.
         let procType = null;
         let corePath = null;
-        for (const other of scopes) {
-            if (!other.path.startsWith(scope.path + '.')) continue;
-            const tail = other.path.slice(scope.path.length + 1);
-            const m = tail.match(/^p_([^.]+)\.core(?:\.|$)/);
-            if (m) {
-                procType = m[1];
-                corePath = `${scope.path}.p_${m[1]}.core`;
-                break;
+
+        // (1) Preferido: moduleType resolvido pelo source. Bate com
+        // Temp/<procType>/ onde cmmcomp escreve os trad files.
+        // Ex: instance `DTWv4_inst` no source eh do tipo `ProcDTW` —
+        // esse e o nome certo (e o que o wrapper `ProcDTWv4` cobre).
+        if (scopeModules) {
+            const mod = scopeModules.get(scope.path);
+            if (mod) {
+                procType = mod;
+                corePath = scope.path;
             }
         }
 
-        // (2) Pattern atual SAPHO: scope com valr2/linetabs ja e o
-        // core. O parent (wrapper) costuma ter suffix `_inst`. Ex:
-        //   top_level_tb.top_level_inst.ProcDTWv4_inst.DTWv4_inst
-        //                                └── parent "ProcDTWv4_inst" -> "ProcDTWv4"
+        // (2) Pattern SAPHO antigo: <instPath>.p_<X>.core em qualquer
+        // sub-escopo. Quando bate, procType e corePath sao canonicos.
+        if (!procType) {
+            for (const other of scopes) {
+                if (!other.path.startsWith(scope.path + '.')) continue;
+                const tail = other.path.slice(scope.path.length + 1);
+                const m = tail.match(/^p_([^.]+)\.core(?:\.|$)/);
+                if (m) {
+                    procType = m[1];
+                    corePath = `${scope.path}.p_${m[1]}.core`;
+                    break;
+                }
+            }
+        }
+
+        // (3) Heuristica parent _inst (sem source). NAO bate quando o
+        // wrapper tem nome diferente do core (e.g. wrapper ProcDTWv4
+        // instanciando core ProcDTW).
         if (!procType && parts.length >= 2) {
             const parentName = parts[parts.length - 2];
             if (/_inst$/i.test(parentName)) {
@@ -212,9 +244,7 @@ export function detectProcessors(scopes) {
             }
         }
 
-        // (3) Fallback historico: testbench top chamado `<procType>_tb`.
-        // Ainda comum em projetos com um so processador onde o tb leva
-        // o nome do proc.
+        // (4) Fallback historico: testbench top chamado `<procType>_tb`.
         if (!procType) {
             const tbScope = parts[0];
             if (/_tb$/i.test(tbScope)) {
@@ -222,7 +252,7 @@ export function detectProcessors(scopes) {
             }
         }
 
-        // (4) Last resort: o proprio instanceName, com strip `_inst`.
+        // (5) Last resort: o proprio instanceName, com strip `_inst`.
         if (!procType) {
             procType = instanceName.replace(/_inst$/i, '') || instanceName;
         }
@@ -687,10 +717,13 @@ function addProcessorAliases(map, scopes, proc) {
  * @param {string[]} [input.selectedSignals]  filter — quando setado,
  *      so emite sinais cujo full-path bate. Mantem decoracao
  *      (cor/alias) onde aplicavel.
- * @param {Set<string>} [input.signedSet]  full-paths de sinais
- *      declarados `signed` no source. Usado na secao top-level pra
- *      escolher entre FMT_DEC e FMT_SIGNED_DEC. Sem ele, todo
- *      multi-bit vira DEC.
+ * @param {Map<string, {signals, instances}>} [input.modules]  output
+ *      de `parseVerilogModules` (signal_parser). Quando passado, a
+ *      gente resolve scope→moduleType pra descobrir o procType
+ *      correto (igual ao nome da pasta Temp/<procType>/ que cmmcomp
+ *      escreveu, onde estao os trad files) e ja constroi o
+ *      signedSet a partir das declaracoes. Sem isso, cai nas
+ *      heuristicas baseadas em nomes de scope.
  * @returns {{ content: string|null, processorCount: number }}
  *      content: null so quando scopes esta vazio (VCD invalido).
  *      Caso contrario sempre retorna o layout, mesmo sem processadores
@@ -704,7 +737,7 @@ export function buildAuroraGtkw({
     tempBaseDir = null,
     binDir = null,
     selectedSignals = null,
-    signedSet = null,
+    modules = null,
 }) {
     // Filter opcional: lista de full-paths (strings). Quando setado,
     // o layout completo e percorrido — comentarios, grupos, cores,
@@ -717,7 +750,14 @@ export function buildAuroraGtkw({
     if (!Array.isArray(scopes) || scopes.length === 0) {
         return { content: null, processorCount: 0 };
     }
-    const procs = detectProcessors(scopes);
+    // Resolve scope → moduleType uma vez, reusa em detectProcessors
+    // (procType correto = nome da pasta Temp/<procType>/) e em
+    // buildSignedSet (top-level Decimal vs Signed Decimal).
+    const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
+    const procs = detectProcessors(scopes, scopeModules);
+    const signedSet = modules
+        ? buildSignedSet(scopes, modules, scopeModules)
+        : null;
 
     // Header: GTKWave salva paths com BACKSLASH no Windows. Reusamos
     // as paths tal qual vieram (sem normalizar pra forward slash) pra

@@ -810,11 +810,12 @@ export function buildAuroraGtkw({
     procs.forEach((proc) => {
         const paths = resolveProcPaths(proc);
 
-        // Banner do processador: usa o procType (nome do .v / pasta
-        // no projeto) em vez do instanceName, porque o instanceName
-        // pode ser generico tipo "proc" — pouco informativo. procType
-        // identifica unicamente o processador no projeto.
-        emitComment(lines, `###### ${proc.procType}`);
+        // Banner do processador: usa o instanceName pra distinguir
+        // instancias diferentes do mesmo procType (designs multi-proc
+        // costumam ter `proc1`, `proc2`, ou nomes proprios tipo
+        // `DTWv4_inst`, `ZeroCross_inst`). procType continua sendo
+        // usado pra resolver Temp/<procType>/trad_*.txt acima.
+        emitComment(lines, `###### ${proc.instanceName}`);
 
         // clk/rst/itr do processador. Cada proc tem seu proprio par
         // logo abaixo do banner. Se o testbench compartilha esses

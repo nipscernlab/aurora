@@ -180,10 +180,11 @@ describe('buildAuroraGtkw', () => {
         expect(content).toMatch(/@420\b[\s\S]*?tb\.delta\[7:0\]/);
     });
 
-    it('usa moduleType resolvido pelo source como procType (em vez do parent _inst)', () => {
+    it('banner usa o instanceName (nao o procType) pra distinguir instancias', () => {
         // Wrapper "ProcDTWv4" instancia o core "ProcDTW". O VCD ve o
-        // scope no fim como DTWv4_inst. O procType esperado eh
-        // "ProcDTW" (nome do module type, bate com Temp/ProcDTW/).
+        // scope no fim como DTWv4_inst. O banner deve usar o
+        // instanceName (DTWv4_inst) — porque o mesmo procType pode
+        // ter varias instancias em designs multi-proc.
         const { modules } = parseVerilogModules([{
             path: 'p.v',
             content: `
@@ -213,8 +214,44 @@ describe('buildAuroraGtkw', () => {
         const { content } = buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes, modules,
         });
-        expect(content).toContain('###### ProcDTW');
+        expect(content).toContain('###### DTWv4_inst');
+        expect(content).not.toContain('###### ProcDTW\n');
         expect(content).not.toContain('###### ProcDTWv4');
+    });
+});
+
+describe('detectProcessors with scopeModules', () => {
+    it('procType vem do moduleType resolvido (nome que bate com Temp/<proc>/)', async () => {
+        const { resolveScopeModules } = await import('../js/wave/gtkw_proc_writer.js');
+        const { modules } = parseVerilogModules([{
+            path: 'p.v',
+            content: `
+                module ProcDTW;
+                    reg [31:0] valr2;
+                    reg [19:0] linetabs;
+                endmodule
+
+                module ProcDTWv4;
+                    ProcDTW DTWv4_inst();
+                endmodule
+
+                module tb;
+                    ProcDTWv4 ProcDTWv4_inst();
+                endmodule
+            `,
+        }]);
+        const scopes = [
+            scope('tb.ProcDTWv4_inst.DTWv4_inst', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+        ];
+        const scopeModules = resolveScopeModules(scopes, modules);
+        const procs = detectProcessors(scopes, scopeModules);
+        expect(procs).toHaveLength(1);
+        // procType = nome do module Verilog (= pasta Temp/ProcDTW/)
+        expect(procs[0].procType).toBe('ProcDTW');
+        // instanceName = nome da instancia no VCD
+        expect(procs[0].instanceName).toBe('DTWv4_inst');
     });
 });
 

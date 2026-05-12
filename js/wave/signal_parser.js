@@ -168,22 +168,89 @@ function extractSignals(body) {
 }
 
 /**
+ * Remove diretivas de pre-processador (`\`ifdef X`, `\`else`,
+ * `\`endif`, `\`define`, etc) substituindo por whitespace. Sem isso,
+ * a diretiva fica entre o typeName de uma instance parametrizada e
+ * o instanceName subsequente, fazendo o regex de extractInstances
+ * pular a instance.
+ *
+ * Estrategia conservadora: nao avalia condicionais — apenas remove
+ * as diretivas e mantem TODOS os ramos. Vira "both branches active"
+ * no source virtual, e dedup-amos instances depois por nome.
+ */
+function stripDirectives(body) {
+    return body.replace(/`(ifdef|ifndef|elsif|else|endif|define|undef|include|timescale|resetall|celldefine|endcelldefine|default_nettype|line|nounconnected_drive|unconnected_drive|protect|endprotect)\b[^\n]*/g, ' ');
+}
+
+/**
+ * Substitui blocos `#(...)` por `#()` no source (parens balanceados,
+ * string-literal aware). Necessario porque a parameter list de
+ * instanciacoes parametrizadas costuma ter parens aninhados (e.g.
+ * `.IFILE("...")`, `[$clog2(N)-1:0]`). Regex non-greedy `\(.*?\)`
+ * paraa no primeiro `)`, e o backtracking pode acabar emparelhando
+ * typeName de uma instance com instanceName de OUTRA instance varias
+ * linhas abaixo. Bug observado: ProcDTW.v com `processor#(.NUBITS(32),
+ * ..., .IFILE("..."))` faz o regex casar `processor` + `dec_in` (que
+ * eh instance do addr_dec, nao de processor).
+ *
+ * Stripping #(...) antes do regex elimina o ambiguity — fica
+ * `processor#() p_ProcDTW(...)`, regex captura sem confusao.
+ */
+function stripParamLists(body) {
+    let result = '';
+    let i = 0;
+    while (i < body.length) {
+        if (body[i] === '#' && body[i + 1] === '(') {
+            result += '#()';
+            i += 2;
+            let depth = 1;
+            while (i < body.length && depth > 0) {
+                const c = body[i];
+                if (c === '(') depth++;
+                else if (c === ')') depth--;
+                else if (c === '"') {
+                    // String literal — pula ate fechar (com escape)
+                    i++;
+                    while (i < body.length && body[i] !== '"') {
+                        if (body[i] === '\\' && i + 1 < body.length) i++;
+                        i++;
+                    }
+                }
+                i++;
+            }
+            // i ja avancou pra alem do `)` final do #(...).
+        } else {
+            result += body[i];
+            i++;
+        }
+    }
+    return result;
+}
+
+/**
  * Find module instantiations in the body: `<typeName> [#(...)] <instName> ( ... );`.
  * The typeName must match a known module from the first pass, otherwise
  * we'd flag every function call and behavioural construct as an instance.
  */
 function extractInstances(body, knownModuleNames) {
-    const instances = [];
-    const re = /\b([A-Za-z_][\w$]*)\s*(?:#\s*\([\s\S]*?\)\s*)?([A-Za-z_][\w$]*)\s*\(/g;
+    const seen = new Map();   // instanceName → moduleType, pra dedup
+    // Strip ordem importa: diretivas primeiro (substitui por whitespace),
+    // params depois (balanceada). Apos isso o regex non-greedy `#\s*\(\)`
+    // casa apenas com parens vazios e nao sofre backtracking.
+    const stripped = stripParamLists(stripDirectives(body));
+    const re = /\b([A-Za-z_][\w$]*)\s*(?:#\s*\(\)\s*)?([A-Za-z_][\w$]*)\s*\(/g;
     let m;
-    while ((m = re.exec(body)) !== null) {
+    while ((m = re.exec(stripped)) !== null) {
         const [, typeName, instName] = m;
         if (!knownModuleNames.has(typeName)) continue;
         if (RESERVED_KEYWORDS.has(typeName)) continue;
         if (RESERVED_KEYWORDS.has(instName)) continue;
-        instances.push({ instanceName: instName, moduleType: typeName });
+        // Dedup: blocos `ifdef/`else duplicados podem gerar a mesma
+        // instance duas vezes apos stripDirectives. Manter o primeiro
+        // match e o suficiente — a hierarquia logica e a mesma.
+        if (!seen.has(instName)) seen.set(instName, typeName);
     }
-    return instances;
+    return [...seen.entries()].map(([instanceName, moduleType]) => ({ instanceName, moduleType }));
 }
 
 /**

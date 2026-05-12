@@ -212,6 +212,45 @@ describe('buildHierarchyTree', () => {
         expect(tree.children).toEqual([]);
     });
 
+    it('extractInstances lida com #(...) com parens aninhados + `ifdef no meio', () => {
+        // Bug observado em ProcDTW.v: regex non-greedy `#\(.*?\)`
+        // emparelhava `processor` (instancia parametrizada) com
+        // `dec_in` (instancia diferente abaixo), saltando p_ProcDTW
+        // que estava entre `ifdef/`endif. stripParamLists +
+        // stripDirectives + dedup corrigem.
+        const files = [{
+            path: 'simple.v',
+            content: `
+                module addr_dec (input a, output b);
+                endmodule
+
+                module processor (input clk);
+                endmodule
+
+                module ProcDTW (input clk);
+                    processor #(.WIDTH(32), .FILE("path/with(paren).txt"))
+                    \`ifdef SIM
+                    p_inst (clk);
+                    \`else
+                    p_inst (clk);
+                    \`endif
+
+                    addr_dec #(3) dec_in (clk, clk);
+                    addr_dec #(3) dec_out(clk, clk);
+                endmodule
+            `,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const procDtwInstances = modules.get('ProcDTW').instances;
+        const names = procDtwInstances.map((i) => i.instanceName + '(' + i.moduleType + ')').sort();
+        // 3 instancias com tipos corretos, sem confusao entre elas
+        expect(names).toEqual([
+            'dec_in(addr_dec)',
+            'dec_out(addr_dec)',
+            'p_inst(processor)',
+        ]);
+    });
+
     it('captura tipos non-synth: real (C± float), integer, time', () => {
         // O .v gerado pelo asmcomp declara C± float como `real foo = 0.0;`.
         // Antes, signal_parser nao reconhecia `real` como kind, entao

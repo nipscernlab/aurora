@@ -180,12 +180,12 @@
 
       <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
       <div class="window-controls" data-no-tooltip>
-        <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-no-tooltip>
+        <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-i18n-aria-label="windowControls.minimize" data-no-tooltip>
             <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
                 <path d="M2 6 H10" />
             </svg>
         </button>
-        <button class="window-ctrl ctrl-max" id="win-max" aria-label="Maximize" data-no-tooltip>
+        <button class="window-ctrl ctrl-max" id="win-max" aria-label="Maximize" data-i18n-aria-label="windowControls.maximize" data-no-tooltip>
             <svg class="ctrl-icon-max" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
                 <rect x="2.5" y="2.5" width="7" height="7" rx="0.5" />
             </svg>
@@ -194,7 +194,7 @@
                 <path d="M5 4.5 V3 H10 V8 H8.5" />
             </svg>
         </button>
-        <button class="window-ctrl ctrl-close" id="win-close" aria-label="Close" data-no-tooltip>
+        <button class="window-ctrl ctrl-close" id="win-close" aria-label="Close" data-i18n-aria-label="windowControls.close" data-no-tooltip>
             <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
                 <path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" />
             </svg>
@@ -255,12 +255,12 @@
         </div>
 
         <div class="overlay-title">
-            <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Toggle hierarchy view" disabled>
+            <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Toggle hierarchy view" data-i18n-tooltip="toolbar.treeHierarchy.tooltip" disabled>
                 <i class="ph ph-tree-structure"></i>
                 <span class="toggle-text">Hierarchical</span>
             </button>
 
-            <span id="new-verilog-file" class="tree-action tree-action-new" data-tooltip="New Verilog file">
+            <span id="new-verilog-file" class="tree-action tree-action-new" data-tooltip="New Verilog file" data-i18n-tooltip="toolbar.newVerilog.tooltip">
                 <i class="ph ph-file-plus"></i>
             </span>
             <span id="refresh-button" class="tree-action" data-tooltip="Refresh file tree">
@@ -278,7 +278,7 @@
             <span id="toggle-file-tree" class="tree-action" data-tooltip="Collapse all">
                 <i class="ph ph-rows"></i>
             </span>
-            <span id="backup-project" class="tree-action" data-tooltip="Backup project">
+            <span id="backup-project" class="tree-action" data-tooltip="Backup project" data-i18n-tooltip="toolbar.backupProject.tooltip">
                 <i class="ph ph-floppy-disk"></i>
             </span>
         </div>
@@ -376,7 +376,7 @@
                 </div>
 
                 <div class="terminal-tabs-list">
-                  <button class="tab active" data-terminal="tcmm" data-tooltip="C± terminal">
+                  <button class="tab active" data-terminal="tcmm" data-tooltip="C± terminal" data-i18n-tooltip="toolbar.termTab.cmm">
                       <span class="glyph glyph-cpm" aria-hidden="true">
                         <svg viewBox="0 0 24 16">
                           <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
@@ -386,7 +386,7 @@
                       </span>
                       TCMM
                   </button>
-                  <button class="tab" data-terminal="tasm" data-tooltip="ASM terminal">
+                  <button class="tab" data-terminal="tasm" data-tooltip="ASM terminal" data-i18n-tooltip="toolbar.termTab.asm">
                       <span class="glyph glyph-asm" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
@@ -396,7 +396,7 @@
                       </span>
                       TASM
                   </button>
-                  <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal">
+                  <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal" data-i18n-tooltip="toolbar.termTab.veri">
                       <span class="glyph glyph-veri" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <path d="M13.5 2.5 L8 8 L4 12 L2 14"/>
@@ -406,7 +406,7 @@
                       </span>
                       TVERI
                   </button>
-                  <button class="tab" data-terminal="twave" data-tooltip="Wave terminal">
+                  <button class="tab" data-terminal="twave" data-tooltip="Wave terminal" data-i18n-tooltip="toolbar.termTab.wave">
                       <span class="glyph glyph-wave" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>

@@ -399,15 +399,15 @@
           </svg>
         </div>
         <div class="header-content">
-          <h2>Updating Application</h2>
-          <p>Please wait while we download the latest version</p>
+          <h2 id="t-title">Updating Application</h2>
+          <p id="t-subtitle">Please wait while we download the latest version</p>
         </div>
       </div>
 
       <div id="downloadingState">
         <div class="progress-section">
           <div class="progress-header">
-            <span class="progress-label">Download Progress</span>
+            <span class="progress-label" id="t-progress">Download Progress</span>
             <span class="progress-percentage" id="progressPercentage">0%</span>
           </div>
           <div class="progress-container">
@@ -417,11 +417,11 @@
 
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-label">Downloaded</div>
+            <div class="stat-label" id="t-downloaded">Downloaded</div>
             <div class="stat-value" id="transferredInfo">0 MB / 0 MB</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Speed</div>
+            <div class="stat-label" id="t-speed">Speed</div>
             <div class="stat-value">
               <span class="speed-indicator"></span>
               <span id="speedInfo">0 MB/s</span>
@@ -430,7 +430,7 @@
         </div>
 
         <div class="eta-section">
-          <div class="eta-label">Estimated Time Remaining</div>
+          <div class="eta-label" id="t-eta">Estimated Time Remaining</div>
           <div class="eta-value" id="etaInfo">Calculating...</div>
         </div>
       </div>
@@ -441,11 +441,62 @@
             <polyline points="20,6 9,17 4,12"/>
           </svg>
         </div>
-        <h3>Update Downloaded Successfully!</h3>
-        <p>The application will restart to apply the update</p>
+        <h3 id="t-done">Update Downloaded Successfully!</h3>
+        <p id="t-restartHint">The application will restart to apply the update</p>
       </div>
     </div>
   </div>
+  <script>
+    // Locale-aware copy (independent window — same pattern as splash.html
+    // and update-notification.html: tiny inline string table, reads
+    // `aurora-locale` from localStorage directly).
+    (function () {
+      const STRINGS = {
+        en: {
+          title:       'Updating Application',
+          subtitle:    'Please wait while we download the latest version',
+          progress:    'Download Progress',
+          downloaded:  'Downloaded',
+          speed:       'Speed',
+          eta:         'Estimated Time Remaining',
+          calculating: 'Calculating...',
+          done:        'Update Downloaded Successfully!',
+          restartHint: 'The application will restart to apply the update',
+        },
+        pt: {
+          title:       'Atualizando Aplicação',
+          subtitle:    'Por favor aguarde enquanto baixamos a última versão',
+          progress:    'Progresso do Download',
+          downloaded:  'Baixado',
+          speed:       'Velocidade',
+          eta:         'Tempo Estimado Restante',
+          calculating: 'Calculando...',
+          done:        'Atualização Baixada com Sucesso!',
+          restartHint: 'A aplicação será reiniciada para aplicar a atualização',
+        },
+      };
+      const locale = (() => {
+        try {
+          const v = localStorage.getItem('aurora-locale');
+          if (v === 'en' || v === 'pt') return v;
+          const legacy = localStorage.getItem('aurora-yanc-lang');
+          if (legacy === 'en' || legacy === 'pt') return legacy;
+        } catch (_) {}
+        return 'pt';
+      })();
+      const T = STRINGS[locale] || STRINGS.pt;
+      document.title = T.title;
+      document.getElementById('t-title').textContent       = T.title;
+      document.getElementById('t-subtitle').textContent    = T.subtitle;
+      document.getElementById('t-progress').textContent    = T.progress;
+      document.getElementById('t-downloaded').textContent  = T.downloaded;
+      document.getElementById('t-speed').textContent       = T.speed;
+      document.getElementById('t-eta').textContent         = T.eta;
+      document.getElementById('etaInfo').textContent       = T.calculating;
+      document.getElementById('t-done').textContent        = T.done;
+      document.getElementById('t-restartHint').textContent = T.restartHint;
+    })();
+  </script>
 
   <script>
     class UpdateProgressManager {

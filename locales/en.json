@@ -19,7 +19,21 @@
         "fullBuild":   { "tooltip": "Full build", "label": "Full Build" },
         "settings":    { "tooltip": "Aurora settings" },
         "splitEditor": { "tooltipDisabled": "Open a file first to enable split" },
-        "ai":          { "tooltip": "AI assistant" }
+        "ai":            { "tooltip": "AI assistant" },
+        "treeHierarchy": { "tooltip": "Toggle hierarchy view" },
+        "newVerilog":    { "tooltip": "New Verilog file" },
+        "backupProject": { "tooltip": "Backup project" },
+        "termTab": {
+            "cmm":  "C± terminal",
+            "asm":  "ASM terminal",
+            "veri": "Verilog terminal",
+            "wave": "Wave terminal"
+        }
+    },
+    "windowControls": {
+        "minimize": "Minimize",
+        "maximize": "Maximize",
+        "close":    "Close"
     },
     "modal": {
         "waveConfig": {

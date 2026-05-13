@@ -19,7 +19,21 @@
         "fullBuild":   { "tooltip": "Build completo", "label": "Build Completo" },
         "settings":    { "tooltip": "Configurações do Aurora" },
         "splitEditor": { "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão" },
-        "ai":          { "tooltip": "Assistente IA" }
+        "ai":            { "tooltip": "Assistente IA" },
+        "treeHierarchy": { "tooltip": "Alternar visão hierárquica" },
+        "newVerilog":    { "tooltip": "Novo arquivo Verilog" },
+        "backupProject": { "tooltip": "Backup do projeto" },
+        "termTab": {
+            "cmm":  "Terminal C±",
+            "asm":  "Terminal ASM",
+            "veri": "Terminal Verilog",
+            "wave": "Terminal Wave"
+        }
+    },
+    "windowControls": {
+        "minimize": "Minimizar",
+        "maximize": "Maximizar",
+        "close":    "Fechar"
     },
     "modal": {
         "waveConfig": {

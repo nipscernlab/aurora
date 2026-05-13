@@ -759,7 +759,7 @@
         <div class="header-left">
             <h1 class="logo">
                <img src="../assets/icons/aurora_prism.svg" style="width: 65px; height: inherit;">
-                PRISM RTL Viewer
+                <span id="t-title">PRISM RTL Viewer</span>
             </h1>
             <div class="module-info">
                 <div class="module-name" id="currentModule">Loading...</div>
@@ -768,13 +768,13 @@
         </div>
         <div class="header-controls">
             <button class="btn btn-back" id="backBtn" disabled>
-                <i class="fa-solid fa-arrow-left"></i> Back
+                <i class="fa-solid fa-arrow-left"></i> <span id="t-back">Back</span>
             </button>
             <button class="btn btn-secondary" id="fitBtn">
-               <i class="fa-solid fa-compress"></i> Fit Screen
+               <i class="fa-solid fa-compress"></i> <span id="t-fit">Fit Screen</span>
             </button>
             <button class="btn btn-primary" id="compileBtn">
-                <i class="fa-solid fa-arrow-rotate-right"></i> Recompile
+                <i class="fa-solid fa-arrow-rotate-right"></i> <span id="t-recompile">Recompile</span>
             </button>
         </div>
     </div>
@@ -791,7 +791,7 @@
             
             <div class="status-overlay" id="statusOverlay">
                 <div class="loading-spinner"></div>
-                <div class="status-text">Compiling RTL Design...</div>
+                <div class="status-text" id="t-compiling">Compiling RTL Design...</div>
             </div>
 
             <div class="zoom-controls">
@@ -803,6 +803,56 @@
     </div>
 
     <div class="tooltip" id="tooltip"></div>
+    <script>
+      // Locale-aware copy (independent window — no access to the main
+      // i18n layer). Same pattern as splash.html / update-*.html.
+      window.__prismI18n = (function () {
+        const STRINGS = {
+          en: {
+            title:       'PRISM RTL Viewer',
+            loading:     'Loading...',
+            preparing:   'Preparing compilation...',
+            compiling:   'Compiling RTL Design...',
+            back:        'Back',
+            fit:         'Fit Screen',
+            recompile:   'Recompile',
+            fitToScreen: 'Fit to Screen',
+            resetZoom:   'Reset Zoom',
+          },
+          pt: {
+            title:       'Visualizador RTL PRISM',
+            loading:     'Carregando...',
+            preparing:   'Preparando compilação...',
+            compiling:   'Compilando Design RTL...',
+            back:        'Voltar',
+            fit:         'Ajustar Tela',
+            recompile:   'Recompilar',
+            fitToScreen: 'Ajustar à Tela',
+            resetZoom:   'Resetar Zoom',
+          },
+        };
+        const locale = (() => {
+          try {
+            const v = localStorage.getItem('aurora-locale');
+            if (v === 'en' || v === 'pt') return v;
+            const legacy = localStorage.getItem('aurora-yanc-lang');
+            if (legacy === 'en' || legacy === 'pt') return legacy;
+          } catch (_) {}
+          return 'pt';
+        })();
+        const T = STRINGS[locale] || STRINGS.pt;
+        document.title = T.title;
+        const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+        set('t-title',     T.title);
+        set('t-back',      T.back);
+        set('t-fit',       T.fit);
+        set('t-recompile', T.recompile);
+        set('t-compiling', T.compiling);
+        set('currentModule', T.loading);
+        set('currentPath',   T.preparing);
+        return T; // exposed so the context-menu builder below can read it
+      })();
+    </script>
     <script>
         console.log('PRISM HTML script loading...');
 console.log('window.electronAPI:', window.electronAPI);
@@ -1616,18 +1666,19 @@ clearWireHighlights() {
                 contextMenu = document.createElement('div');
                 contextMenu.id = 'contextMenu';
                 contextMenu.className = 'context-menu';
+                const _i18n = window.__prismI18n || {};
                 contextMenu.innerHTML = `
                     <div class="context-item" onclick="document.getElementById('fitBtn').click()">
-                        <span>Fit to Screen</span>
+                        <span>${_i18n.fitToScreen || 'Fit to Screen'}</span>
                         <span class="shortcut">Ctrl+F</span>
                     </div>
                     <div class="context-item" onclick="document.getElementById('resetZoomBtn').click()">
-                        <span>Reset Zoom</span>
+                        <span>${_i18n.resetZoom || 'Reset Zoom'}</span>
                         <span class="shortcut">Ctrl+0</span>
                     </div>
                     <div class="context-separator"></div>
                     <div class="context-item" onclick="document.getElementById('compileBtn').click()">
-                        <span>Recompile</span>
+                        <span>${_i18n.recompile || 'Recompile'}</span>
                         <span class="shortcut">Ctrl+R</span>
                     </div>
                 `;

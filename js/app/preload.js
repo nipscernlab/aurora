@@ -107,11 +107,6 @@ const compilationOperations = {
   execCommand: (cmd, options = {}) => ipcRenderer.invoke('exec-command', cmd, options),
   execVvpOptimized: (cmd, workingDir, options = {}) =>
     ipcRenderer.invoke('exec-vvp-optimized', cmd, workingDir, options),
-  // Pass-1 of the two-pass dump strategy: runs vvp just long enough to
-  // flush the VCD header (scopes/signals), then kills the process.
-  // `vcdPath` is polled for "$enddefinitions" as the kill trigger.
-  execVvpHeaderOnly: (cmd, workingDir, vcdPath) =>
-    ipcRenderer.invoke('exec-vvp-header-only', cmd, workingDir, vcdPath),
 
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),

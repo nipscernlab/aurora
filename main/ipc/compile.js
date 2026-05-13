@@ -13,7 +13,6 @@
 
 const { ipcMain } = require('electron');
 const { exec, execFile, spawn } = require('child_process');
-const fs = require('fs');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -141,69 +140,6 @@ function register() {
         state.vvpProcessPid = null;
         reject({ code: -1, stdout: '', stderr: err.message || 'VVP process error', error: err.message });
       });
-    });
-  });
-
-  /**
-   * Run vvp just long enough to flush the VCD header (scopes + signals
-   * + $enddefinitions), then kill it. Used by the wave pipeline's
-   * two-pass strategy: pass 1 captures a parseable VCD header in plain
-   * text, pass 2 generates the full FST dump. The header is written by
-   * $dumpvars at time 0, so killing the process right after the marker
-   * appears is enough — simulation never advances.
-   *
-   * Polls the .vcd file at `vcdPath` every 50 ms looking for the
-   * "$enddefinitions" marker. Once seen, kills the process tree. Falls
-   * back to a 5 s hard timeout in case the testbench produces no
-   * $dumpvars (which would be unusual; the renderer would have already
-   * fallen back to the default flow before reaching wave).
-   */
-  ipcMain.handle('exec-vvp-header-only', (_event, command, workingDir, vcdPath) => {
-    return new Promise((resolve) => {
-      const child = exec(command, {
-        cwd: workingDir,
-        windowsHide: true,
-        shell: true,
-        maxBuffer: 1024 * 1024 * 5,
-      });
-
-      let resolved = false;
-      const finish = (reason) => {
-        if (resolved) return;
-        resolved = true;
-        clearInterval(pollHandle);
-        clearTimeout(timeoutHandle);
-        try { child.kill('SIGTERM'); } catch (_) { /* already dead */ }
-        // On Windows, child processes started via shell:true don't
-        // always die from a single SIGTERM — taskkill /T cleans the
-        // tree. Fire-and-forget; the kill is best-effort.
-        if (child.pid) {
-          try { execFile('taskkill', ['/F', '/T', '/PID', String(child.pid)], () => {}); } catch (_) { /* */ }
-        }
-        resolve({ reason });
-      };
-
-      // Hard ceiling — never let pass 1 outlive a few seconds.
-      const timeoutHandle = setTimeout(() => finish('timeout'), 5000);
-
-      const pollHandle = setInterval(() => {
-        try {
-          if (!fs.existsSync(vcdPath)) return;
-          // Read only the first ~256 KB — header always fits.
-          const buf = Buffer.alloc(256 * 1024);
-          const fd = fs.openSync(vcdPath, 'r');
-          let bytes = 0;
-          try { bytes = fs.readSync(fd, buf, 0, buf.length, 0); } finally { fs.closeSync(fd); }
-          if (bytes <= 0) return;
-          const head = buf.slice(0, bytes).toString('utf8');
-          if (head.includes('$enddefinitions')) finish('header-ready');
-        } catch (_) {
-          // File still being written / locked — try again next tick.
-        }
-      }, 50);
-
-      child.on('error', () => finish('error'));
-      child.on('close', () => finish('process-exited'));
     });
   });
 

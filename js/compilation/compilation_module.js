@@ -1637,28 +1637,42 @@ async _waveRunVvpSimulation(simTopModule, tools) {
 
     // Two-pass strategy:
     //
-    //   Pass 1: run vvp normally (no -fst) just long enough to capture
-    //   the VCD header. The header has every scope + signal name in
-    //   plain text; once "$enddefinitions" is written, IPC kills the
-    //   process. Result: a partial ${simTopModule}.vcd that Aurora can
-    //   parse with the existing vcd_parser (for the Wave Configuration
-    //   picker and the SAPHO-decorated auto-gtkw).
+    //   Pass 1: run vvp with +AURORA_HEADER_ONLY. The auto-instrumented
+    //   testbench (testbench_instrumenter.js) injects
     //
-    //   Pass 2: run vvp -fst to completion. Result: ${simTopModule}.fst,
-    //   10-100x smaller than the equivalent VCD, opened by GTKWave at
-    //   the end of the pipeline. The partial .vcd from pass 1 stays
-    //   on disk for downstream parsing but is never opened by GTKWave.
+    //       if ($test$plusargs("AURORA_HEADER_ONLY")) $finish;
     //
-    // The partial .vcd is harmless if it lingers — the next wave run
-    // overwrites it. We accept a small extra cost (start vvp twice +
-    // header-flush latency, ~100-500ms) in exchange for keeping all
-    // Aurora features that need VCD text (modal picker, auto-gtkw)
-    // while also producing a compact FST for GTKWave.
-    const vcdHeaderPath = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
+    //   after the $dumpvars call. Simulation runs only the initial
+    //   block — $dumpvars flushes the complete VCD header (every scope
+    //   and signal name), then $finish exits cleanly. The resulting
+    //   ${simTopModule}.vcd has a parseable header but no value-change
+    //   section, which is exactly what Aurora needs for the Wave
+    //   Configuration picker and the SAPHO-decorated auto-gtkw.
+    //
+    //   Pass 2: run vvp -fst (no plusarg) to completion. Result:
+    //   ${simTopModule}.fst, 10-100x smaller than the equivalent VCD,
+    //   opened by GTKWave at the end of the pipeline. The pass-1 .vcd
+    //   stays on disk for downstream parsing; never opened by GTKWave.
+    //
+    // For testbenches with hand-written $dumpvars where Aurora ceded
+    // control (no auto-instrumentation), the +AURORA_HEADER_ONLY
+    // plusarg is a no-op and pass 1 runs the full simulation. That
+    // costs the user-defined-dumpvars edge case extra runtime, but
+    // the common path (Aurora-instrumented testbench) is fast.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
 
-    const headerCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
-    await window.electronAPI.execVvpHeaderOnly(headerCmd, tools.tempBaseDir, vcdHeaderPath);
+    const headerCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" +AURORA_HEADER_ONLY`;
+    const headerResult = await window.electronAPI.execCommand(headerCmd);
+    // Pass 1 stdout/stderr are intentionally suppressed — the $finish
+    // injected by the instrumenter produces a "$finish at simulation
+    // time 0" line that's just noise. Errors surface via pass 2 anyway.
+    if (headerResult.code !== 0 && headerResult.code !== null) {
+        // Non-fatal: pass 2 may still succeed. Log a tip so the user
+        // knows the auto-gtkw header capture failed.
+        this.terminalManager.appendToTerminal('twave',
+            `Note: header-only pass exited with code ${headerResult.code}; auto-gtkw may fall back to a generic layout.`,
+            'tips');
+    }
 
     const fstCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" -fst`;
     const result = await window.electronAPI.execCommand(fstCmd);

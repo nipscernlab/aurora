@@ -160,6 +160,13 @@
               </button>
           </div>
 
+          <!-- Toggla a lingua das mensagens do yanc (cmmcomp/appcomp/
+               asmcomp). Persistido em localStorage; compilation_module
+               le e injeta `-pt` ou `-en` em cada cmd. Default PT. -->
+          <button id="yancLangToggle" class="toolbar-button" data-tooltip="Compiler messages: Portuguese">
+              <i class="ph ph-translate"></i>
+              <span id="yancLangLabel">PT</span>
+          </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
               <i class="ph ph-sliders-horizontal"></i>
           </button>
@@ -1003,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/utils/shortcut_manager.js"></script>
 <script src="./js/ui/status_updater.js"></script>
 <script src="./js/ui/status_bar.js"></script>
+<script src="./js/ui/yanc_lang_toggle.js"></script>
 <script src="./js/processors/processor_config_panel.js"></script>
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>

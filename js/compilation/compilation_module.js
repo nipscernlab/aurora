@@ -687,7 +687,11 @@ async loadConfig() {
             // processador) via readProcessorConfig no flow; default 0
             // se a entry nao tiver o campo (.spf antigo).
             const showArraysFlag = showArrays ? 1 : 0;
-            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
+            // -pt / -en vem do toggle na toolbar (yanc_lang_toggle.js).
+            // Sempre explicito pra que a UI mande, ignorando qualquer
+            // env var preexistente do shell.
+            const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
+            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag} ${langFlag}`;
             
             this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
 
@@ -744,7 +748,12 @@ async loadConfig() {
             statusUpdater.startCompilation('asm');
             await TabManager.saveAllFiles();
 
-            let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}"`;
+            // -pt / -en vem do toggle na toolbar (yanc_lang_toggle.js).
+            // Aplicado igual em appcomp e asmcomp pra que stdout/stderr
+            // dos dois passos saiam na mesma lingua.
+            const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
+
+            let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}" ${langFlag}`;
             this.terminalManager.appendToTerminal('tasm', `Executing ASM Preprocessor: ${cmd}`);
             const appResult = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tasm', appResult);
@@ -760,7 +769,7 @@ async loadConfig() {
                 projectParam = 1;
             }
 
-            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam} ${langFlag}`;
             this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
 
             const asmResult = await window.electronAPI.execCommand(cmd);

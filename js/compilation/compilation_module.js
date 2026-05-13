@@ -690,11 +690,12 @@ async loadConfig() {
             // processador) via readProcessorConfig no flow; default 0
             // se a entry nao tiver o campo (.spf antigo).
             const showArraysFlag = showArrays ? 1 : 0;
-            // -pt / -en vem do toggle na toolbar (yanc_lang_toggle.js).
-            // Sempre explicito pra que a UI mande, ignorando qualquer
-            // env var preexistente do shell.
+            // -pt / -en vem do toggle de locale (UI + compiler unified).
+            // yanc espera essa flag como PRIMEIRO argv — depois disso vêm
+            // os args posicionais. Sempre explicito pra que a UI mande,
+            // ignorando qualquer env var preexistente do shell.
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
-            const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag} ${langFlag}`;
+            const cmd = `"${cmmCompPath}" ${langFlag} ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
             
             this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }));
 
@@ -751,12 +752,13 @@ async loadConfig() {
             statusUpdater.startCompilation('asm');
             await TabManager.saveAllFiles();
 
-            // -pt / -en vem do toggle na toolbar (yanc_lang_toggle.js).
-            // Aplicado igual em appcomp e asmcomp pra que stdout/stderr
-            // dos dois passos saiam na mesma lingua.
+            // -pt / -en vem do toggle de locale. Vai como PRIMEIRO argv
+            // (yanc parsea isso antes dos args posicionais). Aplicado
+            // igual em appcomp e asmcomp pra que stdout/stderr dos dois
+            // passos saiam na mesma lingua.
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
 
-            let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}" ${langFlag}`;
+            let cmd = `"${appCompPath}" ${langFlag} "${asmPath}" "${tempPath}"`;
             this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }));
             const appResult = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tasm', appResult);
@@ -772,7 +774,7 @@ async loadConfig() {
                 projectParam = 1;
             }
 
-            cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam} ${langFlag}`;
+            cmd = `"${asmCompPath}" ${langFlag} "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
             this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }));
 
             const asmResult = await window.electronAPI.execCommand(cmd);

@@ -1634,9 +1634,34 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     }
 
     const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
+
+    // Two-pass strategy:
+    //
+    //   Pass 1: run vvp normally (no -fst) just long enough to capture
+    //   the VCD header. The header has every scope + signal name in
+    //   plain text; once "$enddefinitions" is written, IPC kills the
+    //   process. Result: a partial ${simTopModule}.vcd that Aurora can
+    //   parse with the existing vcd_parser (for the Wave Configuration
+    //   picker and the SAPHO-decorated auto-gtkw).
+    //
+    //   Pass 2: run vvp -fst to completion. Result: ${simTopModule}.fst,
+    //   10-100x smaller than the equivalent VCD, opened by GTKWave at
+    //   the end of the pipeline. The partial .vcd from pass 1 stays
+    //   on disk for downstream parsing but is never opened by GTKWave.
+    //
+    // The partial .vcd is harmless if it lingers — the next wave run
+    // overwrites it. We accept a small extra cost (start vvp twice +
+    // header-flush latency, ~100-500ms) in exchange for keeping all
+    // Aurora features that need VCD text (modal picker, auto-gtkw)
+    // while also producing a compact FST for GTKWave.
+    const vcdHeaderPath = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
-    const vvpCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
-    const result = await window.electronAPI.execCommand(vvpCmd);
+
+    const headerCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
+    await window.electronAPI.execVvpHeaderOnly(headerCmd, tools.tempBaseDir, vcdHeaderPath);
+
+    const fstCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" -fst`;
+    const result = await window.electronAPI.execCommand(fstCmd);
     if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
     if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
     if (result.code !== 0) {
@@ -1815,18 +1840,30 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
  *               adopted file's name differs from simTopModule.vcd)
  */
 async _waveResolveVcdFile(simTopModule, tempBaseDir) {
-    const expected = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
-    if (await window.electronAPI.fileExists(expected)) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expected }), 'success');
-        return expected;
+    // Pass 2 (vvp -fst) produces ${simTopModule}.fst — that's what
+    // GTKWave opens. Pass 1 left a partial .vcd alongside it for
+    // _waveResolveGtkwSaveFile to parse the header from; that file
+    // isn't returned here.
+    const expectedFst = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.fst`);
+    if (await window.electronAPI.fileExists(expectedFst)) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expectedFst }), 'success');
+        return expectedFst;
+    }
+    // Legacy fallback: a full .vcd, in case someone runs vvp without
+    // -fst (e.g. when investigating a problem with the two-pass flow).
+    const expectedVcd = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    if (await window.electronAPI.fileExists(expectedVcd)) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expectedVcd }), 'success');
+        return expectedVcd;
     }
 
     let candidates = [];
     try {
         const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
-        candidates = (entries || []).filter((name) =>
-            name.toLowerCase().endsWith('.vcd') && name !== 'fix.vcd',
-        );
+        candidates = (entries || []).filter((name) => {
+            const n = name.toLowerCase();
+            return (n.endsWith('.fst') || n.endsWith('.vcd')) && name !== 'fix.vcd';
+        });
     } catch (_listErr) {
         candidates = [];
     }
@@ -1841,14 +1878,12 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     }
 
     const detail = candidates.length === 0
-        ? `No .vcd was produced.`
-        : `Multiple .vcd candidates were produced: ${candidates.join(', ')}.`;
+        ? `No .fst/.vcd was produced.`
+        : `Multiple dump candidates were produced: ${candidates.join(', ')}.`;
     throw new Error(
-        `VCD file was not generated as ${simTopModule}.vcd.\n` +
+        `Dump file was not generated as ${simTopModule}.fst.\n` +
         `${detail}\n` +
-        `Aurora looks for a .vcd named after the testbench module. ` +
-        `Either drop the explicit $dumpfile and let Aurora auto-instrument, ` +
-        `or change the $dumpfile string to "${simTopModule}.vcd".`,
+        `Aurora looks for a .fst (or .vcd) named after the testbench module.`,
     );
 }
 
@@ -1939,8 +1974,25 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     } else {
         selected = [];
     }
+    // For the auto-gtkw we need to PARSE scopes from a text VCD. When
+    // the dump file is .fst (pass-2 output), the pass-1 partial .vcd
+    // sits as a sibling and has the same header. If neither exists,
+    // give up gracefully — GTKWave still opens the .fst, just without
+    // SAPHO decoration.
+    let parseSource = vcdFile;
+    if (vcdFile.toLowerCase().endsWith('.fst')) {
+        const sibling = vcdFile.replace(/\.fst$/i, '.vcd');
+        if (await window.electronAPI.fileExists(sibling)) {
+            parseSource = sibling;
+        } else {
+            this.terminalManager.appendToTerminal('twave',
+                tr('terminal.wave.autoGtkwError', { message: 'no parseable header (.vcd sibling missing); GTKWave opens .fst without auto-gtkw' }),
+                'tips');
+            return null;
+        }
+    }
     try {
-        const vcdContent = await window.electronAPI.readFile(vcdFile, { encoding: 'utf8' });
+        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
 
@@ -2070,11 +2122,21 @@ async _parseProjectSources() {
  * Side-effects: logs to twave (per-signal note when stale references found)
  */
 async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
+    // Two-pass dump puts a parseable header in the sibling .vcd when
+    // the run produced .fst; prefer that for the cross-check. If
+    // neither exists in text form, skip — GTKWave shows empty traces
+    // for stale signals; same behaviour as before the hook existed.
+    let parseSource = vcdPath;
+    if (vcdPath && vcdPath.toLowerCase().endsWith('.fst')) {
+        const sibling = vcdPath.replace(/\.fst$/i, '.vcd');
+        if (!(await window.electronAPI.fileExists(sibling))) return;
+        parseSource = sibling;
+    }
     try {
         const gtkwContent = await window.electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
         const referenced = extractSignalRefs(gtkwContent);
         if (referenced.length === 0) return;
-        const vcdContent = await window.electronAPI.readFile(vcdPath, { encoding: 'utf8' });
+        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const inVcd = new Set();
         for (const scope of scopes) {

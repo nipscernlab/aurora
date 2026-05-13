@@ -46,18 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // If detail is missing, still fallback to global flag check in handlers
     });
 
-    // Extended descriptions per element ID, sourced from i18n (locales/{en,pt}.json
-     // under `tooltip.extended.<id>`). Looks up at call time so a locale flip
-     // is picked up on the next hover — no need to invalidate state here.
-     // Returns null when the ID has no extended description registered;
-     // getTooltipText falls back to data-tooltip in that case.
-    function extendedDescription(elementId) {
-        if (!elementId || !window.t) return null;
-        const key = `tooltip.extended.${elementId}`;
-        const val = window.t(key);
-        return val === key ? null : val;
-    }
-    
+    // Single-source tooltips: this module only ever reads `data-tooltip`.
+    // Extended descriptions used to live in a separate JS dict and got
+    // priority over data-tooltip, which was the source of a bug where the
+    // i18n scanner translated `data-tooltip` but the displayed text came
+    // from somewhere else. Now i18n.applyDOM() is the single writer of
+    // `data-tooltip` (auto-resolved from `tooltip.extended.<id>` for
+    // elements with a registered ID), and this module is its single reader.
+
     // Universal selector for all interactive elements that should have tooltips
     const elementSelectors = [
         'button:not([data-no-tooltip])',
@@ -105,8 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         let rawText = null;
-        const elementId = element.id;
- 
+
         // Capture native title text first so the browser tooltip does not compete with Aurora's custom tooltip.
         if (element.title) {
             const titleText = element.title;
@@ -114,15 +109,12 @@ document.addEventListener('DOMContentLoaded', () => {
             element.dataset.originalTitle = titleText;
         }
 
-        const extended = extendedDescription(elementId);
-        if (extended) {
-            rawText = extended;
-        } else if (element.dataset.tooltip) {
+        if (element.dataset.tooltip) {
             rawText = element.dataset.tooltip;
         } else if (element.dataset.originalTitle) {
             rawText = element.dataset.originalTitle;
         } else {
-            return null; 
+            return null;
         }
         
         return truncateText(rawText);

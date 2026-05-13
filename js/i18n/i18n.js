@@ -130,6 +130,17 @@ function applyDOM(root) {
             if (val !== key) el.setAttribute(targetAttr, val);
         });
     }
+    // Auto-tooltip by element ID: any element with id="X" gets its
+    // data-tooltip filled from `tooltip.extended.X` when the key exists
+    // and no explicit data-i18n-tooltip overrides. This is the legacy
+    // "extendedDescriptions" dict, moved into i18n. tooltip.js reads
+    // data-tooltip only — single source of truth.
+    scope.querySelectorAll('[id]').forEach((el) => {
+        if (el.hasAttribute('data-i18n-tooltip')) return;
+        const key = `tooltip.extended.${el.id}`;
+        const val = t(key);
+        if (val !== key) el.setAttribute('data-tooltip', val);
+    });
 }
 
 async function loadLocale(lng) {

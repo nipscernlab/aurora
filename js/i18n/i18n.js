@@ -131,12 +131,14 @@ function applyDOM(root) {
         });
     }
     // Auto-tooltip by element ID: any element with id="X" gets its
-    // data-tooltip filled from `tooltip.extended.X` when the key exists
-    // and no explicit data-i18n-tooltip overrides. This is the legacy
-    // "extendedDescriptions" dict, moved into i18n. tooltip.js reads
-    // data-tooltip only — single source of truth.
+    // data-tooltip filled from `tooltip.extended.X` when the key exists.
+    // Runs AFTER the explicit data-i18n-tooltip bindings above and
+    // intentionally overrides them — the extended description is the
+    // canonical tooltip wherever a registered ID exists. Short labels
+    // that may be set via data-i18n-tooltip apply only to elements
+    // without an extended-description key (the auto-resolve is a no-op
+    // for those, leaving the explicit binding in place).
     scope.querySelectorAll('[id]').forEach((el) => {
-        if (el.hasAttribute('data-i18n-tooltip')) return;
         const key = `tooltip.extended.${el.id}`;
         const val = t(key);
         if (val !== key) el.setAttribute('data-tooltip', val);

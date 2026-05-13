@@ -804,11 +804,22 @@ async loadConfig() {
 
 /**
  * Valida config minima pro pipeline iverilog: synthesizableFiles
- * presente, um top-level marcado. Testbench e opcional (irrelevante
- * pro botao Verilog/PRISM, obrigatorio pro botao Wave que checa
- * separadamente).
+ * presente, um top-level marcado.
+ *
+ * `requireTopLevel` e default-true porque os botoes Verilog/PRISM/
+ * Syntax Check realmente precisam — eles invocam iverilog com `-s
+ * <top>` direto contra o design. O botao Wave passa
+ * `requireTopLevel: false` porque um testbench presente vira o `-s`
+ * em `_waveDeriveSimTopModule`; o top-level so seria fallback pro
+ * caminho "sem testbench", que `runGtkWave` ja bloqueia upstream com
+ * mensagem propria. Antes, exigir top-level aqui produzia o erro
+ * errado ("mark a file as top-level") em vez do real ("add a
+ * testbench") quando o usuario clicava Wave sem ter nada marcado.
+ *
+ * Testbench e opcional aqui pelas mesmas razoes: Verilog/PRISM nao
+ * usam, e o caller que precisa (Wave) ja faz a checagem propria.
  */
-validateConfig() {
+validateConfig({ requireTopLevel = true } = {}) {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
@@ -821,7 +832,7 @@ validateConfig() {
         this.projectConfig.synthesizableFiles,
         'synthesizable',
     );
-    if (!topLevelFile) {
+    if (requireTopLevel && !topLevelFile) {
         throw new Error('No top-level module selected. Please mark a file as top-level in Project Settings.');
     }
 
@@ -849,7 +860,10 @@ validateConfig() {
     }
 
     return {
-        topLevelFile: topLevelFile.path,
+        // null no caminho requireTopLevel:false sem top marcado.
+        // Consumers que so usam top como fallback (Wave quando ha
+        // testbench) podem ignorar.
+        topLevelFile: topLevelFile ? topLevelFile.path : null,
         testbenchFile: foundTestbenchPath, // may be null
         synthesizableFiles: this.projectConfig.synthesizableFiles.map(f => f.path)
     };
@@ -1241,14 +1255,20 @@ async iverilogCompile({ buildVvp = false } = {}) {
     statusUpdater.startCompilation('verilog');
 
     try {
-        const config = this.validateConfig();
+        // Syntax-check / Verilog button (buildVvp:false): top-level e
+        // o `-s` do iverilog, obrigatorio. Wave button (buildVvp:true):
+        // o `-s` vem do testbench (que runGtkWave ja exigiu upstream),
+        // top-level vira opcional.
+        const config = this.validateConfig({ requireTopLevel: !buildVvp });
 
         // 'tips' = blue/info badge. These lines are contextual info
         // about what's about to be compiled, not a success outcome —
         // the green "Compilation Successful" line later is what
         // signals success. Using 'tips' here keeps the visual hierarchy
         // (blue = "FYI", green = "it worked").
-        this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'tips');
+        if (config.topLevelFile) {
+            this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'tips');
+        }
         if (buildVvp) {
             if (config.testbenchFile) {
                 this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'tips');
@@ -1273,7 +1293,9 @@ async iverilogCompile({ buildVvp = false } = {}) {
 
         await window.electronAPI.mkdir(tempBaseDir);
 
-        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        const topLevelModuleName = config.topLevelFile
+            ? config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
+            : null;
         const simTopModule = config.testbenchFile
             ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
             : topLevelModuleName;
@@ -1458,7 +1480,12 @@ async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', '--- Simulation & GTKWave ---', 'info');
 
     try {
-        const config = this.validateConfig();
+        // Wave nao precisa de top-level marcado: quando ha testbench
+        // (caso normal), o `-s` do iverilog vem do nome do testbench.
+        // O top-level so seria fallback pro caso "sem testbench" — que
+        // bloqueamos uma linha abaixo com mensagem propria. Exigir
+        // top-level aqui produzia o erro errado pro usuario.
+        const config = this.validateConfig({ requireTopLevel: false });
 
         // No testbench → vvp has nothing to dump and no $finish to
         // hit, so simulation can't produce a VCD. Bail early with a
@@ -1523,10 +1550,13 @@ async _waveResolveToolchain() {
  * anyway, but the helper stays general).
  */
 _waveDeriveSimTopModule(config) {
-    const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-    return config.testbenchFile
-        ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
-        : topLevelModuleName;
+    if (config.testbenchFile) {
+        return config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    }
+    // Fallback inalcancavel pelo Wave (runGtkWave ja exige testbench),
+    // mas o helper fica geral: se um dia for chamado sem tb, exige top.
+    if (!config.topLevelFile) return null;
+    return config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
 }
 
 /**
@@ -1581,7 +1611,11 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // espera resolucao relativa a pasta do testbench. Varremos o
     // source do testbench atras dessas chamadas e copiamos cada
     // arquivo da pasta do testbench pra tempBaseDir.
-    const config = this.validateConfig();
+    //
+    // requireTopLevel:false pq aqui so consultamos testbenchFile —
+    // se exigissemos top, este reentry validate quebraria o Wave
+    // mesmo apos o filtro top-level do runGtkWave acima.
+    const config = this.validateConfig({ requireTopLevel: false });
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }

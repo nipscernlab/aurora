@@ -27,6 +27,8 @@ import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 // =====================================================================
 // Cancellation
 // =====================================================================
@@ -35,7 +37,7 @@ let compilationCanceled = false;
 
 function checkCancellation() {
     if (compilationCanceled) {
-        throw new Error('Compilation canceled by user');
+        throw new Error(tr('error.user.cancelled'));
     }
 }
 
@@ -403,7 +405,7 @@ async function handlePrismStep() {
     try {
         const projectPath = window.currentProjectPath
             || await window.electronAPI.dirname(window.currentOpenProjectPath);
-        if (!projectPath) throw new Error('Abra um projeto primeiro.');
+        if (!projectPath) throw new Error(tr('error.config.noProject'));
 
         const compiler = new CompilationModule(projectPath);
         await compiler.loadConfig();

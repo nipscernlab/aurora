@@ -133,7 +133,7 @@ async function loadProject(spfPath) {
             (typeof spfPath === 'string' ? spfPath.replace(/[\\/][^\\/]+\.spf$/i, '') : null);
 
         if (!basePath) {
-            throw new Error('Project base path could not be determined.');
+            throw new Error(window.t ? window.t('error.config.noProjectBase') : 'Project base path could not be determined.');
         }
 
         // Single source of truth — also mirrors window.currentProjectPath /

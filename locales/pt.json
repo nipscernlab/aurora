@@ -292,6 +292,36 @@
             "hierarchyForTop":       "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"
         }
     },
+    "error": {
+        "config": {
+            "noCmm":         "Nenhum arquivo C± selecionado. Selecione um para compilar.",
+            "noSynth":       "Nenhum arquivo sintetizável encontrado. Adicione arquivos Verilog em Configurações do Projeto.",
+            "noTopLevel":    "Nenhum módulo top-level selecionado. Marque um arquivo como top-level em Configurações do Projeto.",
+            "noTestbench":   "Nenhum testbench configurado. Adicione um testbench (.v) em Configurações do Projeto e marque como top-level para rodar simulação.",
+            "noProject":     "Abra um projeto primeiro.",
+            "noProjectBase": "Não foi possível determinar o caminho base do projeto."
+        },
+        "compilation": {
+            "cmmFailed":           "Compilação CMM falhou com código {{code}}",
+            "asmFailed":           "Compilação ASM falhou com código {{code}}",
+            "asmPrepFailed":       "Pré-processador ASM falhou com código {{code}}",
+            "iverilogFailedBuild": "Compilação Iverilog falhou com código {{code}}",
+            "iverilogFailedCheck": "Verificação de sintaxe Iverilog falhou com código {{code}}",
+            "yosysFailed":         "Síntese Yosys falhou com código {{code}}",
+            "yosysJsonMissing":    "Arquivo JSON do Yosys não foi gerado: {{path}}",
+            "yosysProjectFailed":  "Geração de hierarquia do projeto via Yosys falhou.",
+            "vvpNotGenerated":     "Arquivo VVP não foi gerado",
+            "vvpNotProduced":      "Arquivo VVP não foi produzido pela compilação: {{path}}",
+            "vvpFailed":           "Simulação VVP falhou com código {{code}}",
+            "gtkwaveFailed":       "Falha ao abrir GTKWave: {{message}}"
+        },
+        "toolchain": {
+            "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO pacote da toolchain (iverilog/gtkwave/yosys) não está instalado. Baixe \"aurora-toolchain-v2.zip\" das Releases do projeto no GitHub e extraia em components/Packages/, depois reinicie o app."
+        },
+        "user": {
+            "cancelled": "Compilação cancelada pelo usuário"
+        }
+    },
     "locale": {
         "compilerMessages": {
             "pt": "Mensagens do compilador: Português",

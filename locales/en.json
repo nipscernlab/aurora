@@ -292,6 +292,36 @@
             "hierarchyForTop":       "Hierarchy generated successfully for top-level module: {{name}}"
         }
     },
+    "error": {
+        "config": {
+            "noCmm":         "No C± file selected. Please select one to compile.",
+            "noSynth":       "No synthesizable files found. Please add Verilog files in Project Settings.",
+            "noTopLevel":    "No top-level module selected. Please mark a file as top-level in Project Settings.",
+            "noTestbench":   "No testbench configured. Add a testbench (.v) in Project Settings and mark it as top-level to run simulation.",
+            "noProject":     "Open a project first.",
+            "noProjectBase": "Project base path could not be determined."
+        },
+        "compilation": {
+            "cmmFailed":           "CMM compilation failed with code {{code}}",
+            "asmFailed":           "ASM compilation failed with code {{code}}",
+            "asmPrepFailed":       "ASM Preprocessor failed with code {{code}}",
+            "iverilogFailedBuild": "Iverilog compilation failed with exit code {{code}}",
+            "iverilogFailedCheck": "Iverilog syntax check failed with exit code {{code}}",
+            "yosysFailed":         "Yosys synthesis failed with code {{code}}",
+            "yosysJsonMissing":    "Yosys JSON output file not generated: {{path}}",
+            "yosysProjectFailed":  "Yosys project hierarchy generation failed.",
+            "vvpNotGenerated":     "VVP file was not generated",
+            "vvpNotProduced":      "VVP file was not produced by compilation: {{path}}",
+            "vvpFailed":           "VVP simulation failed with exit code {{code}}",
+            "gtkwaveFailed":       "Failed to launch GTKWave: {{message}}"
+        },
+        "toolchain": {
+            "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download \"aurora-toolchain-v2.zip\" from the project's GitHub Releases and extract it into components/Packages/, then restart the app."
+        },
+        "user": {
+            "cancelled": "Compilation canceled by user"
+        }
+    },
     "locale": {
         "compilerMessages": {
             "pt": "Compiler messages: Portuguese",

@@ -252,7 +252,7 @@ async generateProjectHierarchy() {
             const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
             const result = await window.electronAPI.execCommand(yosysCmd);
 
-            if (result.code !== 0) throw new Error(`Yosys project hierarchy generation failed.`);
+            if (result.code !== 0) throw new Error(tr('error.compilation.yosysProjectFailed'));
 
             const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
             const hierarchyJson = JSON.parse(await window.electronAPI.readFile(jsonPath, {
@@ -590,7 +590,7 @@ async loadConfig() {
 
     async getSelectedCmmFile(processor) {
         if (!processor.cmmFile) {
-            throw new Error('No C± file selected. Please select one to compile.');
+            throw new Error(tr('error.config.noCmm'));
         }
         return processor.cmmFile;
     }
@@ -703,7 +703,7 @@ async loadConfig() {
 
             if (result.code !== 0) {
                 statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
-                throw new Error(`CMM compilation failed with code ${result.code}`);
+                throw new Error(tr('error.compilation.cmmFailed', { code: result.code }));
             }
             statusUpdater.compilationSuccess('cmm');
             return asmPath;
@@ -763,7 +763,7 @@ async loadConfig() {
 
             if (appResult.code !== 0) {
                 statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
-                throw new Error(`ASM Preprocessor failed with code ${appResult.code}`);
+                throw new Error(tr('error.compilation.asmPrepFailed', { code: appResult.code }));
             }
 
             if (projectParam === null) {
@@ -782,7 +782,7 @@ async loadConfig() {
 
             if (asmResult.code !== 0) {
                 statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
-                throw new Error(`ASM compilation failed with code ${asmResult.code}`);
+                throw new Error(tr('error.compilation.asmFailed', { code: asmResult.code }));
             }
 
             // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
@@ -837,7 +837,7 @@ validateConfig({ requireTopLevel = true } = {}) {
     }
 
     if (!this.projectConfig.synthesizableFiles || this.projectConfig.synthesizableFiles.length === 0) {
-        throw new Error('No synthesizable files found. Please add Verilog files in Project Settings.');
+        throw new Error(tr('error.config.noSynth'));
     }
 
     const topLevelFile = this._pickSingleTop(
@@ -845,7 +845,7 @@ validateConfig({ requireTopLevel = true } = {}) {
         'synthesizable',
     );
     if (requireTopLevel && !topLevelFile) {
-        throw new Error('No top-level module selected. Please mark a file as top-level in Project Settings.');
+        throw new Error(tr('error.config.noTopLevel'));
     }
 
     // Testbench e opcional pros botoes Verilog e PRISM (que usam -s
@@ -1299,7 +1299,7 @@ async iverilogCompile({ buildVvp = false } = {}) {
         );
 
         if (!await window.electronAPI.fileExists(iveriCompPath)) {
-            throw new Error(`Icarus Verilog binary not found at:\n  ${iveriCompPath}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download "aurora-toolchain-v2.zip" from the project's GitHub Releases and extract it into components/Packages/, then restart the app.`);
+            throw new Error(tr('error.toolchain.iverilogNotFound', { path: iveriCompPath }));
         }
 
         await window.electronAPI.mkdir(tempBaseDir);
@@ -1430,13 +1430,13 @@ async iverilogCompile({ buildVvp = false } = {}) {
         this.terminalManager.processExecutableOutput('tveri', result);
 
         if (result.code !== 0) {
-            throw new Error(`Iverilog ${buildVvp ? 'compilation' : 'syntax check'} failed with exit code ${result.code}`);
+            throw new Error(tr(buildVvp ? 'error.compilation.iverilogFailedBuild' : 'error.compilation.iverilogFailedCheck', { code: result.code }));
         }
 
         if (buildVvp) {
             const vvpExists = await window.electronAPI.fileExists(outputFile);
             if (!vvpExists) {
-                throw new Error('VVP file was not generated');
+                throw new Error(tr('error.compilation.vvpNotGenerated'));
             }
         }
 
@@ -1503,7 +1503,7 @@ async runGtkWave() {
         // readable message instead of letting the user hit the
         // generic "VCD not generated" error from _waveResolveVcdFile.
         if (!config.testbenchFile) {
-            throw new Error('No testbench configured. Add a testbench (.v) in Project Settings and mark it as top-level to run simulation.');
+            throw new Error(tr('error.config.noTestbench'));
         }
 
         const tools = await this._waveResolveToolchain();
@@ -1588,7 +1588,7 @@ async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
     await this.iverilogCompile({ buildVvp: true });
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     if (!await window.electronAPI.fileExists(vvpFile)) {
-        throw new Error(`VVP file was not produced by compilation: ${vvpFile}`);
+        throw new Error(tr('error.compilation.vvpNotProduced', { path: vvpFile }));
     }
 }
 
@@ -1638,7 +1638,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
     if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
     if (result.code !== 0) {
-        throw new Error(`VVP simulation failed with exit code ${result.code}`);
+        throw new Error(tr('error.compilation.vvpFailed', { code: result.code }));
     }
 }
 
@@ -2128,7 +2128,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
         workingDir: tools.tempBaseDir,
     });
     if (!gtkwaveResult.success) {
-        throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
+        throw new Error(tr('error.compilation.gtkwaveFailed', { message: gtkwaveResult.message }));
     }
     this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
@@ -2192,12 +2192,12 @@ write_json ${jsonOutputPath}
         if (yosysResult.stderr) this.terminalManager.appendToTerminal('twave', yosysResult.stderr, 'stderr');
 
         if (yosysResult.code !== 0) {
-            throw new Error(`Yosys synthesis failed with code ${yosysResult.code}`);
+            throw new Error(tr('error.compilation.yosysFailed', { code: yosysResult.code }));
         }
 
         const jsonExists = await window.electronAPI.fileExists(jsonOutputPath);
         if (!jsonExists) {
-            throw new Error(`Yosys JSON output file not generated: ${jsonOutputPath}`);
+            throw new Error(tr('error.compilation.yosysJsonMissing', { path: jsonOutputPath }));
         }
 
         const jsonContent = await window.electronAPI.readFile(jsonOutputPath, {

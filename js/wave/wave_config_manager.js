@@ -408,9 +408,16 @@ class WaveConfigManager {
             // no-processors. Outras configs podem ter outros paths
             // mas esse e o caminho canonico do botao Wave.
             const componentsPath = await window.electronAPI.getComponentsPath();
-            const vcdPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
-            const vcdExists = await window.electronAPI.fileExists(vcdPath);
-            if (!vcdExists) return null;
+            // Prefer the stashed pass-1 header (.header.vcd) because the
+            // canonical .vcd is overwritten with FST binary by pass 2 of
+            // the two-pass dump strategy. Fall back to .vcd if present
+            // (legacy / single-pass runs).
+            const headerPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.header.vcd`);
+            const legacyPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
+            let vcdPath = null;
+            if (await window.electronAPI.fileExists(headerPath)) vcdPath = headerPath;
+            else if (await window.electronAPI.fileExists(legacyPath)) vcdPath = legacyPath;
+            if (!vcdPath) return null;
 
             const vcdContent = await window.electronAPI.readFile(vcdPath);
             const scopes = parseVcdHeaderFromContent(vcdContent);

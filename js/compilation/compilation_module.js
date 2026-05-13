@@ -1674,6 +1674,23 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             'tips');
     }
 
+    // Stash the pass-1 text VCD under a separate name before pass 2
+    // overwrites the original. vvp -fst keeps the $dumpfile() name
+    // ("...vcd") but writes FST binary into it — without this copy
+    // the pass-1 header is destroyed and the downstream parse sees
+    // binary garbage where it expects $var/$scope lines.
+    const pass1Vcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
+    const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.header.vcd`);
+    try {
+        if (await window.electronAPI.fileExists(pass1Vcd)) {
+            await window.electronAPI.copyFile(pass1Vcd, headerVcd);
+        }
+    } catch (e) {
+        this.terminalManager.appendToTerminal('twave',
+            `Note: could not stash pass-1 header (${e.message}); auto-gtkw may fall back to a generic layout.`,
+            'tips');
+    }
+
     const fstCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" -fst`;
     const result = await window.electronAPI.execCommand(fstCmd);
     if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
@@ -1988,22 +2005,20 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     } else {
         selected = [];
     }
-    // For the auto-gtkw we need to PARSE scopes from a text VCD. When
-    // the dump file is .fst (pass-2 output), the pass-1 partial .vcd
-    // sits as a sibling and has the same header. If neither exists,
-    // give up gracefully — GTKWave still opens the .fst, just without
-    // SAPHO decoration.
+    // For the auto-gtkw we need to PARSE scopes from a text VCD.
+    // vvp -fst (pass 2) overwrites the $dumpfile target with FST
+    // binary even when the path ends in .vcd, so the pass-1 header
+    // is stashed to a `.header.vcd` sibling by _waveRunVvpSimulation.
+    // Prefer that header file when it exists.
     let parseSource = vcdFile;
-    if (vcdFile.toLowerCase().endsWith('.fst')) {
-        const sibling = vcdFile.replace(/\.fst$/i, '.vcd');
-        if (await window.electronAPI.fileExists(sibling)) {
-            parseSource = sibling;
-        } else {
-            this.terminalManager.appendToTerminal('twave',
-                tr('terminal.wave.autoGtkwError', { message: 'no parseable header (.vcd sibling missing); GTKWave opens .fst without auto-gtkw' }),
-                'tips');
-            return null;
-        }
+    const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
+    if (await window.electronAPI.fileExists(headerSibling)) {
+        parseSource = headerSibling;
+    } else if (vcdFile.toLowerCase().endsWith('.fst')) {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.autoGtkwError', { message: 'no parseable header (.header.vcd missing); GTKWave opens .fst without auto-gtkw' }),
+            'tips');
+        return null;
     }
     try {
         const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
@@ -2136,15 +2151,19 @@ async _parseProjectSources() {
  * Side-effects: logs to twave (per-signal note when stale references found)
  */
 async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
-    // Two-pass dump puts a parseable header in the sibling .vcd when
-    // the run produced .fst; prefer that for the cross-check. If
-    // neither exists in text form, skip — GTKWave shows empty traces
-    // for stale signals; same behaviour as before the hook existed.
+    // Two-pass dump stashes the parseable header in `.header.vcd`
+    // (because vvp -fst overwrites the original .vcd with FST binary).
+    // Prefer that for the cross-check; skip silently if it isn't
+    // available — GTKWave shows empty traces for stale signals,
+    // same behaviour as before the hook existed.
     let parseSource = vcdPath;
-    if (vcdPath && vcdPath.toLowerCase().endsWith('.fst')) {
-        const sibling = vcdPath.replace(/\.fst$/i, '.vcd');
-        if (!(await window.electronAPI.fileExists(sibling))) return;
-        parseSource = sibling;
+    if (vcdPath) {
+        const headerSibling = vcdPath.replace(/\.(fst|vcd)$/i, '.header.vcd');
+        if (await window.electronAPI.fileExists(headerSibling)) {
+            parseSource = headerSibling;
+        } else if (vcdPath.toLowerCase().endsWith('.fst')) {
+            return;
+        }
     }
     try {
         const gtkwContent = await window.electronAPI.readFile(gtkwPath, { encoding: 'utf8' });

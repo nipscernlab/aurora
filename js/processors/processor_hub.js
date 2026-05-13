@@ -230,15 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     document.getElementById('cancelProcessorHub').click();
                 } else {
-                    throw new Error(result.message || 'Unknown error');
+                    const tr = (k) => (window.t ? window.t(k) : k);
+                    throw new Error(result.message || tr('dialog.processorHub.unknownError'));
                 }
 
             } catch (error) {
                 console.error(error);
+                const tr = (k, p) => (window.t ? window.t(k, p) : k);
                 await showDialog({
-                    title: 'Error',
-                    message: `Failed to create processor: ${error.message}`,
-                    buttons: [{ label: 'Close', action: 'close', type: 'cancel' }]
+                    title: tr('dialog.processorHub.errorTitle'),
+                    // Technical detail (error.message) stays as-is — it may
+                    // come from the main process (where i18n isn't loaded)
+                    // and contains paths/codes that don't need translating.
+                    message: tr('dialog.processorHub.errorMessage', { detail: error.message }),
+                    buttons: [{ label: tr('dialog.common.close'), action: 'close', type: 'cancel' }]
                 });
             } finally {
                 generateButton.innerHTML = originalButtonText;

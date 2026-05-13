@@ -110,6 +110,11 @@
             "invalidInputMessage":   "Project Name and Location must not contain spaces or special symbols. Use only letters, numbers, underscores, or hyphens.",
             "generationErrorTitle":  "Generation Error",
             "generationErrorMessage": "Failed to create the project. Please check the console for details."
+        },
+        "processorHub": {
+            "errorTitle":   "Error",
+            "errorMessage": "Failed to create processor: {{detail}}",
+            "unknownError": "Unknown error"
         }
     },
     "statusBar": {

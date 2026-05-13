@@ -110,6 +110,11 @@
             "invalidInputMessage":    "Nome do Projeto e Local não podem conter espaços ou símbolos especiais. Use apenas letras, números, underscores ou hífens.",
             "generationErrorTitle":   "Erro na Geração",
             "generationErrorMessage": "Falha ao criar o projeto. Verifique o console para detalhes."
+        },
+        "processorHub": {
+            "errorTitle":   "Erro",
+            "errorMessage": "Falha ao criar processador: {{detail}}",
+            "unknownError": "Erro desconhecido"
         }
     },
     "statusBar": {

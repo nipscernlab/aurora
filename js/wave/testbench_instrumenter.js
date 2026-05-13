@@ -150,19 +150,29 @@ export function instrumentTestbenchSource({
         ? 'Aurora override: testbench had hand-written $dumpfile/$dumpvars but the user customized the Wave Configuration, so the originals were commented out and replaced.'
         : '$dumpfile / $dumpvars added because the testbench did not declare any.';
 
-    // The $finish gated on +AURORA_HEADER_ONLY is the pass-1 hook of
-    // the two-pass dump strategy: `vvp foo.vvp +AURORA_HEADER_ONLY`
-    // runs the $dumpvars (which flushes every scope/signal into the
-    // VCD header) and immediately exits — no simulation work, but a
-    // complete, parseable header on disk. Pass 2 omits the plusarg and
-    // runs to the normal $finish so the FST dump is complete.
+    // Pass-1 hook of the two-pass dump strategy. The `#1` + $dumpflush
+    // before $finish are critical: $dumpvars at time 0 only *registers*
+    // the scopes; vvp flushes the full VCD header (every $var line plus
+    // $enddefinitions) once the simulator either advances past time 0
+    // OR sees an explicit $dumpflush. A bare $finish at time 0 exits
+    // before the header is committed and the resulting .vcd has scopes
+    // but no $var lines.
+    //
+    // Pass 1: `vvp foo.vvp +AURORA_HEADER_ONLY` → runs initial block,
+    // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
+    // the plusarg — the gate is false, the #1/$dumpflush/$finish are
+    // skipped, simulation runs to its normal $finish.
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
 initial begin
     $dumpfile("${tbModule}.vcd");
     $dumpvars(${dumpvarsArgs});
-    if ($test$plusargs("AURORA_HEADER_ONLY")) $finish;
+    if ($test$plusargs("AURORA_HEADER_ONLY")) begin
+        #1;
+        $dumpflush;
+        $finish;
+    end
 end
 // --------------------------------------------------
 `;

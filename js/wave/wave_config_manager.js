@@ -152,6 +152,25 @@ class WaveConfigManager {
                 cfg.testbenchFile,
                 ...(cfg.testbenchFiles || []).map((f) => f?.path),
             ].filter(Boolean);
+            // Include components/HDL/*.v (SAPHO library: core, ula, addr_dec,
+            // instr_dec, myFIFO, ...). Without these, _validateWaveSelection
+            // doesn't see signals inside the processor core (e.g.
+            // "Data Stack Max", "Rounding Error") and would auto-prune
+            // them as "stale" — the WaveStore loses the user's selection
+            // every time the modal opens. Mirrors the same widening done
+            // for the compile-time path in iverilogCompile.
+            try {
+                const componentsPath = await window.electronAPI.getComponentsPath();
+                const hdlDir = await window.electronAPI.joinPath(componentsPath, 'HDL');
+                const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlDir);
+                if (Array.isArray(hdlEntries)) {
+                    for (const name of hdlEntries) {
+                        if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                            filePaths.push(await window.electronAPI.joinPath(hdlDir, name));
+                        }
+                    }
+                }
+            } catch (_e) { /* HDL unavailable — validate proceeds without it */ }
             const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
             const tbModule = moduleNameFromPath(cfg.testbenchFile)
                 || moduleNameFromPath(cfg.topLevelFile);

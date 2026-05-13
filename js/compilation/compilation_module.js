@@ -1755,16 +1755,12 @@ async _stageProcessorMemoryFiles(tempBaseDir) {
         }
     }
 
-    if (staged > 0) {
-        this.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.stagedMemFiles', { count: staged, path: tempBaseDir }),
-            'tips',
-        );
-    } else {
+    if (staged === 0) {
         // Sem nenhum pc_*_mem.txt → o $readmemb do .v do processador
         // vai falhar logo a seguir. Avisar claramente em vez de deixar
-        // o erro do vvp ser a unica pista.
+        // o erro do vvp ser a unica pista. O caminho de sucesso e
+        // silencioso por design: copiar arquivos de mem entre pastas
+        // e plumbing interno, nao algo que o usuario precisa saber.
         this.terminalManager.appendToTerminal(
             'twave',
             tr('terminal.wave.noMemFiles', { path: tempBaseDir }),

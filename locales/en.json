@@ -389,6 +389,29 @@
             "power-off":                  "Exit the AURORA IDE application safely."
         }
     },
+    "welcome": {
+        "tagline":         "Scalable Architecture for Hardware Optimization",
+        "sectionStart":    "Start",
+        "newProject":      "New Project",
+        "openProject":     "Open Project",
+        "sectionRecent":   "Recent",
+        "noRecent":        "No recent projects"
+    },
+    "terminalWelcome": {
+        "tcmm":  "Welcome to the terminal TCMM!",
+        "tasm":  "Welcome to the terminal TASM!",
+        "tveri": "Welcome to the terminal TVERI!",
+        "twave": "Welcome to the terminal TWAVE!"
+    },
+    "splash": {
+        "tagline":          "Scalable Architecture for Hardware Optimization",
+        "phaseInit":        "Initializing platform",
+        "phaseModules":     "Loading AURORA modules",
+        "phaseYanc":        "Loading YANC compiler",
+        "phaseWorkspace":   "Preparing workspace",
+        "phaseAlmostReady": "Almost ready",
+        "org":              "NIPSCERN Lab"
+    },
     "locale": {
         "compilerMessages": {
             "pt": "Compiler messages: Portuguese",

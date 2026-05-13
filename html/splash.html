@@ -325,7 +325,7 @@
           <img src="../assets/icons/sapho_aurora_icon.svg" alt="SAPHO">
         </div>
         <h1 class="brand-title">SAPHO</h1>
-        <p class="brand-subtitle">Scalable Architecture for Hardware Optimization</p>
+        <p class="brand-subtitle" id="brand-subtitle">Scalable Architecture for Hardware Optimization</p>
         <div class="brand-pillars">
           <span>AURORA</span>
           <span class="dot"></span>
@@ -342,7 +342,7 @@
           <span id="status-text">Initializing platform</span>
         </div>
         <div class="meta-right">
-          <span class="org">NIPSCERN Lab</span>
+          <span class="org" id="org-label">NIPSCERN Lab</span>
           <span class="sep"></span>
           <span id="version-label">v0.0.0</span>
         </div>
@@ -451,18 +451,59 @@
     })();
 
     // ============================================================
+    //  Locale-aware copy (splash runs before the main i18n layer
+    //  boots; reads `aurora-locale` directly and ships its own tiny
+    //  string table — keeps the splash isolated and dependency-free)
+    // ============================================================
+    const STRINGS = {
+      en: {
+        tagline:          'Scalable Architecture for Hardware Optimization',
+        phaseInit:        'Initializing platform',
+        phaseModules:     'Loading AURORA modules',
+        phaseYanc:        'Loading YANC compiler',
+        phaseWorkspace:   'Preparing workspace',
+        phaseAlmostReady: 'Almost ready',
+        org:              'NIPSCERN Lab',
+      },
+      pt: {
+        tagline:          'Arquitetura Escalável para Otimização de Hardware',
+        phaseInit:        'Inicializando plataforma',
+        phaseModules:     'Carregando módulos do AURORA',
+        phaseYanc:        'Carregando compilador YANC',
+        phaseWorkspace:   'Preparando workspace',
+        phaseAlmostReady: 'Quase pronto',
+        org:              'NIPSCERN Lab',
+      },
+    };
+
+    const locale = (() => {
+      try {
+        const v = localStorage.getItem('aurora-locale');
+        if (v === 'en' || v === 'pt') return v;
+        const legacy = localStorage.getItem('aurora-yanc-lang');
+        if (legacy === 'en' || legacy === 'pt') return legacy;
+      } catch (_) {}
+      return 'pt';
+    })();
+    const T = STRINGS[locale] || STRINGS.pt;
+
+    document.getElementById('brand-subtitle').textContent = T.tagline;
+    document.getElementById('org-label').textContent      = T.org;
+
+    // ============================================================
     //  Status messages cycle
     // ============================================================
     const statusText = document.getElementById('status-text');
     const versionEl  = document.getElementById('version-label');
 
     const phases = [
-      'Initializing platform',
-      'Loading AURORA modules',
-      'Loading YANC compiler',
-      'Preparing workspace',
-      'Almost ready'
+      T.phaseInit,
+      T.phaseModules,
+      T.phaseYanc,
+      T.phaseWorkspace,
+      T.phaseAlmostReady,
     ];
+    statusText.textContent = phases[0];
 
     let phaseIdx = 0;
     setInterval(() => {

@@ -223,7 +223,10 @@ export class RecentProjectsManager {
     if (this.projects.length === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
-      emptyState.innerHTML = `<p>No recent projects</p>`;
+      // data-i18n on the inner <p> so a locale flip retranslates the
+      // string without re-rendering the whole recent list.
+      const tr = (k) => (window.t ? window.t(k) : k);
+      emptyState.innerHTML = `<p data-i18n="welcome.noRecent">${tr('welcome.noRecent')}</p>`;
       this.listElement.appendChild(emptyState);
     } else {
       this.projects.forEach((project, index) => {

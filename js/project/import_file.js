@@ -1,8 +1,11 @@
 // modalImport.js - Advanced File Import Modal System
 /* eslint-disable no-undef */
 
-// i18n shim — same pattern as project_tree_actions.js.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+// i18n shim. Declared as a `function` (not `const`) because this file is
+// loaded as a CLASSIC <script> and multiple classic scripts top-level
+// `const tr` would collide in the shared lexical scope. Functions tolerate
+// redeclaration across scripts.
+function tr(k, p) { return window.t ? window.t(k, p) : k; }
 
 class ImportModal {
   constructor() {

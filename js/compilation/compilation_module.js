@@ -1806,7 +1806,6 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
     if (filenames.size === 0) return;
 
     const tbDir = await window.electronAPI.dirname(testbenchPath);
-    let staged = 0;
     const failures = [];
     for (const fname of filenames) {
         // Skip absolute paths — usuario sabe o que quer (e o vvp
@@ -1827,19 +1826,15 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
                 try { await window.electronAPI.mkdir(dstDir); } catch (_e) { /* exists ok */ }
             }
             await window.electronAPI.copyFile(src, dst);
-            staged++;
         } catch (e) {
             failures.push({ name: fname, reason: e.message });
         }
     }
 
-    if (staged > 0) {
-        this.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.stagedTbData', { count: staged, path: tempBaseDir }),
-            'tips',
-        );
-    }
+    // Success path is silent — copying testbench data files between
+    // folders is internal plumbing. Failures still surface as warnings
+    // because those *are* actionable (a missing data file means the
+    // testbench will crash on $readmemh).
     for (const fail of failures) {
         this.terminalManager.appendToTerminal(
             'twave',

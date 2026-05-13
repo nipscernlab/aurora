@@ -289,7 +289,6 @@
             "noMemFiles":            "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
             "couldNotList":          "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",
-            "stagedTbData":          "Info: {{count}} arquivo(s) de dados do testbench preparado(s) em {{path}}.",
             "couldNotStageTbFile":   "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
             "vcdCreated":            "Arquivo VCD criado: {{path}}",
             "dumpfileMismatch":      "Nota: $dumpfile do testbench aponta para \"{{name}}\" em vez de {{expected}}.vcd; usando esse arquivo para a visualização.",

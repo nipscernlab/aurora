@@ -55,6 +55,9 @@ import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 
+// i18n shim — falls back to the key path if i18n didn't boot yet.
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 class CompilationModule {
     constructor(projectPath) {
         this.projectPath = projectPath;
@@ -94,7 +97,7 @@ class CompilationModule {
             const fileExists = await window.electronAPI.fileExists(filePath);
             if (!fileExists) {
                 this.terminalManager.appendToTerminal('tveri',
-                    `File not found: ${filePath}`, 'error');
+                    tr('terminal.veri.fileNotFound', { path: filePath }), 'error');
                 return;
             }
 
@@ -116,7 +119,7 @@ class CompilationModule {
         } catch (error) {
             console.error('Error opening module file:', error);
             this.terminalManager.appendToTerminal('tveri',
-                `Failed to open file: ${error.message}`, 'error');
+                tr('terminal.veri.failedToOpen', { message: error.message }), 'error');
         }
     }
 
@@ -165,7 +168,7 @@ class CompilationModule {
 
                     if (this.isHierarchicalView) {
                         this.terminalManager.appendToTerminal('twave',
-                            'GTKWave closed - restoring standard file tree...', 'info');
+                            tr('terminal.wave.gtkwaveClosed'), 'info');
 
                         setTimeout(() => {
                             this.isHierarchicalView = false;
@@ -227,12 +230,12 @@ async generateProjectHierarchy() {
             } catch (_e) {
                 this.terminalManager.appendToTerminal(
                     'tveri',
-                    `Warning: could not list ${hdlPath} — biblioteca SAPHO nao incluida na hierarquia.`,
+                    tr('terminal.veri.hdlListWarn', { path: hdlPath }),
                     'warning',
                 );
             }
 
-            this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyGen'));
 
             const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
             const yosysScript = `
@@ -258,10 +261,10 @@ async generateProjectHierarchy() {
 
             this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-            this.terminalManager.appendToTerminal('tveri', 'Project hierarchy generated successfully', 'success');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchySuccess'), 'success');
             return true;
         } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', `Project hierarchy generation error: ${error.message}`, 'warning');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyError', { message: error.message }), 'warning');
             return false;
         }
     }
@@ -658,7 +661,7 @@ async loadConfig() {
         const { name, showArrays } = processor;
         await this.terminalManager.clearTerminal('tcmm');
 
-        this.terminalManager.appendToTerminal('tcmm', `Starting C± compilation for ${name}...`);
+        this.terminalManager.appendToTerminal('tcmm', tr('terminal.cmm.starting', { name }));
         
         try {
             const selectedCmmFile = await this.getSelectedCmmFile(processor);
@@ -693,7 +696,7 @@ async loadConfig() {
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
             const cmd = `"${cmmCompPath}" ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag} ${langFlag}`;
             
-            this.terminalManager.appendToTerminal('tcmm', `Executing command: ${cmd}`);
+            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }));
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tcmm', result);
@@ -705,7 +708,7 @@ async loadConfig() {
             statusUpdater.compilationSuccess('cmm');
             return asmPath;
         } catch (error) {
-            this.terminalManager.appendToTerminal('tcmm', `Error: ${error.message}`, 'error');
+            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
             statusUpdater.compilationError('cmm', error.message);
             throw error;
         }
@@ -727,7 +730,7 @@ async loadConfig() {
             this.terminalManager.appendToTerminal('tasm', preamble, 'tips');
         }
 
-        this.terminalManager.appendToTerminal('tasm', `Starting ASM compilation process for ${name}...`);
+        this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.starting', { name }));
 
         try {
             const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
@@ -754,7 +757,7 @@ async loadConfig() {
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
 
             let cmd = `"${appCompPath}" "${asmPath}" "${tempPath}" ${langFlag}`;
-            this.terminalManager.appendToTerminal('tasm', `Executing ASM Preprocessor: ${cmd}`);
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }));
             const appResult = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tasm', appResult);
 
@@ -770,7 +773,7 @@ async loadConfig() {
             }
 
             cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam} ${langFlag}`;
-            this.terminalManager.appendToTerminal('tasm', `Executing ASM Compiler: ${cmd}`);
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }));
 
             const asmResult = await window.electronAPI.execCommand(cmd);
 
@@ -797,14 +800,14 @@ async loadConfig() {
                 const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
                 const destinationTestbench = tbFile;
 
-                this.terminalManager.appendToTerminal('tasm', `Copying testbench from "${sourceTestbench}" to "${destinationTestbench}"`);
+                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }));
                 await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
-                this.terminalManager.appendToTerminal('tasm', 'Testbench updated in project folder.', 'tips');
+                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
             }
 
             statusUpdater.compilationSuccess('asm');
         } catch (error) {
-            this.terminalManager.appendToTerminal('tasm', `Error: ${error.message}`, 'error');
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
             statusUpdater.compilationError('asm', error.message);
             throw error;
         }
@@ -902,7 +905,7 @@ _pickSingleTop(files, category) {
     const ignored = tops.slice(1).map((f) => f.name || f.path?.split(/[\\/]/).pop() || '?').join(', ');
     const pickedName = picked.name || picked.path?.split(/[\\/]/).pop() || '?';
     this.terminalManager.appendToTerminal('tveri',
-        `Warning: ${tops.length} ${category} files are marked as top-level. Using "${pickedName}"; ignoring ${ignored}. Set exactly one top-level per category in Project Settings to silence this warning.`,
+        tr('terminal.veri.multipleTops', { count: tops.length, category, picked: pickedName, ignored }),
         'warning');
     return picked;
 }
@@ -951,8 +954,8 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null)
             const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
             const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
             const msg = dropped.length === 1
-                ? `Note: ${preview} was checked in Wave Configuration but no longer exists in the design; ignored (not added to $dumpvars).`
-                : `Note: ${dropped.length} signals checked in Wave Configuration no longer exist in the design and were ignored (not added to $dumpvars): ${preview}${more}.`;
+                ? tr('terminal.wave.staleSignalOne', { preview })
+                : tr('terminal.wave.staleSignalMany', { count: dropped.length, preview, more });
             // Goes to twave — this is a Wave Configuration concern,
             // even though it's detected during the iverilog
             // instrumentation step (the wave button is the only flow
@@ -982,7 +985,7 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null)
         return valid;
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',
-            `Could not pre-validate Wave Configuration selection (${err.message}); proceeding with as-saved.`,
+            tr('terminal.wave.preValidateFailed', { message: err.message }),
             'warning');
         return rawSelected;
     }
@@ -1013,7 +1016,7 @@ async syntaxCheck() {
             this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
         );
         if (!await window.electronAPI.fileExists(iveriCompPath)) {
-            const msg = `Icarus Verilog binary not found at:\n  ${iveriCompPath}`;
+            const msg = tr('terminal.veri.iverilogNotFound', { path: iveriCompPath });
             this.terminalManager.appendToTerminal('tveri', msg, 'error');
             return { success: false, message: msg };
         }
@@ -1047,8 +1050,8 @@ async syntaxCheck() {
         ].filter(Boolean).join(' ');
 
         this.terminalManager.appendToTerminal('tveri',
-            '--- Verilog Syntax Check (Wave Configuration) ---', 'info');
-        this.terminalManager.appendToTerminal('tveri', `Top: ${simTopModule}`, 'info');
+            tr('terminal.veri.bannerSyntaxWc'), 'info');
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.simTop', { name: simTopModule }), 'info');
         this.terminalManager.appendToTerminal('tveri', cmd, 'info');
 
         const result = await window.electronAPI.execCommand(cmd);
@@ -1056,7 +1059,7 @@ async syntaxCheck() {
 
         if (result.code !== 0) {
             this.terminalManager.appendToTerminal('tveri',
-                '--- Syntax Check Failed ---', 'error');
+                tr('terminal.veri.bannerSyntaxFailed'), 'error');
             return {
                 success: false,
                 message: `Iverilog reported errors (exit ${result.code}). See terminal.`,
@@ -1064,12 +1067,12 @@ async syntaxCheck() {
         }
 
         this.terminalManager.appendToTerminal('tveri',
-            '--- Syntax Check Passed ---', 'success');
+            tr('terminal.veri.bannerSyntaxPassed'), 'success');
         return { success: true };
 
     } catch (error) {
         this.terminalManager.appendToTerminal('tveri',
-            `Syntax check error: ${error.message}`, 'error');
+            tr('terminal.veri.syntaxError', { message: error.message }), 'error');
         return { success: false, message: error.message };
     }
 }
@@ -1165,8 +1168,8 @@ async _resolveWaveSelection({ config, simTopModule, filePaths }) {
                     const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
                     const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
                     const msg = dropped.length === 1
-                        ? `Signal ${preview} referenced by ${gtkwName} no longer exists; omitted from $dumpvars.`
-                        : `${dropped.length} signals referenced by ${gtkwName} no longer exist and were omitted from $dumpvars: ${preview}${more}.`;
+                        ? tr('terminal.wave.gtkwStaleSignalOne', { preview, file: gtkwName })
+                        : tr('terminal.wave.gtkwStaleSignalMany', { count: dropped.length, file: gtkwName, preview, more });
                     this.terminalManager.appendToTerminal('twave', msg, 'warning');
                     if (typeof window.showNotification === 'function') {
                         window.showNotification(msg, 'warning', 6000, 'Wave Selection');
@@ -1181,7 +1184,7 @@ async _resolveWaveSelection({ config, simTopModule, filePaths }) {
             }
         } catch (err) {
             this.terminalManager.appendToTerminal('twave',
-                `Could not read selected .gtkw (${activeGtkw.path.split(/[\\/]/).pop()}): ${err.message}. Falling back to Wave Configuration / default.`,
+                tr('terminal.wave.gtkwReadError', { file: activeGtkw.path.split(/[\\/]/).pop(), message: err.message }),
                 'warning');
         }
     }
@@ -1259,8 +1262,7 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
  * has a path to produce a fresh .vvp on demand.
  */
 async iverilogCompile({ buildVvp = false } = {}) {
-    const phaseLabel = buildVvp ? 'Verilog Build (Simulation)' : 'Verilog Check + Hierarchy';
-    this.terminalManager.appendToTerminal('tveri', `--- ${phaseLabel} ---`, 'info');
+    this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.phaseBuild' : 'terminal.veri.phaseCheck'), 'info');
     statusUpdater.startCompilation('verilog');
 
     try {
@@ -1276,16 +1278,16 @@ async iverilogCompile({ buildVvp = false } = {}) {
         // signals success. Using 'tips' here keeps the visual hierarchy
         // (blue = "FYI", green = "it worked").
         if (config.topLevelFile) {
-            this.terminalManager.appendToTerminal('tveri', `Top-level: ${config.topLevelFile.split(/[\\/]/).pop()}`, 'tips');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.topLevel', { name: config.topLevelFile.split(/[\\/]/).pop() }), 'tips');
         }
         if (buildVvp) {
             if (config.testbenchFile) {
-                this.terminalManager.appendToTerminal('tveri', `Testbench: ${config.testbenchFile.split(/[\\/]/).pop()}`, 'tips');
+                this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.testbench', { name: config.testbenchFile.split(/[\\/]/).pop() }), 'tips');
             } else {
-                this.terminalManager.appendToTerminal('tveri', 'No testbench: using top-level as simulation top.', 'info');
+                this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.noTbUsingTop'), 'info');
             }
         }
-        this.terminalManager.appendToTerminal('tveri', `Synthesizable files: ${config.synthesizableFiles.length}`, 'info');
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.synthFiles', { count: config.synthesizableFiles.length }), 'info');
 
         const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
         const iveriCompPath = await window.electronAPI.joinPath(
@@ -1366,23 +1368,23 @@ async iverilogCompile({ buildVvp = false } = {}) {
             // Log diagnostico — mostra qual axe ditou a selecao,
             // pra debuggar quando o user esperava outra coisa.
             const sourceLabel = {
-                gtkw: `from selected .gtkw (${decision.signalsToDump.length} signal(s))`,
-                wc: `from Wave Configuration (${decision.signalsToDump.length} signal(s))`,
-                tb: 'testbench owns $dumpvars (hand-written, no override)',
-                default: 'default ($dumpvars(1, <tb>) — signals at testbench scope)',
+                gtkw: tr('terminal.wave.sourceLabelGtkw', { count: decision.signalsToDump.length }),
+                wc: tr('terminal.wave.sourceLabelWc', { count: decision.signalsToDump.length }),
+                tb: tr('terminal.wave.sourceLabelTb'),
+                default: tr('terminal.wave.sourceLabelDefault'),
             }[decision.source] || decision.source;
             this.terminalManager.appendToTerminal('twave',
-                `Wave source: ${sourceLabel}`, 'info');
+                tr('terminal.wave.waveSource', { label: sourceLabel }), 'info');
 
             if (reason === 'override-user') {
                 this.terminalManager.appendToTerminal('twave',
-                    `Note: testbench's hand-written $dumpfile/$dumpvars commented out — Aurora's $dumpvars takes over.`,
+                    tr('terminal.wave.overrideUserDumpvars'),
                     'tips');
             }
 
             if (tbPath !== config.testbenchFile) {
                 this.terminalManager.appendToTerminal('tveri',
-                    `Auto-instrumented testbench → ${tbPath.split(/[\\/]/).pop()}`, 'info');
+                    tr('terminal.veri.autoInstrTb', { name: tbPath.split(/[\\/]/).pop() }), 'info');
             }
         }
         const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
@@ -1417,12 +1419,12 @@ async iverilogCompile({ buildVvp = false } = {}) {
 
         const cmd = cmdParts.filter(Boolean).join(' ');
 
-        this.terminalManager.appendToTerminal('tveri', buildVvp ? 'Build command:' : 'Check command:', 'info');
+        this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'), 'info');
         this.terminalManager.appendToTerminal('tveri', cmd, 'info');
 
         await TabManager.saveAllFiles();
 
-        this.terminalManager.appendToTerminal('tveri', buildVvp ? 'Building...' : 'Checking syntax...', 'info');
+        this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.building' : 'terminal.veri.checking'), 'info');
 
         const result = await window.electronAPI.execCommand(cmd);
         this.terminalManager.processExecutableOutput('tveri', result);
@@ -1438,7 +1440,7 @@ async iverilogCompile({ buildVvp = false } = {}) {
             }
         }
 
-        this.terminalManager.appendToTerminal('tveri', `--- ${buildVvp ? 'Build' : 'Syntax Check'} Successful ---`, 'success');
+        this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildSuccess' : 'terminal.veri.checkSuccess'), 'success');
         statusUpdater.compilationSuccess('verilog');
 
         // Hierarchy is regenerated on the syntax-check path only — that's
@@ -1450,8 +1452,8 @@ async iverilogCompile({ buildVvp = false } = {}) {
         }
 
     } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', '--- Compilation Failed ---', 'error');
-        this.terminalManager.appendToTerminal('tveri', `Error: ${error.message}`, 'error');
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('verilog', error.message);
         throw error;
     }
@@ -1486,7 +1488,7 @@ async iverilogCompile({ buildVvp = false } = {}) {
  * ground truth, how the three .gtkw sources interact, etc.).
  */
 async runGtkWave() {
-    this.terminalManager.appendToTerminal('twave', '--- Simulation & GTKWave ---', 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
 
     try {
         // Wave nao precisa de top-level marcado: quando ha testbench
@@ -1514,7 +1516,7 @@ async runGtkWave() {
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
         await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
     } catch (error) {
-        this.terminalManager.appendToTerminal('twave', `Error: ${error.message}`, 'error');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
         throw error;
     }
@@ -1582,7 +1584,7 @@ _waveDeriveSimTopModule(config) {
  *               iverilogCompile (the .gtkw resolver reads it).
  */
 async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
-    this.terminalManager.appendToTerminal('twave', 'Building VVP for simulation...', 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.buildingVvp'), 'info');
     await this.iverilogCompile({ buildVvp: true });
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     if (!await window.electronAPI.fileExists(vvpFile)) {
@@ -1630,7 +1632,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     }
 
     const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
-    this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...', 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
     const vvpCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}"`;
     const result = await window.electronAPI.execCommand(vvpCmd);
     if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
@@ -1657,7 +1659,7 @@ async _stageProcessorMemoryFiles(tempBaseDir) {
     } catch (_e) {
         this.terminalManager.appendToTerminal(
             'twave',
-            `Warning: could not list ${tempBaseDir} to stage processor memory files.`,
+            tr('terminal.wave.couldNotList', { path: tempBaseDir }),
             'warning',
         );
         return;
@@ -1688,7 +1690,7 @@ async _stageProcessorMemoryFiles(tempBaseDir) {
             } catch (_e) {
                 this.terminalManager.appendToTerminal(
                     'twave',
-                    `Warning: failed to copy ${fileName} from ${subDir}`,
+                    tr('terminal.wave.copyMemFailed', { name: fileName, path: subDir }),
                     'warning',
                 );
             }
@@ -1698,7 +1700,7 @@ async _stageProcessorMemoryFiles(tempBaseDir) {
     if (staged > 0) {
         this.terminalManager.appendToTerminal(
             'twave',
-            `Info: staged ${staged} pc_*_mem.txt file(s) into ${tempBaseDir}.`,
+            tr('terminal.wave.stagedMemFiles', { count: staged, path: tempBaseDir }),
             'tips',
         );
     } else {
@@ -1707,9 +1709,7 @@ async _stageProcessorMemoryFiles(tempBaseDir) {
         // o erro do vvp ser a unica pista.
         this.terminalManager.appendToTerminal(
             'twave',
-            `Warning: no pc_*_mem.txt found in any subdirectory of ${tempBaseDir}. ` +
-            `These are generated by the C± compiler (cmmcomp) per processor — ` +
-            `run C± at least once for each processor before simulating.`,
+            tr('terminal.wave.noMemFiles', { path: tempBaseDir }),
             'warning',
         );
     }
@@ -1782,14 +1782,14 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
     if (staged > 0) {
         this.terminalManager.appendToTerminal(
             'twave',
-            `Info: staged ${staged} testbench data file(s) into ${tempBaseDir}.`,
+            tr('terminal.wave.stagedTbData', { count: staged, path: tempBaseDir }),
             'tips',
         );
     }
     for (const fail of failures) {
         this.terminalManager.appendToTerminal(
             'twave',
-            `Warning: could not stage "${fail.name}" referenced by testbench (${fail.reason}).`,
+            tr('terminal.wave.couldNotStageTbFile', { name: fail.name, reason: fail.reason }),
             'warning',
         );
     }
@@ -1815,7 +1815,7 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
 async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     const expected = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
     if (await window.electronAPI.fileExists(expected)) {
-        this.terminalManager.appendToTerminal('twave', `VCD file created: ${expected}`, 'success');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expected }), 'success');
         return expected;
     }
 
@@ -1832,9 +1832,9 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     if (candidates.length === 1) {
         const adopted = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
         this.terminalManager.appendToTerminal('twave',
-            `Note: testbench's $dumpfile pointed at "${candidates[0]}" instead of ${simTopModule}.vcd; using that file for the wave view.`,
+            tr('terminal.wave.dumpfileMismatch', { name: candidates[0], expected: simTopModule }),
             'warning');
-        this.terminalManager.appendToTerminal('twave', `VCD file created: ${adopted}`, 'success');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: adopted }), 'success');
         return adopted;
     }
 
@@ -1870,7 +1870,7 @@ async _waveStageFixVcd(tools) {
         );
     } catch (copyErr) {
         this.terminalManager.appendToTerminal('twave',
-            `Warning: could not stage fix.vcd — ${copyErr.message}`, 'warning');
+            tr('terminal.wave.couldNotStageFix', { message: copyErr.message }), 'warning');
     }
 }
 
@@ -1914,7 +1914,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             if (gtkwFile) {
                 const userGtkw = gtkwFile.path;
                 this.terminalManager.appendToTerminal('twave',
-                    `Using GTKWave save file: ${userGtkw.split(/[\\/]/).pop()}`, 'info');
+                    tr('terminal.wave.usingGtkwFile', { name: userGtkw.split(/[\\/]/).pop() }), 'info');
                 await this._waveValidateUserGtkwAgainstVcd(userGtkw, vcdFile);
                 return userGtkw;
             }
@@ -1956,8 +1956,8 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
                 const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
                 const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
                 const msg = dropped.length === 1
-                    ? `Note: ${preview} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.`
-                    : `Note: ${dropped.length} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: ${preview}${more}.`;
+                    ? tr('terminal.wave.staleVcdSignalOne', { preview })
+                    : tr('terminal.wave.staleVcdSignalMany', { count: dropped.length, preview, more });
                 this.terminalManager.appendToTerminal('twave', msg, 'warning');
             }
         }
@@ -1990,11 +1990,11 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
             : '';
         this.terminalManager.appendToTerminal('twave',
-            `Auto-generated GTKWave layout (${procPart}${selPart})`, 'info');
+            tr('terminal.wave.autoGtkwLayout', { detail: `${procPart}${selPart}` }), 'info');
         return autoGtkw;
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',
-            `Warning: could not auto-generate .gtkw — ${err.message}`, 'warning');
+            tr('terminal.wave.autoGtkwError', { message: err.message }), 'warning');
         return null;
     }
 }
@@ -2050,7 +2050,7 @@ async _parseProjectSources() {
         return modules;
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',
-            `Note: could not parse project sources (${err.message}); falling back to scope-name heuristics for processor detection.`,
+            tr('terminal.wave.parseSourcesNote', { message: err.message }),
             'tips');
         return null;
     }
@@ -2086,12 +2086,12 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
         const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
         const fileName = gtkwPath.split(/[\\/]/).pop();
         const msg = missing.length === 1
-            ? `Note: ${preview} is referenced by ${fileName} but is not in the generated VCD; GTKWave will show an empty trace for it.`
-            : `Note: ${missing.length} signals referenced by ${fileName} are not in the generated VCD: ${preview}${more}. GTKWave will show empty traces for these.`;
+            ? tr('terminal.wave.gtkwStaleVcdOne', { preview, file: fileName })
+            : tr('terminal.wave.gtkwStaleVcdMany', { count: missing.length, file: fileName, preview, more });
         this.terminalManager.appendToTerminal('twave', msg, 'warning');
     } catch (refErr) {
         this.terminalManager.appendToTerminal('twave',
-            `Could not pre-validate ${gtkwPath.split(/[\\/]/).pop()} against VCD (${refErr.message}); opening GTKWave anyway.`,
+            tr('terminal.wave.gtkwPreValidateFailed', { file: gtkwPath.split(/[\\/]/).pop(), message: refErr.message }),
             'warning');
     }
 }
@@ -2115,7 +2115,7 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
  *               starts the lifecycle monitor.
  */
 async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
-    this.terminalManager.appendToTerminal('twave', 'Launching GTKWave...', 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
     const fixScript = await window.electronAPI.joinPath(tools.scriptsPath, 'gtk_almost_proj.tcl');
     let gtkwaveCmd = `"${tools.gtkwaveBin}" --dark "${vcdFile}"`;
     if (gtkwSaveFile) {
@@ -2131,7 +2131,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
         throw new Error(`Failed to launch GTKWave: ${gtkwaveResult.message}`);
     }
     this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
-    this.terminalManager.appendToTerminal('twave', 'GTKWave launched successfully', 'success');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
     this.monitorGtkwaveProcess();
 }
 
@@ -2142,11 +2142,11 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
         // based on IDE mode and owns the active-view state.
         window.fileTreeViewController?.showFileMode?.();
         this.terminalManager.appendToTerminal('tveri',
-            'Switched to file tree', 'info');
+            tr('terminal.veri.switchedFileTree'), 'info');
     }
 
     async generateHierarchyWithYosys(yosysPath, tempBaseDir) {
-        this.terminalManager.appendToTerminal('twave', 'Generating hierarchy with Yosys...');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.hierarchyGen'));
 
         const spfPath = window.currentSpfPath;
         if (!spfPath) {
@@ -2184,7 +2184,7 @@ write_json ${jsonOutputPath}
 
         const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${yosysScriptPath}"`;
 
-        this.terminalManager.appendToTerminal('twave', `Running Yosys command: ${yosysCmd}`);
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.yosysRun', { cmd: yosysCmd }));
 
         const yosysResult = await window.electronAPI.execCommand(yosysCmd);
 
@@ -2207,7 +2207,7 @@ write_json ${jsonOutputPath}
 
         this.hierarchyData = this.parseYosysHierarchy(hierarchyData, topLevelModule);
 
-        this.terminalManager.appendToTerminal('twave', `Hierarchy generated successfully for top-level module: ${topLevelModule}`, 'success');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.hierarchyForTop', { name: topLevelModule }), 'success');
 
         this.enableHierarchicalTreeToggle();
     }
@@ -2247,11 +2247,11 @@ switchToHierarchicalView() {
     // explicit enable/disable calls or icon updates needed here.
     if (!window.fileTreeViewController?.showHierarchyMode?.()) {
         this.terminalManager.appendToTerminal('tveri',
-            'No hierarchy data available. Please compile Verilog first.', 'warning');
+            tr('terminal.veri.noHierarchyData'), 'warning');
         return;
     }
     this.terminalManager.appendToTerminal('tveri',
-        'Switched to hierarchical module view', 'info');
+        tr('terminal.veri.switchedHierarchical'), 'info');
 }
     updateToggleButton(isHierarchical) {
         const toggleButton = document.getElementById('alternate-tree-toggle');

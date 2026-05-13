@@ -1,5 +1,9 @@
 // modalImport.js - Advanced File Import Modal System
 /* eslint-disable no-undef */
+
+// i18n shim — same pattern as project_tree_actions.js.
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 class ImportModal {
   constructor() {
     this.importedFiles = [];
@@ -154,7 +158,7 @@ class ImportModal {
       }
     } catch (error) {
       console.error('Error opening file dialog:', error);
-      this.showNotification('Error opening file dialog', 'error');
+      this.showNotification(tr('notification.import.errorDialog'), 'error');
     }
   }
   
@@ -232,7 +236,7 @@ class ImportModal {
     this.updateStatistics();
     this.saveConfiguration();
     
-    this.showNotification(`Added ${newFiles.length} file(s)`, 'success');
+    this.showNotification(tr('notification.import.addedFiles', { count: newFiles.length }), 'success');
   }
   
   removeFile(fileId) {
@@ -241,7 +245,7 @@ class ImportModal {
     this.updateStatistics();
     this.saveConfiguration();
     
-    this.showNotification('File removed', 'info');
+    this.showNotification(tr('notification.import.fileRemoved'), 'info');
   }
   
   async clearAllFiles() {
@@ -265,7 +269,7 @@ class ImportModal {
     this.filterFiles('');
     this.updateStatistics();
     this.saveConfiguration();
-    this.showNotification('All files cleared', 'info');
+    this.showNotification(tr('notification.import.allCleared'), 'info');
   }
   
   filterFiles(searchTerm) {
@@ -338,17 +342,17 @@ class ImportModal {
       }
     }
     
-    this.showNotification(`Sorted by ${this.sortOrder} (${this.sortDirection})`, 'info');
+    this.showNotification(tr('notification.import.sorted', { order: this.sortOrder, direction: this.sortDirection }), 'info');
   }
   
   expandAll() {
     // Implementation for expanding all file details if needed
-    this.showNotification('All items expanded', 'info');
+    this.showNotification(tr('notification.import.expanded'), 'info');
   }
   
   collapseAll() {
     // Implementation for collapsing all file details if needed
-    this.showNotification('All items collapsed', 'info');
+    this.showNotification(tr('notification.import.collapsed'), 'info');
   }
   
   renderFileList() {
@@ -486,7 +490,7 @@ class ImportModal {
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(filePath);
-        this.showNotification('Path copied to clipboard', 'success');
+        this.showNotification(tr('notification.import.pathCopied'), 'success');
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -495,17 +499,17 @@ class ImportModal {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        this.showNotification('Path copied to clipboard', 'success');
+        this.showNotification(tr('notification.import.pathCopied'), 'success');
       }
     } catch (error) {
       console.error('Failed to copy path:', error);
-      this.showNotification('Failed to copy path', 'error');
+      this.showNotification(tr('notification.import.failCopy'), 'error');
     }
   }
   
   async showInExplorer(filePath) {
     if (!window.electronAPI) {
-      this.showNotification('Feature not available in browser', 'warning');
+      this.showNotification(tr('notification.import.notAvailable'), 'warning');
       return;
     }
     
@@ -513,7 +517,7 @@ class ImportModal {
       await window.electronAPI.showItemInFolder(filePath);
     } catch (error) {
       console.error('Failed to show in explorer:', error);
-      this.showNotification('Failed to show in explorer', 'error');
+      this.showNotification(tr('notification.import.failExplorer'), 'error');
     }
   }
   
@@ -539,7 +543,7 @@ class ImportModal {
     try {
       const projectPath = await this.getProjectPath();
       if (window.electronAPI && !projectPath) {
-        this.showNotification('Open a project before saving import configuration.', 'warning');
+        this.showNotification(tr('notification.import.noProject'), 'warning');
         return;
       }
       const importFilePath = window.electronAPI ?
@@ -567,15 +571,15 @@ class ImportModal {
       
       if (window.electronAPI) {
         await window.electronAPI.writeFile(importFilePath, JSON.stringify(config, null, 2));
-        this.showNotification('Configuration saved', 'success');
+        this.showNotification(tr('notification.import.configSaved'), 'success');
       } else {
         // Browser fallback - save to localStorage
         localStorage.setItem('importConfig', JSON.stringify(config));
-        this.showNotification('Configuration saved to browser storage', 'success');
+        this.showNotification(tr('notification.import.configSavedBrowser'), 'success');
       }
     } catch (error) {
       console.error('Failed to save configuration:', error);
-      this.showNotification('Failed to save configuration', 'error');
+      this.showNotification(tr('notification.import.configFailed'), 'error');
     }
   }
   
@@ -650,10 +654,10 @@ class ImportModal {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      this.showNotification('File list exported', 'success');
+      this.showNotification(tr('notification.import.exported'), 'success');
     } catch (error) {
       console.error('Failed to export file list:', error);
-      this.showNotification('Failed to export file list', 'error');
+      this.showNotification(tr('notification.import.failExport'), 'error');
     }
   }
   

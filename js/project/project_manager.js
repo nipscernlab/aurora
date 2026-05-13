@@ -102,9 +102,11 @@ function enableCompileButtons() {
             icon.className = 'fa-solid fa-plug-circle-check';
         }
 
-        // 4. Troca o texto imediatamente
+        // 4. Troca o texto imediatamente. Reapontamos data-i18n também
+        // pra que o scanner do i18n re-traduza no proximo locale flip.
         if (statusText) {
-            statusText.textContent = 'Ready';
+            statusText.setAttribute('data-i18n', 'statusBar.ready');
+            statusText.textContent = window.t ? window.t('statusBar.ready') : 'Ready';
         }
     }
 }

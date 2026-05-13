@@ -67,16 +67,16 @@
     <!-- Zone left: file / project actions -->
     <div class="toolbar-zone toolbar-zone-left">
       <div class="toolbar-group">
-          <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar">
+          <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar" data-i18n-tooltip="toolbar.sidebar.tooltip">
               <i class="ph ph-sidebar-simple"></i>
           </button>
           <button id="newProjectBtn" class="toolbar-button">
               <i class="ph ph-folder-plus"></i>
-              <span>New Project</span>
+              <span data-i18n="toolbar.newProject.label">New Project</span>
           </button>
           <button id="openProjectBtn" class="toolbar-button">
               <i class="ph ph-folder-open"></i>
-              <span>Open Project</span>
+              <span data-i18n="toolbar.openProject.label">Open Project</span>
           </button>
       </div>
     </div>
@@ -85,10 +85,10 @@
     <div class="toolbar-zone toolbar-zone-center">
       <!-- Group: processor toolchain -->
       <div class="toolbar-group">
-          <button id="processorHub" class="toolbar-button icon-only" data-tooltip="Processor Hub">
+          <button id="processorHub" class="toolbar-button icon-only" data-tooltip="Processor Hub" data-i18n-tooltip="toolbar.processorHub.tooltip">
               <i class="ph ph-graph"></i>
           </button>
-          <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±">
+          <button id="cmmcomp" class="toolbar-button compile-btn" data-tool="cmm" data-tooltip="Compile C±" data-i18n-tooltip="toolbar.cmmCompile.tooltip">
               <span class="glyph glyph-cpm" aria-hidden="true">
                 <svg viewBox="0 0 24 16">
                   <!-- C arc: open to the right, centred on x=7 y=8 -->
@@ -100,7 +100,7 @@
                 </svg>
               </span>
           </button>
-          <button id="procConfigToggle" class="toolbar-button icon-only" data-tooltip="Processor simulation settings" disabled>
+          <button id="procConfigToggle" class="toolbar-button icon-only" data-tooltip="Processor simulation settings" data-i18n-tooltip="toolbar.processorConfig.tooltip" disabled>
               <i class="ph ph-caret-down"></i>
           </button>
       </div>
@@ -108,7 +108,7 @@
 
       <!-- Group: synthesize -->
       <div class="toolbar-group">
-          <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog">
+          <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog" data-i18n-tooltip="toolbar.verilogSynth.tooltip">
               <span class="glyph glyph-veri" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
                   <!-- Quill pen, top-right shaft sweeping into a sharp nib at bottom-left -->
@@ -118,7 +118,7 @@
                 </svg>
               </span>
           </button>
-          <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM">
+          <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM" data-i18n-tooltip="toolbar.prism.tooltip">
               <img src="./assets/icons/aurora_prism.svg" alt="">
               <span>PRISM</span>
           </button>
@@ -127,7 +127,7 @@
 
       <!-- Group: waves -->
       <div class="toolbar-group">
-          <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)">
+          <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)" data-i18n-tooltip="toolbar.waveAnalyse.tooltip">
               <span class="glyph glyph-wave" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
                   <!-- Symmetric square wave: low → high → low → high → low across the viewport -->
@@ -135,12 +135,12 @@
                 </svg>
               </span>
           </button>
-          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump">
+          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
               <i class="ph ph-list-checks"></i>
           </button>
-          <select id="gtkwPickerSelect" class="toolbar-select" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave">
-              <option value="">default</option>
-              <option value="__add__">+ Add .gtkw file...</option>
+          <select id="gtkwPickerSelect" class="toolbar-select" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
+              <option value="" data-i18n="toolbar.gtkwPicker.default">default</option>
+              <option value="__add__" data-i18n="toolbar.gtkwPicker.add">+ Add .gtkw file...</option>
           </select>
       </div>
     </div>
@@ -151,29 +151,29 @@
     <div class="toolbar-zone toolbar-zone-right">
       <div class="toolbar-group">
           <div class="compile-all-group">
-              <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel">
+              <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel" data-i18n-tooltip="toolbar.cancel.tooltip">
                   <i class="ph ph-stop-circle"></i>
               </button>
-              <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" style="display:none">
+              <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" data-i18n-tooltip="toolbar.fullBuild.tooltip" style="display:none">
                   <i class="ph ph-hammer"></i>
-                  <span>Full Build</span>
+                  <span data-i18n="toolbar.fullBuild.label">Full Build</span>
               </button>
           </div>
 
-          <!-- Toggla a lingua das mensagens do yanc (cmmcomp/appcomp/
-               asmcomp). Persistido em localStorage; compilation_module
-               le e injeta `-pt` ou `-en` em cada cmd. Default PT. -->
-          <button id="yancLangToggle" class="toolbar-button" data-tooltip="Compiler messages: Portuguese">
+          <!-- Aurora locale toggle (PT/EN). Controls both UI strings
+               (via i18n.js / aurora-locale) AND the yanc compiler
+               flag -pt/-en, since they're intentionally linked. -->
+          <button id="localeToggle" class="toolbar-button" data-tooltip="Compiler messages: Portuguese" data-i18n-tooltip="locale.compilerMessages.pt">
               <i class="ph ph-translate"></i>
-              <span id="yancLangLabel">PT</span>
+              <span id="localeLabel">PT</span>
           </button>
-          <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings">
+          <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
           </button>
-          <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split">
+          <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split" data-i18n-tooltip="toolbar.splitEditor.tooltipDisabled">
               <i class="ph ph-columns"></i>
           </button>
-          <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant">
+          <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant" data-i18n-tooltip="toolbar.ai.tooltip">
               <i class="ph ph-sparkle"></i>
           </button>
       </div>
@@ -459,7 +459,7 @@
     <div class="status-zone status-zone-left">
         <div class="status-item" id="ready">
             <span class="status-dot status-dot-error"></span>
-            <span id="status-text">Not Ready</span>
+            <span id="status-text" data-i18n="statusBar.notReady">Not Ready</span>
         </div>
         <!-- Processador "ativo" — populado por status_bar.js a partir
              do .cmm em foco no Monaco (TabManager.getEditingFilePath
@@ -468,13 +468,13 @@
              ativo" sem candidatos. -->
         <div class="status-item hidden" id="activeProcessorStatus">
             <i class="ph ph-x-circle status-icon-error"></i>
-            <span>No active processor</span>
+            <span data-i18n="statusBar.noActiveProcessor">No active processor</span>
         </div>
     </div>
     <div class="status-zone status-zone-center">
         <div class="status-item" id="statusUpdater">
             <i class="ph ph-lightning status-icon-bolt"></i>
-            <span>Start Compilation</span>
+            <span data-i18n="statusBar.startCompilation">Start Compilation</span>
         </div>
     </div>
     <div class="status-zone status-zone-right">
@@ -486,15 +486,15 @@
              icone success/error). -->
         <div class="status-item hidden" id="topLevelStatus">
             <i class="ph ph-x status-icon-error"></i>
-            <span>No top-level</span>
+            <span data-i18n="statusBar.noTopLevel">No top-level</span>
         </div>
         <div class="status-item hidden" id="testbenchStatus">
             <i class="ph ph-x status-icon-error"></i>
-            <span>No testbench</span>
+            <span data-i18n="statusBar.noTestbench">No testbench</span>
         </div>
         <div class="status-item" id="designEmptyStatus">
             <i class="ph ph-x status-icon-error"></i>
-            <span>No top-level or testbench yet</span>
+            <span data-i18n="statusBar.noTopLevelOrTestbench">No top-level or testbench yet</span>
         </div>
         <div class="status-item" id="editorStatus">
             <i class="ph ph-text-align-left"></i>
@@ -514,9 +514,9 @@
         <header class="modal-header">
             <h2 id="wave-config-title" class="modal-title">
                 <i class="ph ph-waveform" aria-hidden="true"></i>
-                <span>Wave Configuration</span>
+                <span data-i18n="modal.waveConfig.title">Wave Configuration</span>
             </h2>
-            <button id="closeWaveConfigModal" class="modal-close-btn" aria-label="Close Modal">
+            <button id="closeWaveConfigModal" class="modal-close-btn" aria-label="Close Modal" data-i18n-aria-label="modal.waveConfig.close">
                 <i class="ph ph-x" aria-hidden="true"></i>
             </button>
         </header>
@@ -525,9 +525,9 @@
             <section class="config-section">
                 <h3 class="section-title">
                     <i class="ph ph-list-checks" aria-hidden="true"></i>
-                    Signals to Dump
+                    <span data-i18n="modal.waveConfig.sectionSignals">Signals to Dump</span>
                 </h3>
-                <p class="form-hint">
+                <p class="form-hint" data-i18n="modal.waveConfig.hint">
                     Pick which signals are dumped to the VCD and shown in GTKWave on Wave click.
                     Default (no selection): everything declared at the testbench module scope.
                 </p>
@@ -535,26 +535,26 @@
                 <div class="wave-tree-toolbar">
                     <button id="waveConfigRefresh" class="btn btn-outline btn-small" type="button">
                         <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
-                        <span>Refresh from sources</span>
+                        <span data-i18n="modal.waveConfig.refresh">Refresh from sources</span>
                     </button>
                     <button id="waveConfigSelectDefault" class="btn btn-outline btn-small" type="button">
                         <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
-                        <span>Reset to default</span>
+                        <span data-i18n="modal.waveConfig.resetDefault">Reset to default</span>
                     </button>
                     <button id="waveConfigSelectAll" class="btn btn-outline btn-small" type="button">
                         <i class="ph ph-check-square" aria-hidden="true"></i>
-                        <span>Select all</span>
+                        <span data-i18n="modal.waveConfig.selectAll">Select all</span>
                     </button>
                     <button id="waveConfigSelectNone" class="btn btn-outline btn-small" type="button">
                         <i class="ph ph-square" aria-hidden="true"></i>
-                        <span>Clear</span>
+                        <span data-i18n="modal.waveConfig.clear">Clear</span>
                     </button>
                 </div>
 
                 <div id="waveConfigTree" class="wave-tree" role="tree">
                     <div class="empty-state" id="waveConfigEmpty">
                         <i class="ph ph-tree-structure empty-icon" aria-hidden="true"></i>
-                        <span>No signals discovered yet. Click "Refresh from sources".</span>
+                        <span data-i18n="modal.waveConfig.emptyState">No signals discovered yet. Click "Refresh from sources".</span>
                     </div>
                 </div>
             </section>
@@ -564,17 +564,17 @@
             <div class="footer-info">
                 <label class="wave-tree-filter">
                     <input type="checkbox" id="waveConfigProcessorOnly">
-                    <span>Show processor signals only</span>
+                    <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
                 </label>
                 <span id="waveConfigSelectedCount" class="footer-counter">0 signals selected</span>
             </div>
             <div class="footer-actions">
                 <button id="cancelWaveConfig" class="btn btn-secondary">
-                    <span>Cancel</span>
+                    <span data-i18n="modal.waveConfig.cancel">Cancel</span>
                 </button>
                 <button id="saveWaveConfig" class="btn btn-primary">
                     <i class="ph ph-floppy-disk" aria-hidden="true"></i>
-                    <span>Save</span>
+                    <span data-i18n="modal.waveConfig.save">Save</span>
                 </button>
             </div>
         </footer>
@@ -587,24 +587,24 @@
         <header class="modal-header">
             <h2 id="new-project-title" class="modal-title">
                 <i class="ph ph-folder-plus" aria-hidden="true"></i>
-                <span>Create New Project</span>
+                <span data-i18n="modal.newProject.title">Create New Project</span>
             </h2>
         </header>
 
         <main class="modal-body">
             <form class="project-form" id="newProjectForm">
                 <div class="form-group">
-                    <label for="projectNameInput" class="form-label">Project Name</label>
-                    <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" required>
+                    <label for="projectNameInput" class="form-label" data-i18n="modal.newProject.name">Project Name</label>
+                    <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" data-i18n-placeholder="modal.newProject.namePlaceholder" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="projectLocationInput" class="form-label">Project Location</label>
+                    <label for="projectLocationInput" class="form-label" data-i18n="modal.newProject.location">Project Location</label>
                     <div class="input-with-action">
-                        <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" readonly required>
+                        <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" data-i18n-placeholder="modal.newProject.locationPlaceholder" readonly required>
                         <button type="button" id="browseBtn" class="btn btn-outline">
                             <i class="ph ph-folder-open" aria-hidden="true"></i>
-                            <span>Browse</span>
+                            <span data-i18n="modal.newProject.browse">Browse</span>
                         </button>
                     </div>
                 </div>
@@ -614,11 +614,11 @@
         <footer class="modal-footer">
             <div class="footer-actions">
                 <button id="cancelProjectBtn" class="btn btn-secondary">
-                    <span>Cancel</span>
+                    <span data-i18n="modal.newProject.cancel">Cancel</span>
                 </button>
                 <button id="generateProjectBtn" class="btn btn-primary">
                     <i class="ph ph-plus" aria-hidden="true"></i>
-                    <span>Generate Project</span>
+                    <span data-i18n="modal.newProject.generate">Generate Project</span>
                 </button>
             </div>
         </footer>
@@ -631,9 +631,9 @@
     <header class="modal-header">
       <h2 id="processor-hub-title" class="modal-title">
         <i class="ph ph-graph" aria-hidden="true"></i>
-        <span>Create Processor Hub</span>
+        <span data-i18n="modal.processorHub.title">Create Processor Hub</span>
       </h2>
-      <button id="closeProcessorHub" class="modal-close-btn" aria-label="Close">
+      <button id="closeProcessorHub" class="modal-close-btn" aria-label="Close" data-i18n-aria-label="modal.processorHub.close">
         <i class="ph ph-x" aria-hidden="true"></i>
       </button>
     </header>
@@ -641,20 +641,20 @@
     <main class="modal-body">
       <form class="processor-form" id="processorHubForm" novalidate>
         <div class="form-group full-width">
-          <label for="processorName" class="form-label">Processor Name</label>
+          <label for="processorName" class="form-label" data-i18n="modal.processorHub.name">Processor Name</label>
           <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00" />
         </div>
 
         <section class="config-section">
           <h3 class="section-title">
             <i class="ph ph-binary" aria-hidden="true"></i>
-            Numeric Format
+            <span data-i18n="modal.processorHub.sectionFormat">Numeric Format</span>
           </h3>
           <div class="form-cols-2">
             <div class="form-group">
               <label for="nBits" class="form-label">
-                <span>Total Number of Bits</span>
-                <span class="info-tip" data-tooltip="Number of Bits must equal Nb Mantissa + Nb Exponent + 1">
+                <span data-i18n="modal.processorHub.totalBits">Total Number of Bits</span>
+                <span class="info-tip" data-tooltip="Number of Bits must equal Nb Mantissa + Nb Exponent + 1" data-i18n-tooltip="modal.processorHub.totalBitsTooltip">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </span>
               </label>
@@ -663,8 +663,8 @@
 
             <div class="form-group">
               <label for="gain" class="form-label">
-                <span>Gain</span>
-                <span class="info-tip" data-tooltip="Gain must be a power of 2">
+                <span data-i18n="modal.processorHub.gain">Gain</span>
+                <span class="info-tip" data-tooltip="Gain must be a power of 2" data-i18n-tooltip="modal.processorHub.gainTooltip">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </span>
               </label>
@@ -672,12 +672,12 @@
             </div>
 
             <div class="form-group">
-              <label for="nbMantissa" class="form-label">Mantissa Bits</label>
+              <label for="nbMantissa" class="form-label" data-i18n="modal.processorHub.mantissa">Mantissa Bits</label>
               <input type="number" id="nbMantissa" name="nbMantissa" class="form-input" min="1" value="16" />
             </div>
 
             <div class="form-group">
-              <label for="nbExponent" class="form-label">Exponent Bits</label>
+              <label for="nbExponent" class="form-label" data-i18n="modal.processorHub.exponent">Exponent Bits</label>
               <input type="number" id="nbExponent" name="nbExponent" class="form-input" min="1" value="6" />
             </div>
           </div>
@@ -686,26 +686,26 @@
         <section class="config-section">
           <h3 class="section-title">
             <i class="ph ph-stack" aria-hidden="true"></i>
-            Stacks &amp; Ports
+            <span data-i18n="modal.processorHub.sectionStacks">Stacks &amp; Ports</span>
           </h3>
           <div class="form-cols-2">
             <div class="form-group">
-              <label for="instructionStackSize" class="form-label">Instruction Stack Size</label>
+              <label for="instructionStackSize" class="form-label" data-i18n="modal.processorHub.instructionStack">Instruction Stack Size</label>
               <input type="number" id="instructionStackSize" name="instructionStackSize" class="form-input" required min="1" value="5" />
             </div>
 
             <div class="form-group">
-              <label for="dataStackSize" class="form-label">Data Stack Size</label>
+              <label for="dataStackSize" class="form-label" data-i18n="modal.processorHub.dataStack">Data Stack Size</label>
               <input type="number" id="dataStackSize" name="dataStackSize" class="form-input" required min="1" value="5" />
             </div>
 
             <div class="form-group">
-              <label for="inputPorts" class="form-label">Input Ports</label>
+              <label for="inputPorts" class="form-label" data-i18n="modal.processorHub.inputPorts">Input Ports</label>
               <input type="number" id="inputPorts" name="inputPorts" class="form-input" required min="1" value="1" />
             </div>
 
             <div class="form-group">
-              <label for="outputPorts" class="form-label">Output Ports</label>
+              <label for="outputPorts" class="form-label" data-i18n="modal.processorHub.outputPorts">Output Ports</label>
               <input type="number" id="outputPorts" name="outputPorts" class="form-input" required min="1" value="1" />
             </div>
           </div>
@@ -716,11 +716,11 @@
     <footer class="modal-footer">
       <div class="footer-actions">
         <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
-          <span>Cancel</span>
+          <span data-i18n="modal.processorHub.cancel">Cancel</span>
         </button>
         <button type="submit" form="processorHubForm" id="generateProcessor" class="btn btn-primary" disabled>
           <i class="ph ph-gear-six" aria-hidden="true"></i>
-          <span>Generate Processor</span>
+          <span data-i18n="modal.processorHub.generate">Generate Processor</span>
         </button>
       </div>
     </footer>
@@ -733,38 +733,38 @@
         <header class="modal-header">
             <h2 id="settings-modal-title" class="modal-title">
                 <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
-                <span>Aurora Settings</span>
+                <span data-i18n="modal.settings.title">Aurora Settings</span>
             </h2>
-            <button id="close-modal-btn" class="modal-close-btn" aria-label="Close settings">
+            <button id="close-modal-btn" class="modal-close-btn" aria-label="Close settings" data-i18n-aria-label="modal.settings.close">
                 <i class="ph ph-x" aria-hidden="true"></i>
             </button>
         </header>
 
         <main class="modal-body">
             <section class="settings-section">
-                <h3>General</h3>
+                <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
                 <div class="setting-item">
-                    <label for="tooltips-toggle">Enable Tooltips</label>
+                    <label for="tooltips-toggle" data-i18n="modal.settings.tooltips">Enable Tooltips</label>
                     <label class="switch">
                         <input type="checkbox" id="tooltips-toggle" checked>
                         <span class="slider"></span>
                     </label>
-                    <div class="setting-description">
+                    <div class="setting-description" data-i18n="modal.settings.tooltipsDescription">
                         Show tooltips on hover throughout the IDE.
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label for="compilation-mode-toggle">Parallel Simulation Mode</label>
+                    <label for="compilation-mode-toggle" data-i18n="modal.settings.parallelMode">Parallel Simulation Mode</label>
                     <label class="switch">
                         <input type="checkbox" id="compilation-mode-toggle" checked>
                         <span class="slider"></span>
                     </label>
-                    <div class="setting-description">
+                    <div class="setting-description" data-i18n="modal.settings.parallelModeDescription">
                         Open GTKWave immediately as VCD generates. Disable to wait for full generation.
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label for="alert-sound-toggle">Compilation Alert Sound</label>
+                    <label for="alert-sound-toggle" data-i18n="modal.settings.alertSound">Compilation Alert Sound</label>
                     <label class="switch">
                         <input type="checkbox" id="alert-sound-toggle" checked>
                         <span class="slider"></span>
@@ -773,25 +773,25 @@
             </section>
 
             <section class="settings-section">
-                <h3>Terminal</h3>
+                <h3 data-i18n="modal.settings.sectionTerminal">Terminal</h3>
                 <div class="setting-item">
-                    <label for="verbose-toggle">Verbose Mode</label>
+                    <label for="verbose-toggle" data-i18n="modal.settings.verbose">Verbose Mode</label>
                     <label class="switch">
                         <input type="checkbox" id="verbose-toggle" checked>
                         <span class="slider"></span>
                     </label>
-                    <div class="setting-description">
+                    <div class="setting-description" data-i18n="modal.settings.verboseDescription">
                         Show all compilation messages. Disable to filter (errors, warnings, success, info).
                     </div>
                 </div>
             </section>
 
             <section class="settings-section">
-                <h3>Appearance</h3>
+                <h3 data-i18n="modal.settings.sectionAppearance">Appearance</h3>
                 <div id="icon-container" class="icon-container">
                     <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" alt="Aurora" class="overlay-icon aurora-icon" />
                     <i id="fallback-icon" class="ph ph-image-broken fallback-icon"></i>
-                    <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon">
+                    <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon" data-i18n-aria-label="modal.settings.changeIcon">
                         <i class="ph ph-image"></i>
                     </button>
                     <input type="file" id="icon-upload" accept="image/*" class="hidden" />
@@ -799,9 +799,9 @@
             </section>
 
             <section class="settings-section">
-                <h3>Keyboard Shortcuts</h3>
+                <h3 data-i18n="modal.settings.sectionShortcuts">Keyboard Shortcuts</h3>
                 <div id="shortcut-list"></div>
-                <div class="shortcut-warning" id="shortcut-warning">
+                <div class="shortcut-warning" id="shortcut-warning" data-i18n="modal.settings.shortcutInUse">
                     This shortcut is already in use.
                 </div>
             </section>
@@ -809,8 +809,8 @@
 
         <footer class="modal-footer">
             <div class="footer-actions">
-                <button id="reset-settings-btn" class="btn btn-secondary">Reset to Defaults</button>
-                <button id="save-settings-btn" class="btn btn-primary">Save Changes</button>
+                <button id="reset-settings-btn" class="btn btn-secondary" data-i18n="modal.settings.reset">Reset to Defaults</button>
+                <button id="save-settings-btn" class="btn btn-primary" data-i18n="modal.settings.save">Save Changes</button>
             </div>
         </footer>
     </div>
@@ -1010,7 +1010,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/utils/shortcut_manager.js"></script>
 <script src="./js/ui/status_updater.js"></script>
 <script src="./js/ui/status_bar.js"></script>
-<script src="./js/ui/yanc_lang_toggle.js"></script>
+<script src="./js/i18n/i18n.js" type="module"></script>
+<script src="./js/ui/locale_toggle.js"></script>
 <script src="./js/processors/processor_config_panel.js"></script>
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>

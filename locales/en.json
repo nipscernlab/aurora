@@ -1,0 +1,213 @@
+{
+    "toolbar": {
+        "sidebar":         { "tooltip": "Toggle sidebar" },
+        "newProject":      { "label": "New Project" },
+        "openProject":     { "label": "Open Project" },
+        "processorHub":    { "tooltip": "Processor Hub" },
+        "cmmCompile":      { "tooltip": "Compile C±" },
+        "processorConfig": { "tooltip": "Processor simulation settings" },
+        "verilogSynth":    { "tooltip": "Synthesize Verilog" },
+        "prism":           { "tooltip": "Open PRISM" },
+        "waveAnalyse":     { "tooltip": "Analyse Verilog (waveform)" },
+        "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },
+        "gtkwPicker": {
+            "tooltip": "Active GTKWave save file (.gtkw) — used when launching GTKWave",
+            "default": "default",
+            "add":     "+ Add .gtkw file..."
+        },
+        "cancel":      { "tooltip": "Cancel" },
+        "fullBuild":   { "tooltip": "Full build", "label": "Full Build" },
+        "settings":    { "tooltip": "Aurora settings" },
+        "splitEditor": { "tooltipDisabled": "Open a file first to enable split" },
+        "ai":          { "tooltip": "AI assistant" }
+    },
+    "modal": {
+        "waveConfig": {
+            "title":              "Wave Configuration",
+            "close":              "Close Modal",
+            "sectionSignals":     "Signals to Dump",
+            "hint":               "Pick which signals are dumped to the VCD and shown in GTKWave on Wave click. Default (no selection): everything declared at the testbench module scope.",
+            "refresh":            "Refresh from sources",
+            "resetDefault":       "Reset to default",
+            "selectAll":          "Select all",
+            "clear":              "Clear",
+            "emptyState":         "No signals discovered yet. Click \"Refresh from sources\".",
+            "showProcessorOnly":  "Show processor signals only",
+            "selectedCountOne":   "1 signal selected",
+            "selectedCountOther": "{{count}} signals selected",
+            "cancel":             "Cancel",
+            "save":               "Save"
+        },
+        "newProject": {
+            "title":               "Create New Project",
+            "name":                "Project Name",
+            "namePlaceholder":     "Enter project name",
+            "location":            "Project Location",
+            "locationPlaceholder": "Select project location",
+            "browse":              "Browse",
+            "cancel":              "Cancel",
+            "generate":            "Generate Project"
+        },
+        "processorHub": {
+            "title":            "Create Processor Hub",
+            "close":            "Close",
+            "name":             "Processor Name",
+            "sectionFormat":    "Numeric Format",
+            "totalBits":        "Total Number of Bits",
+            "totalBitsTooltip": "Number of Bits must equal Nb Mantissa + Nb Exponent + 1",
+            "gain":             "Gain",
+            "gainTooltip":      "Gain must be a power of 2",
+            "mantissa":         "Mantissa Bits",
+            "exponent":         "Exponent Bits",
+            "sectionStacks":    "Stacks & Ports",
+            "instructionStack": "Instruction Stack Size",
+            "dataStack":        "Data Stack Size",
+            "inputPorts":       "Input Ports",
+            "outputPorts":      "Output Ports",
+            "cancel":           "Cancel",
+            "generate":         "Generate Processor"
+        },
+        "settings": {
+            "title":                   "Aurora Settings",
+            "close":                   "Close settings",
+            "sectionGeneral":          "General",
+            "tooltips":                "Enable Tooltips",
+            "tooltipsDescription":     "Show tooltips on hover throughout the IDE.",
+            "parallelMode":            "Parallel Simulation Mode",
+            "parallelModeDescription": "Open GTKWave immediately as VCD generates. Disable to wait for full generation.",
+            "alertSound":              "Compilation Alert Sound",
+            "sectionTerminal":         "Terminal",
+            "verbose":                 "Verbose Mode",
+            "verboseDescription":      "Show all compilation messages. Disable to filter (errors, warnings, success, info).",
+            "sectionAppearance":       "Appearance",
+            "changeIcon":              "Change application icon",
+            "sectionShortcuts":        "Keyboard Shortcuts",
+            "shortcutInUse":           "This shortcut is already in use.",
+            "reset":                   "Reset to Defaults",
+            "save":                    "Save Changes"
+        }
+    },
+    "shortcuts": {
+        "notSet":       "Not Set",
+        "recording":    "Recording...",
+        "compileAll":   "Compile All",
+        "closeTab":     "Close Active Tab",
+        "reopenTab":    "Reopen Last Closed Tab",
+        "saveFile":     "Save Current File",
+        "saveAllFiles": "Save All Files",
+        "openSettings": "Open Settings / Project"
+    },
+    "dialog": {
+        "common": {
+            "ok":         "OK",
+            "understood": "Understood",
+            "close":      "Close"
+        },
+        "newProject": {
+            "missingInfoTitle":      "Missing Information",
+            "missingInfoMessage":    "Please enter both the Project Name and Project Location.",
+            "invalidInputTitle":     "Invalid Input",
+            "invalidInputMessage":   "Project Name and Location must not contain spaces or special symbols. Use only letters, numbers, underscores, or hyphens.",
+            "generationErrorTitle":  "Generation Error",
+            "generationErrorMessage": "Failed to create the project. Please check the console for details."
+        }
+    },
+    "statusBar": {
+        "notReady":              "Not Ready",
+        "ready":                 "Ready",
+        "noActiveProcessor":     "No active processor",
+        "startCompilation":      "Start Compilation",
+        "noTopLevel":            "No top-level",
+        "noTestbench":           "No testbench",
+        "noTopLevelOrTestbench": "No top-level or testbench yet"
+    },
+    "compilation": {
+        "type": {
+            "cmm":     "C±",
+            "asm":     "Assembly",
+            "verilog": "Verilog",
+            "wave":    "Waveform",
+            "prism":   "PRISM",
+            "all":     "All components"
+        },
+        "inProgress":       "{{name}} compilation in progress...",
+        "success":          "{{name}} compilation successful",
+        "failed":           "{{name}} compilation failed",
+        "failedWithError":  "{{name}} compilation failed: {{error}}"
+    },
+    "editor": {
+        "lineCol": "Ln {{line}}, Col {{col}}"
+    },
+    "tabs": {
+        "close":      "Close",
+        "formatting": "Formatting code...",
+        "formatter":  "Code Formatter"
+    },
+    "contextMenu": {
+        "removeTopLevel":  "Remove Top Level",
+        "setTopLevel":     "Set as Top Level",
+        "unmarkTestbench": "Unmark Testbench",
+        "markTestbench":   "Mark as Testbench",
+        "removeFile":      "Remove File",
+        "newVerilog":      "New Verilog File (.v)",
+        "saveNewVerilog":  "Save New Verilog File"
+    },
+    "notification": {
+        "tree": {
+            "noFilesDropped":     "No files dropped",
+            "cannotGetPath":      "Cannot get path for \"{{name}}\". Try using Open HDL button.",
+            "rejectedExt":        "\"{{name}}\" was rejected — only Verilog (.v, .sv, .vh) source files belong in the tree.{{hint}}",
+            "gtkwHint":           " Use the toolbar's .gtkw picker (+ Add .gtkw file...) instead.",
+            "fileNotExist":       "File does not exist: {{path}}",
+            "errorValidating":    "Error validating \"{{name}}\"",
+            "errorSelecting":     "Error selecting files",
+            "noPath":             "\"{{name}}\" has no path information",
+            "unsupportedExt":     "\"{{name}}\" has unsupported extension {{ext}}",
+            "alreadyExists":      "\"{{name}}\" already exists",
+            "noValidFiles":       "No valid files to import",
+            "added":              "Successfully added {{count}} file(s)",
+            "created":            "Created \"{{name}}\" successfully",
+            "errorCreating":      "Error creating file",
+            "deleted":            "Deleted \"{{name}}\" successfully",
+            "alreadyDeleted":     "File \"{{name}}\" was already deleted",
+            "errorDeleting":      "Error deleting \"{{name}}\": {{error}}",
+            "removed":            "Removed \"{{name}}\"",
+            "categoryChanged":    "\"{{name}}\" category changed to {{category}}",
+            "cannotSetTopOnTb":   "Cannot set Top Level on Testbench file",
+            "setAsTop":           "\"{{name}}\" set as Top Level",
+            "topRemoved":         "Top Level removed from \"{{name}}\"",
+            "notTestbench":       "File must have Testbench category",
+            "markedTb":           "\"{{name}}\" marked as Testbench",
+            "tbUnmarked":         "Testbench mark removed from \"{{name}}\"",
+            "selectVerilogTitle": "Select Verilog Files"
+        },
+        "fileMode": {
+            "errorOpen": "Error opening file: {{name}}"
+        },
+        "import": {
+            "errorDialog":        "Error opening file dialog",
+            "addedFiles":         "Added {{count}} file(s)",
+            "fileRemoved":        "File removed",
+            "allCleared":         "All files cleared",
+            "sorted":             "Sorted by {{order}} ({{direction}})",
+            "expanded":           "All items expanded",
+            "collapsed":          "All items collapsed",
+            "pathCopied":         "Path copied to clipboard",
+            "failCopy":           "Failed to copy path",
+            "notAvailable":       "Feature not available in browser",
+            "failExplorer":       "Failed to show in explorer",
+            "noProject":          "Open a project before saving import configuration.",
+            "configSaved":        "Configuration saved",
+            "configSavedBrowser": "Configuration saved to browser storage",
+            "configFailed":       "Failed to save configuration",
+            "exported":           "File list exported",
+            "failExport":         "Failed to export file list"
+        }
+    },
+    "locale": {
+        "compilerMessages": {
+            "pt": "Compiler messages: Portuguese",
+            "en": "Compiler messages: English"
+        }
+    }
+}

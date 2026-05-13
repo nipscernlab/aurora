@@ -77,11 +77,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const projectName = projectNameInput.value.trim();
             const projectLocation = projectLocationInput.value.trim();
 
+            // tr() is a tiny wrapper around window.t — falls back to the
+            // English key path if i18n hasn't booted yet (rare but possible
+            // during very early renderer init).
+            const tr = (k) => (window.t ? window.t(k) : k);
+
             if (!projectName || !projectLocation) {
                 await showDialog({
-                    title: 'Missing Information',
-                    message: 'Please enter both the Project Name and Project Location.',
-                    buttons: [{ label: 'OK', action: 'ok', type: 'save' }]
+                    title: tr('dialog.newProject.missingInfoTitle'),
+                    message: tr('dialog.newProject.missingInfoMessage'),
+                    buttons: [{ label: tr('dialog.common.ok'), action: 'ok', type: 'save' }]
                 });
                 return;
             }
@@ -91,11 +96,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!isNameValid || !isLocationValid) {
                 await showDialog({
-                    title: 'Invalid Input',
-                    message: 'Project Name and Location must not contain spaces or special symbols. Use only letters, numbers, underscores, or hyphens.',
-                    buttons: [{ label: 'Understood', action: 'ok', type: 'save' }]
+                    title: tr('dialog.newProject.invalidInputTitle'),
+                    message: tr('dialog.newProject.invalidInputMessage'),
+                    buttons: [{ label: tr('dialog.common.understood'), action: 'ok', type: 'save' }]
                 });
-                return; 
+                return;
             }
 
             const projectPath = `${projectLocation}\\${projectName}`;
@@ -123,10 +128,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
             console.error(error);
+            const tr = (k) => (window.t ? window.t(k) : k);
             await showDialog({
-                title: 'Generation Error',
-                message: 'Failed to create the project. Please check the console for details.',
-                buttons: [{ label: 'Close', action: 'close', type: 'cancel' }]
+                title: tr('dialog.newProject.generationErrorTitle'),
+                message: tr('dialog.newProject.generationErrorMessage'),
+                buttons: [{ label: tr('dialog.common.close'), action: 'close', type: 'cancel' }]
             });
         }
     });

@@ -696,7 +696,13 @@ class WaveConfigManager {
     _updateCounter() {
         if (!this.elements.counter) return;
         const n = this.selected.size;
-        this.elements.counter.textContent = `${n} signal${n === 1 ? '' : 's'} selected`;
+        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        // Two keys instead of an ICU plural — fine for {0/1, many}; if a
+        // third locale lands with more plural forms (Slavic, Arabic) we
+        // promote to a plural-aware helper at that point.
+        this.elements.counter.textContent = n === 1
+            ? tr('modal.waveConfig.selectedCountOne')
+            : tr('modal.waveConfig.selectedCountOther', { count: n });
     }
 
     _escape(text) {

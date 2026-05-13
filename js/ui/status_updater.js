@@ -1,5 +1,16 @@
 // statusUpdater.js - Manages compilation status in the status bar
 
+const tr = (key, params) => (window.t ? window.t(key, params) : key);
+
+// Resolve a compilation type to its display name via i18n. Unknown
+// types fall back to the raw `type` string so we keep the previous
+// "show what came in" default behaviour.
+function compName(type) {
+    const key = `compilation.type.${type}`;
+    const v = tr(key);
+    return v === key ? type : v;
+}
+
 class StatusUpdater {
     constructor() {
       // Antes: .status-item:nth-child(3) — seletor obsoleto, foi quebrado
@@ -10,133 +21,70 @@ class StatusUpdater {
       // return` e o texto "Start Compilation" hardcoded em index.html
       // nunca era substituido.
       this.statusItem = document.getElementById('statusUpdater');
-      this.defaultStatus = '<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> Start Compilation';
       this.isCompiling = false;
 
       // Initialize - make sure placeholder is empty
       if (this.statusItem) {
         this.setDefaultStatus();
       }
+
+      // Locale flips while at rest → re-render the default label.
+      // Mid-compilation we deliberately don't disturb the spinner.
+      window.addEventListener('aurora:locale-changed', () => {
+          if (this.statusItem && !this.isCompiling) this.setDefaultStatus();
+      });
     }
-    
+
+    _defaultHtml() {
+      return `<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> ${tr('statusBar.startCompilation')}`;
+    }
+
     // Set the status item back to default
     setDefaultStatus() {
-      this.statusItem.innerHTML = this.defaultStatus;
+      this.statusItem.innerHTML = this._defaultHtml();
       this.statusItem.className = 'status-item';
       this.isCompiling = false;
     }
-    
+
     // Show that compilation has started
     startCompilation(type) {
       if (!this.statusItem) return;
-      
-      let compilationName = '';
-      switch(type) {
-        case 'cmm':
-          compilationName = 'C±';
-          break;
-        case 'asm':
-          compilationName = 'Assembly';
-          break;
-        case 'verilog':
-          compilationName = 'Verilog';
-          break;
-        case 'wave':
-          compilationName = 'Waveform';
-          break;
-        case 'prism':
-          compilationName = 'PRISM';
-          break;
-        case 'all':
-          compilationName = 'All components';
-          break;
-        default:
-          compilationName = type;
-      }
-      
+      const name = compName(type);
       this.isCompiling = true;
       this.statusItem.className = 'status-item status-compiling';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${compilationName} compilation in progress...`;
-      
+      this.statusItem.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${tr('compilation.inProgress', { name })}`;
+
       // Start a gentle pulsing animation
       this.startPulsing();
     }
-    
+
     // Show successful compilation
     compilationSuccess(type) {
       if (!this.statusItem || !this.isCompiling) return;
-      
-      let compilationName = '';
-      switch(type) {
-        case 'cmm':
-          compilationName = 'C±';
-          break;
-        case 'asm':
-          compilationName = 'Assembly';
-          break;
-        case 'verilog':
-          compilationName = 'Verilog';
-          break;
-        case 'wave':
-          compilationName = 'Waveform';
-          break;
-        case 'prism':
-          compilationName = 'PRISM';
-          break;
-        case 'all':
-          compilationName = 'All components';
-          break;
-        default:
-          compilationName = type;
-      }
-      
+      const name = compName(type);
       this.statusItem.className = 'status-item status-success';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-check"></i> ${compilationName} compilation successful`;
-      
+      this.statusItem.innerHTML = `<i class="fa-solid fa-check"></i> ${tr('compilation.success', { name })}`;
+
       // Reset after 5 seconds
       setTimeout(() => {
         this.setDefaultStatus();
       }, 5000);
     }
-    
+
     // Show failed compilation
     compilationError(type, errorMsg = '') {
       if (!this.statusItem || !this.isCompiling) return;
-      
-      let compilationName = '';
-      switch(type) {
-        case 'cmm':
-          compilationName = 'C±';
-          break;
-        case 'asm':
-          compilationName = 'Assembly';
-          break;
-        case 'verilog':
-          compilationName = 'Verilog';
-          break;
-        case 'wave':
-          compilationName = 'Waveform';
-          break;
-        case 'prism':
-          compilationName = 'PRISM';
-          break;
-        case 'all':
-          compilationName = 'All components';
-          break;
-        default:
-          compilationName = type;
-      }
-      
+      const name = compName(type);
       this.statusItem.className = 'status-item status-error';
-      
+
       // Include error message if provided, otherwise just show generic failure
       if (errorMsg && errorMsg.length > 0) {
         const shortErrorMsg = errorMsg.length > 30 ? errorMsg.substring(0, 30) + '...' : errorMsg;
-        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${compilationName} compilation failed: ${shortErrorMsg}`;
+        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${tr('compilation.failedWithError', { name, error: shortErrorMsg })}`;
       } else {
-        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${compilationName} compilation failed`;
+        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${tr('compilation.failed', { name })}`;
       }
-      
+
       // Reset after 8 seconds (longer for errors so user can read)
       setTimeout(() => {
         this.setDefaultStatus();

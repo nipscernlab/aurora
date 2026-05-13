@@ -173,7 +173,11 @@ class ProjectTreeManager {
                     TabManager.addTab(file.path, content);
                 } catch (err) {
                     console.error('Error opening file:', err);
-                    this.showNotification(`Error opening file: ${file.name}`, 'error', 3000);
+                    this.showNotification(
+                        window.t ? window.t('notification.fileMode.errorOpen', { name: file.name }) : `Error opening file: ${file.name}`,
+                        'error',
+                        3000,
+                    );
                 }
             });
         }

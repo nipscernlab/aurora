@@ -17,14 +17,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
     const SETTINGS_STORAGE_KEY = 'aurora-settings';
 
+    // i18n note: labels resolved at render time via SHORTCUT_LABEL_KEYS,
+    // not stored here, so locale switches update the UI without touching
+    // localStorage-persisted shortcuts.
     const defaultShortcuts = {
-        'compileAll': { label: 'Compile All', ctrlKey: true, shiftKey: true, altKey: false, key: 'B' },
-        'closeTab': { label: 'Close Active Tab', ctrlKey: true, shiftKey: false, altKey: false, key: 'W' },
-        'reopenTab': { label: 'Reopen Last Closed Tab', ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },
-        'saveFile': { label: 'Save Current File', ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
-        'saveAllFiles': { label: 'Save All Files', ctrlKey: true, shiftKey: true, altKey: false, key: 'S' },
-        'openSettings': { label: 'Open Settings / Project', ctrlKey: true, shiftKey: true, altKey: false, key: 'C' }
+        'compileAll':   { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'B' },
+        'closeTab':     { ctrlKey: true,  shiftKey: false, altKey: false, key: 'W' },
+        'reopenTab':    { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'T' },
+        'saveFile':     { ctrlKey: true,  shiftKey: false, altKey: false, key: 'S' },
+        'saveAllFiles': { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'S' },
+        'openSettings': { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'C' }
     };
+
+    const SHORTCUT_LABEL_KEYS = {
+        'compileAll':   'shortcuts.compileAll',
+        'closeTab':     'shortcuts.closeTab',
+        'reopenTab':    'shortcuts.reopenTab',
+        'saveFile':     'shortcuts.saveFile',
+        'saveAllFiles': 'shortcuts.saveAllFiles',
+        'openSettings': 'shortcuts.openSettings'
+    };
+
+    const tr = (key) => (window.t ? window.t(key) : key);
 
     const defaultSettings = {
         parallelCompilation: false,
@@ -101,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- Shortcuts UI / gravação ----
     const formatShortcutText = ({ ctrlKey, shiftKey, altKey, key }) => {
-        if (!key) return 'Not Set';
+        if (!key) return tr('shortcuts.notSet');
         const parts = [];
         if (ctrlKey) parts.push('Ctrl');
         if (shiftKey) parts.push('Shift');
@@ -116,13 +130,21 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const action in currentShortcuts) {
             const item = document.createElement('div');
             item.className = 'shortcut-item';
+            const labelKey = SHORTCUT_LABEL_KEYS[action] || action;
             item.innerHTML = `
-                <span class="action">${currentShortcuts[action].label}</span>
+                <span class="action">${tr(labelKey)}</span>
                 <div class="shortcut-input" data-action="${action}" tabindex="0">${formatShortcutText(currentShortcuts[action])}</div>
             `;
             shortcutList.appendChild(item);
         }
     };
+
+    // Re-render the shortcut list whenever the locale flips, otherwise
+    // the action labels and "Not Set" placeholder would stay stuck in
+    // the previously-active language.
+    window.addEventListener('aurora:locale-changed', () => {
+        if (modalOverlay.classList.contains('visible')) renderShortcuts();
+    });
 
     let recordingInput = null;
     let activeKeys = new Set();
@@ -205,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (recordingInput) stopRecording();
 
             recordingInput = target;
-            recordingInput.textContent = 'Recording...';
+            recordingInput.textContent = tr('shortcuts.recording');
             recordingInput.classList.add('recording');
 
             document.addEventListener('keydown', handleRecordingKeyDown, { capture: true });

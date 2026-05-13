@@ -70,6 +70,10 @@ class StatusBarManager {
         // foi reescrito quando esses eventos chegam aqui.
         window.electronAPI?.onProcessorCreated?.(() => this.refresh());
         window.electronAPI?.onProcessorsUpdated?.(() => this.refresh());
+        // Locale flip re-renders too: "No top-level"/"No testbench" and
+        // "No active processor" live in JS-set textContent and would
+        // otherwise stay stuck in the previous language.
+        window.addEventListener('aurora:locale-changed', () => this.refresh());
         // Pintura inicial — caso o app abra direto num projeto (auto-
         // reopen) o setProject pode ja ter rodado antes do nosso init.
         this.refresh();
@@ -105,8 +109,9 @@ class StatusBarManager {
         this._toggle(this.topEl, !bothEmpty);
         this._toggle(this.tbEl, !bothEmpty);
         if (!bothEmpty) {
-            this._setSlot(this.topEl, topPath, 'No top-level', /\.v$/i);
-            this._setSlot(this.tbEl, tbPath, 'No testbench', /\.v$/i);
+            const tr = (k) => (window.t ? window.t(k) : k);
+            this._setSlot(this.topEl, topPath, tr('statusBar.noTopLevel'),  /\.v$/i);
+            this._setSlot(this.tbEl,  tbPath,  tr('statusBar.noTestbench'), /\.v$/i);
         }
     }
 
@@ -130,7 +135,7 @@ class StatusBarManager {
             text.textContent = activeName;
         } else {
             icon.className = 'ph ph-x-circle status-icon-error';
-            text.textContent = 'No active processor';
+            text.textContent = window.t ? window.t('statusBar.noActiveProcessor') : 'No active processor';
         }
     }
 

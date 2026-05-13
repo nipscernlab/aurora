@@ -41,7 +41,8 @@ function disableCompileButtons() {
             icon.classList.add('fa-plug-circle-xmark');
         }
         if (statusText) {
-            statusText.textContent = 'Not Ready';
+            statusText.setAttribute('data-i18n', 'statusBar.notReady');
+            statusText.textContent = window.t ? window.t('statusBar.notReady') : 'Not Ready';
         }
         
         statusElement.classList.remove('is-ready');

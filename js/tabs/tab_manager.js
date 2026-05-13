@@ -171,13 +171,14 @@ export class TabManager {
         const broomIcon = document.querySelector('.context-refactor-button');
         if (!broomIcon) return;
 
+        const tr = (k) => (window.t ? window.t(k) : k);
         if (show) {
             broomIcon.classList.add('formatting');
-            broomIcon.title = 'Formatting code...';
+            broomIcon.title = tr('tabs.formatting');
         } else {
             broomIcon.classList.remove('formatting');
             broomIcon.style.animation = '';
-            broomIcon.title = 'Code Formatter';
+            broomIcon.title = tr('tabs.formatter');
         }
     }
 
@@ -534,10 +535,11 @@ export class TabManager {
             tab.classList.add('binary-file');
         }
 
+        const closeTitle = window.t ? window.t('tabs.close') : 'Close';
         tab.innerHTML = `
       <i class="${this.getFileIcon(filePath.split(/[\\/]/).pop())}"></i>
       <span class="tab-name">${filePath.split(/[\\/]/).pop()}</span>
-      <button class="close-tab" title="Close">×</button>
+      <button class="close-tab" title="${closeTitle}">×</button>
     `;
 
         // Mark as preview if needed

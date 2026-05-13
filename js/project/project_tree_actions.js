@@ -29,6 +29,10 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 
+// i18n shim — falls back to the key path if i18n didn't boot yet
+// (rare; renderer hits these only after DOMContentLoaded).
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 export const ActionsMixin = {
     // ----- drag and drop -----------------------------------------------
 
@@ -66,7 +70,7 @@ export const ActionsMixin = {
         const droppedFiles = e.dataTransfer.files;
 
         if (!droppedFiles || droppedFiles.length === 0) {
-            this.showNotification('No files dropped', 'warning', 2000);
+            this.showNotification(tr('notification.tree.noFilesDropped'), 'warning', 2000);
             return;
         }
 
@@ -80,7 +84,7 @@ export const ActionsMixin = {
             if (!filePath || filePath === '') {
                 console.warn('Cannot get path for file:', file.name);
                 this.showNotification(
-                    `Cannot get path for "${file.name}". Try using Open HDL button.`,
+                    tr('notification.tree.cannotGetPath', { name: file.name }),
                     'warning',
                     3000,
                 );
@@ -91,11 +95,9 @@ export const ActionsMixin = {
 
             const ext = this.getFileExtension(file.name);
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
-                const hint = ext === '.gtkw'
-                    ? ' Use the toolbar\'s .gtkw picker (+ Add .gtkw file...) instead.'
-                    : '';
+                const hint = ext === '.gtkw' ? tr('notification.tree.gtkwHint') : '';
                 this.showNotification(
-                    `"${file.name}" was rejected — only Verilog (.v, .sv, .vh) source files belong in the tree.${hint}`,
+                    tr('notification.tree.rejectedExt', { name: file.name, hint }),
                     'warning',
                     3000,
                 );
@@ -107,7 +109,7 @@ export const ActionsMixin = {
 
                 if (!exists) {
                     this.showNotification(
-                        `File does not exist: ${filePath}`,
+                        tr('notification.tree.fileNotExist', { path: filePath }),
                         'warning',
                         3000,
                     );
@@ -122,7 +124,7 @@ export const ActionsMixin = {
             } catch (error) {
                 console.error('Error validating file:', error);
                 this.showNotification(
-                    `Error validating "${file.name}"`,
+                    tr('notification.tree.errorValidating', { name: file.name }),
                     'error',
                     3000,
                 );
@@ -145,7 +147,7 @@ export const ActionsMixin = {
             ];
 
             const result = await window.electronAPI.selectFilesWithPath({
-                title: 'Select Verilog Files',
+                title: tr('notification.tree.selectVerilogTitle'),
                 filters,
                 properties: ['openFile', 'multiSelections'],
             });
@@ -155,7 +157,7 @@ export const ActionsMixin = {
             }
         } catch (error) {
             console.error('Error selecting files:', error);
-            this.showNotification('Error selecting files', 'error', 3000);
+            this.showNotification(tr('notification.tree.errorSelecting'), 'error', 3000);
         }
     },
 
@@ -170,19 +172,19 @@ export const ActionsMixin = {
 
         for (const file of files) {
             if (!file.path || file.path === '') {
-                errors.push(`"${file.name}" has no path information`);
+                errors.push(tr('notification.tree.noPath', { name: file.name }));
                 continue;
             }
 
             const ext = this.getFileExtension(file.name);
 
             if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
-                errors.push(`"${file.name}" has unsupported extension ${ext}`);
+                errors.push(tr('notification.tree.unsupportedExt', { name: file.name, ext }));
                 continue;
             }
 
             if (this.verilogFiles.some(f => f.path === file.path)) {
-                errors.push(`"${file.name}" already exists`);
+                errors.push(tr('notification.tree.alreadyExists', { name: file.name }));
                 continue;
             }
 
@@ -202,7 +204,7 @@ export const ActionsMixin = {
 
         if (validFiles.length === 0) {
             if (errors.length === 0) {
-                this.showNotification('No valid files to import', 'warning', 3000);
+                this.showNotification(tr('notification.tree.noValidFiles'), 'warning', 3000);
             }
             return;
         }
@@ -213,7 +215,7 @@ export const ActionsMixin = {
         this.renderTree();
 
         this.showNotification(
-            `Successfully added ${validFiles.length} file(s)`,
+            tr('notification.tree.added', { count: validFiles.length }),
             'success',
             2000,
         );
@@ -231,7 +233,7 @@ export const ActionsMixin = {
                 : 'untitled.v';
 
             const result = await window.electronAPI.showSaveDialog({
-                title: 'Save New Verilog File',
+                title: tr('contextMenu.saveNewVerilog'),
                 defaultPath,
                 filters: [
                     { name: 'Verilog Files', extensions: ['v'] },
@@ -258,7 +260,7 @@ export const ActionsMixin = {
             await this.saveConfiguration();
             this.renderTree();
 
-            this.showNotification(`Created "${finalFileName}" successfully`, 'success', 2000);
+            this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);
 
             try {
                 const content = await window.electronAPI.readFile(finalPath);
@@ -268,7 +270,7 @@ export const ActionsMixin = {
             }
         } catch (error) {
             console.error('Error creating file:', error);
-            this.showNotification('Error creating file', 'error', 3000);
+            this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
         }
     },
 
@@ -293,7 +295,7 @@ export const ActionsMixin = {
             await this.saveConfiguration();
             this.renderTree();
 
-            this.showNotification(`Deleted "${fileName}" successfully`, 'success', 2000);
+            this.showNotification(tr('notification.tree.deleted', { name: fileName }), 'success', 2000);
 
             if (TabManager.tabs && TabManager.tabs.has(file.path)) {
                 TabManager.closeTab(file.path);
@@ -305,10 +307,10 @@ export const ActionsMixin = {
                 this.verilogFiles.splice(index, 1);
                 await this.saveConfiguration();
                 this.renderTree();
-                this.showNotification(`File "${fileName}" was already deleted`, 'info', 2000);
+                this.showNotification(tr('notification.tree.alreadyDeleted', { name: fileName }), 'info', 2000);
             } else {
                 this.showNotification(
-                    `Error deleting "${fileName}": ${error.message}`,
+                    tr('notification.tree.errorDeleting', { name: fileName, error: error.message }),
                     'error',
                     3000,
                 );
@@ -327,7 +329,7 @@ export const ActionsMixin = {
             this.verilogFiles.splice(index, 1);
             await this.saveConfiguration();
             this.renderTree();
-            this.showNotification(`Removed "${fileName}"`, 'success', 2000);
+            this.showNotification(tr('notification.tree.removed', { name: fileName }), 'success', 2000);
         };
 
         if (fileItem) {
@@ -361,7 +363,7 @@ export const ActionsMixin = {
         this.renderTree();
 
         this.showNotification(
-            `"${file.name}" category changed to ${newCategory}`,
+            tr('notification.tree.categoryChanged', { name: file.name, category: newCategory }),
             'info',
             2000,
         );
@@ -428,14 +430,14 @@ export const ActionsMixin = {
 
         const topLevelOption = isSynthesizable ? (
             isTopLevel
-                ? { text: 'Remove Top Level', action: 'remove-top-level', disabled: false, show: true }
-                : { text: 'Set as Top Level', action: 'set-top-level', disabled: false, show: true }
+                ? { text: tr('contextMenu.removeTopLevel'),  action: 'remove-top-level', disabled: false, show: true }
+                : { text: tr('contextMenu.setTopLevel'),     action: 'set-top-level',    disabled: false, show: true }
         ) : { show: false };
 
         const testbenchOption = isTestbench ? (
             isTopLevel
-                ? { text: 'Unmark Testbench', action: 'remove-testbench', disabled: false, show: true }
-                : { text: 'Mark as Testbench', action: 'set-testbench', disabled: false, show: true }
+                ? { text: tr('contextMenu.unmarkTestbench'), action: 'remove-testbench', disabled: false, show: true }
+                : { text: tr('contextMenu.markTestbench'),   action: 'set-testbench',    disabled: false, show: true }
         ) : { show: false };
 
         let menuItems = '';
@@ -463,7 +465,7 @@ export const ActionsMixin = {
         menu.innerHTML = `
             ${menuItems}
             <div class="context-menu-item delete-item" data-action="delete">
-                <span>Remove File</span>
+                <span>${tr('contextMenu.removeFile')}</span>
             </div>
         `;
 
@@ -532,7 +534,7 @@ export const ActionsMixin = {
         menu.innerHTML = `
             <div class="create-menu-item" data-action="create-file">
                 <i class="fa-solid fa-file-code"></i>
-                <span>New Verilog File (.v)</span>
+                <span>${tr('contextMenu.newVerilog')}</span>
             </div>
         `;
 
@@ -584,7 +586,7 @@ export const ActionsMixin = {
         switch (action) {
             case 'set-top-level':
                 if (file.category === 'testbench') {
-                    this.showNotification('Cannot set Top Level on Testbench file', 'warning', 3000);
+                    this.showNotification(tr('notification.tree.cannotSetTopOnTb'), 'warning', 3000);
                     return;
                 }
                 // Clear the flag only within the same category. Um synth
@@ -596,17 +598,17 @@ export const ActionsMixin = {
                     if (f.category !== 'testbench') f.isTopLevel = false;
                 });
                 this.verilogFiles[index].isTopLevel = true;
-                this.showNotification(`"${file.name}" set as Top Level`, 'success', 2000);
+                this.showNotification(tr('notification.tree.setAsTop', { name: file.name }), 'success', 2000);
                 break;
 
             case 'remove-top-level':
                 this.verilogFiles[index].isTopLevel = false;
-                this.showNotification(`Top Level removed from "${file.name}"`, 'success', 2000);
+                this.showNotification(tr('notification.tree.topRemoved', { name: file.name }), 'success', 2000);
                 break;
 
             case 'set-testbench':
                 if (file.category !== 'testbench') {
-                    this.showNotification('File must have Testbench category', 'warning', 3000);
+                    this.showNotification(tr('notification.tree.notTestbench'), 'warning', 3000);
                     return;
                 }
                 // Idem set-top-level, mas escopado a testbench. O campo
@@ -616,12 +618,12 @@ export const ActionsMixin = {
                     if (f.category === 'testbench') f.isTopLevel = false;
                 });
                 this.verilogFiles[index].isTopLevel = true;
-                this.showNotification(`"${file.name}" marked as Testbench`, 'success', 2000);
+                this.showNotification(tr('notification.tree.markedTb', { name: file.name }), 'success', 2000);
                 break;
 
             case 'remove-testbench':
                 this.verilogFiles[index].isTopLevel = false;
-                this.showNotification(`Testbench mark removed from "${file.name}"`, 'success', 2000);
+                this.showNotification(tr('notification.tree.tbUnmarked', { name: file.name }), 'success', 2000);
                 break;
 
             case 'delete':

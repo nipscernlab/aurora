@@ -3,17 +3,19 @@
   "productName": "SAPHO",
   "description": "Scalable Architecture for Hardware Optimization",
   "author": "NIPSCERN",
-  "version": "4.1.13",
+  "version": "5.0.0",
   "win": {
     "icon": "./assets/icons/sapho_aurora_icon.ico"
   },
   "main": "main.js",
   "scripts": {
-    "prestart": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/copy-components.js",
+    "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/copy-components.js",
+    "prestart": "npm run bootstrap",
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.config.e2e.js",
+    "prebuild": "npm run bootstrap",
     "build": "electron-builder",
     "prepare": "husky"
   },
@@ -62,7 +64,7 @@
         }
       ],
       "icon": "./assets/icons/sapho_aurora_icon.ico",
-      "artifactName": "AuroraIDE-Setup-v${version}.${ext}"
+      "artifactName": "sapho-aurora-Setup-v${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,
@@ -74,7 +76,17 @@
     "extraResources": [
       {
         "from": "components",
-        "to": "components_tmp"
+        "to": "components_tmp",
+        "filter": [
+          "**/*",
+          "!Projeto/**",
+          "!Temp/**",
+          "!Backup/**",
+          "!**/*.bak",
+          "!**/*.aurora_backup",
+          "!**/*.spf.bak",
+          "!**/*.log"
+        ]
       },
       {
         "from": "components/Packages/PRISM/netlistsvg/netlistsvg.exe",

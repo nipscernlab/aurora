@@ -316,14 +316,16 @@
 }
 
 /* Raw passthrough: streamed compiler stdout shown verbatim. No card,
-   no border, default text colour — looks like a regular terminal line.
-   Always visible (caller opted out of the verbose filter by tagging
-   the entry 'raw'). */
+   no border, muted colour (same visual as `plain`). Difference from
+   plain is purely behavioural: raw is always visible regardless of
+   verbose mode (caller-classified user-facing output), plain is
+   verbose-only (caller-classified toolchain noise). */
 .log-entry.raw {
   border-left-color: transparent;
-  color: var(--text);
+  color: var(--text-muted);
   background-color: transparent;
   padding: 4px 12px;
+  font-weight: normal;
 }
 
 /* Internal messages: muted, no card. Only hit when no semantic

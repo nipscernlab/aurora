@@ -1698,12 +1698,21 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // $finish location, etc. — get tagged 'plain' so the verbose-off
     // filter hides them; the user only cares about those during
     // debugging.
-    const VVP_NOISE = [
-        /^\s*(?:FST|VCD|LXT2?|VZT) info:/i,
-        /^.*\.v:\d+:\s*\$finish called at\b/i,
-        /^\s*\$finish called at\b/i,
-    ];
-    const isVvpNoise = (line) => VVP_NOISE.some((r) => r.test(line));
+    // Substring match (lowercased) is more robust than regex against
+    // variations of vvp's bookkeeping output. The previous regex
+    // approach failed silently for some chunks — likely buffer
+    // boundary quirks combining lines, or invisible prefixes.
+    const isVvpNoise = (line) => {
+        const t = line.toLowerCase();
+        return (
+            t.includes('fst info:')
+            || t.includes('vcd info:')
+            || t.includes('lxt info:') || t.includes('lxt2 info:')
+            || t.includes('vzt info:')
+            || t.includes('$finish called at')
+            || t.includes('$stop called at')
+        );
+    };
     const unsubscribe = window.electronAPI.onVvpStream((payload) => {
         if (!payload || !payload.data) return;
         // Split so each line can be classified independently; chunks

@@ -247,6 +247,16 @@ class TerminalManager {
         const lines = text.split('\n').filter(line => line.trim());
 
         lines.forEach(line => {
+            // 'raw' bypasses semantic detection entirely — caller wants
+            // the line shown verbatim, no card, no coloring, no verbose
+            // filter. Used for streamed compiler stdout where the IDE
+            // is acting as a pass-through console.
+            if (type === 'raw') {
+                const ts = new Date().toLocaleString('pt-BR', { hour12: false });
+                this.createLogEntry(terminal, line.trim(), 'raw', ts);
+                return;
+            }
+
             const detectedType = this.detectMessageType(line);
 
             // Detected semantic type (from the text content itself) wins

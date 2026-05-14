@@ -315,10 +315,21 @@
   background-color: rgba(91, 184, 232, 0.06);
 }
 
+/* Raw passthrough: streamed compiler stdout shown verbatim. No card,
+   no border, default text colour — looks like a regular terminal line.
+   Always visible (caller opted out of the verbose filter by tagging
+   the entry 'raw'). */
+.log-entry.raw {
+  border-left-color: transparent;
+  color: var(--text);
+  background-color: transparent;
+  padding: 4px 12px;
+}
+
 /* Internal messages: muted, no card. Only hit when no semantic
    category is detected and verbose-off filters this entry out. */
 .log-entry.plain,
-.log-entry:not(.error):not(.warning):not(.success):not(.tips):not(.info) {
+.log-entry:not(.error):not(.warning):not(.success):not(.tips):not(.info):not(.raw) {
   border-left-color: transparent;
   color: var(--text-muted);
   background-color: transparent;

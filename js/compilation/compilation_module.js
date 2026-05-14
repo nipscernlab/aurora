@@ -1696,9 +1696,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // testbench show up as the simulation progresses. The previous
     // execCommand wrapper waited for the process to close and printed
     // everything at once — fine for fast runs, bad UX for long ones.
+    // Tag the entries 'raw' so each line renders as plain console
+    // text (no card, no semantic detection) — the IDE is acting as
+    // a pass-through console for whatever the testbench wrote.
     const unsubscribe = window.electronAPI.onVvpStream((payload) => {
         if (payload && payload.data) {
-            this.terminalManager.appendToTerminal('twave', payload.data);
+            this.terminalManager.appendToTerminal('twave', payload.data, 'raw');
         }
     });
     let code;

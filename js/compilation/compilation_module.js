@@ -1691,6 +1691,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             'tips');
     }
 
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.simulationStarted'), 'info');
     const fstCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" -fst`;
     const result = await window.electronAPI.execCommand(fstCmd);
     if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);

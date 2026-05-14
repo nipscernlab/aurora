@@ -48,9 +48,16 @@ export const RenderMixin = {
         const container = window.treeView?.getContainer('verilog');
         if (!container) return;
 
-        // Empty state — dropa data rows + mostra o placeholder.
+        // Empty state — dropa data rows + separadores e mostra o
+        // placeholder. Os separadores de processador PRECISAM sair aqui
+        // tambem: este early-return pula a fase de reconciliacao la
+        // embaixo (a unica que normalmente os remove), entao sem isso
+        // os separadores do projeto anterior ficam presos na DOM ao
+        // abrir um projeto novo e vazio.
         if (this.verilogFiles.length === 0) {
-            container.querySelectorAll('.verilog-file-item').forEach((row) => row.remove());
+            container
+                .querySelectorAll('.verilog-file-item, .verilog-processor-separator')
+                .forEach((el) => el.remove());
             container.classList.add('verilog-empty');
             if (!container.querySelector('.verilog-empty-state')) {
                 const emptyState = document.createElement('div');

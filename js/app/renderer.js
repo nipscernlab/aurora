@@ -95,18 +95,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize global terminal manager
     window.initializeGlobalTerminalManager();
 
-    // New Verilog file button
+    // New Verilog file button — delega pro projectTreeManager, que e o
+    // unico dono da file tree. Uma implementacao paralela aqui (writeFile
+    // + window.refreshFileTree) gravava o arquivo no disco mas nunca no
+    // .spf nem em verilogFiles, entao o arquivo novo nunca aparecia na
+    // arvore. createNewFile faz o fluxo completo: dialog → write → push
+    // → classifica → persiste no .spf → re-renderiza → abre na aba.
     const newVerilogBtn = document.getElementById('new-verilog-file');
     if (newVerilogBtn) {
-        newVerilogBtn.addEventListener('click', async () => {
-            const projectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
-            const result = await window.electronAPI.showSaveDialog({
-                defaultPath: projectPath || undefined,
-                filters: [{ name: 'Verilog', extensions: ['v'] }]
-            });
-            if (!result || result.canceled || !result.filePath) return;
-            await window.electronAPI.writeFile(result.filePath, '');
-            if (typeof window.refreshFileTree === 'function') window.refreshFileTree();
+        newVerilogBtn.addEventListener('click', () => {
+            window.projectTreeManager?.createNewFile?.();
         });
     }
 

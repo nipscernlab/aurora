@@ -685,17 +685,21 @@ async loadConfig() {
             await TabManager.saveAllFiles();
             statusUpdater.startCompilation('cmm');
 
-            // 3. Comando (Voltou a usar "${macrosPath}" como argumento único para macros)
-            // Ultimo arg = showArrays (0/1). Sai do .spf (campo per-
-            // processador) via readProcessorConfig no flow; default 0
-            // se a entry nao tiver o campo (.spf antigo).
-            const showArraysFlag = showArrays ? 1 : 0;
-            // -pt / -en vem do toggle de locale (UI + compiler unified).
-            // yanc espera essa flag como PRIMEIRO argv — depois disso vêm
-            // os args posicionais. Sempre explicito pra que a UI mande,
+            // 3. Comando — yanc usa named options (CMMComp/Sources/args.c):
+            //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-P]
+            // -pt / -en vem do toggle de locale (UI + compiler unified) e vai
+            // PRIMEIRO: parse_lang_flag() consome essa flag e a remove de argv
+            // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
             // ignorando qualquer env var preexistente do shell.
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
-            const cmd = `"${cmmCompPath}" ${langFlag} ${selectedCmmFile} ${cmmBaseName} "${projectPath}" "${macrosPath}" "${tempPath}" ${showArraysFlag}`;
+            // -P liga o showArrays do .spf (campo per-processador). Cuidado
+            // com o nome: o yanc chama esse flag de --project / cli_args.project,
+            // MAS o main() do cmmcomp passa esse valor pro slot `d_array` do
+            // parse_init, que faz `sim_arr = strcmp(d_array,"1")==0` — ou seja,
+            // pro cmmcomp -P significa "simular/mostrar arrays", nao project
+            // mode. Era o 6o arg posicional antes da migracao p/ named flags.
+            let cmd = `"${cmmCompPath}" ${langFlag} -i "${selectedCmmFile}" -n "${cmmBaseName}" -p "${projectPath}" -m "${macrosPath}" -t "${tempPath}"`;
+            if (showArrays) cmd += ' -P';
             
             this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }));
 
@@ -752,13 +756,14 @@ async loadConfig() {
             statusUpdater.startCompilation('asm');
             await TabManager.saveAllFiles();
 
-            // -pt / -en vem do toggle de locale. Vai como PRIMEIRO argv
-            // (yanc parsea isso antes dos args posicionais). Aplicado
-            // igual em appcomp e asmcomp pra que stdout/stderr dos dois
-            // passos saiam na mesma lingua.
+            // -pt / -en vem do toggle de locale. Vai PRIMEIRO: parse_lang_flag()
+            // consome a flag antes do cli_parse() ler as named options. Aplicado
+            // igual em appcomp e asmcomp pra que stdout/stderr dos dois passos
+            // saiam na mesma lingua.
             const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
 
-            let cmd = `"${appCompPath}" ${langFlag} "${asmPath}" "${tempPath}"`;
+            // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
+            let cmd = `"${appCompPath}" ${langFlag} -i "${asmPath}" -t "${tempPath}"`;
             this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }));
             const appResult = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tasm', appResult);
@@ -774,7 +779,13 @@ async loadConfig() {
                 projectParam = 1;
             }
 
-            cmd = `"${asmCompPath}" ${langFlag} "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;
+            // asmcomp: named options -i -p -d -m -t -f -c [-P] (ASM/Sources/args.c).
+            // -f/-c TEM que ser inteiros — o yanc novo rejeita valor nao-numerico
+            // e sai com usage. -P liga o project mode (era o 9o arg posicional).
+            const freq = Number.parseInt(clk, 10) || 0;
+            const clocks = Number.parseInt(numClocks, 10) || 0;
+            cmd = `"${asmCompPath}" ${langFlag} -i "${asmPath}" -p "${projectPath}" -d "${hdlPath}" -m "${macrosPath}" -t "${tempPath}" -f ${freq} -c ${clocks}`;
+            if (projectParam) cmd += ' -P';
             this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }));
 
             const asmResult = await window.electronAPI.execCommand(cmd);

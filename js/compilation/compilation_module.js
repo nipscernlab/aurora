@@ -1867,16 +1867,18 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     // GTKWave opens. Pass 1 left a partial .vcd alongside it for
     // _waveResolveGtkwSaveFile to parse the header from; that file
     // isn't returned here.
+    // Success is silent — confirming the dump file exists is internal
+    // plumbing. The user already saw "Simulation started"; the next
+    // visible step is GTKWave opening. Failures still throw with a
+    // detailed error below.
     const expectedFst = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.fst`);
     if (await window.electronAPI.fileExists(expectedFst)) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expectedFst }), 'success');
         return expectedFst;
     }
     // Legacy fallback: a full .vcd, in case someone runs vvp without
     // -fst (e.g. when investigating a problem with the two-pass flow).
     const expectedVcd = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
     if (await window.electronAPI.fileExists(expectedVcd)) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: expectedVcd }), 'success');
         return expectedVcd;
     }
 
@@ -1893,10 +1895,12 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
 
     if (candidates.length === 1) {
         const adopted = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
+        // The warning is the actionable bit — the user's $dumpfile()
+        // picked a different name than expected. Keep it. The "found
+        // the file" success line is suppressed (internal plumbing).
         this.terminalManager.appendToTerminal('twave',
             tr('terminal.wave.dumpfileMismatch', { name: candidates[0], expected: simTopModule }),
             'warning');
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.vcdCreated', { path: adopted }), 'success');
         return adopted;
     }
 

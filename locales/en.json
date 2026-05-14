@@ -291,7 +291,6 @@
             "couldNotList":          "Warning: could not list {{path}} to stage processor memory files.",
             "copyMemFailed":         "Warning: failed to copy {{name}} from {{path}}",
             "couldNotStageTbFile":   "Warning: could not stage \"{{name}}\" referenced by testbench ({{reason}}).",
-            "vcdCreated":            "VCD file created: {{path}}",
             "dumpfileMismatch":      "Note: testbench's $dumpfile pointed at \"{{name}}\" instead of {{expected}}.vcd; using that file for the wave view.",
             "couldNotStageFix":      "Warning: could not stage fix.vcd — {{message}}",
             "usingGtkwFile":         "Using GTKWave save file: {{name}}",

@@ -291,7 +291,6 @@
             "couldNotList":          "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",
             "couldNotStageTbFile":   "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
-            "vcdCreated":            "Arquivo VCD criado: {{path}}",
             "dumpfileMismatch":      "Nota: $dumpfile do testbench aponta para \"{{name}}\" em vez de {{expected}}.vcd; usando esse arquivo para a visualização.",
             "couldNotStageFix":      "Aviso: não foi possível preparar fix.vcd — {{message}}",
             "usingGtkwFile":         "Usando arquivo GTKWave save: {{name}}",

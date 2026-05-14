@@ -27,7 +27,7 @@ export const RenderMixin = {
      * this.verilogFiles (keyed por path) contra rows existentes:
      *   - row cujo path sumiu  → removida
      *   - row ainda desejada   → atualizada in-place por _updateFileItem
-     *                            (badge, classes, toggle title)
+     *                            (classes synth/testbench, icone)
      *   - path sem row ainda   → criada via _createFileItem e
      *                            insertBefore'd na posicao certa
      *                            (DOM trata insertBefore num node ja
@@ -187,14 +187,12 @@ export const RenderMixin = {
         const legacyBadge = info.querySelector('.file-badge');
         if (legacyBadge) legacyBadge.remove();
 
-        // Toggle button: category class + tooltip.
-        const toggleBtn = row.querySelector('.category-toggle');
-        if (toggleBtn) {
-            toggleBtn.classList.toggle('synthesizable', !isTestbench);
-            toggleBtn.classList.toggle('testbench', isTestbench);
-            const desiredTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
-            if (toggleBtn.title !== desiredTitle) toggleBtn.title = desiredTitle;
-        }
+        // Toggle legado: versoes anteriores tinham um botao de toggle
+        // synth/testbench na row. A categoria agora e auto-detectada
+        // ([verilog_classifier.js](verilog_classifier.js)) — remove o
+        // botao se uma row antiga ainda o tiver.
+        const legacyToggle = row.querySelector('.category-toggle-wrapper');
+        if (legacyToggle) legacyToggle.remove();
     },
 
     /**
@@ -221,24 +219,20 @@ export const RenderMixin = {
 
         const icon = this.getFileIcon(file);
         const iconTitle = this._getIconTooltip(file);
-        const toggleTitle = isTestbench ? 'Category: Testbench' : 'Category: Synthesizable';
-        const toggleClass = isTestbench ? 'testbench' : 'synthesizable';
 
         // Arquivos software (.cmm/.asm de <proc>/Software/) nao
-        // aparecem com toggle synth/testbench (sao codigo do
-        // processador, nao Verilog) nem com delete (sao gerenciados
-        // pelo proprio processador). Apenas o icone + nome. Clicar
-        // abre o arquivo, igual aos demais.
+        // aparecem com botao de delete (sao gerenciados pelo proprio
+        // processador). Apenas o icone + nome. Clicar abre o arquivo,
+        // igual aos demais.
+        //
+        // A categoria synth/testbench NAO tem mais um toggle na row —
+        // e auto-detectada do conteudo ([verilog_classifier.js]
+        // (verilog_classifier.js)) e comunicada visualmente pela classe
+        // synthesizable/testbench da row + pelo icone.
         const actionsHtml = isSoftware
             ? ''
             : `
                 <div class="verilog-file-actions">
-                    <div class="category-toggle-wrapper">
-                        <button class="category-toggle ${toggleClass}" data-action="toggle-category"
-                             title="${toggleTitle}">
-                            <span class="toggle-slider"></span>
-                        </button>
-                    </div>
                     <button class="verilog-icon-btn delete-btn" data-action="delete"
                             title="Remove file">
                         <i class="fa-solid fa-xmark"></i>
@@ -276,15 +270,24 @@ export const RenderMixin = {
     },
 
     /**
-     * Tooltip do icone na linha. So faz sentido quando o arquivo e
-     * um "top" (synth top ou testbench top) — para os demais retorna
-     * string vazia e o template omite o atributo title.
+     * Tooltip do icone na linha. Para arquivos "top" (synth top ou
+     * testbench top) conta o papel de top; para os demais .v/.sv
+     * conta a categoria auto-detectada — sem o toggle na row, o
+     * tooltip do icone e a unica forma de confirmar synth vs tb.
      */
     _getIconTooltip(file) {
-        if (!file?.isTopLevel) return '';
-        return file.category === 'testbench'
-            ? 'This file is set as the project\'s Testbench top'
-            : 'This file is set as the project\'s Top Level module';
+        if (file?.isTopLevel) {
+            return file.category === 'testbench'
+                ? 'This file is set as the project\'s Testbench top'
+                : 'This file is set as the project\'s Top Level module';
+        }
+        const ext = this.getFileExtension(file?.name || '');
+        if (ext === '.v' || ext === '.sv') {
+            return file?.category === 'testbench'
+                ? 'Detected as a testbench'
+                : 'Detected as synthesizable';
+        }
+        return '';
     },
 
     /**
@@ -296,15 +299,16 @@ export const RenderMixin = {
         const ext = this.getFileExtension(fileObj.name || '');
 
         if (ext === '.v' || ext === '.sv') {
+            const isTestbench = fileObj.category === 'testbench';
             // Arquivos marcados como "Top Level" (synth) ou "Testbench
             // top" recebem icones proprios pra serem identificaveis na
-            // arvore sem precisar ler o badge.
+            // arvore sem precisar ler nada. Os demais recebem o icone
+            // da categoria auto-detectada — microchip pra sintetizavel,
+            // flask pra testbench (synth-vs-tb nao tem mais toggle).
             if (fileObj.isTopLevel) {
-                return fileObj.category === 'testbench'
-                    ? 'fa-solid fa-vial'
-                    : 'fa-solid fa-flag';
+                return isTestbench ? 'fa-solid fa-vial' : 'fa-solid fa-flag';
             }
-            return 'fa-solid fa-microchip';
+            return isTestbench ? 'fa-solid fa-flask' : 'fa-solid fa-microchip';
         } else if (ext === '.cmm' || ext === '.asm') {
             return 'fa-solid fa-file-code';
         } else if (ext === '.txt') {

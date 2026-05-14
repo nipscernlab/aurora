@@ -212,10 +212,11 @@
 /* ---------------------------------------------------------------------------
  *  Row actions
  *
- *  The category toggle (synth/testbench) is ALWAYS visible — the user
- *  needs to see at a glance which category each file belongs to and
- *  be able to flip it without having to hover. The delete button is
- *  still hover-only because it's destructive (one accidental click =
+ *  Synth-vs-testbench category is auto-detected from file content
+ *  (js/project/verilog_classifier.js) — there's no toggle in the row.
+ *  The category is conveyed visually by the row's synthesizable/
+ *  testbench class and its icon. The only row action left is delete,
+ *  kept hover-only because it's destructive (one accidental click =
  *  file removed from the project) so requiring hover is a soft guard.
  * ------------------------------------------------------------------------- */
 .verilog-file-actions {
@@ -224,50 +225,6 @@
   gap: var(--space-1);
   flex-shrink: 0;
 }
-
-.category-toggle-wrapper {
-  display: flex;
-  align-items: center;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.verilog-file-item:hover .category-toggle-wrapper,
-.verilog-file-item:focus-within .category-toggle-wrapper {
-  opacity: 1;
-}
-
-.category-toggle {
-  position: relative;
-  width: 32px;
-  height: 16px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  padding: 0;
-  overflow: hidden;
-  transition: background-color var(--transition-fast);
-}
-
-.category-toggle.synthesizable { background: var(--aurora-cyan); }
-.category-toggle.testbench    { background: var(--aurora-purple); }
-
-.category-toggle:hover { filter: brightness(1.1); }
-
-.toggle-slider {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  background: white;
-  border-radius: 50%;
-  transition: transform var(--transition-fast);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.category-toggle.synthesizable .toggle-slider { transform: translateX(0); }
-.category-toggle.testbench    .toggle-slider { transform: translateX(16px); }
 
 .verilog-icon-btn {
   width: 20px;

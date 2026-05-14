@@ -188,7 +188,6 @@
             "alreadyDeleted":     "File \"{{name}}\" was already deleted",
             "errorDeleting":      "Error deleting \"{{name}}\": {{error}}",
             "removed":            "Removed \"{{name}}\"",
-            "categoryChanged":    "\"{{name}}\" category changed to {{category}}",
             "cannotSetTopOnTb":   "Cannot set Top Level on Testbench file",
             "setAsTop":           "\"{{name}}\" set as Top Level",
             "topRemoved":         "Top Level removed from \"{{name}}\"",

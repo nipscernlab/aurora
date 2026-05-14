@@ -188,7 +188,6 @@
             "alreadyDeleted":     "Arquivo \"{{name}}\" já havia sido excluído",
             "errorDeleting":      "Erro ao excluir \"{{name}}\": {{error}}",
             "removed":            "\"{{name}}\" removido",
-            "categoryChanged":    "Categoria de \"{{name}}\" alterada para {{category}}",
             "cannotSetTopOnTb":   "Não é possível definir Top Level em arquivo Testbench",
             "setAsTop":           "\"{{name}}\" definido como Top Level",
             "topRemoved":         "Top Level removido de \"{{name}}\"",

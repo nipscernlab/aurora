@@ -37,6 +37,7 @@ import { ProjectStore } from './project_store.js';
 import { SpfStore } from './spf_store.js';
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
+import { classifyVerilogContent } from './verilog_classifier.js';
 
 class ProjectTreeManager {
     constructor() {
@@ -77,7 +78,6 @@ class ProjectTreeManager {
         this.createNewFile = this.createNewFile.bind(this);
         this.deleteFile = this.deleteFile.bind(this);
         this.closeContextMenu = this.closeContextMenu.bind(this);
-        this.handleCategoryToggle = this.handleCategoryToggle.bind(this);
 
         // Expose the init() promise so callers (app_initializer) can
         // safely await DOM-element caching before asking us to render.
@@ -155,12 +155,6 @@ class ProjectTreeManager {
                 const actionBtn = e.target.closest('[data-action]');
                 const action = actionBtn?.dataset.action;
 
-                if (action === 'toggle-category') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this._toggleCategoryByPath(path);
-                    return;
-                }
                 if (action === 'delete') {
                     e.preventDefault();
                     e.stopPropagation();
@@ -346,6 +340,48 @@ class ProjectTreeManager {
             }
         }
         return { addedPersist, addedSoftware };
+    }
+
+    /**
+     * Re-classifica cada arquivo Verilog (.v/.sv/.vh) de this.verilogFiles
+     * como synth ou testbench, lendo o conteudo e decidindo via
+     * heuristica ([verilog_classifier.js](verilog_classifier.js)).
+     * Substitui o antigo toggle manual: a categoria e sempre derivada
+     * do conteudo, nunca de uma marca persistida pelo usuario.
+     *
+     * Roda a cada load/refresh e em todo import — editar um .v e
+     * transforma-lo em testbench faz ele se reclassificar sozinho no
+     * proximo refresh.
+     *
+     * Arquivos software (.cmm/.asm) sao pulados — nao sao Verilog.
+     * Quando a categoria de um arquivo muda, sua marca isTopLevel e
+     * limpa: um synth top nao e a mesma coisa que um testbench top.
+     * Se o conteudo nao puder ser lido, a categoria atual e mantida
+     * (ou 'synthesizable' como default seguro).
+     *
+     * Devolve true se ALGUM arquivo mudou de categoria — o caller usa
+     * pra decidir se precisa re-persistir o .spf.
+     */
+    async _classifyAll() {
+        let changed = false;
+        for (const file of this.verilogFiles) {
+            if (file.isSoftware) continue;
+            let content;
+            try {
+                content = await window.electronAPI.readFile(file.path);
+            } catch (error) {
+                console.warn(`Classifier: cannot read ${file.path}:`, error);
+                if (!file.category) file.category = 'synthesizable';
+                continue;
+            }
+            const category = classifyVerilogContent(content, file.name);
+            if (file.category !== category) {
+                file.category = category;
+                file.isTopLevel = false;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     // ----- lifecycle ---------------------------------------------------
@@ -647,8 +683,16 @@ class ProjectTreeManager {
             // isso so chamamos saveConfiguration quando algo
             // PERSISTIVEL (Hardware) foi adicionado.
             const { addedPersist } = await this._discoverProcessorFiles();
+
+            // Categoria synth-vs-testbench e derivada do conteudo, nao
+            // do .spf. Reclassifica tudo agora; se algo mudou de
+            // categoria (ou se um arquivo persistivel foi descoberto),
+            // re-persiste pra que synthesizableFiles/testbenchFiles do
+            // .spf reflitam a deteccao.
+            const reclassified = await this._classifyAll();
+
             this.sortFilesAlphabetically();
-            if (addedPersist > 0) {
+            if (addedPersist > 0 || reclassified) {
                 await this.saveConfiguration();
             }
         } catch (error) {

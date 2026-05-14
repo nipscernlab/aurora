@@ -7,7 +7,11 @@
  *   - Context menu (right-click numa row) com set/unset top-level,
  *     mark/unmark testbench, delete
  *   - Context menu de area vazia: "New Verilog File"
- *   - Toggles inline (toggle synth/testbench, delete via botao da row)
+ *   - Delete inline via botao da row
+ *
+ * A categoria synth-vs-testbench NAO e editada aqui — e derivada do
+ * conteudo do arquivo por [verilog_classifier.js](verilog_classifier.js),
+ * via this._classifyAll() (definido em file_mode.js).
  *
  * Mixed in via Object.assign(ProjectTreeManager.prototype, ActionsMixin)
  * em file_mode.js. Cada metodo usa `this` da classe, com acesso a:
@@ -18,11 +22,11 @@
  *     (state mixin)
  *   - this.renderTree (render mixin)
  *
- * Os 3 handlers `preventDefaults` / `handleDragEnter` / `handleDragLeave`
+ * Os handlers `preventDefaults` / `handleDragEnter` / `handleDragLeave`
  * / `handleDrop` / `handleTreeContextMenu` / `createNewFile` /
- * `deleteFile` / `closeContextMenu` / `handleCategoryToggle` sao
- * bindados a `this` no constructor da classe — entao funcionam tanto
- * como event handlers (passados como referencia) quanto como metodos.
+ * `deleteFile` / `closeContextMenu` sao bindados a `this` no
+ * constructor da classe — entao funcionam tanto como event handlers
+ * (passados como referencia) quanto como metodos.
  */
 
 import { TabManager } from '../tabs/tab_manager.js';
@@ -210,6 +214,9 @@ export const ActionsMixin = {
         }
 
         this.verilogFiles.push(...validFiles);
+        // Categoria e detectada do conteudo, nao escolhida no import —
+        // _classifyAll le cada .v e marca synth/testbench.
+        await this._classifyAll();
         this.sortFilesAlphabetically();
         await this.saveConfiguration();
         this.renderTree();
@@ -256,6 +263,9 @@ export const ActionsMixin = {
             };
 
             this.verilogFiles.push(newFile);
+            // Classifica pelo conteudo (um arquivo novo / vazio cai em
+            // 'synthesizable' — o default seguro).
+            await this._classifyAll();
             this.sortFilesAlphabetically();
             await this.saveConfiguration();
             this.renderTree();
@@ -340,50 +350,13 @@ export const ActionsMixin = {
         }
     },
 
-    // ----- toggles / path-keyed actions --------------------------------
-
-    /**
-     * Toggle entre synth e testbench. Path-keyed: caller passa o
-     * data-file-path da row, a gente acha por referencia. Versao
-     * index-based foi retirada — quebrava sob sort (closures
-     * capturavam indices stale).
-     */
-    async _toggleCategoryByPath(path) {
-        const file = this.verilogFiles.find((f) => f.path === path);
-        if (!file) return;
-        const newCategory = file.category === 'testbench' ? 'synthesizable' : 'testbench';
-
-        // Trocar de categoria invalida a marca de top per-categoria —
-        // um synth top nao e a mesma coisa que um testbench top, mesmo
-        // que compartilhem o campo subjacente.
-        file.isTopLevel = false;
-        file.category = newCategory;
-
-        await this.saveConfiguration();
-        this.renderTree();
-
-        this.showNotification(
-            tr('notification.tree.categoryChanged', { name: file.name, category: newCategory }),
-            'info',
-            2000,
-        );
-    },
+    // ----- path-keyed actions ------------------------------------------
 
     /** Delete path-keyed — splice + re-render (sem prompt). */
     async _removeFileByPath(path) {
         const idx = this.verilogFiles.findIndex((f) => f.path === path);
         if (idx < 0) return;
         return this.removeFile(idx);
-    },
-
-    /**
-     * Legacy alias mantido pra callers que ainda passam indices
-     * (context menu actions). Wraps a versao path-based.
-     */
-    async handleCategoryToggle(index) {
-        const file = this.verilogFiles[index];
-        if (!file) return;
-        return this._toggleCategoryByPath(file.path);
     },
 
     // ----- context menus -----------------------------------------------

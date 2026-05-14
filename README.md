@@ -50,57 +50,110 @@ and run `AuroraIDE-Setup-vX.Y.Z.exe`.
 
 ### Build from source (Windows 10/11)
 
-Prerequisites:
+Follow the steps below in order. Steps 1–4 are required; step 5 is only
+needed if you want to produce a redistributable installer.
 
-| Tool       | Version |
-|------------|---------|
-| Node.js    | 18 LTS or newer |
-| npm        | bundled with Node |
-| PowerShell | 5.1+ (used for native zip backups) |
+#### 1. Install Node.js 18+ (and Git)
+
+The easiest way on Windows is via `winget` from any PowerShell window:
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS  -e --source winget
+winget install --id Git.Git            -e --source winget
+```
+
+Close and reopen PowerShell so the new `node`, `npm`, and `git` are on
+your `PATH`, then verify:
+
+```powershell
+node --version    # must be v18.0.0 or newer
+npm  --version
+git  --version
+```
+
+> Prefer a GUI? Grab the LTS installer from
+> <https://nodejs.org/en/download> and Git from
+> <https://git-scm.com/download/win>.
+
+#### 2. Clone the repository
 
 ```powershell
 git clone https://github.com/nipscernlab/Aurora.git
 cd Aurora
+```
+
+#### 3. Install npm dependencies
+
+```powershell
 npm install
-npm start          # launch in development
-npm run build      # produce an installer in dist/
+```
+
+This pulls Electron, Monaco, electron-builder and the rest of the
+JavaScript stack listed in [`package.json`](package.json) into
+`node_modules/`.
+
+#### 4. Launch AURORA
+
+```powershell
+npm start
+```
+
+The first run does a bit more than just `electron .`: the `prestart`
+hook runs [`npm run bootstrap`](package.json), which in turn:
+
+1. Verifies the exact-pinned versions in `node_modules/` match
+   `package.json`
+   ([`scripts/check-pinned-versions.js`](scripts/check-pinned-versions.js)).
+2. Downloads the SAPHO **toolchain bundle** (Icarus Verilog, GTKWave,
+   Yosys, netlistsvg, 7-Zip) from the `toolchain-v2` GitHub Release and
+   extracts it into `components/Packages/`
+   ([`components/Scripts/download-toolchain.js`](components/Scripts/download-toolchain.js)).
+3. Downloads the **YANC compilers** (`cmmcomp.exe`, `asmcomp.exe`,
+   `appcomp.exe`, `comp2gtkw.exe` + HDL libs + macros) from
+   [`nipscernlab/yanc`](https://github.com/nipscernlab/yanc) and
+   extracts them into `components/bin/`
+   ([`components/Scripts/download-yanc.js`](components/Scripts/download-yanc.js)).
+4. Mirrors `components/` into `node_modules/electron/dist/components`
+   so the bundled toolchain is reachable from the running app
+   ([`components/Scripts/copy-components.js`](components/Scripts/copy-components.js)).
+
+Both downloads are idempotent — they skip if the binaries are already
+present. To force a re-download (after the release tag bumps, for
+example):
+
+```powershell
+node components/Scripts/download-toolchain.js --force
+node components/Scripts/download-yanc.js      --force
+```
+
+If you are offline or behind a corporate proxy and the downloads fail,
+each script prints the direct URL it tried; download the ZIP in a
+browser and extract it manually:
+
+* `aurora-toolchain-v2.zip` → extract **into** `components/Packages/`
+  (so you end up with `components/Packages/iverilog/bin/iverilog.exe`).
+* `yanc-bin-v2.zip` → extract **into** `components/`
+  (so you end up with `components/bin/cmmcomp.exe`).
+
+#### 5. Build a distributable installer (optional)
+
+```powershell
+npm run build
+```
+
+The `prebuild` hook re-runs `npm run bootstrap`, then
+`electron-builder` packages everything into `dist/`:
+
+```
+dist/
+├── sapho-aurora-Setup-v5.0.0.exe          # the NSIS installer
+├── sapho-aurora-Setup-v5.0.0.exe.blockmap # delta-update map
+└── latest.yml                             # auto-updater manifest
 ```
 
 > **Note** — AURORA bundles a Windows-only toolchain (Icarus Verilog,
 > GTKWave, Yosys, netlistsvg). It is not currently supported on macOS or
 > Linux.
-
-### Project layout
-
-```
-aurora/
-├── assets/          Icons, audio, branding
-├── components/      Bundled toolchain (iverilog, gtkwave, yosys, prism, …)
-├── css/             Stylesheets, organised by area
-│   ├── base/        Theme variables, layout, reset
-│   ├── editor/      Monaco wrapper, tabs
-│   ├── modals/      Dialogs and welcome screen
-│   ├── panels/      Side panels (AI, processor hub, settings)
-│   ├── shell/       Toolbar, status bar
-│   └── tree/        Standard / hierarchy / Verilog file trees
-├── html/            Auxiliary HTML pages (settings, progress)
-├── js/              Renderer-side modules
-│   ├── app/         Bootstrapping, preload, renderer entry
-│   ├── compilation/ CMM/ASM/Verilog/Wave pipelines
-│   ├── editor/      Monaco editor, split editor, shared models
-│   ├── processors/  Processor hub UI
-│   ├── project/     Open/close, recents, project & file modes
-│   ├── services/    AI assistant, file import
-│   ├── tabs/        Tab manager + viewers
-│   ├── terminal/    Terminal output, VVP progress
-│   ├── tree/        File-tree manager + togglers
-│   ├── ui/          Dialogs, palettes, notifications, tooltips
-│   └── utils/       Shortcuts, zoom, resize
-├── main/            Electron main process + IPC handlers
-├── index.html
-├── main.js
-└── package.json
-```
 
 ## SAPHO toolchain
 
@@ -151,7 +204,7 @@ Then in the browser:
 2. **Choose a tag:** type `toolchain-v2` → *Create new tag on publish*
 3. **Title:** `AURORA toolchain v2`
 4. **Description:** one-liner about which upstream versions are bundled
-5. ✅ Tick **Set as a pre-release** (so it doesn't appear as the
+5. Tick **Set as a pre-release** (so it doesn't appear as the
    user-facing "latest")
 6. Drag-and-drop `..\aurora-toolchain-v2.zip` into the assets area
 7. Click **Publish release**
@@ -201,7 +254,7 @@ Then either:
   files from `dist/` (the `.exe`, the `.exe.blockmap`, and `latest.yml`)
   to a new GitHub Release at the matching tag.
 
-### Manual upload (the v4.1.13 way)
+### Manual upload (the v5.0.0 way)
 
 If CI isn't an option, build locally and upload through the browser:
 
@@ -213,7 +266,7 @@ If CI isn't an option, build locally and upload through the browser:
 5. **Description:** copy the relevant section from
    [`CHANGELOG.md`](CHANGELOG.md)
 6. Drag-and-drop **all three** files from `dist/` into the assets area
-7. ✅ Tick **Set as the latest release**
+7. Tick **Set as the latest release**
 8. Click **Publish release**
 
 The moment the release is published, every user running an older AURORA

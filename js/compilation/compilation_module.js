@@ -1711,28 +1711,20 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             || t.includes('$stop called at')
         );
     };
-    // Verbose state is read fresh per line so toggling it mid-run
-    // works. Matches the storage key used by terminal_module.js.
-    const isVerbose = () => {
-        try { return JSON.parse(localStorage.getItem('terminal-verbose-mode') || 'false') === true; }
-        catch { return false; }
-    };
     const unsubscribe = window.electronAPI.onVvpStream((payload) => {
         if (!payload || !payload.data) return;
         // Split so each line can be classified independently; chunks
         // from spawn can carry multiple newlines per data event.
         for (const line of payload.data.split(/\r?\n/)) {
             if (!line.trim()) continue;
-            if (isVvpNoise(line)) {
-                // Hard-skip the toolchain noise unless verbose is on.
-                // Don't rely on appendToTerminal's filter alone — it
-                // wasn't catching these for reasons we couldn't pin
-                // down (regex matching, BOM, chunk-boundary effects).
-                if (!isVerbose()) continue;
-                this.terminalManager.appendToTerminal('twave', line, 'plain');
-            } else {
-                this.terminalManager.appendToTerminal('twave', line, 'raw');
-            }
+            // Hard-drop toolchain bookkeeping lines (FST/VCD info,
+            // $finish called at, …). They're useful only when
+            // debugging the simulator itself, and the user has
+            // electron-log + DevTools for that. Keeping them out
+            // of twave entirely avoids the verbose-mode toggle
+            // sync issue altogether.
+            if (isVvpNoise(line)) continue;
+            this.terminalManager.appendToTerminal('twave', line, 'raw');
         }
     });
     let code;

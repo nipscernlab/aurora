@@ -1699,11 +1699,9 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // filter hides them; the user only cares about those during
     // debugging.
     // Substring match (lowercased) is more robust than regex against
-    // variations of vvp's bookkeeping output. The previous regex
-    // approach failed silently for some chunks — likely buffer
-    // boundary quirks combining lines, or invisible prefixes.
+    // variations of vvp's bookkeeping output.
     const isVvpNoise = (line) => {
-        const t = line.toLowerCase();
+        const t = (line || '').toLowerCase();
         return (
             t.includes('fst info:')
             || t.includes('vcd info:')
@@ -1713,14 +1711,28 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             || t.includes('$stop called at')
         );
     };
+    // Verbose state is read fresh per line so toggling it mid-run
+    // works. Matches the storage key used by terminal_module.js.
+    const isVerbose = () => {
+        try { return JSON.parse(localStorage.getItem('terminal-verbose-mode') || 'false') === true; }
+        catch { return false; }
+    };
     const unsubscribe = window.electronAPI.onVvpStream((payload) => {
         if (!payload || !payload.data) return;
         // Split so each line can be classified independently; chunks
         // from spawn can carry multiple newlines per data event.
         for (const line of payload.data.split(/\r?\n/)) {
             if (!line.trim()) continue;
-            const tag = isVvpNoise(line) ? 'plain' : 'raw';
-            this.terminalManager.appendToTerminal('twave', line, tag);
+            if (isVvpNoise(line)) {
+                // Hard-skip the toolchain noise unless verbose is on.
+                // Don't rely on appendToTerminal's filter alone — it
+                // wasn't catching these for reasons we couldn't pin
+                // down (regex matching, BOM, chunk-boundary effects).
+                if (!isVerbose()) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'plain');
+            } else {
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
+            }
         }
     });
     let code;

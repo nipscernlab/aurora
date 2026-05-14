@@ -1691,7 +1691,6 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             'tips');
     }
 
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.simulationStarted'), 'info');
     // Stream pass-2 output to twave live so $display lines from the
     // testbench show up as the simulation progresses. The previous
     // execCommand wrapper waited for the process to close and printed

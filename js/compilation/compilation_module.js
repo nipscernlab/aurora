@@ -1692,12 +1692,26 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     }
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.simulationStarted'), 'info');
-    const fstCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" -fst`;
-    const result = await window.electronAPI.execCommand(fstCmd);
-    if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
-    if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
-    if (result.code !== 0) {
-        throw new Error(tr('error.compilation.vvpFailed', { code: result.code }));
+    // Stream pass-2 output to twave live so $display lines from the
+    // testbench show up as the simulation progresses. The previous
+    // execCommand wrapper waited for the process to close and printed
+    // everything at once — fine for fast runs, bad UX for long ones.
+    const unsubscribe = window.electronAPI.onVvpStream((payload) => {
+        if (payload && payload.data) {
+            this.terminalManager.appendToTerminal('twave', payload.data);
+        }
+    });
+    let code;
+    try {
+        const r = await window.electronAPI.execVvpStreamed(
+            tools.vvpBin, vvpFile, ['-fst'], tools.tempBaseDir,
+        );
+        code = r.code;
+    } finally {
+        unsubscribe();
+    }
+    if (code !== 0) {
+        throw new Error(tr('error.compilation.vvpFailed', { code }));
     }
 }
 

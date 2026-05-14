@@ -81,6 +81,46 @@ function register() {
     });
   });
 
+  /**
+   * Stream the output of a vvp run live to the renderer. Used by pass 2
+   * of the wave pipeline so $display lines from the testbench show up
+   * in twave as the simulation progresses (instead of arriving in one
+   * lump when vvp finally exits). Uses spawn (no shell) so stdout/stderr
+   * pipes go straight from vvp to us — no shell buffering layer between.
+   *
+   * Each chunk fires `vvp-stream` events tagged with stdout/stderr.
+   * Resolves with { code } when the process exits.
+   */
+  ipcMain.handle('exec-vvp-streamed', (event, vvpBin, vvpFile, extraArgs, workingDir) => {
+    return new Promise((resolve, reject) => {
+      const args = [vvpFile, ...(Array.isArray(extraArgs) ? extraArgs : [])];
+      const child = spawn(vvpBin, args, {
+        cwd: workingDir,
+        windowsHide: true,
+      });
+
+      state.currentVvpProcess = child;
+      state.vvpProcessPid = child.pid;
+
+      child.stdout?.on('data', (data) => {
+        event.sender.send('vvp-stream', { type: 'stdout', data: data.toString() });
+      });
+      child.stderr?.on('data', (data) => {
+        event.sender.send('vvp-stream', { type: 'stderr', data: data.toString() });
+      });
+      child.on('close', (code) => {
+        state.currentVvpProcess = null;
+        state.vvpProcessPid = null;
+        resolve({ code });
+      });
+      child.on('error', (err) => {
+        state.currentVvpProcess = null;
+        state.vvpProcessPid = null;
+        reject({ code: -1, error: err.message });
+      });
+    });
+  });
+
   ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) => {
     return new Promise((resolve, reject) => {
       const cpuCount = getCPUCount();

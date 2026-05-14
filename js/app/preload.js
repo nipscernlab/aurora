@@ -107,6 +107,17 @@ const compilationOperations = {
   execCommand: (cmd, options = {}) => ipcRenderer.invoke('exec-command', cmd, options),
   execVvpOptimized: (cmd, workingDir, options = {}) =>
     ipcRenderer.invoke('exec-vvp-optimized', cmd, workingDir, options),
+  // Streamed vvp run: stdout/stderr chunks arrive live via `vvp-stream`
+  // events while the simulation runs (instead of one lump at the end).
+  // The caller registers a listener with onVvpStream and the cleanup
+  // function it returns must be invoked when the run finishes.
+  execVvpStreamed: (vvpBin, vvpFile, extraArgs, workingDir) =>
+    ipcRenderer.invoke('exec-vvp-streamed', vvpBin, vvpFile, extraArgs, workingDir),
+  onVvpStream: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('vvp-stream', handler);
+    return () => ipcRenderer.removeListener('vvp-stream', handler);
+  },
 
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),

@@ -304,16 +304,21 @@
   background-color: rgba(93, 212, 168, 0.06);
 }
 
-.log-entry.tips {
+/* `info` and `tips` are both the "blue card" category — semantic
+   neutral notes that should stay visible regardless of verbose mode.
+   tips is the legacy class; info is what compilation_module's
+   appendToTerminal(…, 'info') emits. Same styling. */
+.log-entry.tips,
+.log-entry.info {
   border-left-color: var(--status-info);
   color: var(--term-info);
   background-color: rgba(91, 184, 232, 0.06);
 }
 
-/* Internal messages: muted, no card */
-.log-entry.info,
+/* Internal messages: muted, no card. Only hit when no semantic
+   category is detected and verbose-off filters this entry out. */
 .log-entry.plain,
-.log-entry:not(.error):not(.warning):not(.success):not(.tips) {
+.log-entry:not(.error):not(.warning):not(.success):not(.tips):not(.info) {
   border-left-color: transparent;
   color: var(--text-muted);
   background-color: transparent;

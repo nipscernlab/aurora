@@ -249,18 +249,20 @@ class TerminalManager {
         lines.forEach(line => {
             const detectedType = this.detectMessageType(line);
 
-            // Detected semantic type wins. Else: keep the caller's type but
-            // mark it as plain when no semantic marker exists, so it can be
-            // hidden by verbose filter.
+            // Detected semantic type (from the text content itself) wins
+            // over the caller's intent — that's how compiler stdout gets
+            // categorized as error/warning when it carries a marker.
+            // Else we trust the caller's `type`: info/warning/success/
+            // error/tips are all real, user-facing categories that the
+            // verbose filter never hides. Only when neither side has a
+            // category do we downgrade to `plain` (filterable noise).
             let effectiveType;
             if (detectedType !== 'plain') {
                 effectiveType = detectedType;
             } else if (explicitInternal) {
                 effectiveType = 'plain';
             } else {
-                // Default path: type without a semantic marker → treat as plain
-                // for verbose-filter purposes, but visually keep the requested type.
-                effectiveType = type === 'info' ? 'plain' : type;
+                effectiveType = type || 'plain';
             }
 
             // Verbose-off: only show messages with a real semantic marker.
@@ -270,7 +272,7 @@ class TerminalManager {
             this.createLogEntry(terminal, line.trim(), effectiveType, timestamp);
 
             // Counter increments per real user-facing category.
-            if (['error', 'warning', 'success', 'tips'].includes(effectiveType)) {
+            if (['error', 'warning', 'success', 'tips', 'info'].includes(effectiveType)) {
                 this.incrementMessageCount(terminalId, effectiveType);
             }
         });

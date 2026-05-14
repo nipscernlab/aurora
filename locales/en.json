@@ -87,8 +87,6 @@
             "sectionGeneral":          "General",
             "tooltips":                "Enable Tooltips",
             "tooltipsDescription":     "Show tooltips on hover throughout the IDE.",
-            "parallelMode":            "Parallel Simulation Mode",
-            "parallelModeDescription": "Open GTKWave immediately as VCD generates. Disable to wait for full generation.",
             "alertSound":              "Compilation Alert Sound",
             "sectionTerminal":         "Terminal",
             "verbose":                 "Verbose Mode",

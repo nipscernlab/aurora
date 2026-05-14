@@ -11,9 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutWarning = document.getElementById('shortcut-warning');
     const tooltipsToggle = document.getElementById('tooltips-toggle');
 
-    // NEW: Compilation mode toggle
-    const compilationModeToggle = document.getElementById('compilation-mode-toggle');
-
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
     const SETTINGS_STORAGE_KEY = 'aurora-settings';
 
@@ -41,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tr = (key) => (window.t ? window.t(key) : key);
 
     const defaultSettings = {
-        parallelCompilation: false,
         tooltipsEnabled: true,
         alertSoundEnabled: false,
         verboseMode: false
@@ -58,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSettings = stored ? JSON.parse(stored) : { ...defaultSettings };
 
         // Apply to UI toggles (safely)
-        if (compilationModeToggle) compilationModeToggle.checked = !!currentSettings.parallelCompilation;
         if (tooltipsToggle) tooltipsToggle.checked = !!currentSettings.tooltipsEnabled;
 
         // Aplica estado dos tooltips imediatamente
@@ -69,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Salva configurações no localStorage e notifica a aplicação.
      */
     const saveSettings = () => {
-        currentSettings.parallelCompilation = compilationModeToggle?.checked ?? true;
         currentSettings.tooltipsEnabled = tooltipsToggle?.checked ?? true;
 
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(currentSettings));

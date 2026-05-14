@@ -122,9 +122,7 @@ const compilationOperations = {
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
-  launchGtkwaveOnly:        (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
-  launchSerialSimulation:   (opts) => ipcRenderer.invoke('launch-serial-simulation', opts),
-  launchParallelSimulation: (opts) => ipcRenderer.invoke('launch-parallel-simulation', opts),
+  launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
 
   onCommandOutputStream: (cb) => ipcRenderer.on('command-output-stream', cb),
   removeCommandOutputListener: (cb) => ipcRenderer.removeListener('command-output-stream', cb),

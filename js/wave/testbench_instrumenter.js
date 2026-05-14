@@ -162,6 +162,13 @@ export function instrumentTestbenchSource({
     // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
     // the plusarg — the gate is false, the #1/$dumpflush/$finish are
     // skipped, simulation runs to its normal $finish.
+    // Periodic $fflush so $display lines from the user's testbench
+    // reach Aurora's terminal live during the simulation. vvp uses
+    // block-buffered stdout when connected to a pipe (~4-8 KB chunks)
+    // and only emits them when the buffer fills or when the process
+    // exits. Without this, long runs print nothing until $finish.
+    // The flush block runs in parallel to the user testbench and
+    // stops naturally when $finish hits.
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
@@ -172,6 +179,14 @@ initial begin
         #1;
         $dumpflush;
         $finish;
+    end
+end
+// Live-output hook: keep flushing stdout so the IDE terminal sees
+// each $display in real time instead of one lump at the final $finish.
+initial begin
+    forever begin
+        #100;
+        $fflush;
     end
 end
 // --------------------------------------------------

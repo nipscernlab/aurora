@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const defaultSettings = {
         tooltipsEnabled: true,
-        alertSoundEnabled: false,
         verboseMode: false
     };
 

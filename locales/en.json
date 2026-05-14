@@ -87,7 +87,6 @@
             "sectionGeneral":          "General",
             "tooltips":                "Enable Tooltips",
             "tooltipsDescription":     "Show tooltips on hover throughout the IDE.",
-            "alertSound":              "Compilation Alert Sound",
             "sectionTerminal":         "Terminal",
             "verbose":                 "Verbose Mode",
             "verboseDescription":      "Show all compilation messages. Disable to filter (errors, warnings, success, info).",

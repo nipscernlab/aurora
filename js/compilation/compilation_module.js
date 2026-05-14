@@ -1692,15 +1692,26 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     }
 
     // Stream pass-2 output to twave live so $display lines from the
-    // testbench show up as the simulation progresses. The previous
-    // execCommand wrapper waited for the process to close and printed
-    // everything at once — fine for fast runs, bad UX for long ones.
-    // Tag the entries 'raw' so each line renders as plain console
-    // text (no card, no semantic detection) — the IDE is acting as
-    // a pass-through console for whatever the testbench wrote.
+    // testbench show up as the simulation progresses. User $display
+    // lines get tagged 'raw' (no card, always visible). Lines that
+    // are clearly vvp/iverilog system noise — dump-format announce,
+    // $finish location, etc. — get tagged 'plain' so the verbose-off
+    // filter hides them; the user only cares about those during
+    // debugging.
+    const VVP_NOISE = [
+        /^\s*(?:FST|VCD|LXT2?|VZT) info:/i,
+        /^.*\.v:\d+:\s*\$finish called at\b/i,
+        /^\s*\$finish called at\b/i,
+    ];
+    const isVvpNoise = (line) => VVP_NOISE.some((r) => r.test(line));
     const unsubscribe = window.electronAPI.onVvpStream((payload) => {
-        if (payload && payload.data) {
-            this.terminalManager.appendToTerminal('twave', payload.data, 'raw');
+        if (!payload || !payload.data) return;
+        // Split so each line can be classified independently; chunks
+        // from spawn can carry multiple newlines per data event.
+        for (const line of payload.data.split(/\r?\n/)) {
+            if (!line.trim()) continue;
+            const tag = isVvpNoise(line) ? 'plain' : 'raw';
+            this.terminalManager.appendToTerminal('twave', line, tag);
         }
     });
     let code;

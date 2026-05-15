@@ -7,12 +7,14 @@
  * Software/Hardware/Simulation auto-descoberto).
  *
  * Pontos de entrada externos:
- *   activateTree()  — chamada por projectManager.loadProject e por
- *                     fileTreeManager.initializeTreeBasedOnMode.
- *                     Coalescida via _activatePromise (ver
- *                     ARCHITECTURE.md §6).
- *   refreshTree()   — re-le o .spf e re-renderiza (idempotente;
- *                     key-based reconciler).
+ *   refreshTree()   — UNICO entry point pra atualizar a tree. Faz
+ *                     setup idempotente (DOM cache wait, project path
+ *                     discovery, isTreeActive flag, view switch) +
+ *                     loadConfiguration + renderTree em loop, tudo
+ *                     coalescido via _refreshPromise + pending flag.
+ *   activateTree()  — alias historico pra refreshTree (compat com
+ *                     projectManager.loadProject e
+ *                     fileTreeManager.initializeTreeBasedOnMode).
  *   reset()         — limpa estado transiente; chamado por
  *                     close_project pra que reabrir um projeto
  *                     dispare uma ativacao limpa.
@@ -425,37 +427,61 @@ class ProjectTreeManager {
     // ----- lifecycle ---------------------------------------------------
 
     /**
-     * Ativa o file tree. Idempotente quanto a re-chamadas — coalesced
-     * via _activatePromise pra que tres caminhos concorrentes
-     * (projectManager.loadProject, fileTreeManager.initializeTreeBasedOnMode
-     * e o atalho do construtor) nao rodem loadConfiguration em
-     * paralelo (cada um zeraria verilogFiles e duplicaria entries).
+     * Reset state transiente. Chamado por close_project pra que
+     * reabrir dispare uma ativacao limpa contra o novo ProjectStore
+     * em vez do early-return branch com dados stale.
+     */
+    reset() {
+        this.isTreeActive = false;
+        this.verilogFiles = [];
+        // Tree DOM is already cleared by clearProjectInterface in
+        // close_project.js; nothing to do here.
+    }
+
+    /**
+     * Alias historico — refreshTree() faz tudo agora (setup idempotente
+     * + load + render). Mantido pra nao quebrar callers existentes
+     * (projectManager.loadProject, fileTreeManager.initializeTreeBasedOnMode).
      */
     async activateTree() {
-        if (this._activatePromise) return this._activatePromise;
+        return this.refreshTree();
+    }
 
-        this._activatePromise = (async () => {
-            // Espera cacheElements() ter rodado. Sem isso, uma ativacao
-            // programatica precoce pode chegar antes de init() resolver
-            // e silenciosamente no-op em renderTree.
+    /**
+     * UNICO entry point pra atualizar a tree. Coalesce concorrencia
+     * via _refreshPromise + pending flag, faz setup idempotente
+     * (DOM cache wait, project path discovery, isTreeActive flag,
+     * view switch) e roda loadConfiguration + renderTree em loop ate
+     * o estado estabilizar.
+     *
+     * Antes existia activateTree separada, mas seu corpo virou
+     * essencialmente "setup once + refresh". Cada operacao do setup
+     * e idempotente (initPromise resolve uma vez; setar isTreeActive=
+     * true duas vezes e no-op; showFileMode reaplica o mesmo
+     * data-active-view). Como activateTree e refreshTree tinham
+     * locks SEPARADOS (_activatePromise vs _refreshPromise), eles
+     * podiam rodar loadConfiguration em paralelo — e o segundo
+     * fazia `this.verilogFiles = []` em cima dos pushes do primeiro,
+     * duplicando entries de software files. Consolidacao mata essa
+     * classe de race.
+     */
+    async refreshTree() {
+        if (this._refreshPromise) {
+            this._refreshPending = true;
+            return this._refreshPromise;
+        }
+
+        this._refreshPromise = (async () => {
+            // ----- Setup idempotente -----
+            // Espera cacheElements() ter rodado. Apos a primeira
+            // resolucao, initPromise vira no-op.
             if (this.initPromise) {
                 try { await this.initPromise; } catch (_) { /* init logs its own errors */ }
             }
 
-            if (this.isTreeActive) {
-                // Ja ativa mas um novo projeto pode ter sido aberto —
-                // refresh em vez de retornar uma tree stale.
-                await this.refreshTree();
-                return;
-            }
-
-            console.log('🚀 Activating Verilog tree...');
-
             // Descobre o project path se loadProject ainda nao rodou
-            // (raro — acontece no startup quando restoreLastSession
-            // esta em voo). Uma vez descoberto, empurra pro ProjectStore
-            // pra que todos os consumers vejam o mesmo valor em vez
-            // de cada um cachear uma copia.
+            // (raro — startup com restoreLastSession em voo). Skip
+            // depois que setProject foi chamado.
             if (!ProjectStore.hasProject()) {
                 try {
                     const projectData = await window.electronAPI.getCurrentProject();
@@ -472,99 +498,37 @@ class ProjectTreeManager {
                 }
             }
 
-            // STILL sem projeto depois do discover? Bail sem
-            // renderizar. Se procedessemos, loadConfiguration faria
-            // early-return no path faltante e renderTree pintaria uma
-            // tree vazia — exatamente o flash "parece em branco, dai
-            // os files popam" que o usuario ve no startup. A proxima
-            // chamada de activate (project_manager.loadProject apos
-            // setProject) ira completar este body.
-            //
-            // Critically, isTreeActive NAO e setado pra true aqui —
-            // caso contrario a proxima chamada cairia no early-return
-            // refresh e pularia a ativacao full que ainda precisamos.
+            // Sem projeto, bail sem renderizar. Nao seta isTreeActive
+            // — proxima chamada (apos setProject) precisa fazer
+            // setup full.
             if (!ProjectStore.hasProject()) {
-                console.log('⏸ No project yet — deferring activation to next call');
+                console.log('⏸ No project yet — deferring refresh');
                 return;
             }
 
+            const wasActive = this.isTreeActive;
             this.isTreeActive = true;
+            if (!wasActive) {
+                console.log('🚀 Activating Verilog tree...');
+                console.log('📂 Project path:', ProjectStore.getProjectPath());
+            }
 
-            console.log('📂 Project path:', ProjectStore.getProjectPath());
-
-            // Routes through refreshTree (em vez de chamar
-            // loadConfiguration direto) pra que activateTree
-            // compartilhe o _refreshPromise lock com qualquer
-            // outro disparador (fs watcher, aurora:spf-changed,
-            // botao Refresh). Sem isso ha race: o save dentro do
-            // loadConfiguration aciona aurora:spf-changed → outro
-            // refreshTree comeca em paralelo, ambos fazem
-            // `this.verilogFiles = []` e seus pushes se intercalam
-            // — resultado: software files duplicados na tree.
-            await this.refreshTree();
-
-            // Switch a view visivel pra file mode E renderiza no
-            // subcontainer verilog numa chamada so. Via controller
-            // (em vez de renderTree direto) mantem o _activeView dele
-            // em sync — que drives o label do toggle button e a
-            // direcao do click.
-            window.fileTreeViewController?.showFileMode?.();
-
-            console.log('✅ Verilog tree active with', this.verilogFiles.length, 'files');
-        })();
-
-        try {
-            await this._activatePromise;
-        } finally {
-            this._activatePromise = null;
-        }
-    }
-
-    /**
-     * Reset state transiente. Chamado por close_project pra que
-     * reabrir dispare uma ativacao limpa contra o novo ProjectStore
-     * em vez do early-return branch com dados stale.
-     */
-    reset() {
-        this.isTreeActive = false;
-        this.verilogFiles = [];
-        // Tree DOM is already cleared by clearProjectInterface in
-        // close_project.js; nothing to do here.
-    }
-
-    /**
-     * Re-le o .spf e re-renderiza. Coalesced igual a activateTree —
-     * duas chamadas no mesmo tick (ex: project-config-saved + tab
-     * event) zerariam verilogFiles e intercalariam pushes.
-     *
-     * Sem toast no fim: este metodo roda de quatro call sites, so um
-     * e user-triggered (botao manual de refresh). Os outros tres
-     * (ativacao inicial, project-config-saved, fs watcher) disparam
-     * em open ou em background — toast la e ruido. Tree atualizando
-     * visualmente ja e o feedback pro caso manual.
-     */
-    async refreshTree() {
-        // Coalesced com flag de pending: se uma refresh chega DURANTE
-        // outra in-flight, marca pendente em vez de descartar. Quando
-        // a refresh atual termina, o loop roda mais uma iteracao com
-        // o state ja atualizado. Sem isso ha uma race onde o fs watcher
-        // dispara um refresh logo apos o main escrever o .spf, e o
-        // listener de processor:created ainda nao atualizou
-        // window.availableProcessors — a refresh do watcher le o .spf
-        // novo mas pula a pasta do processador novo, e o refresh do
-        // listener e descartado por coalescing.
-        if (this._refreshPromise) {
-            this._refreshPending = true;
-            return this._refreshPromise;
-        }
-
-        this._refreshPromise = (async () => {
+            // ----- Loop de load + render -----
             do {
                 this._refreshPending = false;
                 console.log('🔄 Refreshing Verilog tree...');
                 await this.loadConfiguration();
                 this.renderTree();
             } while (this._refreshPending);
+
+            // Switch a view visivel pra file mode — idempotente, mas so
+            // tem efeito util na primeira ativacao. Via controller
+            // (em vez de setActive direto) mantem _activeView dele em
+            // sync, drives o label e direcao do toggle button.
+            if (!wasActive) {
+                window.fileTreeViewController?.showFileMode?.();
+                console.log('✅ Verilog tree active with', this.verilogFiles.length, 'files');
+            }
         })();
 
         try {

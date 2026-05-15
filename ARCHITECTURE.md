@@ -118,18 +118,23 @@ DOMContentLoaded
 
 ---
 
-## 6. `activateTree` is coalesced
+## 6. `refreshTree` is the single entry point
 
-[`file_mode.js`](js/project/file_mode.js) wraps `activateTree` in a `_activatePromise` que retorna a mesma promise in-flight pra callers concorrentes. Pelo menos duas paths podem chama-la no mesmo tick durante session-restore:
+[`file_mode.js`](js/project/file_mode.js) expoe **um unico ponto** pra atualizar a tree: `refreshTree()`. Ele coalesce concurrent callers via `_refreshPromise` + pending-flag loop, roda setup idempotente (DOM cache wait, project path discovery, isTreeActive flag, view switch) e faz loadConfiguration + renderTree em loop ate o estado estabilizar.
 
-1. `projectManager.loadProject` → `activateTree`
-2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateTree`
+`activateTree()` ainda existe como alias historico (call sites: `projectManager.loadProject`, `fileTreeManager.initializeTreeBasedOnMode`) — chama `refreshTree()` diretamente.
 
-Sem coalescencia, ambos rodavam `loadConfiguration` em paralelo — cada um fazia `verilogFiles = []` e aguardava I/O — entao o reset da chamada B limpava os pushes da chamada A em pleno meio de iteracao, deixando linhas duplicadas.
+Pelo menos tres paths podem chamar refreshTree no mesmo tick durante session-restore:
 
-**A promise tambem e gated em `this.initPromise`** (cache de elementos DOM) pra que uma ativacao programatica precoce nao caia antes do `cacheElements()` rodar.
+1. `projectManager.loadProject` → `activateTree` → `refreshTree`
+2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateTree` → `refreshTree`
+3. fs watcher / `aurora:spf-changed` listener → `refreshTree`
 
-**Nao chame `activateTree` de dentro dela** (recursao), e nao contorne o wrapper chamando `loadConfiguration` direto.
+Pre-consolidation tinha LOCKS SEPARADOS (`_activatePromise` vs `_refreshPromise`) — activateTree chamava `loadConfiguration` direto, e refreshTree tambem. Os dois rodavam em paralelo — cada um fazia `verilogFiles = []` e aguardava I/O — entao o reset da chamada B limpava os pushes da chamada A em pleno meio de iteracao, duplicando entries (especialmente os auto-discovered `.cmm`/`.asm`). Consolidando num lock so eliminou essa classe de race.
+
+**A promise tambem e gated em `this.initPromise`** (cache de elementos DOM) pra que uma chamada programatica precoce nao caia antes do `cacheElements()` rodar.
+
+**Nao chame `refreshTree` de dentro de si mesmo** (recursao), e nao contorne o wrapper chamando `loadConfiguration` direto — `loadConfiguration` so deve ser chamado de dentro do loop do refreshTree.
 
 ---
 

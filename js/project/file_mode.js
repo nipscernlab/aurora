@@ -133,6 +133,22 @@ class ProjectTreeManager {
             }
         });
 
+        // aurora:spf-changed e disparado por SpfStore.update apos cada
+        // escrita bem-sucedida. E o hook canonico do design "spf como
+        // fonte unica de verdade": handlers de user-action escrevem
+        // via SpfStore.update (transacao atomica per-path) e dependem
+        // deste evento pra atualizar a UI. Filtramos por spfPath pra
+        // nao re-renderizar quando o write foi pra outro projeto
+        // (importFiles, por exemplo, persiste no .spf original mesmo
+        // depois do usuario trocar de projeto — ali NAO queremos
+        // refresh: o projeto ativo agora e outro).
+        window.addEventListener('aurora:spf-changed', (event) => {
+            const changed = event?.detail?.spfPath;
+            if (changed && changed === ProjectStore.getSpfPath() && this.isTreeActive) {
+                this.refreshTree();
+            }
+        });
+
         if (this.elements.fileTree) {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
 

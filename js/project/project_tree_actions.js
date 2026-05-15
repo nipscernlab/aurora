@@ -144,18 +144,25 @@ export const ActionsMixin = {
     // ----- import + remove + create ------------------------------------
 
     /**
-     * Caminho comum do import via drag-drop: valida extensoes,
-     * dedup contra this.verilogFiles e empurra os validos antes de
-     * persistir e re-renderizar.
+     * Import via drag-drop. Desenho transacional:
      *
-     * Session-safe: captura `targetSpfPath` no inicio. Se o usuario
-     * trocar de projeto enquanto a gente classifica os arquivos (le
-     * o conteudo de cada um — pode demorar centenas de ms), persiste
-     * direto no .spf original via SpfStore.update em vez de chamar
-     * this.saveConfiguration (que escreveria no .spf do projeto NOVO
-     * com state errado, perdendo o drop). Sem essa guarda, o bug
-     * "arrastei arquivos, troquei de projeto, voltei e sumiram" era
-     * a regressao classica.
+     *   1. Captura `targetSpfPath` da entrada — toda escrita usa este
+     *      handle. Trocar de projeto durante uma chamada nao reescreve
+     *      o .spf errado.
+     *   2. Valida + classifica os arquivos em dados LOCAIS (validFiles).
+     *      Nao toca this.verilogFiles ate o write completar.
+     *   3. Persiste via SpfStore.update(targetSpfPath, mutator). O
+     *      mutator le o .spf fresh de dentro do write-chain, faz
+     *      append-com-dedup, e devolve. SpfStore.update serializa
+     *      writes per-path, entao um refresh concorrente nao corrompe.
+     *   4. SpfStore.update dispara aurora:spf-changed apos o write —
+     *      se ainda estamos no mesmo projeto, file_mode.js refresca
+     *      a tree do disco. Se trocou de projeto, o evento e
+     *      filtrado pelo listener (spfPath nao bate) e a UI fica
+     *      paciente; ao reabrir o projeto, o load le os novos files.
+     *
+     * "in-memory state nao e a fonte de verdade" e o invariante aqui.
+     * this.verilogFiles e um cache, nao deve ser mutado por handlers.
      */
     async importFiles(files) {
         const targetSpfPath = ProjectStore.getSpfPath();
@@ -206,10 +213,9 @@ export const ActionsMixin = {
             return;
         }
 
-        // Classifica cada arquivo lendo o conteudo. Operamos sobre o
-        // array LOCAL `validFiles` (nao this.verilogFiles), entao um
-        // refresh de tree concorrente (project switch, fs watcher)
-        // nao corrompe os flags que acabamos de calcular.
+        // Classifica cada arquivo lendo conteudo do disco. Atualiza
+        // os objetos LOCAIS (validFiles) — refreshs concorrentes nao
+        // alcancam estes flags.
         for (const f of validFiles) {
             try {
                 const content = await window.electronAPI.readFile(f.path);
@@ -220,41 +226,28 @@ export const ActionsMixin = {
             }
         }
 
-        const sessionStillValid = ProjectStore.getSpfPath() === targetSpfPath;
-
-        if (sessionStillValid) {
-            // Caminho rapido — UI ainda no projeto certo. Empurra
-            // pra memoria e deixa saveConfiguration fazer o rewrite
-            // completo do .spf (cobre reclassificacao + dedup).
-            this.verilogFiles.push(...validFiles);
-            this.sortFilesAlphabetically();
-            await this.saveConfiguration();
-            this.renderTree();
-        } else {
-            // Projeto trocou durante a classificacao. saveConfiguration
-            // escreveria no .spf do projeto NOVO com state errado.
-            // Em vez disso, mutator atomico via SpfStore: append nos
-            // arrays do .spf original. this.verilogFiles ja foi
-            // substituido pelo refresh, entao nao mexemos nele.
-            await SpfStore.update(targetSpfPath, (cfg) => {
-                const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
-                const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
-                const seen = new Set([
-                    ...synthFiles.map((f) => this._normalizePath(f.path)),
-                    ...tbFiles.map((f) => this._normalizePath(f.path)),
-                ]);
-                for (const f of validFiles) {
-                    const key = this._normalizePath(f.path);
-                    if (seen.has(key)) continue;
-                    const entry = { name: f.name, path: f.path, isTopLevel: false };
-                    if (f.category === 'testbench') tbFiles.push(entry);
-                    else synthFiles.push(entry);
-                    seen.add(key);
-                }
-                cfg.synthesizableFiles = synthFiles;
-                cfg.testbenchFiles = tbFiles;
-            });
-        }
+        // Transacao atomica. Le o .spf fresh dentro do write-chain
+        // do SpfStore (serializado per-path), faz append-com-dedup,
+        // escreve. Trocar de projeto durante a classificacao acima
+        // nao afeta esta chamada — targetSpfPath ja foi capturado.
+        await SpfStore.update(targetSpfPath, (cfg) => {
+            const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+            const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+            const seen = new Set([
+                ...synthFiles.map((f) => this._normalizePath(f.path)),
+                ...tbFiles.map((f) => this._normalizePath(f.path)),
+            ]);
+            for (const f of validFiles) {
+                const key = this._normalizePath(f.path);
+                if (seen.has(key)) continue;
+                const entry = { name: f.name, path: f.path, isTopLevel: false };
+                if (f.category === 'testbench') tbFiles.push(entry);
+                else synthFiles.push(entry);
+                seen.add(key);
+            }
+            cfg.synthesizableFiles = synthFiles;
+            cfg.testbenchFiles = tbFiles;
+        });
 
         this.showNotification(
             tr('notification.tree.added', { count: validFiles.length }),
@@ -266,8 +259,18 @@ export const ActionsMixin = {
     /**
      * Cria um novo .v via Save Dialog, grava placeholder no disco,
      * adiciona à lista e abre na aba.
+     *
+     * Padrao transacional: captura `targetSpfPath` na entrada, escreve
+     * o disco e persiste no .spf via SpfStore.update — ver doc do
+     * importFiles. UI re-renderiza via aurora:spf-changed.
      */
     async createNewFile() {
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) {
+            this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
+            return;
+        }
+
         try {
             const projectPath = ProjectStore.getProjectPath();
 
@@ -314,31 +317,21 @@ export const ActionsMixin = {
 
             await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
 
-            const newFile = {
-                name: finalFileName,
-                path: finalPath,
-                isTopLevel: false,
-            };
-
-            // O Save Dialog confirma overwrite, entao o usuario PODE
-            // ter escolhido um path ja presente na tree. Push direto
-            // sem essa checagem duplicava a row — agora atualizamos o
-            // entry existente em vez de criar outro.
-            const targetKey = this._normalizePath(finalPath);
-            const existingIdx = this.verilogFiles.findIndex(
-                (f) => this._normalizePath(f.path) === targetKey,
-            );
-            if (existingIdx >= 0) {
-                this.verilogFiles[existingIdx] = { ...this.verilogFiles[existingIdx], ...newFile };
-            } else {
-                this.verilogFiles.push(newFile);
-            }
-            // Classifica pelo conteudo (um arquivo novo / vazio cai em
-            // 'synthesizable' — o default seguro).
-            await this._classifyAll();
-            this.sortFilesAlphabetically();
-            await this.saveConfiguration();
-            this.renderTree();
+            // Append-com-dedup atomico no .spf capturado. Arquivo novo
+            // / vazio cai como 'synthesizable' (default seguro;
+            // _classifyAll re-roda no refresh e ajusta se necessario).
+            await SpfStore.update(targetSpfPath, (cfg) => {
+                const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+                const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+                const targetKey = this._normalizePath(finalPath);
+                const synthIdx = synthFiles.findIndex((f) => this._normalizePath(f.path) === targetKey);
+                const tbIdx = tbFiles.findIndex((f) => this._normalizePath(f.path) === targetKey);
+                if (synthIdx < 0 && tbIdx < 0) {
+                    synthFiles.push({ name: finalFileName, path: finalPath, isTopLevel: false });
+                }
+                cfg.synthesizableFiles = synthFiles;
+                cfg.testbenchFiles = tbFiles;
+            });
 
             this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);
 
@@ -355,38 +348,36 @@ export const ActionsMixin = {
     },
 
     /**
-     * Apaga o arquivo do disco e remove da lista. Confirma com o
-     * usuario antes via dialog canonico.
+     * Apaga o arquivo do disco e remove a entry do .spf. Confirma com
+     * o usuario antes via dialog canonico. Padrao transacional — ver
+     * doc do importFiles.
      */
     async deleteFile(index) {
         if (!this.verilogFiles[index]) return;
-
-        const file = this.verilogFiles[index];
-        const fileName = file.name;
+        // Captura path + nome ANTES do confirm: o array pode mudar
+        // durante o await (refresh, project switch, outro delete) e o
+        // index nao significa mais nada. Path/name sao stable.
+        const filePath = this.verilogFiles[index].path;
+        const fileName = this.verilogFiles[index].name;
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) return;
 
         const confirmed = await showDeleteConfirmDialog(fileName);
-
         if (!confirmed) return;
 
         try {
-            await window.electronAPI.deleteFile(file.path);
-
-            this.verilogFiles.splice(index, 1);
-            await this.saveConfiguration();
-            this.renderTree();
-
+            await window.electronAPI.deleteFile(filePath);
+            await this._dropFileFromSpf(targetSpfPath, filePath);
             this.showNotification(tr('notification.tree.deleted', { name: fileName }), 'success', 2000);
-
-            if (TabManager.tabs && TabManager.tabs.has(file.path)) {
-                TabManager.closeTab(file.path);
+            if (TabManager.tabs && TabManager.tabs.has(filePath)) {
+                TabManager.closeTab(filePath);
             }
         } catch (error) {
             console.error('Error deleting file:', error);
 
             if (error.code === 'ENOENT') {
-                this.verilogFiles.splice(index, 1);
-                await this.saveConfiguration();
-                this.renderTree();
+                // Arquivo ja sumiu do disco — limpa a entry stale do .spf.
+                await this._dropFileFromSpf(targetSpfPath, filePath);
                 this.showNotification(tr('notification.tree.alreadyDeleted', { name: fileName }), 'info', 2000);
             } else {
                 this.showNotification(
@@ -398,17 +389,18 @@ export const ActionsMixin = {
         }
     },
 
-    /** Remocao sem prompt — splice + save + render. */
+    /** Remocao sem prompt — apaga do .spf, anima a row out. */
     async removeFile(index) {
         if (!this.verilogFiles[index]) return;
-
+        const filePath = this.verilogFiles[index].path;
         const fileName = this.verilogFiles[index].name;
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) return;
+
         const fileItem = document.querySelector(`.verilog-file-item[data-file-index="${index}"]`);
 
         const doRemove = async () => {
-            this.verilogFiles.splice(index, 1);
-            await this.saveConfiguration();
-            this.renderTree();
+            await this._dropFileFromSpf(targetSpfPath, filePath);
             this.showNotification(tr('notification.tree.removed', { name: fileName }), 'success', 2000);
         };
 
@@ -422,11 +414,36 @@ export const ActionsMixin = {
 
     // ----- path-keyed actions ------------------------------------------
 
-    /** Delete path-keyed — splice + re-render (sem prompt). */
+    /** Delete path-keyed — direto ao mutator, sem traduzir pra index. */
     async _removeFileByPath(path) {
-        const idx = this.verilogFiles.findIndex((f) => f.path === path);
-        if (idx < 0) return;
-        return this.removeFile(idx);
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) return;
+        const file = this.verilogFiles.find((f) => f.path === path);
+        if (!file) return;
+        await this._dropFileFromSpf(targetSpfPath, path);
+        this.showNotification(tr('notification.tree.removed', { name: file.name }), 'success', 2000);
+    },
+
+    /**
+     * Mutator helper: remove uma entry path-keyed dos arrays do .spf.
+     * Idempotente (no-op se nao existe). Limpa topLevelFile e
+     * testbenchFile se eles apontavam pro path removido.
+     */
+    async _dropFileFromSpf(spfPath, filePath) {
+        const targetKey = this._normalizePath(filePath);
+        await SpfStore.update(spfPath, (cfg) => {
+            const filterOut = (arr) => (Array.isArray(arr) ? arr : []).filter(
+                (f) => this._normalizePath(f.path) !== targetKey,
+            );
+            cfg.synthesizableFiles = filterOut(cfg.synthesizableFiles);
+            cfg.testbenchFiles = filterOut(cfg.testbenchFiles);
+            if (typeof cfg.topLevelFile === 'string' && this._normalizePath(cfg.topLevelFile) === targetKey) {
+                cfg.topLevelFile = '';
+            }
+            if (typeof cfg.testbenchFile === 'string' && this._normalizePath(cfg.testbenchFile) === targetKey) {
+                cfg.testbenchFile = '';
+            }
+        });
     },
 
     // ----- context menus -----------------------------------------------
@@ -626,59 +643,80 @@ export const ActionsMixin = {
      * `isTopLevel` — o que muda e o escopo (synth vs testbench).
      */
     async handleContextMenuAction(action, file, index) {
+        if (action === 'delete') {
+            await this.deleteFile(index);
+            return;
+        }
+
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) return;
+        const targetKey = this._normalizePath(file.path);
+
         switch (action) {
-            case 'set-top-level':
+            case 'set-top-level': {
                 if (file.category === 'testbench') {
                     this.showNotification(tr('notification.tree.cannotSetTopOnTb'), 'warning', 3000);
                     return;
                 }
-                // Clear the flag only within the same category. Um synth
-                // top e um testbench top sao independentes — setar um
-                // nao deveria limpar o outro (o codigo anterior
-                // limpava, silenciosamente desmarcando seu testbench
-                // toda vez que voce setava um Top Level).
-                this.verilogFiles.forEach((f) => {
-                    if (f.category !== 'testbench') f.isTopLevel = false;
-                });
-                this.verilogFiles[index].isTopLevel = true;
+                await this._mutateTopFlag(targetSpfPath, targetKey, 'synth', true);
                 this.showNotification(tr('notification.tree.setAsTop', { name: file.name }), 'success', 2000);
                 break;
+            }
 
-            case 'remove-top-level':
-                this.verilogFiles[index].isTopLevel = false;
+            case 'remove-top-level': {
+                await this._mutateTopFlag(targetSpfPath, targetKey, 'synth', false);
                 this.showNotification(tr('notification.tree.topRemoved', { name: file.name }), 'success', 2000);
                 break;
+            }
 
-            case 'set-testbench':
+            case 'set-testbench': {
                 if (file.category !== 'testbench') {
                     this.showNotification(tr('notification.tree.notTestbench'), 'warning', 3000);
                     return;
                 }
-                // Idem set-top-level, mas escopado a testbench. O campo
-                // unificado e `isTopLevel`; o render escolhe a label
-                // certa via category.
-                this.verilogFiles.forEach((f) => {
-                    if (f.category === 'testbench') f.isTopLevel = false;
-                });
-                this.verilogFiles[index].isTopLevel = true;
+                await this._mutateTopFlag(targetSpfPath, targetKey, 'tb', true);
                 this.showNotification(tr('notification.tree.markedTb', { name: file.name }), 'success', 2000);
                 break;
+            }
 
-            case 'remove-testbench':
-                this.verilogFiles[index].isTopLevel = false;
+            case 'remove-testbench': {
+                await this._mutateTopFlag(targetSpfPath, targetKey, 'tb', false);
                 this.showNotification(tr('notification.tree.tbUnmarked', { name: file.name }), 'success', 2000);
                 break;
-
-            case 'delete':
-                await this.deleteFile(index);
-                break;
+            }
         }
+    },
 
-        if (action !== 'delete') {
-            this.sortFilesAlphabetically();
-            await this.saveConfiguration();
-            this.renderTree();
-        }
+    /**
+     * Mutator helper: seta/limpa o flag isTopLevel + o ponteiro
+     * topLevelFile / testbenchFile no .spf. Synth e testbench tem
+     * tops independentes (um synth top + um testbench top
+     * coexistem); o flag e exclusivo DENTRO da categoria.
+     *
+     * @param {string} spfPath capturado pelo caller
+     * @param {string} targetKey path normalizado do arquivo alvo
+     * @param {'synth'|'tb'} scope categoria afetada
+     * @param {boolean} setTrue true=setar, false=limpar
+     */
+    async _mutateTopFlag(spfPath, targetKey, scope, setTrue) {
+        await SpfStore.update(spfPath, (cfg) => {
+            const arrKey = scope === 'tb' ? 'testbenchFiles' : 'synthesizableFiles';
+            const pointerKey = scope === 'tb' ? 'testbenchFile' : 'topLevelFile';
+            const arr = Array.isArray(cfg[arrKey]) ? cfg[arrKey] : [];
+            let targetEntry = null;
+            for (const f of arr) {
+                if (this._normalizePath(f.path) === targetKey) {
+                    targetEntry = f;
+                    f.isTopLevel = setTrue;
+                } else if (setTrue) {
+                    // Exclusividade dentro da categoria — outros
+                    // perdem o flag quando este ganha.
+                    f.isTopLevel = false;
+                }
+            }
+            cfg[arrKey] = arr;
+            cfg[pointerKey] = setTrue && targetEntry ? targetEntry.path : '';
+        });
     },
 };
 

@@ -11,9 +11,11 @@
         "waveAnalyse":     { "tooltip": "Analisar Verilog (forma de onda)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
-            "tooltip": "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
-            "default": "padrão",
-            "add":     "+ Adicionar arquivo .gtkw..."
+            "tooltip":      "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
+            "default":      "padrão",
+            "add":          "+ Adicionar arquivo .gtkw...",
+            "noProject":    "Nenhum projeto carregado",
+            "noTestbench":  "Nenhum testbench selecionado"
         },
         "cancel":      { "tooltip": "Cancelar" },
         "fullBuild":   { "tooltip": "Build completo", "label": "Build Completo" },

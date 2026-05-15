@@ -11,9 +11,11 @@
         "waveAnalyse":     { "tooltip": "Analyse Verilog (waveform)" },
         "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },
         "gtkwPicker": {
-            "tooltip": "Active GTKWave save file (.gtkw) — used when launching GTKWave",
-            "default": "default",
-            "add":     "+ Add .gtkw file..."
+            "tooltip":      "Active GTKWave save file (.gtkw) — used when launching GTKWave",
+            "default":      "default",
+            "add":          "+ Add .gtkw file...",
+            "noProject":    "No project loaded",
+            "noTestbench":  "No testbench selected"
         },
         "cancel":      { "tooltip": "Cancel" },
         "fullBuild":   { "tooltip": "Full build", "label": "Full Build" },

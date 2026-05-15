@@ -20,6 +20,12 @@ import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { WaveStore } from './wave_state_store.js';
 
+// i18n shim — fallback pra key path se i18n nao bootou ainda.
+// O picker re-renderiza o <select> dinamicamente, entao precisa
+// traduzir em runtime (data-i18n do HTML so cobre o markup inicial,
+// que e jogado fora no innerHTML = '').
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 const NONE_VALUE = '';
 const ADD_VALUE = '__add__';
 
@@ -66,14 +72,14 @@ class GtkwPickerManager {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
         if (!projectPath || !spfPath) {
-            this._renderEmpty('No project loaded');
+            this._renderEmpty(tr('toolbar.gtkwPicker.noProject'));
             return;
         }
         const config = await SpfStore.read(spfPath);
         const tbKey = tbKeyFromPath(config.testbenchFile);
         this._currentTbKey = tbKey;
         if (!tbKey) {
-            this._renderEmpty('No testbench selected');
+            this._renderEmpty(tr('toolbar.gtkwPicker.noTestbench'));
             return;
         }
         const state = await WaveStore.read(projectPath, tbKey);
@@ -84,9 +90,9 @@ class GtkwPickerManager {
 
     _renderEmpty(reason) {
         this.select.innerHTML = '';
-        const placeholder = this._makeOption(NONE_VALUE, reason || 'default');
+        const placeholder = this._makeOption(NONE_VALUE, reason || tr('toolbar.gtkwPicker.default'));
         this.select.appendChild(placeholder);
-        this.select.appendChild(this._makeOption(ADD_VALUE, '+ Add .gtkw file...'));
+        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add')));
         this.select.value = NONE_VALUE;
         this._lastValue = NONE_VALUE;
         // Mantemos o select habilitado pra que "Add file" continue
@@ -99,13 +105,13 @@ class GtkwPickerManager {
     _renderOptions(files, selectedPath) {
         this.select.innerHTML = '';
         this.select.disabled = false;
-        this.select.appendChild(this._makeOption(NONE_VALUE, 'default'));
+        this.select.appendChild(this._makeOption(NONE_VALUE, tr('toolbar.gtkwPicker.default')));
         for (const f of files) {
             if (!f?.path) continue;
             const label = f.name || f.path.split(/[\\/]/).pop();
             this.select.appendChild(this._makeOption(f.path, label));
         }
-        this.select.appendChild(this._makeOption(ADD_VALUE, '+ Add .gtkw file...'));
+        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add')));
         const valueExists = [...this.select.options].some((o) => o.value === selectedPath);
         const finalValue = valueExists ? selectedPath : NONE_VALUE;
         this.select.value = finalValue;

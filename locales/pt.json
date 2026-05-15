@@ -361,7 +361,7 @@
         "config": {
             "noCmm":         "Nenhum arquivo C± selecionado. Selecione um para compilar.",
             "noSynth":       "Nenhum arquivo sintetizável encontrado. Adicione arquivos Verilog em Configurações do Projeto.",
-            "noTopLevel":    "Nenhum módulo top-level selecionado. Marque um arquivo como top-level em Configurações do Projeto.",
+            "noTopLevel":    "Nenhum módulo top-level selecionado. Marque um arquivo como top-level.",
             "noTestbench":   "Nenhum testbench configurado. Adicione um testbench (.v) em Configurações do Projeto e marque como top-level para rodar simulação.",
             "noProject":     "Abra um projeto primeiro.",
             "noProjectBase": "Não foi possível determinar o caminho base do projeto."

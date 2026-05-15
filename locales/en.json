@@ -37,6 +37,11 @@
         "maximize": "Maximize",
         "close":    "Close"
     },
+    "fileTree": {
+        "label":     "FILE TREE",
+        "noProject": "No project open",
+        "loading":   "Loading…"
+    },
     "modal": {
         "waveConfig": {
             "title":              "Wave Configuration",

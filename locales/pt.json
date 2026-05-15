@@ -37,6 +37,11 @@
         "maximize": "Maximizar",
         "close":    "Fechar"
     },
+    "fileTree": {
+        "label":     "ÁRVORE DE ARQUIVOS",
+        "noProject": "Nenhum projeto aberto",
+        "loading":   "Carregando…"
+    },
     "modal": {
         "waveConfig": {
             "title":              "Configuração de Ondas",

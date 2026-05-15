@@ -234,8 +234,8 @@
     <div class="file-tree-container">
         <div class="resizer-vertical"></div>
         <div class="file-tree-header">
-            <span class="file-tree-label">FILE TREE</span>
-            <span id="current-spf-name">No project open</span>
+            <span class="file-tree-label" data-i18n="fileTree.label">FILE TREE</span>
+            <span id="current-spf-name" data-i18n="fileTree.noProject">No project open</span>
             <script>
               // Avoid the "No project open" flash on cold start when a project
               // is about to be auto-restored. This runs synchronously during
@@ -247,7 +247,14 @@
                 try {
                   if (localStorage.getItem('aurora-last-project-path')) {
                     var el = document.getElementById('current-spf-name');
-                    if (el) el.textContent = 'Loading…';
+                    if (el) {
+                      // Pre-i18n: window.t nao existe ainda. Setamos
+                      // o fallback EN no textContent e marcamos a
+                      // chave; applyDOM no fim do boot do i18n
+                      // sobrescreve com a traducao correta.
+                      el.textContent = 'Loading…';
+                      el.setAttribute('data-i18n', 'fileTree.loading');
+                    }
                   }
                 } catch (_) { /* localStorage unavailable */ }
               })();

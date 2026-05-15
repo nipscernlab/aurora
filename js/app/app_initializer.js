@@ -98,7 +98,12 @@ class AppInitializer {
      */
     _resetProjectNameLabel() {
         const el = document.getElementById('current-spf-name');
-        if (el) el.textContent = 'No project open';
+        if (!el) return;
+        // Re-instala o data-i18n pra que locale changes futuros
+        // re-traduzam — updateProjectNameUI o remove quando seta
+        // um nome de projeto real.
+        el.setAttribute('data-i18n', 'fileTree.noProject');
+        el.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
     }
 
     /**

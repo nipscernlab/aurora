@@ -9,9 +9,17 @@ function updateProjectNameUI(projectData, spfPath) {
     const spfNameElement = document.getElementById('current-spf-name');
     if (!spfNameElement) return;
 
+    const setProjectName = (name) => {
+        // Nome real de projeto nao tem traducao — remove qualquer
+        // data-i18n pra que applyDOM no proximo locale change nao
+        // reescreva por cima.
+        spfNameElement.removeAttribute('data-i18n');
+        spfNameElement.textContent = name;
+    };
+
     const metaName = projectData?.metadata?.projectName;
     if (metaName) {
-        spfNameElement.textContent = `${metaName}.spf`;
+        setProjectName(`${metaName}.spf`);
         return;
     }
 
@@ -19,11 +27,13 @@ function updateProjectNameUI(projectData, spfPath) {
     // stuck on "No project open" after a successful load with sparse metadata.
     if (typeof spfPath === 'string' && spfPath.trim()) {
         const base = spfPath.split(/[\\/]/).pop() || spfPath;
-        spfNameElement.textContent = base.endsWith('.spf') ? base : `${base}.spf`;
+        setProjectName(base.endsWith('.spf') ? base : `${base}.spf`);
         return;
     }
 
-    spfNameElement.textContent = 'No project open';
+    // Sem projeto: volta pra label traduzida e re-instala data-i18n.
+    spfNameElement.setAttribute('data-i18n', 'fileTree.noProject');
+    spfNameElement.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
 }
 
 function showProjectInfoDialog(projectData) {

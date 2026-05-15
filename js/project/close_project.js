@@ -58,11 +58,20 @@ function clearProjectInterface() {
     window.treeView?.clearAll?.();
     window.treeView?.setActive?.('standard');
 
+    // Helper: re-instala o data-i18n pra que applyDOM em futuros
+    // locale changes re-traduza. updateProjectNameUI remove o atributo
+    // quando seta um nome de projeto real; aqui voltamos pra label
+    // generica e precisamos do binding de volta.
+    const resetNoProject = (el) => {
+        el.setAttribute('data-i18n', 'fileTree.noProject');
+        el.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
+    };
+
     const selectors = {
         '#processor-list': el => el.innerHTML = '',
         '#editor': el => el.innerHTML = '',
-        '#project-title': el => el.textContent = 'No project open',
-        '#current-spf-name': el => el.textContent = 'No project open'
+        '#project-title': resetNoProject,
+        '#current-spf-name': resetNoProject
     };
 
     for (const selector in selectors) {

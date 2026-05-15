@@ -235,23 +235,46 @@ export const ActionsMixin = {
     async createNewFile() {
         try {
             const projectPath = ProjectStore.getProjectPath();
-            const defaultPath = projectPath
-                ? await window.electronAPI.joinPath(projectPath, 'untitled.v')
-                : 'untitled.v';
 
-            const result = await window.electronAPI.showSaveDialog({
-                title: tr('contextMenu.saveNewVerilog'),
-                defaultPath,
-                filters: [
-                    { name: 'Verilog Files', extensions: ['v'] },
-                ],
-                properties: ['createDirectory', 'showOverwriteConfirmation'],
-            });
+            // O Save Dialog do Windows nao valida nome — aceita espacos,
+            // acentos, simbolos. Como esses nomes viram identifier de
+            // modulo Verilog e tambem sao passados na linha de comando
+            // do iverilog/yanc, restringimos pra [a-zA-Z0-9_-]+.
+            // Loop com nome sanitizado como sugestao pro usuario nao
+            // precisar fechar/abrir o dialog manualmente.
+            let suggested = 'untitled';
+            let finalPath = null;
+            while (finalPath === null) {
+                const defaultPath = projectPath
+                    ? await window.electronAPI.joinPath(projectPath, `${suggested}.v`)
+                    : `${suggested}.v`;
 
-            if (result.canceled || !result.filePath) return;
+                const result = await window.electronAPI.showSaveDialog({
+                    title: tr('contextMenu.saveNewVerilog'),
+                    defaultPath,
+                    filters: [
+                        { name: 'Verilog Files', extensions: ['v'] },
+                    ],
+                    properties: ['createDirectory', 'showOverwriteConfirmation'],
+                });
 
-            const filePath = result.filePath;
-            const finalPath = filePath.endsWith('.v') ? filePath : filePath + '.v';
+                if (result.canceled || !result.filePath) return;
+
+                const filePath = result.filePath;
+                const candidatePath = filePath.endsWith('.v') ? filePath : filePath + '.v';
+                const candidateBase = basenameOf(candidatePath).replace(/\.v$/i, '');
+
+                if (isValidVerilogFileName(candidateBase)) {
+                    finalPath = candidatePath;
+                } else {
+                    suggested = sanitizeVerilogFileName(candidateBase);
+                    this.showNotification(
+                        tr('notification.tree.invalidName', { name: basenameOf(candidatePath), suggestion: `${suggested}.v` }),
+                        'warning',
+                        4000,
+                    );
+                }
+            }
             const finalFileName = basenameOf(finalPath);
 
             await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
@@ -616,6 +639,31 @@ export const ActionsMixin = {
 
 function basenameOf(filePath) {
     return filePath.split(/[\\/]/).pop();
+}
+
+// Regras de nome aceitas pra .v criado pela tree:
+//   - Caracteres: letras ASCII, digitos, '_', '-'
+//   - Nao vazio
+// Mais permissivo que identifier Verilog estrito (que proibe digito
+// inicial), mas evita 100% dos problemas reais — espacos quebram a CLI
+// do iverilog/yanc, acentos quebram em alguns toolchains, e simbolos
+// como `(` `)` `&` precisariam de escape no shell.
+const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+function isValidVerilogFileName(baseName) {
+    return VALID_VERILOG_FILENAME_RE.test(baseName);
+}
+
+function sanitizeVerilogFileName(baseName) {
+    // U+0300..U+036F = Combining Diacritical Marks. NFD separa
+    // "ção" em "c" + "~" + "a" + "~" + "o"; removendo o range tira
+    // o acento mas mantem o caractere base.
+    const cleaned = baseName
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^[_-]+|[_-]+$/g, '');
+    return cleaned || 'untitled';
 }
 
 /**

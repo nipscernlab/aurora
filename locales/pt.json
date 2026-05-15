@@ -183,6 +183,7 @@
             "noValidFiles":       "Nenhum arquivo válido para importar",
             "added":              "Adicionados {{count}} arquivo(s) com sucesso",
             "created":            "\"{{name}}\" criado com sucesso",
+            "invalidName":        "\"{{name}}\" tem caracteres inválidos. Use apenas letras, números, '_' e '-'. Sugestão: {{suggestion}}",
             "errorCreating":      "Erro ao criar arquivo",
             "deleted":            "\"{{name}}\" excluído com sucesso",
             "alreadyDeleted":     "Arquivo \"{{name}}\" já havia sido excluído",

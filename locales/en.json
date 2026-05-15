@@ -183,6 +183,7 @@
             "noValidFiles":       "No valid files to import",
             "added":              "Successfully added {{count}} file(s)",
             "created":            "Created \"{{name}}\" successfully",
+            "invalidName":        "\"{{name}}\" has invalid characters. Only letters, digits, '_' and '-' are allowed. Suggestion: {{suggestion}}",
             "errorCreating":      "Error creating file",
             "deleted":            "Deleted \"{{name}}\" successfully",
             "alreadyDeleted":     "File \"{{name}}\" was already deleted",

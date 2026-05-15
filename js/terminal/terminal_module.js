@@ -953,10 +953,18 @@ class VVPProgressManager {
         // Modo unico: vvp roda em components/Temp/ direto, e o
         // testbench gerado pelo asmcomp escreve `progress.txt` no
         // CWD do vvp — sempre flat. O ramo "Temp/<name>/progress.txt"
-        // era do modo Processor antigo (removido em mai/2026). Sem
-        // este flatten, o polling olha pra um arquivo que vvp nunca
-        // cria e a barra fica em 0%.
-        return await window.electronAPI.joinPath('components', 'Temp', 'progress.txt');
+        // era do modo Processor antigo (removido em mai/2026).
+        //
+        // Usa getComponentsPath() em vez de joinPath('components',...)
+        // porque o `'components'` no joinPath tem um special-case
+        // (main/ipc/system.js) que prepende `rootPath` =
+        // appRoot/../.. — correto em build empacotado mas em DEV
+        // resolve dois niveis acima do aurora-root, ou seja `c:/components/...`,
+        // que nao existe. vvp escreve no caminho absoluto certo
+        // (componentsPath/Temp/progress.txt) entao precisamos do
+        // absoluto aqui pra bater.
+        const componentsPath = await window.electronAPI.getComponentsPath();
+        return await window.electronAPI.joinPath(componentsPath, 'Temp', 'progress.txt');
     }
 
     async deleteProgressFile(name) {

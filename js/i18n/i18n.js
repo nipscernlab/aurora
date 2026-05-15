@@ -182,10 +182,19 @@ async function boot() {
     // so the initial paint isn't blocked on a network of fallbacks.
     await loadLocale(currentLocale);
     if (currentLocale !== FALLBACK_LOCALE) loadLocale(FALLBACK_LOCALE); // fire-and-forget
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => applyDOM(), { once: true });
-    } else {
+    const finish = () => {
         applyDOM();
+        // Sinaliza pros componentes que renderizam strings imperativamente
+        // (terminal, gtkw picker, ...) que o catalogo do locale ativo
+        // ficou pronto. Sem isso, qualquer refresh disparado por
+        // DOMContentLoaded ANTES do loadLocale completar fica preso na
+        // chave literal ou na fallback EN.
+        window.dispatchEvent(new CustomEvent('aurora:locale-changed', { detail: { locale: currentLocale } }));
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', finish, { once: true });
+    } else {
+        finish();
     }
 }
 

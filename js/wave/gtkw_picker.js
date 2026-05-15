@@ -51,6 +51,11 @@ class GtkwPickerManager {
         this.select = document.getElementById('gtkwPickerSelect');
         if (!this.select) return;
         this.select.addEventListener('change', () => this._onChange());
+        // Re-render quando o locale termina de carregar (boot inicial)
+        // ou quando o toggle troca de lingua. Sem isso, options
+        // renderizados antes do i18n estar pronto ficam presos em EN
+        // (ou na key literal) ate o proximo refresh manual.
+        window.addEventListener('aurora:locale-changed', () => this.refresh());
         this._initialized = true;
         // Initial population: a project may already be loaded by the
         // time this fires (e.g. .spf passed on the command line).
@@ -72,14 +77,14 @@ class GtkwPickerManager {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
         if (!projectPath || !spfPath) {
-            this._renderEmpty(tr('toolbar.gtkwPicker.noProject'));
+            this._renderEmpty('toolbar.gtkwPicker.noProject');
             return;
         }
         const config = await SpfStore.read(spfPath);
         const tbKey = tbKeyFromPath(config.testbenchFile);
         this._currentTbKey = tbKey;
         if (!tbKey) {
-            this._renderEmpty(tr('toolbar.gtkwPicker.noTestbench'));
+            this._renderEmpty('toolbar.gtkwPicker.noTestbench');
             return;
         }
         const state = await WaveStore.read(projectPath, tbKey);
@@ -88,11 +93,15 @@ class GtkwPickerManager {
         this._renderOptions(files, active?.path ?? NONE_VALUE);
     }
 
-    _renderEmpty(reason) {
+    _renderEmpty(reasonKey) {
         this.select.innerHTML = '';
-        const placeholder = this._makeOption(NONE_VALUE, reason || tr('toolbar.gtkwPicker.default'));
-        this.select.appendChild(placeholder);
-        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add')));
+        // Pra options com texto fixo, anexamos data-i18n tambem — isso
+        // serve de seguro caso o picker re-renderize ANTES do i18n
+        // terminar de bootar: o applyDOM() no fim do boot atualiza
+        // textContent via data-i18n mesmo que tr() ainda retorne EN.
+        const placeholderKey = reasonKey || 'toolbar.gtkwPicker.default';
+        this.select.appendChild(this._makeOption(NONE_VALUE, tr(placeholderKey), placeholderKey));
+        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add'), 'toolbar.gtkwPicker.add'));
         this.select.value = NONE_VALUE;
         this._lastValue = NONE_VALUE;
         // Mantemos o select habilitado pra que "Add file" continue
@@ -105,23 +114,25 @@ class GtkwPickerManager {
     _renderOptions(files, selectedPath) {
         this.select.innerHTML = '';
         this.select.disabled = false;
-        this.select.appendChild(this._makeOption(NONE_VALUE, tr('toolbar.gtkwPicker.default')));
+        this.select.appendChild(this._makeOption(NONE_VALUE, tr('toolbar.gtkwPicker.default'), 'toolbar.gtkwPicker.default'));
         for (const f of files) {
             if (!f?.path) continue;
             const label = f.name || f.path.split(/[\\/]/).pop();
+            // Sem data-i18n: label vem de filename, nao tem traducao.
             this.select.appendChild(this._makeOption(f.path, label));
         }
-        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add')));
+        this.select.appendChild(this._makeOption(ADD_VALUE, tr('toolbar.gtkwPicker.add'), 'toolbar.gtkwPicker.add'));
         const valueExists = [...this.select.options].some((o) => o.value === selectedPath);
         const finalValue = valueExists ? selectedPath : NONE_VALUE;
         this.select.value = finalValue;
         this._lastValue = finalValue;
     }
 
-    _makeOption(value, label) {
+    _makeOption(value, label, i18nKey = null) {
         const opt = document.createElement('option');
         opt.value = value;
         opt.textContent = label;
+        if (i18nKey) opt.setAttribute('data-i18n', i18nKey);
         return opt;
     }
 

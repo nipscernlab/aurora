@@ -261,7 +261,19 @@ export const ActionsMixin = {
                 isTopLevel: false,
             };
 
-            this.verilogFiles.push(newFile);
+            // O Save Dialog confirma overwrite, entao o usuario PODE
+            // ter escolhido um path ja presente na tree. Push direto
+            // sem essa checagem duplicava a row — agora atualizamos o
+            // entry existente em vez de criar outro.
+            const targetKey = this._normalizePath(finalPath);
+            const existingIdx = this.verilogFiles.findIndex(
+                (f) => this._normalizePath(f.path) === targetKey,
+            );
+            if (existingIdx >= 0) {
+                this.verilogFiles[existingIdx] = { ...this.verilogFiles[existingIdx], ...newFile };
+            } else {
+                this.verilogFiles.push(newFile);
+            }
             // Classifica pelo conteudo (um arquivo novo / vazio cai em
             // 'synthesizable' — o default seguro).
             await this._classifyAll();

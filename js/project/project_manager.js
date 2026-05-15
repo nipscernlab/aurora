@@ -4,6 +4,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { ProjectStore } from './project_store.js';
+import { setAvailableProcessors } from './processor_list.js';
 
 function updateProjectNameUI(projectData, spfPath) {
     const spfNameElement = document.getElementById('current-spf-name');
@@ -155,28 +156,10 @@ async function loadProject(spfPath) {
         // directories and only pick up their per-processor color/trash icon
         // after a manual refresh (e.g. opening Settings). Tolerant to either
         // shape: array of { name } objects or array of strings.
-        const procFromSpf = projectData?.structure?.processors;
-        if (Array.isArray(procFromSpf)) {
-            // Dedup case-insensitive: .spf de versoes anteriores podia
-            // acumular o mesmo nome de processador mais de uma vez
-            // (o main faz push sem checagem em create-processor-project).
-            // Sem dedup aqui, _discoverProcessorFiles varre a mesma
-            // pasta varias vezes — inocuo no array de arquivos por
-            // causa do seen-set local, mas o render agrupa por
-            // processador e nomes duplicados poluem a tree.
-            const seen = new Set();
-            window.availableProcessors = [];
-            for (const p of procFromSpf) {
-                const name = typeof p === 'string' ? p : p?.name;
-                if (!name) continue;
-                const key = name.toLowerCase();
-                if (seen.has(key)) continue;
-                seen.add(key);
-                window.availableProcessors.push(name);
-            }
-        } else {
-            window.availableProcessors = [];
-        }
+        // Seed da lista de processadores a partir do .spf. setAvailableProcessors
+        // ja faz dedup case-insensitive e normaliza entries string-only
+        // ({name} vs "name") — ver processor_list.js.
+        setAvailableProcessors(projectData?.structure?.processors);
 
         updateProjectNameUI(projectData, spfPath);
         await TabManager.closeAllTabs();

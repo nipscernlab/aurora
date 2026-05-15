@@ -34,6 +34,7 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
+import { setAvailableProcessors, addAvailableProcessor } from './processor_list.js';
 import { SpfStore } from './spf_store.js';
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
@@ -194,35 +195,17 @@ class ProjectTreeManager {
         // o varredor pula a pasta do processador recem-criado e os
         // arquivos do template nunca aparecem.
         window.electronAPI?.onProcessorCreated?.((data) => {
-            if (data?.processorName) {
-                const procs = Array.isArray(window.availableProcessors) ? [...window.availableProcessors] : [];
-                // Dedup case-insensitive: o nome canonico do processador
-                // e o disk-folder, e Windows trata folders como
-                // case-insensitive. Sem isso, criar "Foo" depois "foo"
-                // populaaria dois separadores na tree.
-                const target = data.processorName.toLowerCase();
-                const already = procs.some((p) => p.toLowerCase() === target);
-                if (!already) procs.push(data.processorName);
-                window.availableProcessors = procs;
-            }
+            // addAvailableProcessor faz dedup case-insensitive — ver
+            // processor_list.js.
+            addAvailableProcessor(data?.processorName);
             this.refreshTree();
         });
-        // onProcessorsUpdated traz a lista completa (e disparado em
+        // onProcessorsUpdated traz a lista completa (disparado em
         // delete-processor e re-disparado em project open). Substituimos
-        // direto, aplicando o mesmo dedup case-insensitive que
-        // project_manager faz no load inicial.
+        // a lista inteira; setAvailableProcessors faz dedup.
         window.electronAPI?.onProcessorsUpdated?.((data) => {
             if (Array.isArray(data?.processors)) {
-                const seen = new Set();
-                const next = [];
-                for (const name of data.processors) {
-                    if (typeof name !== 'string' || !name) continue;
-                    const key = name.toLowerCase();
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    next.push(name);
-                }
-                window.availableProcessors = next;
+                setAvailableProcessors(data.processors);
             }
             this.refreshTree();
         });

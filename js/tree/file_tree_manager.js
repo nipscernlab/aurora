@@ -207,9 +207,15 @@ async function refreshFileTree() {
 // more than 16 the palette simply wraps. Order is taken from
 // `window.availableProcessors`, which mirrors the .spf processor list, so the
 // mapping is stable across reloads of the same project.
+//
+// Lookup case-insensitive: pareia com file_mode._getProcessorForFile e
+// processor_list (dedup case-insensitive). Sem isso, um folder "Foo" no
+// disco vs entry "foo" no .spf cairia no fallback hash e ganharia uma
+// cor diferente da que a tree usa pra agrupar o processador.
 function processorColorSlot(name) {
     const list = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
-    const idx = list.indexOf(name);
+    const target = name.toLowerCase();
+    const idx = list.findIndex((p) => typeof p === 'string' && p.toLowerCase() === target);
     if (idx >= 0) return idx % 16;
     // Fallback for an unknown name: keep colours deterministic via djb2 so
     // the tree never throws while the processor list is still loading.
@@ -259,12 +265,15 @@ filteredFiles.forEach(file => {
         // Processor color propagation. At level 0 we detect a processor
         // folder by name; that name is then carried into every recursive
         // descent so all nested files/folders pick up the same color slot.
+        // Match case-insensitive — Windows folders nao distinguem case e
+        // o resto do pipeline (_getProcessorForFile, processor_list dedup)
+        // ja trata assim.
         let itemProcessor = processor;
         if (
             level === 0 &&
             file.type === 'directory' &&
             Array.isArray(window.availableProcessors) &&
-            window.availableProcessors.includes(file.name)
+            window.availableProcessors.some((p) => typeof p === 'string' && p.toLowerCase() === file.name.toLowerCase())
         ) {
             itemProcessor = file.name;
         }
@@ -321,9 +330,9 @@ filteredFiles.forEach(file => {
 
         item.appendChild(contentWrapper);
 
-        const isProcessor = file.type === 'directory' && 
-                            Array.isArray(window.availableProcessors) && 
-                            window.availableProcessors.includes(file.name);
+        const isProcessor = file.type === 'directory' &&
+                            Array.isArray(window.availableProcessors) &&
+                            window.availableProcessors.some((p) => typeof p === 'string' && p.toLowerCase() === file.name.toLowerCase());
 
         if (isProcessor) {
             const deleteBtn = document.createElement('div');

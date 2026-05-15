@@ -1,0 +1,63 @@
+/**
+ * processor_list.js — single owner of `window.availableProcessors`.
+ *
+ * Pre-refactor, four sites mutated `window.availableProcessors` with
+ * their own dedup logic (project_manager.loadProject e os listeners
+ * onProcessorCreated/onProcessorsUpdated em file_mode). Cada um tinha
+ * que lembrar de:
+ *
+ *   - normalizar entries do .spf (string-only vs `{name}`)
+ *   - dedup case-insensitive (Windows folders sao case-insensitive)
+ *   - filter de valores vazios/falsy
+ *
+ * Qualquer caminho novo que esquecesse uma dessas etapas reintroduzia
+ * o bug das rows fantasma na file tree. Esse modulo encapsula as duas
+ * operacoes que importam — set (substitui a lista inteira) e add
+ * (acrescenta um nome) — pra que esse cuidado fique num lugar so.
+ *
+ * O array continua em `window.availableProcessors` por compatibilidade
+ * com consumidores que ainda fazem read direto (file_tree_manager,
+ * compilation_flow, file_mode._getProcessorForFile). Quem precisar
+ * subscriber pattern no futuro, troca o backing store aqui sem
+ * tocar nos call sites.
+ */
+
+function normalizeName(item) {
+    return typeof item === 'string' ? item : item?.name;
+}
+
+function dedup(list) {
+    const seen = new Set();
+    const out = [];
+    for (const item of list) {
+        const name = normalizeName(item);
+        if (!name || typeof name !== 'string') continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(name);
+    }
+    return out;
+}
+
+/**
+ * Substitui `window.availableProcessors` pela lista deduplicada de
+ * `list`. Aceita arrays de strings ou de `{name}` (formato do .spf).
+ * Input null/undefined ou nao-array resulta em array vazio.
+ */
+export function setAvailableProcessors(list) {
+    window.availableProcessors = Array.isArray(list) ? dedup(list) : [];
+}
+
+/**
+ * Acrescenta `name` em `window.availableProcessors` se ainda nao
+ * estiver presente (match case-insensitive). No-op se `name` for
+ * vazio ou nao-string.
+ */
+export function addAvailableProcessor(name) {
+    if (!name || typeof name !== 'string') return;
+    const current = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+    const target = name.toLowerCase();
+    if (current.some((p) => typeof p === 'string' && p.toLowerCase() === target)) return;
+    window.availableProcessors = [...current, name];
+}

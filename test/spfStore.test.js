@@ -170,4 +170,46 @@ describe('SpfStore.update dispatches aurora:spf-changed', () => {
         expect(final.testbenchFile).toBe('b.v');
         expect(final.synthesizableFiles).toEqual([{ name: 'c.v', path: '/c.v' }]);
     });
+
+    it('mutator no-op NAO dispara evento', async () => {
+        window.electronAPI._files.set('/proj/a.spf', JSON.stringify({
+            structure: { topLevelFile: 'a.v', synthesizableFiles: [] },
+        }));
+
+        // Mutator que NAO muda structure (escreve o mesmo valor).
+        await SpfStore.update('/proj/a.spf', (s) => {
+            s.topLevelFile = 'a.v';
+        });
+
+        // Update vazio idem.
+        await SpfStore.update('/proj/a.spf', () => {});
+
+        // Nenhum evento foi disparado.
+        expect(window._eventCount).toBeUndefined();
+    });
+
+    it('mutator que muda structure dispara, no-op subsequente nao', async () => {
+        window.electronAPI._files.set('/proj/a.spf', JSON.stringify({
+            structure: { synthesizableFiles: [] },
+        }));
+
+        await SpfStore.update('/proj/a.spf', (s) => {
+            s.synthesizableFiles.push({ name: 'a.v', path: '/a.v' });
+        });
+        expect(window._eventCount).toBe(1);
+
+        // Mesma push gera mesmo estado — sem dedup do caller, o
+        // mutator empurra de novo. STRUCTURE muda (array tem 2
+        // entries agora). Event dispara.
+        // Cobre o caso onde queremos garantir que comparamos
+        // structure de verdade, nao so a referencia do objeto.
+        await SpfStore.update('/proj/a.spf', (s) => {
+            s.synthesizableFiles.push({ name: 'a.v', path: '/a.v' });
+        });
+        expect(window._eventCount).toBe(2);
+
+        // Agora um no-op explicito.
+        await SpfStore.update('/proj/a.spf', () => {});
+        expect(window._eventCount).toBe(2);
+    });
 });

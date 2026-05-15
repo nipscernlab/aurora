@@ -139,7 +139,16 @@ export const SpfStore = {
       // sobre o snapshot pre-primeira-escrita. O writeChain ja
       // serializa, entao pular o coalescing aqui nao introduz race.
       const doc = await readRawUncached(spfPath);
+      // Snapshot do structure ANTES do mutator pra comparacao
+      // pos-write. Sem isso, qualquer chamada de update — mesmo
+      // no-op (ex: saveConfiguration interno depois de um load que
+      // nao reclassificou nada) — dispararia aurora:spf-changed e
+      // causaria loop de refresh. Comparamos so o structure;
+      // metadata.lastModified muda em toda escrita e nao queremos
+      // que isso conte como mudanca semantica.
+      const beforeStruct = JSON.stringify(doc.structure);
       await mutator(doc.structure);
+      const afterStruct = JSON.stringify(doc.structure);
       const updated = {
         metadata: { ...doc.metadata, lastModified: new Date().toISOString() },
         structure: doc.structure,
@@ -148,8 +157,11 @@ export const SpfStore = {
       // Notifica subscribers (status_bar, processor_config_panel,
       // file_mode, etc) que o .spf mudou — hook unificado pra que
       // futuro codigo nao precise escutar N eventos IPC diferentes
-      // pra detectar "o spf foi reescrito".
-      if (typeof window !== 'undefined') {
+      // pra detectar "o spf foi reescrito". SO dispara quando o
+      // structure realmente mudou: mutators no-op nao geram
+      // refresh, eliminando a classe de loops "save → event →
+      // refresh → load → save (no-op) → event → ..."
+      if (beforeStruct !== afterStruct && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('aurora:spf-changed', {
           detail: { spfPath, source: 'renderer' },
         }));

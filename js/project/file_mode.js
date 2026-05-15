@@ -185,10 +185,31 @@ class ProjectTreeManager {
         // foi reescrito quando esses eventos chegam aqui. Sem isso, a
         // tree fica stale (sem o separador do novo processador / sem
         // os .cmm e .asm que o template gera) ate proximo restart ou
-        // ate o usuario clicar Refresh manualmente. Status bar e
-        // processor config panel ja escutam o mesmo evento.
-        window.electronAPI?.onProcessorCreated?.(() => this.refreshTree());
-        window.electronAPI?.onProcessorsUpdated?.(() => this.refreshTree());
+        // ate o usuario clicar Refresh manualmente.
+        //
+        // _discoverProcessorFiles() varre as pastas <proj>/<proc>/{Hardware,
+        // Software,Simulation}/ pra cada nome em window.availableProcessors.
+        // Essa lista so e populada em projectManager.loadProject, entao
+        // precisamos sincroniza-la aqui antes de refreshTree() — senao
+        // o varredor pula a pasta do processador recem-criado e os
+        // arquivos do template nunca aparecem.
+        window.electronAPI?.onProcessorCreated?.((data) => {
+            if (data?.processorName) {
+                const procs = Array.isArray(window.availableProcessors) ? [...window.availableProcessors] : [];
+                if (!procs.includes(data.processorName)) procs.push(data.processorName);
+                window.availableProcessors = procs;
+            }
+            this.refreshTree();
+        });
+        // onProcessorsUpdated traz a lista completa (e disparado em
+        // delete-processor e re-disparado em project open). Substituimos
+        // direto.
+        window.electronAPI?.onProcessorsUpdated?.((data) => {
+            if (Array.isArray(data?.processors)) {
+                window.availableProcessors = data.processors.slice();
+            }
+            this.refreshTree();
+        });
 
         this.setupDragAndDrop();
     }

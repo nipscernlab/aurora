@@ -177,14 +177,22 @@ describe('Aurora E2E — edit flow', () => {
     // listener registers on DOMContentLoaded and the IPC fires on
     // did-finish-load, which on a slow CPU + slow disk can race in
     // either direction. Calling window.electronAPI.openProject(spf)
-    // directly here goes through the same loadProject flow but
-    // doesn't depend on listener-registration timing.
+    // directly here seeds main state, then a manual refreshTree on
+    // the project tree manager forces the renderer to discover the
+    // project path via get-current-project IPC and render — no more
+    // dependency on the 100ms initializeTreeBasedOnMode timer that
+    // can lose against slow CI.
     await window.evaluate(async (spfPath) => {
       const api = window.electronAPI;
-      if (!api?.openProject) return;
-      try {
-        await api.openProject(spfPath);
-      } catch (_e) { /* original IPC may have already loaded it */ }
+      if (api?.openProject) {
+        try {
+          await api.openProject(spfPath);
+        } catch (_e) { /* original IPC may have already loaded it */ }
+      }
+      // Force-trigger the tree's refresh path. projectTreeManager is
+      // exposed on window for non-module callers and its refreshTree
+      // does setup + load + render in one coalesced call.
+      await window.projectTreeManager?.refreshTree?.();
     }, fixture.spfPath);
 
     // Mode toggle saiu em 2026-05 (modo unico). Aurora abre direto

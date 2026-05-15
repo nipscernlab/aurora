@@ -8,6 +8,9 @@ import { showDialog } from '../ui/dialog_manager.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 
+// i18n shim — fallback pra key path se i18n nao bootou ainda.
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 function disableCompileButtons() {
     const buttonIds = [
         /*
@@ -99,11 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 1. Replace native confirm with custom dialog
         const userChoice = await showDialog({
-            title: 'Close Project',
-            message: 'Are you sure you want to close the current project?',
+            title: tr('dialog.closeProject.title'),
+            message: tr('dialog.closeProject.message'),
             buttons: [
-                { label: 'Cancel', action: 'cancel', type: 'cancel' },
-                { label: 'Close Project', action: 'confirm', type: 'save' } // Using 'save' class for the primary button style
+                { label: tr('dialog.closeProject.cancel'),  action: 'cancel',  type: 'cancel' },
+                { label: tr('dialog.closeProject.confirm'), action: 'confirm', type: 'save'   }
             ]
         });
 
@@ -152,10 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // 2. Replace native alert (Error) with custom dialog
                 await showDialog({
-                    title: 'Error',
-                    message: `Could not close the project.<br>Reason: ${result.error}`,
+                    title: tr('dialog.closeProject.errorTitle'),
+                    message: tr('dialog.closeProject.errorMessage', { reason: result.error }),
                     buttons: [
-                        { label: 'OK', action: 'ok', type: 'cancel' } // Using 'cancel' style for neutral 'OK'
+                        { label: tr('dialog.common.ok'), action: 'ok', type: 'cancel' }
                     ]
                 });
             }
@@ -164,10 +167,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 3. Replace native alert (Exception) with custom dialog
             await showDialog({
-                title: 'Unexpected Error',
-                message: 'An unexpected error occurred. Please check the console for details.',
+                title: tr('dialog.closeProject.unexpectedTitle'),
+                message: tr('dialog.closeProject.unexpectedMessage'),
                 buttons: [
-                    { label: 'OK', action: 'ok', type: 'cancel' }
+                    { label: tr('dialog.common.ok'), action: 'ok', type: 'cancel' }
                 ]
             });
         } finally {

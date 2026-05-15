@@ -133,6 +133,16 @@
             "errorTitle":   "Erro",
             "errorMessage": "Falha ao criar processador: {{detail}}",
             "unknownError": "Erro desconhecido"
+        },
+        "closeProject": {
+            "title":             "Fechar Projeto",
+            "message":           "Tem certeza que deseja fechar o projeto atual?",
+            "cancel":            "Cancelar",
+            "confirm":           "Fechar Projeto",
+            "errorTitle":        "Erro",
+            "errorMessage":      "Não foi possível fechar o projeto.<br>Motivo: {{reason}}",
+            "unexpectedTitle":   "Erro Inesperado",
+            "unexpectedMessage": "Ocorreu um erro inesperado. Verifique o console para detalhes."
         }
     },
     "statusBar": {

@@ -133,6 +133,16 @@
             "errorTitle":   "Error",
             "errorMessage": "Failed to create processor: {{detail}}",
             "unknownError": "Unknown error"
+        },
+        "closeProject": {
+            "title":             "Close Project",
+            "message":           "Are you sure you want to close the current project?",
+            "cancel":            "Cancel",
+            "confirm":           "Close Project",
+            "errorTitle":        "Error",
+            "errorMessage":      "Could not close the project.<br>Reason: {{reason}}",
+            "unexpectedTitle":   "Unexpected Error",
+            "unexpectedMessage": "An unexpected error occurred. Please check the console for details."
         }
     },
     "statusBar": {

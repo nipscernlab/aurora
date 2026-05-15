@@ -181,6 +181,15 @@ class ProjectTreeManager {
             }
         });
 
+        // Criacao/delete de processadores no main process — o .spf ja
+        // foi reescrito quando esses eventos chegam aqui. Sem isso, a
+        // tree fica stale (sem o separador do novo processador / sem
+        // os .cmm e .asm que o template gera) ate proximo restart ou
+        // ate o usuario clicar Refresh manualmente. Status bar e
+        // processor config panel ja escutam o mesmo evento.
+        window.electronAPI?.onProcessorCreated?.(() => this.refreshTree());
+        window.electronAPI?.onProcessorsUpdated?.(() => this.refreshTree());
+
         this.setupDragAndDrop();
     }
 

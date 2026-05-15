@@ -30,7 +30,9 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
+import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
+import { classifyVerilogContent } from './verilog_classifier.js';
 
 // i18n shim — falls back to the key path if i18n didn't boot yet
 // (rare; renderer hits these only after DOMContentLoaded).
@@ -145,8 +147,23 @@ export const ActionsMixin = {
      * Caminho comum do import via drag-drop: valida extensoes,
      * dedup contra this.verilogFiles e empurra os validos antes de
      * persistir e re-renderizar.
+     *
+     * Session-safe: captura `targetSpfPath` no inicio. Se o usuario
+     * trocar de projeto enquanto a gente classifica os arquivos (le
+     * o conteudo de cada um — pode demorar centenas de ms), persiste
+     * direto no .spf original via SpfStore.update em vez de chamar
+     * this.saveConfiguration (que escreveria no .spf do projeto NOVO
+     * com state errado, perdendo o drop). Sem essa guarda, o bug
+     * "arrastei arquivos, troquei de projeto, voltei e sumiram" era
+     * a regressao classica.
      */
     async importFiles(files) {
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) {
+            this.showNotification(tr('notification.tree.noValidFiles'), 'warning', 3000);
+            return;
+        }
+
         const validFiles = [];
         const errors = [];
 
@@ -189,13 +206,55 @@ export const ActionsMixin = {
             return;
         }
 
-        this.verilogFiles.push(...validFiles);
-        // Categoria e detectada do conteudo, nao escolhida no import —
-        // _classifyAll le cada .v e marca synth/testbench.
-        await this._classifyAll();
-        this.sortFilesAlphabetically();
-        await this.saveConfiguration();
-        this.renderTree();
+        // Classifica cada arquivo lendo o conteudo. Operamos sobre o
+        // array LOCAL `validFiles` (nao this.verilogFiles), entao um
+        // refresh de tree concorrente (project switch, fs watcher)
+        // nao corrompe os flags que acabamos de calcular.
+        for (const f of validFiles) {
+            try {
+                const content = await window.electronAPI.readFile(f.path);
+                f.category = classifyVerilogContent(content, f.name);
+            } catch (err) {
+                console.warn(`Classifier: cannot read ${f.path}:`, err);
+                f.category = 'synthesizable';
+            }
+        }
+
+        const sessionStillValid = ProjectStore.getSpfPath() === targetSpfPath;
+
+        if (sessionStillValid) {
+            // Caminho rapido — UI ainda no projeto certo. Empurra
+            // pra memoria e deixa saveConfiguration fazer o rewrite
+            // completo do .spf (cobre reclassificacao + dedup).
+            this.verilogFiles.push(...validFiles);
+            this.sortFilesAlphabetically();
+            await this.saveConfiguration();
+            this.renderTree();
+        } else {
+            // Projeto trocou durante a classificacao. saveConfiguration
+            // escreveria no .spf do projeto NOVO com state errado.
+            // Em vez disso, mutator atomico via SpfStore: append nos
+            // arrays do .spf original. this.verilogFiles ja foi
+            // substituido pelo refresh, entao nao mexemos nele.
+            await SpfStore.update(targetSpfPath, (cfg) => {
+                const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+                const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+                const seen = new Set([
+                    ...synthFiles.map((f) => this._normalizePath(f.path)),
+                    ...tbFiles.map((f) => this._normalizePath(f.path)),
+                ]);
+                for (const f of validFiles) {
+                    const key = this._normalizePath(f.path);
+                    if (seen.has(key)) continue;
+                    const entry = { name: f.name, path: f.path, isTopLevel: false };
+                    if (f.category === 'testbench') tbFiles.push(entry);
+                    else synthFiles.push(entry);
+                    seen.add(key);
+                }
+                cfg.synthesizableFiles = synthFiles;
+                cfg.testbenchFiles = tbFiles;
+            });
+        }
 
         this.showNotification(
             tr('notification.tree.added', { count: validFiles.length }),

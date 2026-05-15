@@ -41,10 +41,10 @@ import { classifyVerilogContent } from './verilog_classifier.js';
 
 class ProjectTreeManager {
     constructor() {
-        // File tree drag-and-drop / Open HDL accept Verilog source and
-        // header files only. .gtkw save files have a dedicated entry
-        // point — the toolbar's gtkw picker (+ Add .gtkw file...) —
-        // and don't belong in the same list as Verilog sources, so
+        // File tree drag-and-drop accepts Verilog source and header
+        // files only. .gtkw save files have a dedicated entry point
+        // — the toolbar's gtkw picker (+ Add .gtkw file...) — and
+        // don't belong in the same list as Verilog sources, so
         // dropping one here is rejected with the same notification a
         // .txt would get.
         this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh'];
@@ -110,7 +110,6 @@ class ProjectTreeManager {
         this.elements = {
             fileTree: document.getElementById('file-tree'),
             fileTreeContainer: document.querySelector('.file-tree-container'),
-            openHdlButton: document.getElementById('open-hdl-button'),
             refreshButton: document.getElementById('refresh-button'),
         };
 
@@ -175,12 +174,6 @@ class ProjectTreeManager {
                 }
             });
         }
-
-        this.elements.openHdlButton?.addEventListener('click', () => {
-            if (this.isTreeActive) {
-                this.handleImportClick();
-            }
-        });
 
         this.elements.refreshButton?.addEventListener('click', () => {
             if (this.isTreeActive) {

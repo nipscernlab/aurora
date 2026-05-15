@@ -3,7 +3,6 @@
  *
  * Camada de interacao do usuario:
  *   - Drag-and-drop de .v na file tree
- *   - Botao "Open HDL" (import via dialog)
  *   - Context menu (right-click numa row) com set/unset top-level,
  *     mark/unmark testbench, delete
  *   - Context menu de area vazia: "New Verilog File"
@@ -142,31 +141,8 @@ export const ActionsMixin = {
 
     // ----- import + remove + create ------------------------------------
 
-    /** Botao "Open HDL" — abre dialog de selecao de .v / .sv / .vh. */
-    async handleImportClick() {
-        try {
-            const filters = [
-                { name: 'Verilog Files', extensions: ['v', 'sv', 'vh'] },
-                { name: 'All Files', extensions: ['*'] },
-            ];
-
-            const result = await window.electronAPI.selectFilesWithPath({
-                title: tr('notification.tree.selectVerilogTitle'),
-                filters,
-                properties: ['openFile', 'multiSelections'],
-            });
-
-            if (!result.canceled && result.files.length > 0) {
-                await this.importFiles(result.files);
-            }
-        } catch (error) {
-            console.error('Error selecting files:', error);
-            this.showNotification(tr('notification.tree.errorSelecting'), 'error', 3000);
-        }
-    },
-
     /**
-     * Caminho comum dos imports (drag-drop + dialog): valida extensoes,
+     * Caminho comum do import via drag-drop: valida extensoes,
      * dedup contra this.verilogFiles e empurra os validos antes de
      * persistir e re-renderizar.
      */

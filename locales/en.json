@@ -173,12 +173,11 @@
     "notification": {
         "tree": {
             "noFilesDropped":     "No files dropped",
-            "cannotGetPath":      "Cannot get path for \"{{name}}\". Try using Open HDL button.",
+            "cannotGetPath":      "Cannot get path for \"{{name}}\".",
             "rejectedExt":        "\"{{name}}\" was rejected — only Verilog (.v, .sv, .vh) source files belong in the tree.{{hint}}",
             "gtkwHint":           " Use the toolbar's .gtkw picker (+ Add .gtkw file...) instead.",
             "fileNotExist":       "File does not exist: {{path}}",
             "errorValidating":    "Error validating \"{{name}}\"",
-            "errorSelecting":     "Error selecting files",
             "noPath":             "\"{{name}}\" has no path information",
             "unsupportedExt":     "\"{{name}}\" has unsupported extension {{ext}}",
             "alreadyExists":      "\"{{name}}\" already exists",
@@ -196,8 +195,7 @@
             "topRemoved":         "Top Level removed from \"{{name}}\"",
             "notTestbench":       "File must have Testbench category",
             "markedTb":           "\"{{name}}\" marked as Testbench",
-            "tbUnmarked":         "Testbench mark removed from \"{{name}}\"",
-            "selectVerilogTitle": "Select Verilog Files"
+            "tbUnmarked":         "Testbench mark removed from \"{{name}}\""
         },
         "fileMode": {
             "errorOpen": "Error opening file: {{name}}"
@@ -374,7 +372,6 @@
             "filter-warning":             "Toggle visibility of warning messages in the terminal output.",
             "filter-success":             "Toggle visibility of success messages in the terminal output.",
             "filter-tip":                 "Toggle visibility of tip messages in the terminal output.",
-            "open-hdl-button":            "Open HDL files viewer for hardware description language files.",
             "open-folder-button":         "Open the current project folder in the system file explorer.",
             "close-button":               "Close the current project and return to the welcome screen.",
             "toggle-file-tree":           "Collapse or expand all folders in the file tree.",

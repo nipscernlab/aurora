@@ -236,11 +236,6 @@ class ProjectManager {
             if (window.currentProjectPath) window.electronAPI.openFolder(window.currentProjectPath);
         });
 
-        document.getElementById('open-hdl-button')?.addEventListener('click', async () => {
-            const hdlDir = await window.electronAPI.joinPath('components', 'HDL');
-            window.electronAPI.openFolder(hdlDir);
-        });
-
         // Listener para quando o projeto é aberto via "File > Open" ou atalhos
         window.electronAPI.onSimulateOpenProject(async (result) => {
             if (!result.canceled && result.filePaths.length > 0) {

@@ -118,7 +118,6 @@ class CommandPalette {
       { id: 'openProjectBtn', label: 'Open Project', description: 'Open an existing project', category: 'Project', action: () => clickIfPossible('openProjectBtn') },
       { id: 'open-folder-button', label: 'Open Folder', description: 'Open the current project folder', category: 'Project', action: () => clickIfPossible('#open-folder-button') },
       { id: 'refresh-button', label: 'Refresh File Tree', description: 'Reload file tree', category: 'Project', action: () => clickIfPossible('#refresh-button') },
-      { id: 'open-hdl-button', label: 'Open HDL / Import Verilog', description: 'Open HDL or trigger import', category: 'Project', action: () => clickIfPossible('#open-hdl-button') },
       { id: 'toggle-file-tree', label: 'Toggle File Tree', description: 'Minimize / expand the file tree', category: 'Project', action: () => clickIfPossible('#toggle-file-tree') },
       { id: 'alternate-tree-toggle', label: 'Toggle Hierarchical View', description: 'Switch hierarchical view', category: 'Project', action: () => clickIfPossible('alternate-tree-toggle') },
 

@@ -173,12 +173,11 @@
     "notification": {
         "tree": {
             "noFilesDropped":     "Nenhum arquivo arrastado",
-            "cannotGetPath":      "Não foi possível obter o caminho de \"{{name}}\". Tente usar o botão Open HDL.",
+            "cannotGetPath":      "Não foi possível obter o caminho de \"{{name}}\".",
             "rejectedExt":        "\"{{name}}\" foi rejeitado — apenas arquivos Verilog (.v, .sv, .vh) pertencem à árvore.{{hint}}",
             "gtkwHint":           " Use o seletor de .gtkw da toolbar (+ Adicionar arquivo .gtkw...).",
             "fileNotExist":       "Arquivo não existe: {{path}}",
             "errorValidating":    "Erro ao validar \"{{name}}\"",
-            "errorSelecting":     "Erro ao selecionar arquivos",
             "noPath":             "\"{{name}}\" não tem informação de caminho",
             "unsupportedExt":     "\"{{name}}\" tem extensão não suportada {{ext}}",
             "alreadyExists":      "\"{{name}}\" já existe",
@@ -196,8 +195,7 @@
             "topRemoved":         "Top Level removido de \"{{name}}\"",
             "notTestbench":       "Arquivo deve ter categoria Testbench",
             "markedTb":           "\"{{name}}\" marcado como Testbench",
-            "tbUnmarked":         "Marca de Testbench removida de \"{{name}}\"",
-            "selectVerilogTitle": "Selecionar arquivos Verilog"
+            "tbUnmarked":         "Marca de Testbench removida de \"{{name}}\""
         },
         "fileMode": {
             "errorOpen": "Erro ao abrir arquivo: {{name}}"
@@ -374,7 +372,6 @@
             "filter-warning":             "Alterna visibilidade de mensagens de aviso na saída do terminal.",
             "filter-success":             "Alterna visibilidade de mensagens de sucesso na saída do terminal.",
             "filter-tip":                 "Alterna visibilidade de mensagens de dica na saída do terminal.",
-            "open-hdl-button":            "Abre o visualizador de arquivos HDL (Hardware Description Language).",
             "open-folder-button":         "Abre a pasta do projeto atual no explorador de arquivos do sistema.",
             "close-button":               "Fecha o projeto atual e volta para a tela de boas-vindas.",
             "toggle-file-tree":           "Recolhe ou expande todas as pastas na árvore de arquivos.",

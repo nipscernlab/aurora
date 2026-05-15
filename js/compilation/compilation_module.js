@@ -817,7 +817,9 @@ async loadConfig() {
                 const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
                 const destinationTestbench = tbFile;
 
-                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }));
+                // Path-cheio so em verbose; o resumo "Testbench
+                // atualizado" (tips) e o que aparece sem verbose.
+                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }), 'info', { internal: true });
                 await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
                 this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
             }

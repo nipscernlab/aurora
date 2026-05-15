@@ -1862,14 +1862,36 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
         return;
     }
 
-    // Match $fopen("X"), $readmemb("X", ...), $readmemh("X", ...).
-    // Argumento entre aspas duplas; nao tentamos cobrir aspas simples
-    // ou concatenacao Verilog (raro em testbenches reais).
-    const re = /\$(?:fopen|readmem[bh])\s*\(\s*"([^"]+)"/g;
+    // Coletar so arquivos que o testbench LE — sao os que precisam
+    // ser stageados em tempBaseDir antes do vvp rodar. Arquivos
+    // abertos pra ESCRITA (ex: progress.txt via $fopen("...", "w"))
+    // sao output do testbench e nao existem antes da simulacao;
+    // stageamos quebraria com um warning falso "not found".
+    //
+    //   $readmemb / $readmemh        — sempre leitura → stage.
+    //   $fopen sem 2o arg            — modo write-only (padrao Verilog
+    //                                  2001 retorna mcd) → skip.
+    //   $fopen com 2o arg "r"/"rb"   — leitura → stage.
+    //   $fopen com qualquer outro
+    //   modo ("w","a","wb",etc)      — write/append → skip.
     const filenames = new Set();
+    // $readmemb / $readmemh — argumento entre aspas duplas.
+    const reReadmem = /\$readmem[bh]\s*\(\s*"([^"]+)"/g;
     let m;
-    while ((m = re.exec(content)) !== null) {
+    while ((m = reReadmem.exec(content)) !== null) {
         filenames.add(m[1]);
+    }
+    // $fopen("file", "mode") — captura modo pra decidir se le ou
+    // escreve. Sem 2o arg, e write-only por default (Verilog 2001
+    // returns mcd) — nao entra aqui, ent skip implicito.
+    const reFopenWithMode = /\$fopen\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
+    while ((m = reFopenWithMode.exec(content)) !== null) {
+        const mode = m[2].toLowerCase();
+        // Modos de leitura: "r", "rb", "r+", "rb+", "r+b". Conservador
+        // mas cobre os casos comuns.
+        if (mode === 'r' || mode === 'rb' || mode.startsWith('r+') || mode.startsWith('rb+')) {
+            filenames.add(m[1]);
+        }
     }
     if (filenames.size === 0) return;
 

@@ -492,8 +492,16 @@ class ProjectTreeManager {
 
             console.log('📂 Project path:', ProjectStore.getProjectPath());
 
-            // Carrega configuracao.
-            await this.loadConfiguration();
+            // Routes through refreshTree (em vez de chamar
+            // loadConfiguration direto) pra que activateTree
+            // compartilhe o _refreshPromise lock com qualquer
+            // outro disparador (fs watcher, aurora:spf-changed,
+            // botao Refresh). Sem isso ha race: o save dentro do
+            // loadConfiguration aciona aurora:spf-changed → outro
+            // refreshTree comeca em paralelo, ambos fazem
+            // `this.verilogFiles = []` e seus pushes se intercalam
+            // — resultado: software files duplicados na tree.
+            await this.refreshTree();
 
             // Switch a view visivel pra file mode E renderiza no
             // subcontainer verilog numa chamada so. Via controller

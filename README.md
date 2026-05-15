@@ -132,7 +132,7 @@ browser and extract it manually:
 
 * `aurora-toolchain-v2.zip` → extract **into** `components/Packages/`
   (so you end up with `components/Packages/iverilog/bin/iverilog.exe`).
-* `yanc-bin-v2.zip` → extract **into** `components/`
+* `yanc-bin-v3.zip` → extract **into** `components/`
   (so you end up with `components/bin/cmmcomp.exe`).
 
 #### 5. Build a distributable installer (optional)

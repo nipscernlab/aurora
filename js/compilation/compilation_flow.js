@@ -58,7 +58,12 @@ const STEP_TERMINALS = Object.freeze({
     // <proc>.v via asmcomp). Limpa ambos os terminais.
     cmm:     ['tcmm', 'tasm'],
     verilog: ['tveri'],
-    wave:    ['twave'],
+    // Wave roda iverilog internamente, que loga em tveri (bannerSyntaxWc,
+    // simTop, cmd echo, etc), entao tveri TAMBEM tem que ser limpo.
+    // Sem isso, um erro vermelho deixado por um Verilog button anterior
+    // (ex: "noTopLevel") fica visivel quando o usuario clica Wave — e
+    // ele pode achar que o erro veio do Wave.
+    wave:    ['twave', 'tveri'],
     prism:   ['tveri'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);

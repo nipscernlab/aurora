@@ -93,6 +93,16 @@ function downloadFile(url, dest) {
 }
 
 function extractZip(zipPath, destDir) {
+    // Preflight: o zip precisa existir. Sem essa checagem, um zipPath
+    // invalido entra no subprocess (7-Zip OU PowerShell) que so ai
+    // emite o erro. Custa muito tempo no CI (Windows runner: ~2s so
+    // pra spinar powershell.exe, e Expand-Archive num arquivo inexistente
+    // estourava o timeout de 5s do vitest) e produz mensagem opaca
+    // pra quem chama. Falha rapido com mensagem clara.
+    if (!fs.existsSync(zipPath)) {
+        throw new Error(`Zip file not found: ${zipPath}`);
+    }
+
     // Try PowerShell Expand-Archive (always available on Win 10+)
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });

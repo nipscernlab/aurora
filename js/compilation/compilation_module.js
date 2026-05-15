@@ -701,7 +701,11 @@ async loadConfig() {
             let cmd = `"${cmmCompPath}" ${langFlag} -i "${selectedCmmFile}" -n "${cmmBaseName}" -p "${projectPath}" -m "${macrosPath}" -t "${tempPath}"`;
             if (showArrays) cmd += ' -P';
             
-            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }));
+            // internal:true marca como 'plain', entao o filtro de
+            // verbose esconde a linha de comando quando verbose=off.
+            // Continua util pra debug verbose mas nao polui o
+            // terminal padrao.
+            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }), 'info', { internal: true });
 
             const result = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tcmm', result);
@@ -764,7 +768,7 @@ async loadConfig() {
 
             // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
             let cmd = `"${appCompPath}" ${langFlag} -i "${asmPath}" -t "${tempPath}"`;
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }));
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }), 'info', { internal: true });
             const appResult = await window.electronAPI.execCommand(cmd);
             this.terminalManager.processExecutableOutput('tasm', appResult);
 
@@ -786,7 +790,7 @@ async loadConfig() {
             const clocks = Number.parseInt(numClocks, 10) || 0;
             cmd = `"${asmCompPath}" ${langFlag} -i "${asmPath}" -p "${projectPath}" -d "${hdlPath}" -m "${macrosPath}" -t "${tempPath}" -f ${freq} -c ${clocks}`;
             if (projectParam) cmd += ' -P';
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }));
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }), 'info', { internal: true });
 
             const asmResult = await window.electronAPI.execCommand(cmd);
 
@@ -1065,7 +1069,9 @@ async syntaxCheck() {
         this.terminalManager.appendToTerminal('tveri',
             tr('terminal.veri.bannerSyntaxWc'), 'info');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.simTop', { name: simTopModule }), 'info');
-        this.terminalManager.appendToTerminal('tveri', cmd, 'info');
+        // Linha de comando crua e ruido pra usuario nao-debug — esconde
+        // quando verbose=off (mesmo padrao do cmm/asm).
+        this.terminalManager.appendToTerminal('tveri', cmd, 'info', { internal: true });
 
         const result = await window.electronAPI.execCommand(cmd);
         this.terminalManager.processExecutableOutput('tveri', result);
@@ -1433,7 +1439,8 @@ async iverilogCompile({ buildVvp = false } = {}) {
         const cmd = cmdParts.filter(Boolean).join(' ');
 
         this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'), 'info');
-        this.terminalManager.appendToTerminal('tveri', cmd, 'info');
+        // Linha de comando crua so em verbose.
+        this.terminalManager.appendToTerminal('tveri', cmd, 'info', { internal: true });
 
         await TabManager.saveAllFiles();
 

@@ -73,6 +73,19 @@ export default defineConfig([
   },
 
   {
+    // Unit tests: ES modules, Node globals (vitest). Tests assert against
+    // production code that reads `window.*` and stub it via globalThis.window
+    // in beforeEach/afterEach — declare `window` so the assertions lint
+    // clean. `document` is included for the same reason in case future
+    // tests stub DOM apis.
+    files: ["test/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      sourceType: "module",
+      globals: { ...globals.node, window: "readonly", document: "readonly" },
+    },
+  },
+
+  {
     files: ["js/app/preload*.js"],
     languageOptions: {
       sourceType: "commonjs",

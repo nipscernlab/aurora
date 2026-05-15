@@ -258,12 +258,12 @@ class ImportModal {
     let ok;
     if (typeof dlg === 'function') {
       ok = await dlg(
-        'Remove all files?',
-        'This will clear every imported file from the project. This action cannot be undone.',
-        { variant: 'warning', confirmLabel: 'Remove all', danger: true }
+        tr('dialog.removeAllImports.title'),
+        tr('dialog.removeAllImports.message'),
+        { variant: 'warning', confirmLabel: tr('dialog.removeAllImports.confirm'), danger: true }
       );
     } else {
-      ok = window.confirm('Are you sure you want to remove all imported files?');
+      ok = window.confirm(tr('dialog.removeAllImports.fallbackPrompt'));
     }
 
     if (!ok) return;

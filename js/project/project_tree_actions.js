@@ -663,15 +663,15 @@ function sanitizeVerilogFileName(baseName) {
 function showDeleteConfirmDialog(fileName) {
     const dialog = window.AuroraUI?.dialog;
     if (typeof dialog !== 'function') {
-        return Promise.resolve(window.confirm(`Delete "${fileName}"? This cannot be undone.`));
+        return Promise.resolve(window.confirm(tr('dialog.deleteFile.fallbackPrompt', { name: fileName })));
     }
     return dialog({
-        title: 'Delete File',
-        message: `Are you sure you want to delete "<strong>${fileName}</strong>"? This action cannot be undone.`,
+        title: tr('dialog.deleteFile.title'),
+        message: tr('dialog.deleteFile.message', { name: fileName }),
         variant: 'warning',
         buttons: [
-            { label: 'Cancel', action: 'cancel', type: 'cancel' },
-            { label: 'Delete', action: 'delete', type: 'danger' },
+            { label: tr('dialog.common.cancel'),  action: 'cancel', type: 'cancel' },
+            { label: tr('dialog.deleteFile.delete'), action: 'delete', type: 'danger' },
         ],
     }).then((action) => action === 'delete');
 }

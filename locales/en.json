@@ -119,7 +119,10 @@
         "common": {
             "ok":         "OK",
             "understood": "Understood",
-            "close":      "Close"
+            "close":      "Close",
+            "cancel":     "Cancel",
+            "error":      "Error",
+            "warning":    "Warning"
         },
         "newProject": {
             "missingInfoTitle":      "Missing Information",
@@ -143,6 +146,40 @@
             "errorMessage":      "Could not close the project.<br>Reason: {{reason}}",
             "unexpectedTitle":   "Unexpected Error",
             "unexpectedMessage": "An unexpected error occurred. Please check the console for details."
+        },
+        "session": {
+            "initErrorTitle":         "Initialization Error",
+            "initErrorMessage":       "Failed to initialize the application: {{error}}",
+            "projectNotFoundTitle":   "Project Not Found",
+            "projectNotFoundMessage": "The previously opened project could not be found.",
+            "restoreErrorTitle":      "Error Restoring Session",
+            "restoreErrorMessage":    "Could not restore your previous session: {{error}}"
+        },
+        "project": {
+            "loadErrorTitle":   "Error Loading Project",
+            "loadErrorMessage": "Failed to load project: {{error}}"
+        },
+        "hub": {
+            "noProjectMessage": "No active project found."
+        },
+        "fileConflict": {
+            "title":           "File Modified Externally",
+            "message":         "The file \"<strong>{{name}}</strong>\" has been modified outside the editor and you have unsaved changes here. What would you like to do?",
+            "keepEditor":      "Keep Editor Version",
+            "useDisk":         "Use Disk Version",
+            "saveAndReload":   "Save & Reload"
+        },
+        "deleteFile": {
+            "title":           "Delete File",
+            "message":         "Are you sure you want to delete \"<strong>{{name}}</strong>\"? This action cannot be undone.",
+            "fallbackPrompt":  "Delete \"{{name}}\"? This action cannot be undone.",
+            "delete":          "Delete"
+        },
+        "removeAllImports": {
+            "title":           "Remove all files?",
+            "message":         "This will clear every imported file from the project. This action cannot be undone.",
+            "confirm":         "Remove all",
+            "fallbackPrompt":  "Are you sure you want to remove all imported files?"
         }
     },
     "statusBar": {

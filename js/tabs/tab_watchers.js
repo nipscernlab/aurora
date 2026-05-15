@@ -16,6 +16,8 @@
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showDialog } from '../ui/dialog_manager.js';
 
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 export const tabWatchers = {
     // -- Periodic poll --------------------------------------------------------
 
@@ -240,13 +242,13 @@ export const tabWatchers = {
     async showFileConflictDialog(filePath /*, diskContent, editorContent */) {
         const fileName = filePath.split(/[\\/]/).pop();
         const action = await showDialog({
-            title: 'File Modified Externally',
-            message: `The file "<strong>${fileName}</strong>" has been modified outside the editor and you have unsaved changes here. What would you like to do?`,
+            title: tr('dialog.fileConflict.title'),
+            message: tr('dialog.fileConflict.message', { name: fileName }),
             variant: 'warning',
             buttons: [
-                { label: 'Keep Editor Version', action: 'keep-editor', type: 'cancel' },
-                { label: 'Use Disk Version', action: 'use-disk', type: 'dont-save' },
-                { label: 'Save & Reload', action: 'save-and-reload', type: 'save' },
+                { label: tr('dialog.fileConflict.keepEditor'),    action: 'keep-editor',     type: 'cancel'    },
+                { label: tr('dialog.fileConflict.useDisk'),       action: 'use-disk',        type: 'dont-save' },
+                { label: tr('dialog.fileConflict.saveAndReload'), action: 'save-and-reload', type: 'save'      },
             ],
         });
         // showDialog resolves to 'cancel' on Esc — map that to keep-editor

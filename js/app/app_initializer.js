@@ -14,6 +14,9 @@
 import { showDialog } from '../ui/dialog_manager.js';
 import { projectManager } from '../project/project_manager.js';
 
+// i18n shim — fallback pra key path se i18n nao bootou ainda.
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 class AppInitializer {
     constructor() {
         this.isInitialized = false;
@@ -39,9 +42,9 @@ class AppInitializer {
         } catch (error) {
             console.error('❌ Failed to initialize Aurora IDE:', error);
             await showDialog({
-                title: 'Initialization Error',
-                message: `Failed to initialize the application: ${error.message}`,
-                buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+                title: tr('dialog.session.initErrorTitle'),
+                message: tr('dialog.session.initErrorMessage', { error: error.message }),
+                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
             });
         }
     }
@@ -65,9 +68,9 @@ class AppInitializer {
                 this._resetProjectNameLabel();
 
                 await showDialog({
-                    title: 'Project Not Found',
-                    message: 'The previously opened project could not be found.',
-                    buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+                    title: tr('dialog.session.projectNotFoundTitle'),
+                    message: tr('dialog.session.projectNotFoundMessage'),
+                    buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
                 });
                 return;
             }
@@ -84,9 +87,9 @@ class AppInitializer {
             this._resetProjectNameLabel();
 
             await showDialog({
-                title: 'Error Restoring Session',
-                message: `Could not restore your previous session: ${error.message}`,
-                buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+                title: tr('dialog.session.restoreErrorTitle'),
+                message: tr('dialog.session.restoreErrorMessage', { error: error.message }),
+                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
             });
         }
     }

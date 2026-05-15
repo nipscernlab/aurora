@@ -6,6 +6,8 @@ import { showDialog } from '../ui/dialog_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors } from './processor_list.js';
 
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
 function updateProjectNameUI(projectData, spfPath) {
     const spfNameElement = document.getElementById('current-spf-name');
     if (!spfNameElement) return;
@@ -201,9 +203,9 @@ async function loadProject(spfPath) {
         console.error('Error loading project:', error);
         try {
             await showDialog({
-                title: 'Error Loading Project',
-                message: `Failed to load project: ${error.message}`,
-                buttons: [{ label: 'OK', action: 'close', type: 'cancel' }]
+                title: tr('dialog.project.loadErrorTitle'),
+                message: tr('dialog.project.loadErrorMessage', { error: error.message }),
+                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
             });
         } catch (dialogErr) {
             console.error('showDialog failed:', dialogErr);

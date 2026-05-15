@@ -119,7 +119,10 @@
         "common": {
             "ok":         "OK",
             "understood": "Entendi",
-            "close":      "Fechar"
+            "close":      "Fechar",
+            "cancel":     "Cancelar",
+            "error":      "Erro",
+            "warning":    "Aviso"
         },
         "newProject": {
             "missingInfoTitle":       "Informação Faltando",
@@ -143,6 +146,40 @@
             "errorMessage":      "Não foi possível fechar o projeto.<br>Motivo: {{reason}}",
             "unexpectedTitle":   "Erro Inesperado",
             "unexpectedMessage": "Ocorreu um erro inesperado. Verifique o console para detalhes."
+        },
+        "session": {
+            "initErrorTitle":         "Erro de Inicialização",
+            "initErrorMessage":       "Falha ao inicializar a aplicação: {{error}}",
+            "projectNotFoundTitle":   "Projeto Não Encontrado",
+            "projectNotFoundMessage": "O projeto aberto anteriormente não pôde ser encontrado.",
+            "restoreErrorTitle":      "Erro ao Restaurar Sessão",
+            "restoreErrorMessage":    "Não foi possível restaurar sua sessão anterior: {{error}}"
+        },
+        "project": {
+            "loadErrorTitle":   "Erro ao Carregar Projeto",
+            "loadErrorMessage": "Falha ao carregar o projeto: {{error}}"
+        },
+        "hub": {
+            "noProjectMessage": "Nenhum projeto ativo encontrado."
+        },
+        "fileConflict": {
+            "title":           "Arquivo Modificado Externamente",
+            "message":         "O arquivo \"<strong>{{name}}</strong>\" foi modificado fora do editor e você tem alterações não salvas aqui. O que deseja fazer?",
+            "keepEditor":      "Manter Versão do Editor",
+            "useDisk":         "Usar Versão do Disco",
+            "saveAndReload":   "Salvar e Recarregar"
+        },
+        "deleteFile": {
+            "title":           "Excluir Arquivo",
+            "message":         "Tem certeza que deseja excluir \"<strong>{{name}}</strong>\"? Esta ação não pode ser desfeita.",
+            "fallbackPrompt":  "Excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
+            "delete":          "Excluir"
+        },
+        "removeAllImports": {
+            "title":           "Remover todos os arquivos?",
+            "message":         "Isso vai limpar todos os arquivos importados do projeto. Esta ação não pode ser desfeita.",
+            "confirm":         "Remover todos",
+            "fallbackPrompt":  "Tem certeza que deseja remover todos os arquivos importados?"
         }
     },
     "statusBar": {

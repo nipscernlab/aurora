@@ -192,10 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!validateAll()) return; 
 
             if (!currentProjectPath) {
+                const tr = (k) => (window.t ? window.t(k) : k);
                 await showDialog({
-                    title: 'Error',
-                    message: 'No active project found.',
-                    buttons: [{ label: 'OK', action: 'ok', type: 'cancel' }]
+                    title: tr('dialog.common.error'),
+                    message: tr('dialog.hub.noProjectMessage'),
+                    buttons: [{ label: tr('dialog.common.ok'), action: 'ok', type: 'cancel' }]
                 });
                 return;
             }

@@ -703,19 +703,26 @@ export const ActionsMixin = {
             const arrKey = scope === 'tb' ? 'testbenchFiles' : 'synthesizableFiles';
             const pointerKey = scope === 'tb' ? 'testbenchFile' : 'topLevelFile';
             const arr = Array.isArray(cfg[arrKey]) ? cfg[arrKey] : [];
-            let targetEntry = null;
+            // Duas passadas: primeiro acha o alvo, so depois muta. Se
+            // o alvo nao estiver no .spf (caso de Hardware auto-
+            // descoberto que nunca foi persistido), abortamos como
+            // no-op. Sem isso, o ramo `setTrue` apagaria isTopLevel
+            // de TODOS os outros sem nunca encontrar o alvo —
+            // limpando silenciosamente o top level que o usuario
+            // tinha setado antes.
+            const targetEntry = arr.find((f) => this._normalizePath(f.path) === targetKey);
+            if (!targetEntry) return;
             for (const f of arr) {
-                if (this._normalizePath(f.path) === targetKey) {
-                    targetEntry = f;
+                if (f === targetEntry) {
                     f.isTopLevel = setTrue;
                 } else if (setTrue) {
-                    // Exclusividade dentro da categoria — outros
-                    // perdem o flag quando este ganha.
+                    // Exclusividade dentro da categoria — outros perdem
+                    // o flag quando este ganha.
                     f.isTopLevel = false;
                 }
             }
             cfg[arrKey] = arr;
-            cfg[pointerKey] = setTrue && targetEntry ? targetEntry.path : '';
+            cfg[pointerKey] = setTrue ? targetEntry.path : '';
         });
     },
 };

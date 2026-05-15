@@ -24,6 +24,14 @@
  */
 
 const writeChainByPath = new Map();
+// Read coalescing: se varias chamadas read(spfPath) chegam no mesmo
+// tick, todas compartilham a mesma promise em vez de cada uma rodar
+// readFile independente. Map e limpa quando a promise settled, entao
+// o proximo tick le do disco de novo (sem cache atravessando ticks,
+// nada de mtime stale). Soluciona o cenario "evento dispara 6
+// consumidores que cada um chama SpfStore.read" — varia de 6 disk
+// reads pra 1.
+const inFlightReads = new Map();
 
 const STRUCTURE_DEFAULTS = Object.freeze({
   // Caminho absoluto do diretorio do projeto. Reconciliado pelo
@@ -48,7 +56,7 @@ const STRUCTURE_DEFAULTS = Object.freeze({
   testbenchFiles: [],
 });
 
-async function readRaw(spfPath) {
+async function readRawUncached(spfPath) {
   const exists = await window.electronAPI.fileExists(spfPath);
   if (!exists) {
     return {
@@ -72,6 +80,21 @@ async function readRaw(spfPath) {
       structure: { ...STRUCTURE_DEFAULTS },
     };
   }
+}
+
+function readRaw(spfPath) {
+  // Coalesce reads em vooo: o segundo caller no mesmo tick recebe
+  // exatamente a mesma promise — sem fanout de readFile/JSON.parse.
+  // Ver comentario no `inFlightReads` la em cima.
+  const inFlight = inFlightReads.get(spfPath);
+  if (inFlight) return inFlight;
+  const promise = readRawUncached(spfPath).finally(() => {
+    if (inFlightReads.get(spfPath) === promise) {
+      inFlightReads.delete(spfPath);
+    }
+  });
+  inFlightReads.set(spfPath, promise);
+  return promise;
 }
 
 async function writeRaw(spfPath, fullDoc) {
@@ -111,13 +134,26 @@ export const SpfStore = {
   update(spfPath, mutator) {
     const prev = writeChainByPath.get(spfPath) ?? Promise.resolve();
     const next = prev.then(async () => {
-      const doc = await readRaw(spfPath);
+      // Update sempre le do disco (nao do cache in-flight) pra que
+      // duas update() consecutivas no mesmo tick nao operem ambas
+      // sobre o snapshot pre-primeira-escrita. O writeChain ja
+      // serializa, entao pular o coalescing aqui nao introduz race.
+      const doc = await readRawUncached(spfPath);
       await mutator(doc.structure);
       const updated = {
         metadata: { ...doc.metadata, lastModified: new Date().toISOString() },
         structure: doc.structure,
       };
       await writeRaw(spfPath, updated);
+      // Notifica subscribers (status_bar, processor_config_panel,
+      // file_mode, etc) que o .spf mudou — hook unificado pra que
+      // futuro codigo nao precise escutar N eventos IPC diferentes
+      // pra detectar "o spf foi reescrito".
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('aurora:spf-changed', {
+          detail: { spfPath, source: 'renderer' },
+        }));
+      }
       return doc.structure;
     });
     writeChainByPath.set(spfPath, next.catch(() => {}));

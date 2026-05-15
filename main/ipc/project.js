@@ -279,9 +279,22 @@ void main()
         const spfContent = await fse.readFile(spfPath, 'utf8');
         const spfData = JSON.parse(spfContent);
 
-        spfData.structure.processors.push({
-          name: formData.processorName,
-        });
+        // Garante array antes do push e dedup case-insensitive: bugs
+        // anteriores podiam acumular o mesmo nome multiplas vezes no
+        // .spf, e da pra ainda haver arquivos no disco que escapem o
+        // check de fs.access la em cima (race com criar manual).
+        if (!Array.isArray(spfData.structure.processors)) {
+          spfData.structure.processors = [];
+        }
+        const targetLower = formData.processorName.toLowerCase();
+        const already = spfData.structure.processors.some(
+          (p) => (typeof p === 'string' ? p : p?.name)?.toLowerCase() === targetLower
+        );
+        if (!already) {
+          spfData.structure.processors.push({
+            name: formData.processorName,
+          });
+        }
 
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
 

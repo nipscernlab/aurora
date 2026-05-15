@@ -196,17 +196,33 @@ class ProjectTreeManager {
         window.electronAPI?.onProcessorCreated?.((data) => {
             if (data?.processorName) {
                 const procs = Array.isArray(window.availableProcessors) ? [...window.availableProcessors] : [];
-                if (!procs.includes(data.processorName)) procs.push(data.processorName);
+                // Dedup case-insensitive: o nome canonico do processador
+                // e o disk-folder, e Windows trata folders como
+                // case-insensitive. Sem isso, criar "Foo" depois "foo"
+                // populaaria dois separadores na tree.
+                const target = data.processorName.toLowerCase();
+                const already = procs.some((p) => p.toLowerCase() === target);
+                if (!already) procs.push(data.processorName);
                 window.availableProcessors = procs;
             }
             this.refreshTree();
         });
         // onProcessorsUpdated traz a lista completa (e disparado em
         // delete-processor e re-disparado em project open). Substituimos
-        // direto.
+        // direto, aplicando o mesmo dedup case-insensitive que
+        // project_manager faz no load inicial.
         window.electronAPI?.onProcessorsUpdated?.((data) => {
             if (Array.isArray(data?.processors)) {
-                window.availableProcessors = data.processors.slice();
+                const seen = new Set();
+                const next = [];
+                for (const name of data.processors) {
+                    if (typeof name !== 'string' || !name) continue;
+                    const key = name.toLowerCase();
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    next.push(name);
+                }
+                window.availableProcessors = next;
             }
             this.refreshTree();
         });
@@ -690,7 +706,26 @@ class ProjectTreeManager {
 
             console.log('Loaded', nextFiles.length, 'files from configuration');
 
-            this.verilogFiles = nextFiles;
+            // Dedup por path normalizado (cross-platform, case-insensitive)
+            // ANTES de atribuir. Bug historico em saveConfiguration pode
+            // ter escrito o mesmo arquivo em synthesizableFiles e
+            // testbenchFiles, ou um .cmm pode ter sido persistido em
+            // synthesizableFiles por engano — ambos causam rows
+            // duplicadas no DOM porque o reconciler do render usa
+            // Map.set por path (sobrescreve, deixando a row "perdida"
+            // orfa no DOM ate o proximo full clear).
+            const dedupSeen = new Set();
+            this.verilogFiles = [];
+            for (const f of nextFiles) {
+                const key = this._normalizePath(f.path);
+                if (dedupSeen.has(key)) continue;
+                dedupSeen.add(key);
+                this.verilogFiles.push(f);
+            }
+            const dedupRemoved = nextFiles.length - this.verilogFiles.length;
+            if (dedupRemoved > 0) {
+                console.warn(`Dropped ${dedupRemoved} duplicate file entries from .spf`);
+            }
 
             // Auto-descobre arquivos dentro das pastas Hardware/ e
             // Software/ de cada processador configurado. Hardware/
@@ -715,7 +750,11 @@ class ProjectTreeManager {
             const reclassified = await this._classifyAll();
 
             this.sortFilesAlphabetically();
-            if (addedPersist > 0 || reclassified) {
+            // Re-persiste se: descobrimos arquivos novos no Hardware/,
+            // a classificacao mudou, OU o dedup acima removeu entries
+            // (o .spf tinha duplicates — escrever a versao limpa agora
+            // para que proximas loads nao precisem dedup'ar de novo).
+            if (addedPersist > 0 || reclassified || dedupRemoved > 0) {
                 await this.saveConfiguration();
             }
         } catch (error) {

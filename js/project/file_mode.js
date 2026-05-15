@@ -537,18 +537,34 @@ class ProjectTreeManager {
      * visualmente ja e o feedback pro caso manual.
      */
     async refreshTree() {
-        if (this._refreshPromise) return this._refreshPromise;
+        // Coalesced com flag de pending: se uma refresh chega DURANTE
+        // outra in-flight, marca pendente em vez de descartar. Quando
+        // a refresh atual termina, o loop roda mais uma iteracao com
+        // o state ja atualizado. Sem isso ha uma race onde o fs watcher
+        // dispara um refresh logo apos o main escrever o .spf, e o
+        // listener de processor:created ainda nao atualizou
+        // window.availableProcessors — a refresh do watcher le o .spf
+        // novo mas pula a pasta do processador novo, e o refresh do
+        // listener e descartado por coalescing.
+        if (this._refreshPromise) {
+            this._refreshPending = true;
+            return this._refreshPromise;
+        }
 
         this._refreshPromise = (async () => {
-            console.log('🔄 Refreshing Verilog tree...');
-            await this.loadConfiguration();
-            this.renderTree();
+            do {
+                this._refreshPending = false;
+                console.log('🔄 Refreshing Verilog tree...');
+                await this.loadConfiguration();
+                this.renderTree();
+            } while (this._refreshPending);
         })();
 
         try {
             await this._refreshPromise;
         } finally {
             this._refreshPromise = null;
+            this._refreshPending = false;
         }
     }
 

@@ -99,13 +99,30 @@ export const RenderMixin = {
         // Indexa rows e separadores existentes pra reconciliacao
         // path-keyed: rows certas sao reutilizadas/movidas, restos
         // viram lixo no fim.
+        //
+        // Defensivo contra duplicatas: se um render anterior deixou
+        // mais de uma row com o mesmo data-file-path (por exemplo um
+        // verilogFiles bichado por bug upstream), a primeira fica no
+        // Map e as extras sao removidas imediatamente. Sem essa
+        // limpeza, Map.set sobrescreve sem tirar do DOM, e as
+        // duplicatas sobrevivem o "cleanup" no fim deste metodo.
         const existingFileRows = new Map();
         for (const row of container.querySelectorAll('.verilog-file-item')) {
-            existingFileRows.set(row.dataset.filePath, row);
+            const key = row.dataset.filePath;
+            if (existingFileRows.has(key)) {
+                row.remove();
+            } else {
+                existingFileRows.set(key, row);
+            }
         }
         const existingSeparators = new Map();
         for (const sep of container.querySelectorAll('.verilog-processor-separator')) {
-            existingSeparators.set(sep.dataset.processorName, sep);
+            const key = sep.dataset.processorName;
+            if (existingSeparators.has(key)) {
+                sep.remove();
+            } else {
+                existingSeparators.set(key, sep);
+            }
         }
 
         let prev = null;

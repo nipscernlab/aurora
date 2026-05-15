@@ -570,14 +570,18 @@ class TerminalManager {
                             for (const entry of Array.from(logEntries).reverse()) {
                                 const entryText = entry.textContent || '';
 
-                                const cmmCompMatch = entryText.match(/cmmcomp\.exe["\s]+([^\s"]+\.cmm)\s+([^\s"]+)\s+"([^"]+)"/);
-                                if (cmmCompMatch) {
-                                    const cmmFileName = cmmCompMatch[1];
-                                    const _processorName = cmmCompMatch[2];
-                                    const projectPath = cmmCompMatch[3];
-
-                                    cmmFilePath = await window.electronAPI.joinPath(projectPath, 'Software', cmmFileName);
-                                    break;
+                                // cmmcomp.exe agora usa named flags do yanc v3:
+                                //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
+                                // Precisamos do -i (nome do .cmm) e -p (proc-dir,
+                                // que e <projectPath>/<processorName>) pra montar
+                                // o caminho ate o Software/.
+                                if (/cmmcomp\.exe\b/.test(entryText)) {
+                                    const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
+                                    const pMatch = entryText.match(/-p\s+"([^"]+)"/);
+                                    if (iMatch && pMatch) {
+                                        cmmFilePath = await window.electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
+                                        break;
+                                    }
                                 }
                             }
                         }

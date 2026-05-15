@@ -949,15 +949,14 @@ class VVPProgressManager {
         this._hideRequested = false;
     }
 
-    async resolveProgressPath(name) {
-        const toggleBtn = document.getElementById('toggle-ui');
-        const useFlat = toggleBtn && toggleBtn.classList.contains('active');
-
-        if (useFlat) {
-            return await window.electronAPI.joinPath('components', 'Temp', 'progress.txt');
-        } else {
-            return await window.electronAPI.joinPath('components', 'Temp', name, 'progress.txt');
-        }
+    async resolveProgressPath(_name) {
+        // Modo unico: vvp roda em components/Temp/ direto, e o
+        // testbench gerado pelo asmcomp escreve `progress.txt` no
+        // CWD do vvp — sempre flat. O ramo "Temp/<name>/progress.txt"
+        // era do modo Processor antigo (removido em mai/2026). Sem
+        // este flatten, o polling olha pra um arquivo que vvp nunca
+        // cria e a barra fica em 0%.
+        return await window.electronAPI.joinPath('components', 'Temp', 'progress.txt');
     }
 
     async deleteProgressFile(name) {

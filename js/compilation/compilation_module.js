@@ -44,7 +44,7 @@
  */
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
-import { TerminalManager } from '../terminal/terminal_module.js';
+import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
@@ -1747,6 +1747,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             this.terminalManager.appendToTerminal('twave', line, 'raw');
         }
     });
+    // VVP progress overlay: o testbench gerado pelo asmcomp escreve
+    // progress.txt em 10-100% (loop chrys). VVPProgressManager faz
+    // poll do arquivo e atualiza a barra. Show antes do vvp rodar,
+    // hide depois — funcoes vieram orfaos no refactor "fase 2.3"
+    // (mai/2026) quando o runGtkWave per-processador foi deletado.
+    showVVPProgress(simTopModule);
     let code;
     try {
         const r = await window.electronAPI.execVvpStreamed(
@@ -1755,6 +1761,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         code = r.code;
     } finally {
         unsubscribe();
+        hideVVPProgress();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));

@@ -128,7 +128,22 @@
             "aboutProjectAurora":      "Projeto AURORA",
             "aboutProjectSapho":       "Projeto SAPHO",
             "aboutThanks":             "Agradecimentos",
-            "aboutThanksText":         "SAPHO & AURORA contam com o apoio de:"
+            "aboutThanksText":         "SAPHO & AURORA contam com o apoio de:",
+            "sectionAI":               "Assistente IA",
+            "aiIntro":                 "A Aurora Intelligence usa a sua própria chave de API (BYOK). Escolha o provedor onde você tem conta, cole a chave e clique em Salvar. As chaves são criptografadas pelo cofre de credenciais do sistema operacional e só são enviadas ao provedor que você escolher.",
+            "aiSave":                  "Salvar",
+            "aiTest":                  "Testar",
+            "aiRemove":                "Remover chave",
+            "aiGetKey":                "Obter uma chave",
+            "aiConfigured":            "Configurada",
+            "aiNotConfigured":         "Sem chave",
+            "aiSaved":                 "Chave salva.",
+            "aiRemoved":               "Chave removida.",
+            "aiTesting":               "Testando conexão…",
+            "aiEnterKey":              "Insira uma chave primeiro.",
+            "aiTestOk":                "Conectado — {{ms}} ms.",
+            "aiModel":                 "Modelo",
+            "aiModelSet":              "Modelo atualizado."
         }
     },
     "shortcuts": {

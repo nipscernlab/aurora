@@ -128,7 +128,22 @@
             "aboutProjectAurora":      "AURORA project",
             "aboutProjectSapho":       "SAPHO project",
             "aboutThanks":             "Acknowledgements",
-            "aboutThanksText":         "SAPHO & AURORA are made possible by the support of:"
+            "aboutThanksText":         "SAPHO & AURORA are made possible by the support of:",
+            "sectionAI":               "AI Assistant",
+            "aiIntro":                 "Aurora Intelligence runs on your own API key (BYOK). Pick the provider you have an account with, paste its key, and Save. Keys are encrypted with your operating system's keychain and are only ever sent to the provider you choose.",
+            "aiSave":                  "Save",
+            "aiTest":                  "Test",
+            "aiRemove":                "Remove key",
+            "aiGetKey":                "Get a key",
+            "aiConfigured":            "Configured",
+            "aiNotConfigured":         "No key",
+            "aiSaved":                 "Key saved.",
+            "aiRemoved":               "Key removed.",
+            "aiTesting":               "Testing connection…",
+            "aiEnterKey":              "Enter a key first.",
+            "aiTestOk":                "Connected — {{ms}} ms.",
+            "aiModel":                 "Model",
+            "aiModelSet":              "Model updated."
         }
     },
     "shortcuts": {

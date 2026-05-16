@@ -1,32 +1,46 @@
 // @ts-check
 /**
- * chat.js — streaming chat loop for Aurora Intelligence.
+ * chat.js — streaming chat + tool loop for Aurora Intelligence.
  *
  * One concurrent stream per session, identified by a renderer-generated
  * `sessionId`. The renderer subscribes to `ai:chat-event` (multicast),
  * filters by sessionId, and assembles the streamed text into the
  * assistant bubble.
  *
+ * Tools (sub-step 4c): the model can call the curated `AuroraAPI`
+ * surface defined in `tools.js`. Each call round-trips to the renderer
+ * via `tool_bridge` (which also runs the ask-before-write
+ * confirmation) and is recorded in the `audit` log. We consume
+ * `fullStream` rather than `textStream` so tool-call / tool-result
+ * parts surface to the panel as activity chips.
+ *
  * Event lifecycle (always one `aborted | finish | error` to close):
  *
- *   { sessionId, type:'text-delta', delta }   // 1..N chunks
- *   { sessionId, type:'finish',     text, usage }
- *   { sessionId, type:'aborted',    text }    // user stopped mid-stream
- *   { sessionId, type:'error',      message } // SDK or network error
- *
- * The IPC `ai:chat-start` handler returns *immediately* with the
- * sessionId — the actual streaming work runs detached so the renderer
- * doesn't sit on an open invoke promise for the whole turn.
+ *   { type:'text-delta',  delta }
+ *   { type:'tool-call',   toolName, args }
+ *   { type:'tool-result', toolName, result }
+ *   { type:'finish',      text, usage }
+ *   { type:'aborted',     text }
+ *   { type:'error',       message }
  */
 
 'use strict';
 
-const { streamText } = require('ai');
+const { streamText, stepCountIs } = require('ai');
 const log = require('electron-log');
+
 const provider = require('./provider');
+const tools = require('./tools');
+const toolBridge = require('./tool_bridge');
+const audit = require('./audit');
 
 /** sessionId → { abort: AbortController } */
 const sessions = new Map();
+
+// Upper bound on tool round-trips per turn — keeps a runaway model
+// from looping forever. Each "step" is one model generation; a step
+// that calls tools is followed by another step to use the results.
+const MAX_STEPS = 12;
 
 function sendEvent(webContents, sessionId, type, data) {
   if (!webContents || webContents.isDestroyed()) return;
@@ -39,14 +53,14 @@ function sendEvent(webContents, sessionId, type, data) {
 
 /**
  * Start a streaming chat for `payload`. Resolves once the stream
- * either finishes, errors, or is aborted — the IPC handler does not
- * await this, so callers can fire-and-forget.
+ * finishes, errors, or is aborted — the IPC handler does not await
+ * this, so callers fire-and-forget.
  *
  * @param {object} payload
  * @param {string} payload.sessionId
  * @param {string} payload.provider
  * @param {string} [payload.modelId]
- * @param {{role:'user'|'assistant'|'system', content:string}[]} payload.messages
+ * @param {{role:string, content:string}[]} payload.messages
  * @param {string} [payload.system]
  * @param {Electron.WebContents} webContents
  */
@@ -74,22 +88,62 @@ async function start(payload, webContents) {
 
   try {
     const prov = provider.getProvider(providerName);
-    const modelKey = modelId || provider.getDefaultModel(providerName);
-    if (!modelKey) throw new Error(`no default model for "${providerName}"`);
+    const modelKey = modelId || provider.getModelFor(providerName);
+    if (!modelKey) throw new Error(`no model configured for "${providerName}"`);
     const model = prov(modelKey);
+
+    // Each tool call ships to the renderer (ask-before-write happens
+    // there) and is bracketed by audit entries.
+    const aiTools = tools.buildTools(async (toolName, args) => {
+      audit.append({ sessionId, kind: 'tool-call', tool: toolName, args });
+      const result = await toolBridge.runTool(webContents, toolName, args);
+      audit.append({
+        sessionId,
+        kind: 'tool-result',
+        tool: toolName,
+        ok: !(result && result.ok === false),
+        error: result && result.ok === false ? result.error : undefined,
+      });
+      return result;
+    });
 
     const result = streamText({
       model,
       messages,
       ...(system ? { system } : {}),
+      tools: aiTools,
+      stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
     });
 
     let fullText = '';
-    for await (const delta of result.textStream) {
+    for await (const part of result.fullStream) {
       if (abort.signal.aborted) break;
-      fullText += delta;
-      sendEvent(webContents, sessionId, 'text-delta', { delta });
+      switch (part.type) {
+        case 'text-delta': {
+          const delta = part.text ?? part.textDelta ?? '';
+          fullText += delta;
+          sendEvent(webContents, sessionId, 'text-delta', { delta });
+          break;
+        }
+        case 'tool-call':
+          sendEvent(webContents, sessionId, 'tool-call', {
+            toolName: part.toolName,
+            args: part.input ?? part.args ?? {},
+          });
+          break;
+        case 'tool-result':
+          sendEvent(webContents, sessionId, 'tool-result', {
+            toolName: part.toolName,
+            result: part.output ?? part.result ?? null,
+          });
+          break;
+        case 'error':
+          throw part.error || new Error('stream error');
+        default:
+          // step-start, step-finish, finish, reasoning, ... — ignored.
+          break;
+      }
     }
 
     if (abort.signal.aborted) {
@@ -97,11 +151,14 @@ async function start(payload, webContents) {
       return;
     }
 
-    // `usage` resolves once the stream is fully consumed. Some providers
-    // surface null fields here (e.g. cached tokens) — pass through as-is.
+    // `totalUsage` sums every step (tool turns included); fall back to
+    // the last-step `usage` if a provider doesn't surface the total.
     let usage = null;
-    try { usage = await result.usage; }
-    catch (_) { /* usage is best-effort */ }
+    try { usage = await result.totalUsage; }
+    catch (_) {
+      try { usage = await result.usage; }
+      catch (_2) { /* usage is best-effort */ }
+    }
 
     sendEvent(webContents, sessionId, 'finish', { text: fullText, usage });
   } catch (e) {

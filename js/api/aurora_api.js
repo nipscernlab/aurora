@@ -77,6 +77,35 @@ function emit(event, payload) {
 }
 
 /* ============================================================
+ *  Legacy window-event bridge
+ *
+ *  Aurora predates this bus, so cross-cutting signals are still
+ *  dispatched as `CustomEvent`s on `window`. Rather than a risky
+ *  big-bang migration of every publisher, we bridge them: each
+ *  legacy event is re-emitted on the bus under a normalised,
+ *  colon-namespaced name. Existing `window.addEventListener`
+ *  callers keep working untouched; new code (and Aurora
+ *  Intelligence) gets one consistent surface via
+ *  `AuroraAPI.events.on(...)`.
+ * ========================================================== */
+
+const WINDOW_EVENT_BRIDGE = Object.freeze({
+  'aurora:locale-changed':       'locale:changed',
+  'aurora:editing-file-changed': 'editor:active-file-changed',
+  'aurora-editor-focused':       'editor:focused',
+  'aurora:spf-changed':          'project:spf-changed',
+  'aurora-settings-updated':     'settings:updated',
+  'aurora-shortcuts-updated':    'settings:shortcuts-updated',
+  'aurora-tooltips-updated':     'settings:tooltips-updated',
+});
+
+function bridgeWindowEvents() {
+  for (const [domEvent, busEvent] of Object.entries(WINDOW_EVENT_BRIDGE)) {
+    window.addEventListener(domEvent, (e) => emit(busEvent, e && e.detail != null ? e.detail : null));
+  }
+}
+
+/* ============================================================
  *  editor — Monaco interactions
  * ========================================================== */
 
@@ -180,6 +209,7 @@ const editorNs = {
     if (!path) return err('No active file');
     try {
       await TabManager.saveCurrentFile();
+      emit('editor:saved', { filePath: path });
       return ok({ filePath: path });
     } catch (e) {
       return err(e?.message || 'save failed');
@@ -189,6 +219,7 @@ const editorNs = {
   async saveAll() {
     try {
       await TabManager.saveAllFiles();
+      emit('editor:saved', { filePath: null, all: true });
       return ok();
     } catch (e) {
       return err(e?.message || 'saveAll failed');
@@ -239,20 +270,40 @@ function terminalElById(id) {
   // Match either the content div id (`tcmm`) or the wrapper `terminal-tcmm`.
   return document.getElementById(id) || document.getElementById(`terminal-${id}`) || null;
 }
+function extractTerminalText(el) {
+  const lines = Array.from(el.querySelectorAll('.message, .entry, .terminal-line, .terminal-card'))
+    .map((n) => n.textContent?.trim())
+    .filter(Boolean);
+  return lines.length ? lines.join('\n') : (el.textContent || '').trim();
+}
 
 const terminalNs = {
+  /** List the ids of every terminal panel (tcmm, tasm, tveri, twave, ...). */
+  async list() {
+    const ids = Array.from(document.querySelectorAll('.terminal-content'))
+      .map((el) => el.id)
+      .filter(Boolean);
+    return ok(ids);
+  },
+
   /**
-   * Return the visible text content of a terminal. Cards/messages get
+   * Return the visible text content of one terminal. Cards/messages get
    * concatenated with newlines so the result reads like the user sees
-   * the panel.
+   * the panel. Omit `id` for the currently visible terminal.
    */
   async getText(id) {
     const el = terminalElById(id);
     if (!el) return err(id ? `terminal "${id}" not found` : 'no visible terminal');
-    const lines = Array.from(el.querySelectorAll('.message, .entry, .terminal-line, .terminal-card'))
-      .map((n) => n.textContent?.trim())
-      .filter(Boolean);
-    return ok(lines.length ? lines.join('\n') : (el.textContent || '').trim());
+    return ok(extractTerminalText(el));
+  },
+
+  /** Visible text of *every* terminal panel, keyed by id. */
+  async getAll() {
+    const out = {};
+    for (const el of document.querySelectorAll('.terminal-content')) {
+      if (el.id) out[el.id] = extractTerminalText(el);
+    }
+    return ok(out);
   },
 
   async clear(id) {
@@ -278,8 +329,14 @@ const terminalNs = {
 };
 
 /* ============================================================
- *  project — current project + filesystem tree (read-only here)
+ *  project — current project, filesystem tree, file/processor/
+ *  project lifecycle
  * ========================================================== */
+
+async function refreshTree() {
+  try { await window.electronAPI?.triggerFileTreeRefresh?.(); }
+  catch (_) { /* tree refresh is best-effort */ }
+}
 
 const projectNs = {
   async getCurrent() {
@@ -303,6 +360,161 @@ const projectNs = {
       return err(e?.message || 'getTree failed');
     }
   },
+
+  /**
+   * Read the full text of any file inside the open project folder, at
+   * any nesting depth. `filePath` may be absolute or relative to the
+   * project root. Reads are scoped to the project folder — paths
+   * outside it (or containing "..") are refused. Very large files are
+   * returned truncated with `truncated: true`.
+   */
+  async readFile(filePath) {
+    if (!filePath) return err('filePath required');
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+
+    let target = String(filePath).trim();
+    if (target.includes('..')) return err('path must not contain ".."');
+
+    // A bare relative path resolves against the project root.
+    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith('\\\\');
+    if (!isAbsolute) {
+      target = `${root}\\${target.replace(/^[\\/]+/, '')}`;
+    }
+
+    // Stay inside the project folder. The trailing-separator check
+    // stops a sibling like "MyProject2" matching "MyProject".
+    const norm = (p) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+    const r = norm(root);
+    const t = norm(target);
+    if (t !== r && !t.startsWith(r + '\\')) {
+      return err('file is outside the open project folder');
+    }
+
+    try {
+      const raw = await window.electronAPI.readFile(target);
+      const text = String(raw ?? '');
+      const MAX = 256 * 1024;
+      if (text.length > MAX) {
+        return ok({ filePath: target, content: text.slice(0, MAX), length: text.length, truncated: true });
+      }
+      return ok({ filePath: target, content: text, length: text.length, truncated: false });
+    } catch (e) {
+      return err(e?.message || 'readFile failed');
+    }
+  },
+
+  /** Create (or overwrite) a file with `content`, then refresh the tree. */
+  async createFile(filePath, content = '') {
+    if (!filePath) return err('filePath required');
+    try {
+      await window.electronAPI.writeFile(filePath, String(content ?? ''));
+      await refreshTree();
+      emit('project:file-created', { filePath });
+      return ok({ filePath });
+    } catch (e) { return err(e?.message || 'createFile failed'); }
+  },
+
+  async createFolder(dirPath) {
+    if (!dirPath) return err('dirPath required');
+    try {
+      await window.electronAPI.mkdir(dirPath);
+      await refreshTree();
+      return ok({ dirPath });
+    } catch (e) { return err(e?.message || 'createFolder failed'); }
+  },
+
+  /** Delete a file or directory, then refresh the tree. */
+  async deleteFile(filePath) {
+    if (!filePath) return err('filePath required');
+    try {
+      await window.electronAPI.deleteFileOrDirectory(filePath);
+      await refreshTree();
+      emit('project:file-deleted', { filePath });
+      return ok({ filePath });
+    } catch (e) { return err(e?.message || 'deleteFile failed'); }
+  },
+
+  /** Rename/move a file (copy to the new path, drop the old one). */
+  async renameFile(fromPath, toPath) {
+    if (!fromPath || !toPath) return err('fromPath and toPath required');
+    try {
+      await window.electronAPI.copyFile(fromPath, toPath);
+      await window.electronAPI.deleteFileOrDirectory(fromPath);
+      await refreshTree();
+      emit('project:file-renamed', { fromPath, toPath });
+      return ok({ fromPath, toPath });
+    } catch (e) { return err(e?.message || 'renameFile failed'); }
+  },
+
+  /** Processors of the open project (names + per-processor config). */
+  async listProcessors() {
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    try {
+      const procs = await window.electronAPI.getAvailableProcessors(root);
+      return ok(procs || []);
+    } catch (e) { return err(e?.message || 'listProcessors failed'); }
+  },
+
+  /**
+   * Generate a processor in the open project.
+   * `config`: { processorName, nBits, nbMantissa, nbExponent,
+   *             dataStackSize, instructionStackSize, inputPorts,
+   *             outputPorts, gain }
+   */
+  async createProcessor(config) {
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    if (!config || !config.processorName) return err('processorName required');
+    try {
+      const r = await window.electronAPI.createProcessorProject({
+        projectLocation: root,
+        ...config,
+      });
+      if (r && r.success) {
+        await refreshTree();
+        emit('project:processor-created', { name: config.processorName });
+        return ok({ name: config.processorName });
+      }
+      return err((r && r.message) || 'createProcessor failed');
+    } catch (e) { return err(e?.message || 'createProcessor failed'); }
+  },
+
+  /**
+   * Create a new SAPHO project at `location\name` and open it.
+   * `name` must be free of spaces/symbols (project convention).
+   */
+  async createProject({ name, location } = {}) {
+    if (!name || !location) return err('name and location required');
+    if (/[^A-Za-z0-9_-]/.test(name)) {
+      return err('project name may only contain letters, numbers, _ and -');
+    }
+    try {
+      const projectPath = `${location}\\${name}`;
+      const spfPath = `${projectPath}\\${name}.spf`;
+      const r = await window.electronAPI.createProjectStructure(projectPath, spfPath, name);
+      if (!r || !r.success) return err((r && r.message) || 'createProject failed');
+      if (window.projectManager?.loadProject) {
+        await window.projectManager.loadProject(spfPath);
+      }
+      emit('project:created', { name, spfPath });
+      return ok({ name, projectPath, spfPath });
+    } catch (e) { return err(e?.message || 'createProject failed'); }
+  },
+
+  /** Open an existing project by its .spf file. */
+  async openProject(spfPath) {
+    if (!spfPath) return err('spfPath required');
+    try {
+      if (window.projectManager?.loadProject) {
+        await window.projectManager.loadProject(spfPath);
+      } else {
+        await window.electronAPI.openProject(spfPath);
+      }
+      return ok({ spfPath });
+    } catch (e) { return err(e?.message || 'openProject failed'); }
+  },
 };
 
 /* ============================================================
@@ -314,6 +526,7 @@ const compileNs = {
   async compileAll() {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
+    emit('compile:started', { scope: 'all' });
     try { await cf.runAll(); return ok(); }
     catch (e) { return err(e?.message || 'compileAll failed'); }
   },
@@ -325,6 +538,7 @@ const compileNs = {
     if (!['cmm', 'verilog', 'wave', 'prism'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
+    emit('compile:started', { scope: step });
     try { await cf.runSingleStep(step); return ok({ step }); }
     catch (e) { return err(e?.message || 'compileStep failed'); }
   },
@@ -332,8 +546,71 @@ const compileNs = {
   async cancel() {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    try { cf.cancelAll(); return ok(); }
+    try { cf.cancelAll(); emit('compile:cancelled', null); return ok(); }
     catch (e) { return err(e?.message || 'cancel failed'); }
+  },
+};
+
+/* ============================================================
+ *  wave — GTKWave signal selection (the Wave Configuration modal)
+ * ========================================================== */
+
+function collectWaveSignalPaths(node, out) {
+  if (!node) return;
+  for (const sig of (node.signals || [])) {
+    out.push(`${node.scopePath}.${sig.name}`);
+  }
+  for (const child of (node.children || [])) collectWaveSignalPaths(child, out);
+}
+
+const waveNs = {
+  /**
+   * Every signal discovered for the current testbench, plus which are
+   * currently ticked to be dumped into GTKWave.
+   */
+  async listSignals() {
+    const wc = window.waveConfigManager;
+    if (!wc) return err('Wave Configuration is not available');
+    if (!wc.tree) { try { await wc.refresh(); } catch (_) { /* handled below */ } }
+    if (!wc.tree) return ok({ all: [], selected: [] });
+    const all = [];
+    collectWaveSignalPaths(wc.tree, all);
+    return ok({ all: all.sort(), selected: [...(wc.selected || [])].sort() });
+  },
+
+  /**
+   * Replace the GTKWave signal selection with exactly `paths` and
+   * persist it — the same effect as ticking boxes in the Wave
+   * Configuration modal and pressing Save. Paths not present in the
+   * discovered signal tree are ignored (returned under `ignored`).
+   */
+  async setSignals(paths) {
+    const wc = window.waveConfigManager;
+    if (!wc) return err('Wave Configuration is not available');
+    if (!wc.tree) {
+      try { await wc.refresh(); }
+      catch (e) { return err(e?.message || 'could not load signals'); }
+    }
+    if (!wc.tree) return err('no signals discovered — open a project with a testbench');
+    const valid = [];
+    collectWaveSignalPaths(wc.tree, valid);
+    const validSet = new Set(valid);
+    const list = Array.isArray(paths) ? paths : [];
+    const selected = list.filter((p) => validSet.has(p));
+    const ignored = list.filter((p) => !validSet.has(p));
+    wc.selected = new Set(selected);
+    if (typeof wc.renderTree === 'function') wc.renderTree();
+    if (typeof wc.save === 'function') await wc.save();
+    emit('wave:signals-changed', { selected });
+    return ok({ selected: selected.sort(), ignored });
+  },
+
+  /** Open the Wave Configuration modal for the user. */
+  async openConfig() {
+    const wc = window.waveConfigManager;
+    if (!wc) return err('Wave Configuration is not available');
+    try { await wc.open(); return ok(); }
+    catch (e) { return err(e?.message || 'could not open Wave Configuration'); }
   },
 };
 
@@ -432,33 +709,151 @@ const uiNs = {
 };
 
 /* ============================================================
- *  _meta — introspection
- *
- *  Lists the available namespaces and functions. The AI runner
- *  will eventually translate this into a JSON-Schema tool manifest
- *  for function-calling; for Phase A it is enough that the
- *  surface is enumerable.
+ *  settings — read/update the user-facing IDE settings
  * ========================================================== */
 
-const META = Object.freeze({
-  version: '0.1.0',
-  phase: 'A',
-  namespaces: Object.freeze({
-    editor:   ['getActiveFilePath', 'getOpenFiles', 'getActiveText', 'setActiveText',
-               'insertAt', 'replaceRange', 'getCursor', 'setCursor', 'getLanguage',
-               'save', 'saveAll', 'closeTab', 'reopenLastTab'],
-    terminal: ['getText', 'clear'],
-    project:  ['getCurrent', 'getTree'],
-    compile:  ['compileAll', 'compileStep', 'cancel'],
-    rules:    ['get', 'getDirective', 'listDirectives', 'getKeywords', 'lookupMessage'],
-    ui:       ['showNotification', 'openSettings', 'getLocale', 'setLocale'],
-    events:   ['on', 'off', 'emit'],
-  }),
+const SETTINGS_KEY = 'aurora-settings';
+
+function readSettingsStore() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
+  catch (_) { return {}; }
+}
+
+const settingsNs = {
+  /** Snapshot of every user-facing setting Aurora exposes. */
+  async getAll() {
+    const s = readSettingsStore();
+    return ok({
+      locale: window.getLocale ? window.getLocale() : null,
+      tooltipsEnabled: s.tooltipsEnabled !== false,
+      verboseMode: !!s.verboseMode,
+    });
+  },
+
+  /**
+   * Update one setting. `key` is 'locale' | 'tooltipsEnabled' |
+   * 'verboseMode'. Persists to localStorage and broadcasts so the
+   * live UI reacts immediately.
+   */
+  async set(key, value) {
+    if (key === 'locale') {
+      if (typeof window.setLocale !== 'function') return err('i18n not loaded');
+      await window.setLocale(value);
+      return ok({ key, value });
+    }
+    if (key === 'tooltipsEnabled' || key === 'verboseMode') {
+      const s = readSettingsStore();
+      s[key] = !!value;
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+      catch (e) { return err(e?.message || 'could not persist setting'); }
+      window.dispatchEvent(new CustomEvent('aurora-settings-updated', { detail: s }));
+      if (key === 'tooltipsEnabled') {
+        window.auroraSettings?.updateTooltipsState?.(!!value);
+      }
+      return ok({ key, value: !!value });
+    }
+    return err(`unknown setting: ${key}`);
+  },
+};
+
+/* ============================================================
+ *  _meta — introspection
+ *
+ *  `schema()` describes the whole surface: every namespace, each
+ *  function with a one-line description, and the event catalog.
+ *  It is the canonical, machine-readable description of AuroraAPI
+ *  — handy for docs, for tests asserting coverage, and for the AI
+ *  runner to reason about what the IDE can do.
+ *
+ *  (The AI's *executable* tool schemas — JSON Schema for function
+ *  calling — live separately in main/ai/tools.js, a curated subset
+ *  with access levels. This `schema()` is the full developer view.)
+ * ========================================================== */
+
+const NAMESPACES = Object.freeze({
+  editor: {
+    getActiveFilePath: 'Path of the file focused in the editor',
+    getOpenFiles:      'Paths of every open editor tab',
+    getActiveText:     'Full text of the focused file',
+    setActiveText:     'Replace the focused file’s entire content',
+    insertAt:          'Insert text at a position (or the cursor)',
+    replaceRange:      'Replace a 1-indexed line/column range',
+    getCursor:         'Current cursor line/column',
+    setCursor:         'Move the cursor and reveal it',
+    getLanguage:       'Monaco language id of the focused file',
+    save:              'Save the focused file',
+    saveAll:           'Save every open file',
+    closeTab:          'Close a tab (the active one by default)',
+    reopenLastTab:     'Reopen the most recently closed tab',
+  },
+  terminal: {
+    list:    'Ids of every terminal panel',
+    getText: 'Visible text of one terminal panel',
+    getAll:  'Visible text of every terminal panel, keyed by id',
+    clear:   'Clear a terminal panel',
+  },
+  project: {
+    getCurrent:      'Path and metadata of the open project',
+    getTree:         'Files and folders of the open project',
+    readFile:        'Read any file inside the project folder, at any depth',
+    createFile:      'Create (or overwrite) a file',
+    createFolder:    'Create a directory',
+    deleteFile:      'Delete a file or directory',
+    renameFile:      'Rename or move a file',
+    listProcessors:  'Processors of the open project + their config',
+    createProcessor: 'Generate a processor in the open project',
+    createProject:   'Create a new SAPHO project and open it',
+    openProject:     'Open an existing project by its .spf file',
+  },
+  compile: {
+    compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
+    compileStep: 'Run one pipeline step (cmm|verilog|wave|prism)',
+    cancel:      'Cancel a running compilation or simulation',
+  },
+  wave: {
+    listSignals: 'Signals discovered for the testbench + which are selected',
+    setSignals:  'Choose which signals are dumped into GTKWave',
+    openConfig:  'Open the Wave Configuration modal',
+  },
+  settings: {
+    getAll: 'Snapshot of every user-facing IDE setting',
+    set:    'Update one setting (locale / tooltipsEnabled / verboseMode)',
+  },
+  rules: {
+    get:            'The full sapho_rules.json knowledge base',
+    getDirective:   'Details of one hardware directive',
+    listDirectives: 'Names of every hardware directive',
+    getKeywords:    'CMM language keywords',
+    lookupMessage:  'A yanc compiler message by its code',
+  },
+  ui: {
+    showNotification: 'Show a toast notification',
+    openSettings:     'Open the Settings modal',
+    getLocale:        'The active UI locale',
+    setLocale:        'Switch the UI locale',
+  },
+  events: {
+    on:   'Subscribe to a bus event; returns an unsubscribe fn',
+    off:  'Unsubscribe a handler',
+    emit: 'Publish a bus event',
+  },
 });
 
 const metaNs = Object.freeze({
-  version: META.version,
-  schema() { return META; },
+  version: '1.0.0',
+  /** Machine-readable description of the whole AuroraAPI surface. */
+  schema() {
+    return {
+      version: '1.0.0',
+      namespaces: NAMESPACES,
+      events: {
+        // Emitted directly by AuroraAPI methods.
+        emitted: ['compile:started', 'compile:cancelled', 'editor:saved'],
+        // Legacy window CustomEvents re-broadcast on the bus.
+        bridged: { ...WINDOW_EVENT_BRIDGE },
+      },
+    };
+  },
 });
 
 /* ============================================================
@@ -467,12 +862,17 @@ const metaNs = Object.freeze({
 
 export function initAuroraAPI() {
   if (window.AuroraAPI) return window.AuroraAPI;
+  // Re-broadcast legacy window CustomEvents onto the bus so there is a
+  // single place to observe IDE activity.
+  bridgeWindowEvents();
   window.AuroraAPI = Object.freeze({
     editor:   Object.freeze(editorNs),
     terminal: Object.freeze(terminalNs),
     project:  Object.freeze(projectNs),
     compile:  Object.freeze(compileNs),
+    wave:     Object.freeze(waveNs),
     rules:    Object.freeze(rulesNs),
+    settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
     events:   Object.freeze({ on, off, emit }),
     _meta:    metaNs,

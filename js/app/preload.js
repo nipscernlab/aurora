@@ -249,6 +249,13 @@ const aiAPI = {
   clearKey: (provider) => ipcRenderer.invoke('ai:clear-key', { provider }),
 
   /**
+   * Override the model used for `provider` (empty string clears the
+   * override, reverting to the built-in default). Resolves with the
+   * effective `{ model }`.
+   */
+  setModel: (provider, model) => ipcRenderer.invoke('ai:set-model', { provider, model }),
+
+  /**
    * Run a minimal generateText() against the stored key for `provider`
    * (optionally overriding the default model). Returns a structured
    * result — `{ ok, sample, latencyMs, usage }` on success, or
@@ -270,15 +277,56 @@ const aiAPI = {
   abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
 
   /**
-   * Subscribe to chat events (text-delta, finish, aborted, error).
-   * Events from *every* session are broadcast — filter by sessionId
-   * in your handler. Returns an unsubscribe function.
+   * Subscribe to chat events (text-delta, tool-call, tool-result,
+   * finish, aborted, error). Events from *every* session are broadcast
+   * — filter by sessionId in your handler. Returns an unsubscribe fn.
    */
   onChatEvent: (callback) => {
     const handler = (_e, payload) => callback(payload);
     ipcRenderer.on('ai:chat-event', handler);
     return () => ipcRenderer.removeListener('ai:chat-event', handler);
   },
+
+  /* ---- tool execution (renderer runs the AuroraAPI calls) ---- */
+
+  /** The tool manifest — names, descriptions, schemas, access level. */
+  getToolManifest: () => ipcRenderer.invoke('ai:get-tool-manifest'),
+
+  /**
+   * Subscribe to tool execution requests from main. The handler
+   * receives `{ requestId, toolName, args }` and must eventually call
+   * `sendToolResult(requestId, ...)`. Returns an unsubscribe fn.
+   */
+  onToolExec: (callback) => {
+    const handler = (_e, payload) => callback(payload);
+    ipcRenderer.on('ai:tool-exec', handler);
+    return () => ipcRenderer.removeListener('ai:tool-exec', handler);
+  },
+
+  /** Report a tool call's result back to main, settling the SDK loop. */
+  sendToolResult: (requestId, result) =>
+    ipcRenderer.send('ai:tool-result', { requestId, result }),
+
+  /* ---- conversation history (persistent chats) ---- */
+
+  /** Lightweight metadata for every saved chat, newest first. */
+  listConversations: () => ipcRenderer.invoke('ai:conv-list'),
+
+  /** Full document for one chat, including every message. */
+  readConversation: (id) => ipcRenderer.invoke('ai:conv-read', { id }),
+
+  /** Upsert a chat. Returns the persisted document. */
+  saveConversation: (chat) => ipcRenderer.invoke('ai:conv-save', chat),
+
+  /** Delete a chat permanently. Resolves with `{ ok: bool }`. */
+  deleteConversation: (id) => ipcRenderer.invoke('ai:conv-delete', { id }),
+
+  /** Rename a chat. Resolves with `{ ok, chat? }`. */
+  renameConversation: (id, title) =>
+    ipcRenderer.invoke('ai:conv-rename', { id, title }),
+
+  /** Hand out a fresh, unique conversation id. */
+  newConversationId: () => ipcRenderer.invoke('ai:conv-new-id'),
 };
 
 /* ============================================================================

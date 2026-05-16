@@ -18,6 +18,8 @@ import { uiComponentsManager } from '../ui/ui_components.js';
 import { compilationFlowManager } from '../compilation/compilation_flow.js';
 import { SplitEditorManager } from '../editor/split_editor.js';
 import { initAuroraAPI } from '../api/aurora_api.js';
+import { initToolRunner } from '../ai/tool_runner.js';
+import { initAiSettings } from '../ai/ai_settings.js';
 
 // Non-module callers (shortcut_manager.js, status_bar.js) reach into
 // TabManager via window. Expor aqui satisfaz esses lookups que
@@ -56,6 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
     TabManager.initialize();
     fileTreeManager.initialize();
     projectManager.initialize();
+    // Exposed for AuroraAPI.project.createProject/openProject, which need
+    // loadProject to actually open a project after creating it.
+    window.projectManager = projectManager;
     uiComponentsManager.initialize();
     compilationFlowManager.initialize();
 
@@ -118,6 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // upcoming Aurora Intelligence panel and for incremental migration
     // of toolbar handlers in Phase B.
     initAuroraAPI();
+
+    // Aurora Intelligence tool runner — listens for tool-exec requests
+    // from the chat backend and dispatches them against AuroraAPI
+    // (with ask-before-write confirmation). Must run after initAuroraAPI.
+    initToolRunner();
+
+    // Build the BYOK provider cards in Settings → AI Assistant.
+    initAiSettings();
 });
 
 // --- Initialization on Window Load ---

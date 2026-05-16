@@ -26,7 +26,11 @@ const log = require('electron-log');
 
 const keystore = require('../ai/keystore');
 const provider = require('../ai/provider');
+const prefs = require('../ai/prefs');
 const chat = require('../ai/chat');
+const tools = require('../ai/tools');
+const toolBridge = require('../ai/tool_bridge');
+const conversations = require('../ai/conversations');
 
 function ok(data) {
   return { ok: true, ...(data || {}) };
@@ -40,6 +44,9 @@ function register() {
     providers: keystore.SUPPORTED_PROVIDERS.map((name) => ({
       name,
       defaultModel: provider.getDefaultModel(name),
+      // `model` is what a chat would actually use — the user's override
+      // if set, otherwise the default. The settings card shows this.
+      model: provider.getModelFor(name),
     })),
   }));
 
@@ -75,6 +82,18 @@ function register() {
     }
   });
 
+  // Persist (or, with an empty value, clear) the model override for a
+  // provider. Returns the effective model so the renderer can re-sync.
+  ipcMain.handle('ai:set-model', (_event, payload) => {
+    const { provider: name, model } = payload || {};
+    try {
+      prefs.setModel(name, model);
+      return ok({ model: provider.getModelFor(name) });
+    } catch (e) {
+      return fail(e?.message);
+    }
+  });
+
   // testConnection already returns `{ ok, ... }` shaped data, so we
   // pass it through verbatim.
   ipcMain.handle('ai:test-connection', async (_event, payload) => {
@@ -104,6 +123,35 @@ function register() {
     const stopped = chat.abort(payload?.sessionId);
     return ok({ stopped });
   });
+
+  // The renderer's tool_runner pulls this once at boot to learn which
+  // tools exist and how to dispatch them against window.AuroraAPI.
+  ipcMain.handle('ai:get-tool-manifest', () => ({ tools: tools.getManifest() }));
+
+  // Renderer → main reply for a tool round-trip started by tool_bridge.
+  // `.on` (not `.handle`) because it's a one-way completion signal.
+  ipcMain.on('ai:tool-result', (_event, payload) => {
+    if (payload && payload.requestId) {
+      toolBridge.resolveToolResult(payload.requestId, payload.result);
+    }
+  });
+
+  /* ---- conversation history ----
+   * One JSON file per conversation under userData; the chat panel
+   * lists/loads/saves through these channels.
+   */
+  ipcMain.handle('ai:conv-list', () => ({ chats: conversations.listAll() }));
+  ipcMain.handle('ai:conv-read', (_e, payload) => conversations.read(payload?.id));
+  ipcMain.handle('ai:conv-save', (_e, payload) => {
+    try { return { ok: true, chat: conversations.save(payload) }; }
+    catch (e) { return fail(e?.message); }
+  });
+  ipcMain.handle('ai:conv-delete', (_e, payload) => ({ ok: conversations.remove(payload?.id) }));
+  ipcMain.handle('ai:conv-rename', (_e, payload) => {
+    const chatRow = conversations.rename(payload?.id, payload?.title);
+    return chatRow ? { ok: true, chat: chatRow } : fail('chat not found');
+  });
+  ipcMain.handle('ai:conv-new-id', () => ({ id: conversations.generateId() }));
 }
 
 module.exports = { register };

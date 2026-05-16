@@ -195,6 +195,27 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; }
 
 /* ---------------------------------------------------------------------------
+ *  Brand mark — tiny SAPHO icon anchored at the far-left of the toolbar.
+ *  pointer-events: none so the drag region passes through and the toolbar
+ *  still drags the window.
+ * ------------------------------------------------------------------------- */
+.toolbar-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 6px 0 8px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.toolbar-brand img {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 4px rgba(79, 200, 240, 0.25));
+}
+
+/* ---------------------------------------------------------------------------
  *  Groups
  * ------------------------------------------------------------------------- */
 /* Group container: each "logical cluster" of buttons sits inside one

@@ -641,3 +641,197 @@
   color: var(--text-muted);
   line-height: var(--leading-snug);
 }
+
+/* ============================================================================
+ *  AI Assistant pane — one BYOK key card per provider.
+ * ========================================================================= */
+.ai-provider-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ai-provider-card {
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---- head: logo + name/model + status badge ---- */
+.ai-pc-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ai-pc-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.ai-pc-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  min-width: 0;
+}
+
+/* ---- model override row ---- */
+.ai-pc-modelrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ai-pc-modellabel {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ai-pc-model-input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.ai-pc-model-input::placeholder { color: var(--text-muted); }
+.ai-pc-model-input:hover { border-color: var(--border-strong); }
+.ai-pc-model-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.ai-pc-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ai-pc-badge[data-state="off"] {
+  color: var(--text-muted);
+  background: var(--bg-elev-2);
+}
+
+.ai-pc-badge[data-state="on"] {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+/* ---- key row: input + Save + Test ---- */
+.ai-pc-keyrow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ai-pc-input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--h-button);
+  padding: 0 var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.ai-pc-input::placeholder { color: var(--text-muted); font-family: var(--font-sans); }
+.ai-pc-input:hover { border-color: var(--border-strong); }
+.ai-pc-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.ai-pc-keyrow .btn { flex-shrink: 0; }
+
+/* ---- feedback line ---- */
+.ai-pc-feedback {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+
+.ai-pc-feedback[data-state="info"] {
+  color: var(--text-secondary);
+  background: var(--bg-elev-2);
+}
+
+.ai-pc-feedback[data-state="success"] {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+.ai-pc-feedback[data-state="error"] {
+  color: var(--status-error);
+  background: rgba(226, 108, 108, 0.10);
+}
+
+/* ---- footer: "get a key" link + remove ---- */
+.ai-pc-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ai-pc-getkey {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.ai-pc-getkey::after {
+  content: ' \2197';      /* ↗ */
+  font-size: 0.9em;
+}
+
+.ai-pc-getkey:hover { color: var(--accent-hover); }
+
+.ai-pc-remove {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.ai-pc-remove:hover { color: var(--status-error); }
+.ai-pc-remove:disabled { opacity: 0.5; cursor: not-allowed; }

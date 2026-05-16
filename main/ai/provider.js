@@ -11,16 +11,18 @@
  * provider plumbing so the keystore + IPC layer can ship first and
  * the user can verify their key from devtools before the UI exists.
  *
- * Defaults
- * --------
- * `DEFAULT_MODELS` picks the smallest tool-capable model per provider.
- * The user will override these from the settings UI later, but for the
- * "Test connection" flow we always want the cheapest possible call.
+ * Models
+ * ------
+ * `DEFAULT_MODELS` is the fallback per provider — the smallest
+ * tool-capable model that is reliably on the free/cheap tier. The user
+ * can override it per provider in Settings → AI Assistant; that
+ * override lives in `prefs` and `getModelFor()` resolves it.
  *
- *   - openai     → gpt-4o-mini      (cheap, fast, tools)
- *   - anthropic  → claude-haiku-4-5 (cheap, fast, tools)
- *   - google     → gemini-2.0-flash (cheap, fast, tools)
- *   - deepseek   → deepseek-chat    (only generally-available model)
+ *   - openai     → gpt-4o-mini    (cheap, fast, tools)
+ *   - anthropic  → claude-haiku-4-5
+ *   - google     → gemini-2.5-flash  (gemini-2.0-flash is NOT on the
+ *                  free tier — it returns HTTP 429 limit:0)
+ *   - deepseek   → deepseek-chat
  */
 
 'use strict';
@@ -33,11 +35,12 @@ const { createGoogleGenerativeAI }= require('@ai-sdk/google');
 const { createDeepSeek }          = require('@ai-sdk/deepseek');
 
 const keystore = require('./keystore');
+const prefs = require('./prefs');
 
 const DEFAULT_MODELS = Object.freeze({
   openai:    'gpt-4o-mini',
   anthropic: 'claude-haiku-4-5-20251001',
-  google:    'gemini-2.0-flash',
+  google:    'gemini-2.5-flash',
   deepseek:  'deepseek-chat',
 });
 
@@ -63,9 +66,14 @@ function getProvider(name) {
   return factory({ apiKey });
 }
 
-/** Returns the default model ID for `provider`, or `null` if unknown. */
+/** The hard-coded fallback model for `provider`, or `null` if unknown. */
 function getDefaultModel(provider) {
   return DEFAULT_MODELS[provider] || null;
+}
+
+/** The model to actually use: the user's override, else the default. */
+function getModelFor(provider) {
+  return prefs.getModel(provider) || DEFAULT_MODELS[provider] || null;
 }
 
 /**
@@ -80,9 +88,9 @@ function getDefaultModel(provider) {
  * @param {string} [modelId]
  */
 async function testConnection(providerName, modelId) {
-  const model = modelId || DEFAULT_MODELS[providerName];
+  const model = modelId || getModelFor(providerName);
   if (!model) {
-    return { ok: false, error: `No default model for "${providerName}"` };
+    return { ok: false, error: `No model configured for "${providerName}"` };
   }
   try {
     const provider = getProvider(providerName);
@@ -110,5 +118,6 @@ module.exports = {
   DEFAULT_MODELS,
   getProvider,
   getDefaultModel,
+  getModelFor,
   testConnection,
 };

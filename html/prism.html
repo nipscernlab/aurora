@@ -360,6 +360,11 @@
 
     /* não duplicamos o padrão aqui — usamos apenas ::before para o grid de bolinhas */
     background-image: none;
+
+    /* Desliga o pan/zoom default do browser nos gestos touch — o
+       handleTouch* trata tudo. Sem isso, em telas touch o browser
+       tentaria scrollar/zoomar a janela por baixo do canvas. */
+    touch-action: none;
 }
 
 /* --- camada das bolinhas (única fonte) --- */
@@ -953,6 +958,15 @@ class PRISMViewer {
         this.svgContainer.addEventListener('wheel', this.handleWheel.bind(this));
         this.svgContainer.addEventListener('mouseleave', this.handleMouseUp.bind(this));
 
+        // Touch gestures: 1 dedo = pan, 2 dedos = pinch zoom. passive:false
+        // pra poder preventDefault e nao deixar a janela scrollar/zoomar
+        // por baixo. State (this.lastTouch*) vive na instancia, limpo no
+        // touchend/cancel.
+        this.svgContainer.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.svgContainer.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.svgContainer.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        this.svgContainer.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+
         // Button events
         this.backBtn.addEventListener('click', this.navigateBack.bind(this));
         this.compileBtn.addEventListener('click', this.recompile.bind(this));
@@ -1394,8 +1408,80 @@ handleDocumentClick(e) {
             // Enhanced zoom functionality with proper centering
 handleWheel(e) {
     e.preventDefault();
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    this.zoom(zoomFactor, e.clientX, e.clientY);
+    // Padrao Figma/VSCode/Lucidchart:
+    //   Pinch no trackpad (browser seta ctrlKey=true) ou Ctrl+wheel → zoom
+    //   Qualquer outro wheel (incluindo trackpad 2-finger diagonal e mouse
+    //     wheel discreto sem ctrl) → pan.
+    // Antes a heuristica de mouse wheel checava |deltaY| >= 50 — mas
+    // pan diagonal no trackpad pode ter deltaY grande tambem, ai caia
+    // no zoom e a translacao virava so X. Pan sempre garante diagonal
+    // suave. Zoom puro fica com pinch / ctrl+wheel / botoes +/-.
+    if (e.ctrlKey) {
+        const factor = Math.exp(-e.deltaY * 0.004);
+        this.zoom(factor, e.clientX, e.clientY);
+    } else {
+        this.currentX -= e.deltaX;
+        this.currentY -= e.deltaY;
+        this.updateTransform();
+    }
+}
+
+// ---- Touch gestures: 1 dedo = pan, 2 dedos = pinch zoom ------------
+_touchDist(touches) {
+    const dx = touches[1].clientX - touches[0].clientX;
+    const dy = touches[1].clientY - touches[0].clientY;
+    return Math.hypot(dx, dy);
+}
+_touchCenter(touches) {
+    return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+}
+handleTouchStart(e) {
+    if (e.touches.length === 1) {
+        this._lastTouchPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        this._lastTouchDist = null;
+    } else if (e.touches.length === 2) {
+        this._lastTouchDist = this._touchDist(e.touches);
+        this._lastTouchPoint = this._touchCenter(e.touches);
+    }
+}
+handleTouchMove(e) {
+    if (e.touches.length === 1 && this._lastTouchPoint) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - this._lastTouchPoint.x;
+        const dy = e.touches[0].clientY - this._lastTouchPoint.y;
+        // 1-finger drag → conteudo segue o dedo (igual mouse drag).
+        this.currentX += dx;
+        this.currentY += dy;
+        this._lastTouchPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        this.updateTransform();
+    } else if (e.touches.length === 2) {
+        e.preventDefault();
+        const newDist = this._touchDist(e.touches);
+        const center = this._touchCenter(e.touches);
+        if (this._lastTouchDist && this._lastTouchPoint) {
+            // 1) Pan: delta do ponto medio entre os dois dedos. Sem isso,
+            //    mover os dois dedos juntos no mesmo sentido (factor=1)
+            //    nao mexia em nada — translacao com 2 dedos nao funcionava.
+            const dx = center.x - this._lastTouchPoint.x;
+            const dy = center.y - this._lastTouchPoint.y;
+            this.currentX += dx;
+            this.currentY += dy;
+            // 2) Pinch zoom: factor a partir da razao das distancias.
+            //    Aplicado DEPOIS do pan pra que o centro de zoom (que
+            //    usa coordenadas atuais) ja inclua a translacao recente.
+            const factor = newDist / this._lastTouchDist;
+            this.zoom(factor, center.x, center.y);
+        }
+        this._lastTouchDist = newDist;
+        this._lastTouchPoint = center;
+    }
+}
+handleTouchEnd() {
+    this._lastTouchPoint = null;
+    this._lastTouchDist = null;
 }
 
 zoom(factor, centerX = null, centerY = null) {

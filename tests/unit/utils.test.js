@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { debounce, getMimeType, filterGtkWaveOutput } from '../main/utils.js';
+import { debounce, getMimeType, filterGtkWaveOutput } from '../../main/utils.js';
 
 describe('debounce', () => {
   beforeEach(() => {

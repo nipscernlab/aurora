@@ -115,7 +115,20 @@
             "shortcutsHint":           "Clique em um atalho para gravar uma nova combinação. Pressione Esc para cancelar.",
             "shortcutInUse":           "Este atalho já está em uso.",
             "reset":                   "Restaurar Padrões",
-            "save":                    "Salvar Alterações"
+            "save":                    "Salvar Alterações",
+            "sectionAbout":            "Sobre",
+            "aboutTagline":            "Arquitetura Escalável para Otimização de Hardware",
+            "aboutVersion":            "Versão",
+            "aboutTeam":               "Equipe",
+            "aboutDeveloper":          "Desenvolvedor",
+            "aboutDeveloperNote":      "Criador da AURORA — seu conceito original e primeira versão — e do PRISM.",
+            "aboutAdvisor":            "Orientador",
+            "aboutLinks":              "Links",
+            "aboutWebsite":            "Site do NIPSCERN",
+            "aboutProjectAurora":      "Projeto AURORA",
+            "aboutProjectSapho":       "Projeto SAPHO",
+            "aboutThanks":             "Agradecimentos",
+            "aboutThanksText":         "SAPHO & AURORA contam com o apoio de:"
         }
     },
     "shortcuts": {
@@ -494,5 +507,9 @@
             "pt": "Mensagens do compilador: Português",
             "en": "Mensagens do compilador: Inglês"
         }
+    },
+    "updates": {
+        "upToDateTitle": "Tudo atualizado",
+        "upToDateBody":  "O SAPHO foi atualizado para a versão <strong>{{version}}</strong>."
     }
 }

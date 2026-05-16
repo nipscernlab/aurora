@@ -3,177 +3,694 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Available</title>
-  <!-- Title is also rewritten by the inline locale script below -->
-
+  <title>SAPHO — Update</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* General styles for the body */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: rgba(0, 0, 0, 0.4);
+    :root {
+      --bg-0:      #060A14;
+      --bg-1:      #0C1322;
+      --bg-2:      #121C30;
+      --bg-3:      #18243C;
+      --text:      #EAF0F8;
+      --text-soft: #9AA6BC;
+      --text-dim:  #5E6A80;
+      --green:     #45E0A0;
+      --teal:      #2FD9C3;
+      --cyan:      #4FC8F0;
+      --violet:    #8E83E8;
+      --purple:    #BC8AE6;
+      --danger:    #FF6B8A;
+      --border:    rgba(142,131,232,0.16);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      background: transparent;
+      font-family: var(--font-sans);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      user-select: none; -webkit-user-select: none;
     }
 
-    /* Styles for the notification container */
-    .notification-container {
-      background-color: #fff;
-      padding: 20px;
-      width: 400px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* ====== Card ====== */
+    .window {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      border-radius: 16px; overflow: hidden;
+      background:
+        radial-gradient(ellipse 90% 50% at 50% 0%, #15233D 0%, transparent 60%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+      box-shadow:
+        0 36px 80px rgba(0,0,0,0.7),
+        inset 0 0 0 1px var(--border),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      animation: pop 320ms cubic-bezier(0.34,1.4,0.64,1) both;
+    }
+    .window.shake { animation: shake 360ms ease; }
+
+    /* ====== Topbar ====== */
+    .topbar {
+      -webkit-app-region: drag;
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px;
+      flex-shrink: 0;
+    }
+    .topbar .brand {
+      display: flex; align-items: center; gap: 9px;
+      font-weight: 700; font-size: 13px; letter-spacing: 0.10em;
+    }
+    .topbar .brand img { width: 22px; height: 22px; }
+    .topbar .brand .amp { color: var(--text-dim); font-weight: 500; }
+    .topbar .brand .aurora { color: var(--text-soft); font-weight: 600; }
+    .topbar .spacer { flex: 1; }
+
+    /* segmented EN/PT */
+    .lang {
+      -webkit-app-region: no-drag;
+      display: inline-flex; padding: 2px;
+      background: var(--bg-2); border: 1px solid var(--border);
       border-radius: 8px;
-      text-align: center;
     }
-
-    /* Header text styling */
-    .notification-header {
-      font-size: 18px;
-      color: #333;
-      font-weight: bold;
+    .lang button {
+      font-family: var(--font-sans);
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+      padding: 4px 9px; border: 0; border-radius: 6px;
+      background: transparent; color: var(--text-dim);
+      cursor: pointer; transition: all 160ms ease;
     }
-
-    /* Message text styling */
-    .notification-message {
-      margin: 10px 0 20px;
-      color: #555;
+    .lang button.active {
+      background: linear-gradient(135deg, var(--teal), var(--cyan));
+      color: #04121C;
     }
-
-    /* Alert section styling */
-    .notification-alert {
-      border-top: 3px solid #ff5555;
-      padding-top: 10px;
-      margin-bottom: 15px;
-      color: #333;
+    .close {
+      -webkit-app-region: no-drag;
+      width: 26px; height: 26px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text-soft);
+      cursor: pointer; transition: all 160ms ease;
     }
+    .close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .close.locked { opacity: 0.35; pointer-events: none; }
+    .close svg { width: 13px; height: 13px; }
 
-    /* Button container styling */
-    .notification-buttons {
-      display: flex;
-      justify-content: space-around;
+    /* ====== Body ====== */
+    .body {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+      padding: 8px 22px 22px;
     }
+    .state { display: none; flex: 1; min-height: 0; flex-direction: column; }
+    .state.active { display: flex; animation: fade 280ms ease both; }
 
-    /* Button styling */
-    .notification-buttons button {
-      padding: 8px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      background-color: #007bff;
-      color: #fff;
+    /* ---- hero (icon + headline + versions) ---- */
+    .hero { text-align: center; flex-shrink: 0; padding: 6px 0 14px; }
+    .hero .icon {
+      width: 72px; height: 72px; margin: 0 auto 12px;
+      filter: drop-shadow(0 0 18px rgba(79,200,240,0.4));
     }
-
-    /* Cancel button specific styling */
-    .notification-buttons button.cancel {
-      background-color: #aaa;
+    .hero h1 {
+      font-size: 19px; font-weight: 800; letter-spacing: -0.01em;
+      margin-bottom: 4px;
     }
+    .hero p { font-size: 12.5px; color: var(--text-soft); }
 
-    /* Progress bar container styling */
-    .progress-bar {
-      margin-top: 20px;
-      background-color: #e0e0e0;
-      border-radius: 4px;
-      height: 10px;
+    .vbadge {
+      display: inline-flex; align-items: center; gap: 9px;
+      margin-top: 12px; padding: 6px 14px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--font-mono); font-size: 12px;
+    }
+    .vbadge .from { color: var(--text-dim); }
+    .vbadge .arrow { color: var(--teal); }
+    .vbadge .to {
+      font-weight: 600;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .vbadge .size { color: var(--text-dim); font-size: 10.5px; }
+
+    /* ---- changelog ---- */
+    .changelog-label {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 8px; flex-shrink: 0;
+    }
+    .changelog-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .changelog {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 14px 16px;
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 12.5px; line-height: 1.62; color: var(--text-soft);
+    }
+    .changelog::-webkit-scrollbar { width: 8px; }
+    .changelog::-webkit-scrollbar-thumb {
+      background: var(--bg-3); border-radius: 4px;
+      border: 2px solid var(--bg-1);
+    }
+    .changelog h2 {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      margin: 14px 0 6px;
+    }
+    .changelog h2:first-child { margin-top: 0; }
+    .changelog h3 {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      margin: 12px 0 5px;
+    }
+    .changelog ul { list-style: none; margin: 6px 0; }
+    .changelog li { position: relative; padding-left: 16px; margin: 4px 0; }
+    .changelog li::before {
+      content: ''; position: absolute; left: 2px; top: 8px;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--green), var(--cyan));
+    }
+    .changelog p { margin: 6px 0; }
+    .changelog strong { color: var(--text); font-weight: 600; }
+    .changelog code {
+      font-family: var(--font-mono); font-size: 11px;
+      background: var(--bg-3); padding: 1px 5px; border-radius: 4px;
+      color: var(--cyan);
+    }
+    .changelog a { color: var(--cyan); text-decoration: none; }
+    .changelog hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    /* ---- actions ---- */
+    .actions {
+      display: flex; gap: 10px; margin-top: 16px; flex-shrink: 0;
+    }
+    .btn {
+      -webkit-app-region: no-drag;
+      flex: 1; padding: 12px 16px;
+      font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+      border: 1px solid var(--border); border-radius: 10px;
+      cursor: pointer; transition: all 160ms ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn svg { width: 15px; height: 15px; }
+    .btn.ghost { background: var(--bg-2); color: var(--text-soft); }
+    .btn.ghost:hover { background: var(--bg-3); color: var(--text); }
+    .btn.primary {
+      flex: 1.6;
+      background: linear-gradient(135deg, var(--green) 0%, var(--teal) 50%, var(--cyan) 100%);
+      color: #04121C; border-color: transparent;
+      box-shadow: 0 8px 22px rgba(47,217,195,0.28);
+    }
+    .btn.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn.primary:active { transform: translateY(0); }
+
+    /* ---- downloading ---- */
+    .dl { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .dl .pct {
+      font-size: 52px; font-weight: 800; text-align: center;
+      letter-spacing: -0.02em; line-height: 1;
+      background: linear-gradient(135deg, var(--green), var(--cyan), var(--violet));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-variant-numeric: tabular-nums;
+    }
+    .dl .dl-sub {
+      text-align: center; font-size: 12px; color: var(--text-soft);
+      margin: 6px 0 22px;
+    }
+    .track {
+      height: 6px;
+      background: var(--bg-2);
+      border-radius: 999px;
       overflow: hidden;
-      width: 100%;
+      border: 1px solid var(--border);
     }
-
-    /* Progress bar fill styling */
-    .progress-bar div {
+    .fill {
       height: 100%;
-      width: 0;
-      background-color: #007bff;
-      transition: width 0.3s;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; margin-top: 20px;
+    }
+    .stat {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 10px; text-align: center;
+    }
+    .stat .k {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.10em;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
+    }
+    .stat .v {
+      font-family: var(--font-mono); font-size: 12.5px;
+      color: var(--text); font-variant-numeric: tabular-nums;
     }
 
-    /* Success message styling */
-    .success-message {
-      color: green;
-      font-weight: bold;
-      margin-top: 10px;
+    /* ---- done ---- */
+    .done { flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px; }
+    .check {
+      width: 76px; height: 76px; margin-bottom: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--green), var(--teal));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 12px 30px rgba(69,224,160,0.35);
+      animation: checkpop 520ms cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .check svg { width: 38px; height: 38px; color: #04121C; }
+
+    @keyframes pop   { from { opacity: 0; transform: scale(0.95) translateY(-12px); }
+                       to   { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes fade  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes checkpop { from { opacity: 0; transform: scale(0); }
+                          to   { opacity: 1; transform: scale(1); } }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-7px); }
+      40%,80% { transform: translateX(7px); }
     }
   </style>
 </head>
 <body>
-  <!-- Notification container -->
-  <div class="notification-container">
-    <!-- Header for the notification -->
-    <div class="notification-header" id="t-header">Update Available</div>
-    <!-- Alert message for the user -->
-    <div class="notification-alert" id="t-alert">New version available. Do you want to download it now?</div>
-    <!-- Buttons for user response -->
-    <div class="notification-buttons">
-      <button id="t-yes" onclick="handleUserResponse(true)">Yes</button>
-      <button id="t-no" class="cancel" onclick="handleUserResponse(false)">No</button>
+  <div class="window" id="window">
+
+    <!-- ====== Topbar ====== -->
+    <div class="topbar">
+      <div class="brand">
+        <img src="../assets/icons/sapho_aurora_icon.svg" alt="">
+        <span>SAPHO</span>
+        <span class="amp">&amp;</span>
+        <span class="aurora">AURORA</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="lang">
+        <button id="lang-en" data-lang="en">EN</button>
+        <button id="lang-pt" data-lang="pt">PT</button>
+      </div>
+      <div class="close" id="close" title="Later">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </div>
     </div>
-    <!-- Progress section, initially hidden -->
-    <div id="progress-section" style="display: none;">
-      <div class="notification-message" id="t-downloading">Downloading update...</div>
-      <div class="progress-bar"><div id="progress-bar-fill"></div></div>
-    </div>
-    <!-- Success message, initially hidden -->
-    <div id="success-message" class="success-message" style="display: none;">
-      <span id="t-success">Update downloaded successfully. Restart to install.</span>
-    </div>
-    <!-- Buttons for restarting or postponing, initially hidden -->
-    <div class="notification-buttons" id="reload-section" style="display: none;">
-      <button id="t-restart" onclick="handleInstall()">Restart Now</button>
-      <button id="t-later" class="cancel" onclick="closeNotification()">Later</button>
+
+    <div class="body">
+
+      <!-- ============ STATE: AVAILABLE ============ -->
+      <div class="state active" id="state-available">
+        <div class="hero">
+          <img class="icon" src="../assets/icons/sapho_aurora_icon.svg" alt="">
+          <h1 id="t-av-title">A new version is available</h1>
+          <p id="t-av-sub">See what's new before you update</p>
+          <div class="vbadge">
+            <span class="from" id="v-from">v0.0.0</span>
+            <span class="arrow">→</span>
+            <span class="to" id="v-to">v0.0.0</span>
+            <span class="size" id="v-size"></span>
+          </div>
+        </div>
+
+        <div class="changelog-label" id="t-whatsnew">What's new</div>
+        <div class="changelog" id="changelog"></div>
+
+        <div class="actions">
+          <button class="btn ghost" id="btn-later">
+            <span id="t-later">Later</span>
+          </button>
+          <button class="btn primary" id="btn-download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+            <span id="t-download">Download &amp; Install</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ STATE: DOWNLOADING ============ -->
+      <div class="state" id="state-downloading">
+        <div class="hero" style="padding-bottom:8px">
+          <img class="icon" src="../assets/icons/sapho_aurora_icon.svg" alt="">
+          <h1 id="t-dl-title">Downloading update</h1>
+          <p id="t-dl-sub">Please keep this window open</p>
+        </div>
+        <div class="dl">
+          <div class="pct" id="dl-pct">0%</div>
+          <div class="dl-sub" id="dl-version">v0.0.0</div>
+          <div class="track"><div class="fill" id="dl-fill"></div></div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k" id="t-st-downloaded">Downloaded</div>
+              <div class="v" id="dl-transferred">0 / 0 MB</div>
+            </div>
+            <div class="stat">
+              <div class="k" id="t-st-speed">Speed</div>
+              <div class="v" id="dl-speed">0 MB/s</div>
+            </div>
+            <div class="stat">
+              <div class="k" id="t-st-eta">Time left</div>
+              <div class="v" id="dl-eta">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ STATE: DOWNLOADED ============ -->
+      <div class="state" id="state-done">
+        <div class="done">
+          <div class="check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h1 id="t-dn-title" style="font-size:19px;font-weight:800">Update ready to install</h1>
+          <p id="t-dn-sub" style="font-size:12.5px;color:var(--text-soft);text-align:center;max-width:340px">
+            SAPHO will restart and reopen on the new version.
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="btn-later2">
+            <span id="t-later2">Install later</span>
+          </button>
+          <button class="btn primary" id="btn-install">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
+            <span id="t-install">Restart &amp; Install</span>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
+
   <script>
-    // Locale-aware copy (independent window — no access to the main
-    // i18n layer). Same pattern as splash.html: tiny inline string
-    // table, reads `aurora-locale` from localStorage directly.
-    (function () {
-      const STRINGS = {
-        en: {
-          title:       'Update Available',
-          alert:       'New version available. Do you want to download it now?',
-          yes:         'Yes',
-          no:          'No',
-          downloading: 'Downloading update...',
-          success:     'Update downloaded successfully. Restart to install.',
-          restart:     'Restart Now',
-          later:       'Later',
-        },
-        pt: {
-          title:       'Atualização Disponível',
-          alert:       'Nova versão disponível. Deseja baixar agora?',
-          yes:         'Sim',
-          no:          'Não',
-          downloading: 'Baixando atualização...',
-          success:     'Atualização baixada com sucesso. Reinicie para instalar.',
-          restart:     'Reiniciar Agora',
-          later:       'Depois',
-        },
-      };
-      const locale = (() => {
-        try {
-          const v = localStorage.getItem('aurora-locale');
-          if (v === 'en' || v === 'pt') return v;
-          const legacy = localStorage.getItem('aurora-yanc-lang');
-          if (legacy === 'en' || legacy === 'pt') return legacy;
-        } catch (_) {}
-        return 'pt';
-      })();
-      const T = STRINGS[locale] || STRINGS.pt;
-      document.title = T.title;
-      document.getElementById('t-header').textContent      = T.title;
-      document.getElementById('t-alert').textContent       = T.alert;
-      document.getElementById('t-yes').textContent         = T.yes;
-      document.getElementById('t-no').textContent          = T.no;
-      document.getElementById('t-downloading').textContent = T.downloading;
-      document.getElementById('t-success').textContent     = T.success;
-      document.getElementById('t-restart').textContent     = T.restart;
-      document.getElementById('t-later').textContent       = T.later;
+    // ============================================================
+    //  i18n da janela (independente do i18n principal)
+    // ============================================================
+    const UI = {
+      en: {
+        avTitle: 'A new version is available',
+        avSub: "See what's new before you update",
+        whatsNew: "What's new",
+        later: 'Later', download: 'Download & Install',
+        dlTitle: 'Downloading update', dlSub: 'Please keep this window open',
+        stDownloaded: 'Downloaded', stSpeed: 'Speed', stEta: 'Time left',
+        dnTitle: 'Update ready to install',
+        dnSub: 'SAPHO will restart and reopen on the new version.',
+        later2: 'Install later', install: 'Restart & Install',
+        calc: 'Calculating…', noNotes: 'No release notes provided for this version.',
+        secs: (s) => `${s}s`, mins: (m) => `${m} min`,
+      },
+      pt: {
+        avTitle: 'Uma nova versão está disponível',
+        avSub: 'Veja as novidades antes de atualizar',
+        whatsNew: 'Novidades',
+        later: 'Depois', download: 'Baixar e Instalar',
+        dlTitle: 'Baixando atualização', dlSub: 'Mantenha esta janela aberta',
+        stDownloaded: 'Baixado', stSpeed: 'Velocidade', stEta: 'Tempo restante',
+        dnTitle: 'Atualização pronta para instalar',
+        dnSub: 'O SAPHO será reiniciado e reaberto na nova versão.',
+        later2: 'Instalar depois', install: 'Reiniciar e Instalar',
+        calc: 'Calculando…', noNotes: 'Nenhuma nota de versão informada para esta versão.',
+        secs: (s) => `${s}s`, mins: (m) => `${m} min`,
+      },
+    };
+
+    let locale = (() => {
+      try {
+        const v = localStorage.getItem('aurora-locale');
+        if (v === 'en' || v === 'pt') return v;
+        const legacy = localStorage.getItem('aurora-yanc-lang');
+        if (legacy === 'en' || legacy === 'pt') return legacy;
+      } catch (_) {}
+      return 'pt';
     })();
+
+    // payload do update guardado para re-render ao trocar idioma
+    let payload = null;
+
+    // ============================================================
+    //  Renderer das release notes.
+    //
+    //  Suporta dois formatos, porque o conteúdo chega em dois caminhos
+    //  diferentes do mesmo updater:
+    //    - HTML — electron-updater (GitHub provider) lê o atom feed de
+    //      releases, cujo `<content type="html">` já vem renderizado.
+    //      Sem este caminho, as tags `<h2>`, `<ul>`, ... aparecem
+    //      escapadas no painel (foi o bug que motivou a reescrita).
+    //    - Markdown — fallback `fetchReleaseNotes()` em main/updater.js,
+    //      que bate na API REST do GitHub e devolve `body` cru.
+    // ============================================================
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function inline(s) {
+      return escapeHtml(s)
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    }
+    function mdToHtml(md) {
+      const lines = String(md || '').replace(/\r/g, '').split('\n');
+      let html = '', inList = false;
+      const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+      for (let raw of lines) {
+        const line = raw.trim();
+        if (!line) { closeList(); continue; }
+        if (/^#{1,6}\s/.test(line)) {
+          closeList();
+          const level = line.match(/^#+/)[0].length;
+          const txt = line.replace(/^#+\s/, '');
+          html += level <= 2 ? `<h2>${inline(txt)}</h2>` : `<h3>${inline(txt)}</h3>`;
+        } else if (/^[-*]\s+/.test(line)) {
+          if (!inList) { html += '<ul>'; inList = true; }
+          html += `<li>${inline(line.replace(/^[-*]\s+/, ''))}</li>`;
+        } else if (/^(-{3,}|_{3,}|\*{3,})$/.test(line)) {
+          closeList(); html += '<hr>';
+        } else {
+          closeList(); html += `<p>${inline(line)}</p>`;
+        }
+      }
+      closeList();
+      return html;
+    }
+
+    // Heurística: presença de uma tag de bloco real (`<p>`, `<h2>`, `<ul>` ...)
+    // indica HTML — markdown não as produz literalmente. Tags inline como
+    // `<br>` ou `<a>` ficam de fora propositalmente para não classificar
+    // markdown com HTML embutido pontual como "HTML puro".
+    function looksLikeHtml(s) {
+      return /<(h[1-6]|ul|ol|li|p|pre|blockquote|div)[\s>]/i.test(s);
+    }
+
+    // Allowlist de tags que o CSS da janela estiliza. Tudo fora disso é
+    // desempacotado (mantém o texto, descarta o invólucro) — assim
+    // `<svg>`, `<img>`, anchors decorativos do GitHub e afins somem sem
+    // deixar buracos. Atributos são removidos por padrão; só href em <a>
+    // sobrevive, e ainda restrita a http/https.
+    const ALLOWED_TAGS = {
+      H1: 'h2', H2: 'h2', H3: 'h3', H4: 'h3', H5: 'h3', H6: 'h3',
+      UL: 'ul', OL: 'ul', LI: 'li',
+      P: 'p', PRE: 'p', BLOCKQUOTE: 'p',
+      STRONG: 'strong', B: 'strong', EM: 'em', I: 'em',
+      CODE: 'code', A: 'a', HR: 'hr', BR: 'br',
+    };
+    function cleanNode(src, out) {
+      src.childNodes.forEach((node) => {
+        if (node.nodeType === 3) {
+          out.appendChild(document.createTextNode(node.textContent));
+          return;
+        }
+        if (node.nodeType !== 1) return; // skip comments / others
+        const tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE') return;
+        const mapped = ALLOWED_TAGS[tag];
+        if (!mapped) { cleanNode(node, out); return; } // unwrap
+        const el = document.createElement(mapped);
+        if (mapped === 'a') {
+          const href = node.getAttribute('href') || '';
+          if (/^https?:\/\//i.test(href)) el.setAttribute('href', href);
+        }
+        cleanNode(node, el);
+        out.appendChild(el);
+      });
+    }
+    function htmlToSafe(html) {
+      // <template> parses sem executar scripts e sem disparar
+      // requisições de recurso — o que torna o passo de saneamento
+      // posterior puramente "DOM walk", sem side-effects.
+      const tpl = document.createElement('template');
+      tpl.innerHTML = String(html || '');
+      const box = document.createElement('div');
+      cleanNode(tpl.content, box);
+      return box.innerHTML;
+    }
+
+    function renderNotes(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return '';
+      return looksLikeHtml(text) ? htmlToSafe(text) : mdToHtml(text);
+    }
+
+    // ============================================================
+    //  Separa as notas bilíngues. Convenções suportadas, em ordem:
+    //   1. marcadores  <!-- EN -->  …  <!-- PT -->
+    //   2. cabeçalhos  ## English / ## Português (com ou sem emoji)
+    //  Sem nenhuma das duas → mesmas notas para ambos os idiomas.
+    // ============================================================
+    function splitLangs(body) {
+      const text = String(body || '').trim();
+      if (!text) return { en: '', pt: '' };
+
+      const enM = text.match(/<!--\s*EN\s*-->/i);
+      const ptM = text.match(/<!--\s*PT\s*-->/i);
+      if (enM && ptM) {
+        const enStart = enM.index + enM[0].length;
+        const ptStart = ptM.index + ptM[0].length;
+        if (enM.index < ptM.index) {
+          return {
+            en: text.slice(enStart, ptM.index).trim(),
+            pt: text.slice(ptStart).trim(),
+          };
+        }
+        return {
+          pt: text.slice(ptStart, enM.index).trim(),
+          en: text.slice(enStart).trim(),
+        };
+      }
+
+      // cabeçalhos de idioma
+      const lines = text.split('\n');
+      let enIdx = -1, ptIdx = -1;
+      lines.forEach((l, i) => {
+        if (/^#{1,6}\s/.test(l.trim())) {
+          if (enIdx < 0 && /english/i.test(l)) enIdx = i;
+          if (ptIdx < 0 && /portugu/i.test(l)) ptIdx = i;
+        }
+      });
+      if (enIdx >= 0 && ptIdx >= 0) {
+        const a = Math.min(enIdx, ptIdx), b = Math.max(enIdx, ptIdx);
+        const first = lines.slice(a + 1, b).join('\n').trim();
+        const second = lines.slice(b + 1).join('\n').trim();
+        return enIdx < ptIdx ? { en: first, pt: second } : { pt: first, en: second };
+      }
+
+      return { en: text, pt: text };
+    }
+
+    // ============================================================
+    //  Render
+    // ============================================================
+    const $ = (id) => document.getElementById(id);
+
+    function applyLocale() {
+      const T = UI[locale];
+      document.documentElement.lang = locale;
+      $('t-av-title').textContent     = T.avTitle;
+      $('t-av-sub').textContent       = T.avSub;
+      $('t-whatsnew').firstChild.textContent = T.whatsNew + ' ';
+      $('t-later').textContent        = T.later;
+      $('t-download').textContent     = T.download;
+      $('t-dl-title').textContent     = T.dlTitle;
+      $('t-dl-sub').textContent       = T.dlSub;
+      $('t-st-downloaded').textContent= T.stDownloaded;
+      $('t-st-speed').textContent     = T.stSpeed;
+      $('t-st-eta').textContent       = T.stEta;
+      $('t-dn-title').textContent     = T.dnTitle;
+      $('t-dn-sub').textContent       = T.dnSub;
+      $('t-later2').textContent       = T.later2;
+      $('t-install').textContent      = T.install;
+      $('lang-en').classList.toggle('active', locale === 'en');
+      $('lang-pt').classList.toggle('active', locale === 'pt');
+      renderChangelog();
+    }
+
+    function renderChangelog() {
+      if (!payload) return;
+      const langs = splitLangs(payload.releaseNotes);
+      const notes = langs[locale] || langs.en || langs.pt;
+      $('changelog').innerHTML = notes
+        ? renderNotes(notes)
+        : `<p style="color:var(--text-dim)">${UI[locale].noNotes}</p>`;
+      $('changelog').scrollTop = 0;
+    }
+
+    function showState(name) {
+      ['available', 'downloading', 'done'].forEach((s) => {
+        $('state-' + s).classList.toggle('active', s === name);
+      });
+      // trava o X durante o download
+      $('close').classList.toggle('locked', name === 'downloading');
+    }
+
+    function fmtEta(sec) {
+      const T = UI[locale];
+      if (sec == null || !isFinite(sec) || sec <= 0) return T.calc;
+      if (sec < 60) return T.secs(Math.ceil(sec));
+      return T.mins(Math.ceil(sec / 60));
+    }
+
+    // ============================================================
+    //  IPC
+    // ============================================================
+    if (window.updateAPI) {
+      window.updateAPI.onState((data) => {
+        payload = data;
+        if (data.state === 'available') {
+          $('v-from').textContent = 'v' + data.currentVersion;
+          $('v-to').textContent   = 'v' + data.newVersion;
+          $('v-size').textContent = data.sizeMB ? `· ${data.sizeMB} MB` : '';
+          $('dl-version').textContent = 'v' + data.newVersion;
+          showState('available');
+        } else if (data.state === 'downloaded') {
+          showState('done');
+        }
+        applyLocale();
+      });
+
+      window.updateAPI.onProgress((p) => {
+        showState('downloading');
+        $('dl-pct').textContent  = Math.round(p.percent) + '%';
+        $('dl-fill').style.width = p.percent + '%';
+        $('dl-transferred').textContent = `${p.transferredMB} / ${p.totalMB} MB`;
+        $('dl-speed').textContent = `${p.speedMBs} MB/s`;
+        $('dl-eta').textContent   = fmtEta(p.etaSec);
+      });
+
+      window.updateAPI.onError((e) => {
+        $('changelog').innerHTML =
+          `<p style="color:var(--danger)"><strong>${e.message || 'Update error'}</strong></p>`;
+        showState('available');
+      });
+
+      window.updateAPI.onShake(() => {
+        const w = $('window');
+        w.classList.remove('shake');
+        void w.offsetWidth;
+        w.classList.add('shake');
+      });
+    }
+
+    // ============================================================
+    //  Eventos de UI
+    // ============================================================
+    $('lang-en').onclick = () => { locale = 'en'; persistLocale(); applyLocale(); };
+    $('lang-pt').onclick = () => { locale = 'pt'; persistLocale(); applyLocale(); };
+    function persistLocale() {
+      try { localStorage.setItem('aurora-locale', locale); } catch (_) {}
+    }
+
+    $('btn-download').onclick = () => { window.updateAPI?.download(); showState('downloading'); };
+    $('btn-install').onclick  = () => window.updateAPI?.install();
+    $('btn-later').onclick    = () => window.updateAPI?.dismiss();
+    $('btn-later2').onclick   = () => window.updateAPI?.dismiss();
+    $('close').onclick        = () => window.updateAPI?.dismiss();
+
+    applyLocale();
   </script>
-  <!-- External JavaScript file -->
-  <script src="../js/app/renderer.js"></script>
 </body>
 </html>

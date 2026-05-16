@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parseVcdScopes,
     parseVcdHeaderFromContent,
-} from '../js/wave/vcd_parser.js';
+} from '../../js/wave/vcd_parser.js';
 
 describe('parseVcdScopes', () => {
     it('returns flat scope list with paths from root', () => {
@@ -149,7 +149,7 @@ describe('parseVcdHeaderFromContent', () => {
 
 describe('parseVcdScopes — VCD identifier `[` no $var', () => {
     it('nao colapsa scopes quando ID do signal e `[`', async () => {
-        const { parseVcdScopes } = await import('../js/wave/vcd_parser.js');
+        const { parseVcdScopes } = await import('../../js/wave/vcd_parser.js');
         // Iverilog usa ASCII printable (`!`..`~`) como IDs. `[` e `]`
         // sao validos. Bug antigo: regex `\[[^\]]+\]` capturava do
         // `[` (ID) ate o proximo `]` no file todo, comendo $scope/

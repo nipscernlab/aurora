@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // (writeChainByKey) sobrevive entre testes mas cada teste usa
 // (projectPath, tbKey) distintos (ou await todas as promises antes da
 // proxima assertion) — sem risco de cross-test interference.
-import { WaveStore } from '../js/wave/wave_state_store.js';
+import { WaveStore } from '../../js/wave/wave_state_store.js';
 
 /**
  * In-memory fake do window.electronAPI usado pelo WaveStore. Cobre so

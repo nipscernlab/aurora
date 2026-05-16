@@ -3,8 +3,8 @@ import {
     detectProcessors,
     buildAuroraGtkw,
     buildSignedSet,
-} from '../js/wave/gtkw_proc_writer.js';
-import { parseVerilogModules } from '../js/wave/signal_parser.js';
+} from '../../js/wave/gtkw_proc_writer.js';
+import { parseVerilogModules } from '../../js/wave/signal_parser.js';
 
 /**
  * Scope shape esperado pelos helpers — espelha o que o vcd_parser
@@ -286,7 +286,7 @@ describe('buildAuroraGtkw', () => {
 
 describe('detectProcessors with scopeModules', () => {
     it('procType vem do moduleType resolvido (nome que bate com Temp/<proc>/)', async () => {
-        const { resolveScopeModules } = await import('../js/wave/gtkw_proc_writer.js');
+        const { resolveScopeModules } = await import('../../js/wave/gtkw_proc_writer.js');
         const { modules } = parseVerilogModules([{
             path: 'p.v',
             content: `
@@ -324,7 +324,7 @@ describe('detectProcessors with scopeModules', () => {
         // se procType estivesse null. Resultado: corePath ficava em
         // DTWv4_inst (instancePath), e o emitFlagsSection nao achava
         // sp/isp/ula que so existem em DTWv4_inst.p_ProcDTW.core.
-        const { resolveScopeModules } = await import('../js/wave/gtkw_proc_writer.js');
+        const { resolveScopeModules } = await import('../../js/wave/gtkw_proc_writer.js');
         const { modules } = parseVerilogModules([{
             path: 'p.v',
             content: `

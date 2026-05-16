@@ -15,7 +15,7 @@
  * @typedef {object} AppState
  * @property {BrowserWindow | null} mainWindow
  * @property {BrowserWindow | null} splashWindow
- * @property {BrowserWindow | null} progressWindow
+ * @property {BrowserWindow | null} updateWindow
  * @property {BrowserWindow | null} prismWindow
  * @property {boolean} isQuitting
  * @property {boolean} downloadInProgress
@@ -39,7 +39,7 @@ const state = {
   // Windows
   mainWindow: null,
   splashWindow: null,
-  progressWindow: null,
+  updateWindow: null,
   prismWindow: null,
 
   // Updater

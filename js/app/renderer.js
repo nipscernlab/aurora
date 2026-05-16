@@ -120,6 +120,34 @@ window.onload = () => {
     if (aiBtn) {
         aiBtn.addEventListener('click', () => aiAssistantManager.toggle());
     }
+
+    // Tell the splash screen the renderer finished booting so it can
+    // fill its real-progress bar to 100% and hand off to this window.
+    // Two rAFs = wait for Monaco's first layout/paint before signalling.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.electronAPI?.splashNotifyReady?.();
+    }));
+
+    // Post-update confirmation toast — main/updater.js persists the
+    // running version to userData; a mismatch on the next launch means
+    // SAPHO just installed an update. The handler is one-shot in main
+    // (clears the flag after first read), so subsequent windows don't
+    // re-toast. Delay the toast until after the splash → main handoff
+    // (~1s splash fill + 1s reveal) so it doesn't compete with the
+    // window appear animation.
+    window.electronAPI?.getPostUpdateStatus?.().then((status) => {
+        if (!status || !status.justUpdated) return;
+        setTimeout(() => {
+            const version = status.currentVersion;
+            const title = window.t
+                ? window.t('updates.upToDateTitle')
+                : "You're up to date";
+            const body = window.t
+                ? window.t('updates.upToDateBody', { version })
+                : `SAPHO has been updated to version <strong>${version}</strong>.`;
+            window.showNotification?.(body, 'success', 8000, title);
+        }, 2800);
+    }).catch(() => { /* IPC failure here shouldn't break boot */ });
 };
 
 // --- Global Keyboard Shortcuts ---

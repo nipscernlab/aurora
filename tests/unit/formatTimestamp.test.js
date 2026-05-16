@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatTimestamp } from '../main/utils.js';
+import { formatTimestamp } from '../../main/utils.js';
 
 describe('formatTimestamp', () => {
   it('formats a fixed Date as YYYY-MM-DD_HH-mm-ss', () => {

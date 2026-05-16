@@ -22,7 +22,7 @@ import {
   DOWNLOAD_URL,
   TOOLCHAIN_TAG,
   TOOLCHAIN_FILENAME,
-} from '../components/Scripts/download-toolchain.js';
+} from '../../components/Scripts/download-toolchain.js';
 
 // Per-test scratch dir under the OS tmp; cleaned up after each test so
 // nothing leaks between cases or onto the dev's disk.

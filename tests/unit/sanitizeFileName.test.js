@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeFileName } from '../main/utils.js';
+import { sanitizeFileName } from '../../main/utils.js';
 
 describe('sanitizeFileName', () => {
   describe('Windows-illegal characters', () => {

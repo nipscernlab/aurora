@@ -4,347 +4,297 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SAPHO — Initializing</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-deep:        #06080F;
-      --bg-mid:         #0B0F1A;
-      --bg-soft:        #131826;
-      --text:           #E8ECF3;
-      --text-secondary: #9CA1AE;
-      --text-muted:     #6A6F7C;
-      --aurora-mint:    #5FE0B0;
-      --aurora-teal:    #4FD3C2;
-      --aurora-cyan:    #5BB8E8;
-      --aurora-violet:  #8E83E8;
-      --aurora-purple:  #B98AE0;
-      --border:         rgba(142, 131, 232, 0.12);
-      --font-sans:      'Inter', system-ui, -apple-system, sans-serif;
-      --font-mono:      'JetBrains Mono', ui-monospace, Consolas, monospace;
+      --bg-0:        #03060F;
+      --bg-1:        #061021;
+      --text:        #EAF0F8;
+      --text-soft:   #95A0B4;
+      --text-dim:    #5C6678;
+      --green:       #45E0A0;
+      --teal:        #2FD9C3;
+      --cyan:        #4FC8F0;
+      --violet:      #8E83E8;
+      --purple:      #BC8AE6;
+      --font-sans:   'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono:   'JetBrains Mono', ui-monospace, Consolas, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      width: 100vw;
-      height: 100vh;
+      width: 100vw; height: 100vh;
       overflow: hidden;
       background: transparent;
       font-family: var(--font-sans);
       color: var(--text);
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      user-select: none;
-      -webkit-user-select: none;
+      user-select: none; -webkit-user-select: none;
       cursor: default;
       -webkit-app-region: drag;
-      letter-spacing: -0.01em;
     }
 
+    /* fade-out no handoff para a janela principal */
+    body { transition: opacity 420ms ease; }
+    body.done { opacity: 0; }
+
     /* ============================================================
-       Stage — full canvas with night sky and aurora curtains
+       Stage
        ============================================================ */
     .stage {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       display: grid;
       grid-template-rows: 1fr auto;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 110%, #1A2238 0%, #0A0F1B 50%, #050810 100%);
-      border-radius: 16px;
+      border-radius: 18px;
       overflow: hidden;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 8%,  #0E2138 0%, transparent 60%),
+        radial-gradient(ellipse 80% 60% at 50% 112%, #122A44 0%, transparent 55%),
+        linear-gradient(180deg, #03060F 0%, #050B18 55%, #03060F 100%);
       box-shadow:
-        0 30px 80px rgba(0, 0, 0, 0.65),
-        inset 0 0 0 1px rgba(142, 131, 232, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        0 40px 90px rgba(0,0,0,0.7),
+        inset 0 0 0 1px rgba(142,131,232,0.10),
+        inset 0 1px 0 rgba(255,255,255,0.05);
     }
 
-    /* Stars layer */
-    .stars {
-      position: absolute;
-      inset: 0;
+    /* aurora SVG ribbons + starfield camadas de fundo */
+    .aurora-svg, #stars {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
-      opacity: 0.7;
     }
+    .aurora-svg { z-index: 0; }
+    #stars     { z-index: 1; }
 
-    /* Aurora canvas */
-    canvas#aurora {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      mix-blend-mode: screen;
-      opacity: 0.85;
-    }
-
-    /* Top vignette */
-    .stage::before {
-      content: '';
-      position: absolute;
-      inset: 0;
+    /* vinheta superior/inferior */
+    .stage::after {
+      content: ''; position: absolute; inset: 0; z-index: 2;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0, 0, 0, 0.5) 0%, transparent 60%);
-    }
-
-    /* Subtle noise overlay */
-    .stage::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      opacity: 0.5;
-      mix-blend-mode: overlay;
+        radial-gradient(ellipse 120% 55% at 50% 0%,   rgba(0,0,0,0.55) 0%, transparent 55%),
+        radial-gradient(ellipse 120% 45% at 50% 100%, rgba(0,0,0,0.45) 0%, transparent 60%);
     }
 
     /* ============================================================
-       Content
+       Conteúdo central
        ============================================================ */
     .content {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 28px;
-      padding: 48px;
+      position: relative; z-index: 3;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 22px; padding: 40px;
       text-align: center;
     }
 
-    .brand {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
-      animation: fadeUp 600ms cubic-bezier(0.19, 1, 0.22, 1) both;
-    }
-
-    .brand-mark {
-      width: 64px;
-      height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(142, 131, 232, 0.16), rgba(95, 224, 176, 0.10));
-      border: 1px solid rgba(142, 131, 232, 0.20);
-      box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    .mark {
       position: relative;
+      width: 116px; height: 116px;
+      display: flex; align-items: center; justify-content: center;
+      animation: rise 700ms cubic-bezier(0.19,1,0.22,1) both;
     }
-
-    .brand-mark img {
-      width: 38px;
-      height: 38px;
-      filter: drop-shadow(0 0 12px rgba(142, 131, 232, 0.45));
+    .mark img {
+      width: 116px; height: 116px;
+      filter:
+        drop-shadow(0 0 22px rgba(79,200,240,0.45))
+        drop-shadow(0 0 46px rgba(142,131,232,0.30));
     }
-
-    .brand-title {
-      font-size: 36px;
-      font-weight: 600;
-      letter-spacing: 0.22em;
-      line-height: 1;
-      background: linear-gradient(
-        90deg,
-        var(--aurora-mint) 0%,
-        var(--aurora-cyan) 35%,
-        var(--aurora-violet) 65%,
-        var(--aurora-purple) 100%
-      );
-      background-size: 200% 100%;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: auroraShift 6s ease-in-out infinite;
-      padding-bottom: 2px;
-    }
-
-    .brand-subtitle {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.32em;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      max-width: 360px;
-      line-height: 1.6;
-    }
-
-    .brand-pillars {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 9.5px;
-      font-weight: 500;
-      letter-spacing: 0.36em;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      margin-top: 2px;
-    }
-
-    .brand-pillars .dot {
-      width: 2px;
-      height: 2px;
+    /* halo estático atrás do ícone */
+    .mark::before {
+      content: ''; position: absolute;
+      width: 150%; height: 150%;
       border-radius: 50%;
-      background: var(--aurora-violet);
-      box-shadow: 0 0 6px rgba(142, 131, 232, 0.7);
+      background: radial-gradient(circle, rgba(79,200,240,0.20) 0%, transparent 65%);
+    }
+
+    .wordmark {
+      display: flex; align-items: baseline; justify-content: center;
+      gap: 14px;
+      animation: rise 700ms 90ms cubic-bezier(0.19,1,0.22,1) both;
+    }
+    .wordmark .sapho {
+      font-size: 52px; font-weight: 800;
+      letter-spacing: 0.14em;
+      line-height: 1;
+      background: linear-gradient(100deg,
+        var(--green) 0%, var(--teal) 28%, var(--cyan) 52%,
+        var(--violet) 78%, var(--purple) 100%);
+      background-size: 220% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shift 7s ease-in-out infinite;
+    }
+    .wordmark .amp {
+      font-size: 22px; font-weight: 600;
+      color: var(--text-dim);
+    }
+    .wordmark .aurora {
+      font-size: 26px; font-weight: 600;
+      letter-spacing: 0.30em;
+      color: var(--text-soft);
+    }
+
+    .tagline {
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.30em; text-transform: uppercase;
+      color: var(--text-dim);
+      animation: rise 700ms 180ms cubic-bezier(0.19,1,0.22,1) both;
     }
 
     /* ============================================================
-       Footer — status / progress / meta
+       Rodapé — progresso real
        ============================================================ */
     .footer {
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      padding: 0 32px 28px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      animation: fadeUp 800ms 200ms cubic-bezier(0.19, 1, 0.22, 1) both;
+      position: relative; z-index: 3;
+      padding: 0 36px 30px;
+      display: flex; flex-direction: column; gap: 11px;
+      animation: rise 700ms 260ms cubic-bezier(0.19,1,0.22,1) both;
     }
 
-    .progress {
+    .track {
       position: relative;
-      width: 100%;
-      height: 1.5px;
-      background: rgba(142, 131, 232, 0.10);
-      border-radius: 1px;
-      overflow: hidden;
+      width: 100%; height: 3px;
+      background: rgba(142,131,232,0.12);
+      border-radius: 3px; overflow: hidden;
     }
-
-    .progress-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 100%;
-      width: 38%;
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        var(--aurora-mint) 28%,
-        var(--aurora-cyan) 50%,
-        var(--aurora-violet) 72%,
-        transparent 100%
-      );
-      filter: blur(0.4px);
-      animation: progressSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    .fill {
+      position: absolute; inset: 0 auto 0 0;
+      width: 0%;
+      border-radius: 3px;
+      background: linear-gradient(90deg,
+        var(--green) 0%, var(--teal) 35%, var(--cyan) 65%, var(--violet) 100%);
+      box-shadow: 0 0 12px rgba(79,200,240,0.55);
+      transition: width 280ms cubic-bezier(0.4,0,0.2,1);
+    }
+    /* brilho que corre sobre a parte preenchida */
+    .fill::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+      transform: translateX(-100%);
+      animation: sheen 1.5s ease-in-out infinite;
     }
 
     .meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 0.04em;
-      color: var(--text-muted);
+      font-size: 10.5px; letter-spacing: 0.03em;
     }
-
-    .meta-left {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+    .meta-left { display: inline-flex; align-items: center; gap: 8px; }
+    .dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(69,224,160,0.8);
+      animation: blink 1.4s ease-in-out infinite;
     }
-
-    .status-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--aurora-mint);
-      box-shadow: 0 0 8px rgba(95, 224, 176, 0.7);
-      animation: pulseDot 1.4s ease-in-out infinite;
-    }
-
-    #status-text {
-      color: var(--text-secondary);
-      transition: opacity 200ms ease;
-      font-feature-settings: 'tnum';
-    }
-
-    .meta-right {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .meta-right .org {
-      color: var(--text-muted);
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-    }
-
-    .meta-right #version-label {
-      color: var(--text-secondary);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .meta-right .sep {
-      width: 2px;
-      height: 2px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      opacity: 0.6;
-    }
+    #phase { color: var(--text-soft); }
+    .meta-right { display: inline-flex; align-items: center; gap: 9px; color: var(--text-dim); }
+    #pct     { color: var(--text-soft); font-variant-numeric: tabular-nums; }
+    #elapsed { font-variant-numeric: tabular-nums; }
+    .sep { width: 2px; height: 2px; border-radius: 50%; background: var(--text-dim); }
+    #version { color: var(--text-dim); }
 
     /* ============================================================
-       Animations
+       Animações
        ============================================================ */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes pulseDot {
-      0%, 100% { opacity: 1;  transform: scale(1); }
-      50%      { opacity: 0.5; transform: scale(0.8); }
-    }
-
-    @keyframes auroraShift {
-      0%, 100% { background-position: 0% 50%; }
-      50%      { background-position: 100% 50%; }
-    }
-
-    @keyframes progressSweep {
-      0%   { left: -38%; }
-      100% { left: 100%; }
-    }
+    @keyframes rise   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shift  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    @keyframes blink  { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+    @keyframes sheen  { 0% { transform: translateX(-100%); } 60%,100% { transform: translateX(100%); } }
   </style>
 </head>
 <body>
   <div class="stage">
-    <svg class="stars" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
-    <canvas id="aurora"></canvas>
 
+    <!-- ====== Aurora ribbons (SVG animado, inspirado no site NIPSCERN) ====== -->
+    <svg class="aurora-svg" xmlns="http://www.w3.org/2000/svg"
+         viewBox="0 0 720 480" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="rb1" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="rgba(0,0,0,0)"/>
+          <stop offset="14%"  stop-color="rgba(69,224,160,0.55)"/>
+          <stop offset="38%"  stop-color="rgba(47,217,195,0.80)"/>
+          <stop offset="60%"  stop-color="rgba(79,200,240,0.72)"/>
+          <stop offset="82%"  stop-color="rgba(142,131,232,0.50)"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+        </linearGradient>
+        <linearGradient id="rb2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="rgba(0,0,0,0)"/>
+          <stop offset="22%"  stop-color="rgba(47,217,195,0.40)"/>
+          <stop offset="50%"  stop-color="rgba(79,200,240,0.46)"/>
+          <stop offset="76%"  stop-color="rgba(188,138,230,0.34)"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+        </linearGradient>
+        <linearGradient id="rays" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="rgba(69,224,160,0.28)"/>
+          <stop offset="100%" stop-color="rgba(79,200,240,0)"/>
+        </linearGradient>
+        <filter id="bA" x="-5%" y="-220%" width="110%" height="540%"><feGaussianBlur stdDeviation="2 7"/></filter>
+        <filter id="bB" x="-5%" y="-160%" width="110%" height="420%"><feGaussianBlur stdDeviation="5 11"/></filter>
+        <filter id="bR" x="-5%" y="-10%"  width="110%" height="130%"><feGaussianBlur stdDeviation="9 18"/></filter>
+      </defs>
+
+      <!-- raios verticais sob a fita principal -->
+      <path fill="url(#rays)" filter="url(#bR)" opacity="0.7">
+        <animate attributeName="d" dur="20s" repeatCount="indefinite"
+          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
+          values="
+            M-90,96 C120,74 240,116 360,92 C480,68 600,104 810,86 L810,250 C600,266 480,236 360,256 C240,276 120,244 -90,262 Z;
+            M-90,118 C120,98 240,138 360,114 C480,90 600,126 810,108 L810,272 C600,288 480,258 360,278 C240,298 120,266 -90,284 Z;
+            M-90,96 C120,74 240,116 360,92 C480,68 600,104 810,86 L810,250 C600,266 480,236 360,256 C240,276 120,244 -90,262 Z"/>
+      </path>
+
+      <!-- fita principal -->
+      <path fill="url(#rb1)" filter="url(#bA)" opacity="0.95">
+        <animate attributeName="d" dur="20s" repeatCount="indefinite"
+          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
+          values="
+            M-90,94 C120,72 240,114 360,90 C480,66 600,102 810,84 L810,140 C600,156 480,126 360,146 C240,166 120,134 -90,152 Z;
+            M-90,116 C120,96 240,136 360,112 C480,88 600,124 810,106 L810,162 C600,178 480,148 360,168 C240,188 120,156 -90,174 Z;
+            M-90,94 C120,72 240,114 360,90 C480,66 600,102 810,84 L810,140 C600,156 480,126 360,146 C240,166 120,134 -90,152 Z"/>
+      </path>
+
+      <!-- fita secundária, mais baixa e suave -->
+      <path fill="url(#rb2)" filter="url(#bB)" opacity="0.6">
+        <animate attributeName="d" dur="27s" repeatCount="indefinite"
+          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
+          values="
+            M-90,184 C120,168 240,196 360,176 C480,156 600,188 810,170 L810,214 C600,230 480,202 360,220 C240,238 120,214 -90,226 Z;
+            M-90,168 C120,186 240,170 360,190 C480,210 600,176 810,196 L810,200 C600,214 480,196 360,204 C240,214 120,202 -90,212 Z;
+            M-90,184 C120,168 240,196 360,176 C480,156 600,188 810,170 L810,214 C600,230 480,202 360,220 C240,238 120,214 -90,226 Z"/>
+      </path>
+    </svg>
+
+    <!-- ====== Starfield + estrelas cadentes ====== -->
+    <canvas id="stars"></canvas>
+
+    <!-- ====== Conteúdo ====== -->
     <div class="content">
-      <div class="brand">
-        <div class="brand-mark">
-          <img src="../assets/icons/sapho_aurora_icon.svg" alt="SAPHO">
-        </div>
-        <h1 class="brand-title">SAPHO</h1>
-        <p class="brand-subtitle" id="brand-subtitle">Scalable Architecture for Hardware Optimization</p>
-        <div class="brand-pillars">
-          <span>AURORA</span>
-          <span class="dot"></span>
-          <span>NIPSCERN</span>
-        </div>
+      <div class="mark">
+        <img src="../assets/icons/sapho_aurora_icon.svg" alt="SAPHO">
       </div>
+      <div class="wordmark">
+        <span class="sapho">SAPHO</span>
+        <span class="amp">&amp;</span>
+        <span class="aurora">AURORA</span>
+      </div>
+      <p class="tagline" id="tagline">Scalable Architecture for Hardware Optimization</p>
     </div>
 
+    <!-- ====== Rodapé com progresso real ====== -->
     <div class="footer">
-      <div class="progress"><div class="progress-bar"></div></div>
+      <div class="track"><div class="fill" id="fill"></div></div>
       <div class="meta">
         <div class="meta-left">
-          <span class="status-dot"></span>
-          <span id="status-text">Initializing platform</span>
+          <span class="dot"></span>
+          <span id="phase">Starting SAPHO</span>
         </div>
         <div class="meta-right">
-          <span class="org" id="org-label">NIPSCERN Lab</span>
+          <span id="pct">0%</span>
           <span class="sep"></span>
-          <span id="version-label">v0.0.0</span>
+          <span id="elapsed">0.0s</span>
+          <span class="sep"></span>
+          <span id="version">v—</span>
         </div>
       </div>
     </div>
@@ -352,130 +302,25 @@
 
   <script>
     // ============================================================
-    //  Stars layer
-    // ============================================================
-    (function generateStars() {
-      const svg = document.querySelector('.stars');
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-      svg.setAttribute('width', w);
-      svg.setAttribute('height', h);
-
-      const count = 80;
-      for (let i = 0; i < count; i++) {
-        const cx = Math.random() * w;
-        const cy = Math.random() * h * 0.65;
-        const r = Math.random() * 0.9 + 0.2;
-        const opacity = Math.random() * 0.55 + 0.15;
-        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c.setAttribute('cx', cx);
-        c.setAttribute('cy', cy);
-        c.setAttribute('r', r);
-        c.setAttribute('fill', '#E8ECF3');
-        c.setAttribute('opacity', opacity);
-        if (Math.random() > 0.85) {
-          const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
-          anim.setAttribute('attributeName', 'opacity');
-          anim.setAttribute('values', `${opacity};${opacity * 0.2};${opacity}`);
-          anim.setAttribute('dur', `${Math.random() * 4 + 3}s`);
-          anim.setAttribute('repeatCount', 'indefinite');
-          c.appendChild(anim);
-        }
-        svg.appendChild(c);
-      }
-    })();
-
-    // ============================================================
-    //  Aurora curtains canvas
-    // ============================================================
-    (function aurora() {
-      const canvas = document.getElementById('aurora');
-      const ctx = canvas.getContext('2d');
-      let W = 0, H = 0;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      function resize() {
-        W = canvas.clientWidth;
-        H = canvas.clientHeight;
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
-      resize();
-      window.addEventListener('resize', resize);
-
-      const curtains = [
-        { hue1: '#5FE0B0', hue2: '#4FD3C2', amp: 36, freq: 0.0050, speed: 0.00045, y: 0.58, height: 0.42, alpha: 0.50, phase: 0 },
-        { hue1: '#5BB8E8', hue2: '#4FD3C2', amp: 50, freq: 0.0034, speed: 0.00032, y: 0.65, height: 0.50, alpha: 0.42, phase: Math.PI * 0.6 },
-        { hue1: '#8E83E8', hue2: '#5BB8E8', amp: 58, freq: 0.0028, speed: 0.00028, y: 0.72, height: 0.48, alpha: 0.38, phase: Math.PI * 1.3 },
-        { hue1: '#B98AE0', hue2: '#8E83E8', amp: 26, freq: 0.0058, speed: 0.00052, y: 0.55, height: 0.30, alpha: 0.28, phase: Math.PI * 0.2 }
-      ];
-
-      function drawCurtain(c, t) {
-        const baseY = H * c.y;
-        const bandH = H * c.height;
-        ctx.beginPath();
-        ctx.moveTo(0, H);
-        for (let x = 0; x <= W; x += 4) {
-          const w1 = Math.sin(x * c.freq + t * c.speed + c.phase) * c.amp;
-          const w2 = Math.sin(x * c.freq * 0.4 + t * c.speed * 0.7 + c.phase) * c.amp * 0.6;
-          ctx.lineTo(x, baseY + w1 + w2);
-        }
-        ctx.lineTo(W, H);
-        ctx.closePath();
-        const grad = ctx.createLinearGradient(0, baseY - bandH, 0, baseY + 30);
-        grad.addColorStop(0, hexA(c.hue1, 0));
-        grad.addColorStop(0.45, hexA(c.hue1, c.alpha * 0.8));
-        grad.addColorStop(0.7, hexA(c.hue2, c.alpha));
-        grad.addColorStop(1, hexA(c.hue2, c.alpha * 0.15));
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-
-      function hexA(hex, a) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${a})`;
-      }
-
-      function loop(t) {
-        ctx.clearRect(0, 0, W, H);
-        ctx.globalCompositeOperation = 'lighter';
-        for (const c of curtains) drawCurtain(c, t);
-        ctx.globalCompositeOperation = 'source-over';
-        requestAnimationFrame(loop);
-      }
-      requestAnimationFrame(loop);
-    })();
-
-    // ============================================================
-    //  Locale-aware copy (splash runs before the main i18n layer
-    //  boots; reads `aurora-locale` directly and ships its own tiny
-    //  string table — keeps the splash isolated and dependency-free)
+    //  i18n local — splash roda antes do i18n principal; lê o
+    //  locale direto do localStorage e traz sua própria tabela.
     // ============================================================
     const STRINGS = {
       en: {
-        tagline:          'Scalable Architecture for Hardware Optimization',
-        phaseInit:        'Initializing platform',
-        phaseModules:     'Loading AURORA modules',
-        phaseYanc:        'Loading YANC compiler',
-        phaseWorkspace:   'Preparing workspace',
-        phaseAlmostReady: 'Almost ready',
-        org:              'NIPSCERN Lab',
+        tagline: 'Scalable Architecture for Hardware Optimization',
+        boot: 'Starting SAPHO', window: 'Creating workspace',
+        loading: 'Loading interface', dom: 'Building components',
+        resources: 'Loading resources', editor: 'Initializing editor',
+        ready: 'Ready',
       },
       pt: {
-        tagline:          'Arquitetura Escalável para Otimização de Hardware',
-        phaseInit:        'Inicializando plataforma',
-        phaseModules:     'Carregando módulos do AURORA',
-        phaseYanc:        'Carregando compilador YANC',
-        phaseWorkspace:   'Preparando workspace',
-        phaseAlmostReady: 'Quase pronto',
-        org:              'NIPSCERN Lab',
+        tagline: 'Arquitetura Escalável para Otimização de Hardware',
+        boot: 'Iniciando o SAPHO', window: 'Criando ambiente',
+        loading: 'Carregando interface', dom: 'Montando componentes',
+        resources: 'Carregando recursos', editor: 'Inicializando editor',
+        ready: 'Pronto',
       },
     };
-
     const locale = (() => {
       try {
         const v = localStorage.getItem('aurora-locale');
@@ -486,51 +331,126 @@
       return 'pt';
     })();
     const T = STRINGS[locale] || STRINGS.pt;
-
-    document.getElementById('brand-subtitle').textContent = T.tagline;
-    document.getElementById('org-label').textContent      = T.org;
+    document.getElementById('tagline').textContent = T.tagline;
 
     // ============================================================
-    //  Status messages cycle
+    //  Starfield em canvas — cintilância + estrelas cadentes
+    //  (adaptado do site institucional NIPSCERN / projects/aurora)
     // ============================================================
-    const statusText = document.getElementById('status-text');
-    const versionEl  = document.getElementById('version-label');
+    (function starfield() {
+      const canvas = document.getElementById('stars');
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let W = 0, H = 0, stars = [], shooting = null, shootIn = 2.5, last = 0;
 
-    const phases = [
-      T.phaseInit,
-      T.phaseModules,
-      T.phaseYanc,
-      T.phaseWorkspace,
-      T.phaseAlmostReady,
-    ];
-    statusText.textContent = phases[0];
-
-    let phaseIdx = 0;
-    setInterval(() => {
-      phaseIdx = (phaseIdx + 1) % phases.length;
-      statusText.style.opacity = '0';
-      setTimeout(() => {
-        statusText.textContent = phases[phaseIdx];
-        statusText.style.opacity = '1';
-      }, 180);
-    }, 1100);
-
-    (async function loadVersion() {
-      try {
-        if (window.electronAPI && window.electronAPI.getAppVersion) {
-          const v = await window.electronAPI.getAppVersion();
-          if (v) versionEl.textContent = v.startsWith('v') ? v : `v${v}`;
-          return;
+      function resize() {
+        W = canvas.clientWidth; H = canvas.clientHeight;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        stars = [];
+        const n = Math.round(W * H / 4200);
+        for (let i = 0; i < n; i++) {
+          stars.push({
+            x: Math.random() * W,
+            y: Math.random() * H * 0.78,
+            r: 0.3 + Math.random() * 1.3,
+            base: 0.12 + Math.random() * 0.55,
+            freq: 0.3 + Math.random() * 1.2,
+            phase: Math.random() * Math.PI * 2,
+          });
         }
-      } catch (_) {}
-      try {
-        const res = await fetch('../package.json');
-        const pkg = await res.json();
-        versionEl.textContent = pkg.version.startsWith('v') ? pkg.version : `v${pkg.version}`;
-      } catch (_) {
-        versionEl.textContent = 'v—';
       }
+      function newShooter() {
+        return {
+          x: Math.random() * W * 0.65,
+          y: Math.random() * H * 0.32,
+          vx: 360 + Math.random() * 220,
+          vy: 150 + Math.random() * 120,
+          life: 1, tail: [],
+        };
+      }
+      function frame(ts) {
+        const dt = Math.min((ts - last) / 1000, 0.05); last = ts;
+        ctx.clearRect(0, 0, W, H);
+        for (const s of stars) {
+          let op = s.base + 0.30 * Math.sin(ts * 0.001 * s.freq * Math.PI * 2 + s.phase);
+          op = Math.max(0.04, Math.min(1, op));
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(214,234,255,' + op.toFixed(2) + ')';
+          ctx.fill();
+        }
+        shootIn -= dt;
+        if (shootIn <= 0 && !shooting) { shooting = newShooter(); shootIn = 6 + Math.random() * 9; }
+        if (shooting) {
+          shooting.x += shooting.vx * dt;
+          shooting.y += shooting.vy * dt;
+          shooting.life -= dt * 1.15;
+          shooting.tail.push({ x: shooting.x, y: shooting.y });
+          if (shooting.tail.length > 16) shooting.tail.shift();
+          ctx.lineCap = 'round';
+          for (let j = 1; j < shooting.tail.length; j++) {
+            const p0 = shooting.tail[j - 1], p1 = shooting.tail[j];
+            const a = (j / shooting.tail.length) * Math.max(0, shooting.life) * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+            ctx.strokeStyle = 'rgba(220,242,255,' + a.toFixed(2) + ')';
+            ctx.lineWidth = 1.5 * (j / shooting.tail.length);
+            ctx.stroke();
+          }
+          if (shooting.life <= 0 || shooting.x > W + 60 || shooting.y > H + 60) shooting = null;
+        }
+        requestAnimationFrame(frame);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+      requestAnimationFrame(frame);
     })();
+
+    // ============================================================
+    //  Progresso real — alimentado por main/windows.js via IPC.
+    //  `target` é o último marco recebido; `shown` persegue o
+    //  alvo suavemente para a barra nunca travar de forma seca.
+    // ============================================================
+    const fillEl    = document.getElementById('fill');
+    const pctEl     = document.getElementById('pct');
+    const phaseEl   = document.getElementById('phase');
+    const elapsedEl = document.getElementById('elapsed');
+    const versionEl = document.getElementById('version');
+
+    const startedAt = performance.now();
+    let target = 4, shown = 0, filled = false;
+
+    (function ease() {
+      // creep suave: aproxima `shown` de `target` sem ultrapassar
+      shown += (target - shown) * 0.08;
+      if (shown > 99.5 && target >= 100) shown = 100;
+      fillEl.style.width = shown.toFixed(1) + '%';
+      pctEl.textContent  = Math.round(shown) + '%';
+      elapsedEl.textContent = ((performance.now() - startedAt) / 1000).toFixed(1) + 's';
+
+      // a barra encheu de verdade — avisa o main, que aguarda 1s e
+      // só então abre a interface principal.
+      if (!filled && shown >= 100 && target >= 100) {
+        filled = true;
+        window.splashAPI?.notifyFilled?.();
+      }
+      requestAnimationFrame(ease);
+    })();
+
+    if (window.splashAPI) {
+      window.splashAPI.onProgress(({ percent, phase }) => {
+        if (typeof percent === 'number') target = Math.max(target, percent);
+        if (phase && T[phase]) phaseEl.textContent = T[phase];
+      });
+      window.splashAPI.onComplete(() => {
+        target = 100;
+        document.body.classList.add('done');
+      });
+      window.splashAPI.getAppVersion()
+        .then((v) => { if (v) versionEl.textContent = v.startsWith('v') ? v : 'v' + v; })
+        .catch(() => {});
+    }
   </script>
 </body>
 </html>

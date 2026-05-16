@@ -78,7 +78,7 @@ export default defineConfig([
     // in beforeEach/afterEach — declare `window` so the assertions lint
     // clean. `document` is included for the same reason in case future
     // tests stub DOM apis.
-    files: ["test/**/*.{js,mjs,cjs}"],
+    files: ["tests/unit/**/*.{js,mjs,cjs}"],
     languageOptions: {
       sourceType: "module",
       globals: { ...globals.node, window: "readonly", document: "readonly" },

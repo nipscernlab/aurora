@@ -115,7 +115,20 @@
             "shortcutsHint":           "Click a shortcut to record a new key combination. Press Esc to cancel recording.",
             "shortcutInUse":           "This shortcut is already in use.",
             "reset":                   "Reset to Defaults",
-            "save":                    "Save Changes"
+            "save":                    "Save Changes",
+            "sectionAbout":            "About",
+            "aboutTagline":            "Scalable Architecture for Hardware Optimization",
+            "aboutVersion":            "Version",
+            "aboutTeam":               "Team",
+            "aboutDeveloper":          "Developer",
+            "aboutDeveloperNote":      "Creator of AURORA — its original concept and first release — and of PRISM.",
+            "aboutAdvisor":            "Advisor",
+            "aboutLinks":              "Links",
+            "aboutWebsite":            "NIPSCERN website",
+            "aboutProjectAurora":      "AURORA project",
+            "aboutProjectSapho":       "SAPHO project",
+            "aboutThanks":             "Acknowledgements",
+            "aboutThanksText":         "SAPHO & AURORA are made possible by the support of:"
         }
     },
     "shortcuts": {
@@ -494,5 +507,9 @@
             "pt": "Compiler messages: Portuguese",
             "en": "Compiler messages: English"
         }
+    },
+    "updates": {
+        "upToDateTitle": "You're up to date",
+        "upToDateBody":  "SAPHO has been updated to version <strong>{{version}}</strong>."
     }
 }

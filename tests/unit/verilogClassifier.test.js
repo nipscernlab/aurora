@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyVerilogContent } from '../js/project/verilog_classifier.js';
+import { classifyVerilogContent } from '../../js/project/verilog_classifier.js';
 
 describe('classifyVerilogContent', () => {
     it('classifies a ported RTL module as synthesizable', () => {

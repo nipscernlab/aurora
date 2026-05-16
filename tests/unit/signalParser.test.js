@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parseVerilogModules,
     buildHierarchyTree,
-} from '../js/wave/signal_parser.js';
+} from '../../js/wave/signal_parser.js';
 
 describe('parseVerilogModules', () => {
     it('extracts a flat module with ANSI ports', () => {

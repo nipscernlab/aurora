@@ -183,6 +183,11 @@ const uiOperations = {
     ipcRenderer.on('window-state', handler);
     return () => ipcRenderer.removeListener('window-state', handler);
   },
+
+  // One-shot signal fired by the renderer once Monaco + the UI have
+  // finished booting. The splash coordinator (main/windows.js) listens
+  // for it to advance the real progress bar to 100% and hand off.
+  splashNotifyReady: () => ipcRenderer.send('app:renderer-ready'),
 };
 
 /* ============================================================================
@@ -213,6 +218,12 @@ const updateOperations = {
   checkForUpdates:  () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate:   () => ipcRenderer.invoke('download-update'),
   quitAndInstall:   () => ipcRenderer.invoke('quit-and-install'),
+
+  // One-shot at renderer boot: did this launch follow a successful
+  // self-update? Main compares the persisted version to app.getVersion()
+  // and returns { justUpdated, previousVersion, currentVersion }. The
+  // renderer uses it to surface a "you're up to date" toast.
+  getPostUpdateStatus: () => ipcRenderer.invoke('updates:post-update-status'),
 };
 
 /* ============================================================================

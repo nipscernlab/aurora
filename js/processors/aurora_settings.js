@@ -304,6 +304,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Inicialização ----
     loadSettings();
 
+    // ---- About pane wiring ----
+    //
+    // Version badge: filled once on DOMContentLoaded so the value is in
+    // place even before the user opens the modal, avoiding a flash of
+    // the em-dash placeholder. The string from package.json may or may
+    // not carry the leading "v", so we normalise it.
+    const aboutVersion = document.getElementById('about-version');
+    if (aboutVersion && window.electronAPI?.getAppVersion) {
+        window.electronAPI.getAppVersion()
+            .then((v) => {
+                if (v) aboutVersion.textContent = 'v' + String(v).replace(/^v/i, '');
+            })
+            .catch(() => { /* keep the placeholder */ });
+    }
+
+    // External links: a plain <a href> would navigate this renderer
+    // window (Electron treats it as a navigation, not a "open in browser"
+    // intent). Each .about-link stores its destination in data-href and
+    // delegates to openExternal so the link lands in the user's browser.
+    modalOverlay.querySelectorAll('.about-link[data-href]').forEach((a) => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            const href = a.getAttribute('data-href');
+            if (href) window.electronAPI?.openExternal?.(href);
+        });
+    });
+
     // Expose a programmatic API to change tooltips from other modules if needed
     window.auroraSettings = window.auroraSettings || {};
     window.auroraSettings.updateTooltipsState = updateTooltipsState;

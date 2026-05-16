@@ -6,7 +6,7 @@
 
 import path from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { safePath } from '../main/utils.js';
+import { safePath } from '../../main/utils.js';
 
 describe('safePath', () => {
   describe('rejects non-strings', () => {

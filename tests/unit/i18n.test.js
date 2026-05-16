@@ -13,7 +13,7 @@ import {
     interpolate,
     _setTranslations,
     _setLocaleSync,
-} from '../js/i18n/i18n.js';
+} from '../../js/i18n/i18n.js';
 
 beforeEach(() => {
     _setTranslations('en', {

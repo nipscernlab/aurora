@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateSelection } from '../js/wave/selection_validator.js';
+import { validateSelection } from '../../js/wave/selection_validator.js';
 
 const sampleTree = {
     name: 'tb_counter',

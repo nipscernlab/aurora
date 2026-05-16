@@ -8,7 +8,7 @@
 
 const path = require('path');
 const fs = require('fs').promises;
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const log = require('electron-log');
 const state = require('./state');
 const { componentsPath } = require('./paths');
@@ -107,7 +107,14 @@ function rebuildJumpList() {
   }
 }
 
-function createMainWindow() {
+/**
+ * @param {{ deferShow?: boolean }} [opts] When `deferShow` is true the
+ *   window stays hidden after `ready-to-show` — the splash coordinator
+ *   owns the maximize/show handoff. Second-instance windows (no splash)
+ *   pass nothing and show themselves.
+ */
+function createMainWindow(opts = {}) {
+  const { deferShow = false } = opts;
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -201,8 +208,13 @@ function createMainWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
-    mainWindow.show();
+    // Under the splash flow the coordinator owns the maximize/show
+    // handoff (so the splash can fade out cleanly first). Standalone
+    // windows show themselves.
+    if (!deferShow) {
+      mainWindow.maximize();
+      mainWindow.show();
+    }
     setTimeout(() => {
       const updater = require('./updater');
       updater.initializeUpdateSystem();
@@ -212,12 +224,25 @@ function createMainWindow() {
   return mainWindow;
 }
 
+/**
+ * Splash with *real* progress: the bar advances as the main window
+ * crosses genuine boot milestones (window created → dom-ready →
+ * resources loaded → renderer ready), not on a fixed timer.
+ *
+ * Flow:
+ *   1. splash loads → create main window hidden (`deferShow`)
+ *   2. main window's webContents events drive `splash:progress`
+ *   3. renderer signals `app:renderer-ready` once Monaco/UI booted
+ *   4. coordinator fades the splash, then shows the main window
+ *
+ * A 15s safety cap forces the handoff if some milestone never fires.
+ */
 function createSplashScreen() {
   const splashWindow = new BrowserWindow({
-    width: 560,
-    height: 440,
-    minWidth: 560,
-    minHeight: 440,
+    width: 720,
+    height: 480,
+    minWidth: 720,
+    minHeight: 480,
     resizable: false,
     icon: path.join(app.getAppPath(), 'assets/icons/sapho_aurora_icon.ico'),
     frame: false,
@@ -228,68 +253,151 @@ function createSplashScreen() {
     center: true,
     webPreferences: {
       contextIsolation: true,
-      preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
+      preload: path.join(app.getAppPath(), 'js', 'app', 'preload_splash.js'),
     },
   });
   state.splashWindow = splashWindow;
 
-  splashWindow.loadFile(path.join(app.getAppPath(), 'html', 'splash.html'));
-  setTimeout(() => {
-    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
-    createMainWindow();
-  }, 2200);
+  /** @type {BrowserWindow | null} */
+  let mainWindow = null;
+  let handedOff = false;
 
+  /** @param {number} percent @param {string} phase */
+  const progress = (percent, phase) => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.webContents.send('splash:progress', { percent, phase });
+    }
+  };
+
+  let revealed = false;
+
+  /**
+   * Reveal the main window and dismiss the splash. `graceful` plays the
+   * splash fade-out first; the safety-net path skips it.
+   * @param {boolean} graceful
+   */
+  const reveal = (graceful) => {
+    if (revealed) return;
+    revealed = true;
+    if (graceful && splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.webContents.send('splash:complete');
+    }
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.maximize();
+        mainWindow.show();
+      }
+      setTimeout(() => {
+        if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+        state.splashWindow = null;
+      }, 200);
+    }, graceful ? 440 : 0);
+  };
+
+  // `handoff` only drives the bar to 100% — the main window must NOT
+  // appear until the splash bar has *visually* filled. The splash
+  // reports back via `splash:filled`; only then do we wait 1s and reveal.
+  const handoff = () => {
+    if (handedOff) return;
+    handedOff = true;
+    progress(100, 'ready');
+  };
+
+  ipcMain.once('splash:filled', () => {
+    setTimeout(() => reveal(true), 1000);
+  });
+
+  // Renderer reports it finished booting (Monaco + UI). `.once` so a
+  // later second-instance window's signal can't re-trigger the handoff.
+  ipcMain.once('app:renderer-ready', () => {
+    progress(96, 'editor');
+    handoff();
+  });
+
+  splashWindow.webContents.once('did-finish-load', () => {
+    progress(10, 'boot');
+
+    mainWindow = createMainWindow({ deferShow: true });
+    progress(24, 'window');
+    progress(36, 'loading'); // loadFile already kicked off inside the factory
+
+    const wc = mainWindow.webContents;
+    wc.once('dom-ready',       () => progress(56, 'dom'));
+    wc.once('did-finish-load', () => progress(80, 'resources'));
+    mainWindow.once('ready-to-show', () => {
+      progress(90, 'editor');
+      // Give the renderer a moment to fire `app:renderer-ready`; if it
+      // doesn't (e.g. an early script error), hand off anyway.
+      setTimeout(handoff, 2200);
+    });
+  });
+
+  // Absolute safety net — if a milestone or the splash's `splash:filled`
+  // signal never fires, force the reveal so the user is never stuck.
+  setTimeout(() => {
+    handoff();
+    reveal(false);
+  }, 15000);
+
+  splashWindow.loadFile(path.join(app.getAppPath(), 'html', 'splash.html'));
   return splashWindow;
 }
 
-function createProgressWindow() {
-  if (state.progressWindow) {
-    state.progressWindow.close();
-    state.progressWindow = null;
+/**
+ * The single update window. It carries the whole flow through three
+ * states — "available" (changelog + download choice), "downloading"
+ * (real progress bar), "downloaded" (restart-to-install) — driven by
+ * main/updater.js over IPC. Replaces the old separate progress window.
+ */
+function createUpdateWindow() {
+  if (state.updateWindow && !state.updateWindow.isDestroyed()) {
+    state.updateWindow.focus();
+    return state.updateWindow;
   }
 
-  const progressWindow = new BrowserWindow({
-    width: 500,
-    height: 400,
+  const updateWindow = new BrowserWindow({
+    width: 540,
+    height: 660,
+    resizable: false,
     frame: false,
     transparent: true,
-    resizable: false,
-    movable: true,
     alwaysOnTop: true,
+    skipTaskbar: false,
+    backgroundColor: '#00000000',
     center: true,
     show: false,
+    icon: path.join(app.getAppPath(), 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
+      preload: path.join(app.getAppPath(), 'js', 'app', 'preload_update.js'),
     },
   });
-  state.progressWindow = progressWindow;
+  state.updateWindow = updateWindow;
 
-  progressWindow.loadFile(path.join(app.getAppPath(), 'html', 'progress.html'));
+  updateWindow.loadFile(path.join(app.getAppPath(), 'html', 'update-notification.html'));
 
-  progressWindow.once('ready-to-show', () => {
-    progressWindow.show();
-    progressWindow.focus();
+  updateWindow.once('ready-to-show', () => {
+    updateWindow.show();
+    updateWindow.focus();
   });
 
-  progressWindow.on('closed', () => {
-    state.progressWindow = null;
+  updateWindow.on('closed', () => {
+    state.updateWindow = null;
   });
 
-  progressWindow.on('close', (event) => {
+  // While a download is running the window must not be dismissed —
+  // closing it would orphan the in-flight autoUpdater download.
+  updateWindow.on('close', (event) => {
     if (state.downloadInProgress) {
       event.preventDefault();
-      dialog.showMessageBox(progressWindow, {
-        type: 'warning',
-        title: 'Download in Progress',
-        message: 'Please wait for the update download to complete.',
-        buttons: ['OK'],
-      });
+      if (!updateWindow.isDestroyed()) {
+        updateWindow.webContents.send('update:shake');
+      }
     }
   });
 
-  return progressWindow;
+  return updateWindow;
 }
 
 // Window controls used by the custom (frameless) title bar.
@@ -352,7 +460,7 @@ function registerWindowControls() {
 module.exports = {
   createMainWindow,
   createSplashScreen,
-  createProgressWindow,
+  createUpdateWindow,
   registerWindowControls,
   rebuildJumpList,
 };

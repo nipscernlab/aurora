@@ -17,22 +17,16 @@
 
     let activeShortcuts = {};
 
+    // Phase B: every shortcut routes through window.AuroraAPI so the same
+    // entry point handles keyboard, toolbar clicks and AI tool calls.
+    // The optional-chaining `?.` is for the boot window before
+    // initAuroraAPI() runs — the user can't fire a shortcut that early,
+    // but the guard keeps the module test-safe.
     const actions = {
-        closeTab: () => {
-            // Supondo que você tenha um TabManager global
-            if (window.TabManager && TabManager.activeTab) {
-                TabManager.closeTab(TabManager.activeTab);
-            }
-        },
-        reopenTab: () => {
-            if (window.TabManager) TabManager.reopenLastClosedTab();
-        },
-        saveFile: () => {
-            if (window.TabManager) TabManager.saveCurrentFile();
-        },
-        saveAllFiles: () => {
-            if (window.TabManager) TabManager.saveAllFiles();
-        },
+        closeTab:     () => window.AuroraAPI?.editor.closeTab(),
+        reopenTab:    () => window.AuroraAPI?.editor.reopenLastTab(),
+        saveFile:     () => window.AuroraAPI?.editor.save(),
+        saveAllFiles: () => window.AuroraAPI?.editor.saveAll(),
     };
     
     function loadShortcuts() {

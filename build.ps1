@@ -97,6 +97,27 @@ Update-FileVersion (Join-Path $root '.github\ISSUE_TEMPLATE\bug_report.yml') `
            $repl `
            'bug_report.yml -- placeholder'
 
+# ── sync das regras do yanc ───────────────────────────────────────────────────
+# Regenera resources/sapho_rules.json a partir do checkout local do yanc
+# (default C:\Users\LCOM\Documents\Github\yanc; override por $env:YANC_PATH).
+# Não bloqueia o build se o yanc não estiver presente — o JSON existente
+# continua válido.
+
+Write-Step "Sincronizando regras do yanc..."
+
+Set-Location $root
+$rulesProc = Start-Process -FilePath 'cmd.exe' `
+    -ArgumentList '/c', 'npm run rules:sync' `
+    -NoNewWindow -Wait -PassThru
+
+if ($rulesProc.ExitCode -ne 0) {
+    Write-Host ""
+    Write-Host "  [AVISO] rules:sync falhou (exit $($rulesProc.ExitCode))." -ForegroundColor Yellow
+    Write-Host "          O sapho_rules.json existente sera usado." -ForegroundColor Yellow
+    Write-Host "          Configure `$env:YANC_PATH se o yanc estiver em outro path." -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # ── build ─────────────────────────────────────────────────────────────────────
 
 Write-Step "Iniciando build..."

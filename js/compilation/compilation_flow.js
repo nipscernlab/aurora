@@ -481,12 +481,18 @@ if (typeof window !== 'undefined') {
 
 class CompilationFlowManager {
     initialize() {
-        document.getElementById('cmmcomp')?.addEventListener('click', () => this.runSingleStep('cmm'));
-        document.getElementById('vericomp')?.addEventListener('click', () => this.runSingleStep('verilog'));
-        document.getElementById('wavecomp')?.addEventListener('click', () => this.runSingleStep('wave'));
-        document.getElementById('prismcomp')?.addEventListener('click', () => this.runSingleStep('prism'));
-        document.getElementById('allcomp')?.addEventListener('click', () => this.runAll());
-        document.getElementById('cancel-everything')?.addEventListener('click', this.cancelAll);
+        // Phase B: toolbar clicks go through window.AuroraAPI.compile so
+        // they share the exact code path Aurora Intelligence drives via
+        // function-calling. The optional `?.` guards the brief window
+        // before initAuroraAPI() mounts the namespace; users can't click
+        // a toolbar button that early, but it keeps the listener safe
+        // against e2e setups that don't import the renderer entry.
+        document.getElementById('cmmcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileStep('cmm'));
+        document.getElementById('vericomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('verilog'));
+        document.getElementById('wavecomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('wave'));
+        document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
+        document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
+        document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
         // C± so faz sentido com .cmm em foco — atualiza disabled toda
         // vez que o arquivo em evidencia muda (TabManager.activateTab

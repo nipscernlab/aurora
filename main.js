@@ -34,6 +34,7 @@ const projectIpc = require('./main/ipc/project');
 const compileIpc = require('./main/ipc/compile');
 const prismIpc = require('./main/ipc/prism');
 const systemIpc = require('./main/ipc/system');
+const aiIpc = require('./main/ipc/ai');
 
 // Register lifecycle (single-instance lock, app events, cleanup). If we lost
 // the lock, the function returns false after calling app.quit() — bail out so
@@ -46,6 +47,7 @@ if (acquiredLock) {
   compileIpc.register();
   prismIpc.register();
   systemIpc.register();
+  aiIpc.register();
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();

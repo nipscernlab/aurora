@@ -227,6 +227,61 @@ const updateOperations = {
 };
 
 /* ============================================================================
+ *  AURORA INTELLIGENCE (chat provider + key management)
+ *
+ *  Separate contextBridge namespace so the chat surface stays out of
+ *  `electronAPI`'s already-large grab bag. Plaintext API keys travel
+ *  renderer → main only — there is intentionally no `getKey` channel,
+ *  since the keystore lives entirely in the main process and reading
+ *  decrypted bytes from the renderer would defeat the whole point.
+ * ========================================================================= */
+const aiAPI = {
+  /** List of supported providers + their default model IDs. */
+  listProviders: () => ipcRenderer.invoke('ai:list-providers'),
+
+  /** Snapshot of which providers currently have a key configured. */
+  getKeyStatus: () => ipcRenderer.invoke('ai:get-key-status'),
+
+  /** Persist `apiKey` for `provider` (encrypted via OS keychain). */
+  setKey: (provider, apiKey) => ipcRenderer.invoke('ai:set-key', { provider, apiKey }),
+
+  /** Remove the stored key for `provider`. Resolves with { ok, removed }. */
+  clearKey: (provider) => ipcRenderer.invoke('ai:clear-key', { provider }),
+
+  /**
+   * Run a minimal generateText() against the stored key for `provider`
+   * (optionally overriding the default model). Returns a structured
+   * result — `{ ok, sample, latencyMs, usage }` on success, or
+   * `{ ok:false, error }` on any failure.
+   */
+  testConnection: (provider, modelId) =>
+    ipcRenderer.invoke('ai:test-connection', { provider, modelId }),
+
+  /**
+   * Kick off a streaming chat. The renderer must subscribe to chat
+   * events via `onChatEvent` *before* calling startChat so it doesn't
+   * miss early text-delta packets. Returns immediately with the
+   * sessionId — the actual streaming work runs detached on main.
+   */
+  startChat: ({ sessionId, provider, modelId, messages, system }) =>
+    ipcRenderer.invoke('ai:chat-start', { sessionId, provider, modelId, messages, system }),
+
+  /** Abort an in-flight session. Resolves with `{ ok, stopped: bool }`. */
+  abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
+
+  /**
+   * Subscribe to chat events (text-delta, finish, aborted, error).
+   * Events from *every* session are broadcast — filter by sessionId
+   * in your handler. Returns an unsubscribe function.
+   */
+  onChatEvent: (callback) => {
+    const handler = (_e, payload) => callback(payload);
+    ipcRenderer.on('ai:chat-event', handler);
+    return () => ipcRenderer.removeListener('ai:chat-event', handler);
+  },
+};
+
+/* ============================================================================
  *  UTILITIES (inline, sem IPC)
  * ========================================================================= */
 const utilityOperations = {
@@ -264,6 +319,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('terminalAPI', terminalAPI);
+
+contextBridge.exposeInMainWorld('aiAPI', aiAPI);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

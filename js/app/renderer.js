@@ -17,6 +17,7 @@ import { aiAssistantManager } from '../ui/ai_assistant_manager.js';
 import { uiComponentsManager } from '../ui/ui_components.js';
 import { compilationFlowManager } from '../compilation/compilation_flow.js';
 import { SplitEditorManager } from '../editor/split_editor.js';
+import { initAuroraAPI } from '../api/aurora_api.js';
 
 // Non-module callers (shortcut_manager.js, status_bar.js) reach into
 // TabManager via window. Expor aqui satisfaz esses lookups que
@@ -92,8 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.compilationModule = compilationModule;
     }
 
-    // Initialize global terminal manager
-    window.initializeGlobalTerminalManager();
+    // Initialize global terminal manager and expose the instance — the
+    // AuroraAPI's terminal namespace reaches for it through window so
+    // it doesn't need to be wired through every constructor.
+    window.globalTerminalManager = window.initializeGlobalTerminalManager();
 
     // New Verilog file button — delega pro projectTreeManager, que e o
     // unico dono da file tree. Uma implementacao paralela aqui (writeFile
@@ -109,6 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ✅ Command Palette is auto-initialized via its own DOMContentLoaded listener
+
+    // window.AuroraAPI — Phase A facade. Behaviour-neutral: nothing in
+    // the UI is rewired yet, the surface is just *available* for the
+    // upcoming Aurora Intelligence panel and for incremental migration
+    // of toolbar handlers in Phase B.
+    initAuroraAPI();
 });
 
 // --- Initialization on Window Load ---

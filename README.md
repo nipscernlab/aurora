@@ -155,6 +155,37 @@ dist/
 > GTKWave, Yosys, netlistsvg). It is not currently supported on macOS or
 > Linux.
 
+### Syncing the language rules (maintainer only)
+
+The Aurora Intelligence panel and editor introspection consume a static
+[`resources/sapho_rules.json`](resources/sapho_rules.json) capturing the
+CMM language surface — keywords, hardware directives, bilingual error
+catalog, grammar skeleton — extracted from the
+[`yanc`](https://github.com/nipscernlab/yanc) source tree. yanc itself
+is **not** bundled with the installer, so the JSON has to be regenerated
+on a maintainer machine whenever yanc changes:
+
+```powershell
+npm run rules:sync
+```
+
+By default the script reads from `C:\Users\LCOM\Documents\Github\yanc`.
+Override the location with the `YANC_PATH` env var or the `--yanc` flag:
+
+```powershell
+$env:YANC_PATH = 'D:\path\to\yanc'
+npm run rules:sync
+
+# or
+node scripts/sync-sapho-rules.js --yanc D:\path\to\yanc
+```
+
+The script writes a summary to stdout — keyword / directive / message
+counts plus the yanc commit hash. Commit the regenerated
+`resources/sapho_rules.json` so CI never has to reach yanc directly;
+[`build.ps1`](build.ps1) also invokes the sync step before packaging,
+warning (but not failing) when yanc isn't reachable.
+
 ## SAPHO toolchain
 
 AURORA orchestrates these tools, all driven from the toolbar's compile group:

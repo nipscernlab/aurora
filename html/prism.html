@@ -432,12 +432,17 @@
 
         .svg-content {
             user-select: none;
-            will-change: transform;
+            /* will-change: transform foi REMOVIDO: ele promove o SVG a uma
+               compositor layer da GPU, que vira bitmap e perde nitidez ao
+               aplicar scale(). Sem promocao, o browser re-renderiza o SVG
+               vetorial em cada nivel de zoom — fica nitido em qualquer escala. */
         }
 
         /* Enhanced SVG Styling */
         .svg-content svg {
-            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+            /* filter: drop-shadow REMOVIDO: forcava rasterizacao do SVG
+               inteiro antes do scale, derrotando o ponto de SVG ser
+               vetorial. Sombra movida pro container externo (box-shadow). */
             border-radius: 8px;
         }
 
@@ -468,7 +473,8 @@
             rx: 8 !important;
             ry: 8 !important;
             transition: var(--transition-smooth);
-            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1));
+            /* filter: drop-shadow REMOVIDO — cada rect rasterizado quebra
+               a nitidez do zoom vetorial. */
         }
 
         .svg-content svg rect {
@@ -1502,7 +1508,12 @@ zoom(factor, centerX = null, centerY = null) {
             }
 
             updateTransform() {
-                this.svgWrapper.style.transform = `translate(${this.currentX}px, ${this.currentY}px) scale(${this.currentScale}) translateZ(0)`;
+                // translateZ(0) REMOVIDO: ele promovia o wrapper a uma
+                // compositor layer 3D, que e' renderizada como bitmap
+                // e depois escalada pela GPU — perdia nitidez no zoom.
+                // Sem ele o browser re-renderiza o SVG nativo em cada
+                // frame, mantendo o vetor crisp em qualquer escala.
+                this.svgWrapper.style.transform = `translate(${this.currentX}px, ${this.currentY}px) scale(${this.currentScale})`;
                 }
 
             // Enhanced fit to screen with proper SVG bounds calculation

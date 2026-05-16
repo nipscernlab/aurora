@@ -545,6 +545,26 @@ function register() {
     }
   });
 
+  // Live file size — bypassa o cache de metadata do diretorio do Windows
+  // abrindo um handle e usando fstat (GetFileInformationByHandle), que
+  // reflete bytes ja escritos pelo writer mesmo sem close/flush dele.
+  // Indispensavel pra observar arquivos ativos (ex: vvp escrevendo .fst
+  // durante a simulacao); fs.stat normal so atualiza no close.
+  ipcMain.handle('get-file-size-live', async (_event, filePath) => {
+    let handle = null;
+    try {
+      handle = await fs.open(filePath, 'r');
+      const stats = await handle.stat();
+      return stats.size;
+    } catch (error) {
+      throw new Error(`Failed to get live file size: ${error.message}`);
+    } finally {
+      if (handle) {
+        try { await handle.close(); } catch (_closeErr) { /* ignore */ }
+      }
+    }
+  });
+
   ipcMain.handle('watch-file', async (event, filePath) => {
     try {
       const existing = state.activeWatchers.get(filePath);

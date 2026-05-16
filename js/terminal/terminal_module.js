@@ -1124,6 +1124,19 @@ async clearTerminal(terminalId) {
     }
 }
 
+function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 0) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = bytes / 1024;
+    let i = 0;
+    while (value >= 1024 && i < units.length - 1) {
+        value /= 1024;
+        i++;
+    }
+    return `${value < 10 ? value.toFixed(2) : value.toFixed(1)} ${units[i]}`;
+}
+
 class VVPProgressManager {
     constructor() {
         this.overlay = null;
@@ -1131,10 +1144,13 @@ class VVPProgressManager {
         this.progressPercentage = null;
         this.elapsedTimeElement = null;
         this.elapsedTimeMinimizedElement = null;
+        this.fstSizeElement = null;
+        this.fstSizeMinimizedElement = null;
         this.isVisible = false;
         this.isMinimized = false;
         this.isComplete = false;
         this.progressPath = null;
+        this.fstDir = null;
         this.startTime = null;
         this.currentProgress = 0;
         this.targetProgress = 0;
@@ -1168,6 +1184,16 @@ class VVPProgressManager {
         return await window.electronAPI.joinPath(componentsPath, 'Temp', 'progress.txt');
     }
 
+    async resolveFstDir() {
+        // vvp -fst escreve em components/Temp/. O nome do arquivo
+        // depende do $dumpfile() do testbench — pra auto-instrumentado
+        // e' <simTopModule>.fst, mas se o usuario escreveu
+        // $dumpfile("outro.vcd") a mao o nome muda. Em vez de adivinhar
+        // o nome, devolvemos so o dir e o poll escaneia por *.fst.
+        const componentsPath = await window.electronAPI.getComponentsPath();
+        return await window.electronAPI.joinPath(componentsPath, 'Temp');
+    }
+
     async deleteProgressFile(name) {
         try {
             const pathToDelete = await this.resolveProgressPath(name);
@@ -1187,6 +1213,7 @@ class VVPProgressManager {
         try {
             await this.deleteProgressFile(name);
             this.progressPath = await this.resolveProgressPath(name);
+            this.fstDir = await this.resolveFstDir();
 
             if (!this.overlay) this.createOverlay();
 
@@ -1197,6 +1224,8 @@ class VVPProgressManager {
             this.isComplete = false;
             this._hideRequested = false;
             this.overlay.querySelector('.vvp-progress-info').classList.remove('vvp-complete');
+            if (this.fstSizeElement) this.fstSizeElement.textContent = '—';
+            if (this.fstSizeMinimizedElement) this.fstSizeMinimizedElement.textContent = '—';
             this.updateUI();
 
             this.overlay.classList.add('vvp-progress-visible');
@@ -1291,9 +1320,14 @@ class VVPProgressManager {
             </div>
             <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
             <span class="vvp-progress-time-minimized" id="vvp-time-minimized">0s</span>
+            <span class="vvp-progress-fst-minimized" id="vvp-fst-minimized">—</span>
           </div>
           
           <div class="vvp-progress-stats">
+            <div class="vvp-stat">
+              <span class="vvp-stat-label">FST Size:</span>
+              <span class="vvp-stat-value" id="vvp-fst-size">—</span>
+            </div>
             <div class="vvp-stat">
               <span class="vvp-stat-label">Elapsed Time:</span>
               <span class="vvp-stat-value" id="vvp-elapsed-time">0s</span>
@@ -1311,6 +1345,8 @@ class VVPProgressManager {
         this.progressPercentage = document.getElementById('vvp-progress-percentage');
         this.elapsedTimeElement = document.getElementById('vvp-elapsed-time');
         this.elapsedTimeMinimizedElement = document.getElementById('vvp-time-minimized');
+        this.fstSizeElement = document.getElementById('vvp-fst-size');
+        this.fstSizeMinimizedElement = document.getElementById('vvp-fst-minimized');
 
         document.getElementById('vvp-minimize-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1323,6 +1359,51 @@ class VVPProgressManager {
     }
 
     async startProgressReading() {
+        const readFstSize = async () => {
+            if (!this.fstSizeElement || !this.fstDir) return;
+            try {
+                // vvp -fst grava o dump em components/Temp/, mas o nome
+                // e extensao dependem do $dumpfile() do testbench
+                // (.fst ou .vcd com bytes FST). Em vez de adivinhar,
+                // escaneia a cada tick por .fst/.vcd (exclui fix.vcd,
+                // que e o helper canned do GTK3) e pega o maior — eh
+                // o que esta sendo escrito ativamente.
+                const entries = await window.electronAPI.listFilesInDirectory(this.fstDir);
+                if (!Array.isArray(entries) || entries.length === 0) return;
+                const candidates = entries.filter((n) => {
+                    if (typeof n !== 'string') return false;
+                    const lower = n.toLowerCase();
+                    if (lower === 'fix.vcd') return false;
+                    return lower.endsWith('.fst') || lower.endsWith('.vcd');
+                });
+                if (candidates.length === 0) return;
+                let biggest = 0;
+                for (const name of candidates) {
+                    const full = await window.electronAPI.joinPath(this.fstDir, name);
+                    try {
+                        // getFileSizeLive abre fd + fstat — bypassa o cache
+                        // de metadata do diretorio do Windows, que so atualiza
+                        // quando o vvp fecha o arquivo. Sem isso, o tamanho
+                        // ficaria "preso" durante toda a simulacao e so
+                        // saltaria pro valor final no fim.
+                        const size = await window.electronAPI.getFileSizeLive(full);
+                        if (typeof size === 'number' && size > biggest) {
+                            biggest = size;
+                        }
+                    } catch (_statErr) { /* skip */ }
+                }
+                if (biggest > 0) {
+                    const formatted = formatBytes(biggest);
+                    this.fstSizeElement.textContent = formatted;
+                    if (this.fstSizeMinimizedElement) {
+                        this.fstSizeMinimizedElement.textContent = formatted;
+                    }
+                }
+            } catch (_e) {
+                // Silencioso — tamanho e info auxiliar.
+            }
+        };
+
         const readProgress = async () => {
             if (!this.isVisible || this.isComplete) return;
 
@@ -1338,12 +1419,17 @@ class VVPProgressManager {
                             this.targetProgress = Math.min(progress, 100);
 
                             if (this.targetProgress >= 100) {
+                                // Ultimo stat antes de parar pra cravar
+                                // o tamanho final na UI.
+                                await readFstSize();
                                 clearInterval(this.readInterval);
                                 this.readInterval = null;
+                                return;
                             }
                         }
                     }
                 }
+                await readFstSize();
             } catch (error) {
                 console.error('Error reading progress file:', error);
                 clearInterval(this.readInterval);

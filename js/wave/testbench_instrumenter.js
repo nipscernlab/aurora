@@ -169,6 +169,11 @@ export function instrumentTestbenchSource({
     // exits. Without this, long runs print nothing until $finish.
     // The flush block runs in parallel to the user testbench and
     // stops naturally when $finish hits.
+    // $dumpflush mora no mesmo loop pra que o .fst/.vcd em disco
+    // cresca incrementalmente — libfst bufferiza blocos em memoria
+    // e sem flush explicito o arquivo so ganha bytes no $finish.
+    // O overlay de progresso le o tamanho do arquivo a cada 1s; sem
+    // este flush o "FST Size:" so atualizaria no comeco e no fim.
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
@@ -187,6 +192,7 @@ initial begin
     forever begin
         #100;
         $fflush;
+        $dumpflush;
     end
 end
 // --------------------------------------------------

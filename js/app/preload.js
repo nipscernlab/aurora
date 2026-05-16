@@ -24,6 +24,7 @@ const fileOperations = {
   copyFile:        (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
 
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),
+  getFileSizeLive: (p) => ipcRenderer.invoke('get-file-size-live', p),
   fileExists:      (p) => ipcRenderer.invoke('file-exists', p),
 
   createDirectory: (p) => ipcRenderer.invoke('create-directory', p),

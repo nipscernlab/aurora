@@ -11,8 +11,9 @@
 const path = require('path');
 const fse = require('fs-extra');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const { execFile, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const log = require('electron-log');
+const netlistsvgLib = require('@silimate/netlistsvg');
 
 const state = require('../state');
 const { componentsPath } = require('../paths');
@@ -265,7 +266,12 @@ async function runYosysCompilationWithPaths(
   const fileList = [...fileSet];
   if (fileList.length === 0) throw new Error('No Verilog files found for compilation');
 
-  const readCommands = fileList.map((file) => `read_verilog "${file}"`).join('\n');
+  // -setattr src faz o yosys gravar `src="arquivo.v:linha.col-linha.col"` em
+  // cada celula derivada do source. O fork @silimate/netlistsvg le esse
+  // atributo e emite um SVG com `onclick="gotosrc(...)"` por cell — o
+  // renderer do Prism aproveita pra abrir o source no editor via
+  // right-click (left-click continua sendo navegacao entre modulos).
+  const readCommands = fileList.map((file) => `read_verilog -setattr src "${file}"`).join('\n');
   // setundef -zero: substitui valores don't-care (x) por 0 constante.
   // Sem isso, $pmux com `full_case` produz A=[x,x] como ramo default
   // unreachable, e o netlistsvg renderiza esses don't-cares como
@@ -355,7 +361,60 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
   }
 }
 
-async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
+// Skin default do pacote — caminho resolvido na 1a chamada e cacheado.
+// require.resolve aponta pro built/index.js; sobe um nivel pra lib/.
+let cachedDefaultSkinData = null;
+async function getDefaultSkinData() {
+  if (cachedDefaultSkinData) return cachedDefaultSkinData;
+  const libIndex = require.resolve('@silimate/netlistsvg');
+  const skinPath = path.join(path.dirname(libIndex), '..', 'lib', 'default.svg');
+  cachedDefaultSkinData = await fse.readFile(skinPath, 'utf-8');
+  return cachedDefaultSkinData;
+}
+
+// Constroi um mapa instanceName -> moduleType a partir do JSON do
+// yosys do modulo atual. netlistsvg renderiza o label de cada cell
+// com s:attribute="ref" (o NOME DA INSTANCIA), nao com o tipo — entao
+// o renderer nao consegue saber pra qual modulo navegar olhando so o
+// SVG. O fix e' injetar data-cell-type=<tipo> em cada <g id="cell_<inst>">
+// abaixo, antes de devolver o SVG.
+function buildInstanceTypeMap(netlistJson) {
+  const map = new Map();
+  if (!netlistJson?.modules) return map;
+  for (const moduleData of Object.values(netlistJson.modules)) {
+    if (!moduleData?.cells) continue;
+    for (const [instName, cellData] of Object.entries(moduleData.cells)) {
+      if (cellData?.type) map.set(instName, cellData.type);
+    }
+  }
+  return map;
+}
+
+// Escape minimo pra valor de atributo XML — basta cobrir `"`, `&` e `<`
+// (path/identificador yosys raramente tem esses, mas defensivo).
+function xmlAttrEscape(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+// Injeta data-cell-type=<tipo> em cada <g id="cell_<inst>"> do SVG.
+// Regex em vez de parse XML real porque (a) overkill, (b) a forma do
+// output do netlistsvg e' previsivel (id="cell_..." sempre em <g>).
+function injectCellTypesIntoSvg(svgString, instanceTypeMap) {
+  if (instanceTypeMap.size === 0) return svgString;
+  return svgString.replace(
+    /<g\b([^>]*?)\sid="cell_([^"]+)"([^>]*?)(\/?>)/g,
+    (match, before, instName, after, close) => {
+      const type = instanceTypeMap.get(instName);
+      if (!type) return match;
+      return `<g${before} id="cell_${instName}"${after} data-cell-type="${xmlAttrEscape(type)}"${close}`;
+    },
+  );
+}
+
+async function generateModuleSVGWithPaths(moduleName, tempDir) {
   const cleanName = sanitizeFileName(moduleName);
   const inputJsonPath = path.join(tempDir, `${cleanName}.json`);
   const outputSvgPath = path.join(tempDir, `${cleanName}.svg`);
@@ -364,23 +423,23 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
     throw new Error(`Module JSON file not found: ${inputJsonPath}`);
   }
 
-  return new Promise((resolve, reject) => {
-    execFile(netlistsvgPath, [inputJsonPath, '-o', outputSvgPath], (error) => {
-      if (error) {
-        if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-          state.mainWindow.webContents.send(
-            'terminal-log',
-            'tveri',
-            `SVG generation failed: ${error.message}`,
-            'error',
-          );
-        }
-        reject(new Error(`SVG generation failed: ${error.message}`));
-        return;
-      }
-      resolve(outputSvgPath);
+  const [skinData, netlistJson] = await Promise.all([
+    getDefaultSkinData(),
+    fse.readJson(inputJsonPath),
+  ]);
+
+  // lib.render usa callback (err, svgString) — wrap em Promise. Sem spawn
+  // de processo, sem .exe externo: fica tudo in-process.
+  const rawSvg = await new Promise((resolve, reject) => {
+    netlistsvgLib.render(skinData, netlistJson, (err, svg) => {
+      if (err) reject(err);
+      else resolve(svg);
     });
   });
+
+  const svgString = injectCellTypesIntoSvg(rawSvg, buildInstanceTypeMap(netlistJson));
+  await fse.writeFile(outputSvgPath, svgString, 'utf-8');
+  return outputSvgPath;
 }
 
 async function performPrismCompilationWithPaths(compilationPaths) {
@@ -407,11 +466,7 @@ async function performPrismCompilationWithPaths(compilationPaths) {
     );
     await splitHierarchyJson(hierarchyJsonPath, tempDir);
 
-    const svgPath = await generateModuleSVGWithPaths(
-      topLevelModule,
-      tempDir,
-      compilationPaths.netlistsvgPath,
-    );
+    const svgPath = await generateModuleSVGWithPaths(topLevelModule, tempDir);
 
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       state.mainWindow.webContents.send(
@@ -461,8 +516,7 @@ function register() {
         throw new Error(`Module JSON not found for: ${moduleName}`);
       }
 
-      const netlistsvgPath = path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
-      const svgPath = await generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath);
+      const svgPath = await generateModuleSVGWithPaths(moduleName, tempDir);
       return { success: true, svgPath, moduleName, moduleJsonPath };
     } catch (error) {
       log.error('SVG generation from module click error:', error);
@@ -484,13 +538,43 @@ function register() {
         hdlPath: path.join(componentsPath, 'HDL'),
         tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
         yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
-        netlistsvgPath: path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
+        // netlistsvg agora vem do node_modules (@silimate/netlistsvg) e
+        // roda in-process — nao precisa mais expor binario pro renderer.
         spfPath: state.currentOpenProjectPath || '',
         topLevelPath: path.join(projectPath, 'TopLevel'),
       };
     } catch (error) {
       log.error('Failed to get compilation paths:', error);
       throw error;
+    }
+  });
+
+  // Right-click numa cell do SVG do Prism pede pra abrir o source no
+  // editor principal. Aqui validamos o payload e encaminhamos pra
+  // mainWindow via webContents.send — o renderer principal escuta
+  // 'aurora:open-file-at' e faz o resto (le, abre tab, posiciona
+  // cursor). Tambem focamos a mainWindow pro usuario ver o resultado.
+  ipcMain.handle('prism:open-source-file', async (_event, payload) => {
+    try {
+      if (!payload || typeof payload.filePath !== 'string') {
+        return { success: false, message: 'invalid payload' };
+      }
+      const filePath = payload.filePath;
+      const line = Number.isInteger(payload.line) && payload.line > 0 ? payload.line : 1;
+      const column = Number.isInteger(payload.column) && payload.column > 0 ? payload.column : 1;
+      if (!(await fse.pathExists(filePath))) {
+        return { success: false, message: `source not found: ${filePath}` };
+      }
+      if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+        return { success: false, message: 'main window not available' };
+      }
+      state.mainWindow.webContents.send('aurora:open-file-at', { filePath, line, column });
+      if (state.mainWindow.isMinimized()) state.mainWindow.restore();
+      state.mainWindow.focus();
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to open source file from Prism:', error);
+      return { success: false, message: error.message };
     }
   });
 

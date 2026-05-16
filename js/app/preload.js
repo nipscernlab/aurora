@@ -99,6 +99,10 @@ const projectOperations = {
   onProcessorHubState:  (cb) => ipcRenderer.on('project:processorHubState', cb),
   onProcessorsUpdated:  (cb) => ipcRenderer.on('project:processors', (_, data) => cb(data)),
   onSimulateOpenProject:(cb) => ipcRenderer.on('open-spf-file', (_, result) => cb(result)),
+  // Prism (janela separada) pede pra abrir source via right-click numa
+  // cell do SVG. Aqui o renderer principal escuta, le, abre tab e pula
+  // pra linha. Sempre callbacks com {filePath, line, column}.
+  onOpenFileAt:         (cb) => ipcRenderer.on('aurora:open-file-at', (_, data) => cb(data)),
 };
 
 /* ============================================================================

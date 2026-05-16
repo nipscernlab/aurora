@@ -251,6 +251,40 @@ class ProjectManager {
                 await loadProject(result.filePaths[0]);
             }
         });
+
+        // Right-click numa cell do Prism abre o .v aqui no editor principal
+        // na linha exata. Reusa o pipeline existente (readFile + TabManager
+        // ou SplitEditorManager) pra parity com clique no file tree, depois
+        // posiciona o cursor monaco via EditorManager.
+        window.electronAPI.onOpenFileAt(async ({ filePath, line, column }) => {
+            try {
+                let needsRead = true;
+                if (window.TabManager?.tabs?.has(filePath)) {
+                    window.TabManager.activateTab(filePath);
+                    needsRead = false;
+                }
+                if (needsRead) {
+                    const content = await window.electronAPI.readFile(filePath);
+                    const sem = window.SplitEditorManager;
+                    if (sem && sem.focusedPane > 0) {
+                        await sem.openInFocusedPane(filePath, content);
+                    } else {
+                        window.TabManager.addTab(filePath, content, { preview: false });
+                    }
+                }
+                // Tenta posicionar o cursor — EditorManager.getEditorForFile
+                // pode nao existir em todos os builds; protege com optional
+                // chaining e cai silente se nao conseguir.
+                const editor = window.EditorManager?.getEditorForFile?.(filePath);
+                if (editor && typeof editor.revealLineInCenter === 'function') {
+                    editor.revealLineInCenter(line);
+                    editor.setPosition({ lineNumber: line, column });
+                    editor.focus();
+                }
+            } catch (e) {
+                console.error('Failed to open file at line from Prism:', e);
+            }
+        });
     }
 
     // Método público para ser chamado pelo renderer.js (New Project)

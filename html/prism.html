@@ -7,6 +7,15 @@
     <title>PRISM RTL Viewer</title>
     <style>
         :root {
+            /* CSS vars que o @silimate/netlistsvg emite nos fills do SVG
+             * (originalmente pra integracao com tema do VSCode). Sem isso,
+             * o `var()` resolve vazio e cai pra preto/transparente. Valores
+             * abaixo replicam o VSCode Dark+ default. Se um dia voce quiser
+             * temar pras cores do Aurora, e' so trocar pra var(--text-primary)
+             * e var(--bg-primary). */
+            --vscode-foreground: #cccccc;
+            --vscode-editor-background: #1e1e1e;
+
             /* Modern Purple Palette */
             --purple-50: #faf7ff;
             --purple-100: #f3edff;
@@ -858,6 +867,15 @@
 console.log('window.electronAPI:', window.electronAPI);
 console.log('window.electron:', window.electron);
 
+// O fork @silimate/netlistsvg emite `onclick="gotosrc('...')"` inline
+// em cada cell com atributo src. Nosso setupSVGInteractions remove
+// esses onclicks pra usar contextmenu (right-click), mas entre o
+// innerHTML do SVG e o setupSVGInteractions ha uma janela mil-segundos
+// em que um left-click vazaria pra essa funcao global. Sem o no-op
+// abaixo, o erro seria `gotosrc is not defined`. Mantemos vazio porque
+// left-click ja e' tratado pelo navigateToModule.
+window.gotosrc = () => {};
+
 // Wait for DOM and APIs to be available
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded - checking APIs again...');
@@ -1085,6 +1103,23 @@ adjustBusLabels() {
         }
     }
 
+      // Espelha isClickableModule do main (main/ipc/prism.js). Esses
+      // tipos primitivos do yosys nao geram JSON proprio em Temp/PRISM/,
+      // entao clicar neles dispararia "Module JSON not found".
+isClickableModuleType_(type) {
+    if (!type) return false;
+    const skip = [
+        /^\$_/, /^\$dff/, /^\$mux/, /^\$add/, /^\$sub/, /^\$mul/,
+        /^\$div/, /^\$mod/, /^\$eq/, /^\$ne/, /^\$lt/, /^\$le/,
+        /^\$gt/, /^\$ge/, /^\$and/, /^\$or/, /^\$xor/, /^\$not/,
+        /^\$reduce/, /^\$logic/, /^\$shift/, /^\$pmux/, /^\$lut/,
+        /^\$assert/, /^\$assume/, /^\$cover/, /^\$specify/,
+    ];
+    for (const re of skip) if (re.test(type)) return false;
+    return type.startsWith('$paramod') ||
+        (!type.startsWith('$') && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(type));
+}
+
       // Enhanced setupSVGInteractions to include wire highlighting
 setupSVGInteractions() {
     const svg = this.svgContent.querySelector('svg');
@@ -1094,6 +1129,8 @@ setupSVGInteractions() {
     }
 
     console.log('Setting up SVG interactions...');
+
+    const isClickableModuleType = (t) => this.isClickableModuleType_(t);
     
     // So as caixinhas dos modulos sao clicaveis — nao os textos
     // soltos. Em netlistsvg cada cell e' um <g> que contem <rect>
@@ -1107,17 +1144,45 @@ setupSVGInteractions() {
     // notacao "/2/", nome de porta "mem_addr_rd", etc.). Exigir
     // <rect> no <g> e' o filtro estrutural certo: corresponde 1:1
     // ao conceito de "caixa desenhada do modulo".
-    const cellGroups = svg.querySelectorAll('g');
+    // data-cell-type vem do main: pra cada <g id="cell_<instName>">,
+    // o main olha cells.<instName>.type no JSON do yosys e injeta o
+    // tipo do modulo como atributo. Isso e' o nome a passar pra
+    // navigateToModule — NUNCA o textContent, que com o skin generic
+    // mostra `s:attribute="ref"` (o instance name) e nao o tipo.
+    // Resultado: clique numa instancia "u_proc" do tipo "p_procBlind"
+    // navega corretamente pro modulo p_procBlind.
+    const cellGroups = svg.querySelectorAll('g[data-cell-type]');
     cellGroups.forEach((group) => {
-        const rect = group.querySelector('rect');
-        if (!rect) return;
-        const textEl = group.querySelector('text');
-        if (!textEl) return;
-        const moduleName = textEl.textContent.trim();
-        if (!moduleName) return;
-        this.setupModuleClick(group, moduleName);
+        const moduleType = group.dataset.cellType;
+        if (!moduleType) return;
+        if (!isClickableModuleType(moduleType)) return;
+        this.setupModuleClick(group, moduleType);
     });
-    
+
+    // O fork @silimate/netlistsvg injeta `onclick="gotosrc('src.v:l.c-l.c')"`
+    // em toda celula que tem atributo `src` do yosys. Esse onclick inline
+    // dispararia toda vez que o usuario fizesse left-click numa caixa de
+    // modulo, conflitando com o navigateToModule. Em vez disso:
+    //   1. tira o onclick inline,
+    //   2. guarda o valor original como data-src,
+    //   3. registra contextmenu (right-click) que abre o source no editor
+    //      principal do Aurora.
+    // Resultado: left-click = navega entre modulos (igual antes),
+    //            right-click = abre .v na linha em que aquela celula nasceu.
+    const srcCells = svg.querySelectorAll('g[onclick^="gotosrc"]');
+    srcCells.forEach((group) => {
+        const onclickStr = group.getAttribute('onclick') || '';
+        const m = onclickStr.match(/gotosrc\(\s*['"]([^'"]+)['"]\s*\)/);
+        if (!m) return;
+        group.removeAttribute('onclick');
+        group.dataset.src = m[1];
+        group.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openSourceFromLocator(group.dataset.src);
+        });
+    });
+
     // Setup wire highlighting (new functionality)
     this.setupWireHighlighting();
 }
@@ -1142,6 +1207,28 @@ setupModuleClick(element, moduleName) {
             console.log('Module clicked:', moduleName);
             await this.navigateToModule(moduleName);
         });
+    }
+
+    // Locator vem do yosys no formato "filename:start_l.start_c-end_l.end_c"
+    // (linhas/colunas 1-indexadas). Aurora editor (monaco) so usa a linha
+    // de inicio — col vira 1 pra simplificar. Path pode ser absoluto (o
+    // happy path, ja que passamos abs paths pro read_verilog) ou relativo
+    // (raro mas defensivo); o main resolve.
+    async openSourceFromLocator(locator) {
+        if (!locator) return;
+        const m = locator.match(/^(.+?):(\d+)(?:\.(\d+))?/);
+        if (!m) {
+            console.warn('Unrecognized src locator:', locator);
+            return;
+        }
+        const [, filePath, lineStr, colStr] = m;
+        const line = parseInt(lineStr, 10);
+        const column = colStr ? parseInt(colStr, 10) : 1;
+        try {
+            await window.electronAPI.openSourceFile({ filePath, line, column });
+        } catch (e) {
+            console.error('Failed to open source:', e);
+        }
     }
 
             navigateBack() {

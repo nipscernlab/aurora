@@ -74,6 +74,11 @@ try {
     },
 
     compileForPRISM: () => ipcRenderer.invoke('prism-compile'),
+
+    // Right-click numa cell do SVG abre o .v na linha exata no editor
+    // principal do Aurora. O main faz o encaminhamento + foco da janela.
+    openSourceFile: ({ filePath, line, column }) =>
+      ipcRenderer.invoke('prism:open-source-file', { filePath, line, column }),
     
     // SVG generation from module
     generateSVGFromModule: (moduleName, tempDir) => {

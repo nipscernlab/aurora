@@ -484,7 +484,9 @@ async generateProjectHierarchy() {
         if (hasChildren) {
             const toggle = document.createElement('span');
             toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
-            toggle.innerHTML = '<i class="fa-solid fa-caret-right"></i>';
+            // The affordance is now a curved-tree node (hollow when
+            // collapsed, filled accent when expanded) drawn via the
+            // ::before pseudo in h_tree.css. No glyph child needed.
             toggle.addEventListener('click', e => {
                 e.stopPropagation();
                 this.toggleHierarchyItem(itemContainer);

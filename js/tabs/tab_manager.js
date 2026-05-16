@@ -575,6 +575,25 @@ export class TabManager {
             this.closeTab(filePath);
         });
 
+        // Middle-click (mouse wheel button) on any part of the tab
+        // closes it — same convention as browsers and VS Code. Bound on
+        // `auxclick` so the browser already filtered out primary/secondary
+        // buttons for us; we still gate by `button === 1` defensively in
+        // case some envs surface other auxiliary buttons through this
+        // event (e.g. back/forward thumb buttons on a mouse).
+        tab.addEventListener('auxclick', (e) => {
+            if (e.button !== 1) return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeTab(filePath);
+        });
+        // Firefox/Electron-on-Linux occasionally autoscrolls on a
+        // middle-button mousedown before auxclick fires; suppress that
+        // for tabs so the close happens cleanly.
+        tab.addEventListener('mousedown', (e) => {
+            if (e.button === 1) e.preventDefault();
+        });
+
         // Add to container
         tabContainer.appendChild(tab);
 

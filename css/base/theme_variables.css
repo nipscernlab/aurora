@@ -13,6 +13,12 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Signature face — Mrs Saint Delafield is a narrow, vertical
+   English-roundhand script: tall ascenders, almost no horizontal
+   sprawl, the kind of pen a real autograph leaves on a page. Used
+   only for the SAPHO & AURORA mark on the welcome footer. Falls back
+   to local Windows scripts when Google Fonts is unreachable. */
+@import url('https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&display=swap');
 
 :root {
   /* =========================================================================

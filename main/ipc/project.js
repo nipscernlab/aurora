@@ -95,6 +95,22 @@ function register() {
         filePaths: [projectPath],
       });
 
+      // Newly-created project lands in the jumplist's Recent Projects
+      // category too. Same path the open IPC takes; sharing it here
+      // keeps "I just made a project, it should be in recents now"
+      // working without an extra app launch.
+      try {
+        if (process.platform === 'win32') {
+          if (typeof app.addRecentDocument === 'function') app.addRecentDocument(spfPath);
+          const recents = require('../recents');
+          recents.push(spfPath);
+          const { rebuildJumpList } = require('../windows');
+          rebuildJumpList();
+        }
+      } catch (e) {
+        log.warn('jumplist refresh (createStructure) failed:', e);
+      }
+
       return {
         success: true,
         projectData: projectFile.toJSON(),
@@ -128,6 +144,28 @@ function register() {
       state.currentOpenProjectPath = spfPath;
       const projectDirPath = path.dirname(spfPath);
       global.currentProjectPath = projectDirPath;
+
+      // Track in our own recents store + refresh the Windows jumplist.
+      // We don't use Windows' shell-managed `frequent`/`recent` lists
+      // anymore (they surfaced stale "Electron" entries from earlier
+      // dev runs) — instead `main/recents.js` owns the list and
+      // `rebuildJumpList()` re-renders the "Recent Projects" custom
+      // category every time a project opens. `addRecentDocument` is
+      // still called so the file shows up in Win+E and File Explorer's
+      // own recents.
+      try {
+        if (process.platform === 'win32') {
+          if (typeof app.addRecentDocument === 'function') {
+            app.addRecentDocument(spfPath);
+          }
+          const recents = require('../recents');
+          recents.push(spfPath);
+          const { rebuildJumpList } = require('../windows');
+          rebuildJumpList();
+        }
+      } catch (e) {
+        log.warn('jumplist refresh failed:', e);
+      }
       if (!global.currentProject) global.currentProject = {};
       global.currentProject.path = projectDirPath;
 

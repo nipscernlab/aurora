@@ -121,6 +121,158 @@ const FileTreeState = {
     }
 };
 
+// --- Empty-state placeholder ---------------------------------------
+//
+// Two distinct emptyness states the user can land on:
+//   1. No project open at all  →  click-to-create-project card.
+//   2. Project open, zero processors  →  click-to-create-processor card.
+//
+// Both render directly into the standard view subcontainer of
+// #file-tree. They are intentionally large, single tap targets — the
+// previous "empty file tree with just the header" left the user
+// looking at a blank pane with no obvious next step.
+
+function buildEmptyStateCard(kind) {
+    const tr = (k) => (window.t ? window.t(k) : k);
+    const config = kind === 'no-project'
+        ? {
+            icon: 'ph ph-folder-plus',
+            title: tr('fileTree.empty.noProjectTitle'),
+            cta:   tr('fileTree.empty.noProjectCta'),
+            onClick: () => {
+                // The new-project modal is wired in index.html's inline
+                // script via the trigger→modal map (newProjectBtn →
+                // newProjectModal). Clicking the toolbar button keeps
+                // every existing pre-condition (focus, store reset,
+                // import-file priming) intact instead of forking a
+                // second open path here.
+                document.getElementById('newProjectBtn')?.click();
+            },
+        }
+        : {
+            icon: 'ph ph-cube',
+            title: tr('fileTree.empty.noProcessorsTitle'),
+            cta:   tr('fileTree.empty.noProcessorsCta'),
+            onClick: () => {
+                document.getElementById('processorHub')?.click();
+            },
+        };
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `tree-empty-state tree-empty-${kind}`;
+    card.setAttribute('aria-label', config.title);
+    card.innerHTML = `
+        <span class="tree-empty-state-icon"><i class="${config.icon}" aria-hidden="true"></i></span>
+        <span class="tree-empty-state-title">${escapeHtml(config.title)}</span>
+        <span class="tree-empty-state-cta">${escapeHtml(config.cta)}</span>
+    `;
+    card.addEventListener('click', config.onClick);
+    return card;
+}
+
+/**
+ * Drop a full-replacement empty-state card into the standard view
+ * container. Used for the "no project open" state — there are no
+ * files to compete with, so the card owns the whole pane.
+ */
+function renderTreeEmptyState(kind) {
+    const standardContainer = window.treeView?.getContainer('standard');
+    if (!standardContainer) return;
+    standardContainer.innerHTML = '';
+    standardContainer.appendChild(buildEmptyStateCard(kind));
+}
+
+/**
+ * Prepend (or remove) the "create your first processor" banner inside
+ * the standard view container, based on the renderer's view of how
+ * many processors exist. Idempotent: every refresh strips the old
+ * banner and re-adds it only if still warranted.
+ */
+function syncNoProcessorsBanner() {
+    const standardContainer = window.treeView?.getContainer('standard');
+    if (!standardContainer) return;
+    // Strip any prior banner so we never stack two on top of each
+    // other across rapid refreshes.
+    standardContainer.querySelectorAll('.tree-empty-state.tree-empty-no-processors')
+        .forEach((el) => el.remove());
+
+    // Only show the banner when a project is loaded AND it has no
+    // processors yet. The no-project state already covers the empty
+    // workspace case with its own full-replacement card.
+    if (!window.currentProjectPath) return;
+    const processors = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+    if (processors.length > 0) return;
+
+    standardContainer.prepend(buildEmptyStateCard('no-processors'));
+}
+
+// Minimal escaper for the i18n strings we drop into innerHTML above.
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[ch]);
+}
+
+/**
+ * Confirm + delete a processor by name. Wired to the trash button in
+ * processor folders inside the standard file tree (see renderFileTree
+ * below — `deleteBtn.addEventListener('click', ...)`). Previously the
+ * button referenced `window.confirmAndDeleteProcessor` which was never
+ * defined — clicking it printed an error in the console and did
+ * nothing. This exposes the function for the first time, with a
+ * proper confirm dialog and a refresh that gives the user immediate
+ * "the processor is gone" feedback.
+ *
+ * After a successful delete, ProcessorsUpdated fires from main and the
+ * file tree's `onProcessorsUpdated` subscriber picks it up — which
+ * also runs the empty-state check, so deleting the last processor
+ * automatically flips the tree into the "click to create processor"
+ * empty card.
+ */
+async function confirmAndDeleteProcessor(processorName) {
+    const tr = (k, p) => (window.t ? window.t(k, p) : k);
+    let userChoice = 'confirm';
+    try {
+        const { showDialog } = await import('../ui/dialog_manager.js');
+        userChoice = await showDialog({
+            title: tr('dialog.deleteProcessor.title'),
+            message: tr('dialog.deleteProcessor.message', { name: processorName }),
+            buttons: [
+                { label: tr('dialog.common.cancel'),         action: 'cancel',  type: 'cancel' },
+                { label: tr('dialog.deleteProcessor.confirm'), action: 'confirm', type: 'danger' },
+            ],
+            variant: 'danger',
+        });
+    } catch (err) {
+        // dialog_manager failed to load — fall back to a native confirm
+        // so the user can still proceed. They're not stuck.
+        console.warn('confirmAndDeleteProcessor: dialog_manager unavailable', err);
+        userChoice = window.confirm(`Delete processor "${processorName}"?`) ? 'confirm' : 'cancel';
+    }
+    if (userChoice !== 'confirm') return;
+
+    try {
+        await window.electronAPI?.deleteProcessor?.(processorName);
+        // onProcessorsUpdated → ProjectStore subscribers will refresh
+        // the tree. Belt-and-braces: kick a refresh ourselves in case
+        // the IPC handler can't reach this window.
+        if (typeof window.refreshFileTree === 'function') {
+            window.refreshFileTree();
+        } else if (window.fileTreeManager?.refresh) {
+            window.fileTreeManager.refresh();
+        }
+    } catch (err) {
+        console.error('confirmAndDeleteProcessor failed:', err);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.confirmAndDeleteProcessor = confirmAndDeleteProcessor;
+    window.renderTreeEmptyState = renderTreeEmptyState;
+    window.syncNoProcessorsBanner = syncNoProcessorsBanner;
+}
+
 // --- Main Rendering and Refresh Logic ---
 //
 // Standard tree renders into the dedicated `.tree-view-standard`
@@ -138,7 +290,11 @@ async function refreshFileTree() {
         }
 
         if (!window.currentProjectPath) {
-            console.warn('No project is currently open');
+            // Replace the otherwise-blank pane with the click-to-create
+            // empty state so the user has an obvious next action. This
+            // also covers the startup case where the user launched
+            // Aurora without auto-restoring a project.
+            renderTreeEmptyState('no-project');
             return;
         }
 
@@ -163,6 +319,10 @@ async function refreshFileTree() {
             setTimeout(() => {
                 standardContainer.innerHTML = '';
                 renderFileTree(result.files, standardContainer);
+                // Banner sits ABOVE the file rows when the project has
+                // zero processors — same UX hook as the no-project
+                // empty card but inline with the user's actual workspace.
+                syncNoProcessorsBanner();
 
                 expandedPaths.forEach(path => {
                     const folderItem = standardContainer.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
@@ -645,6 +805,7 @@ class FileTreeManager {
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
         standardContainer.innerHTML = '';
         renderFileTree(files, standardContainer);
+        syncNoProcessorsBanner();
         refreshFileTree();
 
         expandedPaths.forEach(path => {
@@ -674,6 +835,7 @@ toggleHierarchyView() {
         const expandedPaths = Array.from(FileTreeState.expandedFolders);
         standardContainer.innerHTML = '';
         renderFileTree(files, standardContainer);
+        syncNoProcessorsBanner();
         refreshFileTree();
 
         expandedPaths.forEach(path => {
@@ -699,3 +861,83 @@ const fileTreeManager = new FileTreeManager();
 export { fileTreeManager, TreeViewState, FileTreeState };
 
 window.refreshFileTree = refreshFileTree;
+
+// --- Empty-state wiring ---------------------------------------------
+//
+// Three signals can change which empty card (if any) belongs in the
+// standard tree:
+//
+//   1. ProjectStore goes from "has project" to "no project" or vice
+//      versa  →  swap between the no-project card and the live tree.
+//   2. The main process broadcasts onProcessorsUpdated  →  re-evaluate
+//      the no-processors banner (last processor deleted = banner
+//      should reappear; first processor created = banner should
+//      vanish).
+//   3. App boot with no auto-restored project  →  render the
+//      no-project card immediately instead of leaving a blank pane.
+//
+// All three converge on `renderTreeEmptyState('no-project')` or
+// `syncNoProcessorsBanner()` — defined above in this file.
+function bootstrapTreeEmptyStateWiring() {
+    const onProjectChange = (snapshot) => {
+        if (snapshot?.projectPath) {
+            // Switched into a project — refresh the tree so files
+            // populate. syncNoProcessorsBanner runs at the tail end
+            // of refreshFileTree already.
+            refreshFileTree();
+        } else {
+            renderTreeEmptyState('no-project');
+        }
+    };
+
+    if (window.ProjectStore?.subscribe) {
+        window.ProjectStore.subscribe(onProjectChange);
+    }
+
+    // onProcessorsUpdated fires from main on create/delete, and from
+    // project:open when the .spf is read. Window may or may not have
+    // the helper yet at boot time, so we re-check after a tick.
+    const wireProcUpdates = () => {
+        window.electronAPI?.onProcessorsUpdated?.(() => {
+            // availableProcessors is set by file_mode.js's subscriber
+            // earlier in the IPC sequence; the banner sync just reads
+            // it from window. A microtask delay is enough for that.
+            queueMicrotask(syncNoProcessorsBanner);
+        });
+    };
+    if (window.electronAPI) wireProcUpdates();
+    else window.addEventListener('aurora:ipc-ready', wireProcUpdates, { once: true });
+
+    // Cold start with no project: paint the empty card immediately so
+    // the user is never staring at a blank file-tree pane. Skipped
+    // when a project auto-restore is in flight (signalled by the
+    // localStorage key index.html's inline boot script reads) — in
+    // that case the user briefly sees the "Loading…" header and the
+    // ProjectStore subscriber above will refresh into the live tree
+    // once the IPC roundtrip lands.
+    let willAutoRestore = false;
+    try { willAutoRestore = !!localStorage.getItem('aurora-last-project-path'); }
+    catch (_) { /* localStorage unavailable, treat as no restore */ }
+
+    if (!window.currentProjectPath && !willAutoRestore) {
+        // Defer one tick so treeView has had a chance to mount its
+        // subcontainers (initialize() runs on DOMContentLoaded).
+        queueMicrotask(() => {
+            if (!window.currentProjectPath) renderTreeEmptyState('no-project');
+        });
+    } else if (!window.currentProjectPath && willAutoRestore) {
+        // Auto-restore safety net: if it never completes (e.g. the
+        // stored .spf was moved), the user shouldn't be stuck on a
+        // blank tree forever. After ~3s of no project, fall back to
+        // the empty card so they can manually create/open a project.
+        setTimeout(() => {
+            if (!window.currentProjectPath) renderTreeEmptyState('no-project');
+        }, 3000);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapTreeEmptyStateWiring, { once: true });
+} else {
+    bootstrapTreeEmptyStateWiring();
+}

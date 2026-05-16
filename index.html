@@ -101,7 +101,7 @@
               </span>
           </button>
           <button id="procConfigToggle" class="toolbar-button icon-only" data-tooltip="Processor simulation settings" data-i18n-tooltip="toolbar.processorConfig.tooltip" disabled>
-              <i class="ph ph-sliders-horizontal"></i>
+              <i class="ph ph-gear-six"></i>
           </button>
       </div>
       <div class="toolbar-separator" aria-hidden="true"></div>
@@ -111,10 +111,11 @@
           <button id="vericomp" class="toolbar-button compile-btn" data-tool="veri" data-tooltip="Synthesize Verilog" data-i18n-tooltip="toolbar.verilogSynth.tooltip">
               <span class="glyph glyph-veri" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
-                  <!-- Quill pen, top-right shaft sweeping into a sharp nib at bottom-left -->
-                  <path d="M13.5 2.5 L8 8 L4 12 L2 14"/>
-                  <path d="M13.5 2.5 L11 1.5 L8 4.5 L8 8 L11.5 8 L14.5 5 L13.5 2.5 Z"/>
-                  <line x1="6" y1="10" x2="9" y2="13"/>
+                  <!-- Feather (quill): teardrop vane, central shaft and barbs -->
+                  <path d="M13.2 2.8c0 5.6-3.9 9.5-9.5 10.5"/>
+                  <path d="M13.2 2.8C7.6 3.8 3.7 7.7 2.7 13.3"/>
+                  <path d="M12.2 3.8 3.4 12.6"/>
+                  <path d="M11.7 4.6 8.5 4.6 M10.2 6.6 7 6.6 M8.6 8.7 5.4 8.7"/>
                 </svg>
               </span>
           </button>
@@ -160,13 +161,9 @@
               </button>
           </div>
 
-          <!-- Aurora locale toggle (PT/EN). Controls both UI strings
-               (via i18n.js / aurora-locale) AND the yanc compiler
-               flag -pt/-en, since they're intentionally linked. -->
-          <button id="localeToggle" class="toolbar-button" data-tooltip="Compiler messages: Portuguese" data-i18n-tooltip="locale.compilerMessages.pt">
-              <i class="ph ph-translate"></i>
-              <span id="localeLabel">PT</span>
-          </button>
+          <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now —
+               see the "Language" section in #settings-modal. It still
+               controls both UI strings and the yanc -pt/-en flag. -->
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
           </button>
@@ -224,6 +221,13 @@
               <input type="checkbox" id="procConfigShowArrays" disabled />
               <span>Show arrays in GTKWave</span>
           </label>
+          <div class="proc-config-sim-time" id="procConfigSimTimeRow">
+              <span class="proc-config-sim-time-label">Estimated simulation time</span>
+              <span class="proc-config-sim-time-readout">
+                  <span class="proc-config-sim-time-value" id="procConfigSimTime">—</span>
+                  <i class="ph ph-clock proc-config-sim-time-icon" aria-hidden="true"></i>
+              </span>
+          </div>
       </div>
   </div>
 
@@ -342,6 +346,8 @@
                     <footer class="welcome-footer">
                         <a href="#" class="footer-link" id="website-link">nipscern.com</a>
                         <span class="footer-divider">·</span>
+                        <span class="welcome-signature" aria-hidden="true">SAPHO<span class="welcome-signature-amp">&amp;</span>AURORA</span>
+                        <span class="footer-divider">·</span>
                         <span class="footer-version">v5.0.0</span>
                     </footer>
                 </div>
@@ -403,9 +409,10 @@
                   <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal" data-i18n-tooltip="toolbar.termTab.veri">
                       <span class="glyph glyph-veri" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
-                          <path d="M13.5 2.5 L8 8 L4 12 L2 14"/>
-                          <path d="M13.5 2.5 L11 1.5 L8 4.5 L8 8 L11.5 8 L14.5 5 L13.5 2.5 Z"/>
-                          <line x1="6" y1="10" x2="9" y2="13"/>
+                          <path d="M13.2 2.8c0 5.6-3.9 9.5-9.5 10.5"/>
+                          <path d="M13.2 2.8C7.6 3.8 3.7 7.7 2.7 13.3"/>
+                          <path d="M12.2 3.8 3.4 12.6"/>
+                          <path d="M11.7 4.6 8.5 4.6 M10.2 6.6 7 6.6 M8.6 8.7 5.4 8.7"/>
                         </svg>
                       </span>
                       TVERI
@@ -550,7 +557,7 @@
                         <span data-i18n="modal.waveConfig.selectAll">Select all</span>
                     </button>
                     <button id="waveConfigSelectNone" class="btn btn-outline btn-small" type="button">
-                        <i class="ph ph-square" aria-hidden="true"></i>
+                        <i class="ph ph-broom" aria-hidden="true"></i>
                         <span data-i18n="modal.waveConfig.clear">Clear</span>
                     </button>
                 </div>
@@ -731,9 +738,14 @@
   </div>
 </div>
 
-<!-- Settings Modal — standardized to modal-container -->
+<!-- Aurora Settings Modal — sidebar nav (left) + pane content (right).
+     Each .settings-nav-item maps 1:1 to a .settings-pane via data-pane.
+     aurora_settings.js wires nav clicks to a setActivePane() call that
+     toggles `.active` on both the button and the pane. The "Save"
+     and "Reset" footer buttons act on whichever pane is visible:
+     persistence happens at the modal level, not per-pane. -->
 <div id="settings-modal" class="modal-overlay">
-    <div class="modal-container medium" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
+    <div class="modal-container settings-modal" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
         <header class="modal-header">
             <h2 id="settings-modal-title" class="modal-title">
                 <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
@@ -744,54 +756,145 @@
             </button>
         </header>
 
-        <main class="modal-body">
-            <section class="settings-section">
-                <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
-                <div class="setting-item">
-                    <label for="tooltips-toggle" data-i18n="modal.settings.tooltips">Enable Tooltips</label>
-                    <label class="switch">
-                        <input type="checkbox" id="tooltips-toggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <div class="setting-description" data-i18n="modal.settings.tooltipsDescription">
-                        Show tooltips on hover throughout the IDE.
+        <main class="modal-body settings-body">
+            <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+                <button class="settings-nav-item active" data-pane="general" role="tab" aria-selected="true">
+                    <i class="ph ph-house" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionGeneral">General</span>
+                </button>
+                <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
+                    <i class="ph ph-palette" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionAppearance">Appearance</span>
+                </button>
+                <button class="settings-nav-item" data-pane="language" role="tab" aria-selected="false">
+                    <i class="ph ph-translate" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionLanguage">Language</span>
+                </button>
+                <button class="settings-nav-item" data-pane="terminal" role="tab" aria-selected="false">
+                    <i class="ph ph-terminal-window" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionTerminal">Terminal</span>
+                </button>
+                <button class="settings-nav-item" data-pane="shortcuts" role="tab" aria-selected="false">
+                    <i class="ph ph-keyboard" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionShortcuts">Shortcuts</span>
+                </button>
+            </nav>
+
+            <div class="settings-panes">
+                <!-- General -->
+                <section class="settings-pane active" data-pane="general" role="tabpanel">
+                    <header class="settings-pane-header">
+                        <i class="ph ph-house" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
+                    </header>
+                    <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="tooltips-toggle" data-i18n="modal.settings.tooltips">Enable Tooltips</label>
+                                <p class="setting-description" data-i18n="modal.settings.tooltipsDescription">
+                                    Show tooltips on hover throughout the IDE.
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="tooltips-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="settings-section">
-                <h3 data-i18n="modal.settings.sectionTerminal">Terminal</h3>
-                <div class="setting-item">
-                    <label for="verbose-toggle" data-i18n="modal.settings.verbose">Verbose Mode</label>
-                    <label class="switch">
-                        <input type="checkbox" id="verbose-toggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <div class="setting-description" data-i18n="modal.settings.verboseDescription">
-                        Show all compilation messages. Disable to filter (errors, warnings, success, info).
+                <!-- Appearance -->
+                <section class="settings-pane" data-pane="appearance" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-palette" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionAppearance">Appearance</h3>
+                    </header>
+                    <div class="settings-card">
+                        <div class="setting-row setting-row-stack">
+                            <div class="setting-row-text">
+                                <label data-i18n="modal.settings.appIcon">Application icon</label>
+                                <p class="setting-description" data-i18n="modal.settings.appIconDescription">
+                                    Replaces the watermark/splash icon across the workspace. Use Reset to go back to the bundled default.
+                                </p>
+                            </div>
+                            <div id="icon-container" class="icon-container">
+                                <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" alt="Aurora" class="overlay-icon aurora-icon" />
+                                <i id="fallback-icon" class="ph ph-image-broken fallback-icon"></i>
+                                <div class="icon-actions">
+                                    <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon" data-i18n-aria-label="modal.settings.changeIcon">
+                                        <i class="ph ph-pencil-simple"></i>
+                                    </button>
+                                    <button class="reset-icon-btn" id="reset-icon-btn" aria-label="Reset application icon" data-i18n-aria-label="modal.settings.resetIcon">
+                                        <i class="ph ph-arrow-counter-clockwise"></i>
+                                    </button>
+                                </div>
+                                <input type="file" id="icon-upload" accept="image/*" class="hidden" />
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="settings-section">
-                <h3 data-i18n="modal.settings.sectionAppearance">Appearance</h3>
-                <div id="icon-container" class="icon-container">
-                    <img id="aurora-icon" src="./assets/icons/sapho_aurora_icon.svg" alt="Aurora" class="overlay-icon aurora-icon" />
-                    <i id="fallback-icon" class="ph ph-image-broken fallback-icon"></i>
-                    <button class="change-icon-btn" id="change-icon-btn" aria-label="Change application icon" data-i18n-aria-label="modal.settings.changeIcon">
-                        <i class="ph ph-image"></i>
-                    </button>
-                    <input type="file" id="icon-upload" accept="image/*" class="hidden" />
-                </div>
-            </section>
+                <!-- Language -->
+                <section class="settings-pane" data-pane="language" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-translate" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionLanguage">Language</h3>
+                    </header>
+                    <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="settings-language-select" data-i18n="modal.settings.language">Interface language</label>
+                                <p class="setting-description" data-i18n="modal.settings.languageDescription">
+                                    Changes the interface language and the compiler messages language (-pt / -en).
+                                </p>
+                            </div>
+                            <select id="settings-language-select" class="settings-select">
+                                <option value="pt">Português</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
 
-            <section class="settings-section">
-                <h3 data-i18n="modal.settings.sectionShortcuts">Keyboard Shortcuts</h3>
-                <div id="shortcut-list"></div>
-                <div class="shortcut-warning" id="shortcut-warning" data-i18n="modal.settings.shortcutInUse">
-                    This shortcut is already in use.
-                </div>
-            </section>
+                <!-- Terminal -->
+                <section class="settings-pane" data-pane="terminal" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-terminal-window" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionTerminal">Terminal</h3>
+                    </header>
+                    <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="verbose-toggle" data-i18n="modal.settings.verbose">Verbose mode</label>
+                                <p class="setting-description" data-i18n="modal.settings.verboseDescription">
+                                    Show all compilation messages. Disable to filter (errors, warnings, success, info).
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="verbose-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Shortcuts -->
+                <section class="settings-pane" data-pane="shortcuts" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-keyboard" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionShortcuts">Keyboard Shortcuts</h3>
+                    </header>
+                    <div class="settings-card">
+                        <p class="settings-card-hint" data-i18n="modal.settings.shortcutsHint">
+                            Click a shortcut to record a new key combination. Press Esc to cancel recording.
+                        </p>
+                        <div id="shortcut-list"></div>
+                        <div class="shortcut-warning" id="shortcut-warning" data-i18n="modal.settings.shortcutInUse">
+                            This shortcut is already in use.
+                        </div>
+                    </div>
+                </section>
+            </div>
         </main>
 
         <footer class="modal-footer">
@@ -1010,7 +1113,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>
 <script src="./js/utils/resize.js" type="module"></script>
-<script src="./js/ui/command_palette.js" type="module"></script>
 <script src="./js/ui/notification.js" type="module"></script>
 <script src="./js/project/close_project.js" type="module"></script>
 <script src="./js/editor/monaco_editor.js" type="module"></script>

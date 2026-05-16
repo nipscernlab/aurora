@@ -40,7 +40,13 @@
     "fileTree": {
         "label":     "FILE TREE",
         "noProject": "No project open",
-        "loading":   "Loading…"
+        "loading":   "Loading…",
+        "empty": {
+            "noProjectTitle":     "No project open",
+            "noProjectCta":       "Click here to create a new project",
+            "noProcessorsTitle":  "No processors yet",
+            "noProcessorsCta":    "Click here to create your first processor"
+        }
     },
     "modal": {
         "waveConfig": {
@@ -98,8 +104,15 @@
             "verbose":                 "Verbose Mode",
             "verboseDescription":      "Show all compilation messages. Disable to filter (errors, warnings, success, info).",
             "sectionAppearance":       "Appearance",
+            "appIcon":                 "Application icon",
+            "appIconDescription":      "Replaces the watermark/splash icon across the workspace. Use Reset to go back to the bundled default.",
             "changeIcon":              "Change application icon",
+            "resetIcon":               "Reset to default icon",
+            "sectionLanguage":         "Language",
+            "language":                "Interface Language",
+            "languageDescription":     "Changes the interface language and the compiler messages language (-pt / -en).",
             "sectionShortcuts":        "Keyboard Shortcuts",
+            "shortcutsHint":           "Click a shortcut to record a new key combination. Press Esc to cancel recording.",
             "shortcutInUse":           "This shortcut is already in use.",
             "reset":                   "Reset to Defaults",
             "save":                    "Save Changes"
@@ -136,6 +149,11 @@
             "errorTitle":   "Error",
             "errorMessage": "Failed to create processor: {{detail}}",
             "unknownError": "Unknown error"
+        },
+        "deleteProcessor": {
+            "title":   "Delete processor",
+            "message": "Are you sure you want to delete the processor \"{{name}}\"? This removes its folder and registrations from the project.",
+            "confirm": "Delete processor"
         },
         "closeProject": {
             "title":             "Close Project",
@@ -218,7 +236,7 @@
         "setTopLevel":     "Set as Top Level",
         "unmarkTestbench": "Unmark Testbench",
         "markTestbench":   "Mark as Testbench",
-        "removeFile":      "Remove File",
+        "removeFile":      "Delete Processor",
         "newVerilog":      "New Verilog File (.v)",
         "saveNewVerilog":  "Save New Verilog File"
     },

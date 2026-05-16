@@ -61,6 +61,12 @@ function clearProjectInterface() {
     window.treeView?.clearAll?.();
     window.treeView?.setActive?.('standard');
 
+    // After clearing, drop the "click here to create a project"
+    // empty-state card into the standard view so the pane is never
+    // visually blank. file_tree_manager exposes the renderer on
+    // window for non-module callers like this one.
+    window.renderTreeEmptyState?.('no-project');
+
     // Helper: re-instala o data-i18n pra que applyDOM em futuros
     // locale changes re-traduza. updateProjectNameUI remove o atributo
     // quando seta um nome de projeto real; aqui voltamos pra label

@@ -23,9 +23,14 @@
         console.log(`Updating ${auroraIcons.length} icon(s)`);
 
         auroraIcons.forEach(icon => {
-            // Set up handlers for each icon instance
+            // Watermark/decorative icons (welcome screen, future hero images)
+            // get their display set by their own CSS — touching `display`
+            // here would break absolute positioning. Settings/UI icons rely
+            // on this module to reveal them on load.
+            const isDecorative = icon.classList.contains('welcome-watermark')
+                || icon.hasAttribute('data-decorative-icon');
             icon.onload = () => {
-                icon.style.display = 'inline-block';
+                if (!isDecorative) icon.style.display = 'inline-block';
                 _isIconLoaded = true;
             };
             icon.onerror = () => {
@@ -45,10 +50,15 @@
     }
 
     /**
-     * Displays the fallback icon for all instances.
+     * Displays the fallback icon for all instances. Watermarks/decoratives
+     * stay visible (their src already failed; CSS handles their appearance).
      */
     function showFallbackIcons() {
-        auroraIcons.forEach(icon => icon.style.display = 'none');
+        auroraIcons.forEach(icon => {
+            const isDecorative = icon.classList.contains('welcome-watermark')
+                || icon.hasAttribute('data-decorative-icon');
+            if (!isDecorative) icon.style.display = 'none';
+        });
         fallbackIcons.forEach(icon => icon.style.display = 'inline-block');
         _isIconLoaded = false;
     }
@@ -117,9 +127,14 @@
      * Initializes the module, finds all elements, and sets up event listeners.
      */
     function init() {
-        // Cache collections of DOM elements using classes
+        // Cache collections of DOM elements using classes. Welcome
+        // screen watermark is included via `.welcome-watermark` so the
+        // chosen application icon also drives the splash background —
+        // "changing the icon in settings actually changes it everywhere"
+        // as the user expects, without forcing inline display on the
+        // decorative variants (handled inside showIcons).
         iconUploadInput = document.getElementById('icon-upload');
-        auroraIcons = document.querySelectorAll('.aurora-icon');
+        auroraIcons = document.querySelectorAll('.aurora-icon, .welcome-watermark');
         fallbackIcons = document.querySelectorAll('.fallback-icon');
 
         if (!iconUploadInput || auroraIcons.length === 0) {
@@ -133,6 +148,13 @@
         document.addEventListener('click', (event) => {
             if (event.target.closest('.change-icon-btn')) {
                 iconUploadInput.click();
+                return;
+            }
+            // Reset button — wipe stored override and reload the bundled
+            // default. Lives next to the change-icon-btn inside
+            // .icon-actions; see index.html and aurora_settings.css.
+            if (event.target.closest('.reset-icon-btn')) {
+                loadDefaultIcon();
             }
         });
 

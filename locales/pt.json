@@ -40,7 +40,13 @@
     "fileTree": {
         "label":     "ÁRVORE DE ARQUIVOS",
         "noProject": "Nenhum projeto aberto",
-        "loading":   "Carregando…"
+        "loading":   "Carregando…",
+        "empty": {
+            "noProjectTitle":     "Nenhum projeto aberto",
+            "noProjectCta":       "Clique aqui para criar um novo projeto",
+            "noProcessorsTitle":  "Sem processadores ainda",
+            "noProcessorsCta":    "Clique aqui para criar seu primeiro processador"
+        }
     },
     "modal": {
         "waveConfig": {
@@ -98,8 +104,15 @@
             "verbose":                 "Modo Verboso",
             "verboseDescription":      "Mostrar todas as mensagens de compilação. Desabilite para filtrar (erros, avisos, sucesso, info).",
             "sectionAppearance":       "Aparência",
+            "appIcon":                 "Ícone da aplicação",
+            "appIconDescription":      "Substitui o ícone do workspace (marca d'água/splash). Use Restaurar para voltar ao padrão original.",
             "changeIcon":              "Alterar ícone da aplicação",
+            "resetIcon":               "Restaurar ícone padrão",
+            "sectionLanguage":         "Idioma",
+            "language":                "Idioma da interface",
+            "languageDescription":     "Altera o idioma da interface e das mensagens do compilador (-pt / -en).",
             "sectionShortcuts":        "Atalhos de Teclado",
+            "shortcutsHint":           "Clique em um atalho para gravar uma nova combinação. Pressione Esc para cancelar.",
             "shortcutInUse":           "Este atalho já está em uso.",
             "reset":                   "Restaurar Padrões",
             "save":                    "Salvar Alterações"
@@ -136,6 +149,11 @@
             "errorTitle":   "Erro",
             "errorMessage": "Falha ao criar processador: {{detail}}",
             "unknownError": "Erro desconhecido"
+        },
+        "deleteProcessor": {
+            "title":   "Deletar processador",
+            "message": "Tem certeza de que deseja deletar o processador \"{{name}}\"? Isso remove sua pasta e os registros no projeto.",
+            "confirm": "Deletar processador"
         },
         "closeProject": {
             "title":             "Fechar Projeto",
@@ -218,7 +236,7 @@
         "setTopLevel":     "Definir como Top Level",
         "unmarkTestbench": "Desmarcar como Testbench",
         "markTestbench":   "Marcar como Testbench",
-        "removeFile":      "Remover Arquivo",
+        "removeFile":      "Deletar Processador",
         "newVerilog":      "Novo arquivo Verilog (.v)",
         "saveNewVerilog":  "Salvar novo arquivo Verilog"
     },

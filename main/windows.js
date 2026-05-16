@@ -12,6 +12,100 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const log = require('electron-log');
 const state = require('./state');
 const { componentsPath } = require('./paths');
+const recents = require('./recents');
+
+/**
+ * (Re)build the Windows taskbar jumplist for SAPHO.
+ *
+ * Layout (top → bottom, as Windows renders it):
+ *   - Custom category "Recent Projects" — up to 5 most-recent .spf
+ *     files, each launching SAPHO and opening the project.
+ *   - Tasks — single "New SAPHO Window" entry that re-launches the app.
+ *
+ * Two important pieces:
+ *
+ * 1. We do NOT use the Windows-managed `frequent`/`recent` categories.
+ *    Those pull from the shell's recent-documents list, which carries
+ *    "Electron" leftovers from earlier dev runs (before AppUserModelID
+ *    was nailed down). Owning the list in main keeps the jumplist
+ *    clean.
+ *
+ * 2. In dev (`npm start`), `process.execPath` is `electron.exe` and
+ *    just running it produces a blank Electron prompt. So when we're
+ *    not packaged we hand the app path through as the first argv to
+ *    electron.exe — that's exactly what `electron .` does manually, and
+ *    it gets a real SAPHO window. Packaged builds skip the app-path
+ *    arg because SAPHO.exe already knows where the bundle lives.
+ */
+function rebuildJumpList() {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const exe = process.execPath;
+    const iconPath = path.join(app.getAppPath(), 'assets', 'icons', 'sapho_aurora_icon.ico');
+    const isPackaged = app.isPackaged;
+    const appPath = app.getAppPath();
+    // Quoted so spaces in the app path survive Windows arg parsing.
+    const baseArgs = isPackaged ? '' : `"${appPath}"`;
+    const joinArgs = (...extra) => [baseArgs, ...extra].filter(Boolean).join(' ');
+
+    // Recent projects, pruned to entries that still exist on disk. Max
+    // 5 so the jumplist stays scannable on a single glance — Windows
+    // would happily render 10 but it pushes "New SAPHO Window" off the
+    // visible area.
+    const recentSpfs = recents.prune().slice(0, 5);
+    const recentItems = recentSpfs.map((spf) => ({
+      type: 'task',
+      title: path.basename(spf, '.spf'),
+      description: spf,
+      program: exe,
+      args: joinArgs(`"${spf}"`),
+      iconPath,
+      iconIndex: 0,
+    }));
+
+    const categories = [];
+    if (recentItems.length > 0) {
+      categories.push({
+        type: 'custom',
+        name: 'Recent Projects',
+        items: recentItems,
+      });
+    }
+    categories.push({
+      type: 'tasks',
+      items: [
+        {
+          type: 'task',
+          title: 'New SAPHO Window',
+          description: 'Open a new SAPHO window',
+          program: exe,
+          args: joinArgs('--new-window'),
+          iconPath,
+          iconIndex: 0,
+        },
+      ],
+    });
+
+    // setJumpList returns a string status on Windows: 'ok' on success,
+    // anything else (e.g. 'invalidSeparatorError', 'fileTypeRegistrationError',
+    // 'customCategoryAccessDeniedError') signals which item Windows
+    // rejected. Surface that in the log so a future "my jumplist is
+    // empty" debugging session lands on the actual reason instead of
+    // a silent miss.
+    const status = app.setJumpList(categories);
+    log.info('jumplist set:', {
+      status: status || 'ok',
+      isPackaged,
+      execPath: exe,
+      appPath,
+      recentCount: recentItems.length,
+      categories: categories.map((c) => ({ type: c.type, name: c.name, items: c.items?.length ?? 0 })),
+    });
+  } catch (e) {
+    log.warn('rebuildJumpList failed:', e);
+  }
+}
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -79,9 +173,14 @@ function createMainWindow() {
   });
 
   // Register the sapho: protocol and .spf extension on Windows.
+  // AppUserModelID + initial jumplist are set in main.js / on
+  // app-ready — too early for createMainWindow to be involved.
   if (process.platform === 'win32') {
     app.setAsDefaultProtocolClient('sapho');
-    app.setAppUserModelId(process.execPath);
+    // Rebuild on every window creation in case the recents list
+    // changed since the initial render. Cheap; setJumpList is
+    // a one-shot system call.
+    rebuildJumpList();
   }
 
   mainWindow.on('close', async (_event) => {
@@ -194,32 +293,47 @@ function createProgressWindow() {
 }
 
 // Window controls used by the custom (frameless) title bar.
+//
+// We support multiple SAPHO windows in the same process (see
+// lifecycle.js — `second-instance` creates a new window instead of just
+// focusing). So every window-scoped IPC routes to the window that sent
+// it (BrowserWindow.fromWebContents), not the singleton `state.mainWindow`
+// which only tracks the most recently created window. Without this fix,
+// minimizing/closing the second window would have acted on the first.
 function registerWindowControls() {
-  ipcMain.on('window:minimize', () => {
-    const w = state.mainWindow;
+  const senderWin = (event) => {
+    try {
+      return BrowserWindow.fromWebContents(event.sender);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  ipcMain.on('window:minimize', (event) => {
+    const w = senderWin(event) || state.mainWindow;
     if (w && !w.isDestroyed()) w.minimize();
   });
 
-  ipcMain.on('window:maximize-toggle', () => {
-    const w = state.mainWindow;
+  ipcMain.on('window:maximize-toggle', (event) => {
+    const w = senderWin(event) || state.mainWindow;
     if (!w || w.isDestroyed()) return;
     if (w.isMaximized()) w.unmaximize();
     else w.maximize();
   });
 
-  ipcMain.on('window:close', () => {
-    const w = state.mainWindow;
+  ipcMain.on('window:close', (event) => {
+    const w = senderWin(event) || state.mainWindow;
     if (w && !w.isDestroyed()) w.close();
   });
 
-  ipcMain.handle('window:get-state', () => {
-    const w = state.mainWindow;
+  ipcMain.handle('window:get-state', (event) => {
+    const w = senderWin(event) || state.mainWindow;
     if (!w || w.isDestroyed()) return { isMaximized: false, isFullScreen: false };
     return { isMaximized: w.isMaximized(), isFullScreen: w.isFullScreen() };
   });
 
-  const handleZoom = (factorChange) => {
-    const w = state.mainWindow;
+  const handleZoom = (event, factorChange) => {
+    const w = senderWin(event) || state.mainWindow;
     if (!w) return;
     const webContents = w.webContents;
     const currentZoom = webContents.getZoomFactor();
@@ -227,10 +341,10 @@ function registerWindowControls() {
     webContents.setZoomFactor(newZoom);
   };
 
-  ipcMain.on('zoom-in', () => handleZoom(0.1));
-  ipcMain.on('zoom-out', () => handleZoom(-0.1));
-  ipcMain.on('zoom-reset', () => {
-    const w = state.mainWindow;
+  ipcMain.on('zoom-in', (event) => handleZoom(event, 0.1));
+  ipcMain.on('zoom-out', (event) => handleZoom(event, -0.1));
+  ipcMain.on('zoom-reset', (event) => {
+    const w = senderWin(event) || state.mainWindow;
     if (w) w.webContents.setZoomFactor(1.0);
   });
 }
@@ -240,4 +354,5 @@ module.exports = {
   createSplashScreen,
   createProgressWindow,
   registerWindowControls,
+  rebuildJumpList,
 };

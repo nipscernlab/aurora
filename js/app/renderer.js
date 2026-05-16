@@ -18,9 +18,9 @@ import { uiComponentsManager } from '../ui/ui_components.js';
 import { compilationFlowManager } from '../compilation/compilation_flow.js';
 import { SplitEditorManager } from '../editor/split_editor.js';
 
-// Non-module callers (command_palette.js, shortcut_manager.js,
-// status_bar.js) reach into TabManager via window. Expor aqui satisfaz
-// esses lookups que historicamente eram silenciosamente undefined.
+// Non-module callers (shortcut_manager.js, status_bar.js) reach into
+// TabManager via window. Expor aqui satisfaz esses lookups que
+// historicamente eram silenciosamente undefined.
 window.TabManager = TabManager;
 
 // --- Global State ---

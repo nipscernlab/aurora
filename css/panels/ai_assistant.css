@@ -110,6 +110,7 @@ body.ai-assistant-open {
 
 .ai-provider-select {
   appearance: none;
+  -webkit-appearance: none;
   background: transparent;
   color: var(--text);
   border: 0;
@@ -120,6 +121,32 @@ body.ai-assistant-open {
   outline: none;
   padding-right: var(--space-4);
   height: 24px;
+}
+
+/* Dropdown popup. Native <select> popups are OS-rendered, but
+   Chromium honours background-color / color on <option> to theme
+   the list. Without these the popup fell back to the system's
+   white-on-white default that made every provider name unreadable
+   on Aurora's dark UI. Matches the toolbar select treatment. */
+.ai-provider-select option {
+  background-color: var(--bg-elev-2);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.ai-provider-select option:checked,
+.ai-provider-select option:hover {
+  background-color: var(--bg-elev-3);
+  color: var(--text);
+}
+
+.ai-provider-section:hover {
+  border-color: var(--accent-border);
+}
+
+.ai-provider-section:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(142, 131, 232, 0.18);
 }
 
 .ai-provider-caret {

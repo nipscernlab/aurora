@@ -258,7 +258,8 @@ export const RenderMixin = {
             : `
                 <div class="verilog-file-actions">
                     <button class="verilog-icon-btn delete-btn" data-action="delete"
-                            title="Remove file">
+                            title="Delete processor"
+                            data-i18n-title="contextMenu.removeFile">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>

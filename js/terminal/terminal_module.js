@@ -1,5 +1,6 @@
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
+import { showCardNotification } from '../ui/notification.js';
 
 
 class TerminalManager {
@@ -37,6 +38,11 @@ class TerminalManager {
         if (!TerminalManager.clearButtonInitialized) {
             this.setupClearButton();
             TerminalManager.clearButtonInitialized = true;
+        }
+
+        if (!TerminalManager.exportLogButtonInitialized) {
+            this.setupExportLogButton();
+            TerminalManager.exportLogButtonInitialized = true;
         }
 
         this.activeFilters = new Set();
@@ -208,6 +214,15 @@ class TerminalManager {
             }
         });
 
+        // Counters are recomputed from DOM truth once per batch instead
+        // of incrementally inside each emit path. The old per-emit
+        // increments double-counted error/warning lines whose Aurora
+        // wrapper went through appendToTerminal → createLogEntry (both
+        // sites incremented), and missed counts when grouped cards
+        // landed multiple sub-messages via different code paths. A single
+        // recount over .log-entry / .grouped-message is the only honest
+        // source of "how many of each type are visible right now".
+        this.recountMessages(terminalId);
         this.applyFilter(terminalId);
         this.scrollToBottom(terminalId);
     }
@@ -227,6 +242,9 @@ class TerminalManager {
             this.createLogEntry(terminal, line, 'plain', timestamp);
         }
 
+        // See processExecutableOutput — recount per batch beats the
+        // double-counting from interleaved increment sites.
+        this.recountMessages(terminalId);
         this.applyFilter(terminalId);
         this.scrollToBottom(terminalId);
     }
@@ -280,15 +298,31 @@ class TerminalManager {
 
             const timestamp = new Date().toLocaleString('pt-BR', { hour12: false });
             this.createLogEntry(terminal, line.trim(), effectiveType, timestamp);
-
-            // Counter increments per real user-facing category.
-            if (['error', 'warning', 'success', 'tips', 'info'].includes(effectiveType)) {
-                this.incrementMessageCount(terminalId, effectiveType);
-            }
         });
 
+        // Single-source-of-truth recount once per batch (see
+        // processExecutableOutput for the rationale).
+        this.recountMessages(terminalId);
         this.applyFilter(terminalId);
         this.scrollToBottom(terminalId);
+    }
+
+    /**
+     * Match a card against a filter category. The visible filter buttons
+     * are error / warning / success / tips — but the renderer actually
+     * emits two flavours of the info-style card (`.tips` from
+     * detectMessageType-classified compiler hints, `.info` from
+     * `appendToTerminal(..., 'info')` Aurora wrapper notes). Both render
+     * with the same styling, so the filter has to treat them as one
+     * group; otherwise the user clicks "filter-tip", sees the counter
+     * say 5, and then sees zero rows because every one of those 5 was
+     * actually a `.info` card. Same equivalency `recountMessages` uses.
+     */
+    _cardMatchesFilter(card, filter) {
+        if (filter === 'tips') {
+            return card.classList.contains('tips') || card.classList.contains('info');
+        }
+        return card.classList.contains(filter);
     }
 
     applyFilter(terminalId) {
@@ -296,18 +330,27 @@ class TerminalManager {
         if (!terminal) return;
 
         const cards = terminal.querySelectorAll('.log-entry');
-        const hasActiveFilters = this.activeFilters.size > 0;
+        // "All four filters active" is semantically the same as "no
+        // filter" — every category is included. Treat it like the empty
+        // set so the user gets the obvious "I clicked everything ON,
+        // therefore I should see everything" behaviour instead of an
+        // identity-but-confusing pass through the per-card check.
+        const activeCount = this.activeFilters.size;
+        const hasActiveFilters = activeCount > 0 && activeCount < 4;
 
         cards.forEach(card => {
             const hasLineLinks = card.querySelector('.line-link') !== null;
 
-            if (hasLineLinks) {
-                card.style.display = '';
-                return;
-            }
-
+            // Verbose-off path. Plain (unclassified) cards stay hidden
+            // unless they carry a `line N` link — those are compile
+            // diagnostics the user must always be able to click through
+            // to, regardless of verbose mode. The previous version of
+            // this branch let the line-link override bypass the TYPE
+            // filter too, which made any error/warning containing a
+            // line number show up under every filter — exactly the
+            // "filter doesn't filter" symptom the user hit.
             if (!this.verboseMode && card.classList.contains('plain')) {
-                card.style.display = 'none';
+                card.style.display = hasLineLinks ? '' : 'none';
                 return;
             }
 
@@ -316,13 +359,8 @@ class TerminalManager {
                 return;
             }
 
-            const shouldShow = [...this.activeFilters].some(filter => card.classList.contains(filter));
-
-            if (shouldShow) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
+            const matchesAny = [...this.activeFilters].some(t => this._cardMatchesFilter(card, t));
+            card.style.display = matchesAny ? '' : 'none';
         });
     }
 
@@ -490,10 +528,11 @@ class TerminalManager {
 
         this.addMessageToCard(card, text, type);
 
-        // Counter increments per individual message, not per group card.
-        if (['error', 'warning', 'success', 'tips'].includes(type)) {
-            this.incrementMessageCount(terminalId, type);
-        }
+        // Per-message increments are gone — the batch-level recount in
+        // processExecutableOutput/processStreamedLine owns the count
+        // now. Mixing increments with recounts caused +1 drift every
+        // time the same Aurora wrapper line was both classified by
+        // detectMessageType AND surfaced through appendToTerminal.
     }
 
    createGroupedCard(terminal, type, timestamp) {
@@ -535,8 +574,30 @@ class TerminalManager {
         );
 
         messageDiv.innerHTML = processedText;
+        this._attachLineLinkClicks(messageDiv);
 
-        const lineLinks = messageDiv.querySelectorAll('.line-link');
+        messagesContainer.appendChild(messageDiv);
+    }
+
+    /**
+     * Wire up "line N" / "linha N" links inside `scopeEl` so clicking
+     * one opens the originating .cmm and jumps Monaco to that line.
+     *
+     * Previously this lived inline in addMessageToCard and was a no-op
+     * for entries that went through createLogEntry (the createLogEntry
+     * path referenced `this.handleLineClick`, which was never defined —
+     * so any line-link inside a `plain`/`raw` card silently did nothing).
+     * That hit English compiler output particularly hard: `detectMessageType`
+     * only recognised Portuguese markers (`Erro`, `Atenção`, `Sucesso`) plus
+     * a few uppercase forms, so English diagnostics like "syntax error on
+     * line 5" got classified `plain`, routed through createLogEntry, and
+     * the user clicked the link and nothing happened. Centralising the
+     * handler fixes both paths in one place.
+     */
+    _attachLineLinkClicks(scopeEl) {
+        if (!scopeEl) return;
+        const lineLinks = scopeEl.querySelectorAll('.line-link');
+        if (lineLinks.length === 0) return;
         lineLinks.forEach(link => {
             link.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -563,7 +624,7 @@ class TerminalManager {
                     }
 
                     if (!cmmFilePath) {
-                        const terminalContent = card.closest('.terminal-content');
+                        const terminalContent = scopeEl.closest('.terminal-content');
                         if (terminalContent) {
                             const logEntries = terminalContent.querySelectorAll('.log-entry');
 
@@ -618,8 +679,6 @@ class TerminalManager {
                 }
             });
         });
-
-        messagesContainer.appendChild(messageDiv);
     }
 
     goToLine(lineNumber) {
@@ -675,25 +734,22 @@ createLogEntry(terminal, text, type, timestamp) {
 
         logEntry.appendChild(timestampElement);
         logEntry.appendChild(messageContent);
-        
+
         // Adiciona ao DOM (ainda invisível se terminal.classList contiver 'faded-out')
         terminal.appendChild(logEntry);
 
-        // Listeners e Contadores (MANTIDO IGUAL)
-        const lineLinks = messageContent.querySelectorAll('.line-link');
-        lineLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const lineNumber = parseInt(link.getAttribute('data-line'));
-                if(this.handleLineClick) this.handleLineClick(lineNumber, logEntry);
-            });
-        });
+        // Line links resolve against the same .cmm-aware handler that
+        // session-card messages use (see _attachLineLinkClicks). Before,
+        // this path called `this.handleLineClick` which was never defined,
+        // so clicking "line N" on any English compiler diagnostic (which
+        // gets classified `plain` and routed through createLogEntry) did
+        // nothing.
+        this._attachLineLinkClicks(messageContent);
 
-        const messageType = type === 'info' ? 'tips' : type;
-        if (['error', 'warning', 'success', 'tips'].includes(messageType)) {
-            const termId = terminal.closest('.terminal-content')?.id.replace('terminal-', '');
-            if (termId) this.incrementMessageCount(termId, messageType);
-        }
+        // No per-entry increment here either — recountMessages at the
+        // end of each appendToTerminal batch handles counting from DOM
+        // truth, including the grouped-message case where one card
+        // contains several sub-messages of the same type.
 
         // --- AQUI ESTÁ O TRUQUE DE REVELAÇÃO ---
         // Se o terminal estiver apagado (pós-clear), revelamos agora.
@@ -772,6 +828,151 @@ createLogEntry(terminal, text, type, timestamp) {
         document.addEventListener('touchend', stopScrolling);
         document.addEventListener('mouseleave', stopScrolling);
         document.addEventListener('touchcancel', stopScrolling);
+    }
+
+    /**
+     * Wires the "Export log" toolbar button to actually export the active
+     * terminal's contents. Before this, the button existed in the DOM with
+     * a tooltip but no listener — clicking it did nothing. Now it builds a
+     * plain-text dump of every visible `.log-entry` (with timestamps and
+     * grouped sub-messages flattened) and offers a Save dialog with a
+     * timestamped default filename. A toast confirms success or surfaces
+     * the failure so the user knows whether the file landed on disk.
+     */
+    setupExportLogButton() {
+        const exportButton = document.getElementById('export-log');
+        if (!exportButton) return;
+        exportButton.addEventListener('click', () => this.exportCurrentLog());
+    }
+
+    /**
+     * Format Date as `YYYY-MM-DD_HH-mm-ss` — filesystem-safe (no colons,
+     * no slashes) so it slots straight into a filename suffix.
+     */
+    _logTimestampForFilename(d = new Date()) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+               `_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+    }
+
+    /**
+     * Serialize ALL terminals' log entries to one plain-text file the
+     * user picks via the Save dialog. The export covers every terminal
+     * (TCMM / TASM / TVERI / TWAVE / TCMD) — not just the focused one —
+     * because users usually file bug reports with the full context of
+     * what each stage emitted, not "whatever happened to be selected".
+     *
+     * Layout:
+     *   # Aurora terminal log export
+     *   # ... metadata ...
+     *
+     *   ===== TCMM =====
+     *   <stamp> [LEVEL] line...
+     *   ...
+     *
+     *   ===== TASM =====
+     *   ...
+     *
+     * Grouped cards (.log-entry holding multiple .grouped-message
+     * children) get flattened with the card timestamp prefixed to each
+     * child line so the export is grep-friendly.
+     */
+    async exportCurrentLog() {
+        const sections = [];
+        let totalEntries = 0;
+        const terminalsWithEntries = [];
+
+        Object.entries(this.terminals).forEach(([terminalId, terminal]) => {
+            if (!terminal) return;
+            const entries = terminal.querySelectorAll('.log-entry');
+            if (entries.length === 0) {
+                sections.push(`===== ${terminalId.toUpperCase()} =====\n(empty)\n`);
+                return;
+            }
+            terminalsWithEntries.push(terminalId);
+            totalEntries += entries.length;
+
+            const sectionLines = [`===== ${terminalId.toUpperCase()} =====`];
+            entries.forEach((entry) => {
+                const stampEl = entry.querySelector(':scope > .timestamp');
+                const stamp = stampEl ? stampEl.textContent.trim() : '';
+                const type = entry.classList.contains('error')   ? 'ERROR'
+                           : entry.classList.contains('warning') ? 'WARN '
+                           : entry.classList.contains('success') ? 'OK   '
+                           : entry.classList.contains('info')    ? 'INFO '
+                           : entry.classList.contains('tips')    ? 'TIP  '
+                           : '     ';
+
+                const grouped = entry.querySelectorAll('.grouped-message');
+                if (grouped.length > 0) {
+                    grouped.forEach((g) => {
+                        sectionLines.push(`${stamp} [${type}] ${g.textContent.replace(/\s+/g, ' ').trim()}`);
+                    });
+                } else {
+                    const body = entry.querySelector('.message-content') || entry;
+                    const text = (body === entry && stampEl)
+                        ? entry.textContent.replace(stampEl.textContent, '')
+                        : body.textContent;
+                    sectionLines.push(`${stamp} [${type}] ${text.replace(/\s+/g, ' ').trim()}`);
+                }
+            });
+            sections.push(sectionLines.join('\n') + '\n');
+        });
+
+        if (totalEntries === 0) {
+            showCardNotification('All terminals are empty — nothing to export.', 'info', 3500);
+            return;
+        }
+
+        const header = [
+            `# Aurora terminal log export`,
+            `# Exported: ${new Date().toISOString()}`,
+            `# Terminals with content: ${terminalsWithEntries.join(', ') || '(none)'}`,
+            `# Total entries: ${totalEntries}`,
+            ''
+        ].join('\n');
+        const body = sections.join('\n');
+
+        const stamp = this._logTimestampForFilename();
+        const defaultName = `aurora-log-all-${stamp}.txt`;
+
+        try {
+            const api = window.electronAPI;
+            if (!api?.showSaveDialog || !api?.writeFile) {
+                showCardNotification('Export not available in this build.', 'error', 4000);
+                return;
+            }
+            const result = await api.showSaveDialog({
+                title: 'Export terminal log (all terminals)',
+                defaultPath: defaultName,
+                filters: [
+                    { name: 'Plain text', extensions: ['txt', 'log'] },
+                    { name: 'All files',  extensions: ['*'] }
+                ],
+            });
+            if (!result || result.canceled || !result.filePath) {
+                // User dismissed the dialog — silent, not an error.
+                return;
+            }
+
+            const writeResult = await api.writeFile(result.filePath, header + body);
+            const ok = writeResult === true
+                    || writeResult?.success === true
+                    || writeResult === undefined; // ipc handlers that resolve to void mean success
+            if (ok) {
+                const fileName = String(result.filePath).split(/[\\/]/).pop();
+                showCardNotification(
+                    `Exported ${totalEntries} entries from ${terminalsWithEntries.length} terminal(s) to ${fileName}.`,
+                    'success', 4500, 'Export complete'
+                );
+            } else {
+                const msg = writeResult?.error || writeResult?.message || 'Write failed.';
+                showCardNotification(`Could not export the log: ${msg}`, 'error', 5000);
+            }
+        } catch (err) {
+            console.error('exportCurrentLog failed:', err);
+            showCardNotification(`Could not export the log: ${err.message || err}`, 'error', 5000);
+        }
     }
 
     setupClearButton() {

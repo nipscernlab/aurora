@@ -32,6 +32,8 @@ class ProcessorConfigPanel {
         this.clkInput = null;
         this.numClocksInput = null;
         this.showArraysInput = null;
+        this.simTimeEl = null;
+        this.simTimeRow = null;
         this.activeProc = null;
         this.processors = [];
         this._refreshSeq = 0;
@@ -51,6 +53,8 @@ class ProcessorConfigPanel {
         this.clkInput = document.getElementById('procConfigClk');
         this.numClocksInput = document.getElementById('procConfigNumClocks');
         this.showArraysInput = document.getElementById('procConfigShowArrays');
+        this.simTimeEl = document.getElementById('procConfigSimTime');
+        this.simTimeRow = document.getElementById('procConfigSimTimeRow');
         if (!this.anchor || !this.panel) {
             console.warn('ProcessorConfigPanel: anchor or panel not found');
             return;
@@ -83,6 +87,13 @@ class ProcessorConfigPanel {
         this.clkInput?.addEventListener('change', () => this._save({ clk: this._numericValue(this.clkInput) }));
         this.numClocksInput?.addEventListener('change', () => this._save({ numClocks: this._numericValue(this.numClocksInput) }));
         this.showArraysInput?.addEventListener('change', () => this._save({ showArrays: !!this.showArraysInput.checked }));
+
+        // Sim-time readout updates live as the user types — `input` fires
+        // on every keystroke (unlike `change` which waits for blur), so
+        // the duration label tracks the values without writing the .spf
+        // on every digit. Persistence still flows through `change`.
+        this.clkInput?.addEventListener('input', () => this._updateSimTime());
+        this.numClocksInput?.addEventListener('input', () => this._updateSimTime());
 
         // Atualiza quando o projeto abre/fecha, o arquivo em foco
         // muda, ou processadores sao criados/deletados pelo main.
@@ -133,6 +144,7 @@ class ProcessorConfigPanel {
             this._setInput(this.clkInput, '', true);
             this._setInput(this.numClocksInput, '', true);
             this._setCheckbox(this.showArraysInput, false, true);
+            this._updateSimTime();
             return;
         }
 
@@ -141,6 +153,51 @@ class ProcessorConfigPanel {
         this._setInput(this.clkInput, cfg.clk, false);
         this._setInput(this.numClocksInput, cfg.numClocks, false);
         this._setCheckbox(this.showArraysInput, cfg.showArrays, false);
+        this._updateSimTime();
+    }
+
+    /**
+     * Recompute the simulation duration readout from the live input
+     * values. Formula:
+     *
+     *   period = 1 / clk        (clk is in MHz, so period is in µs)
+     *   duration = numClocks * period = numClocks / clk   [µs]
+     *
+     * So at the defaults (clk=100 MHz, numClocks=2000) the testbench
+     * runs 20.00 µs of simulated time — same number Aurora bakes into
+     * the `#${proc_clk}*${numClocks}` $finish line of the testbench.
+     */
+    _updateSimTime() {
+        if (!this.simTimeEl) return;
+        const disabled = !this.activeProc;
+        if (this.simTimeRow) this.simTimeRow.classList.toggle('disabled', disabled);
+
+        const clk = Number(this.clkInput?.value);
+        const numClocks = Number(this.numClocksInput?.value);
+        if (!Number.isFinite(clk) || clk <= 0 ||
+            !Number.isFinite(numClocks) || numClocks <= 0) {
+            this.simTimeEl.textContent = '—';
+            return;
+        }
+        const us = numClocks / clk;
+        // Once the duration crosses 2 000 000 µs (= 2 s of simulated
+        // time) decimal notation loses readability fast — by 1e7 it's a
+        // wall of zeros. Switch to scientific notation from there on and
+        // *stay* there: even values that drop back below 2e6 mid-edit
+        // would otherwise jitter between formats while the user types,
+        // which is noisier than just committing to e-notation once the
+        // ceiling is crossed.
+        if (us > 2_000_000 || this._simTimeIsScientific) {
+            this._simTimeIsScientific = true;
+            this.simTimeEl.textContent = `${us.toExponential(2)} µs`;
+            return;
+        }
+        // Pick a sensible precision: small durations get more decimals
+        // so the readout stays informative under sub-microsecond clocks.
+        const formatted = us >= 100 ? us.toFixed(0)
+                       : us >= 10  ? us.toFixed(1)
+                                   : us.toFixed(2);
+        this.simTimeEl.textContent = `${formatted} µs`;
     }
 
     _readConfig(procName) {
@@ -230,7 +287,11 @@ class ProcessorConfigPanel {
         const maxLeft = window.innerWidth - panelWidth - 8;
         if (left > maxLeft) left = Math.max(8, maxLeft);
         this.panel.style.left = `${left}px`;
-        this.panel.style.top = `${rect.bottom}px`;
+        // Drop a small vertical gap below the anchor so the panel's
+        // accent ring stays visible (instead of being clipped by the
+        // toolbar hairline) and the popover reads as a separate surface
+        // floating beneath the gear button.
+        this.panel.style.top = `${rect.bottom + 8}px`;
     }
 
     _matchProcessorFromPath(filePath, processors) {

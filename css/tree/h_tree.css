@@ -151,7 +151,24 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Toggle chevron / spacer
+ *  Tree connectors (replace chevrons)
+ *
+ *  Each non-top-level row gets a curved "elbow" connector drawn from its
+ *  parent's vertical guide line down and around into the row, like a
+ *  branch on a tree. The toggle is rendered as a small clickable node
+ *  (filled when expanded, hollow when collapsed) that sits on the trunk
+ *  so the user reads the relationship before reading any text.
+ *
+ *  Pixel math (depth d, with `.hierarchy-children` padding-left = 14px,
+ *  `.hierarchy-item-content` padding-left = 8px, toggle width 16px):
+ *    parent toggle center  = parent-item-left + 16px
+ *    children trunk x      = children-left + 16px  (same column)
+ *    child item-left       = children-left + 14px
+ *    trunk relative to child item = +2px
+ *
+ *  So every trunk/elbow sits at left:2px relative to its `.hierarchy-item`,
+ *  and the toggle's node circle is centered inside the 16px-wide toggle
+ *  slot (which lands at x=16 inside its row). Both align by construction.
  * ------------------------------------------------------------------------- */
 .hierarchy-toggle,
 .hierarchy-spacer {
@@ -161,19 +178,95 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
-              color 140ms ease;
+  position: relative;
+  z-index: 1;            /* node sits above the trunk */
+  transition: color 140ms ease;
 }
+
+/* Hide any legacy chevron <i> the renderer may still emit (we now render
+   the affordance with a pseudo-element instead of a Font Awesome glyph). */
+.hierarchy-toggle > i,
+.hierarchy-spacer > i { display: none; }
 
 .hierarchy-toggle { cursor: pointer; }
 
-.hierarchy-toggle:hover { color: var(--text-secondary); }
+/* Collapsed node: hollow circle on the trunk. */
+.hierarchy-toggle::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-border);
+  background: var(--bg);
+  box-sizing: border-box;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
 
-.hierarchy-toggle.expanded { transform: rotate(90deg); color: var(--text-secondary); }
+/* Expanded node: filled accent, soft glow — reads as "this branch is
+   open, walk down the trunk". */
+.hierarchy-toggle.expanded::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(142, 131, 232, 0.18);
+}
 
-.hierarchy-item.active .hierarchy-toggle { color: var(--accent-hover); }
+.hierarchy-toggle:hover::before {
+  border-color: var(--accent);
+}
+
+/* Leaf marker: tiny muted dot where a chevron would have been. Sits on
+   the trunk so leaves stay visually connected even without a toggle. */
+.hierarchy-spacer::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-border);
+  opacity: 0.65;
+}
+
+.hierarchy-item.active .hierarchy-toggle::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* --- Trunk + elbow connector lines ------------------------------------- */
+
+.hierarchy-children > .hierarchy-item {
+  position: relative;
+}
+
+/* Non-last siblings continue the trunk past their own subtree so it
+   reaches the next sibling. Last sibling has no trunk past itself —
+   the curve closes the branch. */
+.hierarchy-children > .hierarchy-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+/* Curved elbow into each row: vertical from the row above, curving
+   right to point at the node/toggle. Skipped on the top-level item
+   because it isn't inside a `.hierarchy-children`. */
+.hierarchy-children > .hierarchy-item > .hierarchy-item-content::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: -11px;
+  width: 9px;
+  height: 22px;
+  border-left: 1.5px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
+  border-bottom-left-radius: 9px;
+  pointer-events: none;
+}
 
 /* ---------------------------------------------------------------------------
  *  Icon — type-specific colors keep the hierarchy info readable at a glance

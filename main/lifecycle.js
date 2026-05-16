@@ -41,13 +41,22 @@ function register() {
   }
 
   app.on('second-instance', (_event, commandLine) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
+    // Each subsequent SAPHO launch opens a NEW window in the same process
+    // rather than just focusing the existing one. Users can have several
+    // projects side-by-side without launching duplicate Electron processes
+    // (which would race on the shared components/Temp folder and on the
+    // single-instance lock anyway). Each window owns its own renderer state
+    // and its own active editor; main-side resources (watchers, temp dir,
+    // cleanup) stay coordinated under a single process lifecycle.
+    const { createMainWindow } = require('./windows');
+    const newWin = createMainWindow();
 
     const spfFile = commandLine.find((arg) => arg.endsWith('.spf'));
-    if (spfFile) win.webContents.send('open-spf-file', { filePaths: [spfFile] });
+    if (spfFile && newWin) {
+      newWin.webContents.once('did-finish-load', () => {
+        newWin.webContents.send('open-spf-file', { filePaths: [spfFile] });
+      });
+    }
   });
 
   app.on('window-all-closed', () => {

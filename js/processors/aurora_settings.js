@@ -228,12 +228,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---- Sidebar nav (tabs → panes) ----
+    //
+    // The redesigned settings modal uses a vertical sidebar with five
+    // sections (General / Appearance / Language / Terminal / Shortcuts).
+    // Clicking a .settings-nav-item activates its matching .settings-pane
+    // by `data-pane`. We rely on the `hidden` attribute (not just a
+    // class) so screen readers correctly skip inactive panes; the visual
+    // active state lives on a class so transitions stay snappy.
+    const navButtons = modalOverlay.querySelectorAll('.settings-nav-item');
+    const panes = modalOverlay.querySelectorAll('.settings-pane');
+
+    const setActivePane = (name) => {
+        navButtons.forEach((btn) => {
+            const isActive = btn.dataset.pane === name;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+        panes.forEach((pane) => {
+            const isActive = pane.dataset.pane === name;
+            pane.classList.toggle('active', isActive);
+            if (isActive) pane.removeAttribute('hidden');
+            else pane.setAttribute('hidden', '');
+        });
+    };
+
+    navButtons.forEach((btn) => {
+        btn.addEventListener('click', () => setActivePane(btn.dataset.pane));
+    });
+
     // ---- Modal open/close and persistence ----
     const openModal = () => {
         currentShortcuts = JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) ||
                           JSON.parse(JSON.stringify(defaultShortcuts));
         loadSettings();
         renderShortcuts();
+        // Always land on General when re-opening — the previous pane is
+        // not worth persisting across sessions, and it avoids the
+        // surprise of "I closed it on Shortcuts and now it opens on
+        // Shortcuts forever".
+        setActivePane('general');
         modalOverlay.style.display = 'flex';
         setTimeout(() => modalOverlay.classList.add('visible'), 10);
     };

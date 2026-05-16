@@ -375,3 +375,100 @@
 .file-tree.searching .file-item:not(.match):not(.parent-of-match) {
   opacity: 0.30;
 }
+
+/* ---------------------------------------------------------------------------
+ *  Empty-state cards
+ *
+ *  Two flavours sit inside the standard view subcontainer:
+ *    - `.tree-empty-no-project` (full pane replacement)  — shown when
+ *      no project is open. The only thing in the file tree.
+ *    - `.tree-empty-no-processors` (prepended banner)    — shown when
+ *      a project is open but has zero processors. Sits above the
+ *      regular file rows.
+ *
+ *  Both render as a single tappable card, large enough to feel like
+ *  a primary call-to-action without dominating the panel. Click goes
+ *  through file_tree_manager.js (buildEmptyStateCard).
+ * ------------------------------------------------------------------------- */
+.tree-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: calc(100% - var(--space-4));
+  margin: var(--space-3) var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  background: var(--bg);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--font-sans);
+  user-select: none;
+  transition: border-color var(--transition-fast),
+              background-color var(--transition-fast),
+              color var(--transition-fast),
+              transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tree-empty-state:hover {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tree-empty-state:active { transform: scale(0.97); }
+
+.tree-empty-state:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tree-empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 22px;
+  margin-bottom: var(--space-1);
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.tree-empty-state:hover .tree-empty-state-icon {
+  background: var(--accent);
+  color: white;
+}
+
+.tree-empty-state-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  letter-spacing: var(--tracking-tight);
+}
+
+.tree-empty-state-cta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: var(--leading-snug);
+}
+
+/* The no-processors banner sits inside an active workspace, so it's
+   smaller than the full no-project card — same visual language, just
+   compacted vertically so the actual files below stay reachable. */
+.tree-empty-state.tree-empty-no-processors {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.tree-empty-state.tree-empty-no-processors .tree-empty-state-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}

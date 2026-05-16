@@ -111,12 +111,56 @@
     color: var(--text-disabled);
 }
 
-/* Chevron rotates when the panel is open — visual affordance of state.
-   Toggled by processor_config_panel.js via the .open class on the
-   anchor button. */
+/* Gear icon stays still — when the panel is open the whole button is
+   highlighted (accent fill) so the relationship between trigger and
+   popover is obvious without animating the icon. Toggled by
+   processor_config_panel.js via the .open class on the anchor button. */
 #procConfigToggle i {
-    transition: transform var(--transition-fast);
+    transition: color var(--transition-fast);
+}
+#procConfigToggle.open {
+    background-color: var(--accent-soft);
+    color: var(--accent-hover);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 #procConfigToggle.open i {
-    transform: rotate(180deg);
+    color: var(--accent-hover);
+}
+
+/* Estimated simulation time row — read-only readout under the inputs.
+   Aligns label/value across the panel width with a soft top divider. */
+.proc-config-sim-time {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) 0 0;
+    margin-top: var(--space-1);
+    border-top: 1px solid var(--border-subtle);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.proc-config-sim-time-readout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.proc-config-sim-time-value {
+    font-family: var(--font-mono);
+    color: var(--accent-hover);
+    font-weight: var(--font-medium);
+}
+
+.proc-config-sim-time-icon {
+    color: var(--accent-hover);
+    font-size: var(--text-sm);
+    line-height: 1;
+    opacity: 0.95;
+}
+
+.proc-config-sim-time.disabled .proc-config-sim-time-value,
+.proc-config-sim-time.disabled .proc-config-sim-time-icon {
+    color: var(--text-disabled);
 }

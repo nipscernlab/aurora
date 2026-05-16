@@ -37,7 +37,6 @@
 
 /* 6. modals */
 @import url("./modals/modal_config.css");
-@import url("./modals/command_palette.css");
 @import url("./modals/recent_projects.css");
 @import url("./modals/close_project.css");
 @import url("./modals/project_info.css");

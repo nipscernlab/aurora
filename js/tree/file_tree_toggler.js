@@ -127,11 +127,11 @@ class FileTreeController {
    * the post-collapse model state.
    */
   collapseAll() {
-    // Clear the model first. FileTreeState was previously not exported, so
-    // `typeof FileTreeState !== 'undefined'` resolved to false and the
-    // expanded-folder set survived the re-render — the tree just bounced
-    // back to its previous shape, which the user perceived as "Collapse All
-    // is just Refresh". Importing FileTreeState fixes that.
+    // Clear the standard-tree model first. FileTreeState was previously not
+    // exported, so `typeof FileTreeState !== 'undefined'` resolved to false
+    // and the expanded-folder set survived the re-render — the tree just
+    // bounced back to its previous shape, which the user perceived as
+    // "Collapse All is just Refresh". Importing FileTreeState fixes that.
     FileTreeState?.expandedFolders?.clear?.();
 
     // Re-render so every chevron + folder icon picks up its collapsed
@@ -150,6 +150,21 @@ class FileTreeController {
       .forEach(icon => icon.classList.replace('ph-folder-open', 'ph-folder'));
     this.fileTreeContainer.querySelectorAll('.file-item-icon.fa-folder-open')
       .forEach(icon => icon.classList.replace('fa-folder-open', 'fa-folder'));
+
+    // Hierarchy view (post-synthesis module tree) lives inside the same
+    // #file-tree element but is its own DOM subtree (see tree_view.js).
+    // Mirror the same intent: every `.hierarchy-children` collapses and
+    // every `.hierarchy-toggle` drops its `expanded` flag so the curved
+    // tree-node markers in h_tree.css redraw as hollow rings. This makes
+    // Collapse All work regardless of which view the user has active —
+    // standard, verilog picker, or hierarchy.
+    this.fileTreeContainer.querySelectorAll('.hierarchy-children')
+      .forEach(children => {
+        children.classList.remove('expanded');
+        children.classList.add('collapsed');
+      });
+    this.fileTreeContainer.querySelectorAll('.hierarchy-toggle')
+      .forEach(toggle => toggle.classList.remove('expanded'));
 
     this.showCollapseEffect();
   }

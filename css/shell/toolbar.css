@@ -20,7 +20,11 @@
   gap: var(--space-1);
   width: 100%;
   height: var(--h-toolbar);
-  padding: 0 var(--space-3);
+  /* No right padding — the close button is anchored flush to the right
+     edge of the window so its hit zone reaches the corner (Windows-style
+     "throw the cursor at the corner to close"). The right-zone group
+     adds its own breathing room for everything else. */
+  padding: 0 0 0 var(--space-3);
   background-color: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   box-sizing: border-box;
@@ -180,10 +184,15 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   align-items: center;
   gap: var(--space-1);
   height: 100%;
+  min-width: 0;
 }
-.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; min-width: 0; }
-.toolbar-zone-center { flex: 0 0 auto; justify-content: center; }
-.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; min-width: 0; }
+/* Side zones are allowed to shrink down to their minimum content so the
+   center cluster (compile / synth / wave) stays addressable as long as
+   possible. The center is also allowed to shrink (flex: 0 1 auto) so it
+   can collapse its separators/labels before overflowing. */
+.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; }
+.toolbar-zone-center { flex: 0 1 auto; justify-content: center; overflow: hidden; }
+.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; }
 
 /* ---------------------------------------------------------------------------
  *  Groups
@@ -403,10 +412,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   height: 16px;
 }
 
-/* Semantic color per tool — single source of truth in theme_variables.css. */
+/* Semantic color per tool — single source of truth in theme_variables.css.
+   Verilog/iverilog is drawn as a red feather (quill) — explicit red so it
+   reads as the synthesizer signature even when the theme variable shifts. */
 #cmmcomp .glyph    { color: var(--color-cmm); }
-#vericomp .glyph   { color: var(--color-veri); }
+#vericomp .glyph   { color: #E25C5C; }
 #wavecomp .glyph   { color: var(--color-wave); }
+
+/* Feather glyph uses slightly heavier strokes so the barbs stay legible
+   at 16x16 / 14x14 (terminal-tab size). */
+.glyph-veri svg { stroke-width: 1.4; }
 
 .compile-btn:hover .glyph {
   filter: drop-shadow(0 0 5px currentColor);
@@ -559,6 +574,11 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 #sidebarMenu { margin-right: var(--space-1); }
 
+/* Toolbar wordmark removed — the SAPHO & AURORA signature now lives
+   only on the welcome screen footer (see .welcome-signature in
+   recent_projects.css). Kept this comment block so future grep for
+   "toolbar-wordmark" lands on the rationale instead of returning empty. */
+
 /* ---------------------------------------------------------------------------
  *  Highlight (compat com hover de keyword)
  * ------------------------------------------------------------------------- */
@@ -672,7 +692,18 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* ---------------------------------------------------------------------------
- *  Responsive
+ *  Responsive — collapse text labels and decorative cluster separators
+ *  before the center groups overlap. The cascade goes:
+ *
+ *    1440px → drop the SAPHO & AURORA wordmark (decorative)
+ *    1280px → drop button labels on new/open/full-build/processor hub,
+ *             icon-only collapse for those buttons, tighten the
+ *             gtkw-picker
+ *    1100px → drop the PRISM word; drop the legacy mode toggle
+ *     980px → drop the cluster separators, tighten group gaps,
+ *             collapse PRISM/locale label widths
+ *     880px → drop toolbar gap, drop sidebar margin, collapse left
+ *             group padding
  * ------------------------------------------------------------------------- */
 @media screen and (max-width: 1280px) {
   #newProjectBtn span,
@@ -687,15 +718,25 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
     min-width: var(--h-button);
     padding: 0;
   }
+  .toolbar-select { max-width: 140px; }
 }
 
 @media screen and (max-width: 1100px) {
   .prism-btn span { display: none; }
   .toggle-group { display: none; }
+  .toolbar-select { max-width: 96px; }
+}
+
+@media screen and (max-width: 980px) {
+  .toolbar-separator { display: none; }
+  .toolbar-group { gap: 0; }
+  .toolbar-zone-center { gap: 0; }
+  .toolbar-select { max-width: 64px; padding: 0 22px 0 var(--space-2); }
 }
 
 @media screen and (max-width: 880px) {
-  .toolbar { padding: 0 var(--space-2); gap: 0; }
+  .toolbar { padding: 0 0 0 var(--space-2); gap: 0; }
   .toolbar-group { gap: 0; }
   .toolbar-separator { margin: 0 var(--space-1); }
+  #sidebarMenu { margin-right: 0; }
 }

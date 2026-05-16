@@ -24,16 +24,38 @@
   flex-shrink: 0;
 }
 
-.tabs-container { scrollbar-width: thin; }
+/* Thin, discreet horizontal scrollbar for the tabs strip. Firefox uses
+   `scrollbar-width: thin` + `scrollbar-color`; Chromium uses the
+   ::-webkit-scrollbar pseudo. The thumb only paints on hover so the bar
+   stays invisible at rest (no horizontal line under the tabs). */
+.tabs-container {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--transition-fast);
+}
 
-.tabs-container::-webkit-scrollbar       { height: 2px; }
-.tabs-container::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 1px; }
+.tabs-container:hover {
+  scrollbar-color: var(--accent-border) transparent;
+}
+
+.tabs-container::-webkit-scrollbar       { height: 4px; }
 .tabs-container::-webkit-scrollbar-track { background: transparent; }
+.tabs-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+  transition: background var(--transition-fast);
+}
+.tabs-container:hover::-webkit-scrollbar-thumb {
+  background: rgba(142, 131, 232, 0.35);
+}
+.tabs-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 131, 232, 0.65);
+}
 
 #editor-tabs                          { height: 0; }
-#editor-tabs::-webkit-scrollbar       { height: 3px; }
-#editor-tabs::-webkit-scrollbar-track { background: var(--bg); }
-#editor-tabs::-webkit-scrollbar-thumb { background: var(--accent-border); }
+#editor-tabs::-webkit-scrollbar       { height: 4px; }
+#editor-tabs::-webkit-scrollbar-track { background: transparent; }
+#editor-tabs::-webkit-scrollbar-thumb { background: rgba(142, 131, 232, 0.35); border-radius: 2px; }
 
 /* ---------------------------------------------------------------------------
  *  Tab base

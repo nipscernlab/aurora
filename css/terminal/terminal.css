@@ -48,8 +48,55 @@
   scrollbar-width: thin;
 }
 
-.terminal-tabs::-webkit-scrollbar       { height: 2px; }
-.terminal-tabs::-webkit-scrollbar-thumb { background: var(--accent-border); }
+/* Thin, discreet horizontal scrollbar for the terminal tabs strip. Hidden
+   at rest; only paints when the user hovers over the tabs row. Matches
+   the .tabs-container treatment in editor/tabs.css. */
+.terminal-tabs {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--transition-fast);
+}
+
+.terminal-tabs:hover {
+  scrollbar-color: var(--accent-border) transparent;
+}
+
+.terminal-tabs::-webkit-scrollbar       { height: 4px; }
+.terminal-tabs::-webkit-scrollbar-track { background: transparent; }
+.terminal-tabs::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+  transition: background var(--transition-fast);
+}
+.terminal-tabs:hover::-webkit-scrollbar-thumb {
+  background: rgba(142, 131, 232, 0.35);
+}
+.terminal-tabs::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 131, 232, 0.65);
+}
+
+/* Terminal body — long compiler output can overflow horizontally on
+   wrapped flags like `-iverilog` paths. Same discreet treatment so the
+   bar never competes with the log content for attention. */
+.terminal-body {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.terminal-body:hover {
+  scrollbar-color: var(--accent-border) transparent;
+}
+.terminal-body::-webkit-scrollbar           { height: 4px; width: 6px; }
+.terminal-body::-webkit-scrollbar-track     { background: transparent; }
+.terminal-body::-webkit-scrollbar-thumb     {
+  background: transparent;
+  border-radius: 2px;
+  transition: background var(--transition-fast);
+}
+.terminal-body:hover::-webkit-scrollbar-thumb {
+  background: rgba(142, 131, 232, 0.35);
+}
+.terminal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 131, 232, 0.65);
+}
 
 .terminal-tabs-actions {
   display: inline-flex;
@@ -106,7 +153,7 @@
 /* Semantic color when not active — match the toolbar compile glyphs. */
 .terminal-tabs .tab[data-terminal="tcmm"] .glyph    { color: var(--color-cmm); }
 .terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: var(--color-asm); }
-.terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: var(--color-veri); }
+.terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: #E25C5C; }
 .terminal-tabs .tab[data-terminal="twave"] .glyph   { color: var(--color-wave); }
 
 .terminal-tabs .tab:hover {
@@ -338,7 +385,11 @@
   padding: 4px 12px;
 }
 
-.log-entry.info:hover,
+/* `info` / `tips` / colored cards keep their semantic left border on
+   hover — previously this rule overrode the blue/red/green stripe with
+   `--border-subtle`, which read as "the colored bar vanished on hover".
+   Plain (uncategorized) rows still get the subtle guide on hover so they
+   remain visually scannable, but only when no category color is set. */
 .log-entry.plain:hover {
   border-left-color: var(--border-subtle);
 }

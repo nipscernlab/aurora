@@ -1095,41 +1095,47 @@ setupSVGInteractions() {
 
     console.log('Setting up SVG interactions...');
     
-    // Setup module clicking (existing functionality)
+    // Heuristica unica de "isso parece um nome de modulo?" — usada
+    // tanto no scan de <text> avulso quanto no scan de <g>. Antes
+    // existiam dois filtros, o do <g> era frouxo (so :, =, length>1)
+    // e fazia barramentos tipo "16" virarem clicaveis — hover
+    // mostrava "Click to view module: 16" e o click quebrava com
+    // erro "modulo nao encontrado".
+    const looksLikeModuleName = (raw) => {
+        const t = (raw || '').trim();
+        if (!t) return false;
+        if (t.length < 2) return false;
+        // Nome de modulo em Verilog tem que ser identificador valido:
+        // comeca com letra/underscore, segue com alfanumericos/_/$.
+        // Isso ja rejeita largura de barramento ("16"), notacao
+        // delimitada do netlistsvg ("/2/", "/16/"), ranges ("[7:0]"),
+        // atribuicoes ("a=b"), parenteses, etc. — sem precisar
+        // catalogar cada um.
+        if (!/^[a-zA-Z_][a-zA-Z_0-9$]*$/.test(t)) return false;
+        // Ports comuns que casam como identificador mas nao sao
+        // modulos — substring match (cobre addr_in, out_en, etc.).
+        if (t.includes('clk')) return false;
+        if (t.includes('rst')) return false;
+        if (t.includes('in')) return false;
+        if (t.includes('out')) return false;
+        return true;
+    };
+
     const textElements = svg.querySelectorAll('text');
     textElements.forEach(textEl => {
         const textContent = textEl.textContent.trim();
-        
-        if (!textContent || 
-            textContent.includes(':') || 
-            textContent.includes('=') || 
-            textContent.includes('[') ||
-            textContent.includes('(') ||
-            textContent.length < 2 ||
-            textContent.match(/^\d+$/) ||
-            textContent.includes('clk') ||
-            textContent.includes('rst') ||
-            textContent.includes('in') ||
-            textContent.includes('out')) {
-            return;
-        }
-        
+        if (!looksLikeModuleName(textContent)) return;
         console.log('Found potential module:', textContent);
         this.setupModuleClick(textEl, textContent);
     });
-    
+
     const groupElements = svg.querySelectorAll('g');
     groupElements.forEach(group => {
         const textEl = group.querySelector('text');
-        if (textEl) {
-            const textContent = textEl.textContent.trim();
-            if (textContent && 
-                !textContent.includes(':') && 
-                !textContent.includes('=') &&
-                textContent.length > 1) {
-                this.setupModuleClick(group, textContent);
-            }
-        }
+        if (!textEl) return;
+        const textContent = textEl.textContent.trim();
+        if (!looksLikeModuleName(textContent)) return;
+        this.setupModuleClick(group, textContent);
     });
     
     // Setup wire highlighting (new functionality)

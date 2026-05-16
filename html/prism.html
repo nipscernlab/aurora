@@ -1095,47 +1095,27 @@ setupSVGInteractions() {
 
     console.log('Setting up SVG interactions...');
     
-    // Heuristica unica de "isso parece um nome de modulo?" — usada
-    // tanto no scan de <text> avulso quanto no scan de <g>. Antes
-    // existiam dois filtros, o do <g> era frouxo (so :, =, length>1)
-    // e fazia barramentos tipo "16" virarem clicaveis — hover
-    // mostrava "Click to view module: 16" e o click quebrava com
-    // erro "modulo nao encontrado".
-    const looksLikeModuleName = (raw) => {
-        const t = (raw || '').trim();
-        if (!t) return false;
-        if (t.length < 2) return false;
-        // Nome de modulo em Verilog tem que ser identificador valido:
-        // comeca com letra/underscore, segue com alfanumericos/_/$.
-        // Isso ja rejeita largura de barramento ("16"), notacao
-        // delimitada do netlistsvg ("/2/", "/16/"), ranges ("[7:0]"),
-        // atribuicoes ("a=b"), parenteses, etc. — sem precisar
-        // catalogar cada um.
-        if (!/^[a-zA-Z_][a-zA-Z_0-9$]*$/.test(t)) return false;
-        // Ports comuns que casam como identificador mas nao sao
-        // modulos — substring match (cobre addr_in, out_en, etc.).
-        if (t.includes('clk')) return false;
-        if (t.includes('rst')) return false;
-        if (t.includes('in')) return false;
-        if (t.includes('out')) return false;
-        return true;
-    };
-
-    const textElements = svg.querySelectorAll('text');
-    textElements.forEach(textEl => {
-        const textContent = textEl.textContent.trim();
-        if (!looksLikeModuleName(textContent)) return;
-        console.log('Found potential module:', textContent);
-        this.setupModuleClick(textEl, textContent);
-    });
-
-    const groupElements = svg.querySelectorAll('g');
-    groupElements.forEach(group => {
+    // So as caixinhas dos modulos sao clicaveis — nao os textos
+    // soltos. Em netlistsvg cada cell e' um <g> que contem <rect>
+    // (o desenho) + <text> (o tipo do modulo). Tudo que e' label
+    // de porta, fio ou largura de barramento e' <text> solto ou
+    // <g> sem rect, e fica fora.
+    //
+    // Antes a logica varria todos os <text> e todos os <g> com
+    // qualquer text dentro, usando heuristicas de string pra excluir
+    // o que nao era modulo — sempre vazava algo (largura "16",
+    // notacao "/2/", nome de porta "mem_addr_rd", etc.). Exigir
+    // <rect> no <g> e' o filtro estrutural certo: corresponde 1:1
+    // ao conceito de "caixa desenhada do modulo".
+    const cellGroups = svg.querySelectorAll('g');
+    cellGroups.forEach((group) => {
+        const rect = group.querySelector('rect');
+        if (!rect) return;
         const textEl = group.querySelector('text');
         if (!textEl) return;
-        const textContent = textEl.textContent.trim();
-        if (!looksLikeModuleName(textContent)) return;
-        this.setupModuleClick(group, textContent);
+        const moduleName = textEl.textContent.trim();
+        if (!moduleName) return;
+        this.setupModuleClick(group, moduleName);
     });
     
     // Setup wire highlighting (new functionality)

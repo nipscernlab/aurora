@@ -40,6 +40,11 @@ function cleanModuleName(moduleName) {
   cleanName = cleanName.replace(/\$[a-f0-9]{40,}/g, '');
   cleanName = cleanName.replace(/\\[A-Z_]+=.*$/g, '');
   cleanName = cleanName.replace(/^[$\\]+/, '');
+  // Tira prefixos `genblk<N>.` que o yosys adiciona em instancias
+  // dentro de generate blocks. Sao so nomes de escopo hierarquico
+  // gerados — o usuario quer ver so o nome real ("my_f2i" em vez
+  // de "genblk27.my_f2i"). Global pra cobrir genblks aninhados.
+  cleanName = cleanName.replace(/(?:\\?genblk\d+\.)+/g, '');
   return cleanName;
 }
 

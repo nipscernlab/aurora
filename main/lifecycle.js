@@ -70,28 +70,20 @@ function register() {
     }
   });
 
-  // Comprehensive cleanup runs in parallel with a 5s safety timeout so a
-  // hanging cleanup never blocks the app from quitting.
+  // Cleanup em duas fases serializadas pra evitar EBUSY no rmdir de Temp:
+  // file watchers do chokidar (ReadDirectoryChangesW no Windows) e vvp/
+  // gtkwave seguram handles em Temp/ — se a fase 2 (rm) rodar antes da
+  // fase 1 terminar, o Windows bloqueia o rmdir e a Temp/ acumula lixo
+  // de runs anteriores. 5s de safety timeout por fase pra nao travar
+  // quit em caso de hang.
   app.on('before-quit', async () => {
     state.isQuitting = true;
 
-    const cleanupPromises = [];
+    // Fase 1: solta tudo que pode segurar handle em Temp/ — watchers
+    // (file + dir) e processos filhos (vvp.exe, gtkwave.exe).
+    const releasePromises = [];
 
-    // 1. Wipe Temp.
-    cleanupPromises.push(
-      (async () => {
-        try {
-          const tempFolderPath = path.join(componentsPath, 'Temp');
-          await fs.rm(tempFolderPath, { recursive: true, force: true, maxRetries: 3 });
-          await fs.mkdir(tempFolderPath, { recursive: true });
-        } catch (error) {
-          log.error('Failed to clear Temp folder on app exit:', error);
-        }
-      })(),
-    );
-
-    // 2. Close file watchers.
-    cleanupPromises.push(
+    releasePromises.push(
       (async () => {
         const watcherClosePromises = [];
         for (const [filePath, info] of state.activeWatchers.entries()) {
@@ -107,8 +99,7 @@ function register() {
       })(),
     );
 
-    // 3. Close directory watchers.
-    cleanupPromises.push(
+    releasePromises.push(
       (async () => {
         const dirWatcherClosePromises = [];
         for (const [directoryPath, info] of state.activeDirectoryWatchers.entries()) {
@@ -124,8 +115,7 @@ function register() {
       })(),
     );
 
-    // 4. Kill any leftover VVP/GTKWave processes.
-    cleanupPromises.push(
+    releasePromises.push(
       (async () => {
         const killPromises = [];
         if (state.currentVvpProcess && !state.currentVvpProcess.killed) {
@@ -139,9 +129,18 @@ function register() {
     );
 
     await Promise.race([
-      Promise.all(cleanupPromises),
+      Promise.all(releasePromises),
       new Promise((resolve) => setTimeout(resolve, 5000)),
     ]);
+
+    // Fase 2: agora que ninguem segura mais handle, apaga Temp/.
+    try {
+      const tempFolderPath = path.join(componentsPath, 'Temp');
+      await fs.rm(tempFolderPath, { recursive: true, force: true, maxRetries: 3 });
+      await fs.mkdir(tempFolderPath, { recursive: true });
+    } catch (error) {
+      log.error('Failed to clear Temp folder on app exit:', error);
+    }
   });
 
   return true;

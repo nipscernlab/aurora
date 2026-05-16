@@ -188,16 +188,20 @@ function register() {
         throw new Error(`Cannot access path: ${statError.message}`);
       }
 
-      if (stats.isDirectory()) {
-        await fs.rm(normalizedPath, {
-          recursive: true,
-          force: true,
-          maxRetries: 3,
-          retryDelay: 100,
-        });
-      } else {
-        await fs.unlink(normalizedPath);
-      }
+      // fs.rm retenta automaticamente em EPERM/EBUSY/EMFILE/ENFILE/
+      // ENOTEMPTY (lista do Node). Importante no Windows porque o
+      // handle release de processos filhos (vvp.exe escrevendo
+      // progress.txt, gtkwave segurando .fst) e do scanner de
+      // antivirus pode demorar uns ms apos o processo sair — sem
+      // retry, o primeiro unlink falha com EPERM. Funciona tanto pra
+      // arquivo quanto pra diretorio (recursive flag so se aplica a
+      // dir).
+      await fs.rm(normalizedPath, {
+        recursive: stats.isDirectory(),
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100,
+      });
       return { success: true, path: normalizedPath };
     } catch (error) {
       log.error(`Error deleting ${filePath}:`, error);

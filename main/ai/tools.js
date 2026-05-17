@@ -22,7 +22,15 @@
 
 'use strict';
 
-const { tool, jsonSchema } = require('ai');
+// `ai` is loaded defensively so a broken install does not crash the main
+// process at module load. buildTools (which is the only function that
+// actually uses these) checks for null before doing anything.
+let tool, jsonSchema;
+try {
+  ({ tool, jsonSchema } = require('ai'));
+} catch (_) {
+  // Silently ignored — provider.js logs the same failure once.
+}
 
 /** @typedef {{ name:string, description:string, access:'read'|'write', api:[string,string], argStyle:'none'|'positional'|'object', argNames?:string[], inputSchema:object }} ToolDef */
 
@@ -495,6 +503,7 @@ const TOOL_MANIFEST = [
  * @param {(name:string, args:object) => Promise<unknown>} runToolFn
  */
 function buildTools(runToolFn) {
+  if (!tool || !jsonSchema) return {};
   const tools = {};
   for (const def of TOOL_MANIFEST) {
     tools[def.name] = tool({

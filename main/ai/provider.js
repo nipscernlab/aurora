@@ -28,18 +28,23 @@
 'use strict';
 
 const log = require('electron-log');
-const { generateText } = require('ai');
-// Each AI SDK package is loaded with a try/catch so that a missing
-// package (e.g. after `git pull` without `npm install`) disables only
-// that provider instead of crashing the entire main process.
+
+// All AI SDK packages — including the base `ai` package — are loaded via
+// tryRequire so any module-level failure (missing package, mismatched
+// transitive dep like `zod/v4`, ESM/CJS interop bug) disables AI features
+// instead of crashing the main process during boot.
 function tryRequire(pkg, exportName) {
   try {
-    return require(pkg)[exportName];
-  } catch (_) {
-    log.warn(`[ai.provider] Optional package "${pkg}" not found — run "npm install". Provider will be unavailable.`);
+    const mod = require(pkg);
+    return exportName ? mod[exportName] : mod;
+  } catch (err) {
+    log.warn(`[ai.provider] Failed to load "${pkg}" (${err?.code || err?.message}). AI features depending on this package will be disabled.`);
     return null;
   }
 }
+
+const aiSdk        = tryRequire('ai');
+const generateText = aiSdk ? aiSdk.generateText : null;
 
 const createOpenAI             = tryRequire('@ai-sdk/openai',    'createOpenAI');
 const createAnthropic          = tryRequire('@ai-sdk/anthropic', 'createAnthropic');
@@ -121,6 +126,9 @@ function getModelFor(provider) {
  * @param {string} [modelId]
  */
 async function testConnection(providerName, modelId) {
+  if (!generateText) {
+    return { ok: false, error: 'AI SDK ("ai" package) failed to load. Reinstall the app or run `npm install` if running from source.' };
+  }
   const model = modelId || getModelFor(providerName);
   if (!model) {
     return { ok: false, error: `No model configured for "${providerName}"` };

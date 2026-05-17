@@ -26,8 +26,16 @@
 
 'use strict';
 
-const { streamText, generateText, stepCountIs } = require('ai');
 const log = require('electron-log');
+
+// `ai` is loaded defensively so a broken install (missing transitive dep
+// like `zod/v4`) disables AI features rather than crashing the main process.
+let streamText, generateText, stepCountIs;
+try {
+  ({ streamText, generateText, stepCountIs } = require('ai'));
+} catch (err) {
+  log.warn(`[ai.chat] Failed to load "ai" SDK (${err?.code || err?.message}). Chat features will be unavailable.`);
+}
 
 const provider = require('./provider');
 const tools = require('./tools');
@@ -65,6 +73,9 @@ function sendEvent(webContents, sessionId, type, data) {
  * @param {Electron.WebContents} webContents
  */
 async function start(payload, webContents) {
+  if (!streamText) {
+    throw new Error('AI SDK ("ai" package) failed to load. Reinstall the app or run `npm install` if running from source.');
+  }
   const {
     sessionId,
     provider: providerName,

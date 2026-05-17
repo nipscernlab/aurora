@@ -304,11 +304,22 @@ body.ai-assistant-open {
   flex-direction: column;
   gap: 4px;
   max-width: 100%;
-  animation: ai-msg-in 200ms var(--ease-out-quart);
+  animation: ai-msg-in 360ms var(--ease-out-quart) both;
 }
 
 @keyframes ai-msg-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
+}
+
+/* Content bubble reveal — fades in slightly after the role label */
+.ai-msg-assistant .ai-msg-content,
+.ai-msg-user .ai-msg-content {
+  animation: ai-content-in 420ms var(--ease-out-quart) 60ms both;
+}
+
+@keyframes ai-content-in {
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -571,7 +582,7 @@ body.ai-assistant-open {
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  animation: ai-msg-in 200ms var(--ease-out-quart);
+  animation: ai-msg-in 280ms var(--ease-out-quart) both;
 }
 
 .ai-tool-chip > i { font-size: var(--icon-sm); flex-shrink: 0; }

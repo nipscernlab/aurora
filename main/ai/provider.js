@@ -29,11 +29,23 @@
 
 const log = require('electron-log');
 const { generateText } = require('ai');
-const { createOpenAI }            = require('@ai-sdk/openai');
-const { createAnthropic }         = require('@ai-sdk/anthropic');
-const { createGoogleGenerativeAI }= require('@ai-sdk/google');
-const { createDeepSeek }          = require('@ai-sdk/deepseek');
-const { createGroq }              = require('@ai-sdk/groq');
+// Each AI SDK package is loaded with a try/catch so that a missing
+// package (e.g. after `git pull` without `npm install`) disables only
+// that provider instead of crashing the entire main process.
+function tryRequire(pkg, exportName) {
+  try {
+    return require(pkg)[exportName];
+  } catch (_) {
+    log.warn(`[ai.provider] Optional package "${pkg}" not found — run "npm install". Provider will be unavailable.`);
+    return null;
+  }
+}
+
+const createOpenAI             = tryRequire('@ai-sdk/openai',    'createOpenAI');
+const createAnthropic          = tryRequire('@ai-sdk/anthropic', 'createAnthropic');
+const createGoogleGenerativeAI = tryRequire('@ai-sdk/google',    'createGoogleGenerativeAI');
+const createDeepSeek           = tryRequire('@ai-sdk/deepseek',  'createDeepSeek');
+const createGroq               = tryRequire('@ai-sdk/groq',      'createGroq');
 
 const keystore = require('./keystore');
 const prefs = require('./prefs');
@@ -47,13 +59,18 @@ const DEFAULT_MODELS = Object.freeze({
   ollama:    'llama3.1:8b',
 });
 
-const PROVIDER_FACTORIES = Object.freeze({
-  openai:    createOpenAI,
-  anthropic: createAnthropic,
-  google:    createGoogleGenerativeAI,
-  deepseek:  createDeepSeek,
-  groq:      createGroq,
-});
+// Only include providers whose SDK package was successfully loaded.
+const PROVIDER_FACTORIES = Object.freeze(
+  Object.fromEntries(
+    [
+      ['openai',    createOpenAI],
+      ['anthropic', createAnthropic],
+      ['google',    createGoogleGenerativeAI],
+      ['deepseek',  createDeepSeek],
+      ['groq',      createGroq],
+    ].filter(([, fn]) => fn != null),
+  ),
+);
 
 const OLLAMA_DEFAULT_BASE_URL = 'http://localhost:11434/v1';
 

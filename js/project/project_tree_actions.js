@@ -448,6 +448,75 @@ export const ActionsMixin = {
 
     // ----- context menus -----------------------------------------------
 
+    /** Context menu displayed when the user right-clicks a processor separator. */
+    showProcessorContextMenu(event, procName) {
+        this.closeContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'verilog-context-menu';
+        menu.id = 'verilog-context-menu';
+        menu.innerHTML = `
+            <div class="context-menu-item delete-item" data-action="delete-processor">
+                <i class="fa-solid fa-trash"></i>
+                <span>Delete processor</span>
+            </div>
+        `;
+
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        document.body.appendChild(menu);
+
+        setTimeout(() => {
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth)  menu.style.left = (event.pageX - rect.width) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top  = (event.pageY - rect.height) + 'px';
+            menu.classList.add('show');
+        }, 10);
+
+        menu.addEventListener('click', async (e) => {
+            const item = e.target.closest('.context-menu-item');
+            if (!item) return;
+            if (item.dataset.action === 'delete-processor') {
+                this.closeContextMenu();
+                await this._deleteProcessorByName(procName);
+            }
+        });
+
+        setTimeout(() => {
+            document.addEventListener('click', this.closeContextMenu, { once: true });
+        }, 100);
+    },
+
+    /** Delete a processor folder entirely (same flow as the trash icon on the folder row). */
+    async _deleteProcessorByName(procName) {
+        const dialog = window.AuroraUI?.dialog;
+        let confirmed;
+        if (typeof dialog === 'function') {
+            const action = await dialog({
+                title: 'Delete processor',
+                message: `Delete processor "${procName}" and all its files from disk? This cannot be undone.`,
+                variant: 'warning',
+                buttons: [
+                    { label: 'Cancel',  action: 'cancel', type: 'cancel' },
+                    { label: 'Delete',  action: 'delete', type: 'danger' },
+                ],
+            });
+            confirmed = action === 'delete';
+        } else {
+            confirmed = window.confirm(`Delete processor "${procName}" and all its files? This cannot be undone.`);
+        }
+        if (!confirmed) return;
+
+        try {
+            await window.electronAPI.deleteProcessor(procName);
+            // Tree refresh is triggered by the project:processors IPC broadcast
+            // from the main process after deletion. No explicit refreshTree() needed.
+        } catch (err) {
+            console.error('Error deleting processor:', err);
+            this.showNotification(`Error deleting processor: ${err.message}`, 'error', 4000);
+        }
+    },
+
     /** Fecha o context menu de row (set top-level, mark tb, delete). */
     closeContextMenu() {
         const existingMenu = document.getElementById('verilog-context-menu');
@@ -468,11 +537,9 @@ export const ActionsMixin = {
 
     /**
      * Monta e exibe o context menu de uma row (right-click num arquivo).
-     * Opcoes mudam por categoria:
-     *   - synth   → set/remove top level
-     *   - tb      → mark/unmark testbench (mesma flag isTopLevel,
-     *               label diferente)
-     *   - sempre  → remove file
+     * Para arquivos .v/.sv, ambas as opcoes (Top Level e Testbench Top)
+     * sao sempre exibidas — o usuario pode setar qualquer .v como
+     * qualquer dos dois sem ficar preso na categoria auto-detectada.
      */
     showContextMenu(event, file, index) {
         this.closeContextMenu();
@@ -481,51 +548,40 @@ export const ActionsMixin = {
         menu.className = 'verilog-context-menu';
         menu.id = 'verilog-context-menu';
 
-        // Single source of truth: `isTopLevel` significa "top da sua
-        // categoria". Label e action variam por categoria, mas o flag
-        // subjacente e o mesmo.
-        const isTopLevel = file.isTopLevel || false;
-        const isSynthesizable = file.category !== 'testbench';
-        const isTestbench = file.category === 'testbench';
+        const ext = this.getFileExtension(file.name || '');
+        const isVerilog = ext === '.v' || ext === '.sv';
 
-        const topLevelOption = isSynthesizable ? (
-            isTopLevel
-                ? { text: tr('contextMenu.removeTopLevel'),  action: 'remove-top-level', disabled: false, show: true }
-                : { text: tr('contextMenu.setTopLevel'),     action: 'set-top-level',    disabled: false, show: true }
-        ) : { show: false };
-
-        const testbenchOption = isTestbench ? (
-            isTopLevel
-                ? { text: tr('contextMenu.unmarkTestbench'), action: 'remove-testbench', disabled: false, show: true }
-                : { text: tr('contextMenu.markTestbench'),   action: 'set-testbench',    disabled: false, show: true }
-        ) : { show: false };
+        // isTopLevel is relative to the file's current category.
+        // A synthesizable file with isTopLevel=true is the synth top;
+        // a testbench file with isTopLevel=true is the testbench top.
+        const isSynthTop = isVerilog && file.category !== 'testbench' && !!file.isTopLevel;
+        const isTbTop    = isVerilog && file.category === 'testbench'  && !!file.isTopLevel;
 
         let menuItems = '';
 
-        if (topLevelOption.show) {
+        if (isVerilog) {
             menuItems += `
-                <div class="context-menu-item" data-action="${topLevelOption.action}">
-                    <span>${topLevelOption.text}</span>
+                <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
+                    <i class="fa-solid fa-flag"></i>
+                    <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
                 </div>
-            `;
-        }
-
-        if (testbenchOption.show) {
-            menuItems += `
-                <div class="context-menu-item" data-action="${testbenchOption.action}">
-                    <span>${testbenchOption.text}</span>
+                <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
+                    <i class="fa-solid fa-flask"></i>
+                    <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
                 </div>
+                <div class="context-menu-divider"></div>
             `;
-        }
-
-        if (menuItems) {
-            menuItems += '<div class="context-menu-divider"></div>';
         }
 
         menu.innerHTML = `
             ${menuItems}
+            <div class="context-menu-item" data-action="remove">
+                <i class="fa-solid fa-xmark"></i>
+                <span>Remove from tree</span>
+            </div>
             <div class="context-menu-item delete-item" data-action="delete">
-                <span>${tr('contextMenu.removeFile')}</span>
+                <i class="fa-solid fa-trash"></i>
+                <span>Delete file</span>
             </div>
         `;
 
@@ -578,6 +634,18 @@ export const ActionsMixin = {
             const path = row.dataset.filePath;
             const idx = this.verilogFiles.findIndex((f) => f.path === path);
             if (idx >= 0) this.showContextMenu(event, this.verilogFiles[idx], idx);
+            return;
+        }
+
+        // Right-click on a processor separator → delete-processor menu.
+        const sep = event.target.closest('.verilog-processor-separator');
+        if (sep) {
+            event.preventDefault();
+            event.stopPropagation();
+            const procName = sep.dataset.processorName;
+            if (procName && procName !== '__imported__') {
+                this.showProcessorContextMenu(event, procName);
+            }
             return;
         }
 
@@ -643,6 +711,10 @@ export const ActionsMixin = {
      * `isTopLevel` — o que muda e o escopo (synth vs testbench).
      */
     async handleContextMenuAction(action, file, index) {
+        if (action === 'remove') {
+            await this._removeFileByPath(file.path);
+            return;
+        }
         if (action === 'delete') {
             await this.deleteFile(index);
             return;
@@ -654,11 +726,9 @@ export const ActionsMixin = {
 
         switch (action) {
             case 'set-top-level': {
-                if (file.category === 'testbench') {
-                    this.showNotification(tr('notification.tree.cannotSetTopOnTb'), 'warning', 3000);
-                    return;
-                }
-                await this._mutateTopFlag(targetSpfPath, targetKey, 'synth', true);
+                // AuroraAPI.setTopLevel handles cross-array membership
+                // (moves the file to synthesizableFiles if needed).
+                await window.AuroraAPI?.project?.setTopLevel(file.path);
                 this.showNotification(tr('notification.tree.setAsTop', { name: file.name }), 'success', 2000);
                 break;
             }
@@ -670,11 +740,9 @@ export const ActionsMixin = {
             }
 
             case 'set-testbench': {
-                if (file.category !== 'testbench') {
-                    this.showNotification(tr('notification.tree.notTestbench'), 'warning', 3000);
-                    return;
-                }
-                await this._mutateTopFlag(targetSpfPath, targetKey, 'tb', true);
+                // AuroraAPI.setTestbenchTop handles cross-array membership
+                // (moves the file to testbenchFiles if needed).
+                await window.AuroraAPI?.project?.setTestbenchTop(file.path);
                 this.showNotification(tr('notification.tree.markedTb', { name: file.name }), 'success', 2000);
                 break;
             }

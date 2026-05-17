@@ -358,13 +358,51 @@ void main()
   });
 
   ipcMain.handle('get-available-processors', async (_event, projectPath) => {
+    // Parse #DIRECTIVE value lines from a .cmm file header.
+    async function parseCmmHeader(projectDir, procName) {
+      const cmmPath = path.join(projectDir, procName, 'Software', `${procName}.cmm`);
+      try {
+        const raw = await fse.readFile(cmmPath, 'utf8');
+        const header = {};
+        for (const line of raw.split('\n')) {
+          const m = line.match(/^#([A-Z_]+)\s+(.+)/);
+          if (m) header[m[1]] = m[2].trim();
+        }
+        return header;
+      } catch (_) {
+        return {};
+      }
+    }
+
+    // Enrich the raw SPF processors array with clk/numClocks and CMM directives.
+    async function enrichProcessors(procs, projectDir) {
+      return Promise.all(procs.map(async (p) => {
+        const name = typeof p === 'string' ? p : p.name;
+        const cfg  = typeof p === 'object' && p !== null ? p : {};
+        const clk       = Number.isFinite(cfg.clk)       ? cfg.clk       : 100;
+        const numClocks = Number.isFinite(cfg.numClocks)  ? cfg.numClocks : 2000;
+        const header = await parseCmmHeader(projectDir, name);
+        return {
+          name,
+          clk,
+          numClocks,
+          showArrays: !!cfg.showArrays,
+          simTime_us: numClocks / clk,
+          header,
+        };
+      }));
+    }
+
     try {
       // Prefer the currently open project — most reliable source of truth.
       if (state.currentOpenProjectPath && (await fse.pathExists(state.currentOpenProjectPath))) {
         const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
         const projectData = JSON.parse(spfData);
         if (projectData.structure && projectData.structure.processors) {
-          return projectData.structure.processors.map((p) => p.name);
+          return enrichProcessors(
+            projectData.structure.processors,
+            projectData.structure.basePath,
+          );
         }
       }
 
@@ -384,7 +422,10 @@ void main()
           const spfData = await fse.readFile(spfPath, 'utf8');
           const projectData = JSON.parse(spfData);
           if (projectData.structure && projectData.structure.processors) {
-            return projectData.structure.processors.map((p) => p.name);
+            return enrichProcessors(
+              projectData.structure.processors,
+              projectData.structure.basePath,
+            );
           }
         }
       }

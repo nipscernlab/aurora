@@ -98,7 +98,17 @@
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   user-select: none;
+  cursor: context-menu;
+}
+
+.verilog-processor-separator:not(.verilog-imported-separator):hover {
+  color: var(--text-secondary);
+}
+
+/* The "Imported" section header is decorative only — no right-click action. */
+.verilog-imported-separator {
   cursor: default;
+  opacity: 0.65;
 }
 
 .verilog-processor-separator-line {
@@ -295,6 +305,15 @@
   font-size: var(--text-sm);
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
+}
+
+.context-menu-item > i,
+.create-menu-item > i {
+  width: 14px;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--text-muted);
 }
 
 .context-menu-item:hover:not(.disabled),

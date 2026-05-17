@@ -406,6 +406,11 @@ class ProjectTreeManager {
         let changed = false;
         for (const file of this.verilogFiles) {
             if (file.isSoftware) continue;
+            // isTopLevel is an explicit user choice (set via context menu or AI tool).
+            // Auto-classification must not override it — that would silently undo the
+            // user's intent every time the tree refreshes. Category is locked to
+            // whatever the user chose when they marked the file.
+            if (file.isTopLevel) continue;
             let content;
             try {
                 content = await window.electronAPI.readFile(file.path);

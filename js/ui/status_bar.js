@@ -74,6 +74,9 @@ class StatusBarManager {
         // "No active processor" live in JS-set textContent and would
         // otherwise stay stuck in the previous language.
         window.addEventListener('aurora:locale-changed', () => this.refresh());
+        // SPF structure changed (top-level/testbench set, files added/removed).
+        // ProjectStore.subscribe won't fire because the spfPath itself didn't change.
+        window.addEventListener('aurora:spf-changed', () => this.refresh());
         // Pintura inicial — caso o app abra direto num projeto (auto-
         // reopen) o setProject pode ja ter rodado antes do nosso init.
         this.refresh();

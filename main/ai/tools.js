@@ -416,6 +416,44 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'set_top_level',
+    description:
+      'Mark a synthesizable Verilog file as the project\'s Top Level module (the synthesizable root). ' +
+      'Registers the file in the project if it is not yet tracked, and refreshes the file tree. ' +
+      'Call this after create_file and before compiling. ' +
+      'Do NOT use on the auto-generated <proc>.v inside <proc>/Hardware/ — that file is managed by SAPHO.',
+    access: 'write',
+    api: ['project', 'setTopLevel'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute or project-relative path to the .v file' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'set_testbench_top',
+    description:
+      'Mark a Verilog file as the project\'s Testbench Top module (the simulation entry point). ' +
+      'Registers the file in the project if it is not yet tracked, and refreshes the file tree. ' +
+      'Call this after create_file and before compiling. ' +
+      'Do NOT use on the auto-generated <proc>_tb.v inside <proc>/Simulation/ — that file is managed by SAPHO.',
+    access: 'write',
+    api: ['project', 'setTestbenchTop'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute or project-relative path to the testbench .v file' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
     name: 'open_wave_config',
     description: 'Open the Wave Configuration modal for the user.',
     access: 'write',

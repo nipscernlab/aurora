@@ -32,6 +32,58 @@ const SYSTEM_PROMPT =
   "then to Verilog via Icarus Verilog, with PRISM as the RTL viewer. Be concise. Use Markdown. " +
   "Use fenced ```cmm code blocks for CMM snippets. " +
   "ALWAYS reply in the same language the user writes in. " +
+
+  "CMM HEADER DIRECTIVES — every .cmm file MUST begin with ALL of these lines (in any order):\n" +
+  "  #PRNAME <name>   — processor name (letters, digits, underscore, hyphen)\n" +
+  "  #NUBITS <n>      — total data width in bits\n" +
+  "  #NDSTAC <n>      — data stack depth\n" +
+  "  #SDEPTH <n>      — instruction stack depth\n" +
+  "  #NUIOIN <n>      — number of input I/O ports\n" +
+  "  #NUIOOU <n>      — number of output I/O ports\n" +
+  "  #NBMANT <n>      — mantissa bits (floating-point representation)\n" +
+  "  #NBEXPO <n>      — exponent bits (floating-point representation)\n" +
+  "  #NUGAIN <n>      — internal gain factor\n" +
+  "HARD CONSTRAINTS (the compiler enforces these — breaking them causes build errors):\n" +
+  "  • NUBITS = NBMANT + NBEXPO + 1  (strict equality — sign bit accounts for the +1)\n" +
+  "  • NUGAIN must be a power of 2 (1, 2, 4, 8, 16, 32, 64, 128, 256 …)\n" +
+  "  • All directives must be present; removing any crashes yanc\n" +
+  "When you create or edit a .cmm file always validate these constraints before writing.\n" +
+
+  "SIMULATION PARAMETERS — per processor, stored in the project's .spf file:\n" +
+  "  • clk (MHz)      — clock frequency, default 100\n" +
+  "  • numClocks      — number of clock cycles to simulate, default 2000\n" +
+  "  • simTime (µs)   — calculated as numClocks / clk  (e.g. 2000 / 100 = 20 µs)\n" +
+  "Call list_processors to read the active processor's current clk, numClocks, simTime_us, " +
+  "and the full parsed header (header.NUBITS, header.NBMANT, etc.) before suggesting changes.\n" +
+
+  "RESERVED SAPHO FILENAMES — the compilation pipeline auto-generates and OVERWRITES these files on every build:\n" +
+  "  • <proc>/Hardware/<proc>.v          — synthesizable Verilog from assembly (asmcomp output)\n" +
+  "  • <proc>/Simulation/<proc>_tb.v     — auto-generated testbench (asmcomp output)\n" +
+  "  • <proc>/Software/<proc>.asm        — assembly from CMM\n" +
+  "NEVER create files at these paths — they are silently overwritten on compile.\n" +
+  "Use UNIQUE names at the project root, e.g. `sqrt_newton_top.v`, `sqrt_newton_test.v`.\n" +
+
+  "WORKFLOW FOR CUSTOM VERILOG FILES (follow this order):\n" +
+  "  1. get_project_tree  — discover the project root and existing files.\n" +
+  "  2. create_file       — write the .v content; the file is auto-added to the tree.\n" +
+  "  3. set_top_level     — register & mark the synthesizable wrapper as Top Level.\n" +
+  "  4. set_testbench_top — register & mark the testbench as Testbench Top.\n" +
+  "     (Steps 3 & 4 update the file tree immediately — no manual action needed.)\n" +
+  "  5. compile_all / compile_step — only after top-level and testbench are set.\n" +
+  "  6. list_wave_signals → select_wave_signals → compile_step('wave') for GTKWave.\n" +
+
+  "GTKWAVE SIGNAL PREREQUISITES — before calling list_wave_signals or select_wave_signals:\n" +
+  "  1. The project must have at least one file marked as Testbench top OR Top-Level module " +
+  "in the file tree (the user right-clicks a .v file and picks 'Mark as Testbench' or 'Set as Top Level').\n" +
+  "  2. Wave Configuration uses testbenchFile (or topLevelFile as fallback) as the root module " +
+  "to discover the signal hierarchy. If neither is set, list_wave_signals returns an empty list.\n" +
+  "  3. IMPORTANT: the active testbench/top in the file tree may belong to a DIFFERENT processor " +
+  "than the one the user is currently compiling. Always call list_processors and compare which " +
+  "processor the selected testbenchFile belongs to before generating or selecting signals.\n" +
+  "  4. If signals are empty, instruct the user to: (a) open the file tree, (b) right-click the " +
+  "correct testbench .v file, (c) choose 'Mark as Testbench Top', (d) then retry.\n" +
+  "  5. Call open_wave_config before select_wave_signals if the modal needs to be opened first.\n" +
+
   "TOOL USE RULES: " +
   "(1) When the user requests multiple actions, invoke ALL required tools in sequence — one after another — before writing any response text. Do NOT stop or explain between tool calls. " +
   "(2) Only after ALL tools have finished, write ONE concise summary of what was done and the results. " +
@@ -691,7 +743,10 @@ class AIAssistantManager {
       `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this.setStreaming(true);
 
-    const apiMessages = this.messages.map((m) => ({ role: m.role, content: m.content }));
+    // Tool-type entries are display-only records; filter them before sending to the model.
+    const apiMessages = this.messages
+      .filter((m) => m.role !== 'tool')
+      .map((m) => ({ role: m.role, content: m.content }));
 
     try {
       const r = await window.aiAPI.startChat({
@@ -800,12 +855,17 @@ class AIAssistantManager {
   failTurn(message) {
     this.showThinking(false);
     this.appendBubble('assistant', `Error: ${message}`, { error: true });
-    for (const { el } of this.runningChips) {
+    // Mark in-flight chips as failed in DOM and persist them.
+    for (const { toolName, el } of this.runningChips) {
       el.classList.remove('running');
       el.classList.add('failed');
-      const status = el.querySelector('.ai-tool-status');
-      if (status) status.textContent = 'failed';
+      const statusEl = el.querySelector('.ai-tool-status');
+      if (statusEl) statusEl.textContent = 'failed';
+      const icon = el.querySelector('i');
+      if (icon) icon.className = 'ph ph-x-circle';
+      this.messages.push({ role: 'tool', toolName, status: 'failed', error: message });
     }
+    this.persistCurrentChat();
     this.resetTurnState();
     this.setStreaming(false);
   }
@@ -847,12 +907,41 @@ class AIAssistantManager {
     const { el } = this.runningChips.splice(idx, 1)[0];
     const ok = !(result && result.ok === false);
     const denied = !ok && /denied/i.test((result && result.error) || '');
+    const statusStr = ok ? 'done' : (denied ? 'denied' : 'failed');
     el.classList.remove('running');
-    el.classList.add(ok ? 'done' : (denied ? 'denied' : 'failed'));
+    el.classList.add(statusStr);
     const icon = el.querySelector('i');
-    const status = el.querySelector('.ai-tool-status');
+    const statusEl = el.querySelector('.ai-tool-status');
     if (icon) icon.className = ok ? 'ph ph-check-circle' : (denied ? 'ph ph-prohibit' : 'ph ph-x-circle');
-    if (status) status.textContent = ok ? 'done' : (denied ? 'denied' : 'failed');
+    if (statusEl) statusEl.textContent = statusStr;
+
+    // Persist the tool call in the messages array so it survives
+    // into the saved chat and can be replayed when history is opened.
+    const entry = { role: 'tool', toolName: name, status: statusStr };
+    if (!ok && result?.error) entry.error = result.error;
+    this.messages.push(entry);
+  }
+
+  /**
+   * Renders a completed tool chip with no animation — used when replaying
+   * saved conversations from history. The chip shows the final status
+   * (done / failed / denied) and a tooltip with the error if present.
+   */
+  appendStaticToolChip(toolName, status, error) {
+    const chip = document.createElement('div');
+    chip.className = `ai-tool-chip ${status || 'done'}`;
+    const iconClass = status === 'done'   ? 'ph ph-check-circle'
+                    : status === 'denied' ? 'ph ph-prohibit'
+                                          : 'ph ph-x-circle';
+    chip.innerHTML = `
+      <i class="${iconClass}" aria-hidden="true"></i>
+      <span class="ai-tool-name"></span>
+      <span class="ai-tool-status"></span>
+    `;
+    chip.querySelector('.ai-tool-name').textContent = toolName || 'tool';
+    chip.querySelector('.ai-tool-status').textContent = status || 'done';
+    if (error) chip.title = error;
+    this.messagesEl.appendChild(chip);
   }
 
   /* ---------------- thinking indicator ---------------- */
@@ -1082,7 +1171,10 @@ class AIAssistantManager {
     // Replay every message into the bubble stream.
     this.messagesEl.innerHTML = '';
     for (const msg of this.messages) {
-      if (msg && msg.role && typeof msg.content === 'string') {
+      if (!msg || !msg.role) continue;
+      if (msg.role === 'tool') {
+        this.appendStaticToolChip(msg.toolName, msg.status, msg.error);
+      } else if (typeof msg.content === 'string') {
         this.appendBubble(msg.role, msg.content);
       }
     }
@@ -1100,7 +1192,17 @@ class AIAssistantManager {
         provider: this.currentProvider,
         model: providerInfo ? providerInfo.model : null,
         createdAt: this.currentChatCreatedAt || Date.now(),
-        messages: this.messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: this.messages.map((m) => {
+            const entry = { role: m.role };
+            if (m.role === 'tool') {
+              entry.toolName = m.toolName;
+              entry.status   = m.status;
+              if (m.error) entry.error = m.error;
+            } else {
+              entry.content = m.content;
+            }
+            return entry;
+          }),
         cumulativeTokens: this.cumulativeTokens,
       });
     } catch (e) { console.warn('[ai-panel] persist failed:', e); }

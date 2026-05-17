@@ -384,6 +384,11 @@ const SplitEditorManager = {
 
     /** Open filePath+content in the currently focused split pane */
     async openInFocusedPane(filePath, content) {
+        if (this.focusedPane === 0) {
+            // Main pane is managed by TabManager, not this.panes (which holds split panes only)
+            TabManager.addTab(filePath, content);
+            return;
+        }
         const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
         if (!pane) return;
         await pane.openFile(filePath, content);

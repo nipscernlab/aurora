@@ -158,8 +158,18 @@ const editorNs = {
     const model = ed.getModel();
     if (!model) return err('No active editor');
     model.setValue(String(text ?? ''));
-    const lineCount = model.getLineCount();
-    flashLines(ed, 1, lineCount);
+    // Magic-wand sweep: a shimmer band rises bottom→top across the editor.
+    const editorDom = ed.getDomNode?.();
+    const container = editorDom?.closest(
+      '.split-pane-editor-area, .editor-container, #monaco-editor',
+    ) || editorDom?.parentElement;
+    if (container) {
+      const wand = document.createElement('div');
+      wand.className = 'ai-wand-overlay';
+      container.style.position = 'relative';
+      container.appendChild(wand);
+      wand.addEventListener('animationend', () => wand.remove(), { once: true });
+    }
     return ok();
   },
 
@@ -530,11 +540,37 @@ const projectNs = {
     }
   },
 
-  /** Create (or overwrite) a file with `content`, then refresh the tree. */
+  /** Create (or overwrite) a file with `content`, then refresh the tree.
+   *  .v/.sv/.vh files are auto-registered in synthesizableFiles so they
+   *  appear in the file tree immediately without a manual import step. */
   async createFile(filePath, content = '') {
     if (!filePath) return err('filePath required');
     try {
       await window.electronAPI.writeFile(filePath, String(content ?? ''));
+
+      // Auto-register Verilog files in the SPF so they show up in the tree.
+      const ext = (filePath.split('.').pop() || '').toLowerCase();
+      if (['v', 'sv', 'vh'].includes(ext)) {
+        const spfPath = window.ProjectStore?.getSpfPath?.();
+        if (spfPath && window.SpfStore) {
+          const name = filePath.split(/[\\/]/).pop();
+          const normPath = filePath.replace(/\\/g, '/').toLowerCase();
+          await window.SpfStore.update(spfPath, (cfg) => {
+            const synth = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+            const tb   = Array.isArray(cfg.testbenchFiles)     ? cfg.testbenchFiles     : [];
+            const alreadyIn =
+              synth.some((f) => (f.path || '').replace(/\\/g, '/').toLowerCase() === normPath) ||
+              tb.some((f)   => (f.path || '').replace(/\\/g, '/').toLowerCase() === normPath);
+            if (!alreadyIn) {
+              synth.push({ name, path: filePath, isTopLevel: false });
+              cfg.synthesizableFiles = synth;
+            }
+          });
+          // SpfStore.update fires aurora:spf-changed → file tree re-renders.
+          return ok({ filePath });
+        }
+      }
+
       await refreshTree();
       emit('project:file-created', { filePath });
       return ok({ filePath });
@@ -627,6 +663,81 @@ const projectNs = {
       emit('project:created', { name, spfPath });
       return ok({ name, projectPath, spfPath });
     } catch (e) { return err(e?.message || 'createProject failed'); }
+  },
+
+  /**
+   * Mark a synthesizable Verilog file as the project's Top Level module.
+   * Adds the file to synthesizableFiles if not yet tracked. The flag is
+   * exclusive — any previous top-level loses the mark automatically.
+   * The file tree refreshes via the aurora:spf-changed event.
+   */
+  async setTopLevel(filePath) {
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+    const absPath = isAbs ? filePath : `${root}\\${filePath.replace(/^[\\/]+/, '')}`;
+    const norm = (p) => (p || '').replace(/\\/g, '/').toLowerCase();
+    const targetKey = norm(absPath);
+    const name = absPath.split(/[\\/]/).pop();
+    try {
+      await window.SpfStore.update(spfPath, (cfg) => {
+        // Remove from testbenchFiles if the file was there before; clear
+        // testbenchFile pointer if it was pointing to this file.
+        const tbArr = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+        const tbFiltered = tbArr.filter((f) => norm(f.path) !== targetKey);
+        if (tbFiltered.length !== tbArr.length) {
+          cfg.testbenchFiles = tbFiltered;
+          if (norm(cfg.testbenchFile || '') === targetKey) cfg.testbenchFile = '';
+        }
+        // Add to synthesizableFiles (if not already there) and set as exclusive synth top.
+        const arr = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+        let entry = arr.find((f) => norm(f.path) === targetKey);
+        if (!entry) { entry = { name, path: absPath, isTopLevel: false }; arr.push(entry); }
+        for (const f of arr) f.isTopLevel = (f === entry);
+        cfg.synthesizableFiles = arr;
+        cfg.topLevelFile = absPath;
+      });
+      return ok({ filePath: absPath });
+    } catch (e) { return err(e?.message || 'setTopLevel failed'); }
+  },
+
+  /**
+   * Mark a Verilog file as the project's Testbench Top module.
+   * Adds the file to testbenchFiles if not yet tracked. The mark is
+   * exclusive within testbenchFiles. The file tree refreshes automatically.
+   */
+  async setTestbenchTop(filePath) {
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+    const absPath = isAbs ? filePath : `${root}\\${filePath.replace(/^[\\/]+/, '')}`;
+    const norm = (p) => (p || '').replace(/\\/g, '/').toLowerCase();
+    const targetKey = norm(absPath);
+    const name = absPath.split(/[\\/]/).pop();
+    try {
+      await window.SpfStore.update(spfPath, (cfg) => {
+        // Remove from synthesizableFiles if the file was there before; clear
+        // topLevelFile pointer if it was pointing to this file.
+        const synthArr = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+        const synthFiltered = synthArr.filter((f) => norm(f.path) !== targetKey);
+        if (synthFiltered.length !== synthArr.length) {
+          cfg.synthesizableFiles = synthFiltered;
+          if (norm(cfg.topLevelFile || '') === targetKey) cfg.topLevelFile = '';
+        }
+        // Add to testbenchFiles (if not already there) and set as exclusive testbench top.
+        const arr = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+        let entry = arr.find((f) => norm(f.path) === targetKey);
+        if (!entry) { entry = { name, path: absPath, isTopLevel: false }; arr.push(entry); }
+        for (const f of arr) f.isTopLevel = (f === entry);
+        cfg.testbenchFiles = arr;
+        cfg.testbenchFile = absPath;
+      });
+      return ok({ filePath: absPath });
+    } catch (e) { return err(e?.message || 'setTestbenchTop failed'); }
   },
 
   /** Open an existing project by its .spf file. */

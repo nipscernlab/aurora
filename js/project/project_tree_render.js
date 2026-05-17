@@ -151,6 +151,15 @@ export const RenderMixin = {
             placeNode(sep);
         };
 
+        // Show an "IMPORTED" section header before user files only when
+        // there are also processor groups — without them the label is noise.
+        // If the separator is NOT placed, it stays in existingSeparators and
+        // the end-of-function cleanup removes it from the DOM automatically.
+        const IMPORTED_KEY = '__imported__';
+        if (userFiles.length > 0 && procNames.length > 0) {
+            placeSeparator(IMPORTED_KEY);
+        }
+
         for (const file of userFiles) placeFile(file);
         for (const procName of procNames) {
             placeSeparator(procName);
@@ -258,8 +267,7 @@ export const RenderMixin = {
             : `
                 <div class="verilog-file-actions">
                     <button class="verilog-icon-btn delete-btn" data-action="delete"
-                            title="Delete processor"
-                            data-i18n-title="contextMenu.removeFile">
+                            title="Remove from tree">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
@@ -282,15 +290,18 @@ export const RenderMixin = {
      * de arquivos de processador na arvore.
      */
     _createProcessorSeparator(procName) {
+        const isImported = procName === '__imported__';
         const sep = document.createElement('div');
         sep.className = 'verilog-processor-separator';
+        if (isImported) sep.classList.add('verilog-imported-separator');
         sep.dataset.processorName = procName;
         sep.innerHTML = `
             <span class="verilog-processor-separator-line"></span>
             <span class="verilog-processor-separator-label"></span>
             <span class="verilog-processor-separator-line"></span>
         `;
-        sep.querySelector('.verilog-processor-separator-label').textContent = procName;
+        sep.querySelector('.verilog-processor-separator-label').textContent =
+            isImported ? 'Imported' : procName;
         return sep;
     },
 

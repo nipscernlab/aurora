@@ -26,7 +26,7 @@
 
 'use strict';
 
-const { streamText, stepCountIs } = require('ai');
+const { streamText, generateText, stepCountIs } = require('ai');
 const log = require('electron-log');
 
 const provider = require('./provider');
@@ -40,7 +40,7 @@ const sessions = new Map();
 // Upper bound on tool round-trips per turn — keeps a runaway model
 // from looping forever. Each "step" is one model generation; a step
 // that calls tools is followed by another step to use the results.
-const MAX_STEPS = 12;
+const MAX_STEPS = 24;
 
 function sendEvent(webContents, sessionId, type, data) {
   if (!webContents || webContents.isDestroyed()) return;
@@ -116,9 +116,26 @@ async function start(payload, webContents) {
       abortSignal: abort.signal,
     });
 
+    // Remove tool-call artefacts that some models (Llama, Qwen) emit as plain
+    // text alongside (or instead of) proper function-calling API responses.
+    // Patterns handled:
+    //   1. <tool_call>…</tool_call> (standard XML format)
+    //   2. {"name":"…","arguments":{…}} </tool_call>  (Qwen inline format,
+    //      optionally preceded by a CJK prefix character like 岊)
+    //   3. Orphan </tool_call> closing tags
+    const TOOL_XML_RE  = /<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g;
+    const TOOL_JSON_RE = /[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g;
+    const stripToolXml = (t) => t
+      .replace(TOOL_XML_RE, '')
+      .replace(TOOL_JSON_RE, '')
+      .replace(/<\/tool_call>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     let fullText = '';
+    let earlyExit = false;
     for await (const part of result.fullStream) {
-      if (abort.signal.aborted) break;
+      if (abort.signal.aborted || earlyExit) break;
       switch (part.type) {
         case 'text-delta': {
           const delta = part.text ?? part.textDelta ?? '';
@@ -138,8 +155,19 @@ async function start(payload, webContents) {
             result: part.output ?? part.result ?? null,
           });
           break;
-        case 'error':
+        case 'error': {
+          const errMsg = part.error?.message || String(part.error ?? '');
+          // Vercel AI SDK / Anthropic prompt-caching compat bug: after a tool
+          // result, the SDK sometimes encodes it as an "item_reference" type
+          // that the Anthropic API does not understand. Treat it as a graceful
+          // finish with whatever text has already been generated.
+          if (errMsg.includes('unknown input item type') || errMsg.includes('item_reference')) {
+            log.warn(`[ai.chat] Anthropic item_reference compat error — finishing early: ${errMsg}`);
+            earlyExit = true;
+            break;
+          }
           throw part.error || new Error('stream error');
+        }
         default:
           // step-start, step-finish, finish, reasoning, ... — ignored.
           break;
@@ -147,7 +175,31 @@ async function start(payload, webContents) {
     }
 
     if (abort.signal.aborted) {
-      sendEvent(webContents, sessionId, 'aborted', { text: fullText });
+      sendEvent(webContents, sessionId, 'aborted', { text: stripToolXml(fullText) });
+      return;
+    }
+
+    if (earlyExit) {
+      const text = stripToolXml(fullText);
+      if (text) {
+        sendEvent(webContents, sessionId, 'finish', { text, usage: null });
+      } else {
+        // Tool ran but response generation failed (SDK/provider compat issue).
+        // Re-send a one-step request without tools so the model can still
+        // summarise what it found.
+        try {
+          const fallback = await generateText({
+            model,
+            messages: [...messages, { role: 'assistant', content: '(tool executed, now summarise the results in plain text)' }],
+            ...(system ? { system } : {}),
+            abortSignal: abort.signal,
+          });
+          const fb = (fallback.text || '').trim();
+          sendEvent(webContents, sessionId, 'finish', { text: fb || '(no response)', usage: fallback.usage || null });
+        } catch (_) {
+          sendEvent(webContents, sessionId, 'error', { message: 'Tool ran but response generation failed. Please try again.' });
+        }
+      }
       return;
     }
 
@@ -160,7 +212,7 @@ async function start(payload, webContents) {
       catch (_2) { /* usage is best-effort */ }
     }
 
-    sendEvent(webContents, sessionId, 'finish', { text: fullText, usage });
+    sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {
     if (abort.signal.aborted || e?.name === 'AbortError') {
       sendEvent(webContents, sessionId, 'aborted', { text: '' });

@@ -36,6 +36,20 @@ const PROVIDER_META = {
     placeholder: 'sk-…',
     console: 'https://platform.deepseek.com/api_keys',
   },
+  groq: {
+    label: 'Groq',
+    icon: './assets/icons/ai_groq.svg',
+    placeholder: 'gsk_…',
+    console: 'https://console.groq.com/keys',
+  },
+  ollama: {
+    label: 'Ollama',
+    icon: './assets/icons/ai_ollama.svg',
+    placeholder: 'http://localhost:11434/v1',
+    defaultModel: 'llama3.1:8b',
+    console: 'https://ollama.com',
+    isLocal: true,
+  },
 };
 
 const tr = (key, params) => (window.t ? window.t(key, params) : key);
@@ -66,9 +80,29 @@ function busy(card, isBusy) {
   card.querySelectorAll('button, input').forEach((el) => { el.disabled = isBusy; });
 }
 
+/**
+ * Fetch available models from a running Ollama instance.
+ * `baseUrl` is the OpenAI-compat base URL, e.g. http://localhost:11434/v1.
+ * Returns an array of model name strings, or [] on failure.
+ */
+async function fetchOllamaModels(baseUrl) {
+  try {
+    const origin = new URL(baseUrl || 'http://localhost:11434/v1').origin;
+    const resp = await fetch(`${origin}/api/tags`, { signal: AbortSignal.timeout(4000) });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.models || []).map((m) => m.name).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
 /** Build the DOM for one provider card and wire its actions. */
 function buildCard(provider, model, defaultModel) {
   const meta = PROVIDER_META[provider];
+  const isLocal = !!meta.isLocal;
+  const dlId = `ai-models-${provider}`;
+
   const card = document.createElement('div');
   card.className = 'ai-provider-card';
   card.dataset.provider = provider;
@@ -81,11 +115,16 @@ function buildCard(provider, model, defaultModel) {
     <div class="ai-pc-modelrow">
       <label class="ai-pc-modellabel"></label>
       <input type="text" class="ai-pc-model-input" spellcheck="false"
-             autocomplete="off" placeholder="${defaultModel || ''}">
+             autocomplete="off" placeholder="${defaultModel || ''}"
+             ${isLocal ? `list="${dlId}"` : ''}>
+      ${isLocal ? `<datalist id="${dlId}"></datalist>
+      <button class="btn btn-secondary ai-pc-detect"></button>` : ''}
     </div>
     <div class="ai-pc-keyrow">
-      <input type="password" class="ai-pc-input" placeholder="${meta.placeholder}"
-             autocomplete="off" spellcheck="false" aria-label="${meta.label} API key">
+      <input type="${isLocal ? 'text' : 'password'}" class="ai-pc-input"
+             placeholder="${meta.placeholder}"
+             autocomplete="off" spellcheck="false"
+             aria-label="${meta.label} ${isLocal ? 'Base URL' : 'API key'}">
       <button class="btn btn-primary ai-pc-save"></button>
       <button class="btn btn-secondary ai-pc-test"></button>
     </div>
@@ -102,19 +141,20 @@ function buildCard(provider, model, defaultModel) {
   const testBtn    = card.querySelector('.ai-pc-test');
   const getKey     = card.querySelector('.ai-pc-getkey');
   const removeBtn  = card.querySelector('.ai-pc-remove');
+  const detectBtn  = card.querySelector('.ai-pc-detect');
+  const datalist   = card.querySelector('datalist');
 
   saveBtn.textContent   = tr('modal.settings.aiSave');
   testBtn.textContent   = tr('modal.settings.aiTest');
   removeBtn.textContent = tr('modal.settings.aiRemove');
   getKey.textContent    = tr('modal.settings.aiGetKey');
   card.querySelector('.ai-pc-modellabel').textContent = tr('modal.settings.aiModel');
+  if (detectBtn) detectBtn.textContent = 'Detect';
   modelInput.value = model || '';
 
   setBadge(card, false);
 
-  // Model override — committed on change (blur / Enter). An empty value
-  // clears the override; main echoes back the effective model so the
-  // field re-fills with the built-in default rather than going blank.
+  // Model override — committed on change (blur / Enter).
   modelInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); modelInput.blur(); }
   });
@@ -132,10 +172,29 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // Save — persist the typed key, then clear the field (we never want a
-  // plaintext key lingering in a DOM node).
+  // Detect button (Ollama only) — fetches available models and fills the datalist.
+  if (detectBtn && datalist) {
+    detectBtn.addEventListener('click', async () => {
+      detectBtn.disabled = true;
+      setFeedback(card, 'info', 'Detecting models…');
+      const baseUrl = input.value.trim() || meta.placeholder;
+      const names = await fetchOllamaModels(baseUrl);
+      if (names.length) {
+        datalist.innerHTML = names.map((n) => `<option value="${n}"></option>`).join('');
+        if (!modelInput.value) modelInput.value = names[0];
+        setFeedback(card, 'success', `Found: ${names.join(', ')}`);
+      } else {
+        setFeedback(card, 'error', 'No models found — is Ollama running?');
+      }
+      detectBtn.disabled = false;
+    });
+  }
+
+  // Save — for local providers persists the base URL (keeps it visible so the
+  // user can edit it); for cloud providers clears the field after saving.
   saveBtn.addEventListener('click', async () => {
-    const value = input.value.trim();
+    const raw = input.value.trim();
+    const value = isLocal ? (raw || meta.placeholder) : raw;
     if (!value) {
       setFeedback(card, 'error', tr('modal.settings.aiEnterKey'));
       return;
@@ -145,11 +204,11 @@ function buildCard(provider, model, defaultModel) {
     try {
       const r = await window.aiAPI.setKey(provider, value);
       if (r && r.ok) {
-        input.value = '';
+        if (!isLocal) input.value = '';
         setBadge(card, true);
         setFeedback(card, 'success', tr('modal.settings.aiSaved'));
       } else {
-        setFeedback(card, 'error', (r && r.error) || 'Failed to save key');
+        setFeedback(card, 'error', (r && r.error) || 'Failed to save');
       }
     } catch (e) {
       setFeedback(card, 'error', e?.message || String(e));
@@ -158,7 +217,7 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // Test — exercises the *stored* key with a tiny request.
+  // Test — exercises the *stored* configuration with a tiny request.
   testBtn.addEventListener('click', async () => {
     busy(card, true);
     setFeedback(card, 'info', tr('modal.settings.aiTesting'));
@@ -180,6 +239,7 @@ function buildCard(provider, model, defaultModel) {
     busy(card, true);
     try {
       await window.aiAPI.clearKey(provider);
+      if (isLocal) input.value = '';
       setBadge(card, false);
       setFeedback(card, 'info', tr('modal.settings.aiRemoved'));
     } catch (e) {
@@ -189,8 +249,7 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // "Get a key" opens the provider's console in the system browser —
-  // a bare <a href> would navigate this renderer window instead.
+  // "Get a key" / site link — opens in system browser.
   getKey.addEventListener('click', (e) => {
     e.preventDefault();
     window.electronAPI?.openExternal?.(meta.console);

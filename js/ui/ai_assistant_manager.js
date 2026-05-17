@@ -21,6 +21,8 @@ const PROVIDER_META = {
   anthropic: { label: 'Claude',   icon: './assets/icons/ai_claude.svg'   },
   google:    { label: 'Gemini',   icon: './assets/icons/ai_gemini.webp'  },
   deepseek:  { label: 'DeepSeek', icon: './assets/icons/ai_deepseek.svg' },
+  groq:      { label: 'Groq',     icon: './assets/icons/ai_groq.svg'     },
+  ollama:    { label: 'Ollama',   icon: './assets/icons/ai_ollama.svg'   },
 };
 
 const SYSTEM_PROMPT =
@@ -28,7 +30,13 @@ const SYSTEM_PROMPT =
   "hardware platform (Scalable Architecture for Hardware Optimization, by NIPSCERN at UFJF). " +
   "Users write code in the CMM language (a C-like front-end), compiled by yanc to assembly and " +
   "then to Verilog via Icarus Verilog, with PRISM as the RTL viewer. Be concise. Use Markdown. " +
-  "Use fenced ```cmm code blocks for CMM snippets.";
+  "Use fenced ```cmm code blocks for CMM snippets. " +
+  "ALWAYS reply in the same language the user writes in. " +
+  "TOOL USE RULES: " +
+  "(1) When the user requests multiple actions, invoke ALL required tools in sequence — one after another — before writing any response text. Do NOT stop or explain between tool calls. " +
+  "(2) Only after ALL tools have finished, write ONE concise summary of what was done and the results. " +
+  "(3) If a tool fails, report the error in the final summary and explain what to do next. " +
+  "(4) Never output JSON or XML tool-call syntax as text — always use the actual function-calling mechanism.";
 
 /* ============================================================
  *  Tool permission modes
@@ -64,6 +72,54 @@ function relativeTime(ts) {
   if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} d ago`;
   try { return new Date(Number(ts)).toLocaleDateString(); }
   catch (_) { return ''; }
+}
+
+/* ============================================================
+ *  Generic syntax highlighter — zero external dependencies.
+ *  Covers C/C++/CMM, JS/TS, Python, Verilog, Bash, and more.
+ * ========================================================== */
+
+const _HKW = new Set([
+  'if','else','for','while','do','return','break','continue','switch','case','default',
+  'function','const','let','var','class','import','export','new','this','super',
+  'true','false','null','undefined','void','typeof','instanceof','in','of','delete',
+  'async','await','try','catch','finally','throw','yield',
+  'int','float','double','char','bool','short','long','unsigned','signed',
+  'struct','enum','typedef','sizeof','static','extern','volatile','register','inline',
+  'public','private','protected','abstract','interface','extends','implements','override','virtual',
+  'module','wire','reg','input','output','inout','begin','end','always','assign',
+  'posedge','negedge','initial','endmodule','parameter','localparam',
+  'def','lambda','pass','with','as','from','not','and','or','is','elif','None','True','False',
+  'namespace','using','template','typename','auto',
+]);
+
+// Groups: 1=// comment  2=/* block */  3=# comment/preprocessor
+//         4=string  5=number  6=fn-call-ident  7=ident  8=any-other-char
+const _HRE = /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(0x[0-9a-fA-F]+|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([a-zA-Z_$][\w$]*(?=\s*\())|([a-zA-Z_$][\w$]*)|([^\w]|\s)/g;
+
+function _hesc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function _highlightCode(text) {
+  _HRE.lastIndex = 0;
+  let out = '', m;
+  while ((m = _HRE.exec(text)) !== null) {
+    if (m[1] || m[2] || m[3]) out += `<span class="hl-c">${_hesc(m[0])}</span>`;
+    else if (m[4])             out += `<span class="hl-s">${_hesc(m[4])}</span>`;
+    else if (m[5])             out += `<span class="hl-n">${_hesc(m[5])}</span>`;
+    else if (m[6])             out += `<span class="hl-f">${_hesc(m[6])}</span>`;
+    else if (m[7])             out += _HKW.has(m[7]) ? `<span class="hl-k">${_hesc(m[7])}</span>` : _hesc(m[7]);
+    else                       out += _hesc(m[0]);
+  }
+  return out;
+}
+
+/** Apply syntax highlighting to all unhighlighted code blocks in `containerEl`. */
+function highlightCodeBlocks(containerEl) {
+  if (!containerEl) return;
+  containerEl.querySelectorAll('.ai-code-block code:not([data-hl])').forEach(el => {
+    el.innerHTML = _highlightCode(el.textContent);
+    el.dataset.hl = '1';
+  });
 }
 
 /* ============================================================
@@ -127,8 +183,13 @@ function renderMarkdown(md) {
     if (listType) { out.push(`</${listType}>`); listType = null; }
   };
   const flushCode = () => {
+    const lang = escapeHtml(codeLang || 'text');
     out.push(
-      `<pre><code class="lang-${escapeHtml(codeLang || 'text')}">${escapeHtml(codeLines.join('\n'))}</code></pre>`,
+      `<div class="ai-code-block">` +
+      `<div class="ai-code-header"><span class="ai-code-lang">${lang}</span>` +
+      `<button class="ai-code-copy" title="Copy"><i class="ph ph-copy"></i></button></div>` +
+      `<pre><code class="lang-${lang}">${escapeHtml(codeLines.join('\n'))}</code></pre>` +
+      `</div>`,
     );
     codeLines = [];
     codeLang = '';
@@ -412,6 +473,18 @@ class AIAssistantManager {
       e.preventDefault();
       window.electronAPI?.openExternal?.(a.getAttribute('data-href'));
     });
+
+    // Copy button on code blocks.
+    this.messagesEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.ai-code-copy');
+      if (!btn) return;
+      const code = btn.closest('.ai-code-block')?.querySelector('code');
+      if (!code) return;
+      navigator.clipboard.writeText(code.innerText).then(() => {
+        btn.innerHTML = '<i class="ph ph-check"></i>';
+        setTimeout(() => { btn.innerHTML = '<i class="ph ph-copy"></i>'; }, 2000);
+      }).catch(() => {});
+    });
   }
 
   /* ---------------- gear popover ---------------- */
@@ -648,6 +721,7 @@ class AIAssistantManager {
         break;
       case 'tool-call':
         this.showThinking(false);
+        this.hadToolCalls = true;
         this.startToolChip(ev.toolName);
         // Text after a tool call opens a fresh segment below the chip.
         this.currentAssistantContentEl = null;
@@ -684,17 +758,40 @@ class AIAssistantManager {
     }
     this.segmentBuffer += delta;
     this.turnText += delta;
-    this.currentAssistantContentEl.innerHTML = renderMarkdown(this.segmentBuffer);
+    // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
+    // text. This covers XML blocks, Qwen-style JSON+</tool_call> lines, and
+    // orphan closing tags. Only complete patterns are stripped while streaming
+    // so partial tags don't permanently corrupt the buffer.
+    const displayText = this.segmentBuffer
+      .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
+      .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
+      .replace(/<\/tool_call>/g, '')
+      .trim();
+    this.currentAssistantContentEl.innerHTML = renderMarkdown(displayText || this.segmentBuffer);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
   commitTurn() {
     // The whole turn's text is persisted as one assistant message so
-    // the next turn carries context. Tool chips are presentation only
-    // — they are not part of the model-visible history.
-    if (this.turnText.trim()) {
-      this.messages.push({ role: 'assistant', content: this.turnText });
+    // the next turn carries context. Strip XML tool-call artifacts before
+    // storing — they confuse models on subsequent turns.
+    const cleanText = this.turnText
+      .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
+      .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
+      .replace(/<\/tool_call>/g, '')
+      .trim();
+    if (cleanText) {
+      this.messages.push({ role: 'assistant', content: cleanText });
     }
+    if (this.currentAssistantContentEl) highlightCodeBlocks(this.currentAssistantContentEl);
+
+    // If the model called tools but never generated a text explanation
+    // (common with some Ollama models), show a prompt so the user knows
+    // the turn is over and can ask a follow-up.
+    if (!cleanText && this.hadToolCalls) {
+      this.appendBubble('assistant', '_All actions completed. Ask a follow-up if you want details._');
+    }
+
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();
@@ -719,6 +816,7 @@ class AIAssistantManager {
     this.turnText = '';
     this.currentSessionId = null;
     this.runningChips = [];
+    this.hadToolCalls = false;
     // Auto-deny any confirmation cards still open when the turn ends
     // (e.g. the user hit Stop while a card was waiting).
     for (const decide of this.pendingConfirms) decide(false);
@@ -809,6 +907,7 @@ class AIAssistantManager {
       contentEl.textContent = content;
     } else if (content) {
       contentEl.innerHTML = renderMarkdown(content);
+      highlightCodeBlocks(contentEl);
     }
     this.messagesEl.appendChild(el);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
@@ -847,11 +946,12 @@ class AIAssistantManager {
   }
 
   async refreshChatList() {
-    if (!window.aiAPI?.listConversations) return;
-    try {
-      const r = await window.aiAPI.listConversations();
-      this.chatList = r?.chats || [];
-    } catch (_) { this.chatList = []; }
+    if (window.aiAPI?.listConversations) {
+      try {
+        const r = await window.aiAPI.listConversations();
+        this.chatList = r?.chats || [];
+      } catch (_) { this.chatList = []; }
+    }
     this.renderChatList();
   }
 
@@ -986,6 +1086,7 @@ class AIAssistantManager {
         this.appendBubble(msg.role, msg.content);
       }
     }
+    highlightCodeBlocks(this.messagesEl);
     this.refreshChatList();
   }
 

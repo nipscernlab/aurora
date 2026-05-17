@@ -85,7 +85,7 @@ const TOOL_MANIFEST = [
   },
   {
     name: 'get_project_tree',
-    description: 'List the files and folders of the open project.',
+    description: 'List ALL files in the open project recursively, as relative paths (e.g. "src/main.cmm"). Use this before read_file to get the exact path of any file.',
     access: 'read',
     api: ['project', 'getTree'],
     argStyle: 'none',
@@ -420,6 +420,29 @@ const TOOL_MANIFEST = [
     description: 'Open the Wave Configuration modal for the user.',
     access: 'write',
     api: ['wave', 'openConfig'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'open_file',
+    description: 'Open a project file in the editor. Set inNewSplit:true to open it in a new split pane.',
+    access: 'write',
+    api: ['editor', 'openFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute or project-relative path' },
+        inNewSplit: { type: 'boolean', description: 'Open in a new split pane' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'create_split',
+    description: 'Create a new editor split pane.',
+    access: 'write',
+    api: ['editor', 'createSplit'],
     argStyle: 'none',
     inputSchema: { type: 'object', properties: {} },
   },

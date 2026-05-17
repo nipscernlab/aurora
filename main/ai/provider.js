@@ -33,6 +33,7 @@ const { createOpenAI }            = require('@ai-sdk/openai');
 const { createAnthropic }         = require('@ai-sdk/anthropic');
 const { createGoogleGenerativeAI }= require('@ai-sdk/google');
 const { createDeepSeek }          = require('@ai-sdk/deepseek');
+const { createGroq }              = require('@ai-sdk/groq');
 
 const keystore = require('./keystore');
 const prefs = require('./prefs');
@@ -42,6 +43,8 @@ const DEFAULT_MODELS = Object.freeze({
   anthropic: 'claude-haiku-4-5-20251001',
   google:    'gemini-2.5-flash',
   deepseek:  'deepseek-chat',
+  groq:      'llama-3.3-70b-versatile',
+  ollama:    'llama3.1:8b',
 });
 
 const PROVIDER_FACTORIES = Object.freeze({
@@ -49,16 +52,29 @@ const PROVIDER_FACTORIES = Object.freeze({
   anthropic: createAnthropic,
   google:    createGoogleGenerativeAI,
   deepseek:  createDeepSeek,
+  groq:      createGroq,
 });
+
+const OLLAMA_DEFAULT_BASE_URL = 'http://localhost:11434/v1';
 
 /**
  * Build a provider instance bound to the user's stored API key.
  * Throws when no key is configured for that provider so the caller
  * doesn't have to second-guess.
  *
- * @param {keyof typeof PROVIDER_FACTORIES} name
+ * For Ollama the stored "key" is the base URL; if not set the default
+ * local URL is used so Ollama works without any configuration.
+ *
+ * @param {string} name
  */
 function getProvider(name) {
+  if (name === 'ollama') {
+    const baseURL = keystore.getKey('ollama') || OLLAMA_DEFAULT_BASE_URL;
+    const ollamaFactory = createOpenAI({ baseURL, apiKey: 'ollama', compatibility: 'compatible' });
+    // @ai-sdk/openai v2+ defaults to /v1/responses; Ollama only has /v1/chat/completions.
+    // Wrap the factory so every prov(modelId) call goes to the chat completions endpoint.
+    return (modelId) => ollamaFactory.chat(modelId);
+  }
   const factory = PROVIDER_FACTORIES[name];
   if (!factory) throw new Error(`Unknown provider: ${name}`);
   const apiKey = keystore.getKey(name);

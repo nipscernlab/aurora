@@ -30,7 +30,7 @@ const path = require('path');
 const { app, safeStorage } = require('electron');
 const log = require('electron-log');
 
-const SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'google', 'deepseek'];
+const SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'google', 'deepseek', 'groq', 'ollama'];
 
 function vaultPath() {
   return path.join(app.getPath('userData'), 'aurora-ai-keys.json');

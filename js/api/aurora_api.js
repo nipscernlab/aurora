@@ -37,6 +37,7 @@
 
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
+import { SharedModelRegistry } from '../editor/shared_models.js';
 
 /* ============================================================
  *  Result helpers
@@ -116,14 +117,33 @@ function activeModel() {
   return activeEditor()?.getModel() || null;
 }
 
+function flashLines(ed, startLine, endLine) {
+  if (!ed || !window.monaco) return;
+  const ids = ed.deltaDecorations([], [{
+    range: new window.monaco.Range(startLine, 1, endLine, Number.MAX_SAFE_INTEGER),
+    options: { isWholeLine: true, className: 'ai-edit-flash-line' },
+  }]);
+  setTimeout(() => ed.deltaDecorations(ids, []), 750);
+}
+
 const editorNs = {
   async getActiveFilePath() {
     return ok(TabManager?.activeTab || null);
   },
 
   async getOpenFiles() {
-    const keys = TabManager?.tabs?.keys?.();
-    return ok(keys ? Array.from(keys) : []);
+    // Collect files from all splits (SplitEditorManager.panes[*].tabs) plus
+    // the main tab bar (TabManager.tabs) so no open file in any pane is missed.
+    const seen = new Set();
+    const splitMgr = window.SplitEditorManager;
+    if (splitMgr?.panes) {
+      for (const pane of splitMgr.panes) {
+        for (const fp of (pane.tabs?.keys?.() || [])) seen.add(fp);
+      }
+    }
+    const mainKeys = TabManager?.tabs?.keys?.();
+    if (mainKeys) for (const fp of mainKeys) seen.add(fp);
+    return ok(Array.from(seen));
   },
 
   async getActiveText() {
@@ -133,9 +153,13 @@ const editorNs = {
   },
 
   async setActiveText(text) {
-    const model = activeModel();
+    const ed = activeEditor();
+    if (!ed) return err('No active editor');
+    const model = ed.getModel();
     if (!model) return err('No active editor');
     model.setValue(String(text ?? ''));
+    const lineCount = model.getLineCount();
+    flashLines(ed, 1, lineCount);
     return ok();
   },
 
@@ -150,14 +174,17 @@ const editorNs = {
       ? { lineNumber: position.line, column: position.column }
       : ed.getPosition();
     if (!pos) return err('Cursor position unavailable');
+    const insertText = String(text ?? '');
     ed.executeEdits('aurora-api', [{
       range: {
         startLineNumber: pos.lineNumber, startColumn: pos.column,
         endLineNumber:   pos.lineNumber, endColumn:   pos.column,
       },
-      text: String(text ?? ''),
+      text: insertText,
       forceMoveMarkers: true,
     }]);
+    const newLines = (insertText.match(/\n/g) || []).length;
+    flashLines(ed, pos.lineNumber, pos.lineNumber + newLines);
     return ok();
   },
 
@@ -171,14 +198,17 @@ const editorNs = {
     if (!startLine || !startColumn || !endLine || !endColumn) {
       return err('replaceRange requires startLine, startColumn, endLine, endColumn');
     }
+    const replaceText = String(text ?? '');
     ed.executeEdits('aurora-api', [{
       range: {
         startLineNumber: startLine, startColumn,
         endLineNumber:   endLine,   endColumn,
       },
-      text: String(text ?? ''),
+      text: replaceText,
       forceMoveMarkers: true,
     }]);
+    const newLines = (replaceText.match(/\n/g) || []).length;
+    flashLines(ed, startLine, startLine + newLines);
     return ok();
   },
 
@@ -249,6 +279,67 @@ const editorNs = {
       return ok();
     } catch (e) {
       return err(e?.message || 'reopenLastTab failed');
+    }
+  },
+
+  /** Open a project file in the editor, optionally in a new split pane. */
+  async openFile({ filePath, inNewSplit = false } = {}) {
+    if (!filePath) return err('filePath required');
+    const root = window.currentProjectPath || '';
+    if (!root) return err('No project open');
+    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+    let absPath = isAbsolute ? filePath : `${root}\\${filePath.replace(/^[\\/]+/, '')}`;
+    let content;
+    try {
+      content = await window.electronAPI.readFile(absPath);
+    } catch (_) {
+      // Direct path failed — try fuzzy match: find any project file whose
+      // name matches the basename. Handles the common case where the AI
+      // passes just a filename without the processor subdirectory.
+      if (!isAbsolute) {
+        const base = filePath.split(/[\\/]/).pop();
+        try {
+          const tree = await projectNs.getTree(root);
+          if (tree.ok && Array.isArray(tree.value)) {
+            const match = tree.value.find(
+              (p) => p === base || p.endsWith(`/${base}`) || p.endsWith(`\\${base}`),
+            );
+            if (match) {
+              absPath = `${root}\\${match.replace(/\//g, '\\')}`;
+              content = await window.electronAPI.readFile(absPath);
+            }
+          }
+        } catch (_2) { /* fall through to error */ }
+      }
+      if (content === undefined) {
+        return err(`"${filePath}" not found. Use get_project_tree to list available paths.`);
+      }
+    }
+    const sem = window.SplitEditorManager;
+    try {
+      if (inNewSplit && sem?.createSplit) {
+        await sem.createSplit();          // creates pane from current file + focuses it
+        await sem.openInFocusedPane(absPath, content);  // replace with target file
+      } else if (sem?.openInFocusedPane) {
+        await sem.openInFocusedPane(absPath, content);
+      } else {
+        TabManager.addTab(absPath, content);
+      }
+      return ok({ filePath: absPath });
+    } catch (e) {
+      return err(e?.message || 'openFile failed');
+    }
+  },
+
+  /** Create a new editor split pane. */
+  async createSplit() {
+    const sem = window.SplitEditorManager;
+    if (!sem?.createSplit) return err('SplitEditorManager unavailable');
+    try {
+      await sem.createSplit();
+      return ok();
+    } catch (e) {
+      return err(e?.message || 'createSplit failed');
     }
   },
 };
@@ -353,9 +444,32 @@ const projectNs = {
   async getTree(rootPath) {
     const root = rootPath || window.currentProjectPath || null;
     if (!root) return err('No project open');
+
+    // Return a flat list of every file path (relative to project root) so the
+    // AI can pick the right path without needing multiple tool calls to drill
+    // into subdirectories one level at a time.
+    const relPaths = [];
+    const MAX_DEPTH = 8;
+
+    async function walk(dir, depth) {
+      if (depth > MAX_DEPTH) return;
+      try {
+        const entries = await window.electronAPI?.getFolderFiles?.(dir);
+        if (!entries) return;
+        for (const entry of entries) {
+          const rel = entry.path.slice(root.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
+          if (entry.isDirectory) {
+            await walk(entry.path, depth + 1);
+          } else {
+            relPaths.push(rel);
+          }
+        }
+      } catch (_) { /* skip unreadable directories */ }
+    }
+
     try {
-      const files = await window.electronAPI?.getFolderFiles?.(root);
-      return ok(files || []);
+      await walk(root, 0);
+      return ok(relPaths);
     } catch (e) {
       return err(e?.message || 'getTree failed');
     }
@@ -391,6 +505,18 @@ const projectNs = {
       return err('file is outside the open project folder');
     }
 
+    // If the file is open in any Monaco pane, return its in-memory content
+    // so the AI sees the latest unsaved edits, not the stale on-disk version.
+    const liveModel = SharedModelRegistry.getModel(target);
+    if (liveModel) {
+      const text = liveModel.getValue();
+      const MAX = 256 * 1024;
+      if (text.length > MAX) {
+        return ok({ filePath: target, content: text.slice(0, MAX), length: text.length, truncated: true, fromEditor: true });
+      }
+      return ok({ filePath: target, content: text, length: text.length, truncated: false, fromEditor: true });
+    }
+
     try {
       const raw = await window.electronAPI.readFile(target);
       const text = String(raw ?? '');
@@ -400,7 +526,7 @@ const projectNs = {
       }
       return ok({ filePath: target, content: text, length: text.length, truncated: false });
     } catch (e) {
-      return err(e?.message || 'readFile failed');
+      return err(`File not found: "${target}". Use get_project_tree to list all available paths.`);
     }
   },
 
@@ -785,6 +911,8 @@ const NAMESPACES = Object.freeze({
     saveAll:           'Save every open file',
     closeTab:          'Close a tab (the active one by default)',
     reopenLastTab:     'Reopen the most recently closed tab',
+    openFile:          'Open any project file in the editor (optionally in a new split)',
+    createSplit:       'Create a new editor split pane',
   },
   terminal: {
     list:    'Ids of every terminal panel',

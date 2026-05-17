@@ -3,7 +3,7 @@
   "productName": "SAPHO",
   "description": "Scalable Architecture for Hardware Optimization",
   "author": "NIPSCERN",
-  "version": "5.0.1",
+  "version": "6.2.0",
   "win": {
     "icon": "./assets/icons/sapho_aurora_icon.ico"
   },

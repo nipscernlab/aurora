@@ -1192,8 +1192,8 @@ class AIAssistantManager {
       ];
       const word = words[Math.floor(Math.random() * words.length)];
       const el = document.createElement('div');
-      el.className = 'ai-thinking';
-      el.innerHTML = `<div class="ai-thinking-dots"><span></span><span></span><span></span></div><em class="ai-thinking-word">${word}…</em>`;
+      el.className = 'ai-thinking-wrap';
+      el.innerHTML = `<div class="ai-thinking"><div class="ai-thinking-dots"><span></span><span></span><span></span></div></div><em class="ai-thinking-word">${word}…</em>`;
       this.messagesEl.appendChild(el);
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
       this.thinkingEl = el;

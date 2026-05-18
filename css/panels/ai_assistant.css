@@ -30,6 +30,8 @@
   min-width: 320px;
   max-width: 80vw;
   will-change: transform;
+  /* Prevent accidental text selection (purple highlight) on click */
+  user-select: none;
 }
 
 .ai-assistant-container.open {
@@ -410,6 +412,8 @@ body.ai-assistant-open {
   color: var(--text);
   word-wrap: break-word;
   overflow-wrap: anywhere;
+  /* Re-enable text selection inside message bubbles so users can copy */
+  user-select: text;
 }
 
 .ai-msg-user .ai-msg-role { color: var(--accent-hover); }
@@ -726,12 +730,20 @@ body.ai-assistant-open {
 /* ---------------------------------------------------------------------------
  *  "Thinking…" placeholder — three pulsing dots + rotating witty label
  * ------------------------------------------------------------------------- */
-.ai-thinking {
+
+/* Outer wrapper: dots box on top, witty word below */
+.ai-thinking-wrap {
   display: inline-flex;
   flex-direction: column;
   align-self: flex-start;
   align-items: flex-start;
   gap: 6px;
+}
+
+/* The bordered pill that contains only the three dots */
+.ai-thinking {
+  display: inline-flex;
+  align-items: center;
   padding: var(--space-2) var(--space-3);
   background: var(--bg-elev);
   border: 1px solid var(--border-subtle);

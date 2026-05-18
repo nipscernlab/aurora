@@ -12,12 +12,18 @@
   --vscode-foreground:         #cccccc;
   --vscode-editor-background:  #1e1e1e;
 
-  /* wire / module accent colours — map to the Aurora palette */
-  --prism-wire:        var(--accent);
-  --prism-wire-hover:  var(--accent-hover);
-  --prism-wire-hi:     var(--aurora-mint);
-  --prism-module-fill: var(--accent-active);
-  --prism-module-stroke: var(--accent-border);
+  /* PRISM palette — two-tone for clear separation:
+   *   wires   → violet (the Aurora accent), highlights mint
+   *   modules → mint outline + faint mint fill
+   * Without this contrast every cell becomes purple-on-purple and
+   * the schematic reads as a single colour blob. */
+  --prism-wire:          var(--accent);
+  --prism-wire-hover:    var(--accent-hover);
+  --prism-wire-hi:       var(--aurora-mint);
+  --prism-module-fill:   rgba(95, 224, 176, 0.08);
+  --prism-module-stroke: var(--aurora-mint);
+  --prism-module-accent: var(--aurora-mint);
+  --prism-module-glyph:  rgba(255, 255, 255, 0.82);
 }
 
 /* ---------------------------------------------------------------------------
@@ -407,12 +413,21 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 /* ---------------------------------------------------------------------------
  *  SVG element styling
+ *
+ *  We DELIBERATELY avoid `!important` on font-size / fill / stroke for text
+ *  and cell-body paths so that inline `style="..."` in custom skins (under
+ *  assets/prism-skins/) can establish a visual hierarchy — bigger/bolder
+ *  module labels, muted port hints, type-specific fills, etc. Specificity
+ *  of `.svg-content svg <elem>` (0,1,2) still beats the embedded
+ *  `<style>text { font-size:13px }` of @silimate/netlistsvg's default.svg
+ *  (0,0,1), so default primitives keep their compact 7px label without
+ *  needing !important.
  * --------------------------------------------------------------------------- */
 .svg-content svg text {
-  fill: var(--text) !important;
+  fill: var(--text);
   font-family: var(--font-sans) !important;
-  font-size: 7px !important;
-  font-weight: var(--font-medium) !important;
+  font-size: 7px;
+  font-weight: var(--font-medium);
 }
 
 .svg-content svg rect {
@@ -431,15 +446,36 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   stroke: var(--accent-border) !important;
 }
 
-/* Wires */
+/* Path/line baseline — applies to BOTH wires-between-cells and cell-body
+ * shapes (trapezoids/hexagons drawn as <path>). We keep this rule
+ * deliberately weak so skins can paint their own fill/stroke inline. */
 .svg-content svg path,
 .svg-content svg line {
+  fill: none;
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: stroke 150ms ease, stroke-width 150ms ease, opacity 150ms ease;
+}
+
+/* Wire / net paths only — netlistsvg emits these with class="net_<bits>
+ * width_<n>". Using the class anchor scopes the wire coloring + dimming
+ * away from cell-body paths, so custom skins (assets/prism-skins/) can
+ * declare their own stroke/opacity via inline style without fighting
+ * !important. */
+.svg-content svg path[class*="net_"],
+.svg-content svg line[class*="net_"] {
   stroke: var(--prism-wire) !important;
   stroke-width: 1.5 !important;
-  fill: none !important;
   opacity: 0.65;
-  transition: stroke 150ms ease, stroke-width 150ms ease, opacity 150ms ease;
-  cursor: pointer;
+}
+
+/* Cell-body paths inside cells with a known type. `data-cell-type` is
+ * injected at SVG-emit time by main/ipc/prism.js (injectCellTypesIntoSvg)
+ * for every cell that has a Yosys type. Direct-child `> path` keeps inner
+ * wires/notches inside complex skins from getting this baseline. */
+.svg-content svg g[data-cell-type] > path {
+  stroke: var(--prism-module-stroke, var(--accent-border));
+  opacity: 1;
 }
 
 .svg-content svg path[stroke="#000000"],

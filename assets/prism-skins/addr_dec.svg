@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: addr_dec (Address Decoder)
+  Verilog: components/HDL/addr_dec.v
+  Ports: valid_in, index, valid_out
+
+  DEMUX trapezoid (narrow on inputs, wide on outputs) + a thin
+  fan-out triplet inside hinting at the one-hot expansion.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="addr_dec" transform="translate(0, 0)" s:width="60" s:height="60">
+    <s:alias val="addr_dec"/>
+
+    <!-- Trapezoid -->
+    <path d="M 0,20 L 60,0 L 60,60 L 0,40 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- Fan-out hint (functional, not decorative — shows 1→N expansion) -->
+    <path d="M 14,30 L 50,12 M 14,30 L 50,28 M 14,30 L 50,44 M 14,30 L 50,52"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent);
+                 stroke-width: 0.5; opacity: 0.35;" />
+
+    <!-- Type label -->
+    <text x="36" y="33"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 8px;
+                 fill: var(--prism-module-glyph);">DEC</text>
+
+    <!-- Instance ref -->
+    <text x="30" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">d</text>
+
+    <!-- Port hints -->
+    <text x="6"  y="27" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">valid_in</text>
+    <text x="6"  y="38" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">index</text>
+    <text x="56" y="32" class="$cell_id" s:attribute=""
+          style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">valid_out</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"  s:y="24" s:pid="valid_in"/>
+    <g s:x="0"  s:y="36" s:pid="index"/>
+    <g s:x="60" s:y="30" s:pid="valid_out"/>
+  </g>
+
+</svg>

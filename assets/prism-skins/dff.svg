@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: D Flip-Flop (positive edge)
+  Covers single-bit + bus: dff ($dff, $_DFF_, $_DFF_P_, $adff, $sdff)
+                            dff-bus (and bus alias variants)
+  Ports: D, CLK, Q (+ optional ARST/SRST)
+
+  Visual: rectangle with the canonical clock-edge triangle on the
+  CLK pin and D / Q labels inside.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="dff" transform="translate(0, 0)" s:width="32" s:height="40">
+    <s:alias val="$dff"/>
+    <s:alias val="$_DFF_"/>
+    <s:alias val="$_DFF_P_"/>
+    <s:alias val="$adff"/>
+    <s:alias val="$sdff"/>
+
+    <!-- Body -->
+    <path d="M 0,0 L 32,0 L 32,40 L 0,40 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Clock-edge triangle (canonical edge-trigger marker) -->
+    <path d="M 0,34 L 6,30 L 0,26"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1;" />
+
+    <!-- Pin labels inside the body -->
+    <text x="4" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">D</text>
+    <text x="28" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: end; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">Q</text>
+
+    <!-- Type stamp -->
+    <text x="16" y="24"
+          class="$cell_id" s:attribute=""
+          style="text-anchor: middle; font-size: 6px;
+                 fill: var(--text-muted, #9aa);">DFF</text>
+
+    <!-- Port anchors -->
+    <g s:x="32" s:y="10" s:pid="Q"/>
+    <g s:x="0"  s:y="30" s:pid="CLK"/>
+    <g s:x="0"  s:y="30" s:pid="C"/>
+    <g s:x="0"  s:y="10" s:pid="D"/>
+    <g s:x="16" s:y="40" s:pid="ARST"/>
+    <g s:x="16" s:y="40" s:pid="SRST"/>
+  </g>
+
+  <g s:type="dff-bus" transform="translate(0, 0)" s:width="36" s:height="44">
+    <s:alias val="$dff-bus"/>
+    <s:alias val="$_DFF_-bus"/>
+    <s:alias val="$_DFF_P_-bus"/>
+    <s:alias val="$adff-bus"/>
+    <s:alias val="$sdff-bus"/>
+
+    <!-- Body + bus shadow (offset rectangles to suggest a bus stack) -->
+    <path d="M 0,0 L 32,0 L 32,40 L 0,40 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+    <path d="M 32,2 L 34,2 L 34,42 L 2,42 L 2,40 M 34,4 L 36,4 L 36,44 L 4,44 L 4,42"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1;" />
+
+    <path d="M 0,34 L 6,30 L 0,26"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1;" />
+
+    <text x="4" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">D</text>
+    <text x="28" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: end; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">Q</text>
+
+    <text x="16" y="24"
+          class="$cell_id" s:attribute=""
+          style="text-anchor: middle; font-size: 6px;
+                 fill: var(--text-muted, #9aa);">DFF</text>
+
+    <g s:x="36" s:y="10" s:pid="Q"/>
+    <g s:x="0"  s:y="30" s:pid="CLK"/>
+    <g s:x="0"  s:y="30" s:pid="C"/>
+    <g s:x="0"  s:y="10" s:pid="D"/>
+    <g s:x="18" s:y="44" s:pid="ARST"/>
+    <g s:x="18" s:y="44" s:pid="SRST"/>
+  </g>
+
+</svg>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: DIV
+  Covers: $div
+  Ports: A, B (inputs), Y (output)
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="div" transform="translate(0, 0)" s:width="25" s:height="25">
+    <s:alias val="$div"/>
+
+    <circle cx="12.5" cy="12.5" r="12"
+            class="$cell_id"
+            style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <text x="12.5" y="17"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 800; font-size: 14px;
+                 fill: var(--text, #ffffff);">÷</text>
+
+    <g s:x="0"  s:y="6"    s:pid="A"/>
+    <g s:x="0"  s:y="19"   s:pid="B"/>
+    <g s:x="25" s:y="12.5" s:pid="Y"/>
+  </g>
+
+</svg>

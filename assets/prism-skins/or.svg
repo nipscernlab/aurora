@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: OR gate (or family)
+  Covers: $or, $logic_or, $_OR_, $reduce_or, $reduce_bool
+  Ports: A, B (inputs), Y (output)
+
+  Visual: classic shield shape — curved back, pointy front.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="or" transform="translate(0, 0)" s:width="35" s:height="25">
+    <s:alias val="$or"/>
+    <s:alias val="$logic_or"/>
+    <s:alias val="$_OR_"/>
+    <s:alias val="$reduce_or"/>
+    <s:alias val="$reduce_bool"/>
+
+    <!-- OR shape -->
+    <path d="M 0,0 Q 8,12.5 0,25 Q 18,25 30,12.5 Q 18,0 0,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Glyph -->
+    <text x="13" y="16"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 12px;
+                 fill: var(--text, #ffffff); opacity: 0.7;">≥1</text>
+
+    <!-- Port anchors -->
+    <g s:x="2"  s:y="6"    s:pid="A"/>
+    <g s:x="2"  s:y="19"   s:pid="B"/>
+    <g s:x="30" s:y="12.5" s:pid="Y"/>
+  </g>
+
+</svg>

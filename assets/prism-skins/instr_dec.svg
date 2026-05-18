@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: instr_dec (Instruction Decoder)
+  Verilog: components/HDL/instr_dec.v
+  Ports (in): clk, rst, opcode
+  Ports (out): push, pop, ula_op, mem_wr, req_in, out_en, ldi, sti, fft
+
+  Minimal decoder block: body + clock-edge triangle + 3 faint stripes
+  inside (the canonical ROM-lookup hint, kept because it COMMUNICATES
+  the function, not because it's decoration).
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="instr_dec" transform="translate(0, 0)" s:width="110" s:height="120">
+    <s:alias val="instr_dec"/>
+
+    <!-- Body -->
+    <path d="M 4,0 L 106,0 Q 110,0 110,4 L 110,116 Q 110,120 106,120
+             L 4,120 Q 0,120 0,116 L 0,4 Q 0,0 4,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- Clock-edge triangle on clk pin -->
+    <path d="M 0,17 L 5,20 L 0,23"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent); stroke-width: 1;" />
+
+    <!-- ROM lookup hint: three faint horizontal lines -->
+    <path d="M 20,82 L 90,82 M 20,90 L 90,90 M 20,98 L 90,98"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent);
+                 stroke-width: 0.5; opacity: 0.30;" />
+
+    <!-- Type label -->
+    <text x="55" y="62"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 11px;
+                 fill: var(--prism-module-glyph);">DECODE</text>
+
+    <!-- Instance ref -->
+    <text x="55" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">id</text>
+
+    <!-- Port hints (left = inputs) -->
+    <text x="8"  y="20" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">clk</text>
+    <text x="5"  y="42" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">rst</text>
+    <text x="5"  y="68" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">opcode</text>
+
+    <!-- Port hints (right = outputs) -->
+    <text x="105" y="14"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">push</text>
+    <text x="105" y="26"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">pop</text>
+    <text x="105" y="42"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">ula_op</text>
+    <text x="105" y="58"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">mem_wr</text>
+    <text x="105" y="72"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">req_in</text>
+    <text x="105" y="84"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">out_en</text>
+    <text x="105" y="96"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">ldi</text>
+    <text x="105" y="106" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">sti</text>
+    <text x="105" y="116" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">fft</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"   s:y="20"  s:pid="clk"/>
+    <g s:x="0"   s:y="40"  s:pid="rst"/>
+    <g s:x="0"   s:y="66"  s:pid="opcode"/>
+
+    <g s:x="110" s:y="12"  s:pid="push"/>
+    <g s:x="110" s:y="24"  s:pid="pop"/>
+    <g s:x="110" s:y="40"  s:pid="ula_op"/>
+    <g s:x="110" s:y="56"  s:pid="mem_wr"/>
+    <g s:x="110" s:y="70"  s:pid="req_in"/>
+    <g s:x="110" s:y="82"  s:pid="out_en"/>
+    <g s:x="110" s:y="94"  s:pid="ldi"/>
+    <g s:x="110" s:y="104" s:pid="sti"/>
+    <g s:x="110" s:y="114" s:pid="fft"/>
+  </g>
+
+</svg>

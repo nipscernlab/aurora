@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: NOR gate
+  Covers: $nor, $reduce_nor, $_NOR_, $_ORNOT_
+  Ports: A, B (inputs), Y (output)
+
+  Visual: OR shape + inversion bubble.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="reduce_nor" transform="translate(0, 0)" s:width="38" s:height="25">
+    <s:alias val="$nor"/>
+    <s:alias val="$reduce_nor"/>
+    <s:alias val="$_NOR_"/>
+    <s:alias val="$_ORNOT_"/>
+
+    <!-- OR shape -->
+    <path d="M 0,0 Q 8,12.5 0,25 Q 18,25 30,12.5 Q 18,0 0,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Inversion bubble -->
+    <circle cx="33" cy="12.5" r="2.5"
+            class="$cell_id"
+            style="fill: var(--bg, #0A0D14);
+                   stroke: var(--prism-module-stroke, #5FE0B0);
+                   stroke-width: 1;" />
+
+    <!-- Glyph -->
+    <text x="13" y="16"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 12px;
+                 fill: var(--text, #ffffff); opacity: 0.7;">≥1</text>
+
+    <!-- Port anchors -->
+    <g s:x="2"  s:y="6"    s:pid="A"/>
+    <g s:x="2"  s:y="19"   s:pid="B"/>
+    <g s:x="36" s:y="12.5" s:pid="Y"/>
+  </g>
+
+</svg>

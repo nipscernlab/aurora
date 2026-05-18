@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: SAPHO Core (datapath inside the processor)
+  Verilog: components/HDL/core.v
+  Many ports — see anchor list at the bottom.
+
+  Minimal IC: body + pin-1 dot + clock-edge triangle. Single label,
+  no subtitle, no decorative stripes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="core" transform="translate(0, 0)" s:width="140" s:height="170">
+    <s:alias val="core"/>
+
+    <!-- Body -->
+    <path d="M 6,0 L 134,0 Q 140,0 140,6 L 140,164 Q 140,170 134,170
+             L 6,170 Q 0,170 0,164 L 0,6 Q 0,0 6,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- Pin-1 marker -->
+    <circle cx="8" cy="8" r="1.8"
+            class="$cell_id"
+            style="fill: var(--prism-module-accent); stroke: none; opacity: 0.7;" />
+
+    <!-- Clock-edge triangle on clk pin -->
+    <path d="M 0,17 L 5,20 L 0,23"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent); stroke-width: 1;" />
+
+    <!-- Type label centered -->
+    <text x="70" y="89"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 12px;
+                 fill: var(--prism-module-glyph);">CORE</text>
+
+    <!-- Instance ref -->
+    <text x="70" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">c</text>
+
+    <!-- Port hints (inputs) -->
+    <text x="8"  y="20"  class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">clk</text>
+    <text x="5"  y="37"  class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">rst</text>
+    <text x="5"  y="62"  class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">instr</text>
+    <text x="5"  y="85"  class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">mem_data_rd</text>
+    <text x="5"  y="125" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">io_in</text>
+    <text x="5"  y="158" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">itr</text>
+
+    <!-- Port hints (outputs) -->
+    <text x="135" y="22"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">instr_addr</text>
+    <text x="135" y="42"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">mem_wr</text>
+    <text x="135" y="56"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">mem_addr_rd</text>
+    <text x="135" y="70"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">mem_addr_wr</text>
+    <text x="135" y="90"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">mem_data_wr</text>
+    <text x="135" y="115" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_in</text>
+    <text x="135" y="130" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_out</text>
+    <text x="135" y="148" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">req_in</text>
+    <text x="135" y="162" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">out_en</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"   s:y="20"  s:pid="clk"/>
+    <g s:x="0"   s:y="35"  s:pid="rst"/>
+    <g s:x="0"   s:y="60"  s:pid="instr"/>
+    <g s:x="0"   s:y="83"  s:pid="mem_data_rd"/>
+    <g s:x="0"   s:y="123" s:pid="io_in"/>
+    <g s:x="0"   s:y="156" s:pid="itr"/>
+
+    <g s:x="140" s:y="20"  s:pid="instr_addr"/>
+    <g s:x="140" s:y="40"  s:pid="mem_wr"/>
+    <g s:x="140" s:y="54"  s:pid="mem_addr_rd"/>
+    <g s:x="140" s:y="68"  s:pid="mem_addr_wr"/>
+    <g s:x="140" s:y="88"  s:pid="mem_data_wr"/>
+    <g s:x="140" s:y="113" s:pid="addr_in"/>
+    <g s:x="140" s:y="128" s:pid="addr_out"/>
+    <g s:x="140" s:y="146" s:pid="req_in"/>
+    <g s:x="140" s:y="160" s:pid="out_en"/>
+  </g>
+
+</svg>

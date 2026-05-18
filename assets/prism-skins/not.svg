@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: NOT (inverter)
+  Covers: $not, $logic_not, $_NOT_
+  Ports: A (input), Y (output)
+
+  Visual: triangle pointing right + inversion bubble.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="not" transform="translate(0, 0)" s:width="30" s:height="20">
+    <s:alias val="$_NOT_"/>
+    <s:alias val="$not"/>
+    <s:alias val="$logic_not"/>
+
+    <!-- Triangle -->
+    <path d="M 0,0 L 0,20 L 22,10 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Inversion bubble -->
+    <circle cx="26" cy="10" r="2.5"
+            class="$cell_id"
+            style="fill: var(--bg, #0A0D14);
+                   stroke: var(--prism-module-stroke, #5FE0B0);
+                   stroke-width: 1;" />
+
+    <!-- Port anchors -->
+    <g s:x="0"  s:y="10" s:pid="A"/>
+    <g s:x="29" s:y="10" s:pid="Y"/>
+  </g>
+
+</svg>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: D Flip-Flop (negative edge)
+  Covers: dffn ($dffn, $_DFF_N_) + bus variant
+
+  Visual: same as DFF, but with inversion bubble on CLK input.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="dffn" transform="translate(0, 0)" s:width="32" s:height="40">
+    <s:alias val="$dffn"/>
+    <s:alias val="$_DFF_N_"/>
+
+    <path d="M 0,0 L 32,0 L 32,40 L 0,40 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Edge triangle + negedge bubble -->
+    <path d="M 0,34 L 6,30 L 0,26"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1;" />
+    <circle cx="-3" cy="30" r="2.5"
+            class="$cell_id"
+            style="fill: var(--bg, #0A0D14);
+                   stroke: var(--prism-module-stroke, #5FE0B0);
+                   stroke-width: 1;" />
+
+    <text x="4"  y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">D</text>
+    <text x="28" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: end; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">Q</text>
+    <text x="16" y="24" class="$cell_id" s:attribute=""
+          style="text-anchor: middle; font-size: 6px;
+                 fill: var(--text-muted, #9aa);">DFFn</text>
+
+    <g s:x="32" s:y="10" s:pid="Q"/>
+    <g s:x="-6" s:y="30" s:pid="CLK"/>
+    <g s:x="-6" s:y="30" s:pid="C"/>
+    <g s:x="0"  s:y="10" s:pid="D"/>
+  </g>
+
+</svg>

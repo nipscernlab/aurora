@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin TEMPLATE.
+
+  1. Copy this file to <module-name>.svg in the same folder.
+  2. Replace every "MYMODULE" with the Verilog module name (case-sensitive,
+     matches `s:type` and `s:alias`).
+  3. Adjust s:width / s:height to your symbol's bounding box.
+  4. Replace the <path> with your shape (origin top-left, +x right, +y down).
+  5. List every Verilog port as a <g s:x s:y s:pid="..."/> on the bounding
+     rectangle. `s:pid` MUST match the Verilog port name exactly.
+
+  This file is ignored by the merger because its name starts with `_`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="MYMODULE" transform="translate(0, 0)" s:width="60" s:height="40">
+    <!-- Optional extra type aliases this skin should match -->
+    <s:alias val="MYMODULE"/>
+
+    <!-- Body: any SVG primitive(s). Use class="$cell_id" so per-instance
+         CSS selectors work (e.g. .cell_u_inst rect { ... }). -->
+    <rect width="60" height="40" rx="3" ry="3"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.18));
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1.5;"/>
+
+    <!-- Type label inside the body. s:attribute="" keeps the literal text. -->
+    <text x="30" y="22"
+          class="nodelabel $cell_id"
+          s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 11px;
+                 fill: var(--text, #cccccc);">MYMODULE</text>
+
+    <!-- Instance reference label, drawn just above the body.
+         s:attribute="ref" makes netlistsvg replace the placeholder text
+         with the actual instance name (e.g. "u_inst" -> "alu1"). -->
+    <text x="30" y="-4"
+          class="nodelabel $cell_id"
+          s:attribute="ref"
+          style="text-anchor: middle; font-size: 9px; font-style: italic;
+                 fill: var(--accent-hover, #5FE0B0);">u_inst</text>
+
+    <!-- Port anchors. ELK snaps wires here. s:pid MUST equal a Verilog port name.
+         Coordinates are on the bounding rectangle (s:x in [0, s:width],
+         s:y in [0, s:height]). Inputs typically on the left, outputs on the right. -->
+    <g s:x="0"  s:y="10" s:pid="in1"/>
+    <g s:x="0"  s:y="30" s:pid="in2"/>
+    <g s:x="60" s:y="20" s:pid="out"/>
+  </g>
+
+</svg>

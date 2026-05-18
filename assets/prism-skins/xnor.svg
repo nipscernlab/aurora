@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: XNOR gate
+  Covers: $xnor, $reduce_xnor, $_XNOR_
+  Ports: A, B (inputs), Y (output)
+
+  Visual: XOR shape + inversion bubble.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="reduce_nxor" transform="translate(0, 0)" s:width="38" s:height="25">
+    <s:alias val="$xnor"/>
+    <s:alias val="$reduce_xnor"/>
+    <s:alias val="$_XNOR_"/>
+
+    <!-- Inner OR body -->
+    <path d="M 3,0 Q 11,12.5 3,25 Q 21,25 33,12.5 Q 21,0 3,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Extra outer curve -->
+    <path d="M 0,0 Q 8,12.5 0,25"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1.5;" />
+
+    <!-- Inversion bubble -->
+    <circle cx="36" cy="12.5" r="2.5"
+            class="$cell_id"
+            style="fill: var(--bg, #0A0D14);
+                   stroke: var(--prism-module-stroke, #5FE0B0);
+                   stroke-width: 1;" />
+
+    <!-- Glyph -->
+    <text x="16" y="16"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 11px;
+                 fill: var(--text, #ffffff); opacity: 0.7;">=1</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"  s:y="6"    s:pid="A"/>
+    <g s:x="0"  s:y="19"   s:pid="B"/>
+    <g s:x="38" s:y="12.5" s:pid="Y"/>
+  </g>
+
+</svg>

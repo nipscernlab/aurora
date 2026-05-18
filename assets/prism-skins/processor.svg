@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: SAPHO Processor
+  Verilog: components/HDL/processor.v
+  Ports: clk, rst, io_in, itr (left)  /  io_out, addr_in, addr_out,
+         req_in, out_en (right)
+
+  Identity = the SAPHO emblem itself, embedded as a low-opacity
+  watermark behind the cell body. Pin-1 marker in the upper-left
+  corner and a clock-edge triangle inside the clk pin complete the
+  IC look. No subtitle text, no decorative stripes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="processor" transform="translate(0, 0)" s:width="140" s:height="120">
+    <s:alias val="processor"/>
+
+    <!-- Chip outline -->
+    <path d="M 6,0 L 134,0 Q 140,0 140,6 L 140,114 Q 140,120 134,120
+             L 6,120 Q 0,120 0,114 L 0,6 Q 0,0 6,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- SAPHO emblem watermark (silhouette path lifted from
+         assets/icons/sapho_aurora_icon.svg, single-coloured + faded). -->
+    <g transform="translate(-11, -7) scale(0.0178) rotate(180, 4550, 3770)"
+       style="pointer-events: none; opacity: 0.07;">
+      <path d="M5170 5739 l0 -282 -57 7 c-768 88 -1469 -233 -1886 -864 -544 -825
+               -369 -1947 402 -2566 359 -289 769 -434 1223 -434 312 0 590 66 873 208 161
+               80 371 226 452 314 l22 24 -173 173 -174 174 -74 -60 c-240 -197 -496 -303
+               -806 -333 -145 -15 -316 0 -479 40 -563 138 -914 496 -1050 1070 -30 130 -42
+               390 -24 521 80 553 453 1004 978 1178 165 55 239 66 458 66 213 0 264 -7 440
+               -62 83 -26 249 -102 323 -148 l42 -26 0 315 c0 208 3 316 10 316 21 0 187 -89
+               275 -147 301 -199 532 -454 691 -765 l55 -108 -48 0 c-26 0 -430 5 -897 10
+               -888 11 -940 10 -1078 -31 -437 -128 -726 -557 -678 -1009 12 -118 38 -210 90
+               -318 50 -104 86 -157 169 -244 201 -214 502 -324 793 -290 179 21 380 106 495
+               208 l48 43 -174 174 -174 175 -49 -34 c-94 -64 -240 -90 -357 -63 -195 45
+               -350 238 -351 436 0 203 128 381 319 443 l70 22 1231 -8 1230 -9 0 31 c0 63
+               -53 294 -101 439 -144 433 -412 832 -753 1119 -276 233 -589 402 -928 501
+               -118 34 -309 75 -354 75 l-24 0 0 -281z"
+            fill="var(--aurora-mint)" stroke="none" />
+    </g>
+
+    <!-- Pin-1 marker (small dot in upper-left, IC convention) -->
+    <circle cx="8" cy="8" r="1.8"
+            class="$cell_id"
+            style="fill: var(--prism-module-accent); stroke: none; opacity: 0.7;" />
+
+    <!-- Clock edge triangle inside the clk pin -->
+    <path d="M 0,17 L 5,20 L 0,23"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent); stroke-width: 1;" />
+
+    <!-- Type label -->
+    <text x="70" y="65"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 12px;
+                 fill: var(--prism-module-glyph);">SAPHO</text>
+
+    <!-- Instance ref -->
+    <text x="70" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">u</text>
+
+    <!-- Port hints (left = inputs) -->
+    <text x="8"   y="20" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">clk</text>
+    <text x="5"   y="42" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">rst</text>
+    <text x="5"   y="70" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">io_in</text>
+    <text x="5"   y="100" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">itr</text>
+
+    <!-- Port hints (right = outputs) -->
+    <text x="135" y="22" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">io_out</text>
+    <text x="135" y="42" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_in</text>
+    <text x="135" y="60" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_out</text>
+    <text x="135" y="85" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">req_in</text>
+    <text x="135" y="100" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">out_en</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"   s:y="20"  s:pid="clk"/>
+    <g s:x="0"   s:y="40"  s:pid="rst"/>
+    <g s:x="0"   s:y="68"  s:pid="io_in"/>
+    <g s:x="0"   s:y="98"  s:pid="itr"/>
+
+    <g s:x="140" s:y="20"  s:pid="io_out"/>
+    <g s:x="140" s:y="40"  s:pid="addr_in"/>
+    <g s:x="140" s:y="58"  s:pid="addr_out"/>
+    <g s:x="140" s:y="83"  s:pid="req_in"/>
+    <g s:x="140" s:y="98"  s:pid="out_en"/>
+  </g>
+
+</svg>

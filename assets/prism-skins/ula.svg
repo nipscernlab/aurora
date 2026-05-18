@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: ULA (SAPHO Arithmetic Logic Unit)
+  Verilog: components/HDL/ula.v
+  Ports: op[5:0], in1[NUBITS-1:0], in2[NUBITS-1:0], out[NUBITS-1:0]
+
+  Classic textbook ALU silhouette — pentagonal body with V-notch on
+  the operand side, pointed arrow on the result side. No decorative
+  inner stroke; the silhouette IS the identity.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="ula" transform="translate(0, 0)" s:width="80" s:height="80">
+    <s:alias val="ula"/>
+
+    <path d="M 0,0 L 50,0 L 80,22 L 80,58 L 50,80 L 0,80 L 0,55 L 18,40 L 0,25 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- Type label -->
+    <text x="46" y="44"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 11px;
+                 fill: var(--prism-module-glyph);">ULA</text>
+
+    <!-- Instance ref above body -->
+    <text x="40" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">u</text>
+
+    <!-- Port hints -->
+    <text x="26" y="9"  class="$cell_id" s:attribute=""
+          style="text-anchor: middle; font-size: 5px; fill: var(--text-muted);">op</text>
+    <text x="6"  y="32" class="$cell_id" s:attribute=""
+          style="text-anchor: start;  font-size: 5px; fill: var(--text-muted);">in1</text>
+    <text x="6"  y="54" class="$cell_id" s:attribute=""
+          style="text-anchor: start;  font-size: 5px; fill: var(--text-muted);">in2</text>
+    <text x="74" y="42" class="$cell_id" s:attribute=""
+          style="text-anchor: end;    font-size: 5px; fill: var(--text-muted);">out</text>
+
+    <!-- Port anchors -->
+    <g s:x="26" s:y="0"  s:pid="op"/>
+    <g s:x="0"  s:y="28" s:pid="in1"/>
+    <g s:x="0"  s:y="52" s:pid="in2"/>
+    <g s:x="80" s:y="40" s:pid="out"/>
+  </g>
+
+</svg>

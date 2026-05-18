@@ -387,15 +387,81 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
   }
 }
 
-// Skin default do pacote — caminho resolvido na 1a chamada e cacheado.
-// require.resolve aponta pro built/index.js; sobe um nivel pra lib/.
-let cachedDefaultSkinData = null;
+// Skin default do pacote + merge de skins customizadas em assets/prism-skins/.
+// Sem cache: re-le a cada compile pra que `Recompile` no PRISM ja mostre
+// edicoes em SVGs custom sem precisar reiniciar o app (o cost de ler ~10
+// arquivos pequenos por compile e' desprezivel).
+//
+// Por que merge em runtime em vez de editar node_modules/.../default.svg?
+// `npm install` sobrescreve default.svg. Mantendo as customizacoes em
+// assets/prism-skins/ a gente sobrevive a npm install e versionando no git.
+
+// Extrai todo bloco `<g s:type="...">...</g>` de TOPO de um SVG, usando
+// contagem de profundidade de tags `<g>` pra suportar `<g>` aninhados
+// dentro de portas/labels (sem isso uma regex non-greedy quebraria em
+// blocos como o `generic`, que tem `<g>...</g>` aninhados dentro).
+function extractTopLevelGBlocks(svgText) {
+  const blocks = [];
+  const tagRe = /<g\b[^>]*>|<\/g>/g;
+  const stack = []; // entradas: { type, startIdx }
+  let m;
+  while ((m = tagRe.exec(svgText)) !== null) {
+    const tag = m[0];
+    if (tag === '</g>') {
+      const open = stack.pop();
+      if (open && open.type && stack.length === 0) {
+        blocks.push({
+          type: open.type,
+          content: svgText.slice(open.startIdx, m.index + 4),
+        });
+      }
+    } else if (!tag.endsWith('/>')) {
+      // Tag de abertura nao self-closing. Pega `s:type` se existir.
+      const typeMatch = tag.match(/\bs:type="([^"]+)"/);
+      stack.push({ type: typeMatch ? typeMatch[1] : null, startIdx: m.index });
+    }
+    // Self-closing (`<g .../>`) nao entra na pilha.
+  }
+  return blocks;
+}
+
+async function loadCustomSkinBlocks(customSkinDir) {
+  if (!(await fse.pathExists(customSkinDir))) return [];
+  const entries = (await fse.readdir(customSkinDir))
+    .filter((f) => f.toLowerCase().endsWith('.svg') && !f.startsWith('_'))
+    .sort();
+
+  const merged = new Map(); // s:type -> content (ultimo arquivo a definir ganha)
+  for (const file of entries) {
+    try {
+      const content = await fse.readFile(path.join(customSkinDir, file), 'utf-8');
+      for (const block of extractTopLevelGBlocks(content)) {
+        if (block.type) merged.set(block.type, block.content);
+      }
+    } catch (err) {
+      log.warn(`[PRISM] Skipping malformed custom skin ${file}:`, err.message);
+    }
+  }
+  return [...merged.entries()];
+}
+
 async function getDefaultSkinData() {
-  if (cachedDefaultSkinData) return cachedDefaultSkinData;
   const libIndex = require.resolve('@silimate/netlistsvg');
   const skinPath = path.join(path.dirname(libIndex), '..', 'lib', 'default.svg');
-  cachedDefaultSkinData = await fse.readFile(skinPath, 'utf-8');
-  return cachedDefaultSkinData;
+  let skin = await fse.readFile(skinPath, 'utf-8');
+
+  const customSkinDir = path.join(app.getAppPath(), 'assets', 'prism-skins');
+  const customBlocks = await loadCustomSkinBlocks(customSkinDir);
+  if (customBlocks.length === 0) return skin;
+
+  // Pra cada custom, remove `<g s:type="X">` existente na skin default e
+  // injeta o customizado logo antes de `</svg>`.
+  for (const [type, content] of customBlocks) {
+    const existing = extractTopLevelGBlocks(skin).find((b) => b.type === type);
+    if (existing) skin = skin.replace(existing.content, '');
+    skin = skin.replace('</svg>', `\n  ${content.trim()}\n</svg>`);
+  }
+  return skin;
 }
 
 // Constroi um mapa instanceName -> moduleType a partir do JSON do

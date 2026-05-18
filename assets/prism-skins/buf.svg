@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: BUF (buffer)
+  Covers: $_BUF_
+  Ports: A (input), Y (output)
+
+  Visual: same as NOT but without the inversion bubble.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="buf" transform="translate(0, 0)" s:width="25" s:height="20">
+    <s:alias val="$_BUF_"/>
+
+    <!-- Triangle -->
+    <path d="M 0,0 L 0,20 L 24,10 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Port anchors -->
+    <g s:x="0"  s:y="10" s:pid="A"/>
+    <g s:x="24" s:y="10" s:pid="Y"/>
+  </g>
+
+</svg>

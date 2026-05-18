@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: myFIFO (parametrised FIFO queue)
+  Verilog: components/HDL/myFIFO.v
+  Ports (in): clk, data, rdreq, sclr, wrreq
+  Ports (out): almost_empty, empty, full, q, usedw
+
+  Body + clock-edge triangle on clk + queue cell dividers and a small
+  flow-direction arrow at the top (both functional, not decorative).
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="myFIFO" transform="translate(0, 0)" s:width="90" s:height="100">
+    <s:alias val="myFIFO"/>
+
+    <!-- Body -->
+    <path d="M 4,0 L 86,0 Q 90,0 90,4 L 90,96 Q 90,100 86,100
+             L 4,100 Q 0,100 0,96 L 0,4 Q 0,0 4,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);" />
+
+    <!-- Clock-edge triangle on clk -->
+    <path d="M 0,25 L 5,28 L 0,31"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent); stroke-width: 1;" />
+
+    <!-- Queue cell dividers (visual model of the queue depth) -->
+    <path d="M 22,55 L 68,55 M 22,65 L 68,65 M 22,75 L 68,75"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent);
+                 stroke-width: 0.5; opacity: 0.30;" />
+
+    <!-- Flow-direction arrow (data in → data out) -->
+    <path d="M 22,48 L 64,48 M 61,46 L 66,48 L 61,50"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-module-accent);
+                 stroke-width: 0.6; opacity: 0.45;" />
+
+    <!-- Type label -->
+    <text x="45" y="35"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 600; font-size: 11px;
+                 fill: var(--prism-module-glyph);">FIFO</text>
+
+    <!-- Instance ref -->
+    <text x="45" y="-4"
+          class="$cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 7px; font-style: italic;
+                 fill: var(--prism-module-accent); opacity: 0.75;">f</text>
+
+    <!-- Port hints (left = inputs) -->
+    <text x="8"  y="30" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">clk</text>
+    <text x="5"  y="44" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">data</text>
+    <text x="5"  y="58" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">rdreq</text>
+    <text x="5"  y="72" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">sclr</text>
+    <text x="5"  y="92" class="$cell_id" s:attribute="" style="text-anchor: start; font-size: 5px; fill: var(--text-muted);">wrreq</text>
+
+    <!-- Port hints (right = outputs) -->
+    <text x="85" y="30" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">al_empty</text>
+    <text x="85" y="44" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">empty</text>
+    <text x="85" y="58" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">full</text>
+    <text x="85" y="72" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">q</text>
+    <text x="85" y="92" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">usedw</text>
+
+    <!-- Port anchors -->
+    <g s:x="0"  s:y="28" s:pid="clk"/>
+    <g s:x="0"  s:y="42" s:pid="data"/>
+    <g s:x="0"  s:y="56" s:pid="rdreq"/>
+    <g s:x="0"  s:y="70" s:pid="sclr"/>
+    <g s:x="0"  s:y="90" s:pid="wrreq"/>
+
+    <g s:x="90" s:y="28" s:pid="almost_empty"/>
+    <g s:x="90" s:y="42" s:pid="empty"/>
+    <g s:x="90" s:y="56" s:pid="full"/>
+    <g s:x="90" s:y="70" s:pid="q"/>
+    <g s:x="90" s:y="90" s:pid="usedw"/>
+  </g>
+
+</svg>

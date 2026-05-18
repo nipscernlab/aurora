@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM custom skin: D Latch (transparent latch)
+  Covers: dlatch ($dlatch, $_DLATCH_, adlatch, $adlatch)
+  Ports: D, EN, Q (+ optional ARST)
+
+  Visual: rectangle (no clock-edge triangle — latches are level-
+  sensitive, not edge-sensitive) with EN annotation.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="dlatch" transform="translate(0, 0)" s:width="32" s:height="40">
+    <s:alias val="$dlatch"/>
+    <s:alias val="$_DLATCH_"/>
+    <s:alias val="adlatch"/>
+    <s:alias val="$adlatch"/>
+
+    <path d="M 0,0 L 32,0 L 32,40 L 0,40 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.15));" />
+
+    <!-- Level-sensitive marker (a small "pulse" glyph instead of edge triangle) -->
+    <path d="M 2,32 L 4,32 L 4,28 L 8,28 L 8,32 L 11,32"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1;" />
+
+    <text x="4"  y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: start; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">D</text>
+    <text x="28" y="13" class="$cell_id" s:attribute=""
+          style="text-anchor: end; font-size: 7px; font-weight: 700;
+                 fill: var(--text, #ffffff); opacity: 0.75;">Q</text>
+    <text x="16" y="24" class="$cell_id" s:attribute=""
+          style="text-anchor: middle; font-size: 6px;
+                 fill: var(--text-muted, #9aa);">LATCH</text>
+
+    <g s:x="32" s:y="10" s:pid="Q"/>
+    <g s:x="0"  s:y="10" s:pid="D"/>
+    <g s:x="0"  s:y="30" s:pid="EN"/>
+    <g s:x="16" s:y="40" s:pid="ARST"/>
+  </g>
+
+</svg>

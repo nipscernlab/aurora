@@ -52,6 +52,24 @@ class WaveConfigManager {
         // conjunto somem quando o filtro liga (junto com seus signals).
         // Consultado por _procFilterVisibility.
         this._scopesWithAliasedSignal = new Set();
+
+        // Find widget state. Monaco-style text filter: literal substring
+        // by default, regex via toggle; case-insensitive by default.
+        // Reset on every open(). When `_filterRegex` is null the filter
+        // is inactive — the tree renders normally.
+        this._filterText = '';
+        this._filterCaseSensitive = false;
+        this._filterIsRegex = false;
+        this._filterRegex = null;
+        // Pre-computed match sets, refreshed on every filter/text change.
+        // `_filterScopesOnPath` is the set of scopePaths that themselves
+        // match OR have a matching descendant — used to keep ancestors
+        // visible (path-preservation) and to auto-expand them.
+        // `_filterMatchedSignals` is the exact set of `scope.sig` full
+        // names that pass the filter.
+        this._filterScopesOnPath = new Set();
+        this._filterMatchedSignals = new Set();
+        this._filterMatchCount = 0;
     }
 
     initialize() {
@@ -73,13 +91,17 @@ class WaveConfigManager {
             closeBtn:          document.getElementById('closeWaveConfigModal'),
             cancelBtn:         document.getElementById('cancelWaveConfig'),
             saveBtn:           document.getElementById('saveWaveConfig'),
-            refreshBtn:        document.getElementById('waveConfigRefresh'),
             selectDefaultBtn:  document.getElementById('waveConfigSelectDefault'),
             selectAllBtn:      document.getElementById('waveConfigSelectAll'),
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
+            filterInput:       document.getElementById('waveConfigFilterInput'),
+            filterCount:       document.getElementById('waveConfigFilterCount'),
+            filterCaseBtn:     document.getElementById('waveConfigFilterCase'),
+            filterRegexBtn:    document.getElementById('waveConfigFilterRegex'),
+            filterClearBtn:    document.getElementById('waveConfigFilterClear'),
         };
     }
 
@@ -87,7 +109,6 @@ class WaveConfigManager {
         this.elements.closeBtn?.addEventListener('click', () => this.close());
         this.elements.cancelBtn?.addEventListener('click', () => this.close());
         this.elements.saveBtn?.addEventListener('click', () => this.save());
-        this.elements.refreshBtn?.addEventListener('click', () => this.refresh());
         this.elements.selectDefaultBtn?.addEventListener('click', () => this.selectDefault());
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());
         this.elements.selectNoneBtn?.addEventListener('click', () => this.selectNone());
@@ -113,9 +134,18 @@ class WaveConfigManager {
         // so the manager owns its full lifecycle.
         document.getElementById('waveConfigBtn')?.addEventListener('click', () => this.open());
 
-        // Esc closes when modal is open.
+        // Esc closes when modal is open. But if the focus is in the
+        // filter input AND there's filter text, Esc clears the filter
+        // first — Monaco-style two-step Esc (clear, then close).
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isOpen()) this.close();
+            if (e.key === 'Escape' && this.isOpen()) {
+                if (document.activeElement === this.elements.filterInput && this._filterText) {
+                    this._setFilterText('');
+                    e.stopPropagation();
+                    return;
+                }
+                this.close();
+            }
         });
 
         // Click on overlay (outside the container) closes — same as
@@ -123,6 +153,154 @@ class WaveConfigManager {
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) this.close();
         });
+
+        // Ctrl/Cmd+F focuses the find input — like Monaco. Scoped to the
+        // modal so it doesn't intercept the shortcut globally.
+        this.modal.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+                const input = this.elements.filterInput;
+                if (input) {
+                    e.preventDefault();
+                    input.focus();
+                    input.select();
+                }
+            }
+        });
+
+        // Find widget — input, case/regex toggles, clear button.
+        this.elements.filterInput?.addEventListener('input', (e) => {
+            this._setFilterText(e.target.value);
+        });
+        this.elements.filterCaseBtn?.addEventListener('click', () => {
+            this._filterCaseSensitive = !this._filterCaseSensitive;
+            this.elements.filterCaseBtn.classList.toggle('active', this._filterCaseSensitive);
+            this.elements.filterCaseBtn.setAttribute('aria-pressed', String(this._filterCaseSensitive));
+            this._compileFilter();
+            this._computeFilterMatches();
+            this.renderTree();
+        });
+        this.elements.filterRegexBtn?.addEventListener('click', () => {
+            this._filterIsRegex = !this._filterIsRegex;
+            this.elements.filterRegexBtn.classList.toggle('active', this._filterIsRegex);
+            this.elements.filterRegexBtn.setAttribute('aria-pressed', String(this._filterIsRegex));
+            this._compileFilter();
+            this._computeFilterMatches();
+            this.renderTree();
+        });
+        this.elements.filterClearBtn?.addEventListener('click', () => {
+            this._setFilterText('');
+            this.elements.filterInput?.focus();
+        });
+    }
+
+    /**
+     * Centralised filter-text setter — updates state, DOM, compiles the
+     * matcher, recomputes match sets, and re-renders. Called from the
+     * input handler, from Esc-clear, and from the clear button.
+     */
+    _setFilterText(text) {
+        this._filterText = String(text ?? '');
+        if (this.elements.filterInput && this.elements.filterInput.value !== this._filterText) {
+            this.elements.filterInput.value = this._filterText;
+        }
+        if (this.elements.filterClearBtn) {
+            this.elements.filterClearBtn.hidden = this._filterText.length === 0;
+        }
+        this._compileFilter();
+        this._computeFilterMatches();
+        this.renderTree();
+    }
+
+    /**
+     * Build the matcher RegExp from `_filterText` + toggles. Falls back
+     * to literal substring if the user typed an invalid regex with the
+     * `.*` toggle on — keeps the UI responsive instead of throwing.
+     */
+    _compileFilter() {
+        const text = this._filterText.trim();
+        if (!text) { this._filterRegex = null; return; }
+        const flags = this._filterCaseSensitive ? 'g' : 'gi';
+        const literalEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+            this._filterRegex = this._filterIsRegex
+                ? new RegExp(text, flags)
+                : new RegExp(literalEscape(text), flags);
+        } catch (_) {
+            // Invalid regex — fall back to a literal-text match of the
+            // raw input so the picker keeps filtering "somehow" instead
+            // of going blank while the user finishes typing.
+            this._filterRegex = new RegExp(literalEscape(text), flags);
+        }
+    }
+
+    /**
+     * Walk the hierarchy and decide which signals match. Side effects:
+     * populates `_filterScopesOnPath`, `_filterMatchedSignals`,
+     * `_filterMatchCount`. Cheap O(n) — recomputed on every keystroke.
+     *
+     * Matching rule: only leaf signals can be "matched", and the match
+     * is tested ONLY against the signal's own identifier — `sig.name`
+     * and the SAPHO alias (so searching "Assembly" finds `valr2`).
+     *
+     * Scope/full-path matching is deliberately NOT used: it would pull
+     * every signal under a matching scope into the result (search "ula"
+     * → every signal inside the `ula` module appears, even ones whose
+     * names have no "ula" in them), defeating the point of the filter.
+     * Modules show up purely as ancestors of matched signals — path
+     * preservation, never themselves a match source.
+     */
+    _computeFilterMatches() {
+        this._filterScopesOnPath.clear();
+        this._filterMatchedSignals.clear();
+        this._filterMatchCount = 0;
+        if (!this._filterRegex || !this.tree) {
+            this._updateFilterCount();
+            return;
+        }
+        const testRe = (s) => {
+            if (!s) return false;
+            this._filterRegex.lastIndex = 0;
+            return this._filterRegex.test(s);
+        };
+        const walk = (node) => {
+            let any = false;
+            for (const sig of node.signals) {
+                const full = `${node.scopePath}.${sig.name}`;
+                const alias = this.aliasMap?.get(full);
+                if (testRe(sig.name) || testRe(alias)) {
+                    this._filterMatchedSignals.add(full);
+                    this._filterMatchCount++;
+                    any = true;
+                }
+            }
+            for (const child of node.children) {
+                if (walk(child)) any = true;
+            }
+            if (any) this._filterScopesOnPath.add(node.scopePath);
+            return any;
+        };
+        walk(this.tree);
+        this._updateFilterCount();
+    }
+
+    _updateFilterCount() {
+        const el = this.elements.filterCount;
+        if (!el) return;
+        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        if (!this._filterRegex) {
+            el.textContent = '';
+            el.classList.remove('no-match');
+            return;
+        }
+        if (this._filterMatchCount === 0) {
+            el.textContent = tr('modal.waveConfig.filterNoMatch');
+            el.classList.add('no-match');
+            return;
+        }
+        el.classList.remove('no-match');
+        el.textContent = this._filterMatchCount === 1
+            ? tr('modal.waveConfig.filterMatchCountOne')
+            : tr('modal.waveConfig.filterMatchCountOther', { count: this._filterMatchCount });
     }
 
     // ------------- open/close ------------------
@@ -202,6 +380,27 @@ class WaveConfigManager {
         this._processorOnly = false;
         if (this.elements.processorOnlyCb) {
             this.elements.processorOnlyCb.checked = false;
+        }
+        // Find widget: also UI-only, also reset on each open(). Toggles
+        // (case/regex) reset too — fresh slate every time the user
+        // re-enters the modal.
+        this._filterText = '';
+        this._filterCaseSensitive = false;
+        this._filterIsRegex = false;
+        this._filterRegex = null;
+        if (this.elements.filterInput) this.elements.filterInput.value = '';
+        if (this.elements.filterClearBtn) this.elements.filterClearBtn.hidden = true;
+        if (this.elements.filterCaseBtn) {
+            this.elements.filterCaseBtn.classList.remove('active');
+            this.elements.filterCaseBtn.setAttribute('aria-pressed', 'false');
+        }
+        if (this.elements.filterRegexBtn) {
+            this.elements.filterRegexBtn.classList.remove('active');
+            this.elements.filterRegexBtn.setAttribute('aria-pressed', 'false');
+        }
+        if (this.elements.filterCount) {
+            this.elements.filterCount.textContent = '';
+            this.elements.filterCount.classList.remove('no-match');
         }
         await this.refresh();
         this.modal?.setAttribute('aria-hidden', 'false');
@@ -510,6 +709,29 @@ class WaveConfigManager {
             return;
         }
 
+        const filterActive = !!this._filterRegex;
+
+        if (filterActive) {
+            // Flat-list mode: only signal rows, ordered by their natural
+            // tree walk, each carrying the full scope path so the user
+            // can tell where every match lives without the indentation
+            // dance. No module rows, no chevrons, no collapse state.
+            treeEl.classList.add('flat-mode');
+            const flatWalk = (node) => {
+                for (const sig of node.signals) {
+                    const fullName = `${node.scopePath}.${sig.name}`;
+                    if (!this._shouldRenderSignal(fullName)) continue;
+                    if (!this._filterMatchedSignals.has(fullName)) continue;
+                    treeEl.appendChild(this._renderSignalRow(node, sig, 0, true));
+                }
+                for (const child of node.children) flatWalk(child);
+            };
+            flatWalk(this.tree);
+            this._updateCounter();
+            return;
+        }
+        treeEl.classList.remove('flat-mode');
+
         const walk = (node, depth, parentVisible) => {
             const vis = this._procFilterVisibility(node.scopePath);
             if (vis.module) {
@@ -665,11 +887,18 @@ class WaveConfigManager {
         const alias = this.aliasMap?.get(fullName);
 
         const nameSpanHtml = alias
-            ? `<span class="signal-alias">${this._escape(alias)}</span>
-               <span class="signal-raw">${this._escape(sig.name)}${sig.range ? `[${this._escape(sig.range)}]` : ''}</span>`
+            ? `<span class="signal-alias">${this._highlightMatches(alias)}</span>
+               <span class="signal-raw">${this._highlightMatches(sig.name)}${sig.range ? `[${this._escape(sig.range)}]` : ''}</span>`
             : `<span class="signal-kind">${this._escape(sig.kind)}</span>
-               <span>${this._escape(sig.name)}</span>
+               <span>${this._highlightMatches(sig.name)}</span>
                ${sig.range ? `<span class="signal-range">[${this._escape(sig.range)}]</span>` : ''}`;
+
+        // Full dotted path lives in data-tooltip so the Aurora tooltip
+        // system (which queries `[data-tooltip]` via MutationObserver)
+        // shows it on hover. Useful in flat-list mode where the row no
+        // longer carries the parent scope inline, but also handy in
+        // hierarchical mode for deeply nested signals.
+        row.setAttribute('data-tooltip', fullName);
 
         row.innerHTML = `
             <span class="wave-tree-chevron spacer"></span>
@@ -735,6 +964,30 @@ class WaveConfigManager {
         const d = document.createElement('div');
         d.textContent = text ?? '';
         return d.innerHTML;
+    }
+
+    /**
+     * Return HTML-escaped `text` with every occurrence of the current
+     * filter pattern wrapped in `<mark>`. When the filter is inactive,
+     * behaves identically to `_escape`. The regex is cloned to avoid
+     * sharing `lastIndex` state with `_computeFilterMatches`.
+     */
+    _highlightMatches(text) {
+        if (!this._filterRegex || !text) return this._escape(text);
+        const re = new RegExp(this._filterRegex.source, this._filterRegex.flags);
+        let out = '';
+        let last = 0;
+        let m;
+        let safety = 0;
+        while ((m = re.exec(text)) !== null && safety++ < 1000) {
+            // Zero-width match: advance manually so the loop terminates.
+            if (m.index === re.lastIndex) { re.lastIndex++; continue; }
+            out += this._escape(text.slice(last, m.index));
+            out += `<mark>${this._escape(m[0])}</mark>`;
+            last = m.index + m[0].length;
+        }
+        out += this._escape(text.slice(last));
+        return out;
     }
 
     // ------------- save -------------------------

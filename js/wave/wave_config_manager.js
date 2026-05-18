@@ -248,6 +248,12 @@ class WaveConfigManager {
      * names have no "ula" in them), defeating the point of the filter.
      * Modules show up purely as ancestors of matched signals — path
      * preservation, never themselves a match source.
+     *
+     * Processor-internal plumbing (the raw `me3_*` / `arr_me3_*` memory
+     * regs/wires that combine to produce the `comp_me3_*` value the user
+     * actually reads) is excluded from match results unconditionally —
+     * those are infra, not signals worth presenting to the picker. They
+     * remain visible in hierarchical mode if the user navigates there.
      */
     _computeFilterMatches() {
         this._filterScopesOnPath.clear();
@@ -265,6 +271,7 @@ class WaveConfigManager {
         const walk = (node) => {
             let any = false;
             for (const sig of node.signals) {
+                if (this._isProcessorInternal(sig.name)) continue;
                 const full = `${node.scopePath}.${sig.name}`;
                 const alias = this.aliasMap?.get(full);
                 if (testRe(sig.name) || testRe(alias)) {
@@ -281,6 +288,20 @@ class WaveConfigManager {
         };
         walk(this.tree);
         this._updateFilterCount();
+    }
+
+    /**
+     * True for SAPHO processor "plumbing" signals — the raw memory
+     * registers/wires that feed the aliased `comp_me3_*` view but carry
+     * no standalone meaning for the user. Currently:
+     *   - `me3_*`     (without `comp_` prefix): scalar comp-var mem
+     *   - `arr_me3_*` (without `comp_` prefix): array comp-var mem
+     * Keep this list narrow — it's a hard-coded skip in the find widget
+     * results, so over-inclusion would silently hide useful signals.
+     */
+    _isProcessorInternal(sigName) {
+        if (!sigName) return false;
+        return sigName.startsWith('me3_') || sigName.startsWith('arr_me3_');
     }
 
     _updateFilterCount() {

@@ -702,6 +702,12 @@ async loadConfig() {
             // mode. Era o 6o arg posicional antes da migracao p/ named flags.
             let cmd = `"${cmmCompPath}" ${langFlag} -i "${selectedCmmFile}" -n "${cmmBaseName}" -p "${projectPath}" -m "${macrosPath}" -t "${tempPath}"`;
             if (showArrays) cmd += ' -P';
+
+            // Track which .cmm this run is compiling so the terminal's
+            // "line N" click handler can resolve the file even when verbose
+            // is off (the cmmcomp.exe echo is hidden in that mode, so DOM
+            // scraping would find nothing).
+            this.lastCompiledCmmPath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
             
             // internal:true marca como 'plain', entao o filtro de
             // verbose esconde a linha de comando quando verbose=off.

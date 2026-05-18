@@ -505,11 +505,33 @@ class TerminalManager {
     }
 
     makeLineNumbersClickable(text) {
-        return text.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
+        const encAttr = (s) => String(s)
+            .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // C-toolchain style: `<file>:<line>: ...` — iverilog / yosys /
+        // gcc / appcomp diagnostics. The path is captured into data-file
+        // so the click handler opens that file directly, instead of
+        // falling back to the last compiled .cmm. The optional `[A-Za-z]:`
+        // prefix handles Windows drive letters (e.g. `C:\foo\bar.v:15:`)
+        // without the path's own colon truncating the match.
+        let out = text.replace(
+            /((?:[A-Za-z]:)?[^\s:]+?\.(?:v|sv|vh|cmm|asm|h|c)):(\d+)(?=[:\s,]|$)/gi,
+            (match, filePath, lineNumber) => {
+                return `<span title="Abrir ${encAttr(filePath)}:${lineNumber}" class="line-link" ` +
+                    `data-line="${lineNumber}" data-file="${encAttr(filePath)}" ` +
+                    `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
+                    `${match}</span>`;
+            }
+        );
+        // Aurora/yanc style: "linha N" / "line N" — no file prefix, click
+        // falls back to the last compiled .cmm via the compilation manager.
+        out = out.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
             return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" ` +
                 `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
                 `${match}</span>`;
         });
+        return out;
     }
 
     addToSessionCard(terminalId, text, type) {
@@ -580,8 +602,14 @@ class TerminalManager {
     }
 
     /**
-     * Wire up "line N" / "linha N" links inside `scopeEl` so clicking
-     * one opens the originating .cmm and jumps Monaco to that line.
+     * Wire up line-link clicks inside `scopeEl` so Monaco jumps to the
+     * referenced line. Two flavours of link are supported:
+     *   - data-file present (`<file>:<line>:` C-toolchain diagnostics
+     *     from iverilog/yosys/gcc): open the file in data-file directly,
+     *     resolving relative paths against the project root.
+     *   - data-file absent (`linha N` / `line N` yanc-style): open the
+     *     last .cmm the compilation manager compiled, with a DOM-scrape
+     *     fallback over recent `cmmcomp.exe` invocations.
      *
      * Previously this lived inline in addMessageToCard and was a no-op
      * for entries that went through createLogEntry (the createLogEntry
@@ -602,72 +630,76 @@ class TerminalManager {
             link.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const lineNumber = parseInt(link.getAttribute('data-line'));
-                console.log(`Clicked on line ${lineNumber}`);
+                const explicitFile = link.getAttribute('data-file');
+                console.log(`Clicked on line ${lineNumber}${explicitFile ? ` (file: ${explicitFile})` : ''}`);
 
                 try {
-                    let cmmFilePath = null;
+                    let filePath = null;
 
-                    if (window.compilationManager?.getCurrentProcessor) {
-                        const currentProcessor = window.compilationManager.getCurrentProcessor();
-                        if (currentProcessor) {
-                            try {
-                                const selectedCmmFile = await window.compilationManager.getSelectedCmmFile(currentProcessor);
-                                if (selectedCmmFile) {
-                                    const projectPath = window.compilationManager.projectPath;
-                                    const softwarePath = await window.electronAPI.joinPath(projectPath, currentProcessor.name, 'Software');
-                                    cmmFilePath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
-                                }
-                            } catch (error) {
-                                console.log('Error getting CMM file from compilation manager:', error);
-                            }
-                        }
-                    }
+                    if (explicitFile) {
+                        // C-toolchain diagnostic (iverilog / yosys / gcc):
+                        // the path travels in data-file. Absolute paths go
+                        // through as-is; relative paths resolve against the
+                        // open project root.
+                        const root = window.currentProjectPath || '';
+                        const isAbs = /^[A-Za-z]:[\\/]/.test(explicitFile) || explicitFile.startsWith('\\\\');
+                        filePath = isAbs ? explicitFile :
+                            (root ? `${root}\\${explicitFile.replace(/^[\\/]+/, '')}` : explicitFile);
+                    } else {
+                        // Aurora/yanc "linha N" — cmmCompilation caches the
+                        // .cmm it just ran against. Works regardless of
+                        // verbose mode because it doesn't touch the DOM.
+                        filePath =
+                            window.compilationManager?.lastCompiledCmmPath ||
+                            window._latestCompilationModule?.lastCompiledCmmPath ||
+                            null;
 
-                    if (!cmmFilePath) {
-                        const terminalContent = scopeEl.closest('.terminal-content');
-                        if (terminalContent) {
-                            const logEntries = terminalContent.querySelectorAll('.log-entry');
+                        if (!filePath) {
+                            const terminalContent = scopeEl.closest('.terminal-content');
+                            if (terminalContent) {
+                                const logEntries = terminalContent.querySelectorAll('.log-entry');
 
-                            for (const entry of Array.from(logEntries).reverse()) {
-                                const entryText = entry.textContent || '';
+                                for (const entry of Array.from(logEntries).reverse()) {
+                                    const entryText = entry.textContent || '';
 
-                                // cmmcomp.exe agora usa named flags do yanc v3:
-                                //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
-                                // Precisamos do -i (nome do .cmm) e -p (proc-dir,
-                                // que e <projectPath>/<processorName>) pra montar
-                                // o caminho ate o Software/.
-                                if (/cmmcomp\.exe\b/.test(entryText)) {
-                                    const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
-                                    const pMatch = entryText.match(/-p\s+"([^"]+)"/);
-                                    if (iMatch && pMatch) {
-                                        cmmFilePath = await window.electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
-                                        break;
+                                    // cmmcomp.exe agora usa named flags do yanc v3:
+                                    //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
+                                    // Precisamos do -i (nome do .cmm) e -p (proc-dir,
+                                    // que e <projectPath>/<processorName>) pra montar
+                                    // o caminho ate o Software/.
+                                    if (/cmmcomp\.exe\b/.test(entryText)) {
+                                        const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
+                                        const pMatch = entryText.match(/-p\s+"([^"]+)"/);
+                                        if (iMatch && pMatch) {
+                                            filePath = await window.electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    if (!cmmFilePath) {
-                        console.log('Could not determine CMM file path');
+                    if (!filePath) {
+                        console.log('Could not determine file path for line link');
                         return;
                     }
 
-                    const fileExists = await window.electronAPI.fileExists(cmmFilePath);
+                    const fileExists = await window.electronAPI.fileExists(filePath);
                     if (!fileExists) {
-                        console.log(`CMM file does not exist: ${cmmFilePath}`);
+                        console.log(`File does not exist: ${filePath}`);
                         return;
                     }
 
-                    const isFileOpen = TabManager.tabs.has(cmmFilePath);
+                    const isFileOpen = TabManager.tabs.has(filePath);
 
                     if (!isFileOpen) {
-                        const content = await window.electronAPI.readFile(cmmFilePath, {
+                        const content = await window.electronAPI.readFile(filePath, {
                             encoding: 'utf8'
                         });
-                        TabManager.addTab(cmmFilePath, content);
+                        TabManager.addTab(filePath, content);
                     } else {
-                        TabManager.activateTab(cmmFilePath);
+                        TabManager.activateTab(filePath);
                     }
 
                     setTimeout(() => {
@@ -675,7 +707,7 @@ class TerminalManager {
                     }, 100);
 
                 } catch (error) {
-                    console.error('Error opening CMM file and navigating to line:', error);
+                    console.error('Error opening file and navigating to line:', error);
                 }
             });
         });

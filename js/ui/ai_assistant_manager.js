@@ -616,16 +616,14 @@ class AIAssistantManager {
               placeholder="Ask Aurora Intelligence…"
               rows="1"
               aria-label="Message"></textarea>
-            <div class="ai-input-footer">
+            <div class="ai-input-side">
               <span class="ai-token-counter" id="ai-token-counter">0 tk</span>
-              <div class="ai-input-btns">
-                <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
-                  <i class="ph ph-stop"></i>
-                </button>
-                <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
-                  <i class="ph ph-arrow-up"></i>
-                </button>
-              </div>
+              <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
+                <i class="ph ph-stop"></i><span>Stop</span>
+              </button>
+              <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
+                <i class="ph ph-arrow-up"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -1187,7 +1185,7 @@ class AIAssistantManager {
       const word = words[Math.floor(Math.random() * words.length)];
       const el = document.createElement('div');
       el.className = 'ai-thinking';
-      el.innerHTML = `<span></span><span></span><span></span><em class="ai-thinking-word">${word}…</em>`;
+      el.innerHTML = `<div class="ai-thinking-dots"><span></span><span></span><span></span></div><em class="ai-thinking-word">${word}…</em>`;
       this.messagesEl.appendChild(el);
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
       this.thinkingEl = el;

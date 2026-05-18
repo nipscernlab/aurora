@@ -260,3 +260,134 @@
     font-family: var(--font-mono);
     white-space: nowrap;
 }
+
+/* ============================================================
+ *  Find widget — Monaco-style text filter above the tree.
+ *  Layout: [icon] [input ........................] [count] [Aa] [.*] [×]
+ *  Visually distinct row above .wave-tree-toolbar.
+ * ============================================================ */
+.wave-tree-find {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px var(--space-2);
+    margin-bottom: var(--space-2);
+    background: var(--bg-elev);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast),
+                box-shadow var(--transition-fast);
+}
+
+.wave-tree-find:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(142, 131, 232, 0.20);
+}
+
+.wave-tree-find .find-icon {
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.wave-tree-find .find-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    padding: 4px 0;
+}
+
+.wave-tree-find .find-input::placeholder {
+    color: var(--text-muted);
+}
+
+.wave-tree-find .find-count {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wave-tree-find .find-count.no-match {
+    color: var(--danger, #e76f51);
+}
+
+/* Aa / .* toggle buttons — compact, inline, with toggled state. */
+.wave-tree-find .find-toggle {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    padding: 2px 6px;
+    height: 22px;
+    line-height: 1;
+    transition: background-color var(--transition-fast),
+                border-color var(--transition-fast),
+                color var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.wave-tree-find .find-toggle:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.wave-tree-find .find-toggle.active {
+    background: rgba(142, 131, 232, 0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.wave-tree-find .find-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    transition: background-color var(--transition-fast),
+                color var(--transition-fast);
+}
+
+.wave-tree-find .find-clear:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.wave-tree-find .find-clear[hidden] {
+    display: none;
+}
+
+/* Highlight substring matched by the current filter. Soft accent
+   background; readable against both light and dark theme tokens. */
+.wave-tree-row mark {
+    background: rgba(255, 213, 92, 0.35);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* Flat-list mode — when the find widget is active, the tree renders
+   as a flat list of signal rows. No module headers, no nested indent.
+   The full dotted path lives in the row's data-tooltip (shown on hover
+   by the Aurora tooltip system); the row itself displays only the bare
+   signal name. */
+.wave-tree.flat-mode .wave-tree-row.signal-row {
+    padding-left: var(--space-2);
+}

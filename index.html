@@ -549,11 +549,49 @@
                     Default (no selection): everything declared at the testbench module scope.
                 </p>
 
-                <div class="wave-tree-toolbar">
-                    <button id="waveConfigRefresh" class="btn btn-outline btn-small" type="button">
-                        <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
-                        <span data-i18n="modal.waveConfig.refresh">Refresh from sources</span>
+                <div class="wave-tree-find" role="search">
+                    <span class="find-icon" aria-hidden="true">
+                        <i class="ph ph-magnifying-glass"></i>
+                    </span>
+                    <input
+                        id="waveConfigFilterInput"
+                        class="find-input"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        data-i18n-placeholder="modal.waveConfig.filterPlaceholder"
+                        placeholder="Filter signals (Ctrl+F)"
+                        aria-label="Filter signals"
+                        data-i18n-aria-label="modal.waveConfig.filterAriaLabel">
+                    <span id="waveConfigFilterCount" class="find-count" aria-live="polite"></span>
+                    <button
+                        id="waveConfigFilterCase"
+                        class="find-toggle"
+                        type="button"
+                        aria-pressed="false"
+                        title="Match case"
+                        data-i18n-title="modal.waveConfig.filterCase">Aa</button>
+                    <button
+                        id="waveConfigFilterRegex"
+                        class="find-toggle"
+                        type="button"
+                        aria-pressed="false"
+                        title="Use regular expression"
+                        data-i18n-title="modal.waveConfig.filterRegex">.*</button>
+                    <button
+                        id="waveConfigFilterClear"
+                        class="find-clear"
+                        type="button"
+                        hidden
+                        aria-label="Clear filter"
+                        data-i18n-aria-label="modal.waveConfig.filterClear"
+                        title="Clear (Esc)"
+                        data-i18n-title="modal.waveConfig.filterClearTitle">
+                        <i class="ph ph-x" aria-hidden="true"></i>
                     </button>
+                </div>
+
+                <div class="wave-tree-toolbar">
                     <button id="waveConfigSelectDefault" class="btn btn-outline btn-small" type="button">
                         <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
                         <span data-i18n="modal.waveConfig.resetDefault">Reset to default</span>
@@ -571,7 +609,7 @@
                 <div id="waveConfigTree" class="wave-tree" role="tree">
                     <div class="empty-state" id="waveConfigEmpty">
                         <i class="ph ph-tree-structure empty-icon" aria-hidden="true"></i>
-                        <span data-i18n="modal.waveConfig.emptyState">No signals discovered yet. Click "Refresh from sources".</span>
+                        <span data-i18n="modal.waveConfig.emptyState">No signals discovered. Make sure the project has a top-level synthesizable file (and ideally a testbench).</span>
                     </div>
                 </div>
             </section>

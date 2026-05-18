@@ -560,25 +560,30 @@ export const ActionsMixin = {
         let menuItems = '';
 
         if (isVerilog) {
-            menuItems += `
-                <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
-                    <i class="fa-solid fa-flag"></i>
-                    <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
-                </div>
-                <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
-                    <i class="fa-solid fa-flask"></i>
-                    <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
-                </div>
-                <div class="context-menu-divider"></div>
-            `;
+            if (file.category === 'testbench') {
+                // Testbench file — only the testbench-top toggle is relevant.
+                menuItems += `
+                    <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
+                        <i class="fa-solid fa-flask"></i>
+                        <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
+                    </div>
+                    <div class="context-menu-divider"></div>
+                `;
+            } else {
+                // Synthesizable file — only the top-level toggle is relevant.
+                menuItems += `
+                    <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
+                        <i class="fa-solid fa-flag"></i>
+                        <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
+                    </div>
+                    <div class="context-menu-divider"></div>
+                `;
+            }
         }
 
+        // "Remove from tree" is handled by the × button on each row.
         menu.innerHTML = `
             ${menuItems}
-            <div class="context-menu-item" data-action="remove">
-                <i class="fa-solid fa-xmark"></i>
-                <span>Remove from tree</span>
-            </div>
             <div class="context-menu-item delete-item" data-action="delete">
                 <i class="fa-solid fa-trash"></i>
                 <span>Delete file</span>

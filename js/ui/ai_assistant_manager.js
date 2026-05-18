@@ -530,6 +530,7 @@ class AIAssistantManager {
     const opening = !this.container.classList.contains('open');
     this.container.classList.toggle('open', opening);
     document.body.classList.toggle('ai-assistant-open', opening);
+    try { localStorage.setItem('aurora-ai-panel-open', opening ? '1' : '0'); } catch (_) { /* ignore */ }
     if (opening) {
       this.refreshProviders().then(() => this.inputEl?.focus());
       this.refreshChatList();
@@ -547,15 +548,18 @@ class AIAssistantManager {
           </span>
           <h3 class="ai-assistant-title">Aurora Intelligence</h3>
         </div>
+        <button class="ai-history-btn" id="ai-history-btn" title="Chat history" aria-label="Chat history">
+          <i class="ph ph-clock-counter-clockwise"></i>
+        </button>
         <div class="ai-header-right">
-          <button class="ai-history-btn" id="ai-history-btn" title="Chat history" aria-label="Chat history">
-            <i class="ph ph-clock-counter-clockwise"></i>
-          </button>
           <button class="ai-gear-btn" id="ai-gear-btn" title="Chat settings" aria-label="Chat settings">
             <i class="ph ph-gear-six"></i>
           </button>
           <button class="ai-clear-btn" id="ai-clear-btn" title="New chat" aria-label="New chat">
             <i class="ph ph-plus-circle"></i>
+          </button>
+          <button class="ai-terminal-clear-btn" id="ai-terminal-clear-btn" title="Clear terminal output" aria-label="Clear terminal">
+            <i class="ph ph-terminal"></i>
           </button>
           <button class="ai-assistant-close" aria-label="Close AI Assistant">
             <i class="ph ph-x"></i>
@@ -598,22 +602,31 @@ class AIAssistantManager {
           <p class="ai-empty-hint">For now, configure a key from DevTools:<br><code>await aiAPI.setKey('anthropic', 'sk-ant-...')</code></p>
         </div>
 
-        <div class="ai-messages" id="ai-messages" role="log" aria-live="polite"></div>
+        <div class="ai-messages" id="ai-messages" role="log" aria-live="polite">
+          <div class="ai-chat-empty-hint" id="ai-chat-empty-hint" aria-hidden="true">
+            <i class="ph ph-brain" aria-hidden="true"></i>
+            <p>Ask Aurora Intelligence about your project, Verilog, or SAPHO/CMM</p>
+          </div>
+        </div>
 
         <div class="ai-input-area">
-          <textarea id="ai-input"
-            class="ai-input"
-            placeholder="Ask Aurora Intelligence…"
-            rows="1"
-            aria-label="Message"></textarea>
-          <div class="ai-input-controls">
-            <span class="ai-token-counter" id="ai-token-counter">0 tokens</span>
-            <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
-              <i class="ph ph-paper-plane-tilt"></i>
-            </button>
-            <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop" aria-label="Stop">
-              <i class="ph ph-stop-circle"></i>
-            </button>
+          <div class="ai-input-wrap">
+            <textarea id="ai-input"
+              class="ai-input"
+              placeholder="Ask Aurora Intelligence…"
+              rows="1"
+              aria-label="Message"></textarea>
+            <div class="ai-input-footer">
+              <span class="ai-token-counter" id="ai-token-counter">0 tk</span>
+              <div class="ai-input-btns">
+                <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
+                  <i class="ph ph-stop"></i>
+                </button>
+                <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
+                  <i class="ph ph-arrow-up"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -633,13 +646,32 @@ class AIAssistantManager {
     this.gearPopover   = this.container.querySelector('#ai-gear-popover');
     this.gearProviders = this.container.querySelector('#ai-gear-providers');
     this.gearPerms     = this.container.querySelector('#ai-gear-perms');
-    this.historyBtn    = this.container.querySelector('#ai-history-btn');
-    this.historyPopover = this.container.querySelector('#ai-history-popover');
-    this.historyList   = this.container.querySelector('#ai-history-list');
+    this.historyBtn        = this.container.querySelector('#ai-history-btn');
+    this.historyPopover    = this.container.querySelector('#ai-history-popover');
+    this.historyList       = this.container.querySelector('#ai-history-list');
+    this.chatEmptyHint     = this.container.querySelector('#ai-chat-empty-hint');
+    this.terminalClearBtn  = this.container.querySelector('#ai-terminal-clear-btn');
 
     this.buildPermissionOptions();
     this.attachListeners();
     this.setupResize(this.container.querySelector('.ai-resize-handle'), this.container);
+
+    // Restore persisted panel width.
+    try {
+      const w = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
+      if (w >= 320) this.container.style.width = w + 'px';
+    } catch (_) { /* ignore */ }
+
+    // Restore open state — if the panel was open when the user last closed
+    // the app, re-open it now so they land right back where they left off.
+    try {
+      if (localStorage.getItem('aurora-ai-panel-open') === '1') {
+        this.container.classList.add('open');
+        document.body.classList.add('ai-assistant-open');
+        this.refreshProviders().then(() => this.inputEl?.focus());
+        this.refreshChatList();
+      }
+    } catch (_) { /* ignore */ }
   }
 
   attachListeners() {
@@ -652,6 +684,9 @@ class AIAssistantManager {
     });
     this.gearPopover.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', () => this.toggleGear(false));
+
+    // Re-sync providers whenever the AI settings panel changes model/key.
+    window.addEventListener('aurora-ai-settings-changed', () => this.refreshProviders());
 
     this.gearProviders.addEventListener('change', (e) => {
       const radio = e.target.closest('input[name="ai-provider"]');
@@ -689,13 +724,16 @@ class AIAssistantManager {
     this.sendBtn.addEventListener('click', () => this.send());
     this.stopBtn.addEventListener('click', () => this.stop());
     this.clearBtn.addEventListener('click', () => this.newChat());
+    this.terminalClearBtn.addEventListener('click', async () => {
+      try { await window.AuroraAPI?.terminal?.clear(); } catch (_) { /* silent */ }
+    });
 
-    // Enter sends, Shift+Enter inserts a newline. Holding Ctrl/Cmd also
-    // sends so users with the muscle memory don't get stuck.
+    // Enter sends, Shift+Enter inserts a newline.
+    // Block sending while streaming — user can still type their next message.
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        if (!this.sendBtn.disabled) this.send();
+        if (!this._isStreaming && !this.sendBtn.disabled) this.send();
       }
     });
 
@@ -887,6 +925,9 @@ class AIAssistantManager {
   showEmptyState(show) {
     this.emptyStateEl.classList.toggle('hidden', !show);
     this.messagesEl.classList.toggle('hidden', show);
+    if (!show && this.chatEmptyHint) {
+      this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
+    }
   }
 
   /* ---------------- sending ---------------- */
@@ -1137,9 +1178,16 @@ class AIAssistantManager {
 
   showThinking(show) {
     if (show && !this.thinkingEl) {
+      const words = [
+        'Descombobulating', 'Reticulating splines', 'Calibrating flux',
+        'Summoning quarks', 'Consulting the oracle', 'Defragmenting neurons',
+        'Reverse-engineering vibes', 'Untangling spaghetti', 'Overclocking brain cells',
+        'Pondering the imponderables',
+      ];
+      const word = words[Math.floor(Math.random() * words.length)];
       const el = document.createElement('div');
       el.className = 'ai-thinking';
-      el.innerHTML = '<span></span><span></span><span></span>';
+      el.innerHTML = `<span></span><span></span><span></span><em class="ai-thinking-word">${word}…</em>`;
       this.messagesEl.appendChild(el);
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
       this.thinkingEl = el;
@@ -1163,15 +1211,18 @@ class AIAssistantManager {
   }
 
   setStreaming(streaming) {
+    this._isStreaming = streaming;
     this.sendBtn.classList.toggle('hidden', streaming);
     this.stopBtn.classList.toggle('hidden', !streaming);
-    this.inputEl.disabled = streaming;
+    // Keep textarea enabled so the user can compose their next message
+    // while generation is running; Enter-to-send is blocked by _isStreaming.
     this.clearBtn.disabled = streaming;
   }
 
   /* ---------------- bubbles / clear ---------------- */
 
   appendBubble(role, content, { error = false } = {}) {
+    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
     const el = document.createElement('div');
     el.className = `ai-message ai-msg-${role}${error ? ' error' : ''}`;
     const label = role === 'user' ? 'You' : 'Aurora Intelligence';
@@ -1203,6 +1254,10 @@ class AIAssistantManager {
     await this.persistCurrentChat();
     this.messages = [];
     this.messagesEl.innerHTML = '';
+    if (this.chatEmptyHint) {
+      this.messagesEl.appendChild(this.chatEmptyHint);
+      this.chatEmptyHint.classList.remove('hidden');
+    }
     this.cumulativeTokens = 0;
     this.tokenCounter.textContent = '0 tokens';
     this.runningChips = [];
@@ -1323,6 +1378,10 @@ class AIAssistantManager {
       this.currentChatCreatedAt = 0;
       this.messages = [];
       this.messagesEl.innerHTML = '';
+      if (this.chatEmptyHint) {
+        this.messagesEl.appendChild(this.chatEmptyHint);
+        this.chatEmptyHint.classList.remove('hidden');
+      }
       this.cumulativeTokens = 0;
       this.tokenCounter.textContent = '0 tokens';
     }
@@ -1359,6 +1418,8 @@ class AIAssistantManager {
 
     // Replay every message into the bubble stream.
     this.messagesEl.innerHTML = '';
+    if (this.chatEmptyHint) this.messagesEl.appendChild(this.chatEmptyHint);
+    if (this.chatEmptyHint) this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
     for (const msg of this.messages) {
       if (!msg || !msg.role) continue;
       if (msg.role === 'tool') {
@@ -1428,6 +1489,10 @@ class AIAssistantManager {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         if (raf) cancelAnimationFrame(raf);
+        try {
+          const w = parseInt(container.style.width, 10);
+          if (w >= 320) localStorage.setItem('aurora-ai-panel-width', String(w));
+        } catch (_) { /* ignore */ }
       };
 
       document.addEventListener('mousemove', onMove);

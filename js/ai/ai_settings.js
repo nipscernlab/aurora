@@ -164,6 +164,7 @@ function buildCard(provider, model, defaultModel) {
       if (r && r.ok) {
         modelInput.value = r.model || '';
         setFeedback(card, 'info', tr('modal.settings.aiModelSet'));
+        window.dispatchEvent(new CustomEvent('aurora-ai-settings-changed'));
       } else {
         setFeedback(card, 'error', (r && r.error) || 'Failed to set model');
       }
@@ -207,6 +208,7 @@ function buildCard(provider, model, defaultModel) {
         if (!isLocal) input.value = '';
         setBadge(card, true);
         setFeedback(card, 'success', tr('modal.settings.aiSaved'));
+        window.dispatchEvent(new CustomEvent('aurora-ai-settings-changed'));
       } else {
         setFeedback(card, 'error', (r && r.error) || 'Failed to save');
       }
@@ -242,6 +244,7 @@ function buildCard(provider, model, defaultModel) {
       if (isLocal) input.value = '';
       setBadge(card, false);
       setFeedback(card, 'info', tr('modal.settings.aiRemoved'));
+      window.dispatchEvent(new CustomEvent('aurora-ai-settings-changed'));
     } catch (e) {
       setFeedback(card, 'error', e?.message || String(e));
     } finally {

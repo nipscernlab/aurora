@@ -1050,7 +1050,15 @@ class AIAssistantManager {
       .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
       .replace(/<\/tool_call>/g, '')
       .trim();
-    this.currentAssistantContentEl.innerHTML = renderMarkdown(displayText || this.segmentBuffer);
+    // If stripping removes everything and the buffer looks like a tool-call
+    // JSON being streamed token-by-token, render empty rather than flashing
+    // raw JSON at the user (the tool chip will appear shortly).
+    const looksLikeToolArtifact = !displayText &&
+      /^\s*[⺀-鿿]*\s*\{/.test(this.segmentBuffer) &&
+      /"name"\s*:/.test(this.segmentBuffer);
+    this.currentAssistantContentEl.innerHTML = renderMarkdown(
+      looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer),
+    );
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 

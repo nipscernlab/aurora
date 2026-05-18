@@ -143,8 +143,25 @@ async function start(payload, webContents) {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
+    // Extract complete tool-call JSON objects from a text string — used as a
+    // fallback for models that output {"name":"…","arguments":{…}} as plain
+    // text instead of via the OpenAI tool_calls API field.
+    // Handles empty args `{}` as well as single-level nested objects.
+    function extractTextToolCalls(text, knownTools) {
+      const calls = [];
+      const re = /[⺀-鿿]*\s*\{"name"\s*:\s*"([a-z_][a-z_0-9]*)"\s*,\s*"arguments"\s*:\s*(\{(?:[^{}]|\{[^{}]*\})*\})\s*\}/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const name = m[1];
+        if (!knownTools[name]) continue;
+        try { calls.push({ name, args: JSON.parse(m[2]) }); } catch (_) { /* malformed args */ }
+      }
+      return calls;
+    }
+
     let fullText = '';
     let earlyExit = false;
+    let nativeToolCallCount = 0;
     for await (const part of result.fullStream) {
       if (abort.signal.aborted || earlyExit) break;
       switch (part.type) {
@@ -155,6 +172,7 @@ async function start(payload, webContents) {
           break;
         }
         case 'tool-call':
+          nativeToolCallCount++;
           sendEvent(webContents, sessionId, 'tool-call', {
             toolName: part.toolName,
             args: part.input ?? part.args ?? {},
@@ -212,6 +230,63 @@ async function start(payload, webContents) {
         }
       }
       return;
+    }
+
+    // ── Text-based tool call fallback ─────────────────────────────────────
+    // Some Ollama-hosted models output tool calls as JSON text in the message
+    // content instead of using the OpenAI `tool_calls` API field. When that
+    // happens, nativeToolCallCount stays 0 and the tools are never executed.
+    // We detect the JSON in fullText, execute the tools via the bridge, inject
+    // the results into a follow-up generateText call, and stream its reply as
+    // additional text-delta events — all before sending the finish event.
+    if (!abort.signal.aborted && nativeToolCallCount === 0) {
+      const textCalls = extractTextToolCalls(fullText, aiTools);
+      if (textCalls.length > 0) {
+        const toolResultMsgs = [];
+        for (const call of textCalls) {
+          audit.append({ sessionId, kind: 'tool-call', tool: call.name, args: call.args });
+          sendEvent(webContents, sessionId, 'tool-call', { toolName: call.name, args: call.args });
+          let res;
+          try {
+            res = await toolBridge.runTool(webContents, call.name, call.args);
+          } catch (e) {
+            res = { ok: false, error: e?.message || String(e) };
+          }
+          audit.append({
+            sessionId, kind: 'tool-result', tool: call.name,
+            ok: !(res && res.ok === false),
+            error: res?.ok === false ? res.error : undefined,
+          });
+          sendEvent(webContents, sessionId, 'tool-result', { toolName: call.name, result: res });
+          toolResultMsgs.push({
+            role: 'user',
+            content: `[Tool result for "${call.name}"]: ${JSON.stringify(res)}`,
+          });
+        }
+
+        if (toolResultMsgs.length > 0 && !abort.signal.aborted) {
+          try {
+            const follow = await generateText({
+              model,
+              messages: [
+                ...messages,
+                { role: 'assistant', content: stripToolXml(fullText) },
+                ...toolResultMsgs,
+              ],
+              ...(system ? { system } : {}),
+              abortSignal: abort.signal,
+            });
+            const extra = (follow.text || '').trim();
+            if (extra) {
+              // Prepend a blank line so the follow-up reads as a new paragraph.
+              sendEvent(webContents, sessionId, 'text-delta', { delta: '\n\n' + extra });
+              fullText += '\n\n' + extra;
+            }
+          } catch (e) {
+            log.warn(`[ai.chat] text-tool follow-up failed: ${e?.message}`);
+          }
+        }
+      }
     }
 
     // `totalUsage` sums every step (tool turns included); fall back to

@@ -1,10 +1,17 @@
-// PRELOAD SCRIPT - Fixed preload_prism.js
+// PRELOAD SCRIPT — PRISM window
 const { contextBridge, ipcRenderer } = require('electron');
-
-console.log('Preload script loading...');
 
 try {
   contextBridge.exposeInMainWorld('electronAPI', {
+
+    // Window controls (custom frameless titlebar)
+    windowMinimize:        () => ipcRenderer.send('window:minimize'),
+    windowMaximizeToggle:  () => ipcRenderer.send('window:maximize-toggle'),
+    windowClose:           () => ipcRenderer.send('window:close'),
+    onWindowState: (cb) => {
+      ipcRenderer.on('prism:window-state', (_e, state) => cb(state));
+      return () => ipcRenderer.removeAllListeners('prism:window-state');
+    },
 
     // Reads a file via the main process so the renderer doesn't need
     // `fetch('file://...')` (which would require disabling webSecurity).

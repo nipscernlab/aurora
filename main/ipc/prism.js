@@ -104,18 +104,39 @@ async function createPrismWindow(compilationData = null) {
     minHeight: 700,
     autoHideMenuBar: true,
     icon: path.join(app.getAppPath(), 'assets', 'icons', 'sapho_aurora_icon.ico'),
+    // Frameless — custom titlebar rendered by the PRISM HTML (same
+    // approach as the Aurora main window). thickFrame keeps Aero snap
+    // and native edge-resize working on Windows.
+    frame: false,
+    thickFrame: true,
+    titleBarStyle: 'hidden',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
     },
-    backgroundColor: '#17151f',
+    backgroundColor: '#0A0D14',
     show: false,
-    titleBarStyle: 'default',
   });
   state.prismWindow = prismWindow;
 
-  const prismHtmlPath = path.join(app.getAppPath(), 'html', 'prism.html');
+  // Relay maximize / unmaximize to the renderer so the [□/⧉] icon updates.
+  const sendPrismWindowState = () => {
+    if (prismWindow.isDestroyed() || !prismWindow.webContents) return;
+    try {
+      prismWindow.webContents.send('prism:window-state', {
+        isMaximized: prismWindow.isMaximized(),
+        isFullScreen: prismWindow.isFullScreen(),
+      });
+    } catch (_) { /* ignore */ }
+  };
+  prismWindow.on('maximize',          sendPrismWindowState);
+  prismWindow.on('unmaximize',        sendPrismWindowState);
+  prismWindow.on('enter-full-screen', sendPrismWindowState);
+  prismWindow.on('leave-full-screen', sendPrismWindowState);
+  prismWindow.webContents.on('did-finish-load', sendPrismWindowState);
+
+  const prismHtmlPath = path.join(app.getAppPath(), 'html', 'prism', 'prism.html');
   if (!require('fs').existsSync(prismHtmlPath)) {
     if (state.prismWindow) {
       state.prismWindow.destroy();
@@ -143,7 +164,7 @@ async function createPrismWindow(compilationData = null) {
       }, 1000);
     }
   } catch (error) {
-    log.error('Failed to load prism.html:', error);
+    log.error('Failed to load prism/prism.html:', error);
     await dialog.showMessageBox({
       type: 'error',
       title: 'PRISM Load Error',

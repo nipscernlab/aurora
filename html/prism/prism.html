@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRISM RTL Viewer</title>
+
+  <!-- Aurora design tokens (colours, spacing, radius, typography) -->
+  <link rel="stylesheet" href="../../css/base/theme_variables.css">
+
+  <!-- Icons — Phosphor (main) + Font Awesome (legacy SVG fallback) -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+  <link rel="stylesheet" href="../../node_modules/@fortawesome/fontawesome-free/css/all.css">
+
+  <!-- PRISM styles -->
+  <link rel="stylesheet" href="prism.css">
+</head>
+<body>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Toolbar / custom title bar
+       Three zones: left (brand + module info) · center (tools) · right (window controls)
+  ──────────────────────────────────────────────────────────────────────── -->
+  <div class="prism-toolbar" id="prism-titlebar">
+
+    <!-- Zone left: logo + module info -->
+    <div class="toolbar-zone toolbar-zone-left">
+      <div class="prism-brand">
+        <img src="../../assets/icons/aurora_prism.svg" alt="PRISM">
+        <span class="prism-brand-text">PRISM</span>
+      </div>
+
+      <div class="toolbar-separator"></div>
+
+      <div class="prism-module-info">
+        <span class="prism-module-name" id="currentModule">Loading…</span>
+        <span class="prism-module-path" id="currentPath">Preparing compilation…</span>
+      </div>
+    </div>
+
+    <!-- Zone center: navigation + view controls -->
+    <div class="toolbar-zone toolbar-zone-center">
+      <button class="toolbar-button" id="backBtn" disabled>
+        <i class="ph ph-arrow-left"></i>
+        <span id="t-back">Back</span>
+      </button>
+      <button class="toolbar-button" id="fitBtn">
+        <i class="ph ph-arrows-in-simple"></i>
+        <span id="t-fit">Fit</span>
+      </button>
+      <button class="toolbar-button btn-primary" id="compileBtn">
+        <i class="ph ph-arrows-clockwise"></i>
+        <span id="t-recompile">Recompile</span>
+      </button>
+    </div>
+
+    <!-- Zone right: window controls (no-drag) -->
+    <div class="toolbar-zone toolbar-zone-right">
+      <div class="window-controls" data-no-tooltip>
+        <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize">
+          <svg viewBox="0 0 12 12"><path d="M2 6 H10"/></svg>
+        </button>
+        <button class="window-ctrl ctrl-max" id="win-max" aria-label="Maximize / Restore">
+          <svg class="ctrl-icon-max"     viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="0.5"/></svg>
+          <svg class="ctrl-icon-restore" viewBox="0 0 12 12">
+            <path d="M3.5 4.5 H8.5 V9.5 H3.5 Z"/>
+            <path d="M5 4.5 V3 H10 V8 H8.5"/>
+          </svg>
+        </button>
+        <button class="window-ctrl ctrl-close" id="win-close" aria-label="Close">
+          <svg viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Breadcrumb navigation
+  ──────────────────────────────────────────────────────────────────────── -->
+  <div class="breadcrumbs-container">
+    <div class="breadcrumbs" id="breadcrumbs"></div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       SVG canvas
+  ──────────────────────────────────────────────────────────────────────── -->
+  <div class="main-content">
+    <div class="svg-container" id="svgContainer">
+
+      <div class="svg-wrapper" id="svgWrapper">
+        <div class="svg-content" id="svgContent"></div>
+      </div>
+
+      <!-- Loading / error overlay -->
+      <div class="status-overlay" id="statusOverlay">
+        <div class="loading-spinner"></div>
+        <div class="status-text" id="t-compiling">Compiling RTL design…</div>
+      </div>
+
+      <!-- Zoom controls (bottom-right) -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomInBtn"  aria-label="Zoom in">+</button>
+        <button class="zoom-btn" id="zoomOutBtn" aria-label="Zoom out">−</button>
+        <button class="zoom-btn" id="resetZoomBtn" aria-label="Reset zoom">
+          <i class="ph ph-house-simple" style="font-size:14px"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Shared tooltip -->
+  <div class="prism-tooltip" id="tooltip"></div>
+
+  <!-- PRISM logic -->
+  <script src="prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,669 @@
+/*
+ * =============================================================================
+ *  prism.css — PRISM RTL Viewer  (Aurora design system)
+ *
+ *  All colours come from Aurora's theme_variables.css (loaded before this
+ *  file).  No local purple palette — uses --accent / --bg / --text / etc.
+ * =============================================================================
+ */
+
+/* vscode vars consumed by @silimate/netlistsvg SVG fill/stroke attributes */
+:root {
+  --vscode-foreground:         #cccccc;
+  --vscode-editor-background:  #1e1e1e;
+
+  /* wire / module accent colours — map to the Aurora palette */
+  --prism-wire:        var(--accent);
+  --prism-wire-hover:  var(--accent-hover);
+  --prism-wire-hi:     var(--aurora-mint);
+  --prism-module-fill: var(--accent-active);
+  --prism-module-stroke: var(--accent-border);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Reset & base
+ * --------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Toolbar — drag region, identical look to the Aurora main toolbar
+ * --------------------------------------------------------------------------- */
+.prism-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: var(--h-toolbar);
+  padding: 0 0 0 var(--space-3);
+  background-color: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+  user-select: none;
+  flex-shrink: 0;
+  position: relative;
+  z-index: var(--z-30);
+  -webkit-app-region: drag;
+}
+
+/* Aurora hairline under the toolbar */
+.prism-toolbar::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(95, 224, 176, 0.10) 25%,
+    rgba(91, 184, 232, 0.14) 50%,
+    rgba(142, 131, 232, 0.16) 75%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* All interactive children must disable the drag region */
+.prism-toolbar button,
+.prism-toolbar .toolbar-button,
+.prism-toolbar .window-controls,
+.prism-toolbar .window-ctrl {
+  -webkit-app-region: no-drag;
+}
+
+/* Three-zone layout — mirrors Aurora main toolbar */
+.toolbar-zone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 100%;
+  min-width: 0;
+}
+.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; }
+.toolbar-zone-center { flex: 0 1 auto; justify-content: center; }
+.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; }
+
+/* Brand / logo zone */
+.prism-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) 0 0;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.prism-brand img {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.prism-brand-text {
+  background: var(--gradient-aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  letter-spacing: 0.10em;
+}
+
+/* Module info chip */
+.prism-module-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px var(--space-3);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-width: 280px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.prism-module-name {
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prism-module-path {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toolbar separator */
+.toolbar-separator {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 var(--space-2);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Toolbar buttons — Aurora style */
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--h-button);
+  min-width: var(--h-button);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease,
+              transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-button.icon-only {
+  padding: 0;
+  width: var(--h-button);
+  min-width: var(--h-button);
+}
+
+.toolbar-button > i { font-size: var(--icon-lg); flex-shrink: 0; }
+
+.toolbar-button:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+.toolbar-button:active {
+  background-color: var(--overlay-active);
+  transform: scale(0.90);
+}
+
+.toolbar-button:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.toolbar-button:disabled:hover {
+  background: transparent;
+  color: var(--text-disabled);
+  transform: none;
+}
+
+/* Primary / accent button (Recompile) */
+.toolbar-button.btn-primary {
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent-border);
+}
+
+.toolbar-button.btn-primary:hover {
+  background-color: var(--accent-strong);
+  color: var(--accent-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Window controls — exact copy from toolbar.css
+ * --------------------------------------------------------------------------- */
+.window-controls {
+  display: inline-flex;
+  align-items: stretch;
+  height: 100%;
+  padding-left: var(--space-2);
+  margin-left: var(--space-2);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.window-controls::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%; bottom: 25%;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.6;
+}
+
+.window-ctrl {
+  width: 38px;
+  height: 100%;
+  min-height: 28px;
+  border: 0;
+  padding: 0; margin: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 120ms ease, color 120ms ease;
+  outline: none;
+  border-radius: 0;
+  -webkit-app-region: no-drag;
+}
+
+.window-ctrl > svg {
+  width: 12px; height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  display: block;
+  pointer-events: none;
+}
+
+.window-ctrl:hover               { background-color: var(--overlay-hover); color: var(--text); }
+.ctrl-close:hover                { background-color: #E25C5C; color: #fff; }
+.ctrl-close:hover > svg          { stroke-width: 1.2; }
+.window-ctrl:active              { background-color: var(--overlay-active); }
+.ctrl-close:active               { background-color: #C24A4A; color: #fff; }
+.window-ctrl:focus-visible       { box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Maximize / restore icon toggle */
+.ctrl-max .ctrl-icon-restore              { display: none; }
+body.window-maximized .ctrl-max .ctrl-icon-max     { display: none; }
+body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
+
+/* ---------------------------------------------------------------------------
+ *  Breadcrumbs
+ * --------------------------------------------------------------------------- */
+.breadcrumbs-container {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-border) transparent;
+}
+
+.breadcrumbs::-webkit-scrollbar       { height: 3px; }
+.breadcrumbs::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
+
+.breadcrumb-item {
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.breadcrumb-item:hover { color: var(--accent-hover); background: var(--overlay-hover); }
+.breadcrumb-item.active { color: var(--text); font-weight: var(--font-semibold); background: var(--bg-elev-3); }
+
+.breadcrumb-separator { color: var(--text-muted); font-size: var(--text-xs); opacity: 0.5; }
+
+/* ---------------------------------------------------------------------------
+ *  Main content + SVG container
+ * --------------------------------------------------------------------------- */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.svg-container {
+  flex: 1;
+  position: relative;
+  isolation: isolate;
+  background: var(--bg);
+  overflow: hidden;
+  cursor: grab;
+  margin: 8px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  touch-action: none;
+  background-image: none;
+}
+
+/* Dot grid pattern */
+.svg-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(circle, var(--accent) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.12;
+  filter: blur(0.18px);
+}
+
+/* Radial vignette on edges */
+.svg-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.45) 100%);
+}
+
+.svg-container.dragging { cursor: grabbing; }
+
+.svg-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: 0 0;
+  position: relative;
+  z-index: 3;
+}
+
+.svg-content { user-select: none; }
+
+/* SVG fade-in animation */
+.svg-content.fade-enter         { opacity: 0; transform: scale(0.98); }
+.svg-content.fade-enter-active  { opacity: 1; transform: scale(1); transition: opacity 0.35s ease, transform 0.35s ease; }
+
+/* ---------------------------------------------------------------------------
+ *  SVG element styling
+ * --------------------------------------------------------------------------- */
+.svg-content svg text {
+  fill: var(--text) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 7px !important;
+  font-weight: var(--font-medium) !important;
+}
+
+.svg-content svg rect {
+  stroke-width: 1.5 !important;
+  transition: fill 200ms ease, stroke 200ms ease;
+}
+
+.svg-content svg rect[fill="#ffffff"],
+.svg-content svg rect:not([fill]) {
+  fill: var(--bg) !important;
+  stroke: var(--border-strong) !important;
+}
+
+.svg-content svg rect[fill="#000000"] {
+  fill: var(--bg-elev-2) !important;
+  stroke: var(--accent-border) !important;
+}
+
+/* Wires */
+.svg-content svg path,
+.svg-content svg line {
+  stroke: var(--prism-wire) !important;
+  stroke-width: 1.5 !important;
+  fill: none !important;
+  opacity: 0.65;
+  transition: stroke 150ms ease, stroke-width 150ms ease, opacity 150ms ease;
+  cursor: pointer;
+}
+
+.svg-content svg path[stroke="#000000"],
+.svg-content svg line[stroke="#000000"] {
+  stroke: var(--accent-hover) !important;
+}
+
+/* Wire highlight */
+.svg-content svg path.highlighted,
+.svg-content svg line.highlighted {
+  stroke: var(--prism-wire-hi) !important;
+  stroke-width: 3 !important;
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 6px var(--aurora-mint)) !important;
+}
+
+/* Ports */
+.svg-content svg circle {
+  stroke: var(--accent-hover) !important;
+  stroke-width: 1.5 !important;
+}
+
+/* Bus labels */
+.svg-content svg text[class*="busLabel_"] {
+  font-size: 8px !important;
+  fill: var(--accent-hover) !important;
+}
+
+/* Module cells */
+.svg-content svg g.module rect,
+.svg-content svg g[class*="module"] rect {
+  fill: var(--prism-module-fill);
+  stroke: var(--prism-module-stroke);
+  stroke-width: 1;
+}
+
+.svg-content svg g.module:hover rect,
+.svg-content svg g[class*="module"]:hover rect {
+  fill: var(--accent);
+  stroke: var(--accent-hover);
+}
+
+.svg-content svg g.module text,
+.svg-content svg g[class*="module"] text {
+  fill: var(--text) !important;
+  font-weight: var(--font-medium) !important;
+}
+
+/* Performance */
+.svg-content svg * { vector-effect: non-scaling-stroke; }
+
+/* ---------------------------------------------------------------------------
+ *  Zoom controls
+ * --------------------------------------------------------------------------- */
+.zoom-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elev);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: var(--font-semibold);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.zoom-btn:hover {
+  background-color: var(--accent-soft);
+  color: var(--accent-hover);
+  transform: scale(1.08);
+  border-color: var(--accent-border);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Status overlay
+ * --------------------------------------------------------------------------- */
+.status-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background: rgba(15, 19, 28, 0.90);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(20px);
+  z-index: 60;
+  min-width: 200px;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border);
+  border-top: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: prism-spin 1s linear infinite;
+  margin: 0 auto var(--space-4);
+}
+
+@keyframes prism-spin { to { transform: rotate(360deg); } }
+
+.status-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.status-text.error-text {
+  color: var(--status-error);
+  background: var(--status-error-bg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--status-error);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Tooltip
+ * --------------------------------------------------------------------------- */
+.prism-tooltip {
+  position: fixed;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  z-index: var(--z-tooltip);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+.prism-tooltip.show { opacity: 1; }
+
+/* ---------------------------------------------------------------------------
+ *  Context menu
+ * --------------------------------------------------------------------------- */
+.context-menu {
+  position: fixed;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1) 0;
+  z-index: var(--z-modal);
+  min-width: 180px;
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: scale(0.96);
+  transform-origin: top left;
+  transition: opacity 150ms ease, transform 150ms ease;
+  pointer-events: none;
+}
+
+.context-menu.show {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.context-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+  gap: var(--space-4);
+}
+
+.context-item:hover {
+  background-color: var(--overlay-hover);
+  color: var(--accent-hover);
+}
+
+.context-item .shortcut {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.context-item:hover .shortcut { color: var(--text-secondary); }
+
+.context-separator {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-1) 0;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Scrollbars
+ * --------------------------------------------------------------------------- */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--accent-border); }
+
+/* ---------------------------------------------------------------------------
+ *  Reduced motion
+ * --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

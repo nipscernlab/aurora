@@ -1,8 +1,8 @@
 // ****************************************************************************
-// Circuitos auxiliares *******************************************************
+// Helper circuits ************************************************************
 // ****************************************************************************
 
-// memoria de instrucao -------------------------------------------------------
+// instruction memory ---------------------------------------------------------
 
 module mem_instr
 #(
@@ -19,12 +19,12 @@ module mem_instr
 reg [NBDATA-1:0] mem [0:NADDRE-1];
 
 `ifdef YOSYS
-	// Yosys vai ignorar isso
+	// Yosys ignores this
 `else
 	initial $readmemb(FNAME, mem);
 `endif
 
-wire wr = 0; // evitar warnings desnecessarios
+wire wr = 0; // avoid unnecessary warnings
 
 always @ (posedge clk) begin
 	data <= mem[addr];
@@ -33,7 +33,7 @@ end
 
 endmodule
 
-// memoria de dados -----------------------------------------------------------
+// data memory ----------------------------------------------------------------
 
 module mem_data
 #(
@@ -51,7 +51,7 @@ module mem_data
 reg [NBDATA-1:0] mem [0:NADDRE-1];
 
 `ifdef YOSYS
-	// Yosys vai ignorar isso
+	// Yosys ignores this
 `else
 	initial $readmemb(FNAME, mem);
 `endif
@@ -64,59 +64,59 @@ end
 endmodule
 
 // ****************************************************************************
-// Circuito principal *********************************************************
+// Main circuit ***************************************************************
 // ****************************************************************************
 
 module processor
 #(
 	// -------------------------------------------------------------------------
-	// Parametrso pre-fixados --------------------------------------------------
+	// Pre-fixed parameters ----------------------------------------------------
 	// -------------------------------------------------------------------------
 
-	parameter NBOPCO = 7,               // Numero de bits de opcode (mudar o comp. assembler de acordo, em eval.c)
+	parameter NBOPCO = 7,               // Number of opcode bits (update the assembler accordingly, in eval.c)
 
 	// -------------------------------------------------------------------------
-	// Parametros configurados dinamicamente -----------------------------------
+	// Dynamically configured parameters ---------------------------------------
 	// -------------------------------------------------------------------------
 
-	// fluxo de dados
-	parameter ITRADD = 0,               // Endereco da interrupcao
+	// data flow
+	parameter ITRADD = 0,               // Interrupt address
 
-	// memorias
-	parameter IFILE  = "inst.mif",      // Arquivo contendo o programa a ser executado
-	parameter DFILE  = "data.mif",      // Arquivo com conteudo da memoria de dados
-	parameter MDATAS = 64,              // Tamanho da memoria de dados
-	parameter MINSTS = 64,              // Tamanho da memoria de intrucoes
-	parameter MDATAW = $clog2(MDATAS),  // Numero de bits de endereco da memoria de dados
-	parameter MINSTW = $clog2(MINSTS),  // Numero de bits de endereco da memoria de instrucao
-
-	// -------------------------------------------------------------------------
-	// Parametros configurados pelo usuario ------------------------------------
-	// -------------------------------------------------------------------------
-
-	// fluxo de dados
-	parameter NUBITS = 16,              // Tamanho da palavra do processador
-	parameter NBMANT = 23,              // Numero de bits da mantissa
-	parameter NBEXPO =  8,              // Numero de bits do expoente
-	parameter NBOPER =  7,              // Numero de bits de operando
-
-	// memorias
-	parameter SDEPTH = 10,              // Tamanho da pilha de instrucao
-	parameter DDEPTH = 10,              // Tamanho da pilha de dados
-
-	// entrada e Saida
-	parameter NBIOIN =  2,              // Numero de bits de portas de entrada
-	parameter NBIOOU =  2,              // Numero de bits de portas de saida
-
-	// constantes aritmeticas
-	parameter NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
-	parameter FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
+	// memories
+	parameter IFILE  = "inst.mif",      // File containing the program to be run
+	parameter DFILE  = "data.mif",      // File with the data-memory contents
+	parameter MDATAS = 64,              // Data-memory size
+	parameter MINSTS = 64,              // Instruction-memory size
+	parameter MDATAW = $clog2(MDATAS),  // Number of address bits for data memory
+	parameter MINSTW = $clog2(MINSTS),  // Number of address bits for instruction memory
 
 	// -------------------------------------------------------------------------
-	// Parametros para alocacao de recursos ------------------------------------
+	// User-configured parameters ----------------------------------------------
 	// -------------------------------------------------------------------------
 
-	// implementa leitura/escrita na memoria
+	// data flow
+	parameter NUBITS = 16,              // Processor word width
+	parameter NBMANT = 23,              // Mantissa width (bits)
+	parameter NBEXPO =  8,              // Exponent width (bits)
+	parameter NBOPER =  7,              // Operand width (bits)
+
+	// memories
+	parameter SDEPTH = 10,              // Instruction stack depth
+	parameter DDEPTH = 10,              // Data stack depth
+
+	// input and output
+	parameter NBIOIN =  2,              // Number of input-port bits
+	parameter NBIOOU =  2,              // Number of output-port bits
+
+	// arithmetic constants
+	parameter NUGAIN = 64,              // Value used to divide by a fixed number (NRM and NORMS)
+	parameter FFTSIZ =  3,              // ILI size for bit reversal
+
+	// -------------------------------------------------------------------------
+	// Resource-allocation parameters ------------------------------------------
+	// -------------------------------------------------------------------------
+
+	// implements memory read/write
 	parameter	 LOD   = 0,
 	parameter  P_LOD   = 0,
 
@@ -129,22 +129,22 @@ module processor
 	parameter    STI   = 0,
 	parameter    ISI   = 0,
 
-	// implementa interface com a pilha de dados
+	// implements the data-stack interface
 	parameter    PSH   = 0,
 	parameter    POP   = 0,
 
-	// implementa portas de I/O
+	// implements I/O ports
 	parameter    INN   = 0,
 	parameter  F_INN   = 0,
 	parameter  P_INN   = 0,
 	parameter PF_INN   = 0,
 	parameter    OUT   = 0,
 	
-	// implementa saltos
+	// implements jumps
 	parameter    JIZ   = 0,
 	parameter    CAL   = 0,
 
-	// operacoes aritmeticas de dois parametros
+	// two-parameter arithmetic operations
 	parameter    ADD   = 0,
 	parameter  S_ADD   = 0,
 	parameter  F_ADD   = 0,
@@ -168,7 +168,7 @@ module processor
 	parameter  F_SGN   = 0,
 	parameter SF_SGN   = 0,
 
-	// operacoes aritmeticas de um parametro
+	// one-parameter arithmetic operations
 	parameter    NEG   = 0,
 	parameter    NEG_M = 0,
 	parameter  P_NEG_M = 0,
@@ -202,7 +202,7 @@ module processor
 	parameter    F2I_M = 0,
 	parameter  P_F2I_M = 0,
 
-	// operacoes logicas de dois parametros
+	// two-parameter logical operations
 	parameter    AND   = 0,
 	parameter  S_AND   = 0,
 	parameter    ORR   = 0,
@@ -210,23 +210,23 @@ module processor
 	parameter    XOR   = 0,
 	parameter  S_XOR   = 0,
 
-	// operacoes logicas de um parametro
+	// one-parameter logical operations
 	parameter    INV   = 0,
 	parameter    INV_M = 0,
 	parameter  P_INV_M = 0,
 
-	// operacoes condicionais de dois parametros
+	// two-parameter conditional operations
 	parameter    LAN   = 0,
 	parameter  S_LAN   = 0,
 	parameter    LOR   = 0,
 	parameter  S_LOR   = 0,
 	
-	// operacoes condicionais de um parametro
+	// one-parameter conditional operations
 	parameter    LIN   = 0,
 	parameter    LIN_M = 0,
 	parameter  P_LIN_M = 0,
 
-	// operacoes de comparacao
+	// comparison operations
 	parameter    LES   = 0,
 	parameter  S_LES   = 0,
 	parameter  F_LES   = 0,
@@ -240,7 +240,7 @@ module processor
 	parameter    EQU   = 0,
 	parameter  S_EQU   = 0,
 
-	// operacoes de deslocamento de bits
+	// bit-shift operations
 	parameter    SHL   = 0,
 	parameter  S_SHL   = 0,
 
@@ -250,12 +250,12 @@ module processor
 	parameter    SRS   = 0,
 	parameter  S_SRS   = 0,
 
-	// operacoes especiais
-	parameter  F_ROT   = 0,    // potencia de 2 mais proxima da raiz (com ACC)
-	parameter  F_SU1   = 0,    // subtracao de ponto flutuante na entrada 1
-	parameter  F_SU2   = 0,    // subtracao de ponto flutuante na entrada 2
-	parameter SF_SU1   = 0,    // subtracao de ponto flutuante na entrada 1 com pilha
-	parameter SF_SU2   = 0     // subtracao de ponto flutuante na entrada 2 com pilha
+	// special operations
+	parameter  F_ROT   = 0,    // nearest power-of-two square-root approximation (with ACC)
+	parameter  F_SU1   = 0,    // floating-point subtraction at input 1
+	parameter  F_SU2   = 0,    // floating-point subtraction at input 2
+	parameter SF_SU1   = 0,    // floating-point subtraction at input 1 with stack
+	parameter SF_SU2   = 0     // floating-point subtraction at input 2 with stack
 )(
 	input               clk     , rst,
 	input  [NUBITS-1:0] io_in   ,
@@ -417,13 +417,13 @@ core #(.NBOPCO ( NBOPCO ),
 `endif // ---------------------------------------------------------------------
 );
 
-// memoria de instrucao -------------------------------------------------------
+// instruction memory ---------------------------------------------------------
 
 mem_instr # (.NADDRE(MINSTS       ),
              .NBDATA(NBOPCO+NBOPER),
              .FNAME (IFILE        )) minstr(clk, instr_addr, instr);
 
-// memoria de dados -----------------------------------------------------------
+// data memory ----------------------------------------------------------------
 
 mem_data # (.NADDRE(MDATAS),
             .NBDATA(NUBITS),

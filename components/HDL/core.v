@@ -1,5 +1,5 @@
 // ****************************************************************************
-// Circuitos auxiliares *******************************************************
+// Helper circuits ************************************************************
 // ****************************************************************************
 
 // program counter ------------------------------------------------------------
@@ -32,7 +32,7 @@ assign sim = val;
 
 endmodule
 
-// prefetch de instrucoes -----------------------------------------------------
+// instruction prefetch -------------------------------------------------------
 
 module prefetch
 #(
@@ -104,7 +104,7 @@ end endgenerate
 
 endmodule
 
-// pilha de instrucao ---------------------------------------------------------
+// instruction stack ----------------------------------------------------------
 
 module stack
 #(
@@ -118,18 +118,18 @@ module stack
 	output [NBITS-1:0] out
 );
 
-// Constantes
+// Constants
 
 wire [NADDR-1:0] zero = {{NADDR-1{1'b0}}, {1'b0}};
 wire [NADDR-1:0] um   = {{NADDR-1{1'b0}}, {1'b1}};
 
-// Memoria
+// Memory
 
 reg [NBITS-1:0] mem [DEPTH-1:0];
 
 // Stack Pointer
 
-reg  [NADDR-1:0] pointer = 0; // ideal para monitoramento
+reg  [NADDR-1:0] pointer = 0; // ideal for monitoring
 wire [NADDR-1:0] pmaisum = pointer + um;
 wire [NADDR-1:0] pmenoum = pointer - um;
 
@@ -148,7 +148,7 @@ assign                     out = mem[pmenoum];
 `ifdef __ICARUS__ // ----------------------------------------------------------
 
 reg             fl_full = 0;
-reg [NADDR-1:0] fl_max  = 0; // estourou o ponteiro
+reg [NADDR-1:0] fl_max  = 0; // pointer overflowed
 integer         pointeri;
 
 always @ (*)      pointeri = pointer;
@@ -159,7 +159,7 @@ always @ (*) if ( pointer >  fl_max                          ) fl_max  <= pointe
 
 endmodule
 
-// Fetch de instrucoes --------------------------------------------------------
+// Instruction fetch ----------------------------------------------------------
 
 module instr_fetch
 #(
@@ -206,7 +206,7 @@ pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr, pc_sim_val);
 pc #(MINSTW) pc (clk, rst, pc_load, pcl, pc_addr);
 `endif // ---------------------------------------------------------------------
 
-// Prefetch de instrucao
+// Instruction prefetch
 
 wire [NBINST-1:0] pf_instr = instr;
 wire              pf_isp_push;
@@ -224,7 +224,7 @@ prefetch #(.MINSTW(MINSTW),
                                pf_isp_push, pf_isp_pop,
                                itr);
 
-// Pilha de instrucao
+// Instruction stack
 
 wire [MINSTW-1:0] stack_out;
 
@@ -236,7 +236,7 @@ generate
 		assign pc_lval = instr[MINSTW-1:0];
 endgenerate
 
-// Interface externa
+// External interface
 
 generate
 	if (CAL)
@@ -247,7 +247,7 @@ endgenerate
 
 endmodule
 
-// Controle da entrada in1 da ULA ---------------------------------------------
+// Control of ALU input in1 ---------------------------------------------------
 
 module ula_in1_ctrl
 #(
@@ -266,7 +266,7 @@ assign out = (popr) ? stkr : mem;
 
 endmodule
 
-// Controle da entrada in2 da ULA ---------------------------------------------
+// Control of ALU input in2 ---------------------------------------------------
 
 module ula_in2_ctrl
 #(
@@ -286,7 +286,7 @@ assign out = (req_inr) ? ior : acc;
 
 endmodule
 
-// Enderecamento indireto -----------------------------------------------------
+// Indirect addressing --------------------------------------------------------
 
 module rel_addr
 #(
@@ -316,7 +316,7 @@ endgenerate
 
 endmodule
 
-// Controle do enderecamento da memoria ---------------------------------------
+// Memory-addressing control --------------------------------------------------
 
 module mem_ctrl
 #(
@@ -376,51 +376,51 @@ always @ (posedge clk) addr_out <= addr[NBIOOU-1:0];
 endmodule
 
 // ****************************************************************************
-// Circuito principal *********************************************************
+// Main circuit ***************************************************************
 // ****************************************************************************
 
 module core
 #(
 	// -------------------------------------------------------------------------
-	// Parametros de configuracao internos -------------------------------------
+	// Internal configuration parameters ---------------------------------------
 	// -------------------------------------------------------------------------
 
-	// fluxo de dados
-	parameter  NBOPCO = 7,               // Numero de bits de opcode (nao mudar sem ver o instr_decoder)
-	parameter  NBOPER = 9,               // Numero de bits de operando
-	parameter  ITRADD = 0,               // Endereco da interrupcao
+	// data flow
+	parameter  NBOPCO = 7,               // Number of opcode bits (do not change without updating the instr_decoder)
+	parameter  NBOPER = 9,               // Operand width (bits)
+	parameter  ITRADD = 0,               // Interrupt address
 
-	// memorias
-	parameter  MDATAW = 9,               // Numero de bits de endereco da memoria de dados
-	parameter  MINSTW = 9,               // Numero de bits de endereco da memoria de instrucao
-	parameter  NBINST = NBOPCO + NBOPER, // Numero de bits da memoria de instrucao
-
-	// -------------------------------------------------------------------------
-	// Parametros configurados pelo usuario ------------------------------------
-	// -------------------------------------------------------------------------
-
-	// fluxo de dados
-	parameter  NUBITS = 32,              // Numero de bits de dados
-	parameter  NBMANT = 23,              // Numero de bits da mantissa
-	parameter  NBEXPO =  8,              // Numero de bits do expoente
-
-	// memorias
-	parameter  SDEPTH = 10,              // Tamanho da pilha de instrucao
-	parameter  DDEPTH = 10,              // Tamanho da pilha de dados
-
-	// entradas e Saidas
-	parameter  NBIOIN =  2,              // Numero de bits de enderecos de IO - entrada
-	parameter  NBIOOU =  2,              // Numero de bits de enderecos de IO - saida
-
-	// constantes aritmeticas
-	parameter  NUGAIN = 64,              // Valor usado na divisao por um numero fixo (NRM e NORMS)
-	parameter  FFTSIZ =  3,              // Tamanho da ILI na inversao de bits
+	// memories
+	parameter  MDATAW = 9,               // Number of address bits for data memory
+	parameter  MINSTW = 9,               // Number of address bits for instruction memory
+	parameter  NBINST = NBOPCO + NBOPER, // Instruction-memory width (bits)
 
 	// -------------------------------------------------------------------------
-	// Parametros configurados dinamicamente -----------------------------------
+	// User-configured parameters ----------------------------------------------
 	// -------------------------------------------------------------------------
 
-	// implementa leitura/escrita na memoria
+	// data flow
+	parameter  NUBITS = 32,              // Data width (bits)
+	parameter  NBMANT = 23,              // Mantissa width (bits)
+	parameter  NBEXPO =  8,              // Exponent width (bits)
+
+	// memories
+	parameter  SDEPTH = 10,              // Instruction stack depth
+	parameter  DDEPTH = 10,              // Data stack depth
+
+	// inputs and Outputs
+	parameter  NBIOIN =  2,              // Number of IO address bits - input
+	parameter  NBIOOU =  2,              // Number of IO address bits - output
+
+	// arithmetic constants
+	parameter  NUGAIN = 64,              // Value used to divide by a fixed number (NRM and NORMS)
+	parameter  FFTSIZ =  3,              // ILI size for bit reversal
+
+	// -------------------------------------------------------------------------
+	// Dynamically configured parameters ---------------------------------------
+	// -------------------------------------------------------------------------
+
+	// implements memory read/write
 	parameter    LOD   = 0,
 	parameter  P_LOD   = 0,
 	
@@ -433,22 +433,22 @@ module core
 	parameter    STI   = 0,
 	parameter    ISI   = 0,
 
-	// implementa interface com a pilha de dados
+	// implements the data-stack interface
 	parameter    PSH   = 0,
 	parameter    POP   = 0,
 
-	// implementa portas de I/O
+	// implements I/O ports
 	parameter    INN   = 0,
 	parameter  F_INN   = 0,
 	parameter  P_INN   = 0,
 	parameter PF_INN   = 0,
 	parameter    OUT   = 0,
 	
-	// implementa saltos
+	// implements jumps
 	parameter    JIZ   = 0,
 	parameter    CAL   = 0,
 
-	// operacoes aritmeticas de dois parametros
+	// two-parameter arithmetic operations
 	parameter    ADD   = 0,
 	parameter  S_ADD   = 0,
 	parameter  F_ADD   = 0,
@@ -472,7 +472,7 @@ module core
 	parameter  F_SGN   = 0,
 	parameter SF_SGN   = 0,
 
-	// operacoes aritmeticas de um parametro
+	// one-parameter arithmetic operations
 	parameter    NEG   = 0,
 	parameter    NEG_M = 0,
 	parameter  P_NEG_M = 0,
@@ -506,7 +506,7 @@ module core
 	parameter    F2I_M = 0,
 	parameter  P_F2I_M = 0,
 
-	// operacoes logicas de dois parametros
+	// two-parameter logical operations
 	parameter    AND   = 0,
 	parameter  S_AND   = 0,
 	parameter    ORR   = 0,
@@ -514,23 +514,23 @@ module core
 	parameter    XOR   = 0,
 	parameter  S_XOR   = 0,
 
-	// operacoes logicas de um parametro
+	// one-parameter logical operations
 	parameter    INV   = 0,
 	parameter    INV_M = 0,
 	parameter  P_INV_M = 0,
 
-	// operacoes condicionais de dois parametros
+	// two-parameter conditional operations
 	parameter    LAN   = 0,
 	parameter  S_LAN   = 0,
 	parameter    LOR   = 0,
 	parameter  S_LOR   = 0,
 	
-	// operacoes condicionais de um parametro
+	// one-parameter conditional operations
 	parameter    LIN   = 0,
 	parameter    LIN_M = 0,
 	parameter  P_LIN_M = 0,
 
-	// operacoes de comparacao
+	// comparison operations
 	parameter    LES   = 0,
 	parameter  S_LES   = 0,
 	parameter  F_LES   = 0,
@@ -544,7 +544,7 @@ module core
 	parameter    EQU   = 0,
 	parameter  S_EQU   = 0,
 
-	// operacoes de deslocamento de bits
+	// bit-shift operations
 	parameter    SHL   = 0,
 	parameter  S_SHL   = 0,
 
@@ -554,12 +554,12 @@ module core
 	parameter    SRS   = 0,
 	parameter  S_SRS   = 0,
 
-	// operacoes especiais
-	parameter  F_ROT   = 0,   // potencia de 2 mais proxima da raiz (com ACC)
-	parameter  F_SU1   = 0,   // subtracao de ponto flutuante na entrada 1
-	parameter  F_SU2   = 0,   // subtracao de ponto flutuante na entrada 2
-	parameter SF_SU1   = 0,	  // subtracao de ponto flutuante na entrada 1 com pilha
-	parameter SF_SU2   = 0	  // subtracao de ponto flutuante na entrada 2 com pilha
+	// special operations
+	parameter  F_ROT   = 0,   // nearest power-of-two square-root approximation (with ACC)
+	parameter  F_SU1   = 0,   // floating-point subtraction at input 1
+	parameter  F_SU2   = 0,   // floating-point subtraction at input 2
+	parameter SF_SU1   = 0,	  // floating-point subtraction at input 1 with stack
+	parameter SF_SU2   = 0	  // floating-point subtraction at input 2 with stack
 )(
 	input               clk, rst,
 
@@ -584,7 +584,7 @@ module core
 `endif // ---------------------------------------------------------------------
 );
 
-// Busca de instrucoes --------------------------------------------------------
+// Instruction fetch ----------------------------------------------------------
 
 wire              if_acc;
 wire [NBOPCO-1:0] if_opcode;
@@ -612,7 +612,7 @@ instr_fetch #(
 `endif // ---------------------------------------------------------------------
 );
 
-// Decodificador de instrucao -------------------------------------------------
+// Instruction decoder --------------------------------------------------------
 
 wire [NBOPCO-1:0] id_opcode  = if_opcode;
 
@@ -727,7 +727,7 @@ instr_dec #(.NBOPCO  ( NBOPCO ),
                                     id_req_in, id_out_en,
                                     id_ldi, id_sti, id_fft);
 
-// Pilha de dados -------------------------------------------------------------
+// Data stack -----------------------------------------------------------------
 
 wire              sp_push = id_dsp_push;
 wire              sp_pop  = id_dsp_pop;
@@ -737,22 +737,22 @@ stack #(.NADDR($clog2(DDEPTH)),
         .DEPTH(DDEPTH),
         .NBITS(NUBITS)) sp(clk, rst, sp_push, sp_pop, sp_in, sp_data);
 
-// Controles de entrada da ULA ------------------------------------------------
+// ALU input controls ---------------------------------------------------------
 
 wire [NUBITS-1:0] ula_data_in1;
 wire [NUBITS-1:0] ula_data_in2;
 wire [NUBITS-1:0] uic_acc;
 
-// entrada in1
+// input in1
 ula_in1_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic1 (clk, id_dsp_pop, mem_data_rd, sp_data, ula_data_in1);
 
-// entrada in2
+// input in2
 generate if (INN | P_INN | F_INN | PF_INN)
 ula_in2_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic2 (clk, id_req_in , uic_acc, io_in, ula_data_in2);
 else assign ula_data_in2 = racc;
 endgenerate
 
-// Unidade Logico-Aritmetica --------------------------------------------------
+// Arithmetic Logic Unit ------------------------------------------------------
 
 wire signed [NUBITS-1:0] ula_out;
 
@@ -811,7 +811,7 @@ ula #(.NUBITS (NUBITS ),
 
 assign sp_in = ula_out;
 
-// Acumulador -----------------------------------------------------------------
+// Accumulator ----------------------------------------------------------------
 
 reg signed [NUBITS-1:0] racc;
 
@@ -820,7 +820,7 @@ always @ (posedge clk or posedge rst) if (rst) racc <= 0; else racc <= ula_out;
 assign uic_acc = racc;
 assign  if_acc = ula_out[0];
 
-// Enderecamento Indireto -----------------------------------------------------
+// Indirect Addressing --------------------------------------------------------
 
 wire [MDATAW-1:0] rf;
 
@@ -841,7 +841,7 @@ generate
 	end
 endgenerate
 
-// Controle de I/O ------------------------------------------------------------
+// I/O Control ----------------------------------------------------------------
 
 generate if (INN | F_INN | P_INN | PF_INN | OUT)
 io_ctrl #(.MDATAW(MDATAW),

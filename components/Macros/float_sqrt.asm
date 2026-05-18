@@ -1,26 +1,26 @@
 
-// Funcao sqrt ----------------------------------------------------------------
+// sqrt function --------------------------------------------------------------
 
-@float_sqrt     SET sqrt_num       // pega parametro
-              F_ROT                // primeira estimativa (potencia de 2 mais proxima)
-              
-                PSH                // atualiza x
-              F_DIV sqrt_num       // iteracao 1
-             SF_ADD 
-              F_MLT 0.5
+@float_sqrt     SET sqrt_num       // get the parameter
+              F_ROT                // first estimate (nearest power of 2)
 
-                PSH                // atualiza x
-              F_DIV sqrt_num       // iteracao 2
+                PSH                // update x
+              F_DIV sqrt_num       // iteration 1
              SF_ADD
               F_MLT 0.5
 
-                PSH                // atualiza x
-              F_DIV sqrt_num       // iteracao 3
+                PSH                // update x
+              F_DIV sqrt_num       // iteration 2
              SF_ADD
               F_MLT 0.5
 
-                PSH                // atualiza x
-              F_DIV sqrt_num       // iteracao 4
+                PSH                // update x
+              F_DIV sqrt_num       // iteration 3
+             SF_ADD
+              F_MLT 0.5
+
+                PSH                // update x
+              F_DIV sqrt_num       // iteration 4
              SF_ADD
               F_MLT 0.5
 

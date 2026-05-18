@@ -1,44 +1,44 @@
 
-// Funcao seno ----------------------------------------------------------------
+// Sine function --------------------------------------------------------------
 
 #arrays sin_LUT 2 152 "$Sin_LUT.txt"
 
-@float_sin      SET   sin_x                 // salva x
+@float_sin      SET   sin_x                 // save x
 
-@L_sin        F_ABS_M sin_x                 // checa se x < pi
-              F_LES   3.141592653589793     // fazer menor em modulo pra float
+@L_sin        F_ABS_M sin_x                 // check whether x < pi
+              F_LES   3.141592653589793     // compare on magnitude for float
                 JIZ   L_sin_end
 
-                LOD   6.283185307           // se nao for, vai subtraindo 2pi
+                LOD   6.283185307           // otherwise, keep subtracting 2pi
               F_SGN   sin_x
               F_SU2   sin_x
                 SET   sin_x
                 JMP   L_sin
 
-@L_sin_end    F_ABS_M sin_x                 // aqui comeca o metodo
+@L_sin_end    F_ABS_M sin_x                 // method starts here
 
-              F_MLT   47.746482927568       // multiplica por 150.0/pi pra achar a posicao em x
-                SET   sin_idxf              // salva em idfx
+              F_MLT   47.746482927568       // multiply by 150.0/pi to find the position in x
+                SET   sin_idxf              // save into idxf
 
-                F2I                         // arredonda o indice pra baixo
-                SET   sin_idx               // salva em idx
+                F2I                         // round the index down
+                SET   sin_idx               // save into idx
 
-                LDI   sin_LUT               // pega o dado correspondente na tabela
-                SET   sin_v                 // salva em v
+                LDI   sin_LUT               // fetch the matching data in the table
+                SET   sin_v                 // save into v
 
-                LOD   sin_idx               // pega o proximo indice
-                ADD   1                     // fazer INC_M sin_idx
+                LOD   sin_idx               // fetch the next index
+                ADD   1                     // could be INC_M sin_idx
 
-                LDI   sin_LUT               // pega o dado correspondente na tabela
+                LDI   sin_LUT               // fetch the matching data in the table
 
-              F_SU1   sin_v                 // subtrai de v
+              F_SU1   sin_v                 // subtract from v
 
-              P_I2F_M sin_idx               // pega a inclinacao da reta
+              P_I2F_M sin_idx               // get the slope of the line
               F_SU2   sin_idxf
-             
-             SF_MLT                         // acha o valor na reta
 
-              F_ADD   sin_v                 // soma com o offset v
+             SF_MLT                         // compute the value on the line
 
-              F_SGN   sin_x                 // pega o sinal e sai
+              F_ADD   sin_v                 // add the offset v
+
+              F_SGN   sin_x                 // apply the sign and return
                 RET

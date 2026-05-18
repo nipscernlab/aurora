@@ -1,17 +1,17 @@
 module instr_dec
 #(
 	// -------------------------------------------------------------------------
-	// Parametros de configuracao internos -------------------------------------
+	// Internal configuration parameters ---------------------------------------
 	// -------------------------------------------------------------------------
 
-	parameter  NBOPCO  = 7,   // Numero de bits de opcode
-	parameter  MDATAW  = 8,   // Numero de bits de endereco da memoria de dados
+	parameter  NBOPCO  = 7,   // Number of opcode bits
+	parameter  MDATAW  = 8,   // Number of address bits for data memory
 
 	// -------------------------------------------------------------------------
-	// Parametros configurados dinamicamente -----------------------------------
+	// Dynamically configured parameters ---------------------------------------
 	// -------------------------------------------------------------------------
 
-	// implementa leitura/escrita na memoria
+	// implements memory read/write
     parameter    LOD   = 0,
 	parameter  P_LOD   = 0,
 
@@ -24,18 +24,18 @@ module instr_dec
 	parameter    STI   = 0,
 	parameter    ISI   = 0,
 
-	// implementa interface com a pilha de dados
+	// implements the data-stack interface
 	parameter    PSH   = 0,
 	parameter    POP   = 0,
 
-	// implementa portas de I/O
+	// implements I/O ports
 	parameter    INN   = 0,
     parameter  F_INN   = 0,
 	parameter  P_INN   = 0,
     parameter PF_INN   = 0,
 	parameter    OUT   = 0,
 
-	// operacoes aritmeticas de dois parametros
+	// two-parameter arithmetic operations
     parameter    ADD   = 0,
 	parameter  S_ADD   = 0,
     parameter  F_ADD   = 0,
@@ -50,7 +50,7 @@ module instr_dec
 	parameter  S_DIV   = 0,
     parameter  F_DIV   = 0,
 	parameter SF_DIV   = 0,
-	
+
     parameter    MOD   = 0,
 	parameter  S_MOD   = 0,
 
@@ -59,7 +59,7 @@ module instr_dec
     parameter  F_SGN   = 0,
 	parameter SF_SGN   = 0,
 
-	// operacoes aritmeticas de um parametro
+	// one-parameter arithmetic operations
     parameter    NEG   = 0,
     parameter    NEG_M = 0,
 	parameter  P_NEG_M = 0,
@@ -93,7 +93,7 @@ module instr_dec
     parameter    F2I_M = 0,
 	parameter  P_F2I_M = 0,
 
-	// operacoes logicas de dois parametros
+	// two-parameter logical operations
     parameter    AND   = 0,
 	parameter  S_AND   = 0,
 
@@ -103,24 +103,24 @@ module instr_dec
     parameter    XOR   = 0,
 	parameter  S_XOR   = 0,
 
-	// operacoes logicas de um parametro
+	// one-parameter logical operations
     parameter    INV   = 0,
     parameter    INV_M = 0,
 	parameter  P_INV_M = 0,
 
-	// operacoes condicionais de dois parametros
+	// two-parameter conditional operations
     parameter    LAN   = 0,
 	parameter  S_LAN   = 0,
 
     parameter    LOR   = 0,
 	parameter  S_LOR   = 0,
 
-	// operacoes condicionais de um parametro
+	// one-parameter conditional operations
     parameter    LIN   = 0,
     parameter    LIN_M = 0,
 	parameter  P_LIN_M = 0,
 
-	// operacoes de comparacao
+	// comparison operations
     parameter    LES   = 0,
 	parameter  S_LES   = 0,
     parameter  F_LES   = 0,
@@ -134,7 +134,7 @@ module instr_dec
     parameter    EQU   = 0,
 	parameter  S_EQU   = 0,
 
-	// operacoes de deslocamento de bits
+	// bit-shift operations
     parameter    SHL   = 0,
 	parameter  S_SHL   = 0,
 
@@ -144,12 +144,12 @@ module instr_dec
     parameter    SRS   = 0,
 	parameter  S_SRS   = 0,
 
-    // operacoes especiais
-    parameter  F_ROT   = 0,   // potencia de 2 mais proxima da raiz com ACC
-    parameter  F_SU1   = 0,   // subtracao de ponto flutuante na entrada 1
-	parameter  F_SU2   = 0,   // subtracao de ponto flutuante na entrada 2
-    parameter SF_SU1   = 0,   // subtracao de ponto flutuante na entrada 1 com pilha
-    parameter SF_SU2   = 0    // subtracao de ponto flutuante na entrada 2 com pilha
+    // special operations
+    parameter  F_ROT   = 0,   // nearest power of 2 to the square root with ACC
+    parameter  F_SU1   = 0,   // floating-point subtraction at input 1
+	parameter  F_SU2   = 0,   // floating-point subtraction at input 2
+    parameter SF_SU1   = 0,   // floating-point subtraction at input 1 with stack
+    parameter SF_SU2   = 0    // floating-point subtraction at input 2 with stack
 )(
 	input                   clk, rst,
 	input      [NBOPCO-1:0] opcode,
@@ -164,10 +164,10 @@ module instr_dec
 );
 
 // ----------------------------------------------------------------------------
-// decodificacao de instrucoes ------------------------------------------------
+// instruction decoding -------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-// implementa leitura/escrita na memoria --------------------------------------
+// implements memory read/write ----------------------------------------------
 
 wire    wLOD  ; generate if (   LOD  ) assign    wLOD   = opcode == 7'd00; else assign    wLOD   = 1'b0; endgenerate
 wire  wP_LOD  ; generate if ( P_LOD  ) assign  wP_LOD   = opcode == 7'd01; else assign  wP_LOD   = 1'b0; endgenerate
@@ -181,12 +181,12 @@ wire    wSET_P; generate if (   SET_P) assign    wSET_P = opcode == 7'd05; else 
 wire    wSTI  ; generate if (   STI  ) assign    wSTI   = opcode == 7'd06; else assign    wSTI   = 1'b0; endgenerate
 wire    wISI  ; generate if (   ISI  ) assign    wISI   = opcode == 7'd07; else assign    wISI   = 1'b0; endgenerate
 
-// implementa interface com a pilha de dados ----------------------------------
+// implements the data-stack interface ----------------------------------------
 
 wire    wPSH  ; generate if (   PSH  ) assign    wPSH   = opcode == 7'd08; else assign    wPSH   = 1'b0; endgenerate
 wire    wPOP  ; generate if (   POP  ) assign    wPOP   = opcode == 7'd09; else assign    wPOP   = 1'b0; endgenerate
 
-// implementa portas de I/O ---------------------------------------------------
+// implements I/O ports -------------------------------------------------------
 
 wire    wINN  ; generate if (   INN  ) assign    wINN   = opcode == 7'd10; else assign    wINN   = 1'b0; endgenerate
 wire  wF_INN  ; generate if ( F_INN  ) assign  wF_INN   = opcode == 7'd11; else assign  wF_INN   = 1'b0; endgenerate
@@ -195,7 +195,7 @@ wire wPF_INN  ; generate if (PF_INN  ) assign wPF_INN   = opcode == 7'd13; else 
 
 wire    wOUT  ; generate if (   OUT  ) assign    wOUT   = opcode == 7'd14; else assign    wOUT   = 1'b0; endgenerate
 
-// operacoes aritmeticas de dois parametros -----------------------------------
+// two-parameter arithmetic operations ----------------------------------------
 
 wire    wADD  ; generate if (   ADD  ) assign    wADD   = opcode == 7'd19; else assign    wADD   = 1'b0; endgenerate
 wire  wS_ADD  ; generate if ( S_ADD  ) assign  wS_ADD   = opcode == 7'd20; else assign  wS_ADD   = 1'b0; endgenerate
@@ -220,7 +220,7 @@ wire  wS_SGN  ; generate if ( S_SGN  ) assign  wS_SGN   = opcode == 7'd34; else 
 wire  wF_SGN  ; generate if ( F_SGN  ) assign  wF_SGN   = opcode == 7'd35; else assign  wF_SGN   = 1'b0; endgenerate
 wire wSF_SGN  ; generate if (SF_SGN  ) assign wSF_SGN   = opcode == 7'd36; else assign wSF_SGN   = 1'b0; endgenerate
 
-// operacoes aritmeticas de um parametro --------------------------------------
+// one-parameter arithmetic operations ----------------------------------------
 
 wire    wNEG  ; generate if (   NEG  ) assign    wNEG   = opcode == 7'd37; else assign    wNEG   = 1'b0; endgenerate
 wire    wNEG_M; generate if (   NEG_M) assign    wNEG_M = opcode == 7'd38; else assign    wNEG_M = 1'b0; endgenerate
@@ -255,7 +255,7 @@ wire    wF2I  ; generate if (   F2I  ) assign    wF2I   = opcode == 7'd61; else 
 wire    wF2I_M; generate if (   F2I_M) assign    wF2I_M = opcode == 7'd62; else assign    wF2I_M = 1'b0; endgenerate
 wire  wP_F2I_M; generate if ( P_F2I_M) assign  wP_F2I_M = opcode == 7'd63; else assign  wP_F2I_M = 1'b0; endgenerate
 
-// operacoes logicas de dois parametros ---------------------------------------
+// two-parameter logical operations -------------------------------------------
 
 wire    wAND  ; generate if (   AND  ) assign    wAND   = opcode == 7'd64; else assign    wAND   = 1'b0; endgenerate
 wire  wS_AND  ; generate if ( S_AND  ) assign  wS_AND   = opcode == 7'd65; else assign  wS_AND   = 1'b0; endgenerate
@@ -266,13 +266,13 @@ wire  wS_ORR  ; generate if ( S_ORR  ) assign  wS_ORR   = opcode == 7'd67; else 
 wire    wXOR  ; generate if (   XOR  ) assign    wXOR   = opcode == 7'd68; else assign    wXOR   = 1'b0; endgenerate
 wire  wS_XOR  ; generate if ( S_XOR  ) assign  wS_XOR   = opcode == 7'd69; else assign  wS_XOR   = 1'b0; endgenerate
 
-// operacoes logicas de um parametro ------------------------------------------
+// one-parameter logical operations -------------------------------------------
 
 wire    wINV  ; generate if (   INV  ) assign    wINV   = opcode == 7'd70; else assign    wINV   = 1'b0; endgenerate
 wire    wINV_M; generate if (   INV_M) assign    wINV_M = opcode == 7'd71; else assign    wINV_M = 1'b0; endgenerate
 wire  wP_INV_M; generate if ( P_INV_M) assign  wP_INV_M = opcode == 7'd72; else assign  wP_INV_M = 1'b0; endgenerate
 
-// operacoes condicionais de dois parametros ----------------------------------
+// two-parameter conditional operations ---------------------------------------
 
 wire    wLAN  ; generate if (   LAN  ) assign    wLAN   = opcode == 7'd73; else assign    wLAN   = 1'b0; endgenerate
 wire  wS_LAN  ; generate if ( S_LAN  ) assign  wS_LAN   = opcode == 7'd74; else assign  wS_LAN   = 1'b0; endgenerate
@@ -280,13 +280,13 @@ wire  wS_LAN  ; generate if ( S_LAN  ) assign  wS_LAN   = opcode == 7'd74; else 
 wire    wLOR  ; generate if (   LOR  ) assign    wLOR   = opcode == 7'd75; else assign    wLOR   = 1'b0; endgenerate
 wire  wS_LOR  ; generate if ( S_LOR  ) assign  wS_LOR   = opcode == 7'd76; else assign  wS_LOR   = 1'b0; endgenerate
 
-// operacoes condicionais de um parametro -------------------------------------
+// one-parameter conditional operations ---------------------------------------
 
 wire    wLIN  ; generate if (   LIN  ) assign    wLIN   = opcode == 7'd77; else assign    wLIN   = 1'b0; endgenerate
 wire    wLIN_M; generate if (   LIN_M) assign    wLIN_M = opcode == 7'd78; else assign    wLIN_M = 1'b0; endgenerate
 wire  wP_LIN_M; generate if ( P_LIN_M) assign  wP_LIN_M = opcode == 7'd79; else assign  wP_LIN_M = 1'b0; endgenerate
 
-// operacoes de comparacao ----------------------------------------------------
+// comparison operations ------------------------------------------------------
 
 wire    wLES  ; generate if (   LES  ) assign    wLES   = opcode == 7'd80; else assign    wLES   = 1'b0; endgenerate
 wire  wS_LES  ; generate if ( S_LES  ) assign  wS_LES   = opcode == 7'd81; else assign  wS_LES   = 1'b0; endgenerate
@@ -301,7 +301,7 @@ wire wSF_GRE  ; generate if (SF_GRE  ) assign wSF_GRE   = opcode == 7'd87; else 
 wire    wEQU  ; generate if (   EQU  ) assign    wEQU   = opcode == 7'd88; else assign    wEQU   = 1'b0; endgenerate
 wire  wS_EQU  ; generate if ( S_EQU  ) assign  wS_EQU   = opcode == 7'd89; else assign  wS_EQU   = 1'b0; endgenerate
 
-// operacoes de deslocamento de bits ------------------------------------------
+// bit-shift operations -------------------------------------------------------
 
 wire    wSHL  ; generate if (   SHL  ) assign    wSHL   = opcode == 7'd90; else assign    wSHL   = 1'b0; endgenerate
 wire  wS_SHL  ; generate if ( S_SHL  ) assign  wS_SHL   = opcode == 7'd91; else assign  wS_SHL   = 1'b0; endgenerate
@@ -312,7 +312,7 @@ wire  wS_SHR  ; generate if ( S_SHR  ) assign  wS_SHR   = opcode == 7'd93; else 
 wire    wSRS  ; generate if (   SRS  ) assign    wSRS   = opcode == 7'd94; else assign    wSRS   = 1'b0; endgenerate
 wire  wS_SRS  ; generate if ( S_SRS  ) assign  wS_SRS   = opcode == 7'd95; else assign  wS_SRS   = 1'b0; endgenerate
 
-// operacoes especiais (pula o NOP) -------------------------------------------
+// special operations (skips NOP) ---------------------------------------------
 
 wire  wF_ROT  ; generate if ( F_ROT  ) assign  wF_ROT   = opcode == 7'd97;  else assign   wF_ROT  = 1'b0; endgenerate
 wire  wF_SU1  ; generate if ( F_SU1  ) assign  wF_SU1   = opcode == 7'd98;  else assign   wF_SU1  = 1'b0; endgenerate
@@ -321,28 +321,28 @@ wire wSF_SU1  ; generate if (SF_SU1  ) assign wSF_SU1   = opcode == 7'd100; else
 wire wSF_SU2  ; generate if (SF_SU2  ) assign wSF_SU2   = opcode == 7'd101; else assign  wSF_SU2  = 1'b0; endgenerate
 
 // ----------------------------------------------------------------------------
-// circuitos de controle ------------------------------------------------------
+// control circuits -----------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-// circuito de controle de entrada de dados -----------------------------------
+// data input control circuit -------------------------------------------------
 
 generate if (INN | F_INN | P_INN | PF_INN) assign req_in = wINN | wF_INN | wP_INN | wPF_INN; else assign req_in = 1'b0; endgenerate
 
-// circuito de controle de saida de dados -------------------------------------
+// data output control circuit ------------------------------------------------
 
 generate if (OUT) assign out_en = wOUT; else assign out_en = 1'b0; endgenerate
 
-// circuitos de controle de enderecamento indireto ----------------------------
+// indirect addressing control circuits ---------------------------------------
 
 generate if (LDI | ILI) assign ldi = wLDI |  wILI; else assign ldi = 1'b0; endgenerate
 generate if (STI | ISI) assign sti = wSTI |  wISI; else assign sti = 1'b0; endgenerate
 generate if (ILI | ISI) assign fft = wILI |  wISI; else assign fft = 1'b0; endgenerate
 
-// circuito de controle de escrita na memoria ---------------------------------
+// memory write control circuit -----------------------------------------------
 
 generate if (SET | SET_P | STI | ISI) assign mem_wr = wSET | wSET_P | wSTI | wISI; else assign mem_wr = 1'b0; endgenerate
 
-// circuito de controle de escrita na pilha de dados --------------------------
+// data-stack write control circuit -------------------------------------------
 
 generate
 if (                P_LOD   |     PSH   |  P_INN   |  PF_INN   |  P_NEG_M |  PF_NEG_M |  P_ABS_M |  PF_ABS_M |
@@ -352,7 +352,7 @@ if (                P_LOD   |     PSH   |  P_INN   |  PF_INN   |  P_NEG_M |  PF_
 else assign push = 1'b0;
 endgenerate
 
-// circuito de controle de leitura da pilha de dados --------------------------
+// data-stack read control circuit --------------------------------------------
 
 generate
 if (               SET_P |    STI |     ISI |    POP |  S_ADD |  SF_ADD |   S_MLT |
@@ -366,11 +366,11 @@ if (               SET_P |    STI |     ISI |    POP |  S_ADD |  SF_ADD |   S_ML
 else assign pop = 1'b0   ;
 endgenerate
 
-// circuito de controle de operacoes da ULA -----------------------------------
+// ALU operations control circuit ---------------------------------------------
 
 wire b5,b4,b3,b2,b1,b0;
 
-// logica pra b5
+// logic for b5
 generate
 if (              INV |    INV_M |  P_INV_M |     LAN |   S_LAN |    LOR |  S_LOR |     LIN |    LIN_M |  P_LIN_M |
                   LES |  S_LES   |  F_LES   |  SF_LES |     GRE |  S_GRE |  F_GRE |  SF_GRE |    EQU   |  S_EQU   |
@@ -384,9 +384,9 @@ if (              INV |    INV_M |  P_INV_M |     LAN |   S_LAN |    LOR |  S_LO
 else assign b5 = 1'b0 ;
 endgenerate
 
-// logica pra b4
+// logic for b4
 generate
-if (              F_INN   |  PF_INN   | 
+if (              F_INN   |  PF_INN   |
                     ABS_M |  P_ABS_M  |  F_ABS   |  F_ABS_M |  PF_ABS_M |
                     PST   |    PST_M  |  P_PST_M |  F_PST   |  F_PST_M  |  PF_PST_M |
                     NRM   |    NRM_M  |  P_NRM_M |
@@ -394,7 +394,7 @@ if (              F_INN   |  PF_INN   |
                     AND   |  S_AND    |    ORR   |  S_ORR   |    XOR    |   S_XOR   |
                   F_SU2   | SF_SU2    )
 
-     assign b4 = wF_INN   | wPF_INN   | 
+     assign b4 = wF_INN   | wPF_INN   |
                    wABS_M |  wP_ABS_M | wF_ABS   | wF_ABS_M | wPF_ABS_M |
                    wPST   |    wPST_M | wP_PST_M | wF_PST   |  wF_PST_M | wPF_PST_M |
                    wNRM   |    wNRM_M | wP_NRM_M |
@@ -404,7 +404,7 @@ if (              F_INN   |  PF_INN   |
 else assign b4 = 1'b0 ;
 endgenerate
 
-// logica pra b3
+// logic for b3
 generate
 if               (F_INN | PF_INN    |
                     MOD |  S_MOD    |    SGN    |   S_SGN |  F_SGN   |  SF_SGN   |
@@ -416,19 +416,19 @@ if               (F_INN | PF_INN    |
                     SHL |  S_SHL    |     SHR   |   S_SHR |    SRS   |   S_SRS   |
                   F_ROT |  F_SU1    |  SF_SU1   )
 
-     assign b3 = wF_INN | wPF_INN   | 
+     assign b3 = wF_INN | wPF_INN   |
                    wMOD |  wS_MOD   |    wSGN   |  wS_SGN | wF_SGN   | wSF_SGN   |
                    wNEG |    wNEG_M |  wP_NEG_M |  wF_NEG | wF_NEG_M | wPF_NEG_M |
                    wABS |    wNRM_M |  wP_NRM_M |
                    wI2F |    wI2F_M |  wP_I2F_M |    wF2I |   wF2I_M |  wP_F2I_M |
                    wAND |  wS_AND   |    wORR   |  wS_ORR |   wXOR   |  wS_XOR   |
                    wGRE |  wS_GRE   |  wF_GRE   | wSF_GRE |   wEQU   |  wS_EQU   |
-                   wSHL |  wS_SHL   |    wSHR   |  wS_SHR |   wSRS   |  wS_SRS   | 
+                   wSHL |  wS_SHL   |    wSHR   |  wS_SHR |   wSRS   |  wS_SRS   |
                  wF_ROT |  wF_SU1   | wSF_SU1   ;
 else assign b3 = 1'b0 ;
 endgenerate
 
-// logica pra b2
+// logic for b2
 generate
 if (              MLT   | S_MLT    |   F_MLT   |  SF_MLT   |
                   DIV   | S_DIV    |   F_DIV   |  SF_DIV   |
@@ -452,7 +452,7 @@ if (              MLT   | S_MLT    |   F_MLT   |  SF_MLT   |
 else assign b2 = 1'b0 ;
 endgenerate
 
-// logica pra b1
+// logic for b1
 generate
 if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
                   DIV |  S_DIV   |   F_DIV   |  SF_DIV   |
@@ -486,7 +486,7 @@ if (              ADD |  S_ADD   |   F_ADD   |  SF_ADD   |
 else assign b1 = 1'b0 ;
 endgenerate
 
-// logica pra b0
+// logic for b0
 generate
 if (              LOD |  P_LOD |  LDI   |    ILI   |    SET_P |     POP |  F_INN |  PF_INN |  F_ADD |  SF_ADD |  F_MLT |  SF_MLT |  F_DIV |  SF_DIV   |    SGN   |  S_SGN |
                   NEG |  F_NEG |  ABS   |  F_ABS   |    PST   |   F_PST |    NRM |     I2F |    F2I |     AND |  S_AND |     XOR |  S_XOR |     INV_M |  P_INV_M |
@@ -498,112 +498,112 @@ if (              LOD |  P_LOD |  LDI   |    ILI   |    SET_P |     POP |  F_INN
 else assign b0 = 1'b0 ;
 endgenerate
 
-// junta as logicas para ula_op
+// combine logic into ula_op
 always @ (posedge clk) ula_op <= {b5,b4,b3,b2,b1,b0};
 
 endmodule
 
-//  Tabela que gera o valor da ULA a partir do opcode
+//  Table mapping opcode to ALU operation
 /* ---------------------------------------------------------------------------
-    0 : ula_op  <= 6'd1;     //    LOD   -> carrega accumulador com dado da memoria
-    1 : ula_op  <= 6'd1;     //  P_LOD   -> PSH e LOD
-    2 : ula_op  <= 6'd1;     //    LDI   -> Load com enderecamentto indireto
-    3 : ula_op  <= 6'd1;     //    ILI   -> Load com enderecamento indireto invertido
-    4 : ula_op  <= 6'd0;     //    SET   -> carrega memoria com valor do acumulador
-    6 : ula_op  <= 6'd0;     //    STI   -> Set com enderecamento indireto
-    7 : ula_op  <= 6'd0;     //    ISI   -> STI com bits invertidos
+    0 : ula_op  <= 6'd1;     //    LOD   -> loads accumulator with data from memory
+    1 : ula_op  <= 6'd1;     //  P_LOD   -> PSH then LOD
+    2 : ula_op  <= 6'd1;     //    LDI   -> Load with indirect addressing
+    3 : ula_op  <= 6'd1;     //    ILI   -> Load with bit-reversed indirect addressing
+    4 : ula_op  <= 6'd0;     //    SET   -> stores accumulator value into memory
+    6 : ula_op  <= 6'd0;     //    STI   -> Set with indirect addressing
+    7 : ula_op  <= 6'd0;     //    ISI   -> STI with bit-reversed addressing
     8 : ula_op  <= 6'd0;     //    PSH
     9 : ula_op  <= 6'd1;     //    POP
-    10: ula_op  <= 6'd0;     //    INN   -> Input de dados
-    11: ula_op  <= 6'd25;    //  F_INN   -> Input de dados em ponto flutuante (fazendo I2F)
+    10: ula_op  <= 6'd0;     //    INN   -> Data input
+    11: ula_op  <= 6'd25;    //  F_INN   -> Floating-point data input (performing I2F)
     12: ula_op  <= 6'd0;     //  P_INN   -> PUSH + INN
     13: ula_op  <= 6'd25;    // PF_INN   -> PUSH + F_INN
-    14: ula_op  <= 6'd0;     //    OUT   -> Output de Dados
-    15: ula_op  <= 6'd0;     //    JMP (ver prefetch)
-    16: ula_op  <= 6'd0;     //    JIZ (ver prefetch)
-    17: ula_op  <= 6'd0;     //    CAL (ver prefetch)
+    14: ula_op  <= 6'd0;     //    OUT   -> Data output
+    15: ula_op  <= 6'd0;     //    JMP (see prefetch)
+    16: ula_op  <= 6'd0;     //    JIZ (see prefetch)
+    17: ula_op  <= 6'd0;     //    CAL (see prefetch)
     18: ula_op  <= 6'd0;     //    RET
-    19: ula_op  <= 6'd2;     //    ADD   -> adicao com a memoria
-    20: ula_op  <= 6'd2;     //  S_ADD   -> adicao com a pilha
-    21: ula_op  <= 6'd3;     //  F_ADD   -> adicao em ponto flutuante com a memoria
-    22: ula_op  <= 6'd3;     // SF_ADD   -> adicao em ponto flutuante com pilha
-    23: ula_op  <= 6'd4;     //    MLT   -> multiplica dado da memoria com o acumulador
-    24: ula_op  <= 6'd4;     //  S_MLT   -> multiplicacao com a pilha
-    25: ula_op  <= 6'd5;     //  F_MLT   -> multiplicacao em ponto flutuante com a memoria
-    26: ula_op  <= 6'd5;     // SF_MLT   -> multiplicacao em ponto flutuante com pilha
-    27: ula_op  <= 6'd6;     //    DIV   -> divide com memoria
-    28: ula_op  <= 6'd6;     //  S_DIV   -> divide com pilha
-    29: ula_op  <= 6'd7;     //  F_DIV   -> divisao em ponto flutuante com a memoria
-    30: ula_op  <= 6'd7;     // SF_DIV   -> divisao em ponto flutuante com pilha
-    31: ula_op  <= 6'd8;     //    MOD   -> modulo da divisao com memoria
-    32: ula_op  <= 6'd8;     //  S_MOD   -> modulo da divisao com pilha
-    33: ula_op  <= 6'd9;     //    SGN   -> pega o sinal de in1 e coloca en in2
-    34: ula_op  <= 6'd9;     //  S_SGN   -> SGN com pilha
-    35: ula_op  <= 6'd10;    //  F_SGN   -> SGN em ponto flutuante com a memoria
-    36: ula_op  <= 6'd10;    // SF_SGN   -> SGN em ponto flutuante com pilha
-    37: ula_op  <= 6'd11;    //    NEG   -> Complemento a 2
-    38: ula_op  <= 6'd12;    //    NEG_M -> negativo com memoria
-    39: ula_op  <= 6'd12;    //  P_NEG_M -> negativo com memoria dando push antes
-    40: ula_op  <= 6'd13;    //  F_NEG   -> negativo em ponto flutuante com acc
-    41: ula_op  <= 6'd14;    //  F_NEG_M -> negativo em ponto flutuante com memoria
-    42: ula_op  <= 6'd14;    // PF_NEG_M -> negativo em ponto flutuante com memoria dando um push antes
-    43: ula_op  <= 6'd15;    //    ABS   -> retorna o valor absoluto do acc (exemplo: x = abs(y))
-    44: ula_op  <= 6'd16;    //    ABS_M -> ABS com memoria
-    45: ula_op  <= 6'd16;    //  P_ABS_M -> ABS com memoria dando push antes
-    46: ula_op  <= 6'd17;    //  F_ABS   -> ABS em ponto flutuante
-    47: ula_op  <= 6'd18;    //  F_ABS_M -> ABS em ponto flutuante com memoria
-    48: ula_op  <= 6'd18;    // PF_ABS_M -> ABS em ponto flutuante com memoria dando push antes
-    49: ula_op  <= 6'd19;    //    PST   -> carrega o valor do acumulador ou zero se for negativo
-    50: ula_op  <= 6'd20;    //    PST_M -> PST com memoria
-    51: ula_op  <= 6'd20;    //  P_PST_M -> PST com memoria dando push antes
-    52: ula_op  <= 6'd21;    //  F_PST   -> PST em ponto flutuante
-    53: ula_op  <= 6'd22;    //  F_PST_M -> PST em ponto flutuante com memoria
-    54: ula_op  <= 6'd22;    // PF_PST_M -> PST em ponto flutuante com memoria dando push antes
-    55: ula_op  <= 6'd23;    //    NRM   -> Divisao do acc por uma constante (exemplo: />300)
-    56: ula_op  <= 6'd24;    //    NRM_M -> NRM com memoria
-    57: ula_op  <= 6'd24;    //  P_NRM_M -> NRM com memoria dando push antes
-    58: ula_op  <= 6'd25;    //    I2F   -> int2float com acumulador
-    59: ula_op  <= 6'd26;    //    I2F_M -> int2float com memoria
-    60: ula_op  <= 6'd26;    //  P_I2F_M -> int2float com memoria, dando um push antes
-    61: ula_op  <= 6'd27;    //    F2I   -> float2int com acumulador
-    62: ula_op  <= 6'd28;    //    F2I_M -> float2int com memoria
-    63: ula_op  <= 6'd28;    //  P_F2I_M -> float2int com memoria, dando um push antes
-    64: ula_op  <= 6'd29;    //    AND   -> and bit a bit com memoria
-    65: ula_op  <= 6'd29;    //  S_AND   -> and bit a bit com pilha
-    66: ula_op  <= 6'd30;    //    ORR   -> ou bit a bit com memoria
-    67: ula_op  <= 6'd30;    //  S_ORR   -> ou bit a bit com pilha
-    68: ula_op  <= 6'd31;    //    XOR   -> ou exclusivo bit a bit com memoria
-    69: ula_op  <= 6'd31;    //  S_XOR   -> ou exclusivo bit a bit com pilha
-    70: ula_op  <= 6'd32;    //    INV   -> Inverte bit a bit o acumulador
-    71: ula_op  <= 6'd33;    //    INV_M -> INV com memoria
-    72: ula_op  <= 6'd33;    //  P_INV_M -> INV com memoria dando push antes
-    73: ula_op  <= 6'd34;    //    LAN   -> and logico com memoria
-    74: ula_op  <= 6'd34;    //  S_LAN   -> and logico com pilha
-    75: ula_op  <= 6'd35;    //    LOR   -> ou logico com memoria
-    76: ula_op  <= 6'd35;    //  S_LOR   -> ou logico com pilha
-    77: ula_op  <= 6'd36;    //    LIN   -> Inverte bit condicional
-    78: ula_op  <= 6'd37;    //    LIN_M -> LIN com memoria
-    79: ula_op  <= 6'd37;    //  P_LIN_M -> LIN com memoria dando push antes
-    80: ula_op  <= 6'd38;    //    LES   -> Menor do que com memoria
-    81: ula_op  <= 6'd38;    //  S_LES   -> Menor do que com a pilha
-    82: ula_op  <= 6'd39;    //  F_LES   -> menor que em ponto flutuante com a memoria
-    83: ula_op  <= 6'd39;    // SF_LES   -> menor que em ponto flutuante com pilha
-    84: ula_op  <= 6'd40;    //    GRE   -> maior do que com memoria
-    85: ula_op  <= 6'd40;    //  S_GRE   -> maior do que com pilha
-    86: ula_op  <= 6'd41;    //  F_GRE   -> maior que em ponto flutuante com a memoria
-    87: ula_op  <= 6'd41;    // SF_GRE   -> maior que em ponto flutuante com pilha
-    88: ula_op  <= 6'd42;    //    EQU   -> Igual com memoria
-    89: ula_op  <= 6'd42;    //  S_EQU   -> Igual com a pilha
-    90: ula_op  <= 6'd43;    //    SHL   -> shift pra esquerda com memoria
-    91: ula_op  <= 6'd43;    //  S_SHL   -> shift pra esquerda com pilha
-    92: ula_op  <= 6'd44;    //    SHR   -> Shift pra direita com memoria
-    93: ula_op  <= 6'd44;    //  S_SHR   -> Shift pra direita com pilha
-    94: ula_op  <= 6'd45;    //    SRS   -> Shift pra direita com sinal usando a memoria
-    95: ula_op  <= 6'd45;    //  S_SRS   -> Shift pra direita com sinal usando a pilha
+    19: ula_op  <= 6'd2;     //    ADD   -> addition with memory
+    20: ula_op  <= 6'd2;     //  S_ADD   -> addition with stack
+    21: ula_op  <= 6'd3;     //  F_ADD   -> floating-point addition with memory
+    22: ula_op  <= 6'd3;     // SF_ADD   -> floating-point addition with stack
+    23: ula_op  <= 6'd4;     //    MLT   -> multiplies memory data with accumulator
+    24: ula_op  <= 6'd4;     //  S_MLT   -> multiplication with stack
+    25: ula_op  <= 6'd5;     //  F_MLT   -> floating-point multiplication with memory
+    26: ula_op  <= 6'd5;     // SF_MLT   -> floating-point multiplication with stack
+    27: ula_op  <= 6'd6;     //    DIV   -> division with memory
+    28: ula_op  <= 6'd6;     //  S_DIV   -> division with stack
+    29: ula_op  <= 6'd7;     //  F_DIV   -> floating-point division with memory
+    30: ula_op  <= 6'd7;     // SF_DIV   -> floating-point division with stack
+    31: ula_op  <= 6'd8;     //    MOD   -> division remainder with memory
+    32: ula_op  <= 6'd8;     //  S_MOD   -> division remainder with stack
+    33: ula_op  <= 6'd9;     //    SGN   -> takes the sign of in1 and applies it to in2
+    34: ula_op  <= 6'd9;     //  S_SGN   -> SGN with stack
+    35: ula_op  <= 6'd10;    //  F_SGN   -> floating-point SGN with memory
+    36: ula_op  <= 6'd10;    // SF_SGN   -> floating-point SGN with stack
+    37: ula_op  <= 6'd11;    //    NEG   -> Two's complement
+    38: ula_op  <= 6'd12;    //    NEG_M -> negation with memory
+    39: ula_op  <= 6'd12;    //  P_NEG_M -> negation with memory, push before
+    40: ula_op  <= 6'd13;    //  F_NEG   -> floating-point negation with acc
+    41: ula_op  <= 6'd14;    //  F_NEG_M -> floating-point negation with memory
+    42: ula_op  <= 6'd14;    // PF_NEG_M -> floating-point negation with memory, push before
+    43: ula_op  <= 6'd15;    //    ABS   -> returns absolute value of acc (example: x = abs(y))
+    44: ula_op  <= 6'd16;    //    ABS_M -> ABS with memory
+    45: ula_op  <= 6'd16;    //  P_ABS_M -> ABS with memory, push before
+    46: ula_op  <= 6'd17;    //  F_ABS   -> floating-point ABS
+    47: ula_op  <= 6'd18;    //  F_ABS_M -> floating-point ABS with memory
+    48: ula_op  <= 6'd18;    // PF_ABS_M -> floating-point ABS with memory, push before
+    49: ula_op  <= 6'd19;    //    PST   -> loads accumulator value, or zero if negative
+    50: ula_op  <= 6'd20;    //    PST_M -> PST with memory
+    51: ula_op  <= 6'd20;    //  P_PST_M -> PST with memory, push before
+    52: ula_op  <= 6'd21;    //  F_PST   -> floating-point PST
+    53: ula_op  <= 6'd22;    //  F_PST_M -> floating-point PST with memory
+    54: ula_op  <= 6'd22;    // PF_PST_M -> floating-point PST with memory, push before
+    55: ula_op  <= 6'd23;    //    NRM   -> Division of acc by a constant (example: />300)
+    56: ula_op  <= 6'd24;    //    NRM_M -> NRM with memory
+    57: ula_op  <= 6'd24;    //  P_NRM_M -> NRM with memory, push before
+    58: ula_op  <= 6'd25;    //    I2F   -> int2float with accumulator
+    59: ula_op  <= 6'd26;    //    I2F_M -> int2float with memory
+    60: ula_op  <= 6'd26;    //  P_I2F_M -> int2float with memory, push before
+    61: ula_op  <= 6'd27;    //    F2I   -> float2int with accumulator
+    62: ula_op  <= 6'd28;    //    F2I_M -> float2int with memory
+    63: ula_op  <= 6'd28;    //  P_F2I_M -> float2int with memory, push before
+    64: ula_op  <= 6'd29;    //    AND   -> bitwise AND with memory
+    65: ula_op  <= 6'd29;    //  S_AND   -> bitwise AND with stack
+    66: ula_op  <= 6'd30;    //    ORR   -> bitwise OR with memory
+    67: ula_op  <= 6'd30;    //  S_ORR   -> bitwise OR with stack
+    68: ula_op  <= 6'd31;    //    XOR   -> bitwise XOR with memory
+    69: ula_op  <= 6'd31;    //  S_XOR   -> bitwise XOR with stack
+    70: ula_op  <= 6'd32;    //    INV   -> Bitwise inversion of accumulator
+    71: ula_op  <= 6'd33;    //    INV_M -> INV with memory
+    72: ula_op  <= 6'd33;    //  P_INV_M -> INV with memory, push before
+    73: ula_op  <= 6'd34;    //    LAN   -> logical AND with memory
+    74: ula_op  <= 6'd34;    //  S_LAN   -> logical AND with stack
+    75: ula_op  <= 6'd35;    //    LOR   -> logical OR with memory
+    76: ula_op  <= 6'd35;    //  S_LOR   -> logical OR with stack
+    77: ula_op  <= 6'd36;    //    LIN   -> Conditional bit inversion
+    78: ula_op  <= 6'd37;    //    LIN_M -> LIN with memory
+    79: ula_op  <= 6'd37;    //  P_LIN_M -> LIN with memory, push before
+    80: ula_op  <= 6'd38;    //    LES   -> Less-than with memory
+    81: ula_op  <= 6'd38;    //  S_LES   -> Less-than with stack
+    82: ula_op  <= 6'd39;    //  F_LES   -> floating-point less-than with memory
+    83: ula_op  <= 6'd39;    // SF_LES   -> floating-point less-than with stack
+    84: ula_op  <= 6'd40;    //    GRE   -> greater-than with memory
+    85: ula_op  <= 6'd40;    //  S_GRE   -> greater-than with stack
+    86: ula_op  <= 6'd41;    //  F_GRE   -> floating-point greater-than with memory
+    87: ula_op  <= 6'd41;    // SF_GRE   -> floating-point greater-than with stack
+    88: ula_op  <= 6'd42;    //    EQU   -> Equal with memory
+    89: ula_op  <= 6'd42;    //  S_EQU   -> Equal with stack
+    90: ula_op  <= 6'd43;    //    SHL   -> left shift with memory
+    91: ula_op  <= 6'd43;    //  S_SHL   -> left shift with stack
+    92: ula_op  <= 6'd44;    //    SHR   -> right shift with memory
+    93: ula_op  <= 6'd44;    //  S_SHR   -> right shift with stack
+    94: ula_op  <= 6'd45;    //    SRS   -> signed right shift using memory
+    95: ula_op  <= 6'd45;    //  S_SRS   -> signed right shift using stack
     96: ula_op  <= 6'dx;     //    NOP   -> No Operation
-    97: ula_op  <= 6'd46;    //  F_ROT   -> Raiz quadrada em ponto flutuante
-    98: ula_op  <= 6'd47;    //  F_SU1   -> subtracao em ponto flutuante com a memoria na entrada 1
-    99: ula_op  <= 6'd48;    //  F_SU2   -> subtracao em ponto flutuante com a memoria na entrada 2
-   100: ula_op  <= 6'd47;    // SF_SU1   -> subtracao em ponto flutuante com a pilha na entrada 1
-   101: ula_op  <= 6'd48;    // SF_SU2   -> subtracao em ponto flutuante com a pilha na entrada 2
+    97: ula_op  <= 6'd46;    //  F_ROT   -> floating-point square root
+    98: ula_op  <= 6'd47;    //  F_SU1   -> floating-point subtraction with memory at input 1
+    99: ula_op  <= 6'd48;    //  F_SU2   -> floating-point subtraction with memory at input 2
+   100: ula_op  <= 6'd47;    // SF_SU1   -> floating-point subtraction with stack at input 1
+   101: ula_op  <= 6'd48;    // SF_SU2   -> floating-point subtraction with stack at input 2
     ------------------------------------------------*/

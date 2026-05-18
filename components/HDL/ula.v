@@ -1,46 +1,46 @@
 // ****************************************************************************
-// Multiplexador principal ****************************************************
+// Main multiplexer ***********************************************************
 // ****************************************************************************
 
-// seleciona qual operacao passa para a saida ---------------------------------
+// selects which operation goes to the output ---------------------------------
 
 module ula_mux
 #(
 	 parameter NUBITS = 32
  )(
-	 // indexador da operacao
+	 // operation index
 	 input     [       5:0] op  ,
-	 // sai uma das entradas (in1 -> pega da memoria, in2 -> pega do acumulador)
+	 // outputs one of the inputs (in1 -> from memory, in2 -> from accumulator)
 	 input     [NUBITS-1:0] in1 , in2,
-	 // operacoes aritmeticas de dois parametros
+	 // two-parameter arithmetic operations
 	 input     [NUBITS-1:0] add ,
 	 input     [NUBITS-1:0] mlt ,
 	 input     [NUBITS-1:0] div ,
-	 input     [NUBITS-1:0] mod ,                    // soh pra int
+	 input     [NUBITS-1:0] mod ,                    // int-only
 	 input     [NUBITS-1:0] sgn , fsgn,
-	 // operacoes aritmeticas de um parametro
+	 // one-parameter arithmetic operations
 	 input     [NUBITS-1:0] neg , negm, fneg, fnegm,
 	 input     [NUBITS-1:0] abs , absm, fabs, fabsm,
 	 input     [NUBITS-1:0] pst , pstm, fpst, fpstm,
-	 input     [NUBITS-1:0] nrm , nrmm,              // soh pra int
+	 input     [NUBITS-1:0] nrm , nrmm,              // int-only
 	 input     [NUBITS-1:0] f2i , f2im,
-	 // operacoes logicas de dois parametros
+	 // two-parameter logical operations
 	 input     [NUBITS-1:0] ann , orr , cor ,        // and, or, xor
-	 // operacoes logicas de um parametro
+	 // one-parameter logical operations
 	 input     [NUBITS-1:0] inv , invm,              // not
-	 // operacoes condicionais de dois parametros
-	 input     [NUBITS-1:0] lan , lor ,              // soh pra int
-	 // operacoes condicionais de um parametro
-	 input     [NUBITS-1:0] lin , linm,              // soh pra int
-	 // operacoes de comparacao
+	 // two-parameter conditional operations
+	 input     [NUBITS-1:0] lan , lor ,              // int-only
+	 // one-parameter conditional operations
+	 input     [NUBITS-1:0] lin , linm,              // int-only
+	 // comparison operations
 	 input     [NUBITS-1:0] les , fles,
 	 input     [NUBITS-1:0] gre , fgre,
-	 input     [NUBITS-1:0] equ ,                    // serve pra int e float
-	 // operacoes de deslocamento de bits
-	 input     [NUBITS-1:0] shl , shr , srs ,        // <<, >> e >>>
-	 // operacoes vindas do circuito de normalizacao
-	 input     [NUBITS-1:0] smx ,                    // soh pra float com denorm.
-	 // saida
+	 input     [NUBITS-1:0] equ ,                    // works for int and float
+	 // bit-shift operations
+	 input     [NUBITS-1:0] shl , shr , srs ,        // <<, >> and >>>
+	 // operations from the normalization circuit
+	 input     [NUBITS-1:0] smx ,                    // float-only with denorm.
+	 // output
 	output reg [NUBITS-1:0] out
 );
 
@@ -121,58 +121,58 @@ endcase
 endmodule
 
 // ****************************************************************************
-// Circuitos auxiliares para operacoes em ponto flutuante *********************
+// Auxiliary circuits for floating-point operations ***************************
 // ****************************************************************************
 
-// iguala o expoente de dois numeros -----------------------------------------
-// pra algumas operacoes que pedem mant. na mesma ordem de grandeza. ex: F_ADD
+// equalizes the exponent of two numbers --------------------------------------
+// for operations that require mantissas at the same order of magnitude. e.g., F_ADD
 
 module ula_denorm
 #(
 	parameter MAN = 23,
 	parameter EXP =  8
 )(
-	 input                            neg1, neg2,       // inverte o sinal
+	 input                            neg1, neg2,       // invert the sign
 	 input            [MAN+EXP :0]     in1,  in2,
 	output reg signed [EXP-1   :0]   e_out,
 	output reg signed [MAN     :0] sm1_out, sm2_out
 );
 
-// desempacota as entradas registradas ----------------------------------------
+// unpack the registered inputs -----------------------------------------------
 
-wire                  s1_in = (neg1) ? ~in1[MAN+EXP] : in1[MAN+EXP]; 
-wire                  s2_in = (neg2) ? ~in2[MAN+EXP] : in2[MAN+EXP]; 
+wire                  s1_in = (neg1) ? ~in1[MAN+EXP] : in1[MAN+EXP];
+wire                  s2_in = (neg2) ? ~in2[MAN+EXP] : in2[MAN+EXP];
 wire signed [EXP-1:0] e1_in = in1[MAN+EXP-1:MAN];
 wire signed [EXP-1:0] e2_in = in2[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1_in = in1[MAN    -1:0  ];
 wire        [MAN-1:0] m2_in = in2[MAN    -1:0  ];
 
-// calcula o shift ------------------------------------------------------------
-// o expoente menor shifta para igualar ao maior ------------------------------
+// compute the shift ----------------------------------------------------------
+// the smaller exponent shifts to match the larger ----------------------------
 
-wire signed [EXP:0] eme    =  e1_in-e2_in;                           // subtracao e1-e2
-wire                ege    =  eme     [EXP];                         // guarda o sinal da subtracao
-wire        [EXP:0] shift2 = (ege) ?  {EXP+1{1'b0}} : eme;           // shift da entrada 2
-wire        [EXP:0] shift1 = (ege) ? -eme           : {EXP+1{1'b0}}; // shift da entrada 1
+wire signed [EXP:0] eme    =  e1_in-e2_in;                           // subtraction e1-e2
+wire                ege    =  eme     [EXP];                         // save the sign of the subtraction
+wire        [EXP:0] shift2 = (ege) ?  {EXP+1{1'b0}} : eme;           // shift of input 2
+wire        [EXP:0] shift1 = (ege) ? -eme           : {EXP+1{1'b0}}; // shift of input 1
 
-// pega o expoente final ------------------------------------------------------
+// take the final exponent ----------------------------------------------------
 
-always @ (*) e_out <= (ege) ? e2_in : e1_in; // o expoente final eh o maior
+always @ (*) e_out <= (ege) ? e2_in : e1_in; // the final exponent is the larger
 
-// shifta pra direita a mantissa com exp menor --------------------------------
+// right-shift the mantissa with smaller exp ----------------------------------
 
 wire [MAN-1:0] m1_out = m1_in >> shift1;
 wire [MAN-1:0] m2_out = m2_in >> shift2;
 
-// calcula as mantissas com sinal ---------------------------------------------
+// compute the signed mantissas -----------------------------------------------
 
 always @ (*) sm1_out <= (s1_in) ? -m1_out : m1_out;
 always @ (*) sm2_out <= (s2_in) ? -m2_out : m2_out;
 
 endmodule
 
-// multiplexador do modulo de normalizacao ------------------------------------
-// auxilia no circuito de normalizaca de um num. em ponto flutuante -----------
+// multiplexer of the normalization module ------------------------------------
+// assists the normalization circuit of a floating-point number ---------------
 
 module ula_nmux
 #(
@@ -188,8 +188,8 @@ assign out = (A==B) ? in1 : in2;
 
 endmodule
 
-// normalizacao de um numero em ponto flutuante -------------------------------
-// shift pra esquerda ate o bit mais significativo da mantissa ser 1 ----------
+// normalization of a floating-point number -----------------------------------
+// left-shift until the most significant bit of the mantissa is 1 -------------
 
 module ula_norm
 #(
@@ -225,7 +225,7 @@ assign out = {out_s, out_e, out_m};
 
 endmodule
 
-// multiplexador das operacoes que precisam de normalizacao -------------------
+// multiplexer of operations that require normalization -----------------------
 
 module norm_mux
 #(
@@ -242,7 +242,7 @@ module norm_mux
 	output [NUBITS-1:0] out
 );
 
-// multiplexador de entrada
+// input multiplexer
 reg [NUBITS-1:0] imux_out;
 
 always @ (*) case (op)
@@ -252,35 +252,35 @@ always @ (*) case (op)
 	6'd25  : imux_out <=   i2f ;   //   I2F
 	6'd26  : imux_out <=   i2fm;   //   I2F_M
 	6'd46  : imux_out <=  frot ;   // F_ROT
-	6'd47  : imux_out <=  fadd ;   // F_SU1 (usa o mesmo circuito de soma)
-	6'd48  : imux_out <=  fadd ;   // F_SU2 (usa o mesmo circuito de soma)
+	6'd47  : imux_out <=  fadd ;   // F_SU1 (uses the same addition circuit)
+	6'd48  : imux_out <=  fadd ;   // F_SU2 (uses the same addition circuit)
 	default: imux_out <= {NUBITS{1'bx}};
 endcase
 
-// faz a normalizacao
+// perform the normalization
 ula_norm #(NBMANT,NBEXPO) ula_norm (imux_out, out);
 
 endmodule
 
 // ****************************************************************************
-// Operacoes aritmeticas de dois parametros ***********************************
+// Two-parameter arithmetic operations ****************************************
 // ****************************************************************************
 
-// ADD - soma em ponto-fixo ---------------------------------------------------
+// ADD - fixed-point addition -------------------------------------------------
 
 module ula_add
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = in1 + in2;
 
 endmodule
 
-// F_ADD - soma em ponto-flutuante --------------------------------------------
+// F_ADD - floating-point addition --------------------------------------------
 
 module ula_fadd
 #(
@@ -288,36 +288,36 @@ module ula_fadd
 	parameter EXP =  8
 )(
 	input  signed [EXP-1   :0] e_in,
-	input  signed [MAN     :0] sm1_in, sm2_in,                // ja entra com um bit a mais de sinal
+	input  signed [MAN     :0] sm1_in, sm2_in,                // already comes in with one extra sign bit
 	output        [MAN+EXP :0] out
 );
 
-wire signed [MAN+1:0] soma =  sm1_in + sm2_in;                // coloca ainda mais um bit para nao dar overflow
-wire signed [MAN+1:0] m    = (soma[MAN+1]) ? -soma : soma;    // faz o abs() na mantissa
+wire signed [MAN+1:0] soma =  sm1_in + sm2_in;                // add one more bit to avoid overflow
+wire signed [MAN+1:0] m    = (soma[MAN+1]) ? -soma : soma;    // compute abs() of the mantissa
 
 wire                  s_out = soma    [MAN+1];
-wire signed [EXP-1:0] e_out = e_in + {{EXP-1{1'b0}}, {1'b1}}; // soma um no expoente pra compensar o shift na mantissa
-wire        [MAN-1:0] m_out = m       [MAN:1];                // esse shift eh pq a soma pode dar um numero maior do que a mantissa
+wire signed [EXP-1:0] e_out = e_in + {{EXP-1{1'b0}}, {1'b1}}; // add one to the exponent to compensate for the mantissa shift
+wire        [MAN-1:0] m_out = m       [MAN:1];                // this shift is because the sum may produce a number larger than the mantissa
 
 assign out = {s_out, e_out, m_out};
 
 endmodule
 
-// MLT - multiplicacao em ponto-fixo ------------------------------------------
+// MLT - fixed-point multiplication -------------------------------------------
 
 module ula_mlt
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = in1 * in2;
 
 endmodule
 
-// F_MLT - multiplicacao em ponto-flutuante -----------------------------------
+// F_MLT - floating-point multiplication --------------------------------------
 
 module ula_fmlt
 #(
@@ -328,49 +328,49 @@ module ula_fmlt
 	output reg [MAN+EXP :0] out
 );
 
-// separa as partes dos sinais de entrada -------------------------------------
+// separate the parts of the input signals ------------------------------------
 
-wire                  s1 = in1[MAN+EXP      ]; 
-wire                  s2 = in2[MAN+EXP      ]; 
+wire                  s1 = in1[MAN+EXP      ];
+wire                  s2 = in2[MAN+EXP      ];
 wire signed [EXP-1:0] e1 = in1[MAN+EXP-1:MAN];
 wire signed [EXP-1:0] e2 = in2[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1 = in1[MAN    -1:0  ];
 wire        [MAN-1:0] m2 = in2[MAN    -1:0  ];
 
-// calcula o sinal -----------------------------------------------------------
+// compute the sign -----------------------------------------------------------
 
 wire s_out = (s1 != s2);
 
-// calcula o valor do expoente ------------------------------------------------
+// compute the exponent value -------------------------------------------------
 
 wire signed [EXP-1:0] e_out = e1 + e2 + MAN[EXP-1:0];
 
-// calcula o valor da mantissa ------------------------------------------------
+// compute the mantissa value -------------------------------------------------
 
 wire [2*MAN-1:0] mult  = m1 * m2;
 wire [MAN  -1:0] m_out = mult[2*MAN-1:MAN];
 
-// finaliza -------------------------------------------------------------------
+// finalize -------------------------------------------------------------------
 
 always @ (*) if (m_out != {{MAN{1'b0}}}) out <= {s_out, e_out, m_out}; else out <= {1'b0, 1'b1, {{EXP-1{1'b0}}}, {{MAN{1'b0}}}};
 
 endmodule
 
-// DIV - divisao em ponto-fixo ------------------------------------------------
+// DIV - fixed-point division -------------------------------------------------
 
 module ula_div
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = in1 / in2;
 
 endmodule
 
-// F_DIV - divisao em ponto-flutuante -----------------------------------------
+// F_DIV - floating-point division --------------------------------------------
 
 module ula_fdiv
 #(
@@ -381,8 +381,8 @@ module ula_fdiv
 	output [MAN+EXP :0] out
 );
 
-wire                  s1 = in1[MAN+EXP      ]; 
-wire                  s2 = in2[MAN+EXP      ]; 
+wire                  s1 = in1[MAN+EXP      ];
+wire                  s2 = in2[MAN+EXP      ];
 wire signed [EXP-1:0] e1 = in1[MAN+EXP-1:MAN];
 wire signed [EXP-1:0] e2 = in2[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m1 = in1[MAN    -1:0  ];
@@ -399,35 +399,35 @@ assign out = {s_out, e_out, m_out};
 
 endmodule
 
-// MOD - resto da divisao -----------------------------------------------------
+// MOD - division remainder ---------------------------------------------------
 
 module ula_mod
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = in1 % in2;
 
 endmodule
 
-// SGN - pega sinal do primeiro argumento -------------------------------------
+// SGN - takes the sign of the first argument ---------------------------------
 
 module ula_sgn
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out =  (in1[NUBITS-1] == in2[NUBITS-1]) ? in2 : -in2;
 
 endmodule
 
-// F_SGN - pega sinal do primeiro argumento em float --------------------------
+// F_SGN - takes the sign of the first argument in float ----------------------
 
 module ula_fsgn
 #(
@@ -435,7 +435,7 @@ module ula_fsgn
 	parameter EXP = 8
 )(
 	 input [MAN+EXP:0] in1, in2,
-	output [MAN+EXP:0] out 
+	output [MAN+EXP:0] out
 );
 
 wire                  s_out = in1[EXP+MAN];
@@ -447,24 +447,24 @@ assign out = {s_out, e_out, m_out};
 endmodule
 
 // ****************************************************************************
-// Operacoes aritmeticas de um parametro **************************************
+// One-parameter arithmetic operations ****************************************
 // ****************************************************************************
 
-// NEG - negacao de um numero inteiro -----------------------------------------
+// NEG - negation of an integer -----------------------------------------------
 
 module ula_neg
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = -in;
 
 endmodule
 
-// F_NEG - negacao de um numero em ponto flutuante ----------------------------
+// F_NEG - negation of a floating-point number --------------------------------
 
 module ula_fneg
 #(
@@ -475,7 +475,7 @@ module ula_fneg
 	output [MAN+EXP:0] out
 );
 
-wire                  s_in = in[MAN+EXP      ]; 
+wire                  s_in = in[MAN+EXP      ];
 wire signed [EXP-1:0] e_in = in[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m_in = in[MAN    -1:0  ];
 
@@ -487,21 +487,21 @@ assign out = {s_out, e_out, m_out};
 
 endmodule
 
-// ABS - modulo de um numero inteiro ------------------------------------------
+// ABS - absolute value of an integer -----------------------------------------
 
 module ula_abs
 #(
 	parameter NUBITS = 32
 )(
 	 input [NUBITS-1:0] in,
-	output [NUBITS-1:0] out 
+	output [NUBITS-1:0] out
 );
 
 assign out = (in[NUBITS-1]) ? -in : in;
 
 endmodule
 
-// F_ABS - modulo de um numero em ponto flutuante -----------------------------
+// F_ABS - absolute value of a floating-point number --------------------------
 
 module ula_fabs
 #(
@@ -520,21 +520,21 @@ assign out = {s_out, e_out, m_out};
 
 endmodule
 
-// PST - zera se for negativo -------------------------------------------------
+// PST - zero if negative -----------------------------------------------------
 
 module ula_pst
 #(
 	parameter NUBITS = 32
 )(
 	 input [NUBITS-1:0] in,
-	output [NUBITS-1:0] out 
+	output [NUBITS-1:0] out
 );
 
 assign out = (in[NUBITS-1]) ? {NUBITS{1'b0}} : in;
 
 endmodule
 
-// F_PST - zera se for negativo com float -------------------------------------
+// F_PST - zero if negative for float -----------------------------------------
 
 module ula_fpst
 #(
@@ -549,7 +549,7 @@ assign out = (in[MAN+EXP]) ? {1'b0, 1'b1, {MAN+EXP-1{1'b0}}} : in;
 
 endmodule
 
-// NRM - divisao por uma constante --------------------------------------------
+// NRM - division by a constant -----------------------------------------------
 
 module ula_nrm
 #(
@@ -557,14 +557,14 @@ module ula_nrm
 	parameter signed  NUGAIN =  1
 )(
 	 input    signed [NUBITS-1:0] in,
-	output    signed [NUBITS-1:0] out 
+	output    signed [NUBITS-1:0] out
 );
 
 assign out = in/NUGAIN;
 
 endmodule
 
-// I2F - converte int para float ----------------------------------------------
+// I2F - converts int to float ------------------------------------------------
 
 module ula_i2f
 #(
@@ -583,7 +583,7 @@ assign out = {i2f_s, i2f_e, i2f_m};
 
 endmodule
 
-// F2I - converte float para int ----------------------------------------------
+// F2I - converts float to int ------------------------------------------------
 
 module ula_f2i
 #(
@@ -606,45 +606,45 @@ always @ (*) out  = (e[EXP-1]) ? sm >>> shift : sm << shift;
 endmodule
 
 // ****************************************************************************
-// Operacoes logicas de dois parametros ***************************************
+// Two-parameter logical operations *******************************************
 // ****************************************************************************
 
-// AND - and bit a bit (&) ----------------------------------------------------
+// AND - bitwise AND (&) ------------------------------------------------------
 
 module ula_and
 #(
 	parameter NUBITS = 32
 )(
 	 input [NUBITS-1:0] in1, in2,
-	output [NUBITS-1:0] out 
+	output [NUBITS-1:0] out
 );
 
 assign out = in1 & in2;
 
 endmodule
 
-// ORR - ou bit a bit (|) -----------------------------------------------------
+// ORR - bitwise OR (|) -------------------------------------------------------
 
 module ula_or
 #(
 	parameter NUBITS = 32
 )(
 	 input [NUBITS-1:0] in1, in2,
-	output [NUBITS-1:0] out 
+	output [NUBITS-1:0] out
 );
 
 assign out = in1 | in2;
 
 endmodule
 
-// XOR - ou exclusivo bit a bit (^) -------------------------------------------
+// XOR - bitwise XOR (^) ------------------------------------------------------
 
 module ula_xor
 #(
 	parameter NUBITS = 32
 )(
 	 input [NUBITS-1:0] in1, in2,
-	output [NUBITS-1:0] out 
+	output [NUBITS-1:0] out
 );
 
 assign out = (in1 ^ in2);
@@ -652,17 +652,17 @@ assign out = (in1 ^ in2);
 endmodule
 
 // ****************************************************************************
-// Operacoes logicas de um parametro ******************************************
+// One-parameter logical operations *******************************************
 // ****************************************************************************
 
-// INV - inversao bit a bit (~) -----------------------------------------------
+// INV - bitwise inversion (~) ------------------------------------------------
 
 module ula_inv
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = ~in;
@@ -670,31 +670,31 @@ assign out = ~in;
 endmodule
 
 // ****************************************************************************
-// Operacoes condicionais de dois parametros **********************************
+// Two-parameter conditional operations ***************************************
 // ****************************************************************************
 
-// LAN - se uma das condicoes for zero -> sai zero (&&) -----------------------
+// LAN - if one of the conditions is zero -> outputs zero (&&) ----------------
 
 module ula_lan
 #(
 	parameter  NUBITS = 32
 )(
 	 input    [NUBITS-1:0] in1, in2,
-	output    [NUBITS-1:0] out 
+	output    [NUBITS-1:0] out
 );
 
 assign out = ((in1 == {NUBITS{1'b0}}) || (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
 
 endmodule
 
-// LOR - se uma das condicoes for um -> sai um (||) ---------------------------
+// LOR - if one of the conditions is one -> outputs one (||) ------------------
 
 module ula_lor
 #(
 	parameter  NUBITS = 32
 )(
 	 input    [NUBITS-1:0] in1, in2,
-	output    [NUBITS-1:0] out 
+	output    [NUBITS-1:0] out
 );
 
 assign out = ((in1 == {NUBITS{1'b0}}) && (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0}} : {{NUBITS-1{1'b0}}, 1'b1};
@@ -702,17 +702,17 @@ assign out = ((in1 == {NUBITS{1'b0}}) && (in2 == {NUBITS{1'b0}})) ? {NUBITS{1'b0
 endmodule
 
 // ****************************************************************************
-// Operacoes condicionais de um parametro *************************************
+// One-parameter conditional operations ***************************************
 // ****************************************************************************
 
-// LIN - inverte a condicao ---------------------------------------------------
+// LIN - inverts the condition ------------------------------------------------
 
 module ula_lin
 #(
 	parameter NUBITS = 32
 )(
 	 input   [NUBITS-1:0] in,
-	output   [NUBITS-1:0] out 
+	output   [NUBITS-1:0] out
 );
 
 assign out = (in  == {NUBITS{1'b0}}) ? {{NUBITS-1{1'b0}}, 1'b1} : {NUBITS{1'b0}};
@@ -720,24 +720,24 @@ assign out = (in  == {NUBITS{1'b0}}) ? {{NUBITS-1{1'b0}}, 1'b1} : {NUBITS{1'b0}}
 endmodule
 
 // ****************************************************************************
-// Operacoes de comparacao ****************************************************
+// Comparison operations ******************************************************
 // ****************************************************************************
 
-// LES - menor que ------------------------------------------------------------
+// LES - less than ------------------------------------------------------------
 
 module ula_les
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output        [NUBITS-1:0] out 
+	output        [NUBITS-1:0] out
 );
 
 assign out = (in1 < in2);
 
 endmodule
 
-// FLES - menor que em ponto flutuante ----------------------------------------
+// FLES - floating-point less than --------------------------------------------
 
 module ula_fles
 #(
@@ -745,28 +745,28 @@ module ula_fles
 	parameter NBMANT = 23
 )(
 	 input signed [NBMANT  :0] in1, in2,
-	output        [NUBITS-1:0] out 
+	output        [NUBITS-1:0] out
 );
 
 assign out = in1 < in2;
 
 endmodule
 
-// GRE - maior que ------------------------------------------------------------
+// GRE - greater than ---------------------------------------------------------
 
 module ula_gre
 #(
 	parameter NUBITS = 32
 )(
 	 input signed [NUBITS-1:0] in1, in2,
-	output        [NUBITS-1:0] out 
+	output        [NUBITS-1:0] out
 );
 
 assign out = in1 > in2;
 
 endmodule
 
-// FGRE - maior que em ponto flutuante ----------------------------------------
+// FGRE - floating-point greater than -----------------------------------------
 
 module ula_fgre
 #(
@@ -774,21 +774,21 @@ module ula_fgre
 	parameter NBMANT = 23
 )(
 	 input signed [NBMANT  :0] in1, in2,
-	output        [NUBITS-1:0] out 
+	output        [NUBITS-1:0] out
 );
 
 assign out = in1 > in2;
 
 endmodule
 
-// EQU - igual a --------------------------------------------------------------
+// EQU - equal to -------------------------------------------------------------
 
 module ula_equ
 #(
 	parameter NUBITS = 32
 )(
 	 input   [NUBITS-1:0] in1, in2,
-	output   [NUBITS-1:0] out 
+	output   [NUBITS-1:0] out
 );
 
 assign out = in1 == in2;
@@ -796,38 +796,38 @@ assign out = in1 == in2;
 endmodule
 
 // ****************************************************************************
-// Operacoes de deslocamento de bits ******************************************
+// Bit-shift operations *******************************************************
 // ****************************************************************************
 
-// SHL - deslocamento pra esquerda --------------------------------------------
+// SHL - left shift -----------------------------------------------------------
 
 module ula_shl
 #(
 	parameter   NUBITS = 32
 )(
 	 input     [NUBITS-1:0] in1, in2,
-	output     [NUBITS-1:0] out 
+	output     [NUBITS-1:0] out
 );
 
 assign out = in1 << in2;
 
 endmodule
 
-// SHR - deslocamento pra direta ----------------------------------------------
+// SHR - right shift ----------------------------------------------------------
 
 module ula_shr
 #(
 	parameter   NUBITS = 32
 )(
 	 input     [NUBITS-1:0] in1, in2,
-	output     [NUBITS-1:0] out 
+	output     [NUBITS-1:0] out
 );
 
 assign out = in1 >> in2;
 
 endmodule
 
-// SRS - deslocamento aritmetico pra direita ----------------------------------
+// SRS - arithmetic right shift -----------------------------------------------
 
 module ula_srs
 #(
@@ -835,7 +835,7 @@ module ula_srs
 )(
 	 input signed [NUBITS-1:0] in1,
 	 input        [NUBITS-1:0] in2,
-	output signed [NUBITS-1:0] out 
+	output signed [NUBITS-1:0] out
 );
 
 assign out = in1 >>> in2;
@@ -843,10 +843,10 @@ assign out = in1 >>> in2;
 endmodule
 
 // ****************************************************************************
-// Operacoes especiais ********************************************************
+// Special operations *********************************************************
 // ****************************************************************************
 
-// F_ROT - potencia de 2 mais proxima da raiz ---------------------------------
+// F_ROT - nearest power of 2 to the square root ------------------------------
 
 module ula_frot
 #(
@@ -857,7 +857,7 @@ module ula_frot
 	output [MAN+EXP:0] out
 );
 
-wire                  s_in  = in[MAN+EXP      ]; 
+wire                  s_in  = in[MAN+EXP      ];
 wire signed [EXP-1:0] e_in  = in[MAN+EXP-1:MAN];
 wire        [MAN-1:0] m_in  = in[MAN    -1:0  ];
 
@@ -870,19 +870,19 @@ assign out = {s_out, e_out, m_out};
 endmodule
 
 // ****************************************************************************
-// Circuito Principal *********************************************************
+// Main Circuit ***************************************************************
 // ****************************************************************************
 
 module ula
 #(
-	// Geral
+	// General
 	parameter                     NUBITS = 32,
 	parameter                     NBMANT = 23,
 	parameter                     NBEXPO =  8,
 	parameter signed [NUBITS-1:0] NUGAIN = 64,
 	parameter                     NBOPCO =  7,
 
-	// operacoes aritmeticas de dois parametros
+	// two-parameter arithmetic operations
 	parameter   ADD   = 0,
 	parameter F_ADD   = 0,
 	parameter   MLT   = 0,
@@ -893,7 +893,7 @@ module ula
 	parameter   SGN   = 0,
 	parameter F_SGN   = 0,
 
-	// operacoes aritmeticas de um parametro
+	// one-parameter arithmetic operations
 	parameter   NEG   = 0,
 	parameter   NEG_M = 0,
 	parameter F_NEG   = 0,
@@ -913,36 +913,36 @@ module ula
 	parameter   F2I   = 0,
 	parameter   F2I_M = 0,
 
-	// operacoes logicas de dois parametros
+	// two-parameter logical operations
 	parameter   AND   = 0,
 	parameter   ORR   = 0,
 	parameter   XOR   = 0,
 
-	// operacoes logicas de um parametro
+	// one-parameter logical operations
 	parameter   INV   = 0,
 	parameter   INV_M = 0,
 
-	// operacoes condicionais de dois parametros
+	// two-parameter conditional operations
 	parameter   LAN   = 0,
 	parameter   LOR   = 0,
-	
-	// operacoes condicionais de um parametro
+
+	// one-parameter conditional operations
 	parameter   LIN   = 0,
 	parameter   LIN_M = 0,
 
-	// operacoes de comparacao
+	// comparison operations
 	parameter   LES   = 0,
 	parameter F_LES   = 0,
 	parameter   GRE   = 0,
 	parameter F_GRE   = 0,
 	parameter   EQU   = 0,
 
-	// operacoes de deslocamento de bits
+	// bit-shift operations
 	parameter   SHL   = 0,
 	parameter   SHR   = 0,
 	parameter   SRS   = 0,
-	
-	// operacoes especiais
+
+	// special operations
 	parameter F_ROT   = 0,
 	parameter F_SU1   = 0,
 	parameter F_SU2   = 0)
@@ -952,12 +952,12 @@ module ula
 	output signed [NUBITS-1:0] out
 );
 
-// circito de desnormalização de ponto flutuante ------------------------------
+// floating-point denormalization circuit -------------------------------------
 
-wire signed [NBEXPO-1:0] e_out;                       // expoente  normalizado
-wire signed [NBMANT  :0] sm1_out, sm2_out;            // mantissas normalizadas
-wire					 su1 = F_SU1 & (op == 6'd47); // inverte o sinal de in1 pra F_SU1
-wire                     su2 = F_SU2 & (op == 6'd48); // inverte o sinal de in2 pra F_SU2
+wire signed [NBEXPO-1:0] e_out;                       // normalized exponent
+wire signed [NBMANT  :0] sm1_out, sm2_out;            // normalized mantissas
+wire					 su1 = F_SU1 & (op == 6'd47); // invert sign of in1 for F_SU1
+wire                     su2 = F_SU2 & (op == 6'd48); // invert sign of in2 for F_SU2
 
 generate if (F_ADD | F_SU1 | F_SU2 | F_GRE | F_LES) ula_denorm #(NBMANT,NBEXPO) denorm(su1, su2, in1, in2, e_out, sm1_out, sm2_out); endgenerate
 
@@ -1231,13 +1231,13 @@ wire signed [NUBITS-1:0] frot;
 
 generate if (F_ROT) ula_frot #(NBMANT,NBEXPO) my_frot(in2, frot); else assign frot = {NUBITS{1'bx}}; endgenerate
 
-// mux de desnormalizacao -----------------------------------------------------
+// denormalization mux --------------------------------------------------------
 
 wire signed [NUBITS-1:0] smx;
 
 generate if (I2F | I2F_M | F_ADD | F_SU1 | F_SU2 | F_MLT | F_DIV | F_ROT) norm_mux #(NUBITS,NBMANT,NBEXPO) norm_mux(op, fadd, fmlt, fdiv, i2f, i2fm, frot, smx); else assign smx = {NUBITS{1'bx}}; endgenerate
 
-// mux principal --------------------------------------------------------------
+// main mux -------------------------------------------------------------------
 
 ula_mux #(NUBITS) ula_mux (.op (op ),
                            .in1(in1),.in2 (in2 ),
@@ -1268,45 +1268,45 @@ ula_mux #(NUBITS) ula_mux (.op (op ),
                            .out(out));
 
 // ----------------------------------------------------------------------------
-// flags (simulacao) ----------------------------------------------------------
+// flags (simulation) ---------------------------------------------------------
 // ----------------------------------------------------------------------------
 
 `ifdef __ICARUS__ // ----------------------------------------------------------
 
-// pega a mantissa com sinal para as entradas e para a saida ------------------
+// get the signed mantissa for inputs and output ------------------------------
 
-integer sm_in1; always @ (*) sm_in1 = (in1[NBMANT+NBEXPO]) ? -in1[NBMANT-1:0] : in1[NBMANT-1:0]; // mantissa de in1 com sinal
-integer sm_in2; always @ (*) sm_in2 = (in2[NBMANT+NBEXPO]) ? -in2[NBMANT-1:0] : in2[NBMANT-1:0]; // mantissa de in2 com sinal
-integer sm_out; always @ (*) sm_out = (out[NBMANT+NBEXPO]) ? -out[NBMANT-1:0] : out[NBMANT-1:0]; // mantissa de out com sinal
+integer sm_in1; always @ (*) sm_in1 = (in1[NBMANT+NBEXPO]) ? -in1[NBMANT-1:0] : in1[NBMANT-1:0]; // signed mantissa of in1
+integer sm_in2; always @ (*) sm_in2 = (in2[NBMANT+NBEXPO]) ? -in2[NBMANT-1:0] : in2[NBMANT-1:0]; // signed mantissa of in2
+integer sm_out; always @ (*) sm_out = (out[NBMANT+NBEXPO]) ? -out[NBMANT-1:0] : out[NBMANT-1:0]; // signed mantissa of out
 
-// pega o expoente das entradas e da saida ------------------------------------
+// get the exponent of inputs and output --------------------------------------
 
-integer e_in1; always @ (*) e_in1 = $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // expoente de in1
-integer e_in2; always @ (*) e_in2 = $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // expoente de in2
-integer e_ouu; always @ (*) e_ouu = $signed(out[NBMANT+NBEXPO-1:NBMANT]); // expoente de out
+integer e_in1; always @ (*) e_in1 = $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // exponent of in1
+integer e_in2; always @ (*) e_in2 = $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // exponent of in2
+integer e_ouu; always @ (*) e_ouu = $signed(out[NBMANT+NBEXPO-1:NBMANT]); // exponent of out
 
-// obtem os valores reais das entradas e da saida -----------------------------
+// get the real values of inputs and output -----------------------------------
 
-real r_in1; always @ (*) r_in1 = sm_in1*$pow(2.0,e_in1); // valor real de in1
-real r_in2; always @ (*) r_in2 = sm_in2*$pow(2.0,e_in2); // valor real de in2
-real r_out; always @ (*) r_out = sm_out*$pow(2.0,e_ouu); // valor real de out
+real r_in1; always @ (*) r_in1 = sm_in1*$pow(2.0,e_in1); // real value of in1
+real r_in2; always @ (*) r_in2 = sm_in2*$pow(2.0,e_in2); // real value of in2
+real r_out; always @ (*) r_out = sm_out*$pow(2.0,e_ouu); // real value of out
 
-// calcula erro de arredondamento pra float -----------------------------------
+// compute rounding error for float -------------------------------------------
 
 real delta_float;
 
 always @ (*) begin
 	case (op)
-		3      : delta_float = (r_in1 + r_in2) - r_out; // soma
-		5      : delta_float = (r_in1 * r_in2) - r_out; // multiplicacao
-		7      : delta_float = (r_in1 / r_in2) - r_out; // divisao
-		47	   : delta_float = (r_in2 - r_in1) - r_out; // subracao
-		48	   : delta_float = (r_in1 - r_in2) - r_out; // subracao
+		3      : delta_float = (r_in1 + r_in2) - r_out; // addition
+		5      : delta_float = (r_in1 * r_in2) - r_out; // multiplication
+		7      : delta_float = (r_in1 / r_in2) - r_out; // division
+		47	   : delta_float = (r_in2 - r_in1) - r_out; // subtraction
+		48	   : delta_float = (r_in1 - r_in2) - r_out; // subtraction
 		default: delta_float = 0;
 	endcase
 end
 
-// calcula erro de arredondamento pra int -------------------------------------
+// compute rounding error for int ---------------------------------------------
 
 real in1r; always @ (*) in1r = in1;
 real in2r; always @ (*) in2r = in2;
@@ -1320,14 +1320,14 @@ real delta_int;
 
 always @ (*) begin
 	case (op)
-		2      : delta_int = val_add - out; // soma
-		4      : delta_int = val_mlt - out; // multiplicacao
-		6      : delta_int = val_div - out; // divisao
-		8      : delta_int = val_mod - out; // modulo
-		25     : delta_int = in2   - r_out; // int to float com acc
-		26	   : delta_int = in1   - r_out; // int to float com mem
-		27     : delta_int = r_in2   - out; // float to int com acc
-		28     : delta_int = r_in1   - out; // float to int com mem
+		2      : delta_int = val_add - out; // addition
+		4      : delta_int = val_mlt - out; // multiplication
+		6      : delta_int = val_div - out; // division
+		8      : delta_int = val_mod - out; // remainder
+		25     : delta_int = in2   - r_out; // int to float with acc
+		26	   : delta_int = in1   - r_out; // int to float with mem
+		27     : delta_int = r_in2   - out; // float to int with acc
+		28     : delta_int = r_in1   - out; // float to int with mem
 		default: delta_int = 0;
 	endcase
 end

@@ -612,15 +612,16 @@
                         <span data-i18n="modal.waveConfig.emptyState">No signals discovered. Make sure the project has a top-level synthesizable file (and ideally a testbench).</span>
                     </div>
                 </div>
+
+                <label class="wave-tree-filter">
+                    <input type="checkbox" id="waveConfigProcessorOnly">
+                    <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
+                </label>
             </section>
         </main>
 
         <footer class="modal-footer">
             <div class="footer-info">
-                <label class="wave-tree-filter">
-                    <input type="checkbox" id="waveConfigProcessorOnly">
-                    <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
-                </label>
                 <span id="waveConfigSelectedCount" class="footer-counter">0 signals selected</span>
             </div>
             <div class="footer-actions">

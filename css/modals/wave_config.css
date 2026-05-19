@@ -37,20 +37,14 @@
     transform: scale(0.96);
 }
 
-/* Checkbox "Show processor signals only" — fica no rodape do modal,
-   acima do counter de signals selecionados. O .footer-info vira coluna
-   pra acomodar o checkbox em cima e o counter embaixo. */
-.modal-footer .footer-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-}
-
+/* Checkbox "Show processor signals only" — fica como linha standalone
+   logo abaixo da .wave-tree, alinhado a esquerda. Margem pequena pra
+   manter "colado" na arvore (em vez de ir parar no rodape do modal). */
 .wave-tree-filter {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    margin-top: var(--space-2);
     font-size: var(--text-xs);
     color: var(--text-secondary);
     cursor: pointer;

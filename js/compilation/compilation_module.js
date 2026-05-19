@@ -1864,9 +1864,11 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // VVP progress overlay: o testbench gerado pelo asmcomp escreve
     // progress.txt em 10-100% (loop chrys). VVPProgressManager faz
     // poll do arquivo e atualiza a barra. Show antes do vvp rodar,
-    // hide depois — funcoes vieram orfaos no refactor "fase 2.3"
-    // (mai/2026) quando o runGtkWave per-processador foi deletado.
-    showVVPProgress(simTopModule);
+    // hide depois. So mostra se o testbench REALMENTE escreve
+    // progress.txt — testbenches escritos a mao nao tem essa
+    // instrumentacao e a barra ficaria parada em 0%.
+    const showProgress = await this._testbenchWritesProgress(config.testbenchFile);
+    if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
         const r = await window.electronAPI.execVvpStreamed(
@@ -1875,10 +1877,29 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         code = r.code;
     } finally {
         unsubscribe();
-        hideVVPProgress();
+        if (showProgress) hideVVPProgress();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
+    }
+}
+
+/**
+ * Detecta se o testbench escreve `progress.txt` — padrao usado pelo
+ * asmcomp do SAPHO pra reportar progresso da simulacao em chunks de
+ * 10%. Testbenches escritos a mao nao tem essa instrumentacao; mostrar
+ * a barra de progresso neles ficaria parado em 0% pra sempre.
+ *
+ * Heuristica: busca string literal "progress.txt" no source (case-
+ * insensitive). Tolerante a leitura falhar — retorna false.
+ */
+async _testbenchWritesProgress(testbenchPath) {
+    if (!testbenchPath) return false;
+    try {
+        const content = await window.electronAPI.readFile(testbenchPath);
+        return /progress\.txt/i.test(content);
+    } catch (_e) {
+        return false;
     }
 }
 
@@ -2042,11 +2063,15 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     const buildSources = [...prep.fileSet];
     const allInputsArr = buildSources.map(f => `"${f}"`);
     // Args do verilator passados como strings com aspas duplas (cmd.exe).
+    // -CFLAGS aceita um arg de cada vez via cmd.exe. Aspas em volta de
+    // string com espacos ("-O3 -fstrict-aliasing") sao perdidas pelo
+    // shell e Verilator interpreta -fstrict-aliasing como flag dele
+    // (que nao existe → erro). Solucao: passar dois -CFLAGS separados.
     const verilatorArgs = [
         '--binary --main --trace-fst -j 0',
         verilatorWarnings,
         '--timing --x-assign fast --no-trace-top',
-        `-CFLAGS "-O3 -fstrict-aliasing"`,
+        '-CFLAGS -O3 -CFLAGS -fstrict-aliasing',
         `--top-module ${simTopModule}`,
         `-Mdir "${objDir}"`,
         `-y "${hdlPath}"`,
@@ -2172,7 +2197,10 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             }
         });
     }
-    showVVPProgress(simTopModule);
+    // Progress bar so se o testbench escreve progress.txt (SAPHO asmcomp
+    // pattern). Hand-written testbenches nao tem isso — barra ficaria em 0%.
+    const showProgress = await this._testbenchWritesProgress(config.testbenchFile);
+    if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
         // Reusa execVvpStreamed mesmo nao sendo vvp — a API so executa
@@ -2190,7 +2218,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         }
     } finally {
         if (unsubscribe) unsubscribe();
-        hideVVPProgress();
+        if (showProgress) hideVVPProgress();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));

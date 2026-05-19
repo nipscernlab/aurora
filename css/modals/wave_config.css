@@ -72,8 +72,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--bg);
-    max-height: 50vh;
-    min-height: 240px;
+    max-height: 40vh;
+    min-height: 192px;
     overflow-y: auto;
     padding: var(--space-2);
     font-family: var(--font-mono);

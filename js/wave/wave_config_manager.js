@@ -21,6 +21,7 @@ import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
+import { getSimulator, setSimulator } from './simulator_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -95,6 +96,7 @@ class WaveConfigManager {
             selectAllBtn:      document.getElementById('waveConfigSelectAll'),
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
+            useVerilatorCb:    document.getElementById('waveConfigUseVerilator'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
             filterInput:       document.getElementById('waveConfigFilterInput'),
@@ -127,6 +129,12 @@ class WaveConfigManager {
                 }
             }
             this.renderTree();
+        });
+
+        // Simulator switch: persistido em localStorage (global). Sem
+        // re-render — o toggle so afeta o proximo clique no Wave.
+        this.elements.useVerilatorCb?.addEventListener('change', (e) => {
+            setSimulator(e.target.checked ? 'verilator' : 'iverilog');
         });
 
         // Toolbar button — primary entry point for the modal. Also
@@ -401,6 +409,11 @@ class WaveConfigManager {
         this._processorOnly = false;
         if (this.elements.processorOnlyCb) {
             this.elements.processorOnlyCb.checked = false;
+        }
+        // Simulator preference: persiste entre sessoes (localStorage),
+        // entao o checkbox reflete o estado salvo, nao reseta a cada open.
+        if (this.elements.useVerilatorCb) {
+            this.elements.useVerilatorCb.checked = (getSimulator() === 'verilator');
         }
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too — fresh slate every time the user

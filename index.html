@@ -616,10 +616,17 @@
                     </div>
                 </div>
 
-                <label class="wave-tree-filter">
-                    <input type="checkbox" id="waveConfigProcessorOnly">
-                    <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
-                </label>
+                <div class="wave-tree-filters">
+                    <label class="wave-tree-filter">
+                        <input type="checkbox" id="waveConfigProcessorOnly">
+                        <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
+                    </label>
+
+                    <label class="wave-tree-filter" title="Verilator: typically 5-10x faster than vvp but optimizes away SAPHO internal signals. Uncheck to use iverilog for full signal visibility." data-i18n-title="modal.waveConfig.useVerilatorTitle">
+                        <input type="checkbox" id="waveConfigUseVerilator">
+                        <span data-i18n="modal.waveConfig.useVerilator">Use Verilator (faster, no processor-internal signals)</span>
+                    </label>
+                </div>
             </section>
         </main>
 

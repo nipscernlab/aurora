@@ -54,6 +54,7 @@ import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_i
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
+import { getSimulator } from '../wave/simulator_preference.js';
 
 // i18n shim — falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -1266,8 +1267,99 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
 
     const basename = testbenchPath.split(/[\\/]/).pop();
     const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
+
+    // Idempotencia de mtime: so escreve se o conteudo realmente mudou.
+    // Importante pro path do Verilator — o make detecta mudanca via
+    // mtime; se reescrevemos com mesmo conteudo a cada clique no Wave,
+    // o make recompila tudo (5-15s desperdicados). Pro iverilog e
+    // neutro (compile e fast anyway). Checamos existence antes de readFile
+    // pra evitar o ENOENT spam que o IPC handler loga ate em try/catch.
+    if (await window.electronAPI.fileExists(instrumentedPath)) {
+        try {
+            const existing = await window.electronAPI.readFile(instrumentedPath, { encoding: 'utf8' });
+            if (existing === result.content) {
+                return { path: instrumentedPath, reason: result.reason };
+            }
+        } catch (_e) { /* read falhou apos exists ok — race ou disco; segue e escreve */ }
+    }
+
     await window.electronAPI.writeFile(instrumentedPath, result.content);
     return { path: instrumentedPath, reason: result.reason };
+}
+
+/**
+ * Pre-flight do botao Wave compartilhado entre iverilog e verilator:
+ * resolve a selecao de signals, instrumenta o testbench e monta o
+ * conjunto de fontes (synth + tb instrumentado).
+ *
+ * Tudo que e independente do simulador esta aqui. As fases _waveBuild*
+ * que vem depois so precisam saber o cmdline do seu simulador.
+ *
+ * Side-effects:
+ *   - Escreve instr_<basename>.v em tempBaseDir (se instrumentacao for
+ *     necessaria).
+ *   - Atualiza this._validatedWaveSelection (consumido pelo .gtkw
+ *     auto-generator em _waveResolveGtkwSaveFile).
+ *   - Loga "Wave source: ..." em twave.
+ *
+ * Returns: { fileSet, instrumentedTbPath, decision }
+ *   fileSet: Set<string> com synth files + tb instrumentado (uso direto
+ *            pra montar a linha de comando do simulador).
+ *   instrumentedTbPath: string (== config.testbenchFile se o tb tem
+ *                       $dumpvars hand-written e o user nao customizou).
+ *   decision: objeto retornado por _resolveWaveSelection.
+ */
+async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
+    const filePaths = new Set(config.synthesizableFiles);
+    if (config.testbenchFile) filePaths.add(config.testbenchFile);
+    try {
+        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+        const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+        if (Array.isArray(hdlEntries)) {
+            for (const name of hdlEntries) {
+                if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                    filePaths.add(await window.electronAPI.joinPath(hdlPath, name));
+                }
+            }
+        }
+    } catch (_e) { /* HDL nao acessivel — segue sem */ }
+
+    const decision = await this._resolveWaveSelection({
+        config,
+        simTopModule,
+        filePaths: [...filePaths],
+    });
+
+    const { path: tbPath, reason } = await this.instrumentTestbench(
+        config.testbenchFile,
+        simTopModule,
+        tempBaseDir,
+        decision.signalsToDump,
+        decision.overrideUserDumpvars,
+    );
+
+    this._validatedWaveSelection = reason === 'user-defined'
+        ? []
+        : decision.signalsToDump;
+
+    const sourceLabel = {
+        gtkw: tr('terminal.wave.sourceLabelGtkw', { count: decision.signalsToDump.length }),
+        wc: tr('terminal.wave.sourceLabelWc', { count: decision.signalsToDump.length }),
+        tb: tr('terminal.wave.sourceLabelTb'),
+        default: tr('terminal.wave.sourceLabelDefault'),
+    }[decision.source] || decision.source;
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.waveSource', { label: sourceLabel }), 'info');
+
+    if (reason === 'override-user') {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.overrideUserDumpvars'), 'tips');
+    }
+
+    const fileSet = new Set(config.synthesizableFiles);
+    fileSet.add(tbPath);
+
+    return { fileSet, instrumentedTbPath: tbPath, decision };
 }
 
 /**
@@ -1539,8 +1631,22 @@ async runGtkWave() {
         const tools = await this._waveResolveToolchain();
         const simTopModule = this._waveDeriveSimTopModule(config);
 
-        await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
-        await this._waveRunVvpSimulation(simTopModule, tools);
+        // Branch no simulador escolhido. iverilog e default; verilator e
+        // opt-in via Wave Config (localStorage flag aurora.waveSimulator).
+        // Ambos os caminhos convergem em _waveResolveVcdFile — o arquivo
+        // de saida (.fst ou .vcd-com-FST) e descoberto la, sem branch.
+        const simulator = getSimulator();
+        if (simulator === 'verilator') {
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorSimulator'), 'tips');
+            const vTools = await this._waveResolveVerilatorTools();
+            const fullTools = { ...tools, ...vTools };
+            const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
+            await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+        } else {
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.iverilogSimulator'), 'tips');
+            await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
+            await this._waveRunVvpSimulation(simTopModule, tools);
+        }
         const vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
         await this._waveStageFixVcd(tools);
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
@@ -1773,6 +1879,321 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
+    }
+}
+
+// ---------------------------------------------------------------------
+// Verilator wave-flow phases. Paralelas a _waveBuildAndVerifyVvp /
+// _waveRunVvpSimulation, mas com toolchain diferente:
+//
+//   iverilog: source -> .vvp -> vvp (interpretador)  → FST
+//   verilator: source -> C++ -> g++ -> .exe nativo    → FST
+//
+// O .exe que sai do Verilator e tipicamente 10-100x mais rapido que vvp
+// em testbenches longos, ao custo de stricter linting e dependencia
+// adicional (verilator + g++). Escolha do simulador via
+// js/wave/simulator_preference.js (default: iverilog).
+// ---------------------------------------------------------------------
+
+/**
+ * Resolve os binarios necessarios pro pipeline do Verilator.
+ *
+ * Bundle Verilator autocontido em components/Packages/verilator/ —
+ * preparado pelo scripts/build-verilator-bundle.js, baixado por
+ * download-toolchain.js no `npm run bootstrap`. Layout:
+ *
+ *   components/Packages/verilator/
+ *     mingw64/bin/{verilator,perl.exe,g++.exe,make.exe,...} + DLLs
+ *     mingw64/share/verilator/{include,bin}/      <- templates C++
+ *     usr/bin/{bash.exe,coreutils...}             <- shell utils que o
+ *                                                    verilated.mk invoca
+ *
+ * Invocacao direta: perl <script> <args> com PATH ajustado. Sem msys2
+ * no host, sem bash -lc, sem MSYSTEM, sem .sh intermediario.
+ *
+ * Throws com instrucao de bootstrap se o bundle nao estiver presente.
+ */
+async _waveResolveVerilatorTools() {
+    const bundleRoot = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'verilator');
+    const mingwBin = await window.electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
+    const usrBin   = await window.electronAPI.joinPath(bundleRoot, 'usr', 'bin');
+    const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
+    const perlExe         = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
+    const cxxBin          = await window.electronAPI.joinPath(mingwBin, 'g++.exe');
+
+    if (!await window.electronAPI.fileExists(verilatorScript)) {
+        throw new Error(tr('error.toolchain.verilatorNotFound', {
+            paths: `  ${verilatorScript}\n  (bundle nao instalado — rode "npm run bootstrap" pra baixar)`,
+        }));
+    }
+    if (!await window.electronAPI.fileExists(perlExe)) {
+        throw new Error(tr('error.toolchain.verilatorNotFound', {
+            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/verilator/ e rode "npm run bootstrap")`,
+        }));
+    }
+
+    // fst2vcd vem do bundle iverilog/gtkwave (compartilhado).
+    const fst2vcdBin = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'fst2vcd.exe',
+    );
+
+    // PATH em runtime: bundle/mingw64/bin (verilator, perl, g++, make,
+    // DLLs) + bundle/usr/bin (bash + coreutils que o verilated.mk usa
+    // via `$(shell ...)`). System32 sempre presente automaticamente
+    // quando invocamos via cmd.exe com `%PATH%` suffix.
+    return { mingwBin, usrBin, verilatorScript, perlExe, cxxBin, fst2vcdBin };
+}
+
+/**
+ * Compila o design via Verilator. Produz um .exe nativo em
+ * <tempBaseDir>/obj_dir_<simTop>/V<simTop>.exe.
+ *
+ * Reusa _prepareWaveBuildInputs pra resolver selecao + instrumentar
+ * testbench — o conjunto de fontes que vai pro Verilator e o mesmo que
+ * iria pro iverilog (synth + tb instrumentado + -y HDL).
+ *
+ * Flags Verilator:
+ *   --binary       gera main + invoca make pra produzir o .exe
+ *   --main         o main e gerado pelo Verilator (default eval-loop ate $finish)
+ *   --trace-fst    instrumenta runtime pra FST (respeita $dumpvars/$dumpfile)
+ *   -j 0           parallel build (numero de CPUs)
+ *   -O0            zero optimization no Verilator (build rapido; runtime ainda
+ *                  e nativo, entao bem mais rapido que vvp mesmo sem O3)
+ *   -Wno-fatal     warnings nao param o build — iverilog e mais permissivo
+ *                  que Verilator, entao testbenches que rodam em iverilog
+ *                  costumam ter "issues" que Verilator marcaria como erro
+ *   -Mdir <dir>    onde gerar os arquivos C++ e o Makefile
+ *   --top-module   modulo top da simulacao (== nome do testbench)
+ *   -y <hdl>       biblioteca de modulos (mesma logica do iverilog)
+ *
+ * Throws se Verilator falhar OU se o .exe nao for produzido.
+ */
+async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.buildingVerilator'), 'info');
+
+    const prep = await this._prepareWaveBuildInputs(config, simTopModule, tempBaseDir);
+    if (prep.instrumentedTbPath !== config.testbenchFile) {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'info');
+    }
+
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
+    await window.electronAPI.mkdir(objDir);
+
+    // --timing (e nao --no-timing): testbenches SAPHO usam # delays pra
+    // gerar clock e timing de IO. Sem isso, o clk fica preso em settling
+    // loop e simulacao aborta com DIDNOTCONVERGE. Verilator 5.x suporta
+    // --timing via -fcoroutines do g++.
+    //
+    // Otimizacoes (vs primeira versao -O0):
+    //  - SEM `-O0`: deixa Verilator usar o default `--O3` (otimizacao do
+    //    Verilog pra C++). Build ~2x mais lento, runtime ~5x mais rapido.
+    //  - `--x-assign fast`: assume X = 0 (em vez de gerar codigo de
+    //    tracking de X-state). Ganho substancial em design com regs
+    //    inicializados implicitamente.
+    //  - `--no-trace-top`: nao tracker signals nivel raiz (TOP scope nao
+    //    interessa pro picker; reduz overhead do tracing).
+    //  - `-CFLAGS '-O3 -fstrict-aliasing'`: g++ usa -O3 em vez do -Os
+    //    default do Verilator (que otimiza tamanho, nao velocidade).
+    //    Tecnica: g++ recebe -Os primeiro (do OPT_FAST) e -O3 depois (do
+    //    CFLAGS) — quando ha multiplas flags -O*, a ULTIMA vence.
+    //    OPT_FAST=-O3 via env nao funciona porque o Makefile gerado usa
+    //    `=` direto (nao `?=`), entao env nao sobrescreve.
+    //    Build fica ~2x mais lento, runtime ~3-5x mais rapido — maior
+    //    ganho isolado da otimizacao.
+    //
+    // Filosofia de warnings: deixar passar o que indica bug ou
+    // oportunidade de melhoria. Silenciar so o que e mecanico/SAPHO
+    // convention e nao agrega valor de revisao:
+    //   - TIMESCALEMOD: floods 50+ warnings (1 por modulo); a fix e
+    //     mecanica (`timescale 1ns/1ps em cada .v). Util saber, mas
+    //     a primeira leva drowna o resto.
+    //   - DECLFILENAME: SAPHO usa "proc_*.v contem module Proc*" como
+    //     convencao; nao e bug.
+    //   - STMTDLY: --timing ja trata #delay; aviso e redundante.
+    //   - fatal: alguns "warnings" viram errors em Verilator; precisamos
+    //     manter como warning pra Aurora seguir o build.
+    //
+    // Tudo o resto vem a tona — WIDTHTRUNC/EXPAND, COMBDLY, INITIALDLY,
+    // PINMISSING, UNOPTFLAT, UNUSEDSIGNAL/PARAM — sao reais e iverilog
+    // escondia. Vale revisar o codigo a partir deles.
+    const verilatorWarnings = [
+        '-Wno-fatal',
+        '-Wno-TIMESCALEMOD',
+        '-Wno-DECLFILENAME',
+        '-Wno-STMTDLY',
+    ].join(' ');
+    // Preservacao de signals: deliberadamente DEIXADA NO DEFAULT do
+    // Verilator. Verilator agressivamente elimina signals nao-observaveis
+    // (constant-fold, dead-code, inline) — diferente de iverilog. Em
+    // SAPHO isso esconde signals internos do processador (wires geradas
+    // pelo asmcomp como me1_f_global_v_..., in_sim_*, out_sig_*).
+    //
+    // Tentamos preservar via:
+    //   - `.vlt` com `public_flat_rw` selectivo: nao funciona, Verilator
+    //     elimina antes da diretiva poder agir (generate blocks + inline)
+    //   - `--public-flat-rw` global: funciona mas tripla o tamanho do FST
+    //
+    // Decisao: aceitar a limitacao. Se o usuario precisa ver signals
+    // internos do processador SAPHO, usa iverilog (Wave Configuration
+    // → desmarca "Use Verilator"). Verilator fica como modo "rapido
+    // pra signals top-level do testbench".
+    const buildSources = [...prep.fileSet];
+    const allInputsArr = buildSources.map(f => `"${f}"`);
+    // Args do verilator passados como strings com aspas duplas (cmd.exe).
+    const verilatorArgs = [
+        '--binary --main --trace-fst -j 0',
+        verilatorWarnings,
+        '--timing --x-assign fast --no-trace-top',
+        `-CFLAGS "-O3 -fstrict-aliasing"`,
+        `--top-module ${simTopModule}`,
+        `-Mdir "${objDir}"`,
+        `-y "${hdlPath}"`,
+        allInputsArr.join(' '),
+    ].join(' ');
+
+    // Invocacao DIRETA via cmd.exe: ajusta PATH pro bundle e roda
+    // perl <verilator-script> <args>. Sem bash, sem MSYSTEM, sem .sh.
+    // Bundle e autocontido — perl mingw64 nativo + verilator + g++ +
+    // make + bash/coreutils (esse ultimo so o verilated.mk usa internamente).
+    const cmd = [
+        `set "PATH=${tools.mingwBin};${tools.usrBin};%PATH%"`,
+        `"${tools.perlExe}" "${tools.verilatorScript}" ${verilatorArgs}`,
+    ].join(' && ');
+
+    this.terminalManager.appendToTerminal('twave', `perl verilator ${verilatorArgs}`, 'info', { internal: true });
+
+    const result = await window.electronAPI.execCommand(cmd);
+    this.terminalManager.processExecutableOutput('twave', result);
+    if (result.code !== 0) {
+        throw new Error(tr('error.compilation.verilatorFailed', { code: result.code }));
+    }
+
+    // Verilator nomeia o .exe como V<top>.exe (Windows mingw) ou V<top>.
+    const exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${simTopModule}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        return { exePath: fallback, objDir };
+    }
+    return { exePath, objDir };
+}
+
+/**
+ * Roda o .exe do Verilator em duas passadas, espelhando a estrategia
+ * do _waveRunVvpSimulation:
+ *
+ *   Pass 1: +AURORA_HEADER_ONLY → o testbench instrumentado faz $finish
+ *           logo apos $dumpvars. Produz <simTop>.vcd contendo FST data
+ *           header-only (Verilator com --trace-fst escreve formato FST
+ *           no arquivo que $dumpfile nomeou, sem trocar extensao).
+ *
+ *   Convert: fst2vcd <simTop>.vcd → <simTop>.header.vcd (texto VCD,
+ *            consumido pelo wave_config_manager + gtkw_proc_writer).
+ *
+ *   Pass 2: sem plusarg → sobrescreve <simTop>.vcd com FST completo.
+ *           GTKWave abre esse arquivo direto (autodetecta FST).
+ *
+ * Cwd do .exe = tempBaseDir, pelos mesmos motivos do vvp ($readmemb
+ * relativo, $fopen do testbench relativo).
+ */
+async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
+    await this._stageProcessorMemoryFiles(tools.tempBaseDir);
+
+    const config = this.validateConfig({ requireTopLevel: false });
+    if (config.testbenchFile) {
+        await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
+    }
+
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'info');
+
+    // Pass 1: header capture. PATH inclui bundle mingw + usr bin pro
+    // .exe achar libstdc++-6.dll / libwinpthread-1.dll / msys DLLs em
+    // runtime (Verilator-generated binary linka contra mingw64 runtime).
+    const pathPrefix = `set "PATH=${tools.mingwBin};${tools.usrBin};%PATH%" && `;
+    const cdPrefix = `cd /d "${tools.tempBaseDir}" && `;
+    const headerCmd = `${cdPrefix}${pathPrefix}"${exePath}" +AURORA_HEADER_ONLY`;
+    const headerResult = await window.electronAPI.execCommand(headerCmd);
+    if (headerResult.code !== 0 && headerResult.code !== null) {
+        // Nao fatal — pass 2 ainda pode resolver. Log curto.
+        this.terminalManager.appendToTerminal('twave',
+            `Note: header-only pass exited with code ${headerResult.code}; auto-gtkw may fall back to a generic layout.`,
+            'tips');
+    } else {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorHeaderOk'), 'info');
+    }
+
+    // Converte pass-1 FST → texto VCD pro picker (wave_config_manager,
+    // gtkw_proc_writer). fst2vcd detecta formato por magic, entao
+    // extensao .vcd no arquivo de entrada (que contem FST) e OK.
+    const pass1File = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
+    const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.header.vcd`);
+    if (await window.electronAPI.fileExists(pass1File)) {
+        if (await window.electronAPI.fileExists(tools.fst2vcdBin)) {
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorFstConvert'), 'info');
+            // fst2vcd exige `-f <input>` explicito (positional argument
+            // imprime pra stdout em vez de honrar o `-o`).
+            const convertCmd = `"${tools.fst2vcdBin}" -f "${pass1File}" -o "${headerVcd}"`;
+            const convertResult = await window.electronAPI.execCommand(convertCmd);
+            if (convertResult.code !== 0 && convertResult.code !== null) {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('error.compilation.fst2vcdFailed', { code: convertResult.code }), 'warning');
+            }
+        } else {
+            // Sem fst2vcd? Tenta copiar o FST como header.vcd e deixa o
+            // parser do picker tentar — vai falhar mas com mensagem
+            // melhor que silencio.
+            try { await window.electronAPI.copyFile(pass1File, headerVcd); } catch (_e) { /* */ }
+        }
+    }
+
+    // Pass 2: full sim. Stream output pro twave live (igual vvp pass 2).
+    const isVvpNoise = (line) => {
+        const t = (line || '').toLowerCase();
+        return (
+            t.includes('fst info:')
+            || t.includes('vcd info:')
+            || t.includes('$finish called at')
+            || t.includes('$stop called at')
+        );
+    };
+
+    let unsubscribe = null;
+    if (typeof window.electronAPI.onVvpStream === 'function') {
+        unsubscribe = window.electronAPI.onVvpStream((payload) => {
+            if (!payload || !payload.data) return;
+            for (const line of payload.data.split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                if (isVvpNoise(line)) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
+            }
+        });
+    }
+    showVVPProgress(simTopModule);
+    let code;
+    try {
+        // Reusa execVvpStreamed mesmo nao sendo vvp — a API so executa
+        // um binario e streama output. Sem args de plusarg em pass 2.
+        if (typeof window.electronAPI.execVvpStreamed === 'function') {
+            const r = await window.electronAPI.execVvpStreamed(
+                exePath, '', [], tools.tempBaseDir,
+            );
+            code = r.code;
+        } else {
+            // Fallback: execCommand sem streaming.
+            const fullCmd = `${cdPrefix}${pathPrefix}"${exePath}"`;
+            const r = await window.electronAPI.execCommand(fullCmd);
+            code = r.code;
+        }
+    } finally {
+        if (unsubscribe) unsubscribe();
+        hideVVPProgress();
+    }
+    if (code !== 0) {
+        throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
     }
 }
 

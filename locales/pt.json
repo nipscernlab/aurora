@@ -69,6 +69,8 @@
             "clear":              "Limpar",
             "emptyState":         "Nenhum sinal descoberto. Verifique se o projeto tem um arquivo top-level sintetizável (e idealmente um testbench).",
             "showProcessorOnly":  "Mostrar apenas sinais do processador",
+            "useVerilator":       "Usar Verilator (mais rápido, sem sinais internos do processador)",
+            "useVerilatorTitle":  "Verilator: simulação tipicamente 5-10x mais rápida que vvp. Limitação: Verilator otimiza signals SAPHO internos (in_sim_*, me1_*, delta_*, etc.) — só sinais top-level do testbench são visíveis. Pra ver sinais internos, desmarque (usa iverilog).",
             "selectedCountOne":   "1 sinal selecionado",
             "selectedCountOther": "{{count}} sinais selecionados",
             "cancel":             "Cancelar",
@@ -390,6 +392,12 @@
             "bannerSim":             "--- Simulação & GTKWave ---",
             "buildingVvp":           "Construindo VVP para simulação...",
             "runningVvp":            "Executando simulação VVP...",
+            "buildingVerilator":     "Compilando design com Verilator (--binary --trace-fst)...",
+            "runningVerilator":      "Executando binário Verilator...",
+            "verilatorHeaderOk":     "Cabeçalho FST capturado (pass 1).",
+            "verilatorFstConvert":   "Convertendo cabeçalho FST → VCD (fst2vcd) para o picker.",
+            "verilatorSimulator":    "Usando simulador: Verilator (experimental).",
+            "iverilogSimulator":     "Usando simulador: Icarus Verilog (vvp).",
             "noMemFiles":            "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
             "couldNotList":          "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",
@@ -433,10 +441,16 @@
             "vvpNotGenerated":     "Arquivo VVP não foi gerado",
             "vvpNotProduced":      "Arquivo VVP não foi produzido pela compilação: {{path}}",
             "vvpFailed":           "Simulação VVP falhou com código {{code}}",
-            "gtkwaveFailed":       "Falha ao abrir GTKWave: {{message}}"
+            "gtkwaveFailed":       "Falha ao abrir GTKWave: {{message}}",
+            "verilatorFailed":     "Verilator falhou com código {{code}} ao compilar o design.",
+            "verilatorRunFailed":  "Execução do binário Verilator falhou com código {{code}}.",
+            "verilatorExeMissing": "Binário do Verilator não foi produzido em {{path}}.",
+            "fst2vcdFailed":       "fst2vcd falhou com código {{code}} ao converter o cabeçalho FST."
         },
         "toolchain": {
-            "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO pacote da toolchain (iverilog/gtkwave/yosys) não está instalado. Baixe \"aurora-toolchain-v2.zip\" das Releases do projeto no GitHub e extraia em components/Packages/, depois reinicie o app."
+            "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO pacote da toolchain (iverilog/gtkwave/yosys) não está instalado. Baixe \"aurora-toolchain-v2.zip\" das Releases do projeto no GitHub e extraia em components/Packages/, depois reinicie o app.",
+            "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nRode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-verilator-v1.zip ~240 MB).",
+            "cxxNotFound":       "Bundle Verilator corrompido — g++ não encontrado:\n{{paths}}\n\nApague components/Packages/verilator/ e rode `npm run bootstrap` pra reinstalar."
         },
         "user": {
             "cancelled": "Compilação cancelada pelo usuário"

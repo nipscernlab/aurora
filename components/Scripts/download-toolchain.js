@@ -18,15 +18,20 @@ const { execSync } = require('child_process');
 
 const TOOLCHAIN_TAG      = 'toolchain-v2';
 const TOOLCHAIN_FILENAME = 'aurora-toolchain-v2.zip';
+const VERILATOR_TAG      = 'verilator-v1';
+const VERILATOR_FILENAME = 'aurora-verilator-v1.zip';
 const GITHUB_OWNER       = 'nipscernlab';
 const GITHUB_REPO        = 'Aurora';
 
-const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${TOOLCHAIN_TAG}/${TOOLCHAIN_FILENAME}`;
+const DOWNLOAD_URL           = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${TOOLCHAIN_TAG}/${TOOLCHAIN_FILENAME}`;
+const VERILATOR_DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${VERILATOR_TAG}/${VERILATOR_FILENAME}`;
 
-const ROOT_DIR      = path.join(__dirname, '..', '..');
-const PACKAGES_DIR  = path.join(ROOT_DIR, 'components', 'Packages');
-const SENTINEL_FILE = path.join(PACKAGES_DIR, 'iverilog', 'bin', 'iverilog.exe');
-const TMP_ZIP       = path.join(ROOT_DIR, TOOLCHAIN_FILENAME);
+const ROOT_DIR             = path.join(__dirname, '..', '..');
+const PACKAGES_DIR         = path.join(ROOT_DIR, 'components', 'Packages');
+const SENTINEL_FILE        = path.join(PACKAGES_DIR, 'iverilog', 'bin', 'iverilog.exe');
+const VERILATOR_SENTINEL   = path.join(PACKAGES_DIR, 'verilator', 'mingw64', 'bin', 'verilator_bin.exe');
+const TMP_ZIP              = path.join(ROOT_DIR, TOOLCHAIN_FILENAME);
+const VERILATOR_TMP_ZIP    = path.join(ROOT_DIR, VERILATOR_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +40,10 @@ function err(msg) { console.error(`[toolchain] ERROR: ${msg}`); }
 
 function alreadyInstalled(sentinelPath = SENTINEL_FILE) {
     return fs.existsSync(sentinelPath);
+}
+
+function verilatorAlreadyInstalled() {
+    return fs.existsSync(VERILATOR_SENTINEL);
 }
 
 function downloadFile(url, dest) {
@@ -126,41 +135,71 @@ function extractZip(zipPath, destDir) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
+async function downloadVerilatorBundle(force) {
+    if (verilatorAlreadyInstalled() && !force) {
+        log('Verilator bundle already present — skipping.');
+        return;
+    }
+    if (!verilatorAlreadyInstalled()) {
+        log('Verilator bundle not found in components/Packages/verilator.');
+    }
+    try {
+        await downloadFile(VERILATOR_DOWNLOAD_URL, VERILATOR_TMP_ZIP);
+        extractZip(VERILATOR_TMP_ZIP, PACKAGES_DIR);
+        fs.unlinkSync(VERILATOR_TMP_ZIP);
+        log('Verilator bundle installed successfully.');
+        if (!verilatorAlreadyInstalled()) {
+            err(`Verilator sentinel not found after extraction: ${VERILATOR_SENTINEL}`);
+            err('The Verilator zip may have an unexpected internal layout.');
+            // Nao fatal — iverilog mode continua funcional
+        }
+    } catch (e) {
+        err(`Verilator bundle download failed: ${e.message}`);
+        err('Aurora continuara funcionando com iverilog. Pra usar Verilator,');
+        err(`baixe manualmente de:  ${VERILATOR_DOWNLOAD_URL}`);
+        err('E extraia em:  components/Packages/');
+        // Nao bloqueia npm start — Verilator e modo opt-in.
+    }
+}
+
 async function main() {
     const force = process.argv.includes('--force');
 
+    // ── Toolchain principal (iverilog + gtkwave + yosys) ───────────────
     if (alreadyInstalled() && !force) {
         log('Toolchain already present — skipping download.');
-        log('(Run with --force to re-download.)');
-        return;
-    }
-
-    if (!alreadyInstalled()) {
-        log('Toolchain not found in components/Packages/.');
-    }
-
-    try {
-        await downloadFile(DOWNLOAD_URL, TMP_ZIP);
-        extractZip(TMP_ZIP, PACKAGES_DIR);
-
-        // Clean up the zip
-        fs.unlinkSync(TMP_ZIP);
-        log('Toolchain installed successfully.');
-
+    } else {
         if (!alreadyInstalled()) {
-            err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
-            err('The ZIP may have a different internal structure. Check components/Packages/ manually.');
-            process.exit(1);
+            log('Toolchain not found in components/Packages/.');
         }
-    } catch (e) {
-        err(e.message);
-        err(`\nCould not download toolchain automatically.`);
-        err(`Please download manually from:`);
-        err(`  ${DOWNLOAD_URL}`);
-        err(`Extract the ZIP contents into:  components/Packages/`);
-        // Exit with 0 so prestart doesn't block `npm start`
-        process.exit(0);
+        try {
+            await downloadFile(DOWNLOAD_URL, TMP_ZIP);
+            extractZip(TMP_ZIP, PACKAGES_DIR);
+            fs.unlinkSync(TMP_ZIP);
+            log('Toolchain installed successfully.');
+            if (!alreadyInstalled()) {
+                err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
+                err('The ZIP may have a different internal structure. Check components/Packages/ manually.');
+                process.exit(1);
+            }
+        } catch (e) {
+            err(e.message);
+            err(`\nCould not download toolchain automatically.`);
+            err(`Please download manually from:`);
+            err(`  ${DOWNLOAD_URL}`);
+            err(`Extract the ZIP contents into:  components/Packages/`);
+            process.exit(0);
+        }
     }
+
+    // ── Verilator bundle (opt-in, opcional) ────────────────────────────
+    // Falhas aqui sao nao-fatais — Aurora funciona com iverilog mesmo
+    // sem o bundle Verilator. Usuario que quiser Verilator precisa que
+    // o bundle esteja la, mas mesmo erro 404 do release nao bloqueia
+    // `npm start` (so o checkbox "Use Verilator" vira no-op).
+    await downloadVerilatorBundle(force);
+
+    log('(Run with --force to re-download.)');
 }
 
 // Only run main when invoked directly (`node download-toolchain.js`).
@@ -171,10 +210,15 @@ if (require.main === module) {
 
 module.exports = {
     alreadyInstalled,
+    verilatorAlreadyInstalled,
     downloadFile,
     extractZip,
     DOWNLOAD_URL,
     TOOLCHAIN_TAG,
     TOOLCHAIN_FILENAME,
     SENTINEL_FILE,
+    VERILATOR_DOWNLOAD_URL,
+    VERILATOR_TAG,
+    VERILATOR_FILENAME,
+    VERILATOR_SENTINEL,
 };

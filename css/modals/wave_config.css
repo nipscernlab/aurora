@@ -37,6 +37,17 @@
     transform: scale(0.96);
 }
 
+/* Container que empilha os filtros (processor-only + simulator toggle)
+   verticalmente logo abaixo da arvore. Sem isso, dois .wave-tree-filter
+   irmaos ficavam inline-flex lado-a-lado e o segundo estourava em modal
+   estreito. */
+.wave-tree-filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+}
+
 /* Checkbox "Show processor signals only" — fica como linha standalone
    logo abaixo da .wave-tree, alinhado a esquerda. Margem pequena pra
    manter "colado" na arvore (em vez de ir parar no rodape do modal). */

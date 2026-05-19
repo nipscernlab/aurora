@@ -15,7 +15,7 @@ body:
     attributes:
       label: AURORA version
       description: From `Help ▸ About` or `package.json#version`.
-      placeholder: "6.3.1"
+      placeholder: "6.3.2"
     validations:
       required: true
 

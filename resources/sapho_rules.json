@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-17T16:34:26.865Z",
+  "generatedAt": "2026-05-19T23:25:04.688Z",
   "source": {
     "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "48101233a469"
+    "yancCommit": "76dc01609aa4"
   },
   "language": {
     "keywords": [
@@ -88,6 +88,10 @@
     ],
     "diracTokens": [
       {
+        "symbol": "for",
+        "token": "FOR"
+      },
+      {
         "symbol": "⟩",
         "token": "BRA"
       },
@@ -105,14 +109,6 @@
       }
     ],
     "macroDirectives": [
-      {
-        "symbol": "#USEMAC",
-        "token": "USEMAC"
-      },
-      {
-        "symbol": "#ENDMAC",
-        "token": "ENDMAC"
-      },
       {
         "symbol": "#INTERPOINT",
         "token": "ITRADD"
@@ -184,13 +180,13 @@
       "DEFAULT",
       "DIF",
       "ELSE",
-      "ENDMAC",
       "EQU",
       "EYE",
       "FASE",
       "FFTSIZ",
       "FIN",
       "FNUM",
+      "FOR",
       "FOUT",
       "GREQU",
       "ID",
@@ -229,7 +225,6 @@
       "SWITCH",
       "THEN",
       "TYPE",
-      "USEMAC",
       "VZERO",
       "WHILE"
     ],
@@ -237,22 +232,29 @@
       "assignment",
       "break",
       "case",
+      "case_label",
       "case_list",
       "cases",
       "declar",
       "default",
+      "default_label",
       "dire_inter",
       "direct",
+      "else_intro",
       "exp",
       "exp_list",
       "fim",
+      "for_init_clause",
+      "for_intro",
+      "for_step_clause",
+      "for_stmt",
       "func_call",
+      "func_intro",
       "funcao",
       "id_list",
       "if_else_stmt",
       "if_exp",
-      "mac_end",
-      "mac_use",
+      "par_items",
       "par_list",
       "prog",
       "prog_elements",
@@ -280,9 +282,11 @@
       "stmt_full",
       "stmt_list",
       "switch_case",
+      "switch_intro",
       "terminal",
       "void_call",
       "while_exp",
+      "while_intro",
       "while_stmt"
     ]
   },
@@ -988,30 +992,9 @@
       "en": "Heads up: function '%s' isn't being used. Save some memory, will ya!\n"
     },
     {
-      "code": "MSG_ERR_NESTED_MACRO",
-      "severity": "error",
-      "category": "macros / interrupcao",
-      "pt": "Erro na linha %d: tá chamando uma macro dentro da outra. você é uma pessoa confusa!\n",
-      "en": "Error on line %d: you're calling a macro inside another one. You're a confused soul, aren't you!\n"
-    },
-    {
-      "code": "MSG_ERR_MACRO_NOT_FOUND",
-      "severity": "error",
-      "category": "macros / interrupcao",
-      "pt": "Erro na linha %d: cadê a macro %s? Tinha que estar na pasta Software!\n",
-      "en": "Error on line %d: where's the macro %s? Was supposed to be in the Software folder!\n"
-    },
-    {
-      "code": "MSG_ERR_MACRO_NO_START",
-      "severity": "error",
-      "category": "macros / interrupcao",
-      "pt": "Erro na linha %d: não estou achando o começo da macro\n",
-      "en": "Error on line %d: can't find the start of the macro\n"
-    },
-    {
       "code": "MSG_ERR_DUP_INTERRUPT",
       "severity": "error",
-      "category": "macros / interrupcao",
+      "category": "interrupcao",
       "pt": "Erro na linha %d: já tem uma interrupção rolando em outro ponto antes desse!\n",
       "en": "Error on line %d: there's already an interrupt going on somewhere else before this one!\n"
     },
@@ -1035,13 +1018,6 @@
       "category": "info messages",
       "pt": "Info: constante %s na linha %d aproximada para %.14f (erro = %.14f)\n",
       "en": "Info: constant %s on line %d aproximated to %.14f (error = %.14f)\n"
-    },
-    {
-      "code": "MSG_INFO_USER_MACRO",
-      "severity": "info",
-      "category": "info messages",
-      "pt": "Info: substituindo código C± pela macro do usuário %s na linha %d\n",
-      "en": "Info: replacing C± code by user macro %s at line %d\n"
     },
     {
       "code": "MSG_INFO_SQRT_MACRO",

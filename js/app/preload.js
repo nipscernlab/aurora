@@ -116,8 +116,8 @@ const compilationOperations = {
   // events while the simulation runs (instead of one lump at the end).
   // The caller registers a listener with onVvpStream and the cleanup
   // function it returns must be invoked when the run finishes.
-  execVvpStreamed: (vvpBin, vvpFile, extraArgs, workingDir) =>
-    ipcRenderer.invoke('exec-vvp-streamed', vvpBin, vvpFile, extraArgs, workingDir),
+  execVvpStreamed: (vvpBin, vvpFile, extraArgs, workingDir, options) =>
+    ipcRenderer.invoke('exec-vvp-streamed', vvpBin, vvpFile, extraArgs, workingDir, options),
   onVvpStream: (callback) => {
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on('vvp-stream', handler);

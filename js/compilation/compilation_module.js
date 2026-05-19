@@ -2205,9 +2205,14 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     try {
         // Reusa execVvpStreamed mesmo nao sendo vvp — a API so executa
         // um binario e streama output. Sem args de plusarg em pass 2.
+        // PATH precisa incluir bundle mingw64+usr bin: o .exe gerado pelo
+        // Verilator linka dinamicamente contra libstdc++-6.dll / libgcc /
+        // libwinpthread do bundle, e sem PATH o Windows aborta com
+        // STATUS_DLL_NOT_FOUND (0xC0000135 → exit 3221225781).
         if (typeof window.electronAPI.execVvpStreamed === 'function') {
             const r = await window.electronAPI.execVvpStreamed(
                 exePath, '', [], tools.tempBaseDir,
+                { prependPath: [tools.mingwBin, tools.usrBin] },
             );
             code = r.code;
         } else {

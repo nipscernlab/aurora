@@ -90,13 +90,29 @@ function register() {
    * Each chunk fires `vvp-stream` events tagged with stdout/stderr.
    * Resolves with { code } when the process exits.
    */
-  ipcMain.handle('exec-vvp-streamed', (event, vvpBin, vvpFile, extraArgs, workingDir) => {
+  ipcMain.handle('exec-vvp-streamed', (event, vvpBin, vvpFile, extraArgs, workingDir, options = {}) => {
     return new Promise((resolve, reject) => {
-      const args = [vvpFile, ...(Array.isArray(extraArgs) ? extraArgs : [])];
-      const child = spawn(vvpBin, args, {
-        cwd: workingDir,
-        windowsHide: true,
-      });
+      // vvpFile may be '' when caller wants to spawn a self-contained binary
+      // (Verilator-generated .exe) with no script argument.
+      const args = [
+        ...(vvpFile ? [vvpFile] : []),
+        ...(Array.isArray(extraArgs) ? extraArgs : []),
+      ];
+      // options.prependPath: array of dirs to prepend to PATH. Verilator
+      // pass-2 uses this so the .exe finds libstdc++-6.dll etc. from the
+      // bundle's mingw64/bin; without it Windows kills the process with
+      // STATUS_DLL_NOT_FOUND (0xC0000135 = 3221225781) before main() runs.
+      // options.env: extra arbitrary env vars to inject.
+      const spawnOpts = { cwd: workingDir, windowsHide: true };
+      const prepend = Array.isArray(options?.prependPath) ? options.prependPath : null;
+      if (prepend || options?.env) {
+        const baseEnv = { ...process.env, ...(options?.env || {}) };
+        if (prepend && prepend.length) {
+          baseEnv.PATH = `${prepend.join(';')};${baseEnv.PATH || ''}`;
+        }
+        spawnOpts.env = baseEnv;
+      }
+      const child = spawn(vvpBin, args, spawnOpts);
 
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid;

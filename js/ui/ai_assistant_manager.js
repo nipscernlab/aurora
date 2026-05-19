@@ -17,6 +17,12 @@
 import { showConfirm } from './dialog_manager.js';
 
 const PROVIDER_META = {
+  // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
+  // billed against the user's Pro/MAX plan — no per-token API key.
+  'claude-code': {
+    label: 'Claude Code', icon: './assets/icons/ai_claude.svg',
+    subscription: true, tagline: 'Pro / MAX plan — no API key',
+  },
   openai:    { label: 'ChatGPT',  icon: './assets/icons/ai_chatgpt.svg'  },
   anthropic: { label: 'Claude',   icon: './assets/icons/ai_claude.svg'   },
   google:    { label: 'Gemini',   icon: './assets/icons/ai_gemini.webp'  },
@@ -24,6 +30,77 @@ const PROVIDER_META = {
   groq:      { label: 'Groq',     icon: './assets/icons/ai_groq.svg'     },
   ollama:    { label: 'Ollama',   icon: './assets/icons/ai_ollama.svg'   },
 };
+
+// Synthetic provider entry for Claude Code — it is not returned by the
+// backend `listProviders()` (no API key), so the panel injects it.
+const CLAUDE_CODE_PROVIDER = { name: 'claude-code', model: 'default', defaultModel: 'default' };
+
+// Claude Code model aliases + effort levels — surfaced as segmented
+// controls in the model popover. `effort: ''` means "let the CLI decide".
+const CLAUDE_CODE_MODELS = [
+  { id: 'default', label: 'Default' },
+  { id: 'sonnet',  label: 'Sonnet'  },
+  { id: 'opus',    label: 'Opus'    },
+  { id: 'haiku',   label: 'Haiku'   },
+];
+const CLAUDE_CODE_EFFORT = [
+  { id: '',       label: 'Auto'  },
+  { id: 'low',    label: 'Low'   },
+  { id: 'medium', label: 'Medium'},
+  { id: 'high',   label: 'High'  },
+  { id: 'xhigh',  label: 'xHigh' },
+  { id: 'max',    label: 'Max'   },
+];
+
+/** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
+function shortModelName(model) {
+  if (!model) return '';
+  return String(model)
+    .replace(/^(claude-|gpt-|gemini-|models\/|deepseek-)/i, '')
+    .replace(/-\d{8}$/, '')
+    .replace(/-latest$/, '');
+}
+
+/** Compact a token count: 1234 → "1.2k", 12 → "12". */
+function formatTokens(n) {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v >= 1_000)     return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(v);
+}
+
+// Rate-limit window display metadata, keyed by the CLI's `rateLimitType`.
+const WINDOW_META = {
+  five_hour: { label: '5-hour window', icon: 'ph-hourglass-medium' },
+  weekly:    { label: 'This week',     icon: 'ph-calendar-dots'    },
+};
+
+/** Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp. */
+function untilTime(unixSeconds) {
+  const ms = Number(unixSeconds) * 1000 - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 'now';
+  const m = Math.round(ms / 60000);
+  if (m < 60)   return `in ${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24)   return `in ${h}h ${m % 60}m`;
+  return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/**
+ * One row in the Claude Code usage panel: a label, a value, and a thin
+ * bar. `state` colours the fill (ok / mid / high / count); `pct` is the
+ * fill width (0–100).
+ */
+function usageRowHTML(label, icon, valText, state, pct) {
+  return `
+    <div class="ai-usage" data-state="${state}">
+      <div class="ai-usage-top">
+        <span class="ai-usage-label"><i class="ph ${icon}" aria-hidden="true"></i>${label}</span>
+        <span class="ai-usage-val">${valText || ''}</span>
+      </div>
+      <div class="ai-usage-track"><div class="ai-usage-fill" style="width:${pct || 0}%"></div></div>
+    </div>`;
+}
 
 // ─── Aurora Intelligence System Prompt ──────────────────────────────────────
 // Built from: yanc compiler grammar (CMMComp.y/.l), real CMM examples
@@ -500,7 +577,7 @@ class AIAssistantManager {
 
     this.messages = [];              // [{ role:'user'|'assistant', content }]
     this.currentProvider = null;
-    this.providersAvailable = [];    // [{ name, defaultModel }]
+    this.providersAvailable = [];    // [{ name, model, defaultModel }]
     this.providersConfigured = {};   // { name: bool }
     this.currentSessionId = null;
     this.currentAssistantContentEl = null;  // current text segment bubble, or null
@@ -514,8 +591,17 @@ class AIAssistantManager {
 
     // Tool permission gate.
     this.permissionMode = readPermissionMode();
-    this.gearOpen = false;
+    this.modelPopoverOpen = false;
     this.pendingConfirms = new Set();   // resolve fns of open confirmation cards
+
+    // Claude Code (subscription) state.
+    this.claudeUsage = null;            // last usage snapshot, or null
+    this.claudeCodeStatus = null;       // { installed, authed, plan, … }, or null
+    this.claudeCodeEffort = '';         // '' | low | medium | high | xhigh | max
+    try {
+      const e = localStorage.getItem('aurora-ai-cc-effort');
+      if (CLAUDE_CODE_EFFORT.some((x) => x.id === e)) this.claudeCodeEffort = e;
+    } catch (_) { /* default '' */ }
 
     // Persistent chat history.
     this.currentChatId = null;          // null until the user sends the 1st turn
@@ -548,20 +634,18 @@ class AIAssistantManager {
           </span>
           <h3 class="ai-assistant-title">Aurora Intelligence</h3>
         </div>
-        <button class="ai-history-btn" id="ai-history-btn" title="Chat history" aria-label="Chat history">
-          <i class="ph ph-clock-counter-clockwise"></i>
-        </button>
         <div class="ai-header-right">
-          <button class="ai-gear-btn" id="ai-gear-btn" title="Chat settings" aria-label="Chat settings">
-            <i class="ph ph-gear-six"></i>
+          <button class="ai-hbtn" id="ai-history-btn" title="Chat history" aria-label="Chat history">
+            <i class="ph ph-clock-counter-clockwise"></i>
           </button>
-          <button class="ai-clear-btn" id="ai-clear-btn" title="New chat" aria-label="New chat">
-            <i class="ph ph-plus-circle"></i>
+          <button class="ai-hbtn" id="ai-clear-btn" title="New chat" aria-label="New chat">
+            <i class="ph ph-note-pencil"></i>
           </button>
-          <button class="ai-terminal-clear-btn" id="ai-terminal-clear-btn" title="Clear terminal output" aria-label="Clear terminal">
-            <i class="ph ph-terminal"></i>
+          <button class="ai-hbtn" id="ai-terminal-clear-btn" title="Clear terminal output" aria-label="Clear terminal">
+            <i class="ph ph-terminal-window"></i>
           </button>
-          <button class="ai-assistant-close" aria-label="Close AI Assistant">
+          <span class="ai-hbtn-sep"></span>
+          <button class="ai-hbtn ai-hbtn-close" id="ai-close-btn" aria-label="Close AI Assistant" title="Close">
             <i class="ph ph-x"></i>
           </button>
         </div>
@@ -577,29 +661,13 @@ class AIAssistantManager {
           </div>
           <div class="ai-history-list" id="ai-history-list"></div>
         </div>
-
-        <!-- Gear popover: pick the provider and the tool permission mode. -->
-        <div class="ai-gear-popover hidden" id="ai-gear-popover" role="menu">
-          <div class="ai-gear-section">
-            <div class="ai-gear-label">Provider</div>
-            <div class="ai-gear-list" id="ai-gear-providers"></div>
-          </div>
-          <div class="ai-gear-section">
-            <div class="ai-gear-label">Permissions</div>
-            <div class="ai-gear-list" id="ai-gear-perms"></div>
-          </div>
-          <button class="ai-gear-managekeys" id="ai-gear-managekeys">
-            <i class="ph ph-key" aria-hidden="true"></i><span>Manage API keys</span>
-          </button>
-        </div>
       </div>
 
       <div class="ai-assistant-content">
-        <div class="ai-empty-state" id="ai-empty-state">
+        <div class="ai-empty-state hidden" id="ai-empty-state">
           <i class="ph ph-sparkle ai-empty-icon" aria-hidden="true"></i>
-          <h4>No provider configured</h4>
-          <p>Set an API key for any supported provider — OpenAI, Anthropic, Google or DeepSeek — and reopen this panel.</p>
-          <p class="ai-empty-hint">For now, configure a key from DevTools:<br><code>await aiAPI.setKey('anthropic', 'sk-ant-...')</code></p>
+          <h4>Aurora Intelligence is offline</h4>
+          <p>The AI backend could not be reached. Restart Aurora, or open Settings to configure a provider.</p>
         </div>
 
         <div class="ai-messages" id="ai-messages" role="log" aria-live="polite">
@@ -610,21 +678,75 @@ class AIAssistantManager {
         </div>
 
         <div class="ai-input-area">
-          <div class="ai-input-wrap">
+          <!-- Model / provider popover — anchored above the composer chip. -->
+          <div class="ai-model-popover hidden" id="ai-model-popover" role="menu">
+            <div class="ai-mp-section">
+              <div class="ai-mp-label">Provider</div>
+              <div class="ai-mp-list" id="ai-mp-providers"></div>
+            </div>
+
+            <!-- Claude Code connection status (subscription provider only) -->
+            <div class="ai-mp-section ai-mp-cc hidden" id="ai-mp-cc-status"></div>
+
+            <div class="ai-mp-section" id="ai-mp-model-section">
+              <div class="ai-mp-label">Model</div>
+              <div class="ai-mp-modelrow" id="ai-mp-model-api">
+                <input type="text" id="ai-model-input" class="ai-mp-model-input"
+                       spellcheck="false" autocomplete="off" placeholder="default">
+                <button class="ai-mp-iconbtn" id="ai-model-reset" type="button"
+                        title="Reset to default model" aria-label="Reset model">
+                  <i class="ph ph-arrow-counter-clockwise"></i>
+                </button>
+              </div>
+              <div class="ai-mp-seg hidden" id="ai-mp-model-presets"></div>
+            </div>
+
+            <!-- Effort / reasoning depth (Claude Code only) -->
+            <div class="ai-mp-section ai-mp-cc hidden" id="ai-mp-effort-section">
+              <div class="ai-mp-label">Effort &amp; reasoning</div>
+              <div class="ai-mp-seg" id="ai-mp-effort"></div>
+            </div>
+
+            <div class="ai-mp-section ai-mp-usage ai-mp-cc hidden" id="ai-mp-usage">
+              <div class="ai-mp-label">
+                <span>Subscription usage</span>
+                <span class="ai-usage-plan" id="ai-usage-plan"></span>
+              </div>
+              <div class="ai-usage-bars" id="ai-usage-bars"></div>
+            </div>
+
+            <div class="ai-mp-section">
+              <div class="ai-mp-label">Permissions</div>
+              <div class="ai-mp-list" id="ai-mp-perms"></div>
+            </div>
+            <button class="ai-mp-managekeys" id="ai-mp-managekeys" type="button">
+              <i class="ph ph-key" aria-hidden="true"></i><span>Manage API keys &amp; providers</span>
+            </button>
+          </div>
+
+          <div class="ai-composer" id="ai-composer">
+            <button class="ai-model-chip" id="ai-model-chip" type="button"
+                    title="Switch model or provider" aria-label="Model and provider">
+              <img class="ai-model-chip-icon" id="ai-model-chip-icon"
+                   src="./assets/icons/ai_claude.svg" alt="">
+              <span class="ai-model-chip-name" id="ai-model-chip-name">Claude</span>
+              <i class="ph ph-caret-up-down ai-model-chip-caret"></i>
+            </button>
+
             <textarea id="ai-input"
               class="ai-input"
               placeholder="Ask Aurora Intelligence…"
               rows="1"
               aria-label="Message"></textarea>
-            <div class="ai-input-side">
-              <span class="ai-token-counter" id="ai-token-counter">0 tk</span>
-              <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
-                <i class="ph ph-stop"></i><span>Stop</span>
-              </button>
-              <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
-                <i class="ph ph-arrow-up"></i>
-              </button>
-            </div>
+
+            <span class="ai-token-counter" id="ai-token-counter" title="Tokens this conversation">0</span>
+
+            <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
+              <i class="ph ph-stop"></i>
+            </button>
+            <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
+              <i class="ph-bold ph-arrow-up"></i>
+            </button>
           </div>
         </div>
 
@@ -636,14 +758,31 @@ class AIAssistantManager {
     this.messagesEl    = this.container.querySelector('#ai-messages');
     this.emptyStateEl  = this.container.querySelector('#ai-empty-state');
     this.inputEl       = this.container.querySelector('#ai-input');
+    this.composerEl    = this.container.querySelector('#ai-composer');
     this.sendBtn       = this.container.querySelector('#ai-send-btn');
     this.stopBtn       = this.container.querySelector('#ai-stop-btn');
     this.clearBtn      = this.container.querySelector('#ai-clear-btn');
     this.tokenCounter  = this.container.querySelector('#ai-token-counter');
-    this.gearBtn       = this.container.querySelector('#ai-gear-btn');
-    this.gearPopover   = this.container.querySelector('#ai-gear-popover');
-    this.gearProviders = this.container.querySelector('#ai-gear-providers');
-    this.gearPerms     = this.container.querySelector('#ai-gear-perms');
+
+    // Model / provider chip + popover.
+    this.modelChip     = this.container.querySelector('#ai-model-chip');
+    this.modelChipIcon = this.container.querySelector('#ai-model-chip-icon');
+    this.modelChipName = this.container.querySelector('#ai-model-chip-name');
+    this.modelPopover  = this.container.querySelector('#ai-model-popover');
+    this.mpProviders   = this.container.querySelector('#ai-mp-providers');
+    this.mpPerms       = this.container.querySelector('#ai-mp-perms');
+    this.modelInput    = this.container.querySelector('#ai-model-input');
+    this.modelResetBtn = this.container.querySelector('#ai-model-reset');
+    this.mpModelApi    = this.container.querySelector('#ai-mp-model-api');
+    this.mpModelPresets= this.container.querySelector('#ai-mp-model-presets');
+    this.mpUsage       = this.container.querySelector('#ai-mp-usage');
+    this.usageBars     = this.container.querySelector('#ai-usage-bars');
+    this.usagePlan     = this.container.querySelector('#ai-usage-plan');
+    this.ccStatusEl    = this.container.querySelector('#ai-mp-cc-status');
+    this.effortSection = this.container.querySelector('#ai-mp-effort-section');
+    this.effortSeg     = this.container.querySelector('#ai-mp-effort');
+    this.ccSections    = this.container.querySelectorAll('.ai-mp-cc');
+
     this.historyBtn        = this.container.querySelector('#ai-history-btn');
     this.historyPopover    = this.container.querySelector('#ai-history-popover');
     this.historyList       = this.container.querySelector('#ai-history-list');
@@ -673,32 +812,57 @@ class AIAssistantManager {
   }
 
   attachListeners() {
-    this.container.querySelector('.ai-assistant-close').addEventListener('click', () => this.toggle());
+    this.container.querySelector('.ai-hbtn-close').addEventListener('click', () => this.toggle());
 
-    // Gear popover — provider + permission mode.
-    this.gearBtn.addEventListener('click', (e) => {
+    // Model / provider popover — opened from the composer chip.
+    this.modelChip.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.toggleGear();
+      this.toggleModelPopover();
     });
-    this.gearPopover.addEventListener('click', (e) => e.stopPropagation());
-    document.addEventListener('click', () => this.toggleGear(false));
+    this.modelPopover.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => this.toggleModelPopover(false));
 
     // Re-sync providers whenever the AI settings panel changes model/key.
     window.addEventListener('aurora-ai-settings-changed', () => this.refreshProviders());
 
-    this.gearProviders.addEventListener('change', (e) => {
+    this.mpProviders.addEventListener('change', (e) => {
       const radio = e.target.closest('input[name="ai-provider"]');
-      if (radio) {
-        this.currentProvider = radio.value;
-        this.updateProviderIcon();
-      }
+      if (radio) this.selectProvider(radio.value);
     });
-    this.gearPerms.addEventListener('change', (e) => {
+    this.mpPerms.addEventListener('change', (e) => {
       const radio = e.target.closest('input[name="ai-perm"]');
       if (radio) this.setPermissionMode(radio.value);
     });
-    this.container.querySelector('#ai-gear-managekeys').addEventListener('click', () => {
-      this.toggleGear(false);
+
+    // Model id — committed on Enter / blur (API providers, free text).
+    this.modelInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); this.modelInput.blur(); }
+    });
+    this.modelInput.addEventListener('change', () => this.commitModel(this.modelInput.value));
+    this.modelResetBtn.addEventListener('click', () => {
+      const meta = this.providersAvailable.find((p) => p.name === this.currentProvider);
+      this.commitModel(meta?.defaultModel || '');
+    });
+
+    // Claude Code model presets (segmented control).
+    this.mpModelPresets.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-model]');
+      if (btn) this.commitModel(btn.dataset.model);
+    });
+
+    // Claude Code effort / reasoning depth (segmented control).
+    this.effortSeg.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-effort]');
+      if (btn) this.setClaudeCodeEffort(btn.dataset.effort);
+    });
+
+    // Claude Code status section — "Re-check" button.
+    this.ccStatusEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cc-recheck]')) this.refreshClaudeCodeStatus();
+    });
+
+    this.container.querySelector('#ai-mp-managekeys').addEventListener('click', () => {
+      this.toggleModelPopover(false);
       document.getElementById('aurora-settings')?.click();
       // Jump straight to the AI Assistant pane once the modal is up.
       setTimeout(() => {
@@ -735,11 +899,9 @@ class AIAssistantManager {
       }
     });
 
-    // Auto-resize the textarea up to ~6 lines.
-    this.inputEl.addEventListener('input', () => {
-      this.inputEl.style.height = 'auto';
-      this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 160) + 'px';
-    });
+    // Grow the composer with the text the user types (up to a cap, then
+    // scroll). Runs on every input event.
+    this.inputEl.addEventListener('input', () => this.autoGrowInput());
 
     // External links in markdown bubbles: openExternal so the renderer
     // window doesn't navigate. The anchor itself is just a sentinel —
@@ -764,22 +926,23 @@ class AIAssistantManager {
     });
   }
 
-  /* ---------------- gear popover ---------------- */
+  /* ---------------- model / provider popover ---------------- */
 
-  toggleGear(force) {
-    const open = force === undefined ? !this.gearOpen : force;
-    this.gearOpen = open;
-    this.gearPopover.classList.toggle('hidden', !open);
-    this.gearBtn.classList.toggle('active', open);
+  toggleModelPopover(force) {
+    const open = force === undefined ? !this.modelPopoverOpen : force;
+    this.modelPopoverOpen = open;
+    this.modelPopover.classList.toggle('hidden', !open);
+    this.modelChip.classList.toggle('active', open);
+    if (open && this.currentProvider === 'claude-code') this.refreshClaudeCodeUsage();
   }
 
   buildPermissionOptions() {
-    this.gearPerms.innerHTML = PERMISSION_MODES.map((m) => `
-      <label class="ai-gear-opt">
+    this.mpPerms.innerHTML = PERMISSION_MODES.map((m) => `
+      <label class="ai-mp-opt ai-mp-opt-perm">
         <input type="radio" name="ai-perm" value="${m.id}"${m.id === this.permissionMode ? ' checked' : ''}>
-        <span class="ai-gear-opt-text">
-          <span class="ai-gear-opt-label">${m.label}</span>
-          <span class="ai-gear-opt-hint">${m.hint}</span>
+        <span class="ai-mp-opt-text">
+          <span class="ai-mp-opt-label">${m.label}</span>
+          <span class="ai-mp-opt-hint">${m.hint}</span>
         </span>
       </label>
     `).join('');
@@ -793,58 +956,277 @@ class AIAssistantManager {
   }
 
   async refreshProviders() {
-    if (!window.aiAPI) return;
-    try {
-      const { providers } = await window.aiAPI.listProviders();
-      const { configured } = await window.aiAPI.getKeyStatus();
-      this.providersAvailable = providers || [];
-      this.providersConfigured = configured || {};
-    } catch (e) {
-      console.warn('[ai-panel] refreshProviders failed:', e);
-      this.providersAvailable = [];
-      this.providersConfigured = {};
-    }
-
-    const usable = this.providersAvailable.filter((p) => this.providersConfigured[p.name]);
-
-    if (!usable.length) {
+    if (!window.aiAPI) {
       this.showEmptyState(true);
-      this.gearProviders.innerHTML = '<p class="ai-gear-empty">No API key configured.</p>';
-      this.currentProvider = null;
       this.sendBtn.disabled = true;
       this.inputEl.disabled = true;
       return;
     }
 
+    let providers = [];
+    try {
+      const r = await window.aiAPI.listProviders();
+      const s = await window.aiAPI.getKeyStatus();
+      providers = r?.providers || [];
+      this.providersConfigured = s?.configured || {};
+    } catch (e) {
+      console.warn('[ai-panel] refreshProviders failed:', e);
+      providers = [];
+      this.providersConfigured = {};
+    }
+
+    // Claude Code is a synthetic, always-available provider (subscription
+    // auth — no API key). Its model is persisted locally, not by the backend.
+    if (!this.claudeCodeEntry) {
+      this.claudeCodeEntry = { ...CLAUDE_CODE_PROVIDER };
+      try {
+        const saved = localStorage.getItem('aurora-ai-claude-code-model');
+        if (saved) this.claudeCodeEntry.model = saved;
+      } catch (_) { /* ignore */ }
+    }
+    this.providersConfigured['claude-code'] = true;
+
+    const apiUsable = providers.filter((p) => this.providersConfigured[p.name]);
+    this.providersAvailable = [this.claudeCodeEntry, ...apiUsable];
+
     this.showEmptyState(false);
     this.sendBtn.disabled = false;
     this.inputEl.disabled = false;
 
-    // Keep the current selection if its key is still configured.
-    if (!this.currentProvider || !usable.some((p) => p.name === this.currentProvider)) {
-      this.currentProvider = usable[0].name;
+    // Keep the current selection if still valid; otherwise prefer a
+    // configured API provider, falling back to Claude Code.
+    if (!this.currentProvider ||
+        !this.providersAvailable.some((p) => p.name === this.currentProvider)) {
+      this.currentProvider = apiUsable[0]?.name || 'claude-code';
     }
 
-    this.gearProviders.innerHTML = usable.map((p) => {
+    this.renderProviderOptions();
+    this.applyProviderState();
+  }
+
+  renderProviderOptions() {
+    this.mpProviders.innerHTML = this.providersAvailable.map((p) => {
       const meta = PROVIDER_META[p.name] || { label: p.name };
       const checked = p.name === this.currentProvider ? ' checked' : '';
+      const hint = meta.subscription ? meta.tagline : (p.model || 'default model');
       return `
-        <label class="ai-gear-opt">
+        <label class="ai-mp-opt">
           <input type="radio" name="ai-provider" value="${p.name}"${checked}>
-          <span class="ai-gear-opt-text">
-            <span class="ai-gear-opt-label">${meta.label}</span>
-            <span class="ai-gear-opt-hint">${p.model || ''}</span>
+          <img class="ai-mp-opt-icon" src="${meta.icon}" alt="">
+          <span class="ai-mp-opt-text">
+            <span class="ai-mp-opt-label">${meta.label}${
+              meta.subscription ? '<span class="ai-mp-opt-tag">SUB</span>' : ''}</span>
+            <span class="ai-mp-opt-hint">${hint}</span>
           </span>
         </label>
       `;
     }).join('');
-
-    this.updateProviderIcon();
   }
 
-  updateProviderIcon() {
-    const meta = PROVIDER_META[this.currentProvider];
-    if (meta?.icon) this.providerIcon.src = meta.icon;
+  /** Reflect the active provider across the icon, chip, controls and usage. */
+  applyProviderState() {
+    const meta = PROVIDER_META[this.currentProvider] || {};
+    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+    const isSub = !!meta.subscription;
+
+    if (meta.icon) this.providerIcon.src = meta.icon;
+    this.updateModelChip();
+    if (this.modelInput) this.modelInput.value = entry?.model || '';
+
+    // Show / hide the Claude-Code-only sections (status, effort, usage).
+    this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
+
+    this.renderModelControls();
+    if (isSub) {
+      this.renderEffort();
+      this.refreshClaudeCodeStatus();
+      this.refreshClaudeCodeUsage();
+    }
+  }
+
+  /** Switch the active provider (from a radio change in the popover). */
+  selectProvider(name) {
+    if (name === this.currentProvider) return;
+    this.currentProvider = name;
+    this.applyProviderState();
+  }
+
+  /** Model picker: free-text input for API providers, presets for Claude Code. */
+  renderModelControls() {
+    const isSub = this.currentProvider === 'claude-code';
+    this.mpModelApi.classList.toggle('hidden', isSub);
+    this.mpModelPresets.classList.toggle('hidden', !isSub);
+    if (isSub) {
+      const active = this.claudeCodeEntry?.model || 'default';
+      this.mpModelPresets.innerHTML = CLAUDE_CODE_MODELS.map((m) =>
+        `<button type="button" data-model="${m.id}" class="ai-seg-btn${
+          m.id === active ? ' active' : ''}">${m.label}</button>`).join('');
+    }
+  }
+
+  /** Effort / reasoning-depth segmented control (Claude Code only). */
+  renderEffort() {
+    this.effortSeg.innerHTML = CLAUDE_CODE_EFFORT.map((e) =>
+      `<button type="button" data-effort="${e.id}" class="ai-seg-btn${
+        e.id === this.claudeCodeEffort ? ' active' : ''}">${e.label}</button>`).join('');
+  }
+
+  setClaudeCodeEffort(id) {
+    if (!CLAUDE_CODE_EFFORT.some((e) => e.id === id)) return;
+    this.claudeCodeEffort = id;
+    try { localStorage.setItem('aurora-ai-cc-effort', id); }
+    catch (_) { /* best-effort */ }
+    this.renderEffort();
+  }
+
+  /** Persist a model id for the active provider and refresh the chip. */
+  async commitModel(value) {
+    const v = (value || '').trim();
+    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+
+    if (this.currentProvider === 'claude-code') {
+      const model = v || 'default';
+      if (entry) entry.model = model;
+      try { localStorage.setItem('aurora-ai-claude-code-model', model); }
+      catch (_) { /* best-effort */ }
+      this.renderModelControls();
+      this.updateModelChip();
+      return;
+    }
+
+    try {
+      const r = await window.aiAPI.setModel(this.currentProvider, v);
+      if (r && r.ok) {
+        if (entry) entry.model = r.model || '';
+        if (this.modelInput) this.modelInput.value = r.model || '';
+      }
+    } catch (_) { /* leave the field as the user typed it */ }
+    this.updateModelChip();
+    this.renderProviderOptions();   // refresh the per-provider model hint
+  }
+
+  /** Refresh the composer chip — provider icon + short model name. */
+  updateModelChip() {
+    const meta = PROVIDER_META[this.currentProvider] || {};
+    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+    if (meta.icon) this.modelChipIcon.src = meta.icon;
+
+    const short = shortModelName(entry?.model);
+    this.modelChipName.textContent = short || meta.label || this.currentProvider || 'Model';
+    this.modelChip.title = entry?.model
+      ? `${meta.label || this.currentProvider} · ${entry.model}`
+      : `${meta.label || this.currentProvider} — switch model or provider`;
+  }
+
+  /* ---------------- Claude Code: connection status ---------------- */
+
+  /** Probe the local Claude Code CLI install + subscription login. */
+  async refreshClaudeCodeStatus() {
+    let status = null;
+    try {
+      const r = await window.aiAPI?.getClaudeCodeStatus?.();
+      status = r?.status || null;
+    } catch (_) { /* treat as not installed */ }
+    this.claudeCodeStatus = status;
+    this.renderClaudeCodeStatus();
+  }
+
+  renderClaudeCodeStatus() {
+    if (!this.ccStatusEl) return;
+    const s = this.claudeCodeStatus;
+    let state = 'off';
+    let icon = 'ph-x-circle';
+    let title = 'Checking…';
+    let detail = '';
+
+    if (!s) {
+      title = 'Checking Claude Code…';
+    } else if (!s.installed) {
+      state = 'off'; icon = 'ph-x-circle';
+      title = 'Claude Code not installed';
+      detail = 'Install it: npm i -g @anthropic-ai/claude-code';
+    } else if (!s.authed) {
+      state = 'warn'; icon = 'ph-warning-circle';
+      title = 'Not signed in';
+      detail = 'Run <code>claude login</code> in a terminal, then re-check.';
+    } else {
+      state = 'on'; icon = 'ph-check-circle';
+      const plan = s.plan ? String(s.plan).toUpperCase() : 'subscription';
+      title = `Connected · ${plan}`;
+      detail = `Claude Code ${s.version || ''}`.trim();
+    }
+
+    this.ccStatusEl.dataset.state = state;
+    this.ccStatusEl.innerHTML = `
+      <div class="ai-cc-row">
+        <i class="ph ${icon} ai-cc-icon" aria-hidden="true"></i>
+        <span class="ai-cc-title">${title}</span>
+        <button type="button" class="ai-cc-recheck" data-cc-recheck
+                title="Re-check connection">
+          <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+        </button>
+      </div>
+      ${detail ? `<p class="ai-cc-detail">${detail}</p>` : ''}`;
+  }
+
+  /** True when Claude Code is installed and signed in. */
+  isClaudeCodeReady() {
+    return !!(this.claudeCodeStatus &&
+      this.claudeCodeStatus.installed && this.claudeCodeStatus.authed);
+  }
+
+  /* ---------------- Claude Code: subscription usage ---------------- */
+
+  async refreshClaudeCodeUsage() {
+    let usage = null;
+    try {
+      const r = await window.aiAPI?.getClaudeCodeUsage?.();
+      usage = r?.usage || null;
+    } catch (_) { /* leave usage null */ }
+    this.claudeUsage = usage;
+    this.renderUsage();
+  }
+
+  renderUsage() {
+    if (!this.usageBars) return;
+    const u = this.claudeUsage;
+
+    this.usagePlan.textContent = u?.plan ? `${String(u.plan).toUpperCase()} plan` : '';
+
+    // Session: real token tally for this app run (from the CLI's per-turn
+    // usage), plus the local conversation counter as a floor.
+    const sessTokens = Math.max(u?.session?.tokens || 0, this.cumulativeTokens);
+    const cost = u?.session?.costUsd;
+    const rows = [
+      usageRowHTML('Session', 'ph-lightning',
+        `${formatTokens(sessTokens)} tk${cost ? ` · $${cost.toFixed(2)}` : ''}`,
+        'count', 0),
+    ];
+
+    // Rate-limit windows (5-hour, weekly) reported by the CLI.
+    const windows = Array.isArray(u?.windows) ? u.windows : [];
+    for (const w of windows) {
+      const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
+      const sev = w.status === 'rejected' ? 'high'
+        : (w.status && w.status !== 'allowed') ? 'mid' : 'ok';
+      const reset = w.resetsAt ? `resets ${untilTime(w.resetsAt)}` : '';
+      rows.push(usageRowHTML(meta.label, meta.icon, reset || w.status || '', sev,
+        sev === 'high' ? 100 : sev === 'mid' ? 66 : 22));
+    }
+
+    this.usageBars.innerHTML = rows.join('');
+
+    const hint = this.mpUsage.querySelector('.ai-usage-hint');
+    if (!windows.length) {
+      if (!hint) {
+        const h = document.createElement('p');
+        h.className = 'ai-usage-hint';
+        h.textContent = 'Plan limits appear here after your first Claude Code message.';
+        this.mpUsage.appendChild(h);
+      }
+    } else if (hint) {
+      hint.remove();
+    }
   }
 
   /* ---------------- tool permission gate ---------------- */
@@ -935,8 +1317,25 @@ class AIAssistantManager {
     const text = this.inputEl.value.trim();
     if (!text) return;
 
+    // Claude Code talks to the user's subscription via the local CLI.
+    // If it isn't installed / signed in, fail fast with a clear notice
+    // (display-only bubble — not persisted) instead of a stream error.
+    if (this.currentProvider === 'claude-code') {
+      if (!this.claudeCodeStatus) await this.refreshClaudeCodeStatus();
+      if (!this.isClaudeCodeReady()) {
+        const s = this.claudeCodeStatus;
+        this.appendBubble('assistant', !s || !s.installed
+          ? '**Claude Code is not installed.** Install it with ' +
+            '`npm i -g @anthropic-ai/claude-code`, then open the model menu ' +
+            'and click re-check.'
+          : '**Claude Code is not signed in.** Run `claude login` in a ' +
+            'terminal, then open the model menu and click re-check.', false);
+        return;
+      }
+    }
+
     this.inputEl.value = '';
-    this.inputEl.style.height = 'auto';
+    this.autoGrowInput();
 
     // First message of a new chat — assign an id, derive a title from
     // the user's text, and mark this as the conversation we'll persist.
@@ -976,12 +1375,17 @@ class AIAssistantManager {
       .filter((m) => m.role !== 'tool')
       .map((m) => ({ role: m.role, content: m.content }));
 
+    const isClaudeCode = this.currentProvider === 'claude-code';
     try {
       const r = await window.aiAPI.startChat({
         sessionId: this.currentSessionId,
+        conversationId: this.currentChatId,
         provider: this.currentProvider,
+        modelId: isClaudeCode ? (this.claudeCodeEntry?.model || 'default') : undefined,
         messages: apiMessages,
         system: SYSTEM_PROMPT,
+        effort: isClaudeCode ? this.claudeCodeEffort : undefined,
+        permission: this.permissionMode,
       });
       if (r && r.ok === false) this.failTurn(r.error || 'Failed to start chat');
     } catch (e) {
@@ -1212,8 +1616,23 @@ class AIAssistantManager {
        (usage.outputTokens ?? usage.completionTokens ?? 0));
     if (total > 0) {
       this.cumulativeTokens += total;
-      this.tokenCounter.textContent = `${this.cumulativeTokens.toLocaleString()} tokens`;
+      this.updateTokenCounter();
     }
+  }
+
+  /** Refresh the compact composer token pill (+ live Claude Code usage). */
+  updateTokenCounter() {
+    this.tokenCounter.textContent = formatTokens(this.cumulativeTokens);
+    this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation`;
+    if (this.currentProvider === 'claude-code' && this.modelPopoverOpen) this.renderUsage();
+  }
+
+  /** Grow the textarea to fit its content (up to ~10 lines, then scroll). */
+  autoGrowInput() {
+    const el = this.inputEl;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
   }
 
   setStreaming(streaming) {
@@ -1265,7 +1684,7 @@ class AIAssistantManager {
       this.chatEmptyHint.classList.remove('hidden');
     }
     this.cumulativeTokens = 0;
-    this.tokenCounter.textContent = '0 tokens';
+    this.updateTokenCounter();
     this.runningChips = [];
     this.thinkingEl = null;
     this.currentChatId = null;
@@ -1389,7 +1808,7 @@ class AIAssistantManager {
         this.chatEmptyHint.classList.remove('hidden');
       }
       this.cumulativeTokens = 0;
-      this.tokenCounter.textContent = '0 tokens';
+      this.updateTokenCounter();
     }
     this.refreshChatList();
   }
@@ -1409,15 +1828,15 @@ class AIAssistantManager {
     this.currentChatCreatedAt = chat.createdAt || Date.now();
     this.messages = Array.isArray(chat.messages) ? chat.messages.slice() : [];
     this.cumulativeTokens = Number(chat.cumulativeTokens) || 0;
-    this.tokenCounter.textContent = `${this.cumulativeTokens.toLocaleString()} tokens`;
+    this.updateTokenCounter();
 
-    // Switch provider if the saved chat used a different one (and we
-    // still have a key for it). Falls back silently if not.
+    // Switch provider if the saved chat used a different one (and it's
+    // still available). Falls back silently if not.
     if (chat.provider && chat.provider !== this.currentProvider) {
       if (this.providersConfigured && this.providersConfigured[chat.provider]) {
         this.currentProvider = chat.provider;
-        this.updateProviderIcon();
-        const radio = this.gearProviders.querySelector(`input[name="ai-provider"][value="${chat.provider}"]`);
+        this.applyProviderState();
+        const radio = this.mpProviders.querySelector(`input[name="ai-provider"][value="${chat.provider}"]`);
         if (radio) radio.checked = true;
       }
     }

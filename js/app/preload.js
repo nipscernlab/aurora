@@ -269,12 +269,34 @@ const aiAPI = {
    * events via `onChatEvent` *before* calling startChat so it doesn't
    * miss early text-delta packets. Returns immediately with the
    * sessionId — the actual streaming work runs detached on main.
+   *
+   * `conversationId`, `effort` and `permission` are only consumed by
+   * the `claude-code` provider (the CLI bridge); API providers ignore
+   * them harmlessly.
    */
-  startChat: ({ sessionId, provider, modelId, messages, system }) =>
-    ipcRenderer.invoke('ai:chat-start', { sessionId, provider, modelId, messages, system }),
+  startChat: ({ sessionId, conversationId, provider, modelId, messages, system, effort, permission }) =>
+    ipcRenderer.invoke('ai:chat-start', {
+      sessionId, conversationId, provider, modelId, messages, system, effort, permission,
+    }),
 
   /** Abort an in-flight session. Resolves with `{ ok, stopped: bool }`. */
   abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
+
+  /* ---- Claude Code (subscription) bridge ---- */
+
+  /**
+   * Probe the local Claude Code CLI: install status, version, whether
+   * the user is signed in, and the subscription plan. Resolves with
+   * `{ ok, status: { installed, authed, plan, … } }`.
+   */
+  getClaudeCodeStatus: () => ipcRenderer.invoke('ai:claude-code-status'),
+
+  /**
+   * Live subscription usage — accumulated session tokens/cost plus the
+   * latest rate-limit windows reported by the CLI. Resolves with
+   * `{ ok, usage: { plan, session, windows } }`.
+   */
+  getClaudeCodeUsage: () => ipcRenderer.invoke('ai:claude-code-usage'),
 
   /**
    * Subscribe to chat events (text-delta, tool-call, tool-result,

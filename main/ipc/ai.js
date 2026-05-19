@@ -28,6 +28,7 @@ const keystore = require('../ai/keystore');
 const provider = require('../ai/provider');
 const prefs = require('../ai/prefs');
 const chat = require('../ai/chat');
+const claudeCode = require('../ai/claude_code');
 const tools = require('../ai/tools');
 const toolBridge = require('../ai/tool_bridge');
 const conversations = require('../ai/conversations');
@@ -105,12 +106,29 @@ function register() {
     }
   });
 
+  /* ---- Claude Code (subscription) bridge ----
+   * Probe the local `claude` CLI install + subscription login, and
+   * surface live rate-limit / token usage for the panel's usage bars.
+   */
+  ipcMain.handle('ai:claude-code-status', async () => {
+    try { return ok({ status: await claudeCode.detect() }); }
+    catch (e) { return fail(e?.message); }
+  });
+
+  ipcMain.handle('ai:claude-code-usage', () => {
+    try { return ok({ usage: claudeCode.getUsage() }); }
+    catch (e) { return fail(e?.message); }
+  });
+
   // Fire-and-forget: the actual streaming runs detached and pushes
   // ai:chat-event messages back. We return as soon as the session is
   // registered so the renderer doesn't sit on an open invoke promise.
+  // The `claude-code` provider routes to the CLI bridge; everything
+  // else goes through the Vercel-AI-SDK chat loop.
   ipcMain.handle('ai:chat-start', (event, payload) => {
     try {
-      chat.start(payload, event.sender).catch((e) => {
+      const runner = payload?.provider === 'claude-code' ? claudeCode : chat;
+      runner.start(payload, event.sender).catch((e) => {
         log.warn('[ai] chat start crashed:', e?.message || e);
       });
       return ok({ sessionId: payload?.sessionId });
@@ -119,8 +137,10 @@ function register() {
     }
   });
 
+  // A turn lives in exactly one runner; aborting both is harmless.
   ipcMain.handle('ai:chat-abort', (_event, payload) => {
-    const stopped = chat.abort(payload?.sessionId);
+    const stopped = chat.abort(payload?.sessionId) ||
+                    claudeCode.abort(payload?.sessionId);
     return ok({ stopped });
   });
 

@@ -96,6 +96,61 @@ function killProcessesByName(processName, timeout = 5000) {
   });
 }
 
+/**
+ * Kill every process whose executable path starts with `prefix`
+ * (case-insensitive). Used to evict orphans launched from inside
+ * `components/Temp/` — chiefly Verilator-built simulators like
+ * `V<top>_tb.exe`, whose name varies per testbench so a `taskkill /IM`
+ * filter can't target them safely. Path-prefix matching keeps the kill
+ * scoped to Aurora's own scratch tree and won't touch unrelated
+ * binaries that happen to share a name.
+ *
+ * Implementation note: spawned via PowerShell with `-EncodedCommand` so
+ * the prefix (which contains backslashes, spaces, and possibly the
+ * user's name) never has to be re-quoted at the shell level.
+ *
+ * @param {string} prefix - Absolute path prefix; processes whose
+ *   ExecutablePath starts with this are killed.
+ * @param {number} [timeout=5000]
+ * @returns {Promise<boolean>} resolves true on successful PowerShell
+ *   exit (still true when no matching process existed).
+ */
+function killProcessesByPathPrefix(prefix, timeout = 5000) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32' || !prefix) {
+      resolve(false);
+      return;
+    }
+    // Double single quotes for the PS literal; the rest survives because
+    // -EncodedCommand sidesteps cmd.exe parsing entirely.
+    const escaped = String(prefix).replace(/'/g, "''");
+    const script =
+      `$p = '${escaped}'; ` +
+      `Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ` +
+      `Where-Object { $_.ExecutablePath -and ` +
+      `$_.ExecutablePath.StartsWith($p, [StringComparison]::OrdinalIgnoreCase) } | ` +
+      `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+    const killProcess = exec(cmd, { windowsHide: true, timeout });
+
+    const timer = setTimeout(() => {
+      killProcess.kill();
+      resolve(false);
+    }, timeout);
+
+    killProcess.on('close', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+
+    killProcess.on('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
 function checkProcessRunning(processName) {
   return new Promise((resolve) => {
     const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH /FO CSV`;
@@ -193,6 +248,7 @@ module.exports = {
   filterGtkWaveOutput,
   killProcessSilently,
   killProcessesByName,
+  killProcessesByPathPrefix,
   checkProcessRunning,
   getExecutablePath,
   safePath,

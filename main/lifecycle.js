@@ -11,7 +11,7 @@ const log = require('electron-log');
 
 const state = require('./state');
 const { componentsPath } = require('./paths');
-const { killProcessSilently, killProcessesByName } = require('./utils');
+const { killProcessSilently, killProcessesByName, killProcessesByPathPrefix } = require('./utils');
 
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
@@ -123,6 +123,13 @@ function register() {
         }
         killPromises.push(killProcessesByName('vvp.exe'));
         killPromises.push(killProcessesByName('gtkwave.exe'));
+        // Verilator emits a per-testbench native binary `V<top>.exe` inside
+        // components/Temp/obj_dir_<top>/. Its name varies, so we can't kill
+        // by name — kill anything still running under the scratch tree
+        // instead. Otherwise an orphan from the previous run holds Temp/
+        // open and the phase-2 rmdir below (and copy-components.js on the
+        // next launch) hit EBUSY on Windows.
+        killPromises.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
         await Promise.all(killPromises);
         state.currentGtkwaveProcesses.clear();
       })(),

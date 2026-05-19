@@ -128,6 +128,19 @@ function register() {
       })(),
     );
 
+    // Close the Aurora MCP bridge (the localhost HTTP server that hands
+    // Claude Code our tool surface). It holds no Temp/ handle, but
+    // releasing the port on quit keeps a relaunch from racing on it.
+    releasePromises.push(
+      (async () => {
+        try {
+          await require('./ai/aurora_mcp_server').stop();
+        } catch (err) {
+          log.error('Error stopping Aurora MCP server:', err);
+        }
+      })(),
+    );
+
     await Promise.race([
       Promise.all(releasePromises),
       new Promise((resolve) => setTimeout(resolve, 5000)),

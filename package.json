@@ -94,6 +94,12 @@
       "!node_modules/@fortawesome/fontawesome-free/metadata/**",
       "!node_modules/@types/**"
     ],
+    "asarUnpack": [
+      "node_modules/@anthropic-ai/claude-code/**",
+      "node_modules/@anthropic-ai/claude-code-*/**",
+      "node_modules/@openai/codex/**",
+      "node_modules/@openai/codex-*/**"
+    ],
     "extraResources": [
       {
         "from": "components",
@@ -123,7 +129,10 @@
     "@ai-sdk/google": "^3.0.75",
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.64",
+    "@anthropic-ai/claude-code": "^2.1.144",
     "@fortawesome/fontawesome-free": "^6.6.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@openai/codex": "^0.131.0",
     "@silimate/netlistsvg": "github:nipscernlab/netlistsvg-aurora#58a0703904a35841616db58716f40532b84fb018",
     "ai": "^6.0.184",
     "chokidar": "^4.0.3",

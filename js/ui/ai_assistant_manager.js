@@ -23,6 +23,12 @@ const PROVIDER_META = {
     label: 'Claude Code', icon: './assets/icons/ai_claude.svg',
     subscription: true, tagline: 'Pro / MAX plan — no API key',
   },
+  // Subscription-backed: runs through the OpenAI Codex CLI, billed
+  // against the user's ChatGPT plan — no per-token API key.
+  'chatgpt': {
+    label: 'ChatGPT', icon: './assets/icons/ai_codex.svg',
+    subscription: true, tagline: 'ChatGPT plan — no API key',
+  },
   openai:    { label: 'ChatGPT',  icon: './assets/icons/ai_chatgpt.svg'  },
   anthropic: { label: 'Claude',   icon: './assets/icons/ai_claude.svg'   },
   google:    { label: 'Gemini',   icon: './assets/icons/ai_gemini.webp'  },
@@ -51,6 +57,52 @@ const CLAUDE_CODE_EFFORT = [
   { id: 'xhigh',  label: 'xHigh' },
   { id: 'max',    label: 'Max'   },
 ];
+
+// Synthetic provider entry for ChatGPT (Codex CLI) — like Claude Code it
+// is subscription-authed, so the backend `listProviders()` never returns
+// it and the panel injects it.
+const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
+
+// Codex model presets surfaced as a segmented control. `default` lets the
+// CLI pick (currently gpt-5-codex).
+const CHATGPT_MODELS = [
+  { id: 'default',     label: 'Default' },
+  { id: 'gpt-5-codex', label: 'Codex'   },
+  { id: 'gpt-5',       label: 'GPT-5'   },
+];
+
+// Per-subscription-provider specifics. The panel's subscription UI
+// (status row, usage bars, model presets) is driven entirely off this
+// table so Claude Code and ChatGPT share one code path.
+const SUB_META = {
+  'claude-code': {
+    models: CLAUDE_CODE_MODELS,
+    hasEffort: true,
+    statusApi: 'getClaudeCodeStatus',
+    usageApi: 'getClaudeCodeUsage',
+    modelStoreKey: 'aurora-ai-claude-code-model',
+    cliName: 'Claude Code',
+    notInstalled: 'Claude Code not installed',
+    installHint: 'Reinstall Aurora, or run: npm i -g @anthropic-ai/claude-code',
+    loginCmd: 'claude login',
+  },
+  'chatgpt': {
+    models: CHATGPT_MODELS,
+    hasEffort: false,
+    statusApi: 'getCodexStatus',
+    usageApi: 'getCodexUsage',
+    modelStoreKey: 'aurora-ai-chatgpt-model',
+    cliName: 'Codex',
+    notInstalled: 'Codex CLI not installed',
+    installHint: 'Reinstall Aurora, or run: npm i -g @openai/codex',
+    loginCmd: 'codex login',
+  },
+};
+
+/** True when `name` is a subscription-backed CLI provider. */
+function isSubProvider(name) {
+  return !!SUB_META[name];
+}
 
 /** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
 function shortModelName(model) {
@@ -594,9 +646,10 @@ class AIAssistantManager {
     this.modelPopoverOpen = false;
     this.pendingConfirms = new Set();   // resolve fns of open confirmation cards
 
-    // Claude Code (subscription) state.
-    this.claudeUsage = null;            // last usage snapshot, or null
-    this.claudeCodeStatus = null;       // { installed, authed, plan, … }, or null
+    // Subscription-provider (Claude Code / ChatGPT) state — keyed by
+    // provider name so both CLIs share the same panel machinery.
+    this.subStatus = {};                // provider → { installed, authed, … }
+    this.subUsage = {};                 // provider → usage snapshot
     this.claudeCodeEffort = '';         // '' | low | medium | high | xhigh | max
     try {
       const e = localStorage.getItem('aurora-ai-cc-effort');
@@ -856,9 +909,9 @@ class AIAssistantManager {
       if (btn) this.setClaudeCodeEffort(btn.dataset.effort);
     });
 
-    // Claude Code status section — "Re-check" button.
+    // Subscription-provider status section — "Re-check" button.
     this.ccStatusEl.addEventListener('click', (e) => {
-      if (e.target.closest('[data-cc-recheck]')) this.refreshClaudeCodeStatus();
+      if (e.target.closest('[data-cc-recheck]')) this.refreshSubStatus();
     });
 
     this.container.querySelector('#ai-mp-managekeys').addEventListener('click', () => {
@@ -933,7 +986,7 @@ class AIAssistantManager {
     this.modelPopoverOpen = open;
     this.modelPopover.classList.toggle('hidden', !open);
     this.modelChip.classList.toggle('active', open);
-    if (open && this.currentProvider === 'claude-code') this.refreshClaudeCodeUsage();
+    if (open && isSubProvider(this.currentProvider)) this.refreshSubUsage();
   }
 
   buildPermissionOptions() {
@@ -975,19 +1028,28 @@ class AIAssistantManager {
       this.providersConfigured = {};
     }
 
-    // Claude Code is a synthetic, always-available provider (subscription
-    // auth — no API key). Its model is persisted locally, not by the backend.
+    // Claude Code and ChatGPT are synthetic, always-available providers
+    // (subscription auth — no API key). Their model is persisted locally,
+    // not by the backend.
     if (!this.claudeCodeEntry) {
       this.claudeCodeEntry = { ...CLAUDE_CODE_PROVIDER };
       try {
-        const saved = localStorage.getItem('aurora-ai-claude-code-model');
+        const saved = localStorage.getItem(SUB_META['claude-code'].modelStoreKey);
         if (saved) this.claudeCodeEntry.model = saved;
       } catch (_) { /* ignore */ }
     }
+    if (!this.chatgptEntry) {
+      this.chatgptEntry = { ...CHATGPT_PROVIDER };
+      try {
+        const saved = localStorage.getItem(SUB_META['chatgpt'].modelStoreKey);
+        if (saved) this.chatgptEntry.model = saved;
+      } catch (_) { /* ignore */ }
+    }
     this.providersConfigured['claude-code'] = true;
+    this.providersConfigured['chatgpt'] = true;
 
     const apiUsable = providers.filter((p) => this.providersConfigured[p.name]);
-    this.providersAvailable = [this.claudeCodeEntry, ...apiUsable];
+    this.providersAvailable = [this.claudeCodeEntry, this.chatgptEntry, ...apiUsable];
 
     this.showEmptyState(false);
     this.sendBtn.disabled = false;
@@ -1033,14 +1095,19 @@ class AIAssistantManager {
     this.updateModelChip();
     if (this.modelInput) this.modelInput.value = entry?.model || '';
 
-    // Show / hide the Claude-Code-only sections (status, effort, usage).
+    // Show / hide the subscription-only sections (status, effort, usage).
     this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
+    // Effort is Claude-Code-only — Codex has no per-turn effort flag.
+    const sm = SUB_META[this.currentProvider];
+    if (this.effortSection) {
+      this.effortSection.classList.toggle('hidden', !(sm && sm.hasEffort));
+    }
 
     this.renderModelControls();
     if (isSub) {
-      this.renderEffort();
-      this.refreshClaudeCodeStatus();
-      this.refreshClaudeCodeUsage();
+      if (sm && sm.hasEffort) this.renderEffort();
+      this.refreshSubStatus();
+      this.refreshSubUsage();
     }
   }
 
@@ -1051,14 +1118,15 @@ class AIAssistantManager {
     this.applyProviderState();
   }
 
-  /** Model picker: free-text input for API providers, presets for Claude Code. */
+  /** Model picker: free-text input for API providers, presets for the CLIs. */
   renderModelControls() {
-    const isSub = this.currentProvider === 'claude-code';
-    this.mpModelApi.classList.toggle('hidden', isSub);
-    this.mpModelPresets.classList.toggle('hidden', !isSub);
-    if (isSub) {
-      const active = this.claudeCodeEntry?.model || 'default';
-      this.mpModelPresets.innerHTML = CLAUDE_CODE_MODELS.map((m) =>
+    const sm = SUB_META[this.currentProvider];
+    this.mpModelApi.classList.toggle('hidden', !!sm);
+    this.mpModelPresets.classList.toggle('hidden', !sm);
+    if (sm) {
+      const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+      const active = entry?.model || 'default';
+      this.mpModelPresets.innerHTML = sm.models.map((m) =>
         `<button type="button" data-model="${m.id}" class="ai-seg-btn${
           m.id === active ? ' active' : ''}">${m.label}</button>`).join('');
     }
@@ -1084,10 +1152,11 @@ class AIAssistantManager {
     const v = (value || '').trim();
     const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
 
-    if (this.currentProvider === 'claude-code') {
+    const sm = SUB_META[this.currentProvider];
+    if (sm) {
       const model = v || 'default';
       if (entry) entry.model = model;
-      try { localStorage.setItem('aurora-ai-claude-code-model', model); }
+      try { localStorage.setItem(sm.modelStoreKey, model); }
       catch (_) { /* best-effort */ }
       this.renderModelControls();
       this.updateModelChip();
@@ -1118,42 +1187,48 @@ class AIAssistantManager {
       : `${meta.label || this.currentProvider} — switch model or provider`;
   }
 
-  /* ---------------- Claude Code: connection status ---------------- */
+  /* ---------------- subscription provider: connection status ---------------- */
 
-  /** Probe the local Claude Code CLI install + subscription login. */
-  async refreshClaudeCodeStatus() {
+  /** Probe the active subscription CLI's install + login status. */
+  async refreshSubStatus() {
+    const provider = this.currentProvider;
+    const sm = SUB_META[provider];
+    if (!sm) return;
     let status = null;
     try {
-      const r = await window.aiAPI?.getClaudeCodeStatus?.();
+      const r = await window.aiAPI?.[sm.statusApi]?.();
       status = r?.status || null;
     } catch (_) { /* treat as not installed */ }
-    this.claudeCodeStatus = status;
-    this.renderClaudeCodeStatus();
+    this.subStatus[provider] = status;
+    // The user may have switched providers while the probe was in flight.
+    if (this.currentProvider === provider) this.renderSubStatus();
   }
 
-  renderClaudeCodeStatus() {
+  renderSubStatus() {
     if (!this.ccStatusEl) return;
-    const s = this.claudeCodeStatus;
+    const sm = SUB_META[this.currentProvider];
+    if (!sm) return;
+    const s = this.subStatus[this.currentProvider];
     let state = 'off';
     let icon = 'ph-x-circle';
     let title = 'Checking…';
     let detail = '';
 
     if (!s) {
-      title = 'Checking Claude Code…';
+      title = `Checking ${sm.cliName}…`;
     } else if (!s.installed) {
       state = 'off'; icon = 'ph-x-circle';
-      title = 'Claude Code not installed';
-      detail = 'Install it: npm i -g @anthropic-ai/claude-code';
+      title = sm.notInstalled;
+      detail = sm.installHint;
     } else if (!s.authed) {
       state = 'warn'; icon = 'ph-warning-circle';
       title = 'Not signed in';
-      detail = 'Run <code>claude login</code> in a terminal, then re-check.';
+      detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
     } else {
       state = 'on'; icon = 'ph-check-circle';
       const plan = s.plan ? String(s.plan).toUpperCase() : 'subscription';
       title = `Connected · ${plan}`;
-      detail = `Claude Code ${s.version || ''}`.trim();
+      detail = s.version || sm.cliName;
     }
 
     this.ccStatusEl.dataset.state = state;
@@ -1169,27 +1244,30 @@ class AIAssistantManager {
       ${detail ? `<p class="ai-cc-detail">${detail}</p>` : ''}`;
   }
 
-  /** True when Claude Code is installed and signed in. */
-  isClaudeCodeReady() {
-    return !!(this.claudeCodeStatus &&
-      this.claudeCodeStatus.installed && this.claudeCodeStatus.authed);
+  /** True when the active subscription CLI is installed and signed in. */
+  isSubReady() {
+    const s = this.subStatus[this.currentProvider];
+    return !!(s && s.installed && s.authed);
   }
 
-  /* ---------------- Claude Code: subscription usage ---------------- */
+  /* ---------------- subscription provider: usage ---------------- */
 
-  async refreshClaudeCodeUsage() {
+  async refreshSubUsage() {
+    const provider = this.currentProvider;
+    const sm = SUB_META[provider];
+    if (!sm) return;
     let usage = null;
     try {
-      const r = await window.aiAPI?.getClaudeCodeUsage?.();
+      const r = await window.aiAPI?.[sm.usageApi]?.();
       usage = r?.usage || null;
     } catch (_) { /* leave usage null */ }
-    this.claudeUsage = usage;
-    this.renderUsage();
+    this.subUsage[provider] = usage;
+    if (this.currentProvider === provider) this.renderUsage();
   }
 
   renderUsage() {
     if (!this.usageBars) return;
-    const u = this.claudeUsage;
+    const u = this.subUsage[this.currentProvider];
 
     this.usagePlan.textContent = u?.plan ? `${String(u.plan).toUpperCase()} plan` : '';
 
@@ -1221,7 +1299,7 @@ class AIAssistantManager {
       if (!hint) {
         const h = document.createElement('p');
         h.className = 'ai-usage-hint';
-        h.textContent = 'Plan limits appear here after your first Claude Code message.';
+        h.textContent = 'Plan limits appear here after your first message.';
         this.mpUsage.appendChild(h);
       }
     } else if (hint) {
@@ -1317,18 +1395,18 @@ class AIAssistantManager {
     const text = this.inputEl.value.trim();
     if (!text) return;
 
-    // Claude Code talks to the user's subscription via the local CLI.
-    // If it isn't installed / signed in, fail fast with a clear notice
-    // (display-only bubble — not persisted) instead of a stream error.
-    if (this.currentProvider === 'claude-code') {
-      if (!this.claudeCodeStatus) await this.refreshClaudeCodeStatus();
-      if (!this.isClaudeCodeReady()) {
-        const s = this.claudeCodeStatus;
+    // Claude Code / ChatGPT talk to the user's subscription via a local
+    // CLI. If it isn't installed / signed in, fail fast with a clear
+    // notice (display-only bubble — not persisted) instead of a stream error.
+    if (isSubProvider(this.currentProvider)) {
+      const sm = SUB_META[this.currentProvider];
+      if (!this.subStatus[this.currentProvider]) await this.refreshSubStatus();
+      if (!this.isSubReady()) {
+        const s = this.subStatus[this.currentProvider];
         this.appendBubble('assistant', !s || !s.installed
-          ? '**Claude Code is not installed.** Install it with ' +
-            '`npm i -g @anthropic-ai/claude-code`, then open the model menu ' +
-            'and click re-check.'
-          : '**Claude Code is not signed in.** Run `claude login` in a ' +
+          ? `**${sm.notInstalled}.** ${sm.installHint}, then open the model ` +
+            'menu and click re-check.'
+          : `**${sm.cliName} is not signed in.** Run \`${sm.loginCmd}\` in a ` +
             'terminal, then open the model menu and click re-check.', false);
         return;
       }
@@ -1375,7 +1453,8 @@ class AIAssistantManager {
       .filter((m) => m.role !== 'tool')
       .map((m) => ({ role: m.role, content: m.content }));
 
-    const isClaudeCode = this.currentProvider === 'claude-code';
+    const isSub = isSubProvider(this.currentProvider);
+    const subEntry = this.providersAvailable.find((p) => p.name === this.currentProvider);
 
     // Inject the current project path into the system prompt on every
     // turn. Without this, the model has to spend a `get_current_project`
@@ -1400,10 +1479,10 @@ class AIAssistantManager {
         sessionId: this.currentSessionId,
         conversationId: this.currentChatId,
         provider: this.currentProvider,
-        modelId: isClaudeCode ? (this.claudeCodeEntry?.model || 'default') : undefined,
+        modelId: isSub ? (subEntry?.model || 'default') : undefined,
         messages: apiMessages,
         system: systemPrompt,
-        effort: isClaudeCode ? this.claudeCodeEffort : undefined,
+        effort: this.currentProvider === 'claude-code' ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
       });
       if (r && r.ok === false) this.failTurn(r.error || 'Failed to start chat');

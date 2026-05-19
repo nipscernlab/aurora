@@ -29,6 +29,7 @@ const provider = require('../ai/provider');
 const prefs = require('../ai/prefs');
 const chat = require('../ai/chat');
 const claudeCode = require('../ai/claude_code');
+const codexCli = require('../ai/codex_cli');
 const tools = require('../ai/tools');
 const toolBridge = require('../ai/tool_bridge');
 const conversations = require('../ai/conversations');
@@ -120,14 +121,30 @@ function register() {
     catch (e) { return fail(e?.message); }
   });
 
+  /* ---- Codex / ChatGPT (subscription) bridge ----
+   * Probe the local `codex` CLI install + ChatGPT login, and surface
+   * accumulated token usage for the panel's usage bars.
+   */
+  ipcMain.handle('ai:codex-status', async () => {
+    try { return ok({ status: await codexCli.detect() }); }
+    catch (e) { return fail(e?.message); }
+  });
+
+  ipcMain.handle('ai:codex-usage', () => {
+    try { return ok({ usage: codexCli.getUsage() }); }
+    catch (e) { return fail(e?.message); }
+  });
+
   // Fire-and-forget: the actual streaming runs detached and pushes
   // ai:chat-event messages back. We return as soon as the session is
   // registered so the renderer doesn't sit on an open invoke promise.
-  // The `claude-code` provider routes to the CLI bridge; everything
-  // else goes through the Vercel-AI-SDK chat loop.
+  // The `claude-code` and `chatgpt` providers route to their CLI
+  // bridges; everything else goes through the Vercel-AI-SDK chat loop.
   ipcMain.handle('ai:chat-start', (event, payload) => {
     try {
-      const runner = payload?.provider === 'claude-code' ? claudeCode : chat;
+      let runner = chat;
+      if (payload?.provider === 'claude-code') runner = claudeCode;
+      else if (payload?.provider === 'chatgpt') runner = codexCli;
       runner.start(payload, event.sender).catch((e) => {
         log.warn('[ai] chat start crashed:', e?.message || e);
       });
@@ -137,10 +154,11 @@ function register() {
     }
   });
 
-  // A turn lives in exactly one runner; aborting both is harmless.
+  // A turn lives in exactly one runner; aborting all three is harmless.
   ipcMain.handle('ai:chat-abort', (_event, payload) => {
     const stopped = chat.abort(payload?.sessionId) ||
-                    claudeCode.abort(payload?.sessionId);
+                    claudeCode.abort(payload?.sessionId) ||
+                    codexCli.abort(payload?.sessionId);
     return ok({ stopped });
   });
 

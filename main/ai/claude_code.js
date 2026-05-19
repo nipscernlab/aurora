@@ -34,6 +34,8 @@ const fs = require('fs');
 const log = require('electron-log');
 
 const state = require('../state');
+const auroraMcp = require('./aurora_mcp_server');
+const { locateClaude } = require('./cli_locator');
 
 /** sessionId → { proc } for in-flight turns. */
 const sessions = new Map();
@@ -46,63 +48,20 @@ let rateLimitWindows = {};
 let sessionTokens = 0;
 let sessionCostUsd = 0;
 
-let cachedBin = undefined;   // undefined = not probed, null = not found, string = path
-
 // ---------------------------------------------------------------------------
 //  Binary + credential discovery
 // ---------------------------------------------------------------------------
 
-/** Locate the `claude` executable once; cache the result.
+/**
+ * Locate the `claude` executable: the copy bundled with Aurora
+ * (`@anthropic-ai/claude-code` dependency) first, then a global install
+ * on PATH. See `cli_locator.js` — it owns the dev / packaged-app /
+ * `.cmd`-shim resolution and caches the result.
  *
- *  On Windows, `where claude` returns *every* match — typically the
- *  extensionless POSIX shim (`...\npm\claude`) BEFORE the `.cmd` shim
- *  Node's `spawn()` actually understands. Picking the first hit blindly
- *  is exactly what triggered `spawn ENOENT` on this machine. We rank
- *  the candidates so a `.cmd` (or `.exe`/`.bat`/`.ps1`) wins over the
- *  bare shell-script shim, and fall back to that bare path only if
- *  nothing better exists.
+ * @returns {{exe:string, viaShim:boolean}|null}
  */
 function resolveBinary() {
-  if (cachedBin !== undefined) return cachedBin;
-  const isWin = process.platform === 'win32';
-  const finder = isWin ? 'where' : 'which';
-  try {
-    const { execFileSync } = require('child_process');
-    const out = execFileSync(finder, ['claude'], { encoding: 'utf-8' });
-    const candidates = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-    if (!isWin) {
-      cachedBin = candidates[0] || null;
-    } else {
-      // Rank: .cmd > .exe > .bat > .ps1 > anything else.
-      const score = (p) => {
-        const lower = p.toLowerCase();
-        if (lower.endsWith('.cmd')) return 4;
-        if (lower.endsWith('.exe')) return 3;
-        if (lower.endsWith('.bat')) return 2;
-        if (lower.endsWith('.ps1')) return 1;
-        return 0;
-      };
-      let best = null;
-      let bestScore = -1;
-      for (const c of candidates) {
-        const s = score(c);
-        if (s > bestScore) { best = c; bestScore = s; }
-      }
-      // If `where` came back empty, try a direct probe of the npm-global
-      // directory — same place `where` would have found it.
-      if (!best) {
-        const appdata = process.env.APPDATA;
-        if (appdata) {
-          const probe = path.join(appdata, 'npm', 'claude.cmd');
-          try { fs.accessSync(probe); best = probe; } catch (_) { /* not there */ }
-        }
-      }
-      cachedBin = best || null;
-    }
-  } catch (_) {
-    cachedBin = null;
-  }
-  return cachedBin;
+  return locateClaude();
 }
 
 /** Read the Claude Code OAuth credentials (subscription info), or null. */
@@ -116,14 +75,15 @@ function readCredentials() {
   }
 }
 
-function execFileText(bin, args, timeoutMs = 6000) {
+function execFileText(binPath, args, timeoutMs = 6000) {
   // Same shim issue as spawn(): `.cmd` files require an explicit cmd.exe
   // invocation on Node >= 20.12. Without this, `claude --version` would
-  // throw EINVAL even when the binary path exists.
-  let cmd = bin, finalArgs = args;
-  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin)) {
+  // throw EINVAL even when the binary path exists. The bundled native
+  // `.exe` is unaffected and runs directly.
+  let cmd = binPath, finalArgs = args;
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(binPath)) {
     cmd = 'cmd.exe';
-    finalArgs = ['/d', '/s', '/c', bin, ...args];
+    finalArgs = ['/d', '/s', '/c', binPath, ...args];
   }
   return new Promise((resolve, reject) => {
     execFile(cmd, finalArgs, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
@@ -146,14 +106,14 @@ async function detect() {
   if (!bin) return { installed: false };
 
   let version = '';
-  try { version = (await execFileText(bin, ['--version'])).trim(); }
+  try { version = (await execFileText(bin.exe, ['--version'])).trim(); }
   catch (_) { /* version is best-effort */ }
 
   const creds = readCredentials();
   const expiresAt = creds && Number(creds.expiresAt) ? Number(creds.expiresAt) : 0;
   return {
     installed: true,
-    path: bin,
+    path: bin.exe,
     version,
     authed: !!(creds && creds.accessToken),
     plan: (creds && creds.subscriptionType) || null,
@@ -203,6 +163,70 @@ function workspaceDir() {
     } catch (_) { /* fall through */ }
   }
   return os.homedir();
+}
+
+// ---------------------------------------------------------------------------
+//  Aurora tool bridge (MCP)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reinforcement injected into the first user turn. The MCP server
+ * already advertises Aurora's tools to the CLI via `tools/list`, so the
+ * model *sees* them regardless — this text tells it to PREFER them and
+ * never shell out to the SAPHO toolchain. Without it, a model used to
+ * running compilers from a terminal will reach for the (now disabled)
+ * Bash tool first.
+ */
+const MCP_TOOL_RULES = [
+  'You are running inside the Aurora IDE. Aurora exposes its own IDE and',
+  'compiler tools through an MCP server registered as "aurora"; they appear',
+  'to you as `mcp__aurora__<name>`. You MUST use these tools for every',
+  'Aurora-specific action instead of shelling out.',
+  '',
+  'Compilation & simulation — NEVER call cmmcomp, asmcomp, prismcomp, yanc,',
+  'iverilog, vvp or gtkwave from a shell. The Bash tool is disabled on',
+  'purpose. Use:',
+  '  - mcp__aurora__compile_all — full pipeline (CMM, ASM, Verilog, wave, PRISM)',
+  '  - mcp__aurora__compile_step({step:"cmm"|"verilog"|"wave"|"prism"}) — one',
+  '    step; "wave" opens GTKWave, "prism" opens the PRISM RTL viewer',
+  '  - mcp__aurora__cancel_compilation',
+  '',
+  'Reading compiler results — Aurora streams every compiler into its own',
+  'terminal panels; read those instead of capturing shell output:',
+  '  - mcp__aurora__get_terminal_output({terminalId:"tcmm"|"tasm"|"tveri"|"twave"|"tprism"})',
+  '  - mcp__aurora__read_all_terminals',
+  '',
+  'Project, files & processors:',
+  '  - mcp__aurora__get_project_tree, read_file, create_file, refresh_file_tree',
+  '  - mcp__aurora__set_top_level, set_testbench_top',
+  '  - mcp__aurora__list_processors, get_processor_config, set_processor_config',
+  '',
+  'Waveforms:',
+  '  - mcp__aurora__list_wave_signals, select_wave_signals, open_wave_config',
+  '  - mcp__aurora__list_gtkw_files, add_gtkw_file, set_active_gtkw_file',
+  '',
+  'If a task seems to need a shell command, you are missing an Aurora tool —',
+  'inspect the available mcp__aurora__* tools or ask the user. Do not',
+  'improvise with PowerShell or raw filesystem calls for SAPHO work.',
+].join('\n');
+
+/** Tool names removed from the CLI so it cannot run SAPHO compilers via a shell. */
+const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash';
+
+/**
+ * Ensure the Aurora MCP server is up and (re)write the `--mcp-config`
+ * file the CLI consumes. The file is tiny and the port is stable for
+ * the app's lifetime, but we rewrite each turn so a deleted temp file
+ * or a restarted server self-heals.
+ *
+ * @returns {Promise<string>} absolute path to the mcp-config JSON
+ */
+async function ensureMcpConfig() {
+  const url = await auroraMcp.ensureStarted();
+  const cfgPath = path.join(os.tmpdir(), `aurora-mcp-${process.pid}.json`);
+  const config = { mcpServers: { aurora: { type: 'http', url } } };
+  fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf-8');
+  return cfgPath;
 }
 
 /**
@@ -281,6 +305,31 @@ async function start(payload, webContents) {
   if (effort) args.push('--effort', effort);
   if (resumeId) args.push('--resume', resumeId);
 
+  // Aurora tool bridge
+  // ------------------
+  // Hand the CLI Aurora's own tool surface (compile_all, set_top_level,
+  // select_wave_signals, get_terminal_output, …) as an MCP server, so
+  // the model drives Aurora's pipeline instead of shelling out to
+  // cmmcomp / iverilog / gtkwave. `--strict-mcp-config` makes the CLI
+  // ignore any user/project .mcp.json — only Aurora's bridge is in
+  // scope, so behaviour is deterministic across machines.
+  //
+  // If the MCP server fails to come up we deliberately DON'T disable
+  // Bash: that would leave the CLI unable to do anything useful. The
+  // turn just degrades to the old (shell-based) behaviour.
+  let mcpReady = false;
+  try {
+    const cfgPath = await ensureMcpConfig();
+    args.push('--mcp-config', cfgPath, '--strict-mcp-config');
+    // disallowed-tools wins over every permission mode, including
+    // `bypassPermissions` — so even "allow" turns cannot PowerShell
+    // their way around Aurora's compile pipeline.
+    args.push('--disallowed-tools', DISALLOWED_CLI_TOOLS);
+    mcpReady = true;
+  } catch (e) {
+    log.warn('[ai.claude-code] Aurora MCP bridge unavailable — falling back to shell tools:', e?.message || e);
+  }
+
   // System prompt routing
   // ---------------------
   // On Windows, command-line args are capped at 32767 chars (cmd.exe is
@@ -312,6 +361,13 @@ async function start(payload, webContents) {
     prompt = `<aurora_system_rules>\n${inlineSystem}\n</aurora_system_rules>\n\n${prompt}`;
   }
 
+  // Tell the model to prefer the mcp__aurora__* tools over the shell.
+  // Fresh sessions only — a resumed CLI session already has this in
+  // context, and re-sending it would cost a prompt-cache miss.
+  if (mcpReady && !resumeId) {
+    prompt = `<aurora_mcp_tools>\n${MCP_TOOL_RULES}\n</aurora_mcp_tools>\n\n${prompt}`;
+  }
+
   // Strip API-key env vars so the CLI authenticates with the *subscription*
   // (OAuth) and never silently falls back to metered API billing.
   const env = { ...process.env };
@@ -329,12 +385,12 @@ async function start(payload, webContents) {
     // shell command), so values containing spaces / special chars
     // (e.g. `system` prompt text, `cwd` paths with spaces) reach the
     // CLI verbatim.
-    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin)) {
-      proc = spawn('cmd.exe', ['/d', '/s', '/c', bin, ...args], {
+    if (bin.viaShim && process.platform === 'win32') {
+      proc = spawn('cmd.exe', ['/d', '/s', '/c', bin.exe, ...args], {
         cwd, env, windowsHide: true, windowsVerbatimArguments: false,
       });
     } else {
-      proc = spawn(bin, args, { cwd, env, windowsHide: true });
+      proc = spawn(bin.exe, args, { cwd, env, windowsHide: true });
     }
   } catch (e) {
     sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Claude Code: ${e?.message || e}` });

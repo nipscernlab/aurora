@@ -302,6 +302,21 @@ const aiAPI = {
    */
   getClaudeCodeUsage: () => ipcRenderer.invoke('ai:claude-code-usage'),
 
+  /* ---- Codex / ChatGPT (subscription) bridge ---- */
+
+  /**
+   * Probe the local Codex CLI: install status, version, whether the user
+   * is signed in via ChatGPT, and the plan tier. Resolves with
+   * `{ ok, status: { installed, authed, plan, … } }`.
+   */
+  getCodexStatus: () => ipcRenderer.invoke('ai:codex-status'),
+
+  /**
+   * Accumulated Codex token usage for this app run. Resolves with
+   * `{ ok, usage: { plan, session, windows } }`.
+   */
+  getCodexUsage: () => ipcRenderer.invoke('ai:codex-usage'),
+
   /**
    * Subscribe to chat events (text-delta, tool-call, tool-result,
    * finish, aborted, error). Events from *every* session are broadcast

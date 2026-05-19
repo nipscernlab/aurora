@@ -38,6 +38,10 @@
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
+import {
+  getSimulator as getWaveSimulator,
+  setSimulator as setWaveSimulator,
+} from '../wave/simulator_preference.js';
 
 /* ============================================================
  *  Result helpers
@@ -1009,6 +1013,42 @@ const waveNs = {
   },
 
   /**
+   * Read which Verilog simulator the Wave button runs. One of:
+   *   - 'iverilog'  — vvp/iverilog (bundled, default). Preserves every
+   *                   internal SAPHO signal, slower on long testbenches.
+   *   - 'verilator' — Verilator (bundled, opt-in). Transpiles to C++ and
+   *                   builds a native .exe — 5–10× faster on long runs,
+   *                   but aggressively elides internal SAPHO signals
+   *                   (only top-level testbench signals are visible).
+   * The choice persists per-user (localStorage `aurora.waveSimulator`).
+   */
+  async getSimulator() {
+    return ok({ simulator: getWaveSimulator() });
+  },
+
+  /**
+   * Choose which simulator the Wave button runs. Accepts 'iverilog' or
+   * 'verilator'; any other value is normalized to 'iverilog'. Persisted
+   * across app restarts. Re-running Wave after this picks up the new
+   * choice without further action.
+   */
+  async setSimulator({ simulator } = {}) {
+    if (simulator !== 'iverilog' && simulator !== 'verilator') {
+      return err('simulator must be "iverilog" or "verilator"');
+    }
+    const applied = setWaveSimulator(simulator);
+    emit('wave:simulator-changed', { simulator: applied });
+    // Keep the Wave Config modal's "Use Verilator" checkbox in sync if
+    // it happens to be open — saves the user from a stale UI tick.
+    try {
+      const wc = window.waveConfigManager;
+      const cb = wc && wc.elements && wc.elements.useVerilatorCb;
+      if (cb) cb.checked = (applied === 'verilator');
+    } catch (_) { /* best-effort UI nudge */ }
+    return ok({ simulator: applied });
+  },
+
+  /**
    * List every .gtkw file currently registered for the active testbench
    * (one list per tb). Includes the active flag and absolute paths.
    */
@@ -1335,6 +1375,8 @@ const NAMESPACES = Object.freeze({
     addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
+    getSimulator:       'Which simulator the Wave button runs (iverilog | verilator)',
+    setSimulator:       'Switch the Wave-button simulator (iverilog | verilator)',
   },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',

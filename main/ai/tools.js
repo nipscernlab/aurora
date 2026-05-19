@@ -593,6 +593,38 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'get_simulator',
+    description:
+      'Read which Verilog simulator the Wave button runs. Returns "iverilog" ' +
+      '(bundled vvp/iverilog, default — slower but preserves every internal ' +
+      'SAPHO signal) or "verilator" (bundled Verilator — 5-10x faster on long ' +
+      'testbenches but elides internal signals; only top-level testbench ' +
+      'signals stay visible).',
+    access: 'read',
+    api: ['wave', 'getSimulator'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'set_simulator',
+    description:
+      'Switch which simulator the Wave button runs. Use "verilator" when a ' +
+      'long simulation is dominating the dev loop AND only top-level testbench ' +
+      'signals matter; use "iverilog" when you need full visibility of internal ' +
+      'SAPHO signals (in_sim_*, me1_*, delta_*, …). The choice persists across ' +
+      'app restarts; re-running Wave picks up the new simulator immediately.',
+    access: 'write',
+    api: ['wave', 'setSimulator'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        simulator: { type: 'string', enum: ['iverilog', 'verilator'] },
+      },
+      required: ['simulator'],
+    },
+  },
+  {
     name: 'open_file',
     description: 'Open a project file in the editor. Set inNewSplit:true to open it in a new split pane.',
     access: 'write',

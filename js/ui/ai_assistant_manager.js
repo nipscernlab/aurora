@@ -64,11 +64,13 @@ const CLAUDE_CODE_EFFORT = [
 const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
 
 // Codex model presets surfaced as a segmented control. `default` lets the
-// CLI pick (currently gpt-5-codex).
+// CLI pick (currently gpt-5-codex). `gpt-5` (the bare model) is NOT
+// available on ChatGPT-subscription auth — Codex returns
+// "The 'gpt-5' model is not supported when using Codex with a ChatGPT
+// account." — so we don't offer it here.
 const CHATGPT_MODELS = [
   { id: 'default',     label: 'Default' },
   { id: 'gpt-5-codex', label: 'Codex'   },
-  { id: 'gpt-5',       label: 'GPT-5'   },
 ];
 
 // Per-subscription-provider specifics. The panel's subscription UI
@@ -1041,8 +1043,17 @@ class AIAssistantManager {
     if (!this.chatgptEntry) {
       this.chatgptEntry = { ...CHATGPT_PROVIDER };
       try {
-        const saved = localStorage.getItem(SUB_META['chatgpt'].modelStoreKey);
-        if (saved) this.chatgptEntry.model = saved;
+        const key = SUB_META['chatgpt'].modelStoreKey;
+        const saved = localStorage.getItem(key);
+        // Drop a previously-saved id that is no longer a valid preset
+        // (e.g. an early version offered "gpt-5", which Codex rejects on
+        // ChatGPT auth). Falling back to "default" avoids a stream error
+        // on the very first turn after the upgrade.
+        if (saved && CHATGPT_MODELS.some((m) => m.id === saved)) {
+          this.chatgptEntry.model = saved;
+        } else if (saved) {
+          localStorage.removeItem(key);
+        }
       } catch (_) { /* ignore */ }
     }
     this.providersConfigured['claude-code'] = true;
@@ -1116,6 +1127,23 @@ class AIAssistantManager {
     if (name === this.currentProvider) return;
     this.currentProvider = name;
     this.applyProviderState();
+    this.logModelChange();
+  }
+
+  /**
+   * Print a `--- Modelo: <provider> · <model> ---` divider into the
+   * messages list. Called whenever the user changes the provider or the
+   * model — gives a clear in-chat marker of which model produced which
+   * answers, in the style of Claude's VS Code extension.
+   */
+  logModelChange() {
+    const meta = PROVIDER_META[this.currentProvider] || {};
+    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+    const label = meta.label || this.currentProvider || 'Model';
+    const model = entry?.model && entry.model !== 'default'
+      ? shortModelName(entry.model) || entry.model
+      : '';
+    this.appendDivider(model ? `Modelo: ${label} · ${model}` : `Modelo: ${label}`);
   }
 
   /** Model picker: free-text input for API providers, presets for the CLIs. */
@@ -1151,6 +1179,7 @@ class AIAssistantManager {
   async commitModel(value) {
     const v = (value || '').trim();
     const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
+    const before = entry?.model || '';
 
     const sm = SUB_META[this.currentProvider];
     if (sm) {
@@ -1160,6 +1189,7 @@ class AIAssistantManager {
       catch (_) { /* best-effort */ }
       this.renderModelControls();
       this.updateModelChip();
+      if (model !== before) this.logModelChange();
       return;
     }
 
@@ -1172,6 +1202,7 @@ class AIAssistantManager {
     } catch (_) { /* leave the field as the user typed it */ }
     this.updateModelChip();
     this.renderProviderOptions();   // refresh the per-provider model hint
+    if ((entry?.model || '') !== before) this.logModelChange();
   }
 
   /** Refresh the composer chip — provider icon + short model name. */
@@ -1852,6 +1883,28 @@ class AIAssistantManager {
       contentEl.innerHTML = renderMarkdown(content);
       highlightCodeBlocks(contentEl);
     }
+    this.messagesEl.appendChild(el);
+    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    return el;
+  }
+
+  /**
+   * Inline log divider — a hairline with centered text, in the style of
+   * Claude's VS Code extension when the active model changes. Used for
+   * ephemeral, non-conversational notes (model switched, etc.). NOT
+   * pushed to `this.messages` so the model never sees them and they
+   * don't persist into saved chats.
+   */
+  appendDivider(text) {
+    if (!this.messagesEl) return null;
+    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
+    const el = document.createElement('div');
+    el.className = 'ai-divider';
+    el.setAttribute('role', 'separator');
+    const span = document.createElement('span');
+    span.className = 'ai-divider-text';
+    span.textContent = text;
+    el.appendChild(span);
     this.messagesEl.appendChild(el);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     return el;

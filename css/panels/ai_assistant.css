@@ -32,6 +32,14 @@
   will-change: transform;
   /* Prevent accidental text selection (purple highlight) on click */
   user-select: none;
+  /* The panel overlaps the custom titlebar (.toolbar) which marks itself
+     as `-webkit-app-region: drag`. Electron hit-tests drag regions by
+     screen position regardless of stacking order, so without this the
+     entire AI panel header (history / new-chat / close buttons) gets
+     swallowed by the window-drag layer and clicks never fire. Marking
+     the whole panel as no-drag restores click behaviour for every
+     descendant. */
+  -webkit-app-region: no-drag;
 }
 
 .ai-assistant-container.open {
@@ -420,6 +428,40 @@ body.ai-assistant-open {
   white-space: pre-wrap;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Inline divider — hairline with centered label, in the spirit of Claude's
+ *  VS Code extension. Used by appendDivider() for ephemeral, non-conversational
+ *  markers (e.g. "Modelo: ChatGPT · Codex" after a model switch).
+ * ------------------------------------------------------------------------- */
+.ai-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+  user-select: none;
+  animation: ai-msg-in 360ms var(--ease-out-quart) both;
+}
+.ai-divider::before,
+.ai-divider::after {
+  content: '';
+  flex: 1 1 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--border-subtle) 25%,
+    var(--border-subtle) 75%,
+    transparent 100%);
+}
+.ai-divider-text {
+  flex: 0 0 auto;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* Markdown elements inside a bubble. We undo .modal-body-style margins
    and tighten the rhythm so a streamed answer doesn't bounce around as
    tokens arrive. */
@@ -561,20 +603,24 @@ body.ai-assistant-open {
 .ai-composer {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 5px 5px 5px 6px;
+  border-radius: 16px;
+  padding: 8px 8px 8px 10px;
   transition: border-color var(--transition-fast),
-              box-shadow var(--transition-fast);
+              background-color var(--transition-fast);
 }
 
-/* The lone purple ring in the panel — and only while the textarea
-   itself holds focus (clicking the chip or send must not trigger it). */
+/* Focus state: subtle neutral border lift — NO purple ring. The cursor
+   in the textarea is the unambiguous focus indicator; the old accent
+   glow doubled-up and felt aggressive at this composer size. */
+.ai-composer:hover {
+  border-color: var(--border-strong, var(--border));
+}
 .ai-composer:has(.ai-input:focus) {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(142, 131, 232, 0.14);
+  border-color: var(--border-strong, var(--accent-border));
+  background: var(--bg-elev);
 }
 
 /* Model / provider chip — opens the popover */

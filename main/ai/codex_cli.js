@@ -276,6 +276,10 @@ async function start(payload, webContents) {
   const cwd = workspaceDir();
 
   // --- argv -----------------------------------------------------------------
+  // The `exec` and `exec resume` subcommands accept DIFFERENT flag sets.
+  // `resume` rejects `-C`, `--sandbox`, `--add-dir` ("unexpected argument
+  // '-C' found") because the resumed thread restores its original cwd
+  // and sandbox from disk. Push working-dir flags only on a fresh turn.
   const args = ['exec'];
   if (resumeId) args.push('resume', resumeId);
   args.push(
@@ -284,8 +288,8 @@ async function start(payload, webContents) {
     // See the module header: required for mcp__aurora__* calls to run at
     // all in non-interactive exec mode.
     '--dangerously-bypass-approvals-and-sandbox',
-    '-C', cwd,
   );
+  if (!resumeId) args.push('-C', cwd);
   const model = modelFlag(modelId);
   if (model) args.push('-m', model);
 

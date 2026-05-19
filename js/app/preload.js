@@ -161,7 +161,11 @@ const dialogOperations = {
   showOpenDialog:    () => ipcRenderer.invoke('dialog:showOpen'),
   showSaveDialog:    (opts) => ipcRenderer.invoke('show-save-dialog', opts),
   selectDirectory:   (opts) => ipcRenderer.invoke('dialog:openDirectory', opts),
-  showOpenDialogImport: () => ipcRenderer.invoke('dialog:show-open-import'),
+  // Forward the caller's options so per-call filters (e.g. .gtkw only)
+  // actually reach the main process — without this, the IPC handler
+  // falls back to its "All Files" default no matter what the renderer
+  // asked for.
+  showOpenDialogImport: (opts) => ipcRenderer.invoke('dialog:show-open-import', opts),
 };
 
 /* ============================================================================

@@ -1376,6 +1376,25 @@ class AIAssistantManager {
       .map((m) => ({ role: m.role, content: m.content }));
 
     const isClaudeCode = this.currentProvider === 'claude-code';
+
+    // Inject the current project path into the system prompt on every
+    // turn. Without this, the model has to spend a `get_current_project`
+    // tool-call (and the user's tokens) just to know where it is —
+    // worse, models that don't reliably call tools first sometimes
+    // hallucinate paths from earlier projects. The block is rebuilt
+    // per-turn so switching projects mid-chat just works.
+    const projectPath =
+      window.currentProjectPath || window.currentOpenProjectPath || null;
+    const spfPath = window.ProjectStore?.getSpfPath?.() || null;
+    const projectContext = projectPath
+      ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +
+        `  project_root: ${projectPath}\n` +
+        (spfPath ? `  spf_file:     ${spfPath}\n` : '') +
+        `Use these exact paths when calling tools (read_file, create_file, set_top_level, …).\n` +
+        `Do not hallucinate a different root, do not assume cwd. If you need the full file list, call get_project_tree.\n`
+      : '\n\nNO PROJECT IS CURRENTLY OPEN — ask the user to open one before running any project-scoped tool.\n';
+    const systemPrompt = SYSTEM_PROMPT + projectContext;
+
     try {
       const r = await window.aiAPI.startChat({
         sessionId: this.currentSessionId,
@@ -1383,7 +1402,7 @@ class AIAssistantManager {
         provider: this.currentProvider,
         modelId: isClaudeCode ? (this.claudeCodeEntry?.model || 'default') : undefined,
         messages: apiMessages,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         effort: isClaudeCode ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
       });
@@ -1409,13 +1428,13 @@ class AIAssistantManager {
       case 'tool-call':
         this.showThinking(false);
         this.hadToolCalls = true;
-        this.startToolChip(ev.toolName);
+        this.startToolChip(ev.toolName, ev.args, ev.toolUseId);
         // Text after a tool call opens a fresh segment below the chip.
         this.currentAssistantContentEl = null;
         this.segmentBuffer = '';
         break;
       case 'tool-result':
-        this.finishToolChip(ev.toolName, ev.result);
+        this.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
         break;
       case 'finish':
         this.showThinking(false);
@@ -1495,15 +1514,24 @@ class AIAssistantManager {
   failTurn(message) {
     this.showThinking(false);
     this.appendBubble('assistant', `Error: ${message}`, { error: true });
-    // Mark in-flight chips as failed in DOM and persist them.
-    for (const { toolName, el } of this.runningChips) {
+    // Mark in-flight chips as failed in DOM and persist them — args
+    // are kept so the saved transcript still shows what was attempted.
+    for (const running of this.runningChips) {
+      const { toolName, toolUseId, args, el } = running;
       el.classList.remove('running');
       el.classList.add('failed');
       const statusEl = el.querySelector('.ai-tool-status');
       if (statusEl) statusEl.textContent = 'failed';
       const icon = el.querySelector('i');
       if (icon) icon.className = 'ph ph-x-circle';
-      this.messages.push({ role: 'tool', toolName, status: 'failed', error: message });
+      this.messages.push({
+        role: 'tool',
+        toolName,
+        status: 'failed',
+        toolUseId: toolUseId || null,
+        args: args || null,
+        error: message,
+      });
     }
     this.persistCurrentChat();
     this.resetTurnState();
@@ -1525,7 +1553,7 @@ class AIAssistantManager {
 
   /* ---------------- tool chips ---------------- */
 
-  startToolChip(toolName) {
+  startToolChip(toolName, args, toolUseId) {
     const name = toolName || 'tool';
     const chip = document.createElement('div');
     chip.className = 'ai-tool-chip running';
@@ -1535,16 +1563,34 @@ class AIAssistantManager {
       <span class="ai-tool-status">running…</span>
     `;
     chip.querySelector('.ai-tool-name').textContent = name;
+    // Args go into the chip's title so users can inspect the inputs
+    // by hovering — useful for diagnosing model behaviour without
+    // bloating the visible chip. Long args are clipped at 800 chars.
+    if (args && Object.keys(args).length) {
+      const argText = this._formatArgsForTitle(args);
+      if (argText) chip.title = argText;
+    }
     this.messagesEl.appendChild(chip);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
-    this.runningChips.push({ toolName: name, el: chip });
+    this.runningChips.push({ toolUseId: toolUseId || null, toolName: name, args, el: chip });
   }
 
-  finishToolChip(toolName, result) {
+  finishToolChip(toolName, result, toolUseId) {
     const name = toolName || 'tool';
-    const idx = this.runningChips.findIndex((c) => c.toolName === name);
+    // Prefer matching by toolUseId (carried end-to-end from the
+    // provider/CLI) — without it, two parallel calls to the same tool
+    // would collide on toolName and one chip would stay spinning
+    // forever. Fall back to name-match for legacy events without ids.
+    let idx = -1;
+    if (toolUseId) {
+      idx = this.runningChips.findIndex((c) => c.toolUseId === toolUseId);
+    }
+    if (idx < 0) {
+      idx = this.runningChips.findIndex((c) => c.toolName === name);
+    }
     if (idx < 0) return;
-    const { el } = this.runningChips.splice(idx, 1)[0];
+    const running = this.runningChips.splice(idx, 1)[0];
+    const { el, args } = running;
     const ok = !(result && result.ok === false);
     const denied = !ok && /denied/i.test((result && result.error) || '');
     const statusStr = ok ? 'done' : (denied ? 'denied' : 'failed');
@@ -1554,20 +1600,82 @@ class AIAssistantManager {
     const statusEl = el.querySelector('.ai-tool-status');
     if (icon) icon.className = ok ? 'ph ph-check-circle' : (denied ? 'ph ph-prohibit' : 'ph ph-x-circle');
     if (statusEl) statusEl.textContent = statusStr;
+    // Tooltip now shows args + result preview together.
+    const tooltip = this._formatToolTooltip(args, result);
+    if (tooltip) el.title = tooltip;
 
     // Persist the tool call in the messages array so it survives
     // into the saved chat and can be replayed when history is opened.
-    const entry = { role: 'tool', toolName: name, status: statusStr };
+    // Args + a result preview are saved so the user can later inspect
+    // exactly what each call did even after the model context is gone.
+    const entry = {
+      role: 'tool',
+      toolName: name,
+      status: statusStr,
+      toolUseId: toolUseId || running.toolUseId || null,
+      args: args || null,
+      result: this._summariseResult(result),
+    };
     if (!ok && result?.error) entry.error = result.error;
     this.messages.push(entry);
+  }
+
+  /** Compact, hover-friendly representation of tool args. */
+  _formatArgsForTitle(args) {
+    try {
+      const s = JSON.stringify(args, null, 2);
+      return s.length > 800 ? `${s.slice(0, 800)}…` : s;
+    } catch (_) { return ''; }
+  }
+
+  /** Hover tooltip showing args and a preview of the result. */
+  _formatToolTooltip(args, result) {
+    const lines = [];
+    if (args && Object.keys(args).length) {
+      const a = this._formatArgsForTitle(args);
+      if (a) lines.push(`args: ${a}`);
+    }
+    if (result) {
+      const r = this._summariseResult(result);
+      if (typeof r === 'string') {
+        lines.push(`result: ${r.length > 400 ? r.slice(0, 400) + '…' : r}`);
+      } else if (r != null) {
+        try {
+          const s = JSON.stringify(r);
+          lines.push(`result: ${s.length > 400 ? s.slice(0, 400) + '…' : s}`);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    return lines.join('\n');
+  }
+
+  /** Reduce a tool result to a small JSON-serialisable summary for persistence. */
+  _summariseResult(result) {
+    if (result == null) return null;
+    if (typeof result === 'string') return result.slice(0, 4000);
+    if (typeof result !== 'object') return result;
+    // Common shapes: { ok, data } from AuroraAPI, { ok, content } from Claude Code.
+    const out = {};
+    if ('ok' in result) out.ok = !!result.ok;
+    if ('error' in result && result.error) out.error = String(result.error).slice(0, 800);
+    if ('content' in result && typeof result.content === 'string') {
+      out.content = result.content.length > 4000 ? result.content.slice(0, 4000) + '…' : result.content;
+    }
+    if ('data' in result) {
+      try {
+        const s = JSON.stringify(result.data);
+        out.data = s.length > 4000 ? JSON.parse(s.slice(0, 4000)) : result.data;
+      } catch (_) { out.data = '[unserialisable]'; }
+    }
+    return out;
   }
 
   /**
    * Renders a completed tool chip with no animation — used when replaying
    * saved conversations from history. The chip shows the final status
-   * (done / failed / denied) and a tooltip with the error if present.
+   * (done / failed / denied) and a tooltip with args + result.
    */
-  appendStaticToolChip(toolName, status, error) {
+  appendStaticToolChip(toolName, status, error, args, result) {
     const chip = document.createElement('div');
     chip.className = `ai-tool-chip ${status || 'done'}`;
     const iconClass = status === 'done'   ? 'ph ph-check-circle'
@@ -1580,7 +1688,9 @@ class AIAssistantManager {
     `;
     chip.querySelector('.ai-tool-name').textContent = toolName || 'tool';
     chip.querySelector('.ai-tool-status').textContent = status || 'done';
-    if (error) chip.title = error;
+    const tooltip = this._formatToolTooltip(args, result) ||
+                    (error ? `error: ${error}` : '');
+    if (tooltip) chip.title = tooltip;
     this.messagesEl.appendChild(chip);
   }
 
@@ -1848,7 +1958,7 @@ class AIAssistantManager {
     for (const msg of this.messages) {
       if (!msg || !msg.role) continue;
       if (msg.role === 'tool') {
-        this.appendStaticToolChip(msg.toolName, msg.status, msg.error);
+        this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result);
       } else if (typeof msg.content === 'string') {
         this.appendBubble(msg.role, msg.content);
       }
@@ -1870,9 +1980,17 @@ class AIAssistantManager {
         messages: this.messages.map((m) => {
             const entry = { role: m.role };
             if (m.role === 'tool') {
-              entry.toolName = m.toolName;
-              entry.status   = m.status;
-              if (m.error) entry.error = m.error;
+              // Persist the full tool-call breadcrumb — toolName, status,
+              // args, result, error, toolUseId — so a re-opened chat
+              // shows every call exactly as it happened (success AND
+              // failure). The chip tooltip is rebuilt from these fields
+              // by appendStaticToolChip on replay.
+              entry.toolName  = m.toolName;
+              entry.status    = m.status;
+              if (m.toolUseId) entry.toolUseId = m.toolUseId;
+              if (m.args != null)   entry.args   = m.args;
+              if (m.result != null) entry.result = m.result;
+              if (m.error)          entry.error  = m.error;
             } else {
               entry.content = m.content;
             }

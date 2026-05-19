@@ -752,6 +752,164 @@ const projectNs = {
       return ok({ spfPath });
     } catch (e) { return err(e?.message || 'openProject failed'); }
   },
+
+  /**
+   * Read the per-processor simulation config (clk in MHz, numClocks,
+   * showArrays). The returned `simTime_us = numClocks / clk` is what
+   * Aurora bakes into the testbench's `$finish` line.
+   * Omit `processorName` to return the config of every processor.
+   */
+  async getProcessorConfig(processorName) {
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    try {
+      const structure = await window.SpfStore.read(spfPath);
+      const procs = Array.isArray(structure.processors) ? structure.processors : [];
+      const project = window.currentProjectPath || null;
+      const all = await Promise.all(procs.map(async (p) => {
+        const name = typeof p === 'string' ? p : p?.name;
+        const raw  = (typeof p === 'object' && p) ? p : {};
+        const clk       = Number.isFinite(raw.clk)       ? raw.clk       : 100;
+        const numClocks = Number.isFinite(raw.numClocks) ? raw.numClocks : 2000;
+        const cfg = {
+          name,
+          clk,
+          numClocks,
+          showArrays: !!raw.showArrays,
+          simTime_us: numClocks > 0 && clk > 0 ? numClocks / clk : null,
+        };
+        // Also surface the .cmm header directives (NUBITS / NBMANT / NBEXPO …)
+        // for the named processor — same enrichment the Verilog flow uses.
+        if (project && name) {
+          try {
+            const cmm = `${project}\\${name}\\Software\\${name}.cmm`;
+            const raw2 = await window.electronAPI.readFile(cmm);
+            const header = {};
+            for (const line of String(raw2 || '').split('\n')) {
+              const m = line.match(/^#([A-Z_]+)\s+(.+)/);
+              if (m) header[m[1]] = m[2].trim();
+            }
+            cfg.header = header;
+          } catch (_) { /* missing .cmm — fine */ }
+        }
+        return cfg;
+      }));
+      if (processorName) {
+        const hit = all.find((p) => p.name === processorName);
+        return hit ? ok(hit) : err(`unknown processor: ${processorName}`);
+      }
+      return ok(all);
+    } catch (e) { return err(e?.message || 'getProcessorConfig failed'); }
+  },
+
+  /**
+   * Update the per-processor sim config. Any of `clk` / `numClocks` /
+   * `showArrays` may be passed; omitted fields keep their current value.
+   * Persisted into `structure.processors[i]` of the .spf via SpfStore.update
+   * so the panel and status bar update automatically (aurora:spf-changed).
+   */
+  async setProcessorConfig({ processorName, clk, numClocks, showArrays } = {}) {
+    if (!processorName) return err('processorName required');
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    const patch = {};
+    if (clk !== undefined) {
+      const n = Number(clk);
+      if (!Number.isFinite(n) || n <= 0) return err('clk must be a positive number (MHz)');
+      patch.clk = n;
+    }
+    if (numClocks !== undefined) {
+      const n = Number(numClocks);
+      if (!Number.isFinite(n) || n <= 0) return err('numClocks must be a positive integer');
+      patch.numClocks = Math.round(n);
+    }
+    if (showArrays !== undefined) patch.showArrays = !!showArrays;
+    if (!Object.keys(patch).length) return err('nothing to update (pass clk, numClocks, or showArrays)');
+    let foundProc = false;
+    let finalCfg  = null;
+    try {
+      await window.SpfStore.update(spfPath, (structure) => {
+        const procs = Array.isArray(structure.processors) ? structure.processors : [];
+        structure.processors = procs.map((p) => {
+          const name = typeof p === 'string' ? p : p?.name;
+          if (name !== processorName) {
+            return typeof p === 'string' ? { name: p } : p;
+          }
+          foundProc = true;
+          const prev = typeof p === 'object' && p ? p : { name };
+          const next = { ...prev, name, ...patch };
+          finalCfg = {
+            name,
+            clk: Number.isFinite(next.clk) ? next.clk : 100,
+            numClocks: Number.isFinite(next.numClocks) ? next.numClocks : 2000,
+            showArrays: !!next.showArrays,
+          };
+          finalCfg.simTime_us = finalCfg.numClocks / finalCfg.clk;
+          return next;
+        });
+      });
+      if (!foundProc) return err(`processor not in this project: ${processorName}`);
+      // Refresh the panel popover so any open UI reflects the change.
+      window.processorConfigPanel?.refresh?.();
+      emit('project:processor-config-changed', { processorName, ...patch });
+      return ok(finalCfg);
+    } catch (e) { return err(e?.message || 'setProcessorConfig failed'); }
+  },
+
+  /**
+   * Force a fresh repaint of the project file tree. Useful after the
+   * model creates/imports a file via tools that the regular SPF events
+   * didn't reach (or when the tree is suspected of being stale).
+   */
+  async refreshTree() {
+    try {
+      // Two-pronged: the main-process file watcher refresh AND the
+      // renderer's ProjectTreeManager reload. Either alone covers the
+      // most-common race, both together cover all of them.
+      await window.electronAPI?.triggerFileTreeRefresh?.();
+    } catch (_) { /* best-effort */ }
+    try {
+      await window.projectTreeManager?.refreshTree?.();
+    } catch (e) {
+      return err(e?.message || 'refreshTree failed');
+    }
+    emit('project:tree-refreshed', null);
+    return ok();
+  },
+
+  /**
+   * Switch the left panel between the file tree and the post-synthesis
+   * hierarchy tree. The hierarchy view is only available after a
+   * successful Verilog compilation (hierarchyData is populated by the
+   * compile flow); calling setView('hierarchy') before then returns an
+   * error telling the model what to do.
+   */
+  async setView(mode) {
+    const ctl = window.fileTreeViewController;
+    if (!ctl) return err('file tree controller not initialised');
+    if (mode === 'file' || mode === 'verilog' || mode === 'files') {
+      ctl.showFileMode();
+      return ok({ view: ctl.getActiveView?.() || 'verilog' });
+    }
+    if (mode === 'hierarchy' || mode === 'hierarchical') {
+      if (!ctl.getHierarchyData?.()) {
+        return err('hierarchy view is only available after a successful Verilog compilation — call compile_step("verilog") first');
+      }
+      const okSwitch = ctl.showHierarchyMode();
+      return okSwitch ? ok({ view: 'hierarchy' }) : err('could not switch to hierarchy view');
+    }
+    return err(`unknown view: ${mode} — use "file" or "hierarchy"`);
+  },
+
+  /** Report which tree view is currently active. */
+  async getView() {
+    const ctl = window.fileTreeViewController;
+    if (!ctl) return ok({ view: 'unknown', hierarchyAvailable: false });
+    return ok({
+      view: ctl.getActiveView?.() || 'verilog',
+      hierarchyAvailable: !!ctl.getHierarchyData?.(),
+    });
+  },
 };
 
 /* ============================================================
@@ -848,6 +1006,121 @@ const waveNs = {
     if (!wc) return err('Wave Configuration is not available');
     try { await wc.open(); return ok(); }
     catch (e) { return err(e?.message || 'could not open Wave Configuration'); }
+  },
+
+  /**
+   * List every .gtkw file currently registered for the active testbench
+   * (one list per tb). Includes the active flag and absolute paths.
+   */
+  async listGtkwFiles() {
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a .v as testbench top first');
+    const ws = await window.WaveStore?.read(projectPath, tbKey);
+    const files = Array.isArray(ws?.gtkwFiles) ? ws.gtkwFiles : [];
+    return ok({
+      testbench: tbKey,
+      files: files.map((f) => ({
+        name: f?.name || (f?.path || '').split(/[\\/]/).pop(),
+        path: f?.path || '',
+        isActive: !!f?.isActive,
+      })),
+    });
+  },
+
+  /**
+   * Register a .gtkw file from anywhere in the project tree as available
+   * for the active testbench. The file must exist on disk and end in
+   * .gtkw. If `setActive:true` (default) it is also marked active.
+   */
+  async addGtkwFile({ filePath, setActive = true } = {}) {
+    if (!filePath) return err('filePath required');
+    if (!/\.gtkw$/i.test(filePath)) return err('only .gtkw files are accepted');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a .v as testbench top first');
+    // Resolve to an absolute path inside the project; verify the file exists.
+    const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+    const abs = isAbs ? filePath : `${projectPath}\\${filePath.replace(/^[\\/]+/, '')}`;
+    try {
+      const exists = await window.electronAPI.fileExists(abs);
+      if (!exists) return err(`file not found: ${abs}`);
+    } catch (e) { return err(e?.message || 'fileExists failed'); }
+    const name = abs.split(/[\\/]/).pop();
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.gtkwFiles) ? state.gtkwFiles : [];
+        let existing = files.find((f) => f?.path === abs);
+        if (!existing) {
+          existing = { name, path: abs, isActive: false };
+          files.push(existing);
+        }
+        if (setActive) {
+          for (const f of files) f.isActive = (f === existing);
+        }
+        state.gtkwFiles = files;
+      });
+    } catch (e) { return err(e?.message || 'addGtkwFile failed'); }
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ path: abs, isActive: !!setActive });
+  },
+
+  /**
+   * Mark one of the registered .gtkw files as active (the one that
+   * GTKWave will open). Pass `null` / no path to revert to the default
+   * (Aurora auto-generates a layout).
+   */
+  async setActiveGtkwFile(filePath) {
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    if (!tbKey) return err('No testbench top set');
+    let foundEntry = !filePath;
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.gtkwFiles) ? state.gtkwFiles : [];
+        for (const f of files) {
+          const match = filePath && f?.path === filePath;
+          if (match) foundEntry = true;
+          f.isActive = !!match;
+        }
+        state.gtkwFiles = files;
+      });
+    } catch (e) { return err(e?.message || 'setActiveGtkwFile failed'); }
+    if (filePath && !foundEntry) return err(`.gtkw not registered — call add_gtkw_file first: ${filePath}`);
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ active: filePath || null });
+  },
+
+  /** Drop one .gtkw entry from the active testbench's list. */
+  async removeGtkwFile(filePath) {
+    if (!filePath) return err('filePath required');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    if (!tbKey) return err('No testbench top set');
+    let removed = 0;
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.gtkwFiles) ? state.gtkwFiles : [];
+        const before = files.length;
+        state.gtkwFiles = files.filter((f) => f?.path !== filePath);
+        removed = before - state.gtkwFiles.length;
+      });
+    } catch (e) { return err(e?.message || 'removeGtkwFile failed'); }
+    if (!removed) return err(`.gtkw not in list: ${filePath}`);
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ removed });
   },
 };
 
@@ -1032,17 +1305,22 @@ const NAMESPACES = Object.freeze({
     clear:   'Clear a terminal panel',
   },
   project: {
-    getCurrent:      'Path and metadata of the open project',
-    getTree:         'Files and folders of the open project',
-    readFile:        'Read any file inside the project folder, at any depth',
-    createFile:      'Create (or overwrite) a file',
-    createFolder:    'Create a directory',
-    deleteFile:      'Delete a file or directory',
-    renameFile:      'Rename or move a file',
-    listProcessors:  'Processors of the open project + their config',
-    createProcessor: 'Generate a processor in the open project',
-    createProject:   'Create a new SAPHO project and open it',
-    openProject:     'Open an existing project by its .spf file',
+    getCurrent:         'Path and metadata of the open project',
+    getTree:            'Files and folders of the open project',
+    readFile:           'Read any file inside the project folder, at any depth',
+    createFile:         'Create (or overwrite) a file',
+    createFolder:       'Create a directory',
+    deleteFile:         'Delete a file or directory',
+    renameFile:         'Rename or move a file',
+    listProcessors:     'Processors of the open project + their config',
+    createProcessor:    'Generate a processor in the open project',
+    createProject:      'Create a new SAPHO project and open it',
+    openProject:        'Open an existing project by its .spf file',
+    getProcessorConfig: 'Read clk/numClocks/simTime for one (or all) processors',
+    setProcessorConfig: 'Update clk/numClocks/showArrays for one processor',
+    refreshTree:        'Force a fresh repaint of the file tree',
+    setView:            'Switch the left panel: "file" or "hierarchy"',
+    getView:            'Which tree view is active right now',
   },
   compile: {
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
@@ -1050,9 +1328,13 @@ const NAMESPACES = Object.freeze({
     cancel:      'Cancel a running compilation or simulation',
   },
   wave: {
-    listSignals: 'Signals discovered for the testbench + which are selected',
-    setSignals:  'Choose which signals are dumped into GTKWave',
-    openConfig:  'Open the Wave Configuration modal',
+    listSignals:        'Signals discovered for the testbench + which are selected',
+    setSignals:         'Choose which signals are dumped into GTKWave',
+    openConfig:         'Open the Wave Configuration modal',
+    listGtkwFiles:      'List .gtkw save files registered for the active testbench',
+    addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
+    setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
+    removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
   },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',

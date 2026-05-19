@@ -118,10 +118,39 @@ async function start(payload, webContents) {
       return result;
     });
 
+    // Anthropic prompt caching
+    // -------------------------
+    // Aurora's system prompt is large (SAPHO knowledge base) and ~the
+    // same every turn. Without caching, each follow-up turn pays the
+    // full input-token cost again. Anthropic's ephemeral cache TTL is
+    // 5 minutes — well within typical chat cadence — and cuts repeat
+    // input tokens by ~90%. We only attach `cacheControl` for the
+    // Anthropic provider; other SDKs ignore it.
+    const useAnthropicCache = providerName === 'anthropic' && system && system.length > 1024;
+    let systemArg, messagesArg = messages;
+    if (useAnthropicCache) {
+      systemArg = undefined;
+      messagesArg = [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'text',
+              text: system,
+              providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+            },
+          ],
+        },
+        ...messages,
+      ];
+    } else if (system) {
+      systemArg = system;
+    }
+
     const result = streamText({
       model,
-      messages,
-      ...(system ? { system } : {}),
+      messages: messagesArg,
+      ...(systemArg ? { system: systemArg } : {}),
       tools: aiTools,
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
@@ -174,12 +203,14 @@ async function start(payload, webContents) {
         case 'tool-call':
           nativeToolCallCount++;
           sendEvent(webContents, sessionId, 'tool-call', {
+            toolUseId: part.toolCallId || part.id || null,
             toolName: part.toolName,
             args: part.input ?? part.args ?? {},
           });
           break;
         case 'tool-result':
           sendEvent(webContents, sessionId, 'tool-result', {
+            toolUseId: part.toolCallId || part.id || null,
             toolName: part.toolName,
             result: part.output ?? part.result ?? null,
           });

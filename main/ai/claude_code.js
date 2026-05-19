@@ -52,15 +52,53 @@ let cachedBin = undefined;   // undefined = not probed, null = not found, string
 //  Binary + credential discovery
 // ---------------------------------------------------------------------------
 
-/** Locate the `claude` executable once; cache the result. */
+/** Locate the `claude` executable once; cache the result.
+ *
+ *  On Windows, `where claude` returns *every* match — typically the
+ *  extensionless POSIX shim (`...\npm\claude`) BEFORE the `.cmd` shim
+ *  Node's `spawn()` actually understands. Picking the first hit blindly
+ *  is exactly what triggered `spawn ENOENT` on this machine. We rank
+ *  the candidates so a `.cmd` (or `.exe`/`.bat`/`.ps1`) wins over the
+ *  bare shell-script shim, and fall back to that bare path only if
+ *  nothing better exists.
+ */
 function resolveBinary() {
   if (cachedBin !== undefined) return cachedBin;
-  const finder = process.platform === 'win32' ? 'where' : 'which';
+  const isWin = process.platform === 'win32';
+  const finder = isWin ? 'where' : 'which';
   try {
     const { execFileSync } = require('child_process');
     const out = execFileSync(finder, ['claude'], { encoding: 'utf-8' });
-    const first = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0];
-    cachedBin = first || null;
+    const candidates = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (!isWin) {
+      cachedBin = candidates[0] || null;
+    } else {
+      // Rank: .cmd > .exe > .bat > .ps1 > anything else.
+      const score = (p) => {
+        const lower = p.toLowerCase();
+        if (lower.endsWith('.cmd')) return 4;
+        if (lower.endsWith('.exe')) return 3;
+        if (lower.endsWith('.bat')) return 2;
+        if (lower.endsWith('.ps1')) return 1;
+        return 0;
+      };
+      let best = null;
+      let bestScore = -1;
+      for (const c of candidates) {
+        const s = score(c);
+        if (s > bestScore) { best = c; bestScore = s; }
+      }
+      // If `where` came back empty, try a direct probe of the npm-global
+      // directory — same place `where` would have found it.
+      if (!best) {
+        const appdata = process.env.APPDATA;
+        if (appdata) {
+          const probe = path.join(appdata, 'npm', 'claude.cmd');
+          try { fs.accessSync(probe); best = probe; } catch (_) { /* not there */ }
+        }
+      }
+      cachedBin = best || null;
+    }
   } catch (_) {
     cachedBin = null;
   }
@@ -79,8 +117,16 @@ function readCredentials() {
 }
 
 function execFileText(bin, args, timeoutMs = 6000) {
+  // Same shim issue as spawn(): `.cmd` files require an explicit cmd.exe
+  // invocation on Node >= 20.12. Without this, `claude --version` would
+  // throw EINVAL even when the binary path exists.
+  let cmd = bin, finalArgs = args;
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin)) {
+    cmd = 'cmd.exe';
+    finalArgs = ['/d', '/s', '/c', bin, ...args];
+  }
   return new Promise((resolve, reject) => {
-    execFile(bin, args, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
+    execFile(cmd, finalArgs, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
       if (err) reject(err);
       else resolve(String(stdout || ''));
     });
@@ -218,6 +264,12 @@ async function start(payload, webContents) {
     prompt = `<conversation_context>\n${transcript}\n</conversation_context>\n\n${prompt}`;
   }
 
+  // Large system prompts ride along inside the prompt body (the CLI
+  // reads it via stdin, so it can be arbitrarily long). Resumed
+  // sessions skip this — the prior turn already taught the model the
+  // rules, sending them again costs tokens for no gain.
+  // (Set below, after we know whether inlineSystem was deferred.)
+
   const args = [
     '-p',
     '--output-format', 'stream-json',
@@ -227,11 +279,38 @@ async function start(payload, webContents) {
   ];
   if (modelId && modelId !== 'default') args.push('--model', modelId);
   if (effort) args.push('--effort', effort);
-  if (system) args.push('--append-system-prompt', system);
   if (resumeId) args.push('--resume', resumeId);
+
+  // System prompt routing
+  // ---------------------
+  // On Windows, command-line args are capped at 32767 chars (cmd.exe is
+  // even stricter at ~8191). Aurora's SYSTEM_PROMPT carries the full
+  // SAPHO knowledge base — it overflows that cap and we hit
+  // "The command line is too long" / ENAMETOOLONG. Anything past a
+  // conservative threshold gets folded into the prompt body instead of
+  // being passed through `--append-system-prompt`, so the shell never
+  // touches it. Small system prompts still take the CLI flag (which is
+  // slightly preferred because it stays out of the user-message
+  // transcript on resume).
+  const SYS_INLINE_THRESHOLD = 2048;
+  let inlineSystem = '';
+  if (system) {
+    if (system.length > SYS_INLINE_THRESHOLD) {
+      inlineSystem = system;
+    } else {
+      args.push('--append-system-prompt', system);
+    }
+  }
 
   const cwd = workspaceDir();
   args.push('--add-dir', cwd);
+
+  // Stitch the deferred system prompt onto the user message so the
+  // shell never sees its bulk. Only on a fresh session — resumed CLI
+  // sessions already have the rules in context.
+  if (inlineSystem && !resumeId) {
+    prompt = `<aurora_system_rules>\n${inlineSystem}\n</aurora_system_rules>\n\n${prompt}`;
+  }
 
   // Strip API-key env vars so the CLI authenticates with the *subscription*
   // (OAuth) and never silently falls back to metered API billing.
@@ -241,7 +320,22 @@ async function start(payload, webContents) {
 
   let proc;
   try {
-    proc = spawn(bin, args, { cwd, env, windowsHide: true });
+    // On Windows, npm installs the CLI as `claude.cmd` (a batch shim).
+    // Since Node v20.12 (CVE-2024-27980) `.bat`/`.cmd` files cannot be
+    // launched directly via `spawn(bin, args)` — they need `shell:true`
+    // OR you have to invoke cmd.exe explicitly. We pick the explicit
+    // route because it sidesteps the per-arg shell-quoting hazard:
+    // arguments stay as a real array (not concatenated into a single
+    // shell command), so values containing spaces / special chars
+    // (e.g. `system` prompt text, `cwd` paths with spaces) reach the
+    // CLI verbatim.
+    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin)) {
+      proc = spawn('cmd.exe', ['/d', '/s', '/c', bin, ...args], {
+        cwd, env, windowsHide: true, windowsVerbatimArguments: false,
+      });
+    } else {
+      proc = spawn(bin, args, { cwd, env, windowsHide: true });
+    }
   } catch (e) {
     sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Claude Code: ${e?.message || e}` });
     return;
@@ -253,6 +347,12 @@ async function start(payload, webContents) {
   let finished = false;
   let aborted = false;
   const seenToolCalls = new Set();
+  // tool_use_id → toolName, so when the CLI replies with a `tool_result`
+  // user-block we can re-attach the original tool name + emit a
+  // tool-result event the renderer can actually correlate. Without this
+  // map every chip would stay in the "running…" state forever because
+  // we used to emit `toolName: 'tool'` (literal) on every result.
+  const toolUseNames = new Map();
 
   sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
 
@@ -292,8 +392,11 @@ async function start(payload, webContents) {
         for (const b of blocks) {
           if (b && b.type === 'tool_use' && !seenToolCalls.has(b.id)) {
             seenToolCalls.add(b.id);
+            const toolName = b.name || 'tool';
+            toolUseNames.set(b.id, toolName);
             sendEvent(webContents, sessionId, 'tool-call', {
-              toolName: b.name || 'tool',
+              toolUseId: b.id,
+              toolName,
               args: b.input || {},
             });
           }
@@ -302,13 +405,35 @@ async function start(payload, webContents) {
       }
 
       case 'user': {
-        // Results of the CLI's own tool runs.
+        // Results of the CLI's own tool runs. Each tool_result block
+        // carries a `tool_use_id` that points back to the matching
+        // tool_use block from the prior assistant turn — we look up the
+        // original toolName from that map so the renderer's chip can
+        // close on the right one. Content of the result is forwarded
+        // so the saved conversation preserves the full transcript.
         const blocks = (obj.message && obj.message.content) || [];
         for (const b of blocks) {
           if (b && b.type === 'tool_result') {
+            const id = b.tool_use_id || null;
+            const name = (id && toolUseNames.get(id)) || 'tool';
+            // CLI puts result text in `b.content`. It can be a string or
+            // an array of content-blocks ([{type:'text',text:'…'}]).
+            let resultText = '';
+            if (typeof b.content === 'string') {
+              resultText = b.content;
+            } else if (Array.isArray(b.content)) {
+              resultText = b.content
+                .map((c) => (c && c.type === 'text' ? c.text : ''))
+                .filter(Boolean).join('\n');
+            }
             sendEvent(webContents, sessionId, 'tool-result', {
-              toolName: 'tool',
-              result: { ok: !b.is_error },
+              toolUseId: id,
+              toolName: name,
+              result: {
+                ok: !b.is_error,
+                content: resultText,
+                ...(b.is_error ? { error: resultText || 'tool reported an error' } : {}),
+              },
             });
           }
         }

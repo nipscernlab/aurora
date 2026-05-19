@@ -470,6 +470,129 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'get_processor_config',
+    description:
+      'Read the simulation config of one (or every) processor: clk (MHz), numClocks, ' +
+      'simTime_us = numClocks/clk, showArrays, and the parsed CMM header directives ' +
+      '(NUBITS, NBMANT, NBEXPO, ...). Omit processorName to get them all.',
+    access: 'read',
+    api: ['project', 'getProcessorConfig'],
+    argStyle: 'positional',
+    argNames: ['processorName'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        processorName: { type: 'string', description: 'Processor name; omit to list every processor' },
+      },
+    },
+  },
+  {
+    name: 'set_processor_config',
+    description:
+      'Update the clock frequency (clk, MHz), simulation length (numClocks), or array-debug ' +
+      'flag of one processor. Aurora bakes `$finish` at `numClocks/clk` µs, so this is the ' +
+      'lever to change total simulation time. Omitted fields keep their current value.',
+    access: 'write',
+    api: ['project', 'setProcessorConfig'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        processorName: { type: 'string' },
+        clk:           { type: 'number', description: 'Clock frequency in MHz (positive)' },
+        numClocks:     { type: 'number', description: 'Total clock cycles to simulate (positive int)' },
+        showArrays:    { type: 'boolean', description: 'Dump array contents into the waveform' },
+      },
+      required: ['processorName'],
+    },
+  },
+  {
+    name: 'refresh_file_tree',
+    description:
+      'Force-repaint the project file tree. Use this after creating or importing files that ' +
+      'are not yet showing up in the tree.',
+    access: 'write',
+    api: ['project', 'refreshTree'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'set_tree_view',
+    description:
+      'Switch the left panel between the file tree and the post-synthesis hierarchy tree. ' +
+      'The hierarchy view is only populated after a successful Verilog compilation — call ' +
+      'compile_step("verilog") first if it is empty.',
+    access: 'write',
+    api: ['project', 'setView'],
+    argStyle: 'positional',
+    argNames: ['mode'],
+    inputSchema: {
+      type: 'object',
+      properties: { mode: { type: 'string', enum: ['file', 'hierarchy'] } },
+      required: ['mode'],
+    },
+  },
+  {
+    name: 'get_tree_view',
+    description: 'Report which tree view is active and whether the hierarchy view is available.',
+    access: 'read',
+    api: ['project', 'getView'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'list_gtkw_files',
+    description: 'List .gtkw save files registered for the currently active testbench, with their active flag.',
+    access: 'read',
+    api: ['wave', 'listGtkwFiles'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'add_gtkw_file',
+    description:
+      'Register a .gtkw save file from anywhere inside the project tree for the active testbench. ' +
+      'The file must exist and end in .gtkw. By default the freshly added entry becomes the active one.',
+    access: 'write',
+    api: ['wave', 'addGtkwFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath:  { type: 'string', description: 'Absolute or project-relative path to a .gtkw file' },
+        setActive: { type: 'boolean', description: 'Mark this file active (default: true)' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'set_active_gtkw_file',
+    description:
+      'Pick which already-registered .gtkw file GTKWave loads when "wave" is run. Omit filePath ' +
+      'to clear the selection (Aurora auto-generates a layout).',
+    access: 'write',
+    api: ['wave', 'setActiveGtkwFile'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: { filePath: { type: 'string' } },
+    },
+  },
+  {
+    name: 'remove_gtkw_file',
+    description: 'Remove a .gtkw entry from the active testbench list. Does not delete the file from disk.',
+    access: 'write',
+    api: ['wave', 'removeGtkwFile'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: { filePath: { type: 'string' } },
+      required: ['filePath'],
+    },
+  },
+  {
     name: 'open_file',
     description: 'Open a project file in the editor. Set inNewSplit:true to open it in a new split pane.',
     access: 'write',

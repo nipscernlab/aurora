@@ -1,28 +1,15 @@
 // @ts-check
 /**
- * Misc system IPC: components path, system performance, path utilities,
- * relaunch.
+ * Misc system IPC: components path, path utilities, relaunch.
  */
 
 const path = require('path');
-const os = require('os');
 const { app, ipcMain } = require('electron');
 
 const { componentsPath, rootPath } = require('../paths');
-const { getCPUCount, getTotalMemory } = require('../utils');
 
 function register() {
   ipcMain.handle('get-components-path', () => componentsPath);
-
-  ipcMain.handle('get-system-performance', () => ({
-    cpuCount: getCPUCount(),
-    totalMemory: getTotalMemory(),
-    freeMemory: Math.floor(os.freemem() / (1024 * 1024 * 1024)),
-    loadAverage: os.loadavg(),
-    platform: os.platform(),
-    arch: os.arch(),
-    uptime: os.uptime(),
-  }));
 
   ipcMain.handle('path-dirname', (_event, p) => {
     if (typeof p !== 'string' || !p) return '';

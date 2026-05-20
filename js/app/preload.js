@@ -86,7 +86,6 @@ const projectOperations = {
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
 
   // Listeners
-  onProjectOpen:        (cb) => ipcRenderer.on('project:opened', (_, data) => cb(data)),
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),
   onProcessorHubState:  (cb) => ipcRenderer.on('project:processorHubState', cb),
   onProcessorsUpdated:  (cb) => ipcRenderer.on('project:processors', (_, data) => cb(data)),
@@ -199,14 +198,8 @@ const terminalAPI = {};   // (terminalAPI separado mantido para compat futuro)
  *  UPDATER
  * ========================================================================= */
 const updateOperations = {
-  onUpdateProgress: (cb) => {
-    const wrapped = (_e, data) => cb(data);
-    ipcRenderer.on('update-progress', wrapped);
-    return () => ipcRenderer.removeListener('update-progress', wrapped);
-  },
   getComponentsPath: () => ipcRenderer.invoke('get-components-path'),
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
-  getSystemPerformance: () => ipcRenderer.invoke('get-system-performance'),
 
   // Manual control for the in-app "Check for updates" affordance. The
   // silent startup check still runs ~10 s after launch — these are for

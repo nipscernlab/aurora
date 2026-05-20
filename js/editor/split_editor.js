@@ -421,6 +421,16 @@ const SplitEditorManager = {
         if (typeof window !== 'undefined') window.SplitEditorManager = this;
         this._patchTabManagerOverlay();
 
+        // Keep the split button's enabled/tooltip state in sync with the
+        // editing context. TabManager dispatches aurora:editing-file-changed
+        // on every activateTab AND on preview close (both the "switch to
+        // another tab" and the "no tabs left → filePath:null" paths), so
+        // listening here covers what a fragile monkey-patch of activateTab /
+        // _closePreviewSilently used to do — without reassigning their
+        // methods. (setFocus / createSplit / closePane call _updateButton
+        // directly; this just adds the tab-side trigger.)
+        document.addEventListener('aurora:editing-file-changed', () => this._updateButton());
+
         // Sync the button to the real initial state (no file open → disabled
         // with the right tooltip) instead of relying on the static HTML attrs.
         this._updateButton();

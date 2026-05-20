@@ -64,24 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
     uiComponentsManager.initialize();
     compilationFlowManager.initialize();
 
-    // Split editor: initialize layout
+    // Split editor: initialize layout. (It keeps the split button in sync by
+    // listening to TabManager's aurora:editing-file-changed event — no
+    // monkey-patching of activateTab / _closePreviewSilently.)
     SplitEditorManager.initialize();
     window.SplitEditorManager = SplitEditorManager;
 
-    // Keep split button enabled/disabled in sync with active tab state
-    const _origActivate = TabManager.activateTab.bind(TabManager);
-    TabManager.activateTab = function(filePath) {
-        _origActivate(filePath);
-        SplitEditorManager._updateButton();
-    };
-    const _origClose = TabManager._closePreviewSilently?.bind(TabManager);
-    if (_origClose) {
-        TabManager._closePreviewSilently = function(filePath) {
-            _origClose(filePath);
-            SplitEditorManager._updateButton();
-        };
-    }
-    
     // ✅ Expor globalmente para o Command Palette
     window.compilationFlowManager = compilationFlowManager;
     

@@ -112,8 +112,7 @@
 }
 
 /* Tab name + icon */
-.tab .tab-name,
-.tab .tab-title {
+.tab .tab-name {
   flex: 1 1 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -131,8 +130,7 @@
 }
 
 /* Preview tab (italic) */
-.tab.preview .tab-name,
-.tab.preview .tab-title {
+.tab.preview .tab-name {
   font-style: italic;
   opacity: 0.85;
 }
@@ -140,7 +138,6 @@
 /* ---------------------------------------------------------------------------
  *  Close button
  * ------------------------------------------------------------------------- */
-.tab-close,
 .close-tab {
   width: 18px;
   height: 18px;
@@ -160,19 +157,15 @@
               color var(--transition-fast);
 }
 
-.tab:hover .tab-close,
 .tab:hover .close-tab,
-.tab.active .tab-close,
 .tab.active .close-tab {
   opacity: 1;
 }
 
-.tab.dirty .tab-close,
 .tab.dirty .close-tab {
   opacity: 0;
 }
 
-.tab.dirty:hover .tab-close,
 .tab.dirty:hover .close-tab {
   opacity: 1;
 }
@@ -181,7 +174,6 @@
   display: none;
 }
 
-.tab-close:hover,
 .close-tab:hover {
   background: var(--overlay-active);
   color: var(--text);

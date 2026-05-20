@@ -132,49 +132,9 @@
   box-shadow: 0 0 6px rgba(226, 108, 108, 0.45);
 }
 
-.status-dot-success {
-  background: var(--status-success);
-  box-shadow: 0 0 6px rgba(93, 212, 168, 0.45);
-}
-
 #ready.is-ready .status-dot {
   background: var(--status-success);
   box-shadow: 0 0 6px rgba(93, 212, 168, 0.45);
-}
-
-/* ---------------------------------------------------------------------------
- *  Sidebar legacy
- * ------------------------------------------------------------------------- */
-.sidebar {
-  background-color: var(--bg-elev);
-  border-right: 1px solid var(--border);
-  width: 48px;
-}
-
-.sidebar-menu {
-  padding: var(--space-2) 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: 0 auto;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.sidebar-item:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text);
 }
 
 /* ---------------------------------------------------------------------------

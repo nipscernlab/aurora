@@ -63,7 +63,17 @@ class CompilationModule {
     constructor(projectPath) {
         this.projectPath = projectPath;
         this.projectConfig = null;
-        this.terminalManager = new TerminalManager();
+        // Reuse the single global TerminalManager. CompilationModule is
+        // reconstructed on every compile, and a fresh TerminalManager per
+        // instance fragmented the shared terminal state (messageCounts,
+        // currentSessionCards, updatableCards) across instances even though
+        // they all drive the SAME terminal DOM. Per-compile reset is explicit
+        // via clearTerminal(), so one long-lived owner is both correct and
+        // leak-free. initializeGlobalTerminalManager() is a lazy singleton;
+        // fall back to a local instance only outside the renderer.
+        this.terminalManager = (typeof window !== 'undefined' && window.initializeGlobalTerminalManager)
+            ? window.initializeGlobalTerminalManager()
+            : new TerminalManager();
         this.hierarchyData = null;
         this.isHierarchicalView = false;
         this.gtkwaveProcess = null;

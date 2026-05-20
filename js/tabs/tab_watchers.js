@@ -103,8 +103,7 @@ export const tabWatchers = {
         try {
             if (!this.tabs.has(filePath)) return;
 
-            this.stopWatchingFile(filePath);
-            await new Promise((resolve) => setTimeout(resolve, 500));
+            await this.stopWatchingFile(filePath);
             await this.startWatchingFile(filePath);
         } catch (error) {
             console.error(`Failed to restart watcher for ${filePath}:`, error);
@@ -125,13 +124,19 @@ export const tabWatchers = {
         }
     },
 
-    stopWatchingFile(filePath) {
+    async stopWatchingFile(filePath) {
         const watcher = this.fileWatchers.get(filePath);
-        if (watcher) {
-            window.electronAPI.stopWatchingFile(watcher);
-            this.fileWatchers.delete(filePath);
-            this.lastModifiedTimes.delete(filePath);
-        }
+        if (!watcher) return;
+        // Drop local state synchronously so it's consistent even while the
+        // close is in flight. The IPC resolves only when the main process has
+        // awaited chokidar's watcher.close() — i.e. the OS handle is actually
+        // released — so awaiting this is the real "stopped" signal a restart
+        // can rely on (vs the old blind setTimeout(500)).
+        this.fileWatchers.delete(filePath);
+        this.lastModifiedTimes.delete(filePath);
+        try {
+            await window.electronAPI.stopWatchingFile(watcher);
+        } catch (_) { /* main may have already torn it down */ }
     },
 
     stopAllWatchers() {

@@ -647,6 +647,159 @@ const TOOL_MANIFEST = [
     argStyle: 'none',
     inputSchema: { type: 'object', properties: {} },
   },
+
+  /* ---- compilation command overrides (Aurora Intelligence-editable
+   * toolchain knobs). Read-side tools are 'read' so the model can
+   * introspect without asking. Write-side tools are 'write' so they
+   * trigger the ask-before-write modal. */
+  {
+    name: 'list_compile_steps',
+    description:
+      'Enumerate every toolchain step whose command line Aurora Intelligence can override ' +
+      '(cmm, asm, iverilog-check, iverilog-build, vvp-header, vvp-run, verilator-build, ' +
+      'verilator-header, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys). ' +
+      'Each entry includes a short description of when the step runs.',
+    access: 'read',
+    api: ['compile', 'listSteps'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'inspect_compile_command',
+    description:
+      'Return the structured CommandSpec ({binary, args, cwd, env, prependPath}) ' +
+      'that would be executed for one toolchain step RIGHT NOW, including any ' +
+      'override the AI or the user has registered. Includes a printable command ' +
+      'line and a diff vs. the base spec.',
+    access: 'read',
+    api: ['compile', 'inspectCommand'],
+    argStyle: 'positional',
+    argNames: ['step', 'processorName'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        step: { type: 'string', description: 'One of: cmm, asm-pre, asm, iverilog-check, iverilog-build, vvp-header, vvp-run, verilator-build, verilator-header, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys' },
+        processorName: { type: 'string', description: 'For per-processor steps (cmm, asm-pre, asm). Omit for global steps.' },
+      },
+      required: ['step'],
+    },
+  },
+  {
+    name: 'preview_compile_command',
+    description:
+      'Dry-run a hypothetical override on a step WITHOUT registering it. Returns ' +
+      'the same shape as inspect_compile_command, but with the proposed override ' +
+      'layered on top of the current state. Use this to show the user what the ' +
+      'resulting command line would look like before calling set_command_override.',
+    access: 'read',
+    api: ['compile', 'previewCommand'],
+    argStyle: 'positional',
+    argNames: ['step', 'override', 'processorName'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        step: { type: 'string' },
+        override: {
+          type: 'object',
+          properties: {
+            appendArgs:  { type: 'array', items: { type: 'string' } },
+            prependArgs: { type: 'array', items: { type: 'string' } },
+            removeArgs:  { type: 'array', items: { type: 'string' } },
+            envSet:      { type: 'object' },
+            envUnset:    { type: 'array', items: { type: 'string' } },
+          },
+        },
+        processorName: { type: 'string' },
+      },
+      required: ['step', 'override'],
+    },
+  },
+  {
+    name: 'list_command_overrides',
+    description:
+      'List every registered command override across the ephemeral (in-memory, ' +
+      'consumed on next run) and persisted (.spf, survives sessions) layers.',
+    access: 'read',
+    api: ['compile', 'listOverrides'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'list_protected_compile_flags',
+    description:
+      'List the flags that the override system refuses to remove or stomp for one ' +
+      '(or every) step — Aurora pipeline invariants like iverilog -o, gtkwave ' +
+      '--script, verilator --binary. Omit step to get the whole table.',
+    access: 'read',
+    api: ['compile', 'listProtectedFlags'],
+    argStyle: 'positional',
+    argNames: ['step'],
+    inputSchema: {
+      type: 'object',
+      properties: { step: { type: 'string' } },
+    },
+  },
+  {
+    name: 'list_allowed_compile_binaries',
+    description:
+      'List the binaries the main-process executor will spawn. Aurora Intelligence ' +
+      'cannot redirect a step to a binary outside this allowlist — only flags ' +
+      'and env are editable.',
+    access: 'read',
+    api: ['compile', 'listAllowedBinaries'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'set_command_override',
+    description:
+      'Register an override for one toolchain step. By default the override is ' +
+      'EPHEMERAL — consumed on the next time that step runs. Pass persist:true ' +
+      'to write it into the .spf so it survives across sessions. Supplying both ' +
+      'global (no processorName) and per-processor overrides for the same step ' +
+      'is allowed; the per-processor one wins for that processor. Use ' +
+      'preview_compile_command first to verify the resulting command line. ' +
+      'The main-process executor re-checks protected flags before spawn — if the ' +
+      'override would strip a pipeline-critical flag (iverilog -o, gtkwave ' +
+      '--script, etc.), the step run fails with a clear error.',
+    access: 'write',
+    api: ['compile', 'setOverride'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        step:          { type: 'string', description: 'See list_compile_steps for the full set' },
+        processorName: { type: 'string', description: 'For per-processor steps only' },
+        appendArgs:    { type: 'array', items: { type: 'string' }, description: 'Flags appended after the existing args' },
+        prependArgs:   { type: 'array', items: { type: 'string' }, description: 'Flags inserted right after the binary' },
+        removeArgs:    { type: 'array', items: { type: 'string' }, description: 'Tokens removed by exact match (protected flags rejected)' },
+        envSet:        { type: 'object', description: 'Env vars to set (string values)' },
+        envUnset:      { type: 'array', items: { type: 'string' }, description: 'Env vars to unset' },
+        persist:       { type: 'boolean', description: 'true → write to .spf; false (default) → ephemeral, consumed on next run' },
+        note:          { type: 'string', description: 'Free-text note that lands in the audit log + terminal hint' },
+      },
+      required: ['step'],
+    },
+  },
+  {
+    name: 'clear_command_override',
+    description:
+      'Remove a registered override. `scope` controls which layer: "ephemeral" ' +
+      '(in-memory only), "persisted" (.spf only), or "both" (default).',
+    access: 'write',
+    api: ['compile', 'clearOverride'],
+    argStyle: 'positional',
+    argNames: ['step', 'processorName', 'scope'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        step:          { type: 'string' },
+        processorName: { type: 'string' },
+        scope:         { type: 'string', enum: ['ephemeral', 'persisted', 'both'] },
+      },
+      required: ['step'],
+    },
+  },
 ];
 
 /**

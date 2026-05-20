@@ -55,6 +55,17 @@ import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { runSpec, runSpecStreamed } from './spec_runner.js';
+import {
+  buildCmmSpec,
+  buildAsmPreSpec, buildAsmSpec,
+  buildIverilogCheckSpec, buildIverilogBuildSpec,
+  buildVvpHeaderSpec, buildVvpRunSpec,
+  buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
+  buildFst2VcdSpec, buildGtkwaveSpec,
+  buildYosysHierarchySpec,
+} from './builders/index.js';
+import * as CommandSpec from './command_spec.js';
 
 // i18n shim — falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -250,8 +261,12 @@ async generateProjectHierarchy() {
             const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
             await window.electronAPI.writeFile(scriptPath, yosysScript);
 
-            const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${scriptPath}"`;
-            const result = await window.electronAPI.execCommand(yosysCmd);
+            const hierSpec = buildYosysHierarchySpec({
+                yosysPath,
+                scriptPath,
+                cwd: tempBaseDir,
+            });
+            const result = await runSpec(hierSpec, { consumeEphemeral: true });
 
             if (result.code !== 0) throw new Error(tr('error.compilation.yosysProjectFailed'));
 
@@ -688,35 +703,44 @@ async loadConfig() {
             await TabManager.saveAllFiles();
             statusUpdater.startCompilation('cmm');
 
-            // 3. Comando — yanc usa named options (CMMComp/Sources/args.c):
+            // yanc usa named options (CMMComp/Sources/args.c):
             //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-P]
             // -pt / -en vem do toggle de locale (UI + compiler unified) e vai
             // PRIMEIRO: parse_lang_flag() consome essa flag e a remove de argv
             // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
             // ignorando qualquer env var preexistente do shell.
-            const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
+            //
             // -P liga o showArrays do .spf (campo per-processador). Cuidado
             // com o nome: o yanc chama esse flag de --project / cli_args.project,
             // MAS o main() do cmmcomp passa esse valor pro slot `d_array` do
-            // parse_init, que faz `sim_arr = strcmp(d_array,"1")==0` — ou seja,
-            // pro cmmcomp -P significa "simular/mostrar arrays", nao project
-            // mode. Era o 6o arg posicional antes da migracao p/ named flags.
-            let cmd = `"${cmmCompPath}" ${langFlag} -i "${selectedCmmFile}" -n "${cmmBaseName}" -p "${projectPath}" -m "${macrosPath}" -t "${tempPath}"`;
-            if (showArrays) cmd += ' -P';
+            // parse_init, que faz `sim_arr = strcmp(d_array,"1")==0` — pro
+            // cmmcomp -P significa "simular/mostrar arrays", nao project mode.
+            const lang = window.getYancLang?.() ?? 'pt';
+            const cmmSpec = buildCmmSpec({
+                cmmCompPath,
+                inputFile: selectedCmmFile,
+                baseName: cmmBaseName,
+                projectPath,
+                macrosPath,
+                tempPath,
+                processorName: name,
+                lang,
+                showArrays: !!showArrays,
+            });
 
             // Track which .cmm this run is compiling so the terminal's
             // "line N" click handler can resolve the file even when verbose
             // is off (the cmmcomp.exe echo is hidden in that mode, so DOM
             // scraping would find nothing).
             this.lastCompiledCmmPath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
-            
+
             // internal:true marca como 'plain', entao o filtro de
             // verbose esconde a linha de comando quando verbose=off.
             // Continua util pra debug verbose mas nao polui o
             // terminal padrao.
-            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd }), 'info', { internal: true });
+            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(cmmSpec) }), 'info', { internal: true });
 
-            const result = await window.electronAPI.execCommand(cmd);
+            const result = await runSpec(cmmSpec, { consumeEphemeral: true });
             this.terminalManager.processExecutableOutput('tcmm', result);
 
             if (result.code !== 0) {
@@ -773,12 +797,18 @@ async loadConfig() {
             // consome a flag antes do cli_parse() ler as named options. Aplicado
             // igual em appcomp e asmcomp pra que stdout/stderr dos dois passos
             // saiam na mesma lingua.
-            const langFlag = `-${window.getYancLang?.() ?? 'pt'}`;
+            const lang = window.getYancLang?.() ?? 'pt';
 
             // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
-            let cmd = `"${appCompPath}" ${langFlag} -i "${asmPath}" -t "${tempPath}"`;
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd }), 'info', { internal: true });
-            const appResult = await window.electronAPI.execCommand(cmd);
+            const asmPreSpec = buildAsmPreSpec({
+                appCompPath,
+                asmFile: asmPath,
+                tempPath,
+                processorName: name,
+                lang,
+            });
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd: CommandSpec.formatSpec(asmPreSpec) }), 'info', { internal: true });
+            const appResult = await runSpec(asmPreSpec, { consumeEphemeral: true });
             this.terminalManager.processExecutableOutput('tasm', appResult);
 
             if (appResult.code !== 0) {
@@ -797,11 +827,22 @@ async loadConfig() {
             // e sai com usage. -P liga o project mode (era o 9o arg posicional).
             const freq = Number.parseInt(clk, 10) || 0;
             const clocks = Number.parseInt(numClocks, 10) || 0;
-            cmd = `"${asmCompPath}" ${langFlag} -i "${asmPath}" -p "${projectPath}" -d "${hdlPath}" -m "${macrosPath}" -t "${tempPath}" -f ${freq} -c ${clocks}`;
-            if (projectParam) cmd += ' -P';
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd }), 'info', { internal: true });
+            const asmSpec = buildAsmSpec({
+                asmCompPath,
+                asmFile: asmPath,
+                projectPath,
+                hdlPath,
+                macrosPath,
+                tempPath,
+                freq,
+                clocks,
+                projectMode: !!projectParam,
+                processorName: name,
+                lang,
+            });
+            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd: CommandSpec.formatSpec(asmSpec) }), 'info', { internal: true });
 
-            const asmResult = await window.electronAPI.execCommand(cmd);
+            const asmResult = await runSpec(asmSpec, { consumeEphemeral: true });
 
             this.terminalManager.processExecutableOutput('tasm', asmResult);
 
@@ -1058,7 +1099,6 @@ async syntaxCheck() {
         // — we want iverilog to evaluate exactly what the user wrote).
         const fileSet = new Set(config.synthesizableFiles);
         if (config.testbenchFile) fileSet.add(config.testbenchFile);
-        const sourceFilesString = [...fileSet].map((f) => `"${f}"`).join(' ');
 
         // -y points iverilog at components/HDL pra resolver os modulos
         // da biblioteca SAPHO (processor.v, addr_dec.v, instr_dec.v,
@@ -1067,24 +1107,23 @@ async syntaxCheck() {
         // type: processor" em projetos que tem processadores SAPHO.
         // Mesmo padrao do iverilogCompile.
         const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-        const libraryArgs = `-y "${hdlPath}"`;
 
-        const cmd = [
-            `"${iveriCompPath}"`,
-            libraryArgs,
-            '-tnull',
-            `-s ${simTopModule}`,
-            sourceFilesString,
-        ].filter(Boolean).join(' ');
+        const checkSpec = buildIverilogCheckSpec({
+            iveriCompPath,
+            hdlPath,
+            simTopModule,
+            sourceFiles: [...fileSet],
+            cwd: this.projectPath,
+        });
 
         this.terminalManager.appendToTerminal('tveri',
             tr('terminal.veri.bannerSyntaxWc'), 'info');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.simTop', { name: simTopModule }), 'info');
         // Linha de comando crua e ruido pra usuario nao-debug — esconde
         // quando verbose=off (mesmo padrao do cmm/asm).
-        this.terminalManager.appendToTerminal('tveri', cmd, 'info', { internal: true });
+        this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(checkSpec), 'info', { internal: true });
 
-        const result = await window.electronAPI.execCommand(cmd);
+        const result = await runSpec(checkSpec, { consumeEphemeral: true });
         this.terminalManager.processExecutableOutput('tveri', result);
 
         if (result.code !== 0) {
@@ -1508,8 +1547,6 @@ async iverilogCompile({ buildVvp = false } = {}) {
                     tr('terminal.veri.autoInstrTb', { name: tbPath.split(/[\\/]/).pop() }), 'info');
             }
         }
-        const sourceFilesString = [...fileSet].map(f => `"${f}"`).join(' ');
-
         // -y tells iverilog to resolve any module referenced but not
         // listed in the source set by looking for `<moduleName>.v` in
         // these directories. components/HDL tem tanto componentes do
@@ -1518,37 +1555,35 @@ async iverilogCompile({ buildVvp = false } = {}) {
         // ligado, em qualquer fluxo — projetos sem processador tambem
         // se beneficiam pra coisas tipo myFIFO.
         const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-        const libraryArgs = `-y "${hdlPath}"`;
 
-        const cmdParts = buildVvp
-            ? [
-                `"${iveriCompPath}"`,
-                libraryArgs,
-                `-s ${simTopModule}`,
-                `-o "${outputFile}"`,
-                sourceFilesString,
-            ]
-            : [
-                `"${iveriCompPath}"`,
-                libraryArgs,
+        const spec = buildVvp
+            ? buildIverilogBuildSpec({
+                iveriCompPath,
+                hdlPath,
+                simTopModule,
+                outputFile,
+                sourceFiles: [...fileSet],
+                cwd: this.projectPath,
+            })
+            : buildIverilogCheckSpec({
+                iveriCompPath,
+                hdlPath,
                 // -tnull tells iverilog to elaborate but skip code-gen, so
                 // we get the parse + type-check without producing a .vvp.
-                '-tnull',
-                `-s ${topLevelModuleName}`,
-                sourceFilesString,
-            ];
-
-        const cmd = cmdParts.filter(Boolean).join(' ');
+                simTopModule: topLevelModuleName,
+                sourceFiles: [...fileSet],
+                cwd: this.projectPath,
+            });
 
         this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'), 'info');
         // Linha de comando crua so em verbose.
-        this.terminalManager.appendToTerminal('tveri', cmd, 'info', { internal: true });
+        this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
         await TabManager.saveAllFiles();
 
         this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.building' : 'terminal.veri.checking'), 'info');
 
-        const result = await window.electronAPI.execCommand(cmd);
+        const result = await runSpec(spec, { consumeEphemeral: true });
         this.terminalManager.processExecutableOutput('tveri', result);
 
         if (result.code !== 0) {
@@ -1795,8 +1830,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // the common path (Aurora-instrumented testbench) is fast.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
 
-    const headerCmd = `cd "${tools.tempBaseDir}" && "${tools.vvpBin}" "${vvpFile}" +AURORA_HEADER_ONLY`;
-    const headerResult = await window.electronAPI.execCommand(headerCmd);
+    const vvpHeaderSpec = buildVvpHeaderSpec({
+        vvpBin: tools.vvpBin,
+        vvpFile,
+        cwd: tools.tempBaseDir,
+    });
+    const headerResult = await runSpec(vvpHeaderSpec, { consumeEphemeral: true });
     // Pass 1 stdout/stderr are intentionally suppressed — the $finish
     // injected by the instrumenter produces a "$finish at simulation
     // time 0" line that's just noise. Errors surface via pass 2 anyway.
@@ -1845,7 +1884,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             || t.includes('$stop called at')
         );
     };
-    const unsubscribe = window.electronAPI.onVvpStream((payload) => {
+    const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
         if (!payload || !payload.data) return;
         // Split so each line can be classified independently; chunks
         // from spawn can carry multiple newlines per data event.
@@ -1871,9 +1910,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
-        const r = await window.electronAPI.execVvpStreamed(
-            tools.vvpBin, vvpFile, ['-fst'], tools.tempBaseDir,
-        );
+        const vvpRunSpec = buildVvpRunSpec({
+            vvpBin: tools.vvpBin,
+            vvpFile,
+            cwd: tools.tempBaseDir,
+        });
+        const r = await runSpecStreamed(vvpRunSpec, { consumeEphemeral: true });
         code = r.code;
     } finally {
         unsubscribe();
@@ -2044,7 +2086,7 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
         '-Wno-TIMESCALEMOD',
         '-Wno-DECLFILENAME',
         '-Wno-STMTDLY',
-    ].join(' ');
+    ];
     // Preservacao de signals: deliberadamente DEIXADA NO DEFAULT do
     // Verilator. Verilator agressivamente elimina signals nao-observaveis
     // (constant-fold, dead-code, inline) — diferente de iverilog. Em
@@ -2061,35 +2103,28 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // → desmarca "Use Verilator"). Verilator fica como modo "rapido
     // pra signals top-level do testbench".
     const buildSources = [...prep.fileSet];
-    const allInputsArr = buildSources.map(f => `"${f}"`);
-    // Args do verilator passados como strings com aspas duplas (cmd.exe).
-    // -CFLAGS aceita um arg de cada vez via cmd.exe. Aspas em volta de
-    // string com espacos ("-O3 -fstrict-aliasing") sao perdidas pelo
-    // shell e Verilator interpreta -fstrict-aliasing como flag dele
-    // (que nao existe → erro). Solucao: passar dois -CFLAGS separados.
-    const verilatorArgs = [
-        '--binary --main --trace-fst -j 0',
-        verilatorWarnings,
-        '--timing --x-assign fast --no-trace-top',
-        '-CFLAGS -O3 -CFLAGS -fstrict-aliasing',
-        `--top-module ${simTopModule}`,
-        `-Mdir "${objDir}"`,
-        `-y "${hdlPath}"`,
-        allInputsArr.join(' '),
-    ].join(' ');
+    // Builder monta tokens individuais (sem aspas, sem shell). Executor
+    // em main faz spawn(perlExe, args, { shell:false }) — cada token vai
+    // direto pro child sem reparse. -CFLAGS aparece duas vezes (O3 +
+    // fstrict-aliasing) porque o cmd-via-shell antigo perdia aspas; com
+    // shell:false isso virou apenas convenção do Verilator (uma flag
+    // por -CFLAGS) — preservada no builder.
+    const verilatorSpec = buildVerilatorBuildSpec({
+        perlExe: tools.perlExe,
+        verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+        hdlPath,
+        simTopModule,
+        objDir,
+        sourceFiles: buildSources,
+        cwd: tempBaseDir,
+        extraWarnings: verilatorWarnings,
+    });
 
-    // Invocacao DIRETA via cmd.exe: ajusta PATH pro bundle e roda
-    // perl <verilator-script> <args>. Sem bash, sem MSYSTEM, sem .sh.
-    // Bundle e autocontido — perl mingw64 nativo + verilator + g++ +
-    // make + bash/coreutils (esse ultimo so o verilated.mk usa internamente).
-    const cmd = [
-        `set "PATH=${tools.mingwBin};${tools.usrBin};%PATH%"`,
-        `"${tools.perlExe}" "${tools.verilatorScript}" ${verilatorArgs}`,
-    ].join(' && ');
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(verilatorSpec), 'info', { internal: true });
 
-    this.terminalManager.appendToTerminal('twave', `perl verilator ${verilatorArgs}`, 'info', { internal: true });
-
-    const result = await window.electronAPI.execCommand(cmd);
+    const result = await runSpec(verilatorSpec, { consumeEphemeral: true });
     this.terminalManager.processExecutableOutput('twave', result);
     if (result.code !== 0) {
         throw new Error(tr('error.compilation.verilatorFailed', { code: result.code }));
@@ -2138,10 +2173,13 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     // Pass 1: header capture. PATH inclui bundle mingw + usr bin pro
     // .exe achar libstdc++-6.dll / libwinpthread-1.dll / msys DLLs em
     // runtime (Verilator-generated binary linka contra mingw64 runtime).
-    const pathPrefix = `set "PATH=${tools.mingwBin};${tools.usrBin};%PATH%" && `;
-    const cdPrefix = `cd /d "${tools.tempBaseDir}" && `;
-    const headerCmd = `${cdPrefix}${pathPrefix}"${exePath}" +AURORA_HEADER_ONLY`;
-    const headerResult = await window.electronAPI.execCommand(headerCmd);
+    const verilatorHeaderSpec = buildVerilatorHeaderSpec({
+        exePath,
+        cwd: tools.tempBaseDir,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+    });
+    const headerResult = await runSpec(verilatorHeaderSpec, { consumeEphemeral: true });
     if (headerResult.code !== 0 && headerResult.code !== null) {
         // Nao fatal — pass 2 ainda pode resolver. Log curto.
         this.terminalManager.appendToTerminal('twave',
@@ -2161,8 +2199,13 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorFstConvert'), 'info');
             // fst2vcd exige `-f <input>` explicito (positional argument
             // imprime pra stdout em vez de honrar o `-o`).
-            const convertCmd = `"${tools.fst2vcdBin}" -f "${pass1File}" -o "${headerVcd}"`;
-            const convertResult = await window.electronAPI.execCommand(convertCmd);
+            const fst2vcdSpec = buildFst2VcdSpec({
+                fst2vcdBin: tools.fst2vcdBin,
+                inputFile: pass1File,
+                outputFile: headerVcd,
+                cwd: tools.tempBaseDir,
+            });
+            const convertResult = await runSpec(fst2vcdSpec, { consumeEphemeral: true });
             if (convertResult.code !== 0 && convertResult.code !== null) {
                 this.terminalManager.appendToTerminal('twave',
                     tr('error.compilation.fst2vcdFailed', { code: convertResult.code }), 'warning');
@@ -2187,8 +2230,8 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     };
 
     let unsubscribe = null;
-    if (typeof window.electronAPI.onVvpStream === 'function') {
-        unsubscribe = window.electronAPI.onVvpStream((payload) => {
+    if (typeof window.electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
@@ -2203,24 +2246,19 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
-        // Reusa execVvpStreamed mesmo nao sendo vvp — a API so executa
-        // um binario e streama output. Sem args de plusarg em pass 2.
         // PATH precisa incluir bundle mingw64+usr bin: o .exe gerado pelo
         // Verilator linka dinamicamente contra libstdc++-6.dll / libgcc /
         // libwinpthread do bundle, e sem PATH o Windows aborta com
-        // STATUS_DLL_NOT_FOUND (0xC0000135 → exit 3221225781).
-        if (typeof window.electronAPI.execVvpStreamed === 'function') {
-            const r = await window.electronAPI.execVvpStreamed(
-                exePath, '', [], tools.tempBaseDir,
-                { prependPath: [tools.mingwBin, tools.usrBin] },
-            );
-            code = r.code;
-        } else {
-            // Fallback: execCommand sem streaming.
-            const fullCmd = `${cdPrefix}${pathPrefix}"${exePath}"`;
-            const r = await window.electronAPI.execCommand(fullCmd);
-            code = r.code;
-        }
+        // STATUS_DLL_NOT_FOUND (0xC0000135 → exit 3221225781). O builder
+        // monta isso via prependPath; executor em main injeta no env.
+        const verilatorRunSpec = buildVerilatorRunSpec({
+            exePath,
+            cwd: tools.tempBaseDir,
+            mingwBin: tools.mingwBin,
+            usrBin: tools.usrBin,
+        });
+        const r = await runSpecStreamed(verilatorRunSpec, { consumeEphemeral: true });
+        code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
         if (showProgress) hideVVPProgress();
@@ -2772,11 +2810,27 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
 async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
     const fixScript = await window.electronAPI.joinPath(tools.scriptsPath, 'gtk_almost_proj.tcl');
-    let gtkwaveCmd = `"${tools.gtkwaveBin}" --dark "${vcdFile}"`;
-    if (gtkwSaveFile) {
-        gtkwaveCmd += ` --rcvar "hide_sst on" -a "${gtkwSaveFile}"`;
-    }
-    gtkwaveCmd += ` --script="${fixScript}"`;
+
+    // gtkwave usa spawn detached (monitorado via launch-gtkwave-only)
+    // em vez do executor padrao. Mesmo assim, passamos pelo runSpec-
+    // -equivalente pra que overrides da AI funcionem: aplicamos override
+    // a um base spec e renderizamos a linha de comando — o IPC velho
+    // espera string. Override no spec de gtkwave fica em ../command_overrides.
+    const baseSpec = buildGtkwaveSpec({
+        gtkwaveBin: tools.gtkwaveBin,
+        vcdFile,
+        gtkwSaveFile: gtkwSaveFile || undefined,
+        fixScript,
+        cwd: tools.tempBaseDir,
+    });
+    const { applyResolved } = await import('./command_overrides.js');
+    const resolved = await applyResolved(baseSpec, { consumeEphemeral: true });
+    const finalSpec = resolved.appliedSpec;
+    // launch-gtkwave-only ainda espera string. Renderizamos o spec final
+    // (já com overrides aplicados) via formatSpec — note que o IPC velho
+    // tem seu próprio parseGtkwaveArgs que sabe lidar com --script=…
+    // (single token).
+    const gtkwaveCmd = CommandSpec.formatSpec(finalSpec);
 
     const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
         gtkwCmd: gtkwaveCmd,
@@ -2837,11 +2891,15 @@ write_json ${jsonOutputPath}
         const yosysScriptPath = await window.electronAPI.joinPath(tempBaseDir, 'hierarchy_gen.ys');
         await window.electronAPI.writeFile(yosysScriptPath, yosysScript);
 
-        const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${yosysScriptPath}"`;
+        const yosysSpec = buildYosysHierarchySpec({
+            yosysPath,
+            scriptPath: yosysScriptPath,
+            cwd: tempBaseDir,
+        });
 
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.yosysRun', { cmd: yosysCmd }));
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.yosysRun', { cmd: CommandSpec.formatSpec(yosysSpec) }));
 
-        const yosysResult = await window.electronAPI.execCommand(yosysCmd);
+        const yosysResult = await runSpec(yosysSpec, { consumeEphemeral: true });
 
         if (yosysResult.stdout) this.terminalManager.appendToTerminal('twave', yosysResult.stdout, 'stdout');
         if (yosysResult.stderr) this.terminalManager.appendToTerminal('twave', yosysResult.stderr, 'stderr');

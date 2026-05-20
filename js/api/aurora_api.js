@@ -948,6 +948,123 @@ const compileNs = {
     try { cf.cancelAll(); emit('compile:cancelled', null); return ok(); }
     catch (e) { return err(e?.message || 'cancel failed'); }
   },
+
+  // -----------------------------------------------------------------
+  // Aurora-Intelligence-driven command overrides. Each toolchain step
+  // (cmm, asm, iverilog-check, iverilog-build, vvp-header, vvp-run,
+  // verilator-build/header/run, fst2vcd, gtkwave, yosys-hierarchy,
+  // prism-yosys) can have an override that appends/prepends/removes
+  // args and tweaks env. See command_overrides.js + protected_flags.js.
+  // -----------------------------------------------------------------
+
+  /** Enumerate every step the override system knows about. */
+  async listSteps() {
+    try {
+      const { STEP_IDS, STEP_DESCRIPTIONS } = await import('../compilation/command_spec.js');
+      return ok({ steps: STEP_IDS.map((id) => ({ id, description: STEP_DESCRIPTIONS[id] })) });
+    } catch (e) { return err(e?.message || 'listSteps failed'); }
+  },
+
+  /**
+   * Build the base spec for `step` AND apply any active override.
+   * Returns { base, applied, formatted, formattedBase, diff, sources }.
+   */
+  async inspectCommand(step, processorName) {
+    try {
+      const { buildSpecForStep } = await import('../compilation/spec_factory.js');
+      const { resolveSpec } = await import('../compilation/spec_runner.js');
+      const base = await buildSpecForStep(step, processorName);
+      const resolved = await resolveSpec(base);
+      return ok({
+        step,
+        processorName: processorName || null,
+        base,
+        applied: resolved.appliedSpec,
+        formatted: resolved.formatted,
+        formattedBase: resolved.formattedBase,
+        diff: resolved.diff,
+        sources: resolved.sources,
+        hasOverride: !!resolved.override,
+      });
+    } catch (e) { return err(e?.message || 'inspectCommand failed'); }
+  },
+
+  /**
+   * Preview a spec with `extraOverride` layered ON TOP of the active
+   * override, WITHOUT registering it. Lets the AI show the user
+   * "here's what would happen if I added these flags".
+   */
+  async previewCommand(step, override, processorName) {
+    try {
+      const { buildSpecForStep } = await import('../compilation/spec_factory.js');
+      const { resolveSpec } = await import('../compilation/spec_runner.js');
+      const base = await buildSpecForStep(step, processorName);
+      const resolved = await resolveSpec(base, override || null);
+      return ok({
+        step,
+        processorName: processorName || null,
+        base,
+        applied: resolved.appliedSpec,
+        formatted: resolved.formatted,
+        formattedBase: resolved.formattedBase,
+        diff: resolved.diff,
+      });
+    } catch (e) { return err(e?.message || 'previewCommand failed'); }
+  },
+
+  /** List every registered override across both layers. */
+  async listOverrides() {
+    try {
+      const { listOverrides } = await import('../compilation/command_overrides.js');
+      const items = await listOverrides();
+      return ok({ overrides: items });
+    } catch (e) { return err(e?.message || 'listOverrides failed'); }
+  },
+
+  /**
+   * Register an override. `persist:true` writes to .spf (survives
+   * sessions); default is ephemeral (consumed on the next matching
+   * step run).
+   *
+   * Shape: { step, processorName?, appendArgs?, prependArgs?, removeArgs?,
+   *          envSet?, envUnset?, persist?, note? }
+   */
+  async setOverride(payload) {
+    try {
+      const { setOverride } = await import('../compilation/command_overrides.js');
+      const { step, processorName, persist, note, ...rest } = payload || {};
+      const result = await setOverride({
+        step, processorName, override: rest, persist: !!persist, note,
+      });
+      emit('compile:override-set', { step, processorName, persist: !!persist });
+      return ok(result);
+    } catch (e) { return err(e?.message || 'setOverride failed'); }
+  },
+
+  async clearOverride(step, processorName, scope) {
+    try {
+      const { clearOverride } = await import('../compilation/command_overrides.js');
+      const result = await clearOverride({ step, processorName, scope: scope || 'both' });
+      emit('compile:override-cleared', { step, processorName });
+      return ok(result);
+    } catch (e) { return err(e?.message || 'clearOverride failed'); }
+  },
+
+  /** Per-step list of flags the override system refuses to touch. */
+  async listProtectedFlags(step) {
+    try {
+      const result = await window.electronAPI.getProtectedFlags(step);
+      return ok({ step: step || null, protected: result });
+    } catch (e) { return err(e?.message || 'listProtectedFlags failed'); }
+  },
+
+  /** Read-only: which binaries the main-process executor will spawn. */
+  async listAllowedBinaries() {
+    try {
+      const result = await window.electronAPI.listAllowedBinaries();
+      return ok({ binaries: result });
+    } catch (e) { return err(e?.message || 'listAllowedBinaries failed'); }
+  },
 };
 
 /* ============================================================
@@ -1366,6 +1483,14 @@ const NAMESPACES = Object.freeze({
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
     compileStep: 'Run one pipeline step (cmm|verilog|wave|prism)',
     cancel:      'Cancel a running compilation or simulation',
+    listSteps:           'List every toolchain step the override system knows about',
+    inspectCommand:      'Show the CommandSpec (base + override-applied) for a step',
+    previewCommand:      'Dry-run a hypothetical override on top of the current spec',
+    listOverrides:       'List every registered command override (ephemeral + persisted)',
+    setOverride:         'Register a command override for a step (ephemeral by default)',
+    clearOverride:       'Remove a registered override',
+    listProtectedFlags:  'List flags that overrides cannot remove or replace for a step',
+    listAllowedBinaries: 'List binaries the main-process executor will spawn',
   },
   wave: {
     listSignals:        'Signals discovered for the testbench + which are selected',

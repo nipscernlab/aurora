@@ -32,6 +32,7 @@ const updater = require('./main/updater');
 const filesIpc = require('./main/ipc/files');
 const projectIpc = require('./main/ipc/project');
 const compileIpc = require('./main/ipc/compile');
+const executorIpc = require('./main/compile/executor');
 const prismIpc = require('./main/ipc/prism');
 const systemIpc = require('./main/ipc/system');
 const aiIpc = require('./main/ipc/ai');
@@ -45,6 +46,7 @@ if (acquiredLock) {
   filesIpc.register();
   projectIpc.register();
   compileIpc.register();
+  executorIpc.register();
   prismIpc.register();
   systemIpc.register();
   aiIpc.register();

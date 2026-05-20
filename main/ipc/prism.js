@@ -326,9 +326,31 @@ write_json "${hierarchyJsonPath}"
     state.mainWindow.webContents.send('terminal-log', 'tveri', 'Running Yosys synthesis...', 'info');
   }
 
+  // PRISM yosys pode receber overrides da AI via compilationPaths.yosysOverride.
+  // O renderer (compilation_flow.handlePrismStep) consulta o command_overrides
+  // store antes de invocar prism-compile-with-paths e anexa o override
+  // resolvido aqui. Mesmo contrato dos outros steps: appendArgs/prependArgs/
+  // removeArgs/envSet/envUnset. Sem override, comportamento e identico ao
+  // anterior.
+  const overrideArgs = ['-s', yosysScriptPath];
+  let finalArgs = overrideArgs.slice();
+  const ov = compilationPaths?.yosysOverride;
+  if (ov && typeof ov === 'object') {
+    if (Array.isArray(ov.removeArgs) && ov.removeArgs.length) {
+      const drop = new Set(ov.removeArgs);
+      finalArgs = finalArgs.filter((a) => !drop.has(a));
+    }
+    if (Array.isArray(ov.prependArgs)) finalArgs = ov.prependArgs.concat(finalArgs);
+    if (Array.isArray(ov.appendArgs))  finalArgs = finalArgs.concat(ov.appendArgs);
+  }
+  const childEnv = { ...process.env };
+  if (ov?.envSet && typeof ov.envSet === 'object') Object.assign(childEnv, ov.envSet);
+  if (Array.isArray(ov?.envUnset)) for (const k of ov.envUnset) delete childEnv[k];
+
   return new Promise((resolve, reject) => {
-    const yosysProcess = spawn(yosysExe, ['-s', yosysScriptPath], {
+    const yosysProcess = spawn(yosysExe, finalArgs, {
       cwd: tempDir,
+      env: childEnv,
       windowsHide: true,
     });
 

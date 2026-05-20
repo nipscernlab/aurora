@@ -33,6 +33,7 @@ const codexCli = require('../ai/codex_cli');
 const tools = require('../ai/tools');
 const toolBridge = require('../ai/tool_bridge');
 const conversations = require('../ai/conversations');
+const audit = require('../ai/audit');
 
 function ok(data) {
   return { ok: true, ...(data || {}) };
@@ -172,6 +173,22 @@ function register() {
     if (payload && payload.requestId) {
       toolBridge.resolveToolResult(payload.requestId, payload.result);
     }
+  });
+
+  // Audit-log entry the renderer fires every time a CommandSpec runs
+  // through spec_runner with an active override. Separate from the
+  // tool-call audit (which records "the AI called set_command_override")
+  // — this one records "an override actually fired on this step run".
+  ipcMain.on('ai:audit-override-applied', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return;
+    audit.append({
+      kind: 'compile-override-applied',
+      step: payload.step,
+      processorName: payload.processorName || null,
+      sources: payload.sources || [],
+      diff: payload.diff || null,
+      note: payload.note || null,
+    });
   });
 
   /* ---- conversation history ----

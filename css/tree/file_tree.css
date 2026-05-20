@@ -15,14 +15,14 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  View slots — three physically separate subtrees inside #file-tree.
+ *  View slots — physically separate subtrees inside #file-tree.
  *  Only the one matching [data-active-view] on the parent is shown.
  *  Each slot is owned by exactly one renderer, so they can't collide.
  *  See js/tree/tree_view.js for the rationale (replacing the old
- *  class-based ownership lock that proved too fragile).
+ *  class-based ownership lock that proved too fragile). The generic
+ *  'standard' view was removed in 2026-05.
  * ------------------------------------------------------------------------- */
 #file-tree > .tree-view { display: none; }
-#file-tree[data-active-view="standard"]  > .tree-view-standard,
 #file-tree[data-active-view="verilog"]   > .tree-view-verilog,
 #file-tree[data-active-view="hierarchy"] > .tree-view-hierarchy {
   display: block;
@@ -377,18 +377,13 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Empty-state cards
+ *  Empty-state card
  *
- *  Two flavours sit inside the standard view subcontainer:
- *    - `.tree-empty-no-project` (full pane replacement)  — shown when
- *      no project is open. The only thing in the file tree.
- *    - `.tree-empty-no-processors` (prepended banner)    — shown when
- *      a project is open but has zero processors. Sits above the
- *      regular file rows.
- *
- *  Both render as a single tappable card, large enough to feel like
- *  a primary call-to-action without dominating the panel. Click goes
- *  through file_tree_manager.js (buildEmptyStateCard).
+ *  `.tree-empty-no-project` (full pane replacement) — shown inside the
+ *  verilog view subcontainer when no project is open. Renders as a
+ *  single tappable card, large enough to feel like a primary
+ *  call-to-action without dominating the panel. Click goes through
+ *  file_tree_manager.js (buildEmptyStateCard).
  * ------------------------------------------------------------------------- */
 .tree-empty-state {
   display: flex;
@@ -457,18 +452,4 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: var(--leading-snug);
-}
-
-/* The no-processors banner sits inside an active workspace, so it's
-   smaller than the full no-project card — same visual language, just
-   compacted vertically so the actual files below stay reachable. */
-.tree-empty-state.tree-empty-no-processors {
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-2);
-}
-
-.tree-empty-state.tree-empty-no-processors .tree-empty-state-icon {
-  width: 34px;
-  height: 34px;
-  font-size: 18px;
 }

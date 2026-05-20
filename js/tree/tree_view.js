@@ -2,12 +2,18 @@
  * tree_view.js — Single source of truth for which file-tree view is
  * showing right now.
  *
- * Aurora has three different ways to present the file tree:
- *   - 'standard'  — folder/file listing of the project directory
- *   - 'verilog'   — verilog picker (synth/testbench rows w/ badges)
+ * Aurora has two ways to present the file tree:
+ *   - 'verilog'   — verilog picker (synth/testbench rows w/ badges):
+ *                   the project file view (also hosts the empty-state
+ *                   cards when there is no project / no processors)
  *   - 'hierarchy' — module instance tree from Yosys
  *
- * Pre-2026-05, all three rendered into the same `#file-tree` element
+ * A third view, 'standard' (a generic folder/file listing), was removed
+ * in 2026-05: it was a fossil of the old IDE-mode toggle, no longer
+ * shown to the user, and it carried a duplicate file-open handler that
+ * was a recurring source of bugs.
+ *
+ * Pre-2026-05, all views rendered into the same `#file-tree` element
  * and competed via a class-based lock (`verilog-mode-active`). That
  * proved fragile in three separate ways:
  *   - Deferred writes (setTimeout / await) escaped the top-of-function
@@ -25,8 +31,7 @@
  * renderer writes into its OWN subtree only — they cannot collide.
  * Switching views is one attribute change; no DOM mutation needed.
  *
- *   <div id="file-tree" data-active-view="standard">
- *     <div class="tree-view tree-view-standard">…</div>
+ *   <div id="file-tree" data-active-view="verilog">
  *     <div class="tree-view tree-view-verilog">…</div>
  *     <div class="tree-view tree-view-hierarchy">…</div>
  *   </div>
@@ -35,7 +40,7 @@
  * div. To switch views, `treeView.setActive(name)`. Done.
  */
 
-const VIEW_NAMES = Object.freeze(['standard', 'verilog', 'hierarchy']);
+const VIEW_NAMES = Object.freeze(['verilog', 'hierarchy']);
 
 class TreeViewController {
     constructor() {
@@ -62,7 +67,7 @@ class TreeViewController {
         }
 
         if (!fileTree.dataset.activeView) {
-            fileTree.dataset.activeView = 'standard';
+            fileTree.dataset.activeView = 'verilog';
         }
         return true;
     }

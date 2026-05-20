@@ -181,4 +181,33 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     expect(moved.inSplit).toBe(true);  // landed in the split
     expect(moved.inMain).toBe(false);  // moved out of main
   });
+
+  it('has no standard view; no-project card lives in the verilog container', async () => {
+    const state = await window.evaluate(() => {
+      const ft = document.getElementById('file-tree');
+      // Render the no-project empty card, then confirm a verilog render
+      // strips it (project-load path). projectTreeManager has files from
+      // the earlier tests, so renderTree() paints rows and clears the card.
+      window.renderTreeEmptyState();
+      const verilog = window.treeView.getContainer('verilog');
+      const cardPresentAfterRender = !!verilog?.querySelector('.tree-empty-no-project');
+
+      window.projectTreeManager?.renderTree?.();
+      const cardClearedByRenderTree = !verilog?.querySelector('.tree-empty-no-project');
+
+      return {
+        activeView: ft?.dataset.activeView,
+        hasStandardContainer: !!ft?.querySelector(':scope > .tree-view-standard'),
+        standardInViewNames: !!window.treeView && !window.treeView.getContainer('standard'),
+        cardPresentAfterRender,
+        cardClearedByRenderTree,
+      };
+    });
+    console.log('[split-pane] STANDARD-GONE:', JSON.stringify(state, null, 2));
+
+    expect(state.activeView).toBe('verilog');     // default view is verilog now
+    expect(state.hasStandardContainer).toBe(false); // standard subtree never created
+    expect(state.cardPresentAfterRender).toBe(true);  // card renders into verilog
+    expect(state.cardClearedByRenderTree).toBe(true); // and is stripped on file render
+  });
 });

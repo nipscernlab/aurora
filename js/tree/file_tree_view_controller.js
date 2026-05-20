@@ -10,7 +10,7 @@
  *
  * O controller e dono de:
  *   1. O click listener do toggle (exatamente um, attached once).
- *   2. O nome da view ativa ('standard' | 'verilog' | 'hierarchy').
+ *   2. O nome da view ativa ('verilog' | 'hierarchy').
  *   3. Os dados de hierarquia (pra saber se o toggle deve estar
  *      habilitado).
  *
@@ -42,7 +42,7 @@ const TOGGLE_BTN_ID = 'alternate-tree-toggle';
 
 class FileTreeViewController {
     constructor() {
-        this._activeView = 'standard';
+        this._activeView = 'verilog';
         this._hierarchyData = null;
         this._renderers = Object.create(null);
         this._initialized = false;
@@ -61,7 +61,7 @@ class FileTreeViewController {
     }
 
     /**
-     * @param {'standard'|'verilog'|'hierarchy'} name
+     * @param {'verilog'|'hierarchy'} name
      * @param {() => void} renderFn — invoked when this view becomes
      *   active. Should be idempotent (renderer-decides-what-to-do
      *   based on its own state). If the render throws, the controller
@@ -73,8 +73,7 @@ class FileTreeViewController {
 
     /**
      * Flip pra view de arquivos. Modo unico → sempre o verilog
-     * picker. O renderer 'standard' continua registrado pra compat
-     * com codigo legado que invoca _showView('standard') direto.
+     * picker (a unica view de arquivos hoje).
      */
     showFileMode() {
         this._showView('verilog');
@@ -113,7 +112,7 @@ class FileTreeViewController {
     // ------------- private -------------
 
     _showView(name) {
-        if (!['standard', 'verilog', 'hierarchy'].includes(name)) {
+        if (!['verilog', 'hierarchy'].includes(name)) {
             console.warn(`FileTreeViewController: unknown view "${name}"`);
             return;
         }
@@ -154,7 +153,7 @@ class FileTreeViewController {
         const text = btn.querySelector('.toggle-text');
         if (this.isShowingHierarchy()) {
             if (icon) icon.className = 'ph ph-list-bullets';
-            if (text) text.textContent = 'Standard';
+            if (text) text.textContent = 'Files';
             btn.classList.add('active');
             btn.title = 'Switch to file tree';
         } else {
@@ -190,10 +189,6 @@ if (document.readyState === 'loading') {
 
 fileTreeViewController.registerRenderer('verilog', () => {
     window.projectTreeManager?.renderTree?.();
-});
-
-fileTreeViewController.registerRenderer('standard', () => {
-    if (typeof window.refreshFileTree === 'function') window.refreshFileTree();
 });
 
 fileTreeViewController.registerRenderer('hierarchy', () => {

@@ -59,13 +59,13 @@ function clearProjectInterface() {
     // Wipe every view subcontainer through the controller — keeps the
     // separation invariant intact when the next project opens.
     window.treeView?.clearAll?.();
-    window.treeView?.setActive?.('standard');
+    window.treeView?.setActive?.('verilog');
 
     // After clearing, drop the "click here to create a project"
-    // empty-state card into the standard view so the pane is never
-    // visually blank. file_tree_manager exposes the renderer on
+    // empty-state card into the (verilog) file view so the pane is
+    // never visually blank. file_tree_manager exposes the renderer on
     // window for non-module callers like this one.
-    window.renderTreeEmptyState?.('no-project');
+    window.renderTreeEmptyState?.();
 
     // Helper: re-instala o data-i18n pra que applyDOM em futuros
     // locale changes re-traduza. updateProjectNameUI remove o atributo

@@ -48,6 +48,12 @@ export const RenderMixin = {
         const container = window.treeView?.getContainer('verilog');
         if (!container) return;
 
+        // Se chegamos aqui, ha um projeto ativo (renderTree so roda com
+        // projeto). O card "no-project" (renderTreeEmptyState) vive neste
+        // mesmo container quando nao ha projeto — limpa-o antes de pintar
+        // a tree pra ele nao sobrar grudado acima dos arquivos.
+        container.querySelector('.tree-empty-state')?.remove();
+
         // Empty state — dropa data rows + separadores e mostra o
         // placeholder. Os separadores de processador PRECISAM sair aqui
         // tambem: este early-return pula a fase de reconciliacao la

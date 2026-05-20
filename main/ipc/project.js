@@ -437,6 +437,22 @@ void main()
     }
   });
 
+  /**
+   * Recently-opened projects. Pulls from `main/recents.js` (already
+   * persisted on every project:open), prunes stale entries whose .spf
+   * has been deleted, and returns the absolute paths so the renderer
+   * (and Aurora Intelligence) can list them with a single round-trip.
+   */
+  ipcMain.handle('list-recent-projects', async () => {
+    try {
+      const recents = require('../recents');
+      return recents.prune();
+    } catch (e) {
+      log.warn('list-recent-projects failed:', e?.message || e);
+      return [];
+    }
+  });
+
   ipcMain.handle('delete-processor', async (_event, processorName) => {
     try {
       if (!state.currentOpenProjectPath) throw new Error('No open project');

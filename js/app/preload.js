@@ -84,6 +84,7 @@ const projectOperations = {
   deleteProcessor: (name) => ipcRenderer.invoke('delete-processor', name),
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
+  listRecentProjects: () => ipcRenderer.invoke('list-recent-projects'),
 
   // Listeners
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),

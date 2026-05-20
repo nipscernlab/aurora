@@ -386,6 +386,107 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'list_recent_projects',
+    description: 'List recently opened SAPHO projects with full .spf paths and human-friendly names.',
+    access: 'read',
+    api: ['project', 'listRecents'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'backup_project',
+    description: 'Create a timestamped backup (.zip) of the currently open SAPHO project. Returns the absolute path of the archive.',
+    access: 'write',
+    api: ['project', 'backup'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'delete_processor',
+    description: 'Delete a processor from the open project: removes its folder (Hardware/Simulation/Software + .cmm) and its SPF entries. Irreversible — prefer backup_project first.',
+    access: 'write',
+    api: ['project', 'deleteProcessor'],
+    argStyle: 'positional',
+    argNames: ['processorName'],
+    inputSchema: {
+      type: 'object',
+      properties: { processorName: { type: 'string' } },
+      required: ['processorName'],
+    },
+  },
+  {
+    name: 'import_file',
+    description: 'Register an existing .v / .sv / .vh file as a synthesizable or testbench file in the current project SPF. Copies the file into the project root if it lives elsewhere.',
+    access: 'write',
+    api: ['project', 'importFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute source path of the file to import' },
+        kind: { type: 'string', enum: ['synthesizable', 'testbench'], description: 'Which SPF list to add to' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'rename_imported_file',
+    description: 'Rename an imported file (in both the SPF list and on disk).',
+    access: 'write',
+    api: ['project', 'renameImportedFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fromPath: { type: 'string' },
+        toPath:   { type: 'string' },
+      },
+      required: ['fromPath', 'toPath'],
+    },
+  },
+  {
+    name: 'remove_imported_file',
+    description: 'Remove a file from the SPF synthesizable / testbench list. By default the file is kept on disk; set deleteFromDisk:true to also delete it.',
+    access: 'write',
+    api: ['project', 'removeImportedFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string' },
+        deleteFromDisk: { type: 'boolean', default: false },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'ask_user_question',
+    description: 'Pause the turn and ask the human a question with optional choices. Use this only when truly ambiguous — prefer doing things autonomously. Returns { answer, selected }. Use sparingly; do not chain.',
+    access: 'read',
+    api: ['ui', 'askUserQuestion'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question: { type: 'string', description: 'The question to display.' },
+        options: {
+          type: 'array',
+          description: 'Optional list of pre-defined choices.',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              description: { type: 'string' },
+            },
+            required: ['label'],
+          },
+        },
+        multiSelect: { type: 'boolean', default: false },
+      },
+      required: ['question'],
+    },
+  },
+  {
     name: 'set_setting',
     description: 'Change one IDE setting.',
     access: 'write',

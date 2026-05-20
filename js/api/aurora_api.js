@@ -552,6 +552,32 @@ const projectNs = {
     try {
       await window.electronAPI.writeFile(filePath, String(content ?? ''));
 
+      // Magic-wand sweep across the editor when the AI rewrites a file
+      // the user has open. We call setActiveText through the underlying
+      // model so the editor view reflects the new content AND triggers
+      // the purple sweep — without this, the file on disk changed but
+      // Monaco still shows the previous buffer until the user re-opens it.
+      try {
+        const norm = String(filePath).replace(/\\/g, '/').toLowerCase();
+        const ed = EditorManager?.activeEditor;
+        const model = ed?.getModel?.();
+        const uri = model?.uri?.fsPath || model?.uri?.path || '';
+        if (model && uri && uri.replace(/\\/g, '/').toLowerCase() === norm) {
+          model.setValue(String(content ?? ''));
+          const editorDom = ed.getDomNode?.();
+          const container = editorDom?.closest(
+            '.split-pane-editor-area, .editor-container, #monaco-editor',
+          ) || editorDom?.parentElement;
+          if (container) {
+            const wand = document.createElement('div');
+            wand.className = 'ai-wand-overlay';
+            container.style.position = 'relative';
+            container.appendChild(wand);
+            wand.addEventListener('animationend', () => wand.remove(), { once: true });
+          }
+        }
+      } catch (_) { /* wand is cosmetic — never let it block the write */ }
+
       // Auto-register Verilog files in the SPF so they show up in the tree.
       const ext = (filePath.split('.').pop() || '').toLowerCase();
       if (['v', 'sv', 'vh'].includes(ext)) {
@@ -755,6 +781,185 @@ const projectNs = {
       }
       return ok({ spfPath });
     } catch (e) { return err(e?.message || 'openProject failed'); }
+  },
+
+  /**
+   * Recently-opened projects. Pulls from main's `recents.js` store
+   * (prune-on-read, so stale paths whose .spf has been deleted drop
+   * out). Returns an array of `{ spfPath, name }` ordered most-recent-first.
+   */
+  async listRecents() {
+    try {
+      if (typeof window.electronAPI?.listRecentProjects === 'function') {
+        const paths = await window.electronAPI.listRecentProjects();
+        const list = (paths || []).map((p) => {
+          const base = String(p).split(/[\\/]/).pop() || p;
+          const name = base.replace(/\.spf$/i, '');
+          return { spfPath: p, name };
+        });
+        return ok(list);
+      }
+      // Fallback: the welcome screen also persists recents in localStorage.
+      const cached = JSON.parse(localStorage.getItem('aurora-recent-projects') || '[]');
+      const list = (Array.isArray(cached) ? cached : []).map((p) => ({
+        spfPath: p,
+        name: String(p).split(/[\\/]/).pop().replace(/\.spf$/i, ''),
+      }));
+      return ok(list);
+    } catch (e) {
+      return err(e?.message || 'listRecents failed');
+    }
+  },
+
+  /**
+   * Create a timestamped backup of the currently open project. Drives
+   * the existing `create-backup` IPC (PowerShell Compress-Archive) so
+   * the zip ends up in `<projectRoot>/Backup/`. Returns the resolved
+   * archive path parsed out of the IPC's success message.
+   */
+  async backup() {
+    const projectRoot = window.currentProjectPath || null;
+    if (!projectRoot) return err('No project is open');
+    if (typeof window.electronAPI?.createBackup !== 'function') {
+      return err('Backup IPC unavailable');
+    }
+    try {
+      const r = await window.electronAPI.createBackup(projectRoot);
+      if (!r || r.success === false) {
+        return err(r?.message || 'backup failed');
+      }
+      // The IPC tucks the absolute archive path inside `message`:
+      // "Backup created at: <abs path>". Pull it back out so the AI
+      // and any UI surface can show it without re-parsing the string.
+      const m = String(r.message || '').match(/Backup created at:\s*(.+)$/);
+      return ok({ archivePath: m ? m[1] : null, message: r.message || '' });
+    } catch (e) {
+      return err(e?.message || 'createBackup failed');
+    }
+  },
+
+  /**
+   * Delete a processor from the open project. Drives the existing
+   * `delete-processor` IPC which removes the processor's working
+   * directory and prunes its SPF entry, then re-broadcasts the
+   * processors list to the renderer (`project:processors` event).
+   */
+  async deleteProcessor(processorName) {
+    if (!processorName) return err('processorName required');
+    if (typeof window.electronAPI?.deleteProcessor !== 'function') {
+      return err('delete-processor IPC unavailable');
+    }
+    try {
+      const r = await window.electronAPI.deleteProcessor(processorName);
+      if (r && r.success === false) return err(r.error || 'deleteProcessor failed');
+      await refreshTree();
+      emit('project:processor-deleted', { processorName });
+      return ok({ processorName });
+    } catch (e) {
+      return err(e?.message || 'deleteProcessor failed');
+    }
+  },
+
+  /**
+   * Import an existing Verilog file (.v / .sv / .vh) into the open
+   * project: copies it to the project root if it lives elsewhere and
+   * registers it in the SPF (synthesizable / testbench list).
+   */
+  async importFile({ filePath, kind = 'synthesizable' } = {}) {
+    if (!filePath) return err('filePath required');
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    const projectRoot = window.currentProjectPath || null;
+    if (!projectRoot) return err('Project root unavailable');
+    const targetList = kind === 'testbench' ? 'testbenchFiles' : 'synthesizableFiles';
+    try {
+      // Copy into the project if the source lives outside the project root.
+      const sep = projectRoot.includes('\\') ? '\\' : '/';
+      const normRoot = projectRoot.replace(/\\/g, '/').toLowerCase();
+      const normSrc  = filePath.replace(/\\/g, '/').toLowerCase();
+      let finalPath = filePath;
+      if (!normSrc.startsWith(normRoot + '/')) {
+        const base = filePath.split(/[\\/]/).pop();
+        finalPath = `${projectRoot}${sep}${base}`;
+        await window.electronAPI.copyFile(filePath, finalPath);
+      }
+      const name = finalPath.split(/[\\/]/).pop();
+      const normFinal = finalPath.replace(/\\/g, '/').toLowerCase();
+      await window.SpfStore.update(spfPath, (cfg) => {
+        const arr = Array.isArray(cfg[targetList]) ? cfg[targetList] : [];
+        const already = arr.some((f) => (f.path || '').replace(/\\/g, '/').toLowerCase() === normFinal);
+        if (!already) arr.push({ name, path: finalPath, isTopLevel: false });
+        cfg[targetList] = arr;
+      });
+      await refreshTree();
+      emit('project:file-imported', { filePath: finalPath, kind });
+      return ok({ filePath: finalPath, kind });
+    } catch (e) {
+      return err(e?.message || 'importFile failed');
+    }
+  },
+
+  /** Remove a file from the SPF lists. Optionally delete it from disk. */
+  async removeImportedFile({ filePath, deleteFromDisk = false } = {}) {
+    if (!filePath) return err('filePath required');
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    try {
+      const norm = filePath.replace(/\\/g, '/').toLowerCase();
+      let removed = false;
+      await window.SpfStore.update(spfPath, (cfg) => {
+        for (const key of ['synthesizableFiles', 'testbenchFiles']) {
+          const arr = Array.isArray(cfg[key]) ? cfg[key] : [];
+          const filtered = arr.filter((f) => {
+            const match = (f.path || '').replace(/\\/g, '/').toLowerCase() === norm;
+            if (match) removed = true;
+            return !match;
+          });
+          cfg[key] = filtered;
+        }
+      });
+      if (deleteFromDisk) {
+        try { await window.electronAPI.deleteFileOrDirectory(filePath); }
+        catch (_) { /* removing from SPF still counts as success */ }
+      }
+      await refreshTree();
+      emit('project:file-removed', { filePath, deletedFromDisk: !!deleteFromDisk });
+      return ok({ filePath, removed, deletedFromDisk: !!deleteFromDisk });
+    } catch (e) {
+      return err(e?.message || 'removeImportedFile failed');
+    }
+  },
+
+  /** Rename an imported file on disk and update its SPF entry. */
+  async renameImportedFile({ fromPath, toPath } = {}) {
+    if (!fromPath || !toPath) return err('fromPath and toPath required');
+    const spfPath = window.ProjectStore?.getSpfPath?.();
+    if (!spfPath || !window.SpfStore) return err('No project open');
+    try {
+      const fromNorm = fromPath.replace(/\\/g, '/').toLowerCase();
+      // Copy + delete (matches renameFile above — true rename can fail
+      // across drives on Windows).
+      await window.electronAPI.copyFile(fromPath, toPath);
+      await window.electronAPI.deleteFileOrDirectory(fromPath);
+      const newName = toPath.split(/[\\/]/).pop();
+      await window.SpfStore.update(spfPath, (cfg) => {
+        for (const key of ['synthesizableFiles', 'testbenchFiles']) {
+          const arr = Array.isArray(cfg[key]) ? cfg[key] : [];
+          for (const f of arr) {
+            if ((f.path || '').replace(/\\/g, '/').toLowerCase() === fromNorm) {
+              f.path = toPath;
+              f.name = newName;
+            }
+          }
+          cfg[key] = arr;
+        }
+      });
+      await refreshTree();
+      emit('project:file-renamed', { fromPath, toPath });
+      return ok({ fromPath, toPath });
+    } catch (e) {
+      return err(e?.message || 'renameImportedFile failed');
+    }
   },
 
   /**
@@ -1372,6 +1577,32 @@ const uiNs = {
     if (typeof window.setLocale !== 'function') return err('i18n not loaded');
     try { await window.setLocale(locale); return ok({ locale }); }
     catch (e) { return err(e?.message || 'setLocale failed'); }
+  },
+
+  /**
+   * Pause the AI turn and show an inline question card in the chat
+   * panel. The card lets the user pick from {options}, optionally
+   * multi-select, and (always) write a free-form "Other" answer.
+   *
+   * Resolves with `{ answer: <text>, selected: [<labels>] }` once the
+   * user submits. The promise also resolves if the AI turn aborts.
+   *
+   * @param {object} params
+   * @param {string} params.question
+   * @param {Array<{label:string, description?:string}>} [params.options]
+   * @param {boolean} [params.multiSelect]
+   */
+  async askUserQuestion({ question, options = [], multiSelect = false } = {}) {
+    if (!question || typeof question !== 'string') return err('question required');
+    const mgr = window.aiAssistantManager;
+    if (!mgr || typeof mgr.showAskUserQuestionInline !== 'function') {
+      return err('AI panel is not available');
+    }
+    const result = await mgr.showAskUserQuestionInline({
+      question, options: Array.isArray(options) ? options : [], multiSelect: !!multiSelect,
+    });
+    if (result == null) return err('user dismissed the question');
+    return ok(result);
   },
 };
 

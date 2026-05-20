@@ -146,11 +146,27 @@ function sendEvent(webContents, sessionId, type, data) {
   }
 }
 
-/** AURORA permission mode → `claude --permission-mode` value. */
-function permissionFlag(mode) {
-  if (mode === 'allow')  return 'bypassPermissions';
-  if (mode === 'writes') return 'acceptEdits';
-  return 'default';                       // 'ask' — writes/bash auto-denied in -p
+/**
+ * AURORA permission mode → `claude --permission-mode` value.
+ *
+ * AURORA's mcp__aurora__* tools are gated on the renderer side: every
+ * call round-trips through tool_bridge.runTool → tool_runner →
+ * aiAssistantManager.confirmToolCall, which shows the inline Allow/Deny
+ * card the user actually sees. Whatever the CLI does on top of that
+ * MUST not pre-deny a call before it reaches us.
+ *
+ * The CLI's `default` mode does exactly that in `-p` (non-interactive)
+ * print mode: it auto-DENIES writes and bash because it has no TTY to
+ * prompt on. So if we mapped 'ask' → 'default', every MCP write tool
+ * (create_file, set_top_level, …) would be silently dropped and the
+ * user's inline card would never appear. That's the bug we're fixing.
+ *
+ * Resolution: always pass `bypassPermissions` to the CLI. The CLI's
+ * own permission UI doesn't fit in our headless flow anyway — let the
+ * renderer's inline card be the single source of truth.
+ */
+function permissionFlag(_mode) {
+  return 'bypassPermissions';
 }
 
 /** Directory the CLI should treat as the workspace (the open project). */

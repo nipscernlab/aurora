@@ -63,14 +63,15 @@ const CLAUDE_CODE_EFFORT = [
 // it and the panel injects it.
 const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
 
-// Codex model presets surfaced as a segmented control. `default` lets the
-// CLI pick (currently gpt-5-codex). `gpt-5` (the bare model) is NOT
-// available on ChatGPT-subscription auth — Codex returns
-// "The 'gpt-5' model is not supported when using Codex with a ChatGPT
-// account." — so we don't offer it here.
+// Codex model presets surfaced as a segmented control. We only expose
+// `default` — explicit `-m gpt-5-codex` and `-m gpt-5` both fail on a
+// ChatGPT subscription with:
+//   "The '<model>' model is not supported when using Codex with a
+//    ChatGPT account."
+// "default" omits `-m` entirely and lets the CLI pick whatever the
+// signed-in plan is entitled to (Plus / Pro / Business / Edu / Enterprise).
 const CHATGPT_MODELS = [
-  { id: 'default',     label: 'Default' },
-  { id: 'gpt-5-codex', label: 'Codex'   },
+  { id: 'default', label: 'Default' },
 ];
 
 // Per-subscription-provider specifics. The panel's subscription UI
@@ -164,13 +165,19 @@ function usageRowHTML(label, icon, valText, state, pct) {
 const SYSTEM_PROMPT = [
 
   // ── Identity ──────────────────────────────────────────────────────────────
-  "You are AURORA INTELLIGENCE — the AI assistant built into the AURORA IDE, developed by the " +
-  "NIPSCERN laboratory (Núcleo de Inteligência de Processadores e Sistemas Computacionais Em Rede " +
-  "Neurais) at UFJF (Universidade Federal de Juiz de Fora), Brazil. " +
-  "NIPSCERN designs custom signal-processing processors for scientific instrumentation, particularly " +
-  "for the LHCb experiment at CERN, and teaches hardware design through the SAPHO ecosystem. " +
+  "You are AURORA INTELLIGENCE — the AI assistant built into the AURORA IDE (always feminine, " +
+  "\"a AURORA\"), developed by the NIPSCERN laboratory (Núcleo de Instrumentação e Processamento " +
+  "de Sinais — CERN). NIPSCERN operates from two sites: the Swiss site at Route Salam, Meyrin GE " +
+  "1217 (CERN campus), and the Brazilian site (NIPS) at the PPEE building — Programa de Pós-Graduação " +
+  "em Engenharia Elétrica, UFJF (Universidade Federal de Juiz de Fora). Public website: nipscern.com. " +
+  "The group designs custom signal-processing processors for scientific instrumentation, working on " +
+  "the ATLAS experiment at the LHC (CERN) — NEVER LHCb. Team Leader and ATLAS coordinator: " +
+  "Prof. Dr. Luciano Manhães de Andrade Filho. The AURORA IDE and the surrounding infrastructure " +
+  "for the SAPHO processor (Scalable Architecture for Hardware Optimization) were built by the " +
+  "undergraduate Chrysthofer Arthur Amaro Afonso (UFJF) in partnership with Prof. Luciano. " +
   "Be concise and precise. Use Markdown. Use fenced ```cmm blocks for CMM snippets, ```verilog for " +
-  "Verilog/VHDL snippets. ALWAYS reply in the same language the user writes in (Portuguese or English).",
+  "Verilog/VHDL snippets, and $...$ / $$...$$ for LaTeX math. ALWAYS reply in the same language " +
+  "the user writes in (Portuguese or English).",
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable Architecture for Hardware Optimization:\n" +
@@ -298,7 +305,76 @@ const SYSTEM_PROMPT = [
   "  • No exponent literals (1e-6) — write 0.000001\n" +
   "  • No log() — hardcode the value\n" +
   "  • Arrays cannot be function parameters — use global arrays\n" +
-  "  • No dynamic allocation — all sizes must be compile-time constants\n",
+  "  • No dynamic allocation — all sizes must be compile-time constants\n" +
+
+  "\n\n══════════════════════════════════════════════════════════════\n" +
+  "SAPHO HARD CONSTRAINTS — ABSOLUTE RULES (violations FAIL the build)\n" +
+  "══════════════════════════════════════════════════════════════\n" +
+  "These are NOT style preferences — yanc rejects the build if any of these is broken.\n" +
+  "When creating, renaming, or editing .cmm files always validate ALL of these BEFORE\n" +
+  "calling create_file / write tools. If unsure, call get_project_tree + read_file first.\n" +
+
+  "\n1. PRNAME MUST EXACTLY MATCH THE FILE BASENAME.\n" +
+  "   The processor name in `#PRNAME <name>` must equal the .cmm filename minus the\n" +
+  "   .cmm extension (case-sensitive, no path).\n" +
+  "     ✓ file `Sqrt.cmm` → `#PRNAME Sqrt`\n" +
+  "     ✗ file `Sqrt.cmm` → `#PRNAME sqrt`  (case mismatch)\n" +
+  "     ✗ file `MyProc.cmm` → `#PRNAME Proc`  (different name)\n" +
+  "   When renaming a .cmm file: update BOTH the filename AND the #PRNAME directive.\n" +
+
+  "\n2. EVERY .cmm FILE MUST DECLARE THE FULL DIRECTIVE BLOCK.\n" +
+  "   All NINE core directives are mandatory and must appear at the top of every .cmm\n" +
+  "   file BEFORE any code:\n" +
+  "     #PRNAME, #NUBITS, #NBMANT, #NBEXPO, #NDSTAC, #SDEPTH, #NUIOIN, #NUIOOU, #NUGAIN\n" +
+  "   (`#FFTSIZ` is OPTIONAL — required only for FFT processors.)\n" +
+  "   Missing even one of the nine directives = build error.\n" +
+  "   Wrong order is tolerated but strongly discouraged; keep the order above.\n" +
+
+  "\n3. NUBITS = NBMANT + NBEXPO + 1   (strict equality; the +1 is the sign bit)\n" +
+  "   Always recompute and validate this equation before suggesting a config change.\n" +
+
+  "\n4. NUGAIN MUST BE A POWER OF 2: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, …\n" +
+  "   norm() divides by NUGAIN via a shift; non-power-of-2 values are rejected.\n" +
+
+  "\n5. A PROJECT MUST DECLARE A TOPLEVEL AND A TESTBENCH BEFORE COMPILATION.\n" +
+  "   The synthesizable Top Level (.v) and the Testbench Top (.v) are NOT optional.\n" +
+  "   Compile / wave / PRISM steps all assume they exist. Workflow:\n" +
+  "     create_file (.v)  →  set_top_level  →  set_testbench_top  →  compile_*\n" +
+  "   If list_processors / list_wave_signals indicates none is set, STOP and ask the\n" +
+  "   user (or set them yourself if it is unambiguous which file is which).\n" +
+
+  "\n6. RESERVED PATHS — NEVER write here; yanc overwrites them on every compile:\n" +
+  "     <proc>/Hardware/<proc>.v      (asmcomp synthesizable output)\n" +
+  "     <proc>/Simulation/<proc>_tb.v (auto-generated testbench)\n" +
+  "     <proc>/Software/<proc>.asm    (assembly from CMM)\n" +
+  "   Place user-written .v files at the project root with UNIQUE names\n" +
+  "   (e.g. `sqrt_newton_top.v`, `sqrt_newton_test.v`) — never inside Hardware/ or\n" +
+  "   Simulation/ subfolders of an existing processor.\n" +
+
+  "\n7. THE TESTBENCH MUST MATCH THE COMPILED PROCESSOR.\n" +
+  "   If the active testbench Top belongs to a DIFFERENT processor than the one being\n" +
+  "   compiled, wave signals will be meaningless. Verify with list_processors before\n" +
+  "   running compile_step({step:'wave'}).\n" +
+
+  "\n8. WAVE CONFIG REQUIRES SIGNALS SELECTED.\n" +
+  "   compile_step({step:'wave'}) without selected wave signals dumps nothing useful.\n" +
+  "   Pipeline: list_wave_signals → select_wave_signals → compile_step({step:'wave'}).\n" +
+  "   If list_wave_signals returns empty, the testbench Top is not set — ask the user\n" +
+  "   to right-click the correct .v and choose 'Set as Testbench Top'.\n" +
+
+  "\n9. ARRAY-FROM-FILE PATHS ARE RELATIVE TO THE .cmm FILE.\n" +
+  "   `float lut[152] \"Seno_LUT.txt\";` looks up Seno_LUT.txt next to the .cmm,\n" +
+  "   NOT at the project root. When creating new LUT-backed arrays, place the .txt\n" +
+  "   file alongside the .cmm.\n" +
+
+  "\n10. NEVER DELETE GENERATED FOLDERS DIRECTLY.\n" +
+  "    Hardware/, Simulation/, Software/ are recreated by yanc — but the .spf and\n" +
+  "    other user state lives at the project root. To remove a processor use\n" +
+  "    AuroraAPI.processors.delete (when available) or ask the user.\n" +
+
+  "\nGENERAL HEURISTIC: when uncertain about constraints (e.g. is this filename ok? does\n" +
+  "this NUGAIN work?), call list_processors / get_project_tree / read_file FIRST to\n" +
+  "ground in current truth, then act. Do NOT guess a processor's existing header.\n",
 
   // ── CMM Examples (patterns from real processors) ───────────────────────────
   "\n\nCMM REAL-WORLD PATTERNS (from NIPSCERN production processors):\n" +
@@ -514,26 +590,131 @@ function escapeHtml(s) {
 const CODE_SENTINEL_OPEN  = '';
 const CODE_SENTINEL_CLOSE = '';
 
+// Extra PUA sentinels for math stashing — same trick as the code one
+// above, just a different code-point pair so they never collide.
+const MATH_SENTINEL_OPEN  = '';
+const MATH_SENTINEL_CLOSE = '';
+
+// LaTeX → Unicode maps used by _renderMath(). Pragmatic subset that
+// covers the bulk of what AI assistants emit; the rest passes through.
+const _GREEK_MAP = {
+  alpha:'α', beta:'β', gamma:'γ', delta:'δ', epsilon:'ε', zeta:'ζ',
+  eta:'η', theta:'θ', iota:'ι', kappa:'κ', lambda:'λ', mu:'μ', nu:'ν',
+  xi:'ξ', omicron:'ο', pi:'π', rho:'ρ', sigma:'σ', tau:'τ', upsilon:'υ',
+  phi:'φ', chi:'χ', psi:'ψ', omega:'ω', varphi:'φ', vartheta:'ϑ',
+  Alpha:'Α', Beta:'Β', Gamma:'Γ', Delta:'Δ', Epsilon:'Ε', Zeta:'Ζ',
+  Eta:'Η', Theta:'Θ', Iota:'Ι', Kappa:'Κ', Lambda:'Λ', Mu:'Μ', Nu:'Ν',
+  Xi:'Ξ', Omicron:'Ο', Pi:'Π', Rho:'Ρ', Sigma:'Σ', Tau:'Τ', Upsilon:'Υ',
+  Phi:'Φ', Chi:'Χ', Psi:'Ψ', Omega:'Ω',
+};
+const _OP_MAP = {
+  cdot:'·', times:'×', div:'÷', pm:'±', mp:'∓', leq:'≤', geq:'≥',
+  neq:'≠', approx:'≈', equiv:'≡', sim:'∼', propto:'∝', infty:'∞',
+  partial:'∂', nabla:'∇', sum:'∑', prod:'∏', int:'∫', oint:'∮',
+  forall:'∀', exists:'∃', in:'∈', notin:'∉', subset:'⊂', supset:'⊃',
+  cap:'∩', cup:'∪', emptyset:'∅', rightarrow:'→', leftarrow:'←',
+  Rightarrow:'⇒', Leftarrow:'⇐', leftrightarrow:'↔', to:'→', mapsto:'↦',
+  ldots:'…', cdots:'⋯', dots:'…', langle:'⟨', rangle:'⟩', hbar:'ℏ',
+  ell:'ℓ', Re:'ℜ', Im:'ℑ',
+};
+
+/**
+ * Render a LaTeX math expression as styled HTML. We support a subset
+ * (super/sub-scripts, \frac, \sqrt, Greek, common operators) that
+ * covers the bulk of what AI chat assistants actually emit, without
+ * pulling in a 300kB MathJax/KaTeX bundle. Anything unrecognised falls
+ * through as styled text so the user still reads something.
+ */
+function _renderMath(src, display) {
+  let s = String(src || '');
+  // \frac{a}{b}
+  s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,
+    '<span class="ai-frac"><span class="num">$1</span><span class="den">$2</span></span>');
+  // \sqrt[n]{x}  /  \sqrt{x}
+  s = s.replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g,
+    '<span class="ai-sqrt"><sup>$1</sup>√<span class="rad">$2</span></span>');
+  s = s.replace(/\\sqrt\s*\{([^{}]*)\}/g,
+    '<span class="ai-sqrt">√<span class="rad">$1</span></span>');
+  // \name → Greek letter / operator
+  s = s.replace(/\\([A-Za-z]+)/g, (m, name) => {
+    if (_GREEK_MAP[name]) return _GREEK_MAP[name];
+    if (_OP_MAP[name]) return _OP_MAP[name];
+    return m;
+  });
+  // Super/sub-scripts
+  s = s.replace(/\^\{([^{}]*)\}/g, '<sup>$1</sup>');
+  s = s.replace(/_\{([^{}]*)\}/g,  '<sub>$1</sub>');
+  s = s.replace(/\^([A-Za-z0-9])/g, '<sup>$1</sup>');
+  s = s.replace(/_([A-Za-z0-9])/g,  '<sub>$1</sub>');
+  // Spacing macros
+  s = s.replace(/\\,|\\;|\\:|\\!/g, ' ');
+  return display
+    ? `<div class="ai-math ai-math-display">${s}</div>`
+    : `<span class="ai-math">${s}</span>`;
+}
+
 function renderInline(s) {
-  // Inline code is extracted first so bold/italic regexes never run
-  // inside it (`a*b*c` inside a backtick must stay literal).
+  // 1. Stash inline code first so bold/italic/math regexes never run
+  //    inside it (`a*b*c` inside a backtick must stay literal).
   const codes = [];
   s = s.replace(/`([^`\n]+)`/g, (_, c) => {
     codes.push(c);
     return `${CODE_SENTINEL_OPEN}${codes.length - 1}${CODE_SENTINEL_CLOSE}`;
   });
+
+  // 2. Stash math: $$…$$ display first, then $…$ inline. Stashing keeps
+  //    escapeHtml() from mangling the LaTeX source. Inline math has to
+  //    sidestep plain "$10" / "R$ 5" by requiring at least one math token.
+  const maths = [];
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+    maths.push({ expr, display: true });
+    return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
+  });
+  s = s.replace(/(^|[^$\w])\$([^$\n]+?)\$(?!\d)/g, (m, lead, expr) => {
+    if (!/[\\^_={}]/.test(expr)) return m;
+    maths.push({ expr, display: false });
+    return `${lead}${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
+  });
+
   s = escapeHtml(s);
+
   s = s.replace(/\*\*([^\n*][^\n]*?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, '<em>$1</em>');
+  s = s.replace(/~~([^\n~]+?)~~/g, '<del>$1</del>');
+  // ==highlight== → soft <mark> so the model can underline a term.
+  s = s.replace(/==([^\n=]+?)==/g, '<mark>$1</mark>');
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => {
     if (/^https?:\/\//i.test(url)) {
       return `<a href="#" data-href="${escapeHtml(url)}">${text}</a>`;
     }
     return text;
   });
-  const sentinelRe = new RegExp(`${CODE_SENTINEL_OPEN}(\\d+)${CODE_SENTINEL_CLOSE}`, 'g');
-  s = s.replace(sentinelRe, (_, i) => `<code>${escapeHtml(codes[+i])}</code>`);
+  const codeRe = new RegExp(`${CODE_SENTINEL_OPEN}(\\d+)${CODE_SENTINEL_CLOSE}`, 'g');
+  s = s.replace(codeRe, (_, i) => `<code>${escapeHtml(codes[+i])}</code>`);
+  const mathRe = new RegExp(`${MATH_SENTINEL_OPEN}(\\d+)${MATH_SENTINEL_CLOSE}`, 'g');
+  s = s.replace(mathRe, (_, i) => {
+    const m = maths[+i];
+    return _renderMath(m.expr, m.display);
+  });
   return s;
+}
+
+/** Parse a single GFM-style table row. Strips the leading/trailing pipe. */
+function _splitTableRow(line) {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|'))   s = s.slice(0, -1);
+  // Pipes inside backticks shouldn't split the row.
+  const cells = [];
+  let cur = '', inCode = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '`') inCode = !inCode;
+    if (c === '|' && !inCode) { cells.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  cells.push(cur.trim());
+  return cells;
 }
 
 function renderMarkdown(md) {
@@ -542,8 +723,13 @@ function renderMarkdown(md) {
   let inCode = false;
   let codeLang = '';
   let codeLines = [];
-  let listType = null;
+  // Lists are tracked as a stack so nested lists work. Each entry:
+  // { type: 'ul' | 'ol', indent: leading-space count }.
+  const listStack = [];
   let paraLines = [];
+  // Blockquote / callout state. callout: { tag: 'note'|'tip'|'warn'|'danger', title }
+  let quoteLines = [];
+  let quoteCallout = null;
 
   const flushPara = () => {
     if (paraLines.length) {
@@ -551,9 +737,33 @@ function renderMarkdown(md) {
       paraLines = [];
     }
   };
-  const closeList = () => {
-    if (listType) { out.push(`</${listType}>`); listType = null; }
+  const closeListsTo = (indent) => {
+    while (listStack.length && listStack[listStack.length - 1].indent >= indent) {
+      out.push(`</${listStack.pop().type}>`);
+    }
   };
+  const closeAllLists = () => closeListsTo(-1);
+
+  const flushQuote = () => {
+    if (!quoteLines.length && !quoteCallout) return;
+    const inner = renderMarkdown(quoteLines.join('\n'));
+    if (quoteCallout) {
+      const { tag, title } = quoteCallout;
+      out.push(
+        `<div class="ai-callout ai-callout-${tag}">` +
+        `<div class="ai-callout-head"><i class="ph ${({
+          note: 'ph-info', tip: 'ph-lightbulb',
+          warn: 'ph-warning', danger: 'ph-x-octagon',
+        })[tag] || 'ph-info'}"></i><span>${escapeHtml(title || tag.toUpperCase())}</span></div>` +
+        `<div class="ai-callout-body">${inner}</div></div>`,
+      );
+    } else {
+      out.push(`<blockquote>${inner}</blockquote>`);
+    }
+    quoteLines = [];
+    quoteCallout = null;
+  };
+
   const flushCode = () => {
     const lang = escapeHtml(codeLang || 'text');
     out.push(
@@ -567,48 +777,134 @@ function renderMarkdown(md) {
     codeLang = '';
   };
 
-  for (const line of lines) {
-    const fence = line.match(/^```(\w*)\s*$/);
+  // Table state — keeps two-row lookahead via index loop instead of for-of
+  // so we can peek at lines[i+1] to detect the separator row.
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code fence: starts/ends a verbatim block.
+    const fence = line.match(/^\s*```(\w*)\s*$/);
     if (fence) {
       if (inCode) { flushCode(); inCode = false; }
-      else { flushPara(); closeList(); inCode = true; codeLang = fence[1] || ''; }
-      continue;
+      else { flushPara(); flushQuote(); closeAllLists(); inCode = true; codeLang = fence[1] || ''; }
+      i++; continue;
     }
-    if (inCode) { codeLines.push(line); continue; }
+    if (inCode) { codeLines.push(line); i++; continue; }
 
+    // Horizontal rule: --- *** ___
+    if (/^\s*(?:---+|\*\*\*+|___+)\s*$/.test(line)) {
+      flushPara(); flushQuote(); closeAllLists();
+      out.push('<hr class="ai-hr">');
+      i++; continue;
+    }
+
+    // Headings (#, ##, …, ######)
     const head = line.match(/^(#{1,6})\s+(.*)$/);
     if (head) {
-      flushPara(); closeList();
+      flushPara(); flushQuote(); closeAllLists();
       const level = head[1].length;
       out.push(`<h${level}>${renderInline(head[2])}</h${level}>`);
-      continue;
+      i++; continue;
     }
 
-    const ul = line.match(/^[-*]\s+(.*)$/);
-    if (ul) {
+    // GFM table — current line is a header row and next line is the
+    // separator (|---|---|). We commit the whole table at once.
+    if (line.includes('|') && i + 1 < lines.length
+        && /^\s*\|?\s*:?-{2,}.*\|/.test(lines[i + 1])
+        && /^[\s|:-]+$/.test(lines[i + 1])) {
+      flushPara(); flushQuote(); closeAllLists();
+      const headers = _splitTableRow(line);
+      const sepCells = _splitTableRow(lines[i + 1]);
+      const aligns = sepCells.map((c) => {
+        const L = /^:/.test(c), R = /:$/.test(c);
+        return L && R ? 'center' : R ? 'right' : L ? 'left' : '';
+      });
+      const rows = [];
+      let j = i + 2;
+      while (j < lines.length && lines[j].includes('|') && lines[j].trim()) {
+        rows.push(_splitTableRow(lines[j]));
+        j++;
+      }
+      const thead = `<thead><tr>${
+        headers.map((h, k) => `<th${aligns[k] ? ` style="text-align:${aligns[k]}"` : ''}>${renderInline(h)}</th>`).join('')
+      }</tr></thead>`;
+      const tbody = `<tbody>${
+        rows.map((r) => `<tr>${
+          r.map((c, k) => `<td${aligns[k] ? ` style="text-align:${aligns[k]}"` : ''}>${renderInline(c)}</td>`).join('')
+        }</tr>`).join('')
+      }</tbody>`;
+      out.push(`<div class="ai-table-wrap"><table class="ai-table">${thead}${tbody}</table></div>`);
+      i = j; continue;
+    }
+
+    // Blockquote / callout
+    const quote = line.match(/^\s*>\s?(.*)$/);
+    if (quote) {
+      flushPara(); closeAllLists();
+      const body = quote[1];
+      // GFM callout: "> [!NOTE] optional title"
+      const callout = !quoteLines.length && body.match(/^\[!(NOTE|TIP|WARN(?:ING)?|DANGER|IMPORTANT|CAUTION)\]\s*(.*)$/i);
+      if (callout && !quoteCallout) {
+        const raw = callout[1].toLowerCase();
+        const tag = raw.startsWith('warn') || raw === 'caution' ? 'warn'
+          : raw === 'danger' || raw === 'important' ? 'danger'
+          : raw === 'tip' ? 'tip' : 'note';
+        quoteCallout = { tag, title: callout[2].trim() || raw.toUpperCase() };
+      } else {
+        quoteLines.push(body);
+      }
+      i++; continue;
+    } else if (quoteLines.length || quoteCallout) {
+      flushQuote();
+    }
+
+    // Lists — track leading-space indent so nested lists nest properly.
+    const ulMatch = line.match(/^(\s*)[-*+]\s+(.*)$/);
+    const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if (ulMatch || olMatch) {
       flushPara();
-      if (listType !== 'ul') { closeList(); listType = 'ul'; out.push('<ul>'); }
-      out.push(`<li>${renderInline(ul[1])}</li>`);
-      continue;
+      const indent = (ulMatch ? ulMatch[1] : olMatch[1]).length;
+      const type = ulMatch ? 'ul' : 'ol';
+      const text = ulMatch ? ulMatch[2] : olMatch[3];
+
+      // Close lists deeper than current indent.
+      while (listStack.length && listStack[listStack.length - 1].indent > indent) {
+        out.push(`</${listStack.pop().type}>`);
+      }
+      const top = listStack[listStack.length - 1];
+      if (!top || top.indent < indent) {
+        listStack.push({ type, indent });
+        out.push(`<${type}>`);
+      } else if (top.indent === indent && top.type !== type) {
+        out.push(`</${listStack.pop().type}>`);
+        listStack.push({ type, indent });
+        out.push(`<${type}>`);
+      }
+      // Render checkbox lists (- [ ] / - [x]) as styled items.
+      const cb = text.match(/^\[([ xX])\]\s+(.*)$/);
+      if (cb) {
+        const checked = cb[1].toLowerCase() === 'x';
+        out.push(`<li class="ai-task${checked ? ' done' : ''}">` +
+          `<i class="ph ${checked ? 'ph-check-square-fill' : 'ph-square'}"></i>` +
+          `<span>${renderInline(cb[2])}</span></li>`);
+      } else {
+        out.push(`<li>${renderInline(text)}</li>`);
+      }
+      i++; continue;
     }
 
-    const ol = line.match(/^\d+\.\s+(.*)$/);
-    if (ol) {
-      flushPara();
-      if (listType !== 'ol') { closeList(); listType = 'ol'; out.push('<ol>'); }
-      out.push(`<li>${renderInline(ol[1])}</li>`);
-      continue;
-    }
+    if (!line.trim()) { flushPara(); closeAllLists(); i++; continue; }
 
-    if (!line.trim()) { flushPara(); closeList(); continue; }
-
-    closeList();
+    closeAllLists();
     paraLines.push(line);
+    i++;
   }
 
   if (inCode) flushCode();         // unclosed fence during streaming
+  flushQuote();
   flushPara();
-  closeList();
+  closeAllLists();
   return out.join('');
 }
 
@@ -664,6 +960,36 @@ class AIAssistantManager {
     this.currentChatCreatedAt = 0;
     this.historyOpen = false;
     this.chatList = [];                 // cached light metadata
+
+    // Smart auto-scroll: true while the viewport is glued to the bottom.
+    // The user scrolling up flips this to false (frees them to read
+    // earlier messages); scrolling back to the bottom flips it on again.
+    // Every appendDelta / appendBubble / tool chip respects this flag —
+    // we only push the viewport when the user is already at the bottom.
+    this.stickToBottom = true;
+  }
+
+  /** Distance in px the viewport may sit above the bottom and still count as "at the bottom". */
+  get _bottomThresholdPx() { return 32; }
+
+  _isAtBottom() {
+    const el = this.messagesEl;
+    if (!el) return true;
+    return (el.scrollHeight - el.clientHeight - el.scrollTop) <= this._bottomThresholdPx;
+  }
+
+  /**
+   * Scroll to the bottom IF the user hasn't scrolled away. Called from
+   * every place that previously did `messagesEl.scrollTop = scrollHeight`
+   * unconditionally. When `force` is true (e.g. the user just sent a
+   * message) we re-stick regardless of where they were.
+   */
+  scrollToBottom(force = false) {
+    if (!this.messagesEl) return;
+    if (force) this.stickToBottom = true;
+    if (this.stickToBottom) {
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
   }
 
   toggle() {
@@ -695,9 +1021,6 @@ class AIAssistantManager {
           </button>
           <button class="ai-hbtn" id="ai-clear-btn" title="New chat" aria-label="New chat">
             <i class="ph ph-note-pencil"></i>
-          </button>
-          <button class="ai-hbtn" id="ai-terminal-clear-btn" title="Clear terminal output" aria-label="Clear terminal">
-            <i class="ph ph-terminal-window"></i>
           </button>
           <span class="ai-hbtn-sep"></span>
           <button class="ai-hbtn ai-hbtn-close" id="ai-close-btn" aria-label="Close AI Assistant" title="Close">
@@ -740,8 +1063,10 @@ class AIAssistantManager {
               <div class="ai-mp-list" id="ai-mp-providers"></div>
             </div>
 
-            <!-- Claude Code connection status (subscription provider only) -->
-            <div class="ai-mp-section ai-mp-cc hidden" id="ai-mp-cc-status"></div>
+            <!-- Connection status row — shown for ANY active provider.
+                 For Claude Code / ChatGPT it shows CLI install + login + plan;
+                 for API providers it shows configured / not configured + model. -->
+            <div class="ai-mp-section" id="ai-mp-cc-status"></div>
 
             <div class="ai-mp-section" id="ai-mp-model-section">
               <div class="ai-mp-label">Model</div>
@@ -842,7 +1167,6 @@ class AIAssistantManager {
     this.historyPopover    = this.container.querySelector('#ai-history-popover');
     this.historyList       = this.container.querySelector('#ai-history-list');
     this.chatEmptyHint     = this.container.querySelector('#ai-chat-empty-hint');
-    this.terminalClearBtn  = this.container.querySelector('#ai-terminal-clear-btn');
 
     this.buildPermissionOptions();
     this.attachListeners();
@@ -941,9 +1265,6 @@ class AIAssistantManager {
     this.sendBtn.addEventListener('click', () => this.send());
     this.stopBtn.addEventListener('click', () => this.stop());
     this.clearBtn.addEventListener('click', () => this.newChat());
-    this.terminalClearBtn.addEventListener('click', async () => {
-      try { await window.AuroraAPI?.terminal?.clear(); } catch (_) { /* silent */ }
-    });
 
     // Enter sends, Shift+Enter inserts a newline.
     // Block sending while streaming — user can still type their next message.
@@ -979,6 +1300,39 @@ class AIAssistantManager {
         setTimeout(() => { btn.innerHTML = '<i class="ph ph-copy"></i>'; }, 2000);
       }).catch(() => {});
     });
+
+    // Smart auto-scroll. We treat the scrollbar as the user's "I'm
+    // reading earlier messages" signal: the moment they scroll up from
+    // the bottom we stop pinning the viewport so new tokens don't yank
+    // them down. Returning to the bottom re-arms the pin.
+    // Wheel / touch events scroll the same element so a single scroll
+    // listener catches every input modality.
+    this.messagesEl.addEventListener('scroll', () => {
+      const atBottom = this._isAtBottom();
+      if (this.stickToBottom !== atBottom) {
+        this.stickToBottom = atBottom;
+        this._toggleResumeScrollHint(!atBottom);
+      }
+    }, { passive: true });
+  }
+
+  /** Floating "Jump to latest" pill shown while the user is reading above. */
+  _toggleResumeScrollHint(show) {
+    if (!this.container) return;
+    let pill = this.container.querySelector('.ai-scroll-resume');
+    if (show) {
+      if (pill) return;
+      pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'ai-scroll-resume';
+      pill.innerHTML = '<i class="ph ph-arrow-down"></i><span>Jump to latest</span>';
+      pill.addEventListener('click', () => this.scrollToBottom(true));
+      // Anchor inside .ai-assistant-content so it floats above the
+      // messages but below the composer.
+      this.messagesEl.parentElement.appendChild(pill);
+    } else if (pill) {
+      pill.remove();
+    }
   }
 
   /* ---------------- model / provider popover ---------------- */
@@ -1045,14 +1399,16 @@ class AIAssistantManager {
       try {
         const key = SUB_META['chatgpt'].modelStoreKey;
         const saved = localStorage.getItem(key);
-        // Drop a previously-saved id that is no longer a valid preset
-        // (e.g. an early version offered "gpt-5", which Codex rejects on
-        // ChatGPT auth). Falling back to "default" avoids a stream error
-        // on the very first turn after the upgrade.
+        // Drop any previously-saved id that is no longer a valid preset.
+        // Earlier versions offered `gpt-5` and `gpt-5-codex` — both fail
+        // on ChatGPT-subscription auth with "model is not supported when
+        // using Codex with a ChatGPT account". Falling back to "default"
+        // avoids a stream error on the very first turn after the upgrade.
         if (saved && CHATGPT_MODELS.some((m) => m.id === saved)) {
           this.chatgptEntry.model = saved;
         } else if (saved) {
           localStorage.removeItem(key);
+          this.chatgptEntry.model = 'default';
         }
       } catch (_) { /* ignore */ }
     }
@@ -1106,7 +1462,8 @@ class AIAssistantManager {
     this.updateModelChip();
     if (this.modelInput) this.modelInput.value = entry?.model || '';
 
-    // Show / hide the subscription-only sections (status, effort, usage).
+    // Effort / usage sections stay subscription-only — they have no
+    // analog for API providers.
     this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
     // Effort is Claude-Code-only — Codex has no per-turn effort flag.
     const sm = SUB_META[this.currentProvider];
@@ -1119,6 +1476,10 @@ class AIAssistantManager {
       if (sm && sm.hasEffort) this.renderEffort();
       this.refreshSubStatus();
       this.refreshSubUsage();
+    } else {
+      // API provider — status row is generated synchronously from the
+      // already-loaded providersConfigured map.
+      this.renderProviderStatus();
     }
   }
 
@@ -1235,11 +1596,37 @@ class AIAssistantManager {
     if (this.currentProvider === provider) this.renderSubStatus();
   }
 
+  /**
+   * Friendly plan label for the status row. Raw values come straight
+   * from the CLI/JWT (`pro`, `max`, `plus`, `business`, `free`, …) — we
+   * uppercase them and map the few that have well-known marketing names.
+   */
+  formatPlanLabel(raw) {
+    if (!raw) return '';
+    const v = String(raw).toLowerCase().trim();
+    const known = {
+      'pro':         'PRO',
+      'max':         'MAX',
+      'plus':        'PLUS',
+      'free':        'FREE',
+      'team':        'TEAM',
+      'business':    'BUSINESS',
+      'edu':         'EDU',
+      'enterprise':  'ENTERPRISE',
+      // Some Claude payloads use `subscriptionType: 'pro_max'` / `claude_max`.
+      'pro_max':     'MAX',
+      'claude_max':  'MAX',
+      'claude_pro':  'PRO',
+    };
+    return known[v] || v.toUpperCase();
+  }
+
   renderSubStatus() {
     if (!this.ccStatusEl) return;
     const sm = SUB_META[this.currentProvider];
     if (!sm) return;
     const s = this.subStatus[this.currentProvider];
+    const meta = PROVIDER_META[this.currentProvider] || {};
     let state = 'off';
     let icon = 'ph-x-circle';
     let title = 'Checking…';
@@ -1257,8 +1644,8 @@ class AIAssistantManager {
       detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
     } else {
       state = 'on'; icon = 'ph-check-circle';
-      const plan = s.plan ? String(s.plan).toUpperCase() : 'subscription';
-      title = `Connected · ${plan}`;
+      const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
+      title = `${meta.label || sm.cliName} · ${plan}`;
       detail = s.version || sm.cliName;
     }
 
@@ -1272,7 +1659,43 @@ class AIAssistantManager {
           <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
         </button>
       </div>
-      ${detail ? `<p class="ai-cc-detail">${detail}</p>` : ''}`;
+      ${detail ? `<p class="ai-cc-detail">${escapeHtml(detail)}</p>` : ''}`;
+  }
+
+  /**
+   * Connection status row for an API (BYOK) provider — OpenAI, Anthropic,
+   * Google, DeepSeek, Groq, Ollama. Mirrors renderSubStatus so the user
+   * sees a uniform "what am I connected to?" badge regardless of whether
+   * the provider is subscription- or key-backed.
+   */
+  renderProviderStatus() {
+    if (!this.ccStatusEl) return;
+    const provider = this.currentProvider;
+    const meta = PROVIDER_META[provider] || {};
+    const entry = this.providersAvailable.find((p) => p.name === provider);
+    const configured = !!(this.providersConfigured && this.providersConfigured[provider]);
+
+    let state, icon, title, detail;
+    if (configured) {
+      state = 'on';
+      icon = 'ph-check-circle';
+      title = `${meta.label || provider} · Connected`;
+      const model = entry?.model || entry?.defaultModel || '';
+      detail = model ? `Model: ${model}` : '';
+    } else {
+      state = 'off';
+      icon = 'ph-x-circle';
+      title = `${meta.label || provider} · Not configured`;
+      detail = 'Add an API key in Settings → AI Assistant.';
+    }
+
+    this.ccStatusEl.dataset.state = state;
+    this.ccStatusEl.innerHTML = `
+      <div class="ai-cc-row">
+        <i class="ph ${icon} ai-cc-icon" aria-hidden="true"></i>
+        <span class="ai-cc-title">${escapeHtml(title)}</span>
+      </div>
+      ${detail ? `<p class="ai-cc-detail">${escapeHtml(detail)}</p>` : ''}`;
   }
 
   /** True when the active subscription CLI is installed and signed in. */
@@ -1300,27 +1723,43 @@ class AIAssistantManager {
     if (!this.usageBars) return;
     const u = this.subUsage[this.currentProvider];
 
-    this.usagePlan.textContent = u?.plan ? `${String(u.plan).toUpperCase()} plan` : '';
+    this.usagePlan.textContent = u?.plan ? `${this.formatPlanLabel(u.plan)} plan` : '';
 
-    // Session: real token tally for this app run (from the CLI's per-turn
-    // usage), plus the local conversation counter as a floor.
-    const sessTokens = Math.max(u?.session?.tokens || 0, this.cumulativeTokens);
-    const cost = u?.session?.costUsd;
+    // Session: the CLI's per-turn usage is the source of truth. We
+    // surface exactly what it reported — no synthetic floor — so the
+    // counter never drifts from reality. The composer token pill stays
+    // in sync because applyUsage() feeds the same numbers back.
+    const sessTokens = Number(u?.session?.tokens) || 0;
+    const cost = Number(u?.session?.costUsd) || 0;
     const rows = [
-      usageRowHTML('Session', 'ph-lightning',
-        `${formatTokens(sessTokens)} tk${cost ? ` · $${cost.toFixed(2)}` : ''}`,
+      usageRowHTML('This session', 'ph-lightning',
+        `${formatTokens(sessTokens)} tokens${cost > 0 ? ` · $${cost.toFixed(2)}` : ''}`,
         'count', 0),
     ];
 
-    // Rate-limit windows (5-hour, weekly) reported by the CLI.
+    // Rate-limit windows (5-hour, weekly, …) reported by the CLI.
+    // When the CLI gives us `used` / `limit` (Claude Code does), we plot
+    // the real percentage. Otherwise we fall back to a coarse heuristic
+    // off `status` so the bar still communicates something useful.
     const windows = Array.isArray(u?.windows) ? u.windows : [];
     for (const w of windows) {
       const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
-      const sev = w.status === 'rejected' ? 'high'
-        : (w.status && w.status !== 'allowed') ? 'mid' : 'ok';
+      const used = Number(w.used ?? w.tokensUsed ?? w.consumed);
+      const limit = Number(w.limit ?? w.total ?? w.tokensLimit);
+      let pct = null;
+      if (Number.isFinite(used) && Number.isFinite(limit) && limit > 0) {
+        pct = Math.max(0, Math.min(100, (used / limit) * 100));
+      }
+      const sev = (pct != null
+        ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
+        : (w.status === 'rejected' ? 'high'
+            : (w.status && w.status !== 'allowed') ? 'mid' : 'ok'));
       const reset = w.resetsAt ? `resets ${untilTime(w.resetsAt)}` : '';
-      rows.push(usageRowHTML(meta.label, meta.icon, reset || w.status || '', sev,
-        sev === 'high' ? 100 : sev === 'mid' ? 66 : 22));
+      const usedText = (pct != null)
+        ? `${Math.round(pct)}%${reset ? ` · ${reset}` : ''}`
+        : (reset || w.status || '');
+      rows.push(usageRowHTML(meta.label, meta.icon, usedText, sev,
+        pct != null ? pct : (sev === 'high' ? 100 : sev === 'mid' ? 66 : 22)));
     }
 
     this.usageBars.innerHTML = rows.join('');
@@ -1406,7 +1845,111 @@ class AIAssistantManager {
       card.querySelector('.ai-confirm-deny').addEventListener('click', () => finish(false));
 
       this.messagesEl.appendChild(card);
-      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+      this.scrollToBottom();
+      requestAnimationFrame(() => card.classList.remove('enter'));
+    });
+  }
+
+  /**
+   * Inline "Ask User Question" card — the AI's way of pausing a turn and
+   * asking the human for a decision/clarification. Mirrors Claude
+   * Code's `AskUserQuestion` tool: one prompt, an optional list of
+   * single- or multi-select options, plus an "Other" text field.
+   *
+   * Resolves with `{ answer, selected }` once the user submits, or with
+   * `null` if the turn is aborted before they answer (see
+   * resetTurnState — pendingAskUserQuestions is purged there).
+   *
+   * @param {object} params
+   * @param {string} params.question
+   * @param {Array<{label:string, description?:string}>} [params.options]
+   * @param {boolean} [params.multiSelect]
+   */
+  showAskUserQuestionInline({ question, options = [], multiSelect = false } = {}) {
+    if (!this.container) this.initialize();
+    return new Promise((resolve) => {
+      const card = document.createElement('div');
+      card.className = 'ai-ask-question enter';
+      const inputType = multiSelect ? 'checkbox' : 'radio';
+      const safeOptions = Array.isArray(options) ? options : [];
+      const optsHtml = safeOptions.map((opt, idx) => {
+        const label = escapeHtml(opt.label || `Option ${idx + 1}`);
+        const desc  = opt.description ? `<span class="ai-askq-opt-desc">${escapeHtml(opt.description)}</span>` : '';
+        return `
+          <label class="ai-askq-opt">
+            <input type="${inputType}" name="ai-askq-opt" value="${idx}">
+            <span class="ai-askq-opt-text">
+              <span class="ai-askq-opt-label">${label}</span>${desc}
+            </span>
+          </label>`;
+      }).join('');
+      card.innerHTML = `
+        <div class="ai-askq-head">
+          <i class="ph ph-question" aria-hidden="true"></i>
+          <span>Aurora Intelligence is asking</span>
+        </div>
+        <div class="ai-askq-question"></div>
+        <div class="ai-askq-options">${optsHtml}</div>
+        <div class="ai-askq-other">
+          <label class="ai-askq-other-label">Other / write your own answer</label>
+          <textarea class="ai-askq-other-input" rows="2"
+                    placeholder="Type a custom answer (optional)"></textarea>
+        </div>
+        <div class="ai-askq-actions">
+          <button type="button" class="ai-askq-cancel">Cancel</button>
+          <button type="button" class="ai-askq-submit">Send answer</button>
+        </div>
+      `;
+      card.querySelector('.ai-askq-question').textContent = question;
+
+      let settled = false;
+      const finish = (payload) => {
+        if (settled) return;
+        settled = true;
+        this.pendingAskUserQuestions?.delete(decide);
+        card.classList.add('done');
+        setTimeout(() => card.remove(), 180);
+        resolve(payload);
+      };
+      const decide = (val) => finish(val);
+      if (!this.pendingAskUserQuestions) this.pendingAskUserQuestions = new Set();
+      this.pendingAskUserQuestions.add(decide);
+
+      const submit = () => {
+        const otherText = card.querySelector('.ai-askq-other-input').value.trim();
+        const checked = Array.from(card.querySelectorAll('input[name="ai-askq-opt"]:checked'))
+          .map((el) => safeOptions[Number(el.value)]?.label).filter(Boolean);
+        // Resolution: if "Other" text is present we use that as the
+        // canonical answer (with the checked labels as supplementary
+        // context). Otherwise the selected labels form the answer.
+        let answer;
+        if (otherText) {
+          answer = checked.length
+            ? `${otherText} (also selected: ${checked.join(', ')})`
+            : otherText;
+        } else if (checked.length) {
+          answer = multiSelect ? checked.join(', ') : checked[0];
+        } else {
+          // Nothing selected and nothing typed — keep the card open and
+          // flash the textarea so the user knows we need an input.
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 320);
+          return;
+        }
+        finish({ answer, selected: checked });
+      };
+
+      card.querySelector('.ai-askq-submit').addEventListener('click', submit);
+      card.querySelector('.ai-askq-cancel').addEventListener('click', () => {
+        finish({ answer: '[user cancelled the question]', selected: [] });
+      });
+      // Enter inside the textarea (without shift) also submits.
+      card.querySelector('.ai-askq-other-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+      });
+
+      this.messagesEl.appendChild(card);
+      this.scrollToBottom();
       requestAnimationFrame(() => card.classList.remove('enter'));
     });
   }
@@ -1571,6 +2114,7 @@ class AIAssistantManager {
       const bubble = this.appendBubble('assistant', '');
       this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
       this.segmentBuffer = '';
+      this._revealLength = 0;     // chars already shown without animation
     }
     this.segmentBuffer += delta;
     this.turnText += delta;
@@ -1589,10 +2133,47 @@ class AIAssistantManager {
     const looksLikeToolArtifact = !displayText &&
       /^\s*[⺀-鿿]*\s*\{/.test(this.segmentBuffer) &&
       /"name"\s*:/.test(this.segmentBuffer);
-    this.currentAssistantContentEl.innerHTML = renderMarkdown(
-      looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer),
-    );
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    const sourceText = looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer);
+
+    // Magic-wand fade reveal: re-render the bubble, then wrap any
+    // characters that weren't visible last time in <span.ai-fade-reveal>
+    // so they animate from light purple → normal. We do this by marking
+    // the boundary in the source text BEFORE markdown rendering so the
+    // span surrounds whole tokens, not partial HTML tags.
+    this.currentAssistantContentEl.innerHTML = this._renderWithReveal(sourceText, this._revealLength || 0);
+    this._revealLength = sourceText.length;
+    this.scrollToBottom();
+  }
+
+  /**
+   * Render markdown with a fade-reveal span around the suffix that begins
+   * at `revealOffset`. The marker is dropped into the source text via a
+   * PUA sentinel pair so it survives escapeHtml() and renderMarkdown's
+   * paragraph/list splitting; afterwards we swap the sentinels for the
+   * real <span class="ai-fade-reveal"> tags.
+   */
+  _renderWithReveal(text, revealOffset) {
+    if (!text) return '';
+    if (revealOffset <= 0 || revealOffset >= text.length) return renderMarkdown(text);
+    // Use a sentinel that's safe across markdown rules (paragraphs,
+    // lists, code-fences …). PUA U+E040/U+E041 stay literal everywhere.
+    const OPEN  = 'AI_REVEAL_OPEN';
+    const CLOSE = 'AI_REVEAL_CLOSE';
+    const head = text.slice(0, revealOffset);
+    const tail = text.slice(revealOffset);
+    // Don't slice through a code fence — if the head ends inside an open
+    // ```, drop the reveal so we don't poison the highlighter. Renders
+    // without animation in that case; the next delta re-tries.
+    const openFences = (head.match(/```/g) || []).length;
+    if (openFences % 2 !== 0) return renderMarkdown(text);
+    const marked = `${head}${OPEN}${tail}${CLOSE}`;
+    let html = renderMarkdown(marked);
+    // The sentinels survived rendering — convert to real spans, and
+    // accept stray openings that happen to land inside attributes by
+    // simply stripping any unmatched pair.
+    html = html.split(OPEN).join('<span class="ai-fade-reveal">');
+    html = html.split(CLOSE).join('</span>');
+    return html;
   }
 
   commitTurn() {
@@ -1652,6 +2233,7 @@ class AIAssistantManager {
     this.currentAssistantContentEl = null;
     this.segmentBuffer = '';
     this.turnText = '';
+    this._revealLength = 0;
     this.currentSessionId = null;
     this.runningChips = [];
     this.hadToolCalls = false;
@@ -1659,6 +2241,14 @@ class AIAssistantManager {
     // (e.g. the user hit Stop while a card was waiting).
     for (const decide of this.pendingConfirms) decide(false);
     this.pendingConfirms.clear();
+    // Same for any open Ask-User-Question cards — resolve them as
+    // cancelled so the awaiting tool call doesn't hang forever.
+    if (this.pendingAskUserQuestions) {
+      for (const decide of this.pendingAskUserQuestions) {
+        decide({ answer: '[turn aborted before user answered]', selected: [] });
+      }
+      this.pendingAskUserQuestions.clear();
+    }
   }
 
   /* ---------------- tool chips ---------------- */
@@ -1681,7 +2271,7 @@ class AIAssistantManager {
       if (argText) chip.title = argText;
     }
     this.messagesEl.appendChild(chip);
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    this.scrollToBottom();
     this.runningChips.push({ toolUseId: toolUseId || null, toolName: name, args, el: chip });
   }
 
@@ -1819,7 +2409,7 @@ class AIAssistantManager {
       el.className = 'ai-thinking-wrap';
       el.innerHTML = `<div class="ai-thinking"><div class="ai-thinking-dots"><span></span><span></span><span></span></div></div><em class="ai-thinking-word">${word}…</em>`;
       this.messagesEl.appendChild(el);
-      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+      this.scrollToBottom();
       this.thinkingEl = el;
     } else if (!show && this.thinkingEl) {
       this.thinkingEl.remove();
@@ -1840,11 +2430,16 @@ class AIAssistantManager {
     }
   }
 
-  /** Refresh the compact composer token pill (+ live Claude Code usage). */
+  /** Refresh the compact composer token pill and (if open) the usage bars. */
   updateTokenCounter() {
     this.tokenCounter.textContent = formatTokens(this.cumulativeTokens);
     this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation`;
-    if (this.currentProvider === 'claude-code' && this.modelPopoverOpen) this.renderUsage();
+    // Refresh the usage section live for any subscription provider whose
+    // popover is open — the per-turn `applyUsage()` may have ticked the
+    // CLI-reported session counter forward.
+    if (isSubProvider(this.currentProvider) && this.modelPopoverOpen) {
+      this.refreshSubUsage();
+    }
   }
 
   /** Grow the textarea to fit its content (up to ~10 lines, then scroll). */
@@ -1884,7 +2479,10 @@ class AIAssistantManager {
       highlightCodeBlocks(contentEl);
     }
     this.messagesEl.appendChild(el);
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    // The user just sent a message: force-stick to the bottom even if
+    // they had been reading scrollback. For an assistant bubble we only
+    // follow if they're already at the bottom.
+    this.scrollToBottom(role === 'user');
     return el;
   }
 
@@ -1906,7 +2504,7 @@ class AIAssistantManager {
     span.textContent = text;
     el.appendChild(span);
     this.messagesEl.appendChild(el);
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    this.scrollToBottom();
     return el;
   }
 
@@ -2177,4 +2775,8 @@ class AIAssistantManager {
 }
 
 const aiAssistantManager = new AIAssistantManager();
+// Expose on window so AuroraAPI (which lives in a sibling module) can
+// reach back into the panel to show inline confirm / ask-question
+// cards without creating a circular import.
+try { window.aiAssistantManager = aiAssistantManager; } catch (_) { /* ignore */ }
 export { aiAssistantManager };

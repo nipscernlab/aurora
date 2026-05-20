@@ -142,6 +142,9 @@
                 </svg>
               </span>
           </button>
+          <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel compilation" data-i18n-tooltip="toolbar.cancel.tooltip">
+              <i class="ph ph-stop-circle"></i>
+          </button>
           <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
               <i class="ph ph-list-checks"></i>
           </button>
@@ -155,15 +158,13 @@
       </div>
     </div>
 
-    <!-- Zone right: cancel + Full Build + Settings + window controls.
+    <!-- Zone right: Full Build + Settings + window controls.
          Full Build e Settings ficam escondidos (display:none) hoje —
-         mantidos no DOM pra nao quebrar listeners legados. -->
+         mantidos no DOM pra nao quebrar listeners legados.
+         (#cancel-everything foi movido para a direita de #wavecomp.) -->
     <div class="toolbar-zone toolbar-zone-right">
       <div class="toolbar-group">
           <div class="compile-all-group">
-              <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel" data-i18n-tooltip="toolbar.cancel.tooltip">
-                  <i class="ph ph-stop-circle"></i>
-              </button>
               <button id="allcomp" class="toolbar-button btn-build" data-tooltip="Full build" data-i18n-tooltip="toolbar.fullBuild.tooltip" style="display:none">
                   <i class="ph ph-hammer"></i>
                   <span data-i18n="toolbar.fullBuild.label">Full Build</span>
@@ -1007,7 +1008,6 @@
                             <div class="about-person">
                                 <span class="about-role" data-i18n="modal.settings.aboutDeveloper">Developer</span>
                                 <span class="about-name">Chrysthofer Arthur Amaro Afonso</span>
-                                <p class="about-note" data-i18n="modal.settings.aboutDeveloperNote">Creator of AURORA — its original concept and first release — and of PRISM.</p>
                             </div>
                             <div class="about-person">
                                 <span class="about-role" data-i18n="modal.settings.aboutAdvisor">Advisor</span>

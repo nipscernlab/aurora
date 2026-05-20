@@ -445,7 +445,17 @@ async function start(payload, webContents) {
 
       case 'turn.failed': {
         finished = true;
-        const msg = (obj.error && (obj.error.message || obj.error)) || 'Codex reported an error.';
+        let msg = (obj.error && (obj.error.message || obj.error)) || 'Codex reported an error.';
+        // ChatGPT-subscription auth rejects every explicit `-m` value that
+        // isn't whitelisted for the user's plan (gpt-5, gpt-5-codex, …).
+        // Rephrase the cryptic CLI error so the user knows the fix is
+        // simply "switch the model preset back to Default".
+        if (/model is not supported when using Codex with a ChatGPT account/i.test(String(msg))) {
+          msg = String(msg).replace(/\s*$/, '') +
+            "\n\nFix: open the model menu next to the composer and select " +
+            "**Default** — that lets the Codex CLI pick a model your ChatGPT " +
+            "plan is entitled to (Plus / Pro / Business / Edu / Enterprise).";
+        }
         // A failed resume usually means the thread is gone — drop the
         // mapping so the next turn starts fresh.
         if (resumeId && conversationId) convThreads.delete(conversationId);

@@ -40,12 +40,18 @@ async function handleToolExec({ requestId, toolName, args }) {
 
   // Permission gate — the chat panel applies the user's permission
   // mode and, when needed, shows an inline Allow/Deny card.
-  let allowed = false;
-  try { allowed = await aiAssistantManager.confirmToolCall(def, args); }
-  catch { allowed = false; }
-  if (!allowed) {
-    reply({ ok: false, error: 'The user denied this action.' });
-    return;
+  // EXCEPTION: ask_user_question IS itself a user-facing prompt; firing
+  // a permission card before the question would be redundant noise
+  // ("Aurora wants to ask you something — Allow? — Yes — Here is the
+  // question…"). Treat it as pre-authorized.
+  if (toolName !== 'ask_user_question') {
+    let allowed = false;
+    try { allowed = await aiAssistantManager.confirmToolCall(def, args); }
+    catch { allowed = false; }
+    if (!allowed) {
+      reply({ ok: false, error: 'The user denied this action.' });
+      return;
+    }
   }
 
   const ns = window.AuroraAPI?.[def.api?.[0]];

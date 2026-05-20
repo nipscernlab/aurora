@@ -581,9 +581,27 @@ function abort(sessionId) {
   return true;
 }
 
+/** Kill every in-flight session. Called on app quit so Claude Code CLI
+ *  subprocesses (and their children, via taskkill /T) aren't orphaned —
+ *  abort() only ever fired for a single renderer-requested session. */
+function killAll() {
+  for (const [, s] of sessions) {
+    if (!s || !s.proc) continue;
+    if (s.markAborted) s.markAborted();
+    try {
+      if (process.platform === 'win32' && s.proc.pid) {
+        spawn('taskkill', ['/pid', String(s.proc.pid), '/T', '/F'], { windowsHide: true });
+      } else {
+        s.proc.kill('SIGTERM');
+      }
+    } catch (_) { /* close handler still fires */ }
+  }
+  sessions.clear();
+}
+
 /** Drop the cached CLI-side session for a conversation (e.g. on "new chat"). */
 function forgetConversation(conversationId) {
   if (conversationId) convSessions.delete(conversationId);
 }
 
-module.exports = { detect, getUsage, start, abort, forgetConversation };
+module.exports = { detect, getUsage, start, abort, killAll, forgetConversation };

@@ -130,6 +130,13 @@ function register() {
         // open and the phase-2 rmdir below (and copy-components.js on the
         // next launch) hit EBUSY on Windows.
         killPromises.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+
+        // AI agent CLIs (Claude Code / Codex): kill any in-flight session so
+        // their subprocess trees (taskkill /T) aren't orphaned past exit.
+        // abort() only ever fired per renderer request; nothing covered quit.
+        try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
+        try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
+
         await Promise.all(killPromises);
         state.currentGtkwaveProcesses.clear();
       })(),

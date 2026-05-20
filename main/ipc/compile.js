@@ -212,21 +212,30 @@ function register() {
   });
 
   ipcMain.handle('launch-gtkwave-only', async (event, options) => {
-    const { gtkwCmd, workingDir } = options;
+    const { gtkwCmd, gtkwaveBin, args: structuredArgs, workingDir } = options;
 
     return new Promise((resolve) => {
       try {
-        // Format: "C:/path/gtkwave.exe" --args "file.vcd" --script="script.tcl"
-        const cmdMatch = gtkwCmd.match(/^"([^"]+)"\s*(.*)$/);
-        if (!cmdMatch) {
-          resolve({ success: false, message: 'Invalid GTKWave command format' });
-          return;
+        let gtkwavePath;
+        let args;
+
+        if (gtkwaveBin && Array.isArray(structuredArgs)) {
+          // Preferred: caller passes the CommandSpec's binary + already-
+          // tokenized args. No string round-trip, so a space-free gtkwave
+          // path can't be misread as "missing leading quote" — which is
+          // exactly what broke the Verilator wave flow.
+          gtkwavePath = gtkwaveBin;
+          args = structuredArgs;
+        } else {
+          // Legacy string form: "C:/path/gtkwave.exe" --args "file.vcd" --script="script.tcl"
+          const cmdMatch = String(gtkwCmd || '').match(/^"([^"]+)"\s*(.*)$/);
+          if (!cmdMatch) {
+            resolve({ success: false, message: 'Invalid GTKWave command format' });
+            return;
+          }
+          gtkwavePath = cmdMatch[1];
+          args = parseGtkwaveArgs(cmdMatch[2]);
         }
-
-        const gtkwavePath = cmdMatch[1];
-        const argsString = cmdMatch[2];
-
-        const args = parseGtkwaveArgs(argsString);
 
         const gtkwaveProcess = spawn(gtkwavePath, args, {
           cwd: workingDir,

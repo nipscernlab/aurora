@@ -2839,14 +2839,14 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     const { applyResolved } = await import('./command_overrides.js');
     const resolved = await applyResolved(baseSpec, { consumeEphemeral: true });
     const finalSpec = resolved.appliedSpec;
-    // launch-gtkwave-only ainda espera string. Renderizamos o spec final
-    // (já com overrides aplicados) via formatSpec — note que o IPC velho
-    // tem seu próprio parseGtkwaveArgs que sabe lidar com --script=…
-    // (single token).
-    const gtkwaveCmd = CommandSpec.formatSpec(finalSpec);
-
+    // Pass the resolved spec's binary + tokenized args straight through.
+    // Rendering to a string and re-parsing dropped the quotes around a
+    // space-free gtkwave path, so the old IPC rejected it as "Invalid
+    // GTKWave command format". The args array is already exactly what
+    // spawn needs (e.g. '--script=PATH' stays one token).
     const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
-        gtkwCmd: gtkwaveCmd,
+        gtkwaveBin: finalSpec.binary,
+        args: finalSpec.args,
         workingDir: tools.tempBaseDir,
     });
     if (!gtkwaveResult.success) {

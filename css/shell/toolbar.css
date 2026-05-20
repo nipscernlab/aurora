@@ -42,7 +42,6 @@
 .toolbar label,
 .toolbar .toolbar-button,
 .toolbar .compile-btn,
-.toolbar .toggle-group,
 .toolbar .window-controls,
 .toolbar .window-ctrl {
   -webkit-app-region: no-drag;
@@ -137,19 +136,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-/* ---------------------------------------------------------------------------
- *  Resize edges — shown only when frame is removed.
- *  thickFrame: true on the BrowserWindow keeps native edge resize, but we
- *  also expose explicit hit zones so it works on every Windows version
- *  (Win7 falls back to manual hit-test inside webContents).
- * ------------------------------------------------------------------------- */
-.window-resize-edge {
-  position: fixed;
-  z-index: 999;
-  -webkit-app-region: no-drag;
-  pointer-events: none; /* edge resize is handled by the OS frame */
-}
-
 /* Aurora hairline at the bottom of the toolbar */
 .toolbar::after {
   content: '';
@@ -222,8 +208,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
    .toolbar-group. The whole toolbar reads as `group | group | group`,
    with .toolbar-separator drawing the visual divider between them. */
 .toolbar-group,
-.compile-all-group,
-.toggle-group {
+.compile-all-group {
   display: inline-flex;
   align-items: center;
   gap: 1px;
@@ -245,15 +230,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   align-self: center;
 }
 
-/* Legacy alias — keep the right zone's group gap consistent with the
-   previous .toolbar-group-rest spacing. The margin-left:auto trick is
-   gone (zones own the layout now), only the gap remains. */
+/* Right zone keeps a slightly larger inter-group gap; zones own the
+   layout now (no margin-left:auto trick). */
 .toolbar-zone-right > .toolbar-group {
   gap: var(--space-1);
 }
 
 .compile-all-group { gap: 1px; }
-.toggle-group      { margin: 0 var(--space-1); }
 
 /* ---------------------------------------------------------------------------
  *  Button base — 28px, consistent rhythm
@@ -291,71 +274,15 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   min-width: var(--h-button);
 }
 
-/* Toolbar-side native <select>. Matches .toolbar-button height/font but
-   stays a true <select> so it gets the OS dropdown for free (keyboard
-   nav, screen reader, etc.). The styled chevron is added via a tiny
-   inline SVG so we don't depend on a font icon for it. */
-.toolbar-select {
-  height: var(--h-button);
-  max-width: 220px;
-  padding: 0 28px 0 var(--space-3);
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  letter-spacing: var(--tracking-tight);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8a8b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right var(--space-2) center;
-  background-size: 14px 14px;
-  transition: background-color var(--transition-fast),
-              color var(--transition-fast),
-              border-color var(--transition-fast);
-}
-
-.toolbar-select:hover {
-  background-color: var(--overlay-hover);
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.toolbar-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Dropdown popup. Native <select> popups are OS-rendered, but
-   Chromium honours background-color / color on <option> to theme
-   the list. Without these the popup falls back to the system's
-   white-on-dark default which screams against Aurora's dark UI. */
-.toolbar-select option {
-  background-color: var(--bg-elev-2);
-  color: var(--text);
-}
-
-.toolbar-select option:checked,
-.toolbar-select option:hover {
-  background-color: var(--bg-elev-3);
-  color: var(--text);
-}
-
 /* ============================================================
  * Custom GTKWave picker dropdown.
  *
  * Native <select> can't host per-option buttons, and the user
  * wants a hover-revealed remove (X) inline with each entry — same
  * gesture as the file tree's per-row delete. So the picker is a
- * button + custom menu that mimics the visual language of
- * .toolbar-select while letting us drop arbitrary HTML in each
- * row. The menu is absolutely positioned beneath the button.
+ * button + custom menu styled like the toolbar buttons while
+ * letting us drop arbitrary HTML in each row. The menu is
+ * absolutely positioned beneath the button.
  * ========================================================== */
 
 .gtkw-picker {
@@ -558,7 +485,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   transform: none;
 }
 
-.toolbar-button.active-tool,
 .toolbar-button.active {
   background-color: var(--accent-soft);
   color: var(--accent-hover);
@@ -657,7 +583,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* Active state — accent indicator at the bottom */
-.compile-btn.active-tool::after,
 .compile-btn.active::after {
   content: '';
   position: absolute;
@@ -667,55 +592,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   height: 2px;
   background: var(--accent);
   border-radius: 1px 1px 0 0;
-}
-
-/* ---------------------------------------------------------------------------
- *  Mode toggle (Processor/Project) — segmented control
- * ------------------------------------------------------------------------- */
-.toggle-group {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 2px;
-  height: 26px;
-  gap: 2px;
-}
-
-.toggle-group input[type="radio"] {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
-}
-
-.mode-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 20px;
-  min-width: 32px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color var(--transition-fast),
-              color var(--transition-fast);
-  font-size: var(--text-xs);
-}
-
-.mode-label:hover { color: var(--text); background-color: var(--overlay-hover); }
-.mode-label-icon  { font-size: var(--icon-md); }
-
-.toggle-group input[type="radio"]:checked + .mode-label {
-  background-color: var(--accent-soft);
-  color: var(--accent-hover);
-  box-shadow: 0 0 0 1px rgba(142, 131, 232, 0.18) inset;
-}
-
-.toggle-group input[type="radio"]:focus-visible + .mode-label {
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -745,8 +621,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   filter: drop-shadow(0 0 4px var(--accent-glow));
 }
 
-.btn-settings i,
-.btn-hub i,
 #aurora-settings i,
 #sidebarMenu i,
 #newProjectBtn i,
@@ -759,11 +633,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 .toolbar-button:hover i { color: var(--text); }
-
-.btn-hub:hover i,
-.btn-settings:hover i {
-  color: var(--accent-hover);
-}
 
 .btn-ai:hover i {
   color: var(--aurora-mint);
@@ -819,17 +688,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 .filter-btn .message-count.hidden { display: none; }
 
-.filter-error.has-messages,
 .filter-error.active     { color: var(--status-error); }
-.filter-warning.has-messages,
 .filter-warning.active   { color: var(--status-warning); }
-.filter-success.has-messages,
 .filter-success.active   { color: var(--status-success); }
-.filter-tip.has-messages,
 .filter-tip.active       { color: var(--status-info); }
 
 /* ---------------------------------------------------------------------------
- *  Info-box / checkbox-item legados
+ *  Info-box
  * ------------------------------------------------------------------------- */
 .info-box {
   position: fixed;
@@ -867,28 +732,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 .info-box-close:hover { color: var(--text); }
 
-.checkbox-item,
-.standard-simulation {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background-color: var(--bg-elev);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.checkbox-item:hover,
-.standard-simulation:hover {
-  background-color: var(--bg-elev-2);
-}
-
-.standard-simulation i {
-  color: var(--accent);
-  font-size: var(--text-lg);
-}
-
 /* ---------------------------------------------------------------------------
  *  Responsive — collapse text labels and decorative cluster separators
  *  before the center groups overlap. The cascade goes:
@@ -916,20 +759,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
     min-width: var(--h-button);
     padding: 0;
   }
-  .toolbar-select { max-width: 140px; }
 }
 
 @media screen and (max-width: 1100px) {
   .prism-btn span { display: none; }
-  .toggle-group { display: none; }
-  .toolbar-select { max-width: 96px; }
 }
 
 @media screen and (max-width: 980px) {
   .toolbar-separator { display: none; }
   .toolbar-group { gap: 0; }
   .toolbar-zone-center { gap: 0; }
-  .toolbar-select { max-width: 64px; padding: 0 22px 0 var(--space-2); }
 }
 
 @media screen and (max-width: 880px) {

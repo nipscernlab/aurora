@@ -225,38 +225,6 @@ body.resizing-corner .terminal-container {
 
 .context-menu-item:hover i { color: var(--accent-hover); }
 
-.context-menu-separator {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: var(--border);
-}
-
-/* ---------------------------------------------------------------------------
- *  Side panels (news webview)
- * ------------------------------------------------------------------------- */
-.news-sidebar {
-  position: fixed;
-  top: 0;
-  right: -400px;
-  width: 400px;
-  max-width: 90vw;
-  height: 100%;
-  background-color: var(--bg-elev);
-  box-shadow: var(--shadow-xl);
-  transition: right var(--transition-normal) var(--ease-out-quart);
-  z-index: var(--z-40);
-  border-left: 1px solid var(--border);
-  overflow-y: auto;
-}
-
-.news-sidebar.active { right: 0; }
-
-.news-webview {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
 /* ---------------------------------------------------------------------------
  *  Tabs container scrollbar refinement
  * ------------------------------------------------------------------------- */
@@ -302,12 +270,6 @@ button:disabled,
 .invisible  { visibility: hidden; }
 
 .flex          { display: flex; }
-.flex-col      { flex-direction: column; }
-.items-center  { align-items: center; }
-.justify-between { justify-content: space-between; }
-.justify-center  { justify-content: center; }
-.gap-2         { gap: var(--space-2); }
-.gap-3         { gap: var(--space-3); }
 
 .theme-light #fractalcomp img {
   filter: invert(0%) !important;

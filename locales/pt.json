@@ -21,7 +21,7 @@
         "cancel":      { "tooltip": "Cancelar" },
         "fullBuild":   { "tooltip": "Build completo", "label": "Build Completo" },
         "settings":    { "tooltip": "Configurações do Aurora" },
-        "splitEditor": { "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão" },
+        "splitEditor": { "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão", "tooltipEnabled": "Dividir editor — abre o arquivo atual em um novo painel", "tooltipMax": "Máximo de 3 painéis atingido" },
         "ai":            { "tooltip": "Assistente IA" },
         "treeHierarchy": { "tooltip": "Alternar visão hierárquica" },
         "newVerilog":    { "tooltip": "Novo arquivo Verilog" },

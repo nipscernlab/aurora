@@ -190,6 +190,13 @@
 
 .split-pane-dimmed .split-pane-dim { opacity: 1; }
 
+/* Drop affordance while dragging a tab over a pane it can land in. */
+.split-pane-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .split-pane-tabs {
   display: flex;
   flex-shrink: 0;

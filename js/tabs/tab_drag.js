@@ -118,6 +118,14 @@ export const tabDrag = {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', draggedTabPath);
 
+            // Flag the drag as an Aurora tab drag originating in the main pane
+            // (index 0), so split-pane drop targets accept it and know its
+            // source for move semantics. Cleared in handleDragEnd.
+            if (window.SplitEditorManager) {
+                window.SplitEditorManager._dragActive = true;
+                window.SplitEditorManager._dragSourcePane = 0;
+            }
+
             // Suppress the native ghost image — our own .dragging style on
             // the source plus the drop-indicator carry the visual feedback.
             const dragImage = document.createElement('div');
@@ -156,6 +164,13 @@ export const tabDrag = {
 
         const handleDragEnd = () => {
             if (draggedTab) draggedTab.classList.remove('dragging');
+
+            // Clear the cross-pane drag flag. A drop on a split pane already
+            // consumed it, but a drag that ends anywhere else must reset it too.
+            if (window.SplitEditorManager) {
+                window.SplitEditorManager._dragActive = false;
+                window.SplitEditorManager._dragSourcePane = null;
+            }
 
             tabsContainer.classList.remove('dragging-active');
             removeDropIndicator();

@@ -21,7 +21,7 @@
         "cancel":      { "tooltip": "Cancel" },
         "fullBuild":   { "tooltip": "Full build", "label": "Full Build" },
         "settings":    { "tooltip": "Aurora settings" },
-        "splitEditor": { "tooltipDisabled": "Open a file first to enable split" },
+        "splitEditor": { "tooltipDisabled": "Open a file first to enable split", "tooltipEnabled": "Split editor — open current file in a new pane", "tooltipMax": "Maximum of 3 panes reached" },
         "ai":            { "tooltip": "AI assistant" },
         "treeHierarchy": { "tooltip": "Toggle hierarchy view" },
         "newVerilog":    { "tooltip": "New Verilog file" },

@@ -653,7 +653,17 @@ class EditorManager {
         // Layout and restore state
         setTimeout(() => {
             this.activeEditor.layout();
-            this.activeEditor.focus();
+
+            // Don't pull keyboard focus into the main pane while the user is
+            // working in a split. This deferred focus() fires
+            // onDidFocusEditorWidget → aurora-editor-focused (paneIndex 0),
+            // whose listener resets SplitEditorManager.focusedPane to 0. That
+            // reset is why a file-tree click would "always open on the left":
+            // the main editor silently stole focus a few ms after the last
+            // main-pane tab activation, so by click time focusedPane was 0.
+            if (!(window.SplitEditorManager && window.SplitEditorManager.focusedPane > 0)) {
+                this.activeEditor.focus();
+            }
 
             // Restore find widget state for this file
             const state = this.findStates.get(filePath);

@@ -179,10 +179,19 @@ class ProjectTreeManager {
                     await this._removeFileByPath(path);
                     return;
                 }
-                // Plain row click → abre o arquivo numa tab.
+                // Plain row click → abre o arquivo. Roteia pro pane focado:
+                // se um split estiver focado (focusedPane > 0) abre nele,
+                // senao cai no pane principal via TabManager. Mesma logica do
+                // file_tree_manager — sem ela esta arvore (a que renderiza os
+                // .v do projeto) abria sempre no main, ignorando o split.
                 try {
                     const content = await window.electronAPI.readFile(file.path);
-                    TabManager.addTab(file.path, content);
+                    const sem = window.SplitEditorManager;
+                    if (sem && sem.focusedPane > 0) {
+                        await sem.openInFocusedPane(file.path, content);
+                    } else {
+                        TabManager.addTab(file.path, content);
+                    }
                 } catch (err) {
                     console.error('Error opening file:', err);
                     this.showNotification(

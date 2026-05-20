@@ -100,6 +100,30 @@ class SplitPane {
             SplitEditorManager.setFocus(this.paneIndex);
         });
 
+        // Accept tabs dragged from the main pane (or another split): dropping
+        // here MOVES the file into this pane. We only react to Aurora's own
+        // tab drags (flagged on SplitEditorManager at dragstart) so unrelated
+        // OS drags don't get a misleading drop affordance.
+        pane.addEventListener('dragover', (e) => {
+            if (!SplitEditorManager._dragActive) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            pane.classList.add('split-pane-drop-target');
+        });
+        pane.addEventListener('dragleave', (e) => {
+            if (!pane.contains(e.relatedTarget)) {
+                pane.classList.remove('split-pane-drop-target');
+            }
+        });
+        pane.addEventListener('drop', (e) => {
+            pane.classList.remove('split-pane-drop-target');
+            if (!SplitEditorManager._dragActive) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const filePath = e.dataTransfer.getData('text/plain');
+            SplitEditorManager.moveFileToPane(filePath, this.paneIndex);
+        });
+
         return pane;
     }
 
@@ -197,6 +221,21 @@ class SplitPane {
             // Fire-and-forget — _closeFile is async because of the
             // unsaved-changes prompt on the file's last instance.
             this._closeFile(filePath);
+        });
+
+        // Make split tabs draggable too, so a file can be moved to the main
+        // pane or another split. Flags the drag on SplitEditorManager so drop
+        // targets know it's one of ours and where it came from.
+        tab.draggable = true;
+        tab.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', filePath);
+            SplitEditorManager._dragActive = true;
+            SplitEditorManager._dragSourcePane = this.paneIndex;
+        });
+        tab.addEventListener('dragend', () => {
+            SplitEditorManager._dragActive = false;
+            SplitEditorManager._dragSourcePane = null;
         });
 
         tabsBar.appendChild(tab);
@@ -322,6 +361,11 @@ const SplitEditorManager = {
     focusedPane: 0,
     wrapper: null,
     mainShell: null,
+    // Cross-pane tab drag state. Set at dragstart (by main tab_drag.js and by
+    // split tabs here), read by pane drop targets so they only accept Aurora's
+    // own tab drags and know which pane the tab came from (for move semantics).
+    _dragActive: false,
+    _dragSourcePane: null,
 
     initialize() {
         const editorContainer = document.querySelector('.editor-container');
@@ -346,6 +390,28 @@ const SplitEditorManager = {
 
         this.mainShell.addEventListener('mousedown', () => this.setFocus(0));
 
+        // Main pane accepts tabs dragged from a split: dropping here moves the
+        // file back into the main pane. Mirror of the per-split drop target.
+        this.mainShell.addEventListener('dragover', (e) => {
+            if (!this._dragActive || this._dragSourcePane === 0) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.mainShell.classList.add('split-pane-drop-target');
+        });
+        this.mainShell.addEventListener('dragleave', (e) => {
+            if (!this.mainShell.contains(e.relatedTarget)) {
+                this.mainShell.classList.remove('split-pane-drop-target');
+            }
+        });
+        this.mainShell.addEventListener('drop', (e) => {
+            this.mainShell.classList.remove('split-pane-drop-target');
+            if (!this._dragActive || this._dragSourcePane === 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const filePath = e.dataTransfer.getData('text/plain');
+            this.moveFileToPane(filePath, 0);
+        });
+
         // Wire up the fixed split button in the toolbar
         const btn = document.getElementById('split-editor-btn');
         if (btn) btn.addEventListener('click', () => this.createSplit());
@@ -354,6 +420,10 @@ const SplitEditorManager = {
         // via monaco_editor) can call refreshLayout without a hard import cycle.
         if (typeof window !== 'undefined') window.SplitEditorManager = this;
         this._patchTabManagerOverlay();
+
+        // Sync the button to the real initial state (no file open → disabled
+        // with the right tooltip) instead of relying on the static HTML attrs.
+        this._updateButton();
     },
 
     /**
@@ -379,7 +449,15 @@ const SplitEditorManager = {
     },
 
     canSplit() {
-        return TabManager.activeTab !== null && this.panes.length < 2;
+        if (this.panes.length >= 2) return false;
+        // Match createSplit's source resolution: from the main pane the source
+        // is TabManager.activeTab; from a focused split it's that pane's
+        // activeFile. Gating only on TabManager.activeTab used to wrongly
+        // disable the button when the main pane was empty but a focused split
+        // still held a splittable file.
+        if (this.focusedPane === 0) return TabManager.activeTab !== null;
+        const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
+        return !!pane?.activeFile;
     },
 
     /** Open filePath+content in the currently focused split pane */
@@ -392,6 +470,58 @@ const SplitEditorManager = {
         const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
         if (!pane) return;
         await pane.openFile(filePath, content);
+    },
+
+    /**
+     * Move a file (dragged from its source tab) into the target pane.
+     * paneIndex 0 is the main pane; >0 is a split. "Move" means: open it in
+     * the target, then close it at the source. Because every pane shares the
+     * file's model, opening in the target before closing the source keeps the
+     * instance count ≥ 1 throughout — the model (and any unsaved edits) is
+     * never disposed mid-move, and closeFile sees it's not the last instance
+     * so it never prompts.
+     */
+    async moveFileToPane(filePath, targetPaneIndex) {
+        const source = this._dragSourcePane;
+        this._dragActive = false;
+        this._dragSourcePane = null;
+        if (!filePath || source === null || source === targetPaneIndex) return;
+
+        if (targetPaneIndex === 0) {
+            if (!TabManager.tabs.has(filePath)) {
+                TabManager.addTab(filePath, this._contentFor(filePath));
+            } else {
+                TabManager.activateTab(filePath);
+            }
+            this.setFocus(0);
+        } else {
+            const pane = this.panes.find(p => p.paneIndex === targetPaneIndex);
+            if (!pane) return;
+            if (!pane.tabs.has(filePath)) {
+                await pane.openFile(filePath, this._contentFor(filePath));
+            } else {
+                pane._activateFile(filePath);
+            }
+            this.setFocus(targetPaneIndex);
+        }
+
+        await this._removeFromPane(filePath, source);
+    },
+
+    /** Live buffer text for an open file, via the shared model (never disk). */
+    _contentFor(filePath) {
+        const model = window.SharedModelRegistry?.getModel?.(filePath);
+        return model ? model.getValue() : '';
+    },
+
+    /** Close a file's view in a specific pane (main or split). */
+    async _removeFromPane(filePath, paneIndex) {
+        if (paneIndex === 0) {
+            if (TabManager.tabs.has(filePath)) await TabManager.closeTab(filePath);
+        } else {
+            const pane = this.panes.find(p => p.paneIndex === paneIndex);
+            if (pane && pane.tabs.has(filePath)) await pane._closeFile(filePath);
+        }
     },
 
     async createSplit() {
@@ -531,6 +661,9 @@ const SplitEditorManager = {
         this.focusedPane = paneIndex;
         this.mainShell?.classList.toggle('split-pane-dimmed', paneIndex !== 0);
         this.panes.forEach(p => p.setDimmed(p.paneIndex !== paneIndex));
+        // canSplit() now depends on which pane is focused, so refresh the
+        // button whenever focus moves.
+        this._updateButton();
         // Foco entre panes muda qual arquivo TabManager.getEditingFilePath
         // retorna — propaga pra botoes gated-por-extensao (ex: C± so em .cmm).
         document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
@@ -555,11 +688,29 @@ const SplitEditorManager = {
         if (!btn) return;
         const canSplit = this.canSplit();
         btn.disabled = !canSplit;
-        btn.title = canSplit
-            ? 'Split Editor — open current file in new pane'
+
+        // The Aurora tooltip system (js/ui/tooltip.js) reads `data-tooltip`
+        // with priority over the native `title`, and i18n.applyDOM() rewrites
+        // `data-tooltip` from `data-i18n-tooltip` on locale change. So we must
+        // drive BOTH: the i18n key (so re-translation stays correct) and the
+        // resolved `data-tooltip` text (so the change shows immediately).
+        // Setting `title` here would be dead — data-tooltip always wins.
+        const key = canSplit
+            ? 'toolbar.splitEditor.tooltipEnabled'
             : this.panes.length >= 2
-                ? 'Maximum 3 split panes reached'
-                : 'Open a file first to enable split';
+                ? 'toolbar.splitEditor.tooltipMax'
+                : 'toolbar.splitEditor.tooltipDisabled';
+        const fallback = {
+            'toolbar.splitEditor.tooltipEnabled':  'Split editor — open current file in a new pane',
+            'toolbar.splitEditor.tooltipMax':      'Maximum of 3 panes reached',
+            'toolbar.splitEditor.tooltipDisabled': 'Open a file first to enable split',
+        }[key];
+        btn.setAttribute('data-i18n-tooltip', key);
+        btn.setAttribute('data-tooltip', window.t ? window.t(key) : fallback);
+        // Drop any stale native title the tooltip system may have stashed, so
+        // it can't resurface as originalTitle.
+        btn.removeAttribute('title');
+        delete btn.dataset.originalTitle;
     },
 };
 

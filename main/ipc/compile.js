@@ -22,39 +22,6 @@ const {
   checkProcessRunning,
 } = require('../utils');
 
-/**
- * Tokenize a GTKWave argument string into an array suitable for `spawn` with
- * `shell: false`. Handles three forms the renderer mixes freely:
- *   --rcvar "hide_sst on"     → ['--rcvar', 'hide_sst on']
- *   "C:/foo/bar.vcd"          → ['C:/foo/bar.vcd']
- *   --script="C:/foo/x.tcl"   → ['--script=C:/foo/x.tcl']   (quotes STRIPPED)
- *
- * The third form is the one that bit us: a naive `\S+` capture would push
- * `--script="C:/foo/x.tcl"` (quotes included) and GTKWave would then look for
- * a file literally named `"C:/foo/x.tcl"` (with the quote characters), fail
- * silently, and never run gtk_almost_proj.tcl — which is what kept fix.vcd
- * from opening in the second tab in Verilog-only mode.
- */
-function parseGtkwaveArgs(argsString) {
-  const args = [];
-  // Match: bare quoted "..." OR --key="..." OR plain non-space token.
-  const argRegex = /(--[\w-]+=)?(?:"([^"]*)"|(\S+))/g;
-  let match;
-  while ((match = argRegex.exec(argsString)) !== null) {
-    const keyEq = match[1] || '';
-    const quoted = match[2];
-    const bare = match[3];
-    if (quoted !== undefined) {
-      args.push(keyEq + quoted);
-    } else if (bare !== undefined) {
-      // Strip a trailing quote that may have leaked from `--key="value"` when
-      // the value itself contained spaces and the regex backtracked oddly.
-      args.push(keyEq + bare.replace(/^"|"$/g, ''));
-    }
-  }
-  return args;
-}
-
 function register() {
   ipcMain.handle('exec-command', (_event, command, options = {}) => {
     return new Promise((resolve, reject) => {
@@ -92,62 +59,34 @@ function register() {
     });
   });
 
-  ipcMain.handle('launch-gtkwave-only', async (event, options) => {
-    const { gtkwCmd, gtkwaveBin, args: structuredArgs, workingDir } = options;
+  ipcMain.handle('launch-gtkwave-only', async (_event, options) => {
+    const { gtkwaveBin, args, workingDir } = options;
 
     return new Promise((resolve) => {
       try {
-        let gtkwavePath;
-        let args;
-
-        if (gtkwaveBin && Array.isArray(structuredArgs)) {
-          // Preferred: caller passes the CommandSpec's binary + already-
-          // tokenized args. No string round-trip, so a space-free gtkwave
-          // path can't be misread as "missing leading quote" — which is
-          // exactly what broke the Verilator wave flow.
-          gtkwavePath = gtkwaveBin;
-          args = structuredArgs;
-        } else {
-          // Legacy string form: "C:/path/gtkwave.exe" --args "file.vcd" --script="script.tcl"
-          const cmdMatch = String(gtkwCmd || '').match(/^"([^"]+)"\s*(.*)$/);
-          if (!cmdMatch) {
-            resolve({ success: false, message: 'Invalid GTKWave command format' });
-            return;
-          }
-          gtkwavePath = cmdMatch[1];
-          args = parseGtkwaveArgs(cmdMatch[2]);
+        if (!gtkwaveBin || !Array.isArray(args)) {
+          resolve({ success: false, message: 'launch-gtkwave-only requires { gtkwaveBin, args[] }' });
+          return;
         }
 
-        const gtkwaveProcess = spawn(gtkwavePath, args, {
+        // GTKWave is launched detached and outlives the run; nothing in the
+        // renderer consumes its stdout/stderr, so ignore them outright — an
+        // unread pipe buffer could otherwise eventually block the process.
+        const gtkwaveProcess = spawn(gtkwaveBin, args, {
           cwd: workingDir,
           detached: true,
-          stdio: ['ignore', 'pipe', 'pipe'],
+          stdio: 'ignore',
           windowsHide: true,
           shell: false,
         });
 
-        const gtkwavePid = gtkwaveProcess.pid;
-
-        gtkwaveProcess.stdout.on('data', (data) =>
-          event.sender.send('gtkwave-output', { type: 'stdout', data: data.toString() }),
-        );
-        gtkwaveProcess.stderr.on('data', (data) =>
-          event.sender.send('gtkwave-output', { type: 'stderr', data: data.toString() }),
-        );
-
+        // An 'error' EventEmitter with no listener would throw; keep one so a
+        // spawn failure (e.g. ENOENT) is reported instead of crashing main.
         gtkwaveProcess.on('error', (error) => {
-          event.sender.send('gtkwave-output', { type: 'error', data: error.message });
           resolve({ success: false, message: `GTKWave error: ${error.message}` });
         });
 
-        gtkwaveProcess.on('close', (code) => {
-          event.sender.send('gtkwave-output', {
-            type: 'completion',
-            code,
-            message: code === 0 ? 'GTKWave closed successfully' : `GTKWave exited with code ${code}`,
-          });
-        });
-
+        const gtkwavePid = gtkwaveProcess.pid;
         gtkwaveProcess.unref();
         resolve({ success: true, gtkwavePid, message: 'GTKWave launched successfully' });
       } catch (error) {

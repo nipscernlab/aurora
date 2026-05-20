@@ -122,9 +122,6 @@ const compilationOperations = {
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
-
-  onGtkwaveOutput: (cb) => ipcRenderer.on('gtkwave-output', cb),
-  removeGtkwaveOutputListener: (cb) => ipcRenderer.removeListener('gtkwave-output', cb),
 };
 
 /* ============================================================================

@@ -44,9 +44,9 @@ export function buildGtkwaveSpec(ctx) {
   if (ctx.gtkwSaveFile) {
     args.push('--rcvar', 'hide_sst on', '-a', ctx.gtkwSaveFile);
   }
-  // GTKWave accepts `--script=PATH` (single token, no space). We keep
-  // that single-token form to match how parseGtkwaveArgs already
-  // tokenizes it on the main side.
+  // GTKWave accepts `--script=PATH` as a single token (no space). Keep it
+  // one token — the args array is passed straight to spawn(shell:false),
+  // so it must already be split exactly as GTKWave expects.
   args.push(`--script=${ctx.fixScript}`);
 
   return {

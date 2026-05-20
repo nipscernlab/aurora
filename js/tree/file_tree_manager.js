@@ -216,8 +216,8 @@ class FileTreeManager {
     }
 
     /**
-     * Primeira pintura da tree. Espera um tick pra DOM listeners +
-     * AppInitializer assentarem, depois dispara o verilog picker.
+     * Primeira pintura da tree: dispara o verilog picker assim que o
+     * projectTreeManager terminou seu init.
      *
      * O nome "initializeTreeBasedOnMode" e historico (era um branch
      * sobre IDE mode). Modo unico hoje — chama activateTree
@@ -225,10 +225,14 @@ class FileTreeManager {
      * + projectManager.loadProject nao gerem duplo loadConfiguration.
      */
     async initializeTreeBasedOnMode() {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        if (window.projectTreeManager) {
-            await window.projectTreeManager.activateTree();
-        }
+        const ptm = window.projectTreeManager;
+        if (!ptm) return;
+        // Espera o sinal REAL de readiness (DOMContentLoaded + cacheElements
+        // + setupEventListeners, exposto como initPromise) em vez de chutar
+        // 100ms. O sleep curto deixava activateTree rodar antes do DOM da
+        // tree ser cacheado em cold start lento, e bailava silenciosamente.
+        if (ptm.initPromise) await ptm.initPromise;
+        await ptm.activateTree();
     }
 
 

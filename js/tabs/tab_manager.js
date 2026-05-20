@@ -18,6 +18,10 @@ export class TabManager {
     static isCheckingFiles = false;
     static viewerInstances = new Map();
     static pdfViewerStates = new Map();
+    // filePath -> setInterval id for the PDF state-tracking poll. Tracked so
+    // closing a PDF tab can clear it; otherwise each opened PDF left a 2s
+    // interval running forever against a detached iframe.
+    static pdfStateIntervals = new Map();
 
     // Image and PDF extensions
     static imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
@@ -885,6 +889,11 @@ export class TabManager {
                 }
                 this.viewerInstances.delete(filePath);
             }
+            // Stop the PDF state-tracking poll, if any (see setupPdfStateTracking).
+            if (this.pdfStateIntervals.has(filePath)) {
+                clearInterval(this.pdfStateIntervals.get(filePath));
+                this.pdfStateIntervals.delete(filePath);
+            }
 
             // Add to closed tabs stack
             const currentContent = this.tabs.get(filePath);
@@ -970,6 +979,8 @@ export class TabManager {
             }
         }
 
+        for (const id of this.pdfStateIntervals.values()) clearInterval(id);
+        this.pdfStateIntervals.clear();
         this.viewerInstances.clear();
         this.pdfViewerStates.clear();
         this.stopAllWatchers();

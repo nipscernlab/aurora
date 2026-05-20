@@ -256,7 +256,12 @@ export const tabViewers = {
 
             iframe.contentWindow.addEventListener('scroll', saveState);
             iframe.contentWindow.addEventListener('resize', saveState);
-            setInterval(saveState, 2000);
+            // Clear any prior poll for this file (the iframe 'load' handler can
+            // fire more than once) and track the new one so closeTab can stop
+            // it — an untracked setInterval here leaked one 2s timer per PDF
+            // open, forever, holding the detached iframe alive.
+            clearInterval(this.pdfStateIntervals.get(filePath));
+            this.pdfStateIntervals.set(filePath, setInterval(saveState, 2000));
         } catch (_) {
             console.log('PDF state tracking limited due to security restrictions');
         }

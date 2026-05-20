@@ -10,73 +10,10 @@
  */
 
 /* ===================================================================================
- *  MODAL CONTAINER & OVERLAY
- * =================================================================================== */
-
-.processor-hub-container {
-    position: fixed;
-    inset: 0; /* (top, right, bottom, left: 0) */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: var(--z-40);
-    /* Fade-in transition for the whole container */
-    opacity: 1;
-    visibility: visible;
-    transition: opacity var(--transition-fast), visibility var(--transition-fast);
-}
-
-.processor-hub-container.hidden {
-    opacity: 0;
-    visibility: hidden;
-}
-
-.processor-hub-overlay {
-    position: absolute;
-    inset: 0;
-    background-color: rgba(17, 16, 21, 0.7); /* Using --bg-primary with alpha */
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
-
-/* ===================================================================================
- *  MODAL DIALOG
- * =================================================================================== */
-
-.processor-hub-modal {
-    position: relative; /* To be on top of the overlay */
-    background-color: var(--bg-elevated);
-    border: 1px solid var(--border-primary);
-    border-radius: 0;
-    padding: var(--space-8);
-    box-shadow: var(--shadow-xl), var(--shadow-glow);
-    width: 90%;
-    max-width: 550px;
-    max-height: 90vh;
-    overflow-y: auto;
-    color: var(--text-primary);
-    
-    /* Entry animation from theme_variables.css */
-    animation: fadeIn var(--transition-normal) ease-out forwards;
-}
-
-/* ===================================================================================
  *  MODAL CONTENT & FORM ELEMENTS
+ *  (The modal shell — overlay/container/dialog/title — uses the shared
+ *   modal-* classes; only the form + buttons are styled here.)
  * =================================================================================== */
-
-.processor-hub-modal h2 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-    margin: 0 0 var(--space-6) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.processor-hub-modal h2 .fa-star-of-life {
-    color: var(--accent-primary);
-}
 
 .processor-hub-form .form-group {
     margin-bottom: var(--space-5);
@@ -136,77 +73,4 @@
 
 .tooltip:hover {
     color: var(--accent-hover) !important;
-}
-
-
-/* ===================================================================================
- *  BUTTONS
- * =================================================================================== */
-
-.button-group {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-4);
-    margin-top: var(--space-8);
-    padding-top: var(--space-6);
-    border-top: 1px solid var(--border-divider);
-}
-
-/* Base styles for both buttons */
-.button-group button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    font-weight: var(--font-semibold);
-    padding: var(--space-3) var(--space-5);
-    border-radius: 0;
-    border: none;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-/* Cancel Button Styles */
-.cancel-button {
-    background-color: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-primary);
-}
-
-.cancel-button:hover {
-    background-color: var(--bg-quaternary);
-    border-color: var(--accent-subtle-border);
-    color: var(--text-primary);
-}
-
-.cancel-button:active {
-    background-color: var(--overlay-active);
-}
-
-/* Generate Button Styles */
-.generate-button {
-    background: var(--gradient-primary);
-    color: var(--text-on-accent);
-    box-shadow: var(--shadow-sm);
-}
-
-.generate-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.generate-button:active {
-    transform: translateY(0);
-    box-shadow: var(--shadow-sm);
-}
-
-/* Disabled state for the generate button */
-.generate-button:disabled {
-    background: var(--bg-quaternary);
-    color: var(--text-disabled);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }

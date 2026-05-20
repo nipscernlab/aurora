@@ -6,7 +6,7 @@
  *   2. shell      — toolbar, status bar, top-level UI state
  *   3. editor     — Monaco editor + tabs
  *   4. tree       — file tree + hierarchy tree
- *   5. terminal   — terminal panel + progress + hourglass
+ *   5. terminal   — terminal panel + progress
  *   6. modals     — overlays/dialogs
  *   7. panels     — side/auxiliary panels
  *   8. feedback   — notifications + tooltips
@@ -33,7 +33,6 @@
 /* 5. terminal */
 @import url("./terminal/terminal.css");
 @import url("./terminal/vvp_progress.css");
-@import url("./terminal/hourglass.css");
 
 /* 6. modals */
 @import url("./modals/modal_config.css");

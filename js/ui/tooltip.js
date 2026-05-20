@@ -59,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'button:not([data-no-tooltip])',
         '[role="button"]:not([data-no-tooltip])',
         '.toolbar-button',
-        '.toolbar-toggle-ui',
         '.tab',
         '.filter-btn',
         'input[type="button"]',

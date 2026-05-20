@@ -418,9 +418,19 @@ async function handlePrismStep() {
         switchTerminal('terminal-tveri');
         await compiler.iverilogCompile();
 
-        const result = await window.electronAPI.prismCompileWithPaths(
-            await buildPrismCompilationPaths(projectPath),
-        );
+        // AI command overrides para a etapa prism-yosys: o spawn real
+        // vive em main/ipc/prism.js, entao consultamos o store aqui e
+        // anexamos ao payload. main aplica antes de spawn.
+        const paths = await buildPrismCompilationPaths(projectPath);
+        try {
+            const { resolveOverride } = await import('./command_overrides.js');
+            const resolved = await resolveOverride('prism-yosys', null);
+            if (resolved && resolved.override) {
+                paths.yosysOverride = resolved.override;
+            }
+        } catch (_e) { /* override resolver missing — pipeline ainda roda */ }
+
+        const result = await window.electronAPI.prismCompileWithPaths(paths);
         if (!result.success) throw new Error(result.message);
     } catch (error) {
         console.error('Erro no trigger PRISM:', error);

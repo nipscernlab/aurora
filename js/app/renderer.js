@@ -117,6 +117,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // (with ask-before-write confirmation). Must run after initAuroraAPI.
     initToolRunner();
 
+    // Hook the spec_runner audit/terminal callbacks. Done here (not in
+    // spec_runner.js itself) so the module stays pure-importable from
+    // tests and CLI tooling — only the live renderer wires the IPC.
+    import('../compilation/spec_runner.js').then(({ setAuditHook, setTerminalHook }) => {
+        setAuditHook((entry) => {
+            try { window.aiAPI?.auditOverrideApplied?.(entry); } catch (_) { /* fire-and-forget */ }
+        });
+        setTerminalHook((channel, message, level) => {
+            try {
+                // Reuse TerminalManager from compilation_module.js — same
+                // 'tips' (blue) styling we use for AI-driven hints elsewhere.
+                window._latestCompilationModule?.terminalManager?.appendToTerminal?.(channel, message, level || 'tips');
+            } catch (_) { /* terminal not ready — skip silently */ }
+        });
+    }).catch(() => { /* spec_runner unavailable — pipeline still runs */ });
+
+    // Toolbar badges + right-click-to-clear for active overrides.
+    import('../compilation/override_badges.js').then(({ initOverrideBadges }) => {
+        try { initOverrideBadges(); }
+        catch (_) { /* badges are decorative; never block boot */ }
+    }).catch(() => { /* missing module — no badges, pipeline still works */ });
+
     // Build the BYOK provider cards in Settings → AI Assistant.
     initAiSettings();
 });

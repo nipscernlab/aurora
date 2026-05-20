@@ -116,6 +116,22 @@ const compilationOperations = {
     return () => ipcRenderer.removeListener('vvp-stream', handler);
   },
 
+  // Structured-spec executor. The renderer builds a CommandSpec
+  // (js/compilation/command_spec.js + builders/*), the main process
+  // validates {binary, args} against the toolchain allowlist and
+  // spawns with shell:false. This is the path Aurora Intelligence's
+  // command-override system rides on — overrides mutate the spec
+  // before it crosses this IPC.
+  execSpec: (payload) => ipcRenderer.invoke('exec-spec', payload),
+  execSpecStreamed: (payload) => ipcRenderer.invoke('exec-spec-streamed', payload),
+  onExecSpecStream: (callback) => {
+    const handler = (_event, p) => callback(p);
+    ipcRenderer.on('exec-spec-stream', handler);
+    return () => ipcRenderer.removeListener('exec-spec-stream', handler);
+  },
+  listAllowedBinaries: () => ipcRenderer.invoke('exec-spec-allowed-binaries'),
+  getProtectedFlags: (step) => ipcRenderer.invoke('exec-spec-protected-flags', step),
+
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
@@ -339,6 +355,15 @@ const aiAPI = {
   /** Report a tool call's result back to main, settling the SDK loop. */
   sendToolResult: (requestId, result) =>
     ipcRenderer.send('ai:tool-result', { requestId, result }),
+
+  /**
+   * Fire-and-forget signal: a CommandSpec just ran with an override
+   * applied. Main appends one entry to aurora-intelligence-log.jsonl
+   * so the user has an audit trail of every override the AI fired,
+   * not just the moment it was registered.
+   */
+  auditOverrideApplied: (payload) =>
+    ipcRenderer.send('ai:audit-override-applied', payload),
 
   /* ---- conversation history (persistent chats) ---- */
 

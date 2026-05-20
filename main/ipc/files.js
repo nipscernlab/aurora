@@ -3,7 +3,7 @@
  * File system + dialogs + chokidar watchers.
  *
  * Most renderer-side file operations live here: read/write/delete/copy/mkdir,
- * `refreshFolder`, watcher start/stop, and the generic open/save dialogs.
+ * watcher start/stop, and the generic open/save dialogs.
  */
 
 const path = require('path');

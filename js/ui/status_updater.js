@@ -3,7 +3,7 @@
 // Declared as a `function` (not `const`) so multiple classic scripts can each
 // define their own `tr` helper without colliding — classic-script top-level
 // const declarations share a lexical scope and would throw "Identifier
-// already declared" if another script (e.g. import_file.js) does the same.
+// already declared" if another classic script does the same.
 function tr(key, params) { return window.t ? window.t(key, params) : key; }
 
 // Resolve a compilation type to its display name via i18n. Unknown

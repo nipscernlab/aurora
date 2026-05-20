@@ -80,7 +80,7 @@ function enableCompileButtons() {
     // em foco no Monaco), gerenciada por syncCmmcompEnabled em
     // compilation_flow.js. Forcar disabled=false aqui o deixaria
     // erroneamente clicavel ate o proximo aurora:editing-file-changed.
-    const buttons = ['vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn', 'projectInfo'];
+    const buttons = ['vericomp', 'wavecomp', 'prismcomp', 'allcomp', 'cancel-everything', 'fractalcomp', 'backupFolderBtn', 'projectInfo'];
 
     buttons.forEach(id => {
 

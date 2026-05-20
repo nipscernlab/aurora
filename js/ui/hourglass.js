@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Elements to be controlled
   const TOGGLE_BUTTON_ID = 'toggle-ui';
-  const IMPORT_BTN_ID = 'importBtn';
   const HIDE_ELEMENTS = {
     buttons: ['cmmcomp'],
     tabs: ['tcmm', 'tasm']
@@ -11,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let elementsVisible = true;
   
   const toggleButton = document.getElementById(TOGGLE_BUTTON_ID);
-  const importBtn = document.getElementById(IMPORT_BTN_ID);
 
   // Toggle UI button is optional (não está mais na toolbar v3).
   // Sai silenciosamente se ele não existir — sem poluir o console.
@@ -36,18 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
           tab.style.display = 'none';
         }
       });
-      if (importBtn) {
-        importBtn.classList.remove('ui-element-hidden');
-        importBtn.style.display = 'flex';
-      }
       updateToggleButtonUI();
-    } else {
-      if (importBtn) {
-        importBtn.classList.add('ui-element-hidden');
-        importBtn.style.display = 'none';
-      }
     }
-    
+
     toggleButton.addEventListener('click', toggleElementsVisibility);
 
     toggleButton.addEventListener('mouseenter', () => {
@@ -122,28 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
-    
-    if (importBtn) {
-      if (elementsVisible) {
-        importBtn.classList.add('ui-element-hide');
-        importBtn.classList.remove('ui-element-show');
-        importBtn.style.pointerEvents = 'none';
-        setTimeout(() => {
-          if (elementsVisible) {
-            importBtn.classList.add('ui-element-hidden');
-            importBtn.style.display = 'none';
-          }
-        }, ANIMATION_DURATION);
-      } else {
-        importBtn.style.display = 'flex';
-        importBtn.classList.remove('ui-element-hidden');
-        importBtn.classList.add('ui-element-show');
-        importBtn.classList.remove('ui-element-hide');
-        setTimeout(() => { importBtn.style.pointerEvents = 'auto'; }, ANIMATION_DURATION);
-      }
-    }
   }
-  
+
   function updateToggleButtonUI() {
     const icon = toggleButton.querySelector('i');
     if (elementsVisible) {

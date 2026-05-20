@@ -15,7 +15,7 @@ function disableCompileButtons() {
     const buttonIds = [
         /*
         'cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp',
-        'cancel-everything', 'fractalcomp', 'importBtn', 'backupFolderBtn',
+        'cancel-everything', 'fractalcomp', 'backupFolderBtn',
         'projectInfo' */
     ];
 

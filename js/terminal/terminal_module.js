@@ -410,6 +410,11 @@ class TerminalManager {
     }
 
     setupTerminalTabs() {
+        // Bind once. Every `new TerminalManager()` (one per compile, via
+        // CompilationModule) targets the SAME shared terminal-tab DOM, so
+        // without this guard each compile stacked another click listener on
+        // every tab — N compiles = the tab handler firing N+1 times.
+        if (TerminalManager.terminalTabsInitialized) return;
         const tabs = document.querySelectorAll('.terminal-tabs .tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -427,6 +432,7 @@ class TerminalManager {
                 this.scrollToBottom(terminalId);
             });
         });
+        TerminalManager.terminalTabsInitialized = true;
     }
 
 
@@ -800,10 +806,16 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     setupGoDownButton() {
+        // Bind once — see setupTerminalTabs. Without the guard every
+        // `new TerminalManager()` re-added the scroll-button handlers AND
+        // four document-level listeners (mouseup/touchend/mouseleave/
+        // touchcancel) that were never removed, accumulating on `document`.
+        if (TerminalManager.goDownButtonInitialized) return;
         const goDownButton = document.getElementById('godown-terminal');
         const goUpButton = document.getElementById('goup-terminal');
 
         if (!goDownButton && !goUpButton) return;
+        TerminalManager.goDownButtonInitialized = true;
 
         let isScrolling = false;
         let animationFrameId = null;
@@ -1042,6 +1054,12 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     setupAutoScroll() {
+        // Bind once. The MutationObservers attach to the shared terminal
+        // bodies and are never disconnected, so without this guard every
+        // `new TerminalManager()` (one per compile) added another 5
+        // observers — after N compiles, each output line fired N×5
+        // scrollToBottom callbacks, progressively janking the terminal.
+        if (TerminalManager.autoScrollInitialized) return;
         const config = {
             childList: true,
             subtree: true
@@ -1054,6 +1072,7 @@ createLogEntry(terminal, text, type, timestamp) {
                     observer.observe(terminal, config);
                 }
             });
+        TerminalManager.autoScrollInitialized = true;
     }
 
     scrollToBottom(terminalId) {

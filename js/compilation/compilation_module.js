@@ -1540,8 +1540,11 @@ async iverilogCompile({ buildVvp = false } = {}) {
 
         const cmd = cmdParts.filter(Boolean).join(' ');
 
-        this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'), 'info');
-        // Linha de comando crua so em verbose.
+        // Rótulo + linha de comando crua: ambos só em verbose/debug. O
+        // rótulo ("Build command:" / "Check command:") vinha sem o
+        // { internal: true }, então aparecia sozinho no modo normal
+        // enquanto o comando que ele rotula ficava escondido.
+        this.terminalManager.appendToTerminal('tveri', tr(buildVvp ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'), 'info', { internal: true });
         this.terminalManager.appendToTerminal('tveri', cmd, 'info', { internal: true });
 
         await TabManager.saveAllFiles();
@@ -2839,7 +2842,9 @@ write_json ${jsonOutputPath}
 
         const yosysCmd = `cd "${tempBaseDir}" && "${yosysPath}" -s "${yosysScriptPath}"`;
 
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.yosysRun', { cmd: yosysCmd }));
+        // Comando cru do Yosys: só em verbose/debug, igual aos demais
+        // (executing/executingPrep/executingComp, build/check veri).
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.yosysRun', { cmd: yosysCmd }), 'info', { internal: true });
 
         const yosysResult = await window.electronAPI.execCommand(yosysCmd);
 

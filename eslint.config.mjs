@@ -26,6 +26,14 @@ const rendererSharedGlobals = {
 // `_event`, `_info`, `_stdout`, `_` placeholders don't trip the rule.
 export default defineConfig([
   {
+    // Global ignores. `components/` is the downloaded toolchain (Verilator,
+    // yosys, yanc…) — bundled third-party artifacts, some named *.js but not
+    // JavaScript (e.g. terminfo files), so linting the whole repo choked on
+    // them. components/Scripts is our own code and is linted via the block
+    // below. node_modules/dist are ignored by eslint's defaults.
+    ignores: ["components/**", "!components/Scripts/**"],
+  },
+  {
     files: ["**/*.{js,mjs,cjs}"],
     plugins: { js },
     extends: ["js/recommended"],

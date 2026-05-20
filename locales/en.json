@@ -44,9 +44,7 @@
         "loading":   "Loading…",
         "empty": {
             "noProjectTitle":     "No project open",
-            "noProjectCta":       "Click here to create a new project",
-            "noProcessorsTitle":  "No processors yet",
-            "noProcessorsCta":    "Click here to create your first processor"
+            "noProjectCta":       "Click here to create a new project"
         }
     },
     "modal": {
@@ -231,12 +229,6 @@
             "message":         "Are you sure you want to delete \"<strong>{{name}}</strong>\"? This action cannot be undone.",
             "fallbackPrompt":  "Delete \"{{name}}\"? This action cannot be undone.",
             "delete":          "Delete"
-        },
-        "removeAllImports": {
-            "title":           "Remove all files?",
-            "message":         "This will clear every imported file from the project. This action cannot be undone.",
-            "confirm":         "Remove all",
-            "fallbackPrompt":  "Are you sure you want to remove all imported files?"
         }
     },
     "statusBar": {
@@ -308,25 +300,6 @@
         },
         "fileMode": {
             "errorOpen": "Error opening file: {{name}}"
-        },
-        "import": {
-            "errorDialog":        "Error opening file dialog",
-            "addedFiles":         "Added {{count}} file(s)",
-            "fileRemoved":        "File removed",
-            "allCleared":         "All files cleared",
-            "sorted":             "Sorted by {{order}} ({{direction}})",
-            "expanded":           "All items expanded",
-            "collapsed":          "All items collapsed",
-            "pathCopied":         "Path copied to clipboard",
-            "failCopy":           "Failed to copy path",
-            "notAvailable":       "Feature not available in browser",
-            "failExplorer":       "Failed to show in explorer",
-            "noProject":          "Open a project before saving import configuration.",
-            "configSaved":        "Configuration saved",
-            "configSavedBrowser": "Configuration saved to browser storage",
-            "configFailed":       "Failed to save configuration",
-            "exported":           "File list exported",
-            "failExport":         "Failed to export file list"
         }
     },
     "terminal": {
@@ -470,7 +443,6 @@
             "prismcomp":                  "Launches the RTL interactive visualizer to explore processor architectures and signal relationships.",
             "allcomp":                    "Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.",
             "fractalcomp":                "Performs a full compilation workflow and launches the Fractal Processor Simulator, allowing you to run and test your processor design interactively.",
-            "importBtn":                  "Import all files to the compilation environment. Supports drag & drop.",
             "line-number":                "Shows current line and column position in the editor.",
             "themeToggle":                "Switches between light and dark themes for optimal comfort based on your environment.",
             "info-aurora":                "Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.",

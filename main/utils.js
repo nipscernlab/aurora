@@ -22,18 +22,6 @@ function debounce(func, wait) {
 const getCPUCount = () => os.cpus().length;
 const getTotalMemory = () => Math.floor(os.totalmem() / (1024 * 1024 * 1024));
 
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes = {
-    '.v': 'text/x-verilog',
-    '.gtkw': 'application/x-gtkwave',
-    '.txt': 'text/plain',
-    '.sv': 'text/x-systemverilog',
-    '.vh': 'text/x-verilog-header',
-  };
-  return mimeTypes[ext] || 'application/octet-stream';
-}
-
 function filterGtkWaveOutput(output) {
   const noisePrefixes = [
     'GTKWave Analyzer',
@@ -244,7 +232,6 @@ module.exports = {
   debounce,
   getCPUCount,
   getTotalMemory,
-  getMimeType,
   filterGtkWaveOutput,
   killProcessSilently,
   killProcessesByName,

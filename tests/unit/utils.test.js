@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { debounce, getMimeType, filterGtkWaveOutput } from '../../main/utils.js';
+import { debounce, filterGtkWaveOutput } from '../../main/utils.js';
 
 describe('debounce', () => {
   beforeEach(() => {
@@ -67,36 +67,6 @@ describe('debounce', () => {
     wrapped();
     vi.advanceTimersByTime(150);
     expect(fn).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe('getMimeType', () => {
-  it.each([
-    ['main.v',          'text/x-verilog'],
-    ['design.sv',       'text/x-systemverilog'],
-    ['header.vh',       'text/x-verilog-header'],
-    ['waves.gtkw',      'application/x-gtkwave'],
-    ['readme.txt',      'text/plain'],
-  ])('maps %s to the right MIME type', (file, expected) => {
-    expect(getMimeType(file)).toBe(expected);
-  });
-
-  it('is case-insensitive on the extension', () => {
-    expect(getMimeType('MAIN.V')).toBe('text/x-verilog');
-    expect(getMimeType('Header.VH')).toBe('text/x-verilog-header');
-  });
-
-  it('falls back to octet-stream for unknown extensions', () => {
-    expect(getMimeType('blob.bin')).toBe('application/octet-stream');
-    expect(getMimeType('image.png')).toBe('application/octet-stream');
-  });
-
-  it('returns octet-stream for files without extension', () => {
-    expect(getMimeType('Makefile')).toBe('application/octet-stream');
-  });
-
-  it('handles a full path, not just a basename', () => {
-    expect(getMimeType('C:/projects/cpu/src/main.v')).toBe('text/x-verilog');
   });
 });
 

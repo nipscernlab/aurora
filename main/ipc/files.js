@@ -15,7 +15,7 @@ const log = require('electron-log');
 const { execFile } = require('child_process');
 
 const state = require('../state');
-const { debounce, getMimeType, safePath, formatTimestamp } = require('../utils');
+const { debounce, safePath, formatTimestamp } = require('../utils');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
 async function scanDirectory(dirPath) {
@@ -233,19 +233,6 @@ function register() {
     }
   });
 
-  ipcMain.handle('restore-original-testbench', async (_event, originalPath, backupPath) => {
-    try {
-      originalPath = safePath(originalPath, 'originalPath');
-      backupPath = safePath(backupPath, 'backupPath');
-      if (!(await fse.pathExists(backupPath))) return { success: false, message: 'Backup file does not exist' };
-      await fse.copy(backupPath, originalPath, { overwrite: true });
-      return { success: true };
-    } catch (err) {
-      log.error('restore-original-testbench failed:', err);
-      return { success: false, message: err.message };
-    }
-  });
-
   // ---------- dialogs ----------
 
   ipcMain.handle('dialog:showOpen', async () => {
@@ -289,39 +276,6 @@ function register() {
     }
   });
 
-  ipcMain.handle('select-files-with-path', async (_event, options = {}) => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile', 'multiSelections'],
-      filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
-      title: options.title || 'Select Files',
-    });
-
-    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-      return { canceled: true, files: [] };
-    }
-
-    const filesWithInfo = await Promise.all(
-      result.filePaths.map(async (filePath) => {
-        try {
-          const stats = await fs.stat(filePath);
-          return {
-            name: path.basename(filePath),
-            path: filePath,
-            size: stats.size,
-            type: getMimeType(filePath),
-            lastModified: stats.mtimeMs,
-            starred: false,
-          };
-        } catch (error) {
-          log.error(`Error getting file info for ${filePath}:`, error);
-          return null;
-        }
-      }),
-    );
-
-    return { canceled: false, files: filesWithInfo.filter((f) => f !== null) };
-  });
-
   ipcMain.handle('show-save-dialog', async (_event, options) => {
     const focused = BrowserWindow.getFocusedWindow();
     return focused
@@ -339,11 +293,6 @@ function register() {
       log.error('Error opening external link:', error);
       return false;
     }
-  });
-
-  ipcMain.handle('shell:show-item', (_event, p) => {
-    if (typeof p === 'string' && p) shell.showItemInFolder(p);
-    return true;
   });
 
   ipcMain.handle('folder:open', async (_event, folderPath) => {

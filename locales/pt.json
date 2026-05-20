@@ -44,9 +44,7 @@
         "loading":   "Carregando…",
         "empty": {
             "noProjectTitle":     "Nenhum projeto aberto",
-            "noProjectCta":       "Clique aqui para criar um novo projeto",
-            "noProcessorsTitle":  "Sem processadores ainda",
-            "noProcessorsCta":    "Clique aqui para criar seu primeiro processador"
+            "noProjectCta":       "Clique aqui para criar um novo projeto"
         }
     },
     "modal": {
@@ -231,12 +229,6 @@
             "message":         "Tem certeza que deseja excluir \"<strong>{{name}}</strong>\"? Esta ação não pode ser desfeita.",
             "fallbackPrompt":  "Excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
             "delete":          "Excluir"
-        },
-        "removeAllImports": {
-            "title":           "Remover todos os arquivos?",
-            "message":         "Isso vai limpar todos os arquivos importados do projeto. Esta ação não pode ser desfeita.",
-            "confirm":         "Remover todos",
-            "fallbackPrompt":  "Tem certeza que deseja remover todos os arquivos importados?"
         }
     },
     "statusBar": {
@@ -308,25 +300,6 @@
         },
         "fileMode": {
             "errorOpen": "Erro ao abrir arquivo: {{name}}"
-        },
-        "import": {
-            "errorDialog":        "Erro ao abrir diálogo de arquivos",
-            "addedFiles":         "{{count}} arquivo(s) adicionado(s)",
-            "fileRemoved":        "Arquivo removido",
-            "allCleared":         "Todos os arquivos removidos",
-            "sorted":             "Ordenado por {{order}} ({{direction}})",
-            "expanded":           "Todos os itens expandidos",
-            "collapsed":          "Todos os itens recolhidos",
-            "pathCopied":         "Caminho copiado para a área de transferência",
-            "failCopy":           "Falha ao copiar caminho",
-            "notAvailable":       "Recurso indisponível no navegador",
-            "failExplorer":       "Falha ao abrir no explorador",
-            "noProject":          "Abra um projeto antes de salvar a configuração de importação.",
-            "configSaved":        "Configuração salva",
-            "configSavedBrowser": "Configuração salva no armazenamento do navegador",
-            "configFailed":       "Falha ao salvar configuração",
-            "exported":           "Lista de arquivos exportada",
-            "failExport":         "Falha ao exportar lista de arquivos"
         }
     },
     "terminal": {
@@ -470,7 +443,6 @@
             "prismcomp":                  "Abre o visualizador RTL interativo para explorar arquiteturas de processadores e relações entre sinais.",
             "allcomp":                    "Executa o fluxo de compilação completo: C± ➔ ASM ➔ Verilog ➔ Forma de Onda, construindo o processador inteiro.",
             "fractalcomp":                "Executa o fluxo de compilação completo e abre o Fractal Processor Simulator, permitindo rodar e testar seu processador interativamente.",
-            "importBtn":                  "Importa todos os arquivos para o ambiente de compilação. Suporta arrastar e soltar.",
             "line-number":                "Mostra a posição atual de linha e coluna no editor.",
             "themeToggle":                "Alterna entre tema claro e escuro para conforto ótimo conforme o ambiente.",
             "info-aurora":                "Exibe informações detalhadas sobre versão do AURORA IDE, especificações do sistema (Windows, Node.js, Electron, Chromium) e créditos.",

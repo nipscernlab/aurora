@@ -43,9 +43,6 @@ const fileOperations = {
 
   openFolder:      (p) => ipcRenderer.invoke('folder:open', p),
   openExternal:    (url) => ipcRenderer.invoke('open-external', url),
-  showItemInFolder:(p) => ipcRenderer.invoke('shell:show-item', p),
-
-  selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
 };
 
 /* ============================================================================
@@ -85,9 +82,6 @@ const projectOperations = {
   getAvailableProcessors: (projectPath) =>
     ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (name) => ipcRenderer.invoke('delete-processor', name),
-
-  restoreOriginalTestbench: (...args) =>
-    ipcRenderer.invoke('restore-original-testbench', ...args),
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
 

@@ -194,7 +194,7 @@
 /* ---------------------------------------------------------------------------
  *  Sections inside body
  * ------------------------------------------------------------------------- */
-.config-section { margin-bottom: var(--space-6); }
+.config-section { margin-bottom: var(--space-5); }
 .config-section:last-child { margin-bottom: 0; }
 
 .section-title {
@@ -226,8 +226,13 @@
 .form-cols-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-4);
 }
+
+/* Inside the grid the row-gap already spaces the rows; the per-field
+   margin-bottom doubled it (gap + margin), leaving a big empty band
+   between the top and bottom fields. Let the grid gap own the spacing. */
+.form-cols-2 .form-group { margin-bottom: 0; }
 
 .full-width { grid-column: 1 / -1; }
 

@@ -73,9 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '.modalConfig-select',
         '.modalConfig-input',
         '.modalConfig-checkbox',
-        '.npmodal-btn',
-        '.processor-hub-form input',
-        '.processor-hub-form select'
+        '.npmodal-btn'
     ].join(', ');
   
     // Function to get all relevant elements

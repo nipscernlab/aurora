@@ -43,7 +43,6 @@
 @import url("./modals/wave_config.css");
 
 /* 7. panels */
-@import url("./panels/processor_hub.css");
 @import url("./panels/processor_config.css");
 @import url("./panels/aurora_settings.css");
 @import url("./panels/ai_assistant.css");

@@ -15,7 +15,7 @@ const PRISM_STRINGS = {
     recompile:   'Recompile',
     fitToScreen: 'Fit to Screen',
     resetZoom:   'Reset Zoom',
-    clickModule: 'Click to view module: ',
+    clickModule: 'Click to open · double-click for source: ',
     clickWire:   'Click to highlight connection',
   },
   pt: {
@@ -28,7 +28,7 @@ const PRISM_STRINGS = {
     recompile:   'Recompilar',
     fitToScreen: 'Ajustar à Tela',
     resetZoom:   'Resetar Zoom',
-    clickModule: 'Clique para ver o módulo: ',
+    clickModule: 'Clique para abrir · duplo-clique p/ o código: ',
     clickWire:   'Clique para destacar conexão',
   },
 };
@@ -62,7 +62,7 @@ _setText('currentPath',   T.preparing);
 
 // ---------------------------------------------------------------------------
 //  gotosrc no-op — netlistsvg emits onclick="gotosrc(...)" on cells; we
-//  replace these with contextmenu listeners in setupSVGInteractions.
+//  replace these with dblclick listeners in setupSVGInteractions.
 // ---------------------------------------------------------------------------
 window.gotosrc = () => {};
 
@@ -308,22 +308,28 @@ class PRISMViewer {
         group.style.opacity = '1';
         this._hideTooltip();
       });
-      group.addEventListener('click', async (e) => {
+      group.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        await this.navigateToModule(type);
+        // Single click navigates, but a double click on the SAME cell opens
+        // its source. Defer navigation by one dblclick window so the dblclick
+        // handler below can cancel it — otherwise the first click of a
+        // double-click would navigate away before the source ever opens.
+        clearTimeout(this._navTimer);
+        this._navTimer = setTimeout(() => this.navigateToModule(type), 250);
       });
     });
 
-    // Source-file right-click
+    // Source-file double-click — opens the .v at the line that cell came from
     svg.querySelectorAll('g[onclick^="gotosrc"]').forEach((group) => {
       const m = (group.getAttribute('onclick') || '').match(/gotosrc\(\s*['"]([^'"]+)['"]\s*\)/);
       if (!m) return;
       group.removeAttribute('onclick');
       group.dataset.src = m[1];
-      group.addEventListener('contextmenu', (e) => {
+      group.addEventListener('dblclick', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        clearTimeout(this._navTimer);  // cancel the pending single-click navigation
         this._openSourceFromLocator(group.dataset.src);
       });
     });
@@ -620,8 +626,8 @@ class PRISMViewer {
   //  Context menu
   // -------------------------------------------------------------------------
   _onContextMenu(e) {
-    // Only show on background, not on SVG cells that already have their own contextmenu
-    if (e.target.closest('g[data-src]')) return;
+    // Source cells no longer claim right-click (it opens via double-click now),
+    // so the zoom/recompile menu is available everywhere on the canvas.
     e.preventDefault();
 
     let menu = document.getElementById('contextMenu');

@@ -296,7 +296,7 @@ async function runYosysCompilationWithPaths(
   // cada celula derivada do source. O fork @silimate/netlistsvg le esse
   // atributo e emite um SVG com `onclick="gotosrc(...)"` por cell — o
   // renderer do Prism aproveita pra abrir o source no editor via
-  // right-click (left-click continua sendo navegacao entre modulos).
+  // duplo-clique (clique simples continua sendo navegacao entre modulos).
   const readCommands = fileList.map((file) => `read_verilog -setattr src "${file}"`).join('\n');
   // setundef -zero: substitui valores don't-care (x) por 0 constante.
   // Sem isso, $pmux com `full_case` produz A=[x,x] como ramo default

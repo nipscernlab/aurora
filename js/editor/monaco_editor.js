@@ -650,8 +650,14 @@ class EditorManager {
         editorData.container.style.display = 'block';
         this.activeEditor = editorData.editor;
 
-        // Layout and restore state
-        setTimeout(() => {
+        // Layout and restore state. requestAnimationFrame fires after the
+        // browser has applied the display:block above and computed layout —
+        // exactly when editor.layout() can measure the container correctly.
+        // The old setTimeout(…, 50) was a guess: too early on a slow frame
+        // (mis-measured layout) and, worse, it opened a 50ms window in which
+        // the deferred focus() below could steal focus from a pane the user
+        // had since switched to (the "file always opens on the left" bug).
+        requestAnimationFrame(() => {
             this.activeEditor.layout();
 
             // Don't pull keyboard focus into the main pane while the user is
@@ -680,7 +686,7 @@ class EditorManager {
                     });
                 }
             }
-        }, 50);
+        });
 
         this.updateOverlayVisibility();
         return this.activeEditor;

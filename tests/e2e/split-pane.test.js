@@ -210,4 +210,32 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     expect(state.cardPresentAfterRender).toBe(true);  // card renders into verilog
     expect(state.cardClearedByRenderTree).toBe(true); // and is stripped on file render
   });
+
+  it('addTab revealPosition jumps to the target line (PRISM open-at-line)', async () => {
+    // Repro of the PRISM right-click bug: addTab creates the Monaco editor on
+    // a deferred (Monaco-ready-gated) path, so positioning right after addTab
+    // hit a null editor and the file opened at line 1. revealPosition makes
+    // addTab position the editor the moment it's created.
+    const jumpPath = path.join(projectDir, 'jumptest.v');
+    fs.writeFileSync(jumpPath, 'module a;\nmodule b;\nmodule c;\nmodule d;\nmodule e;\n');
+
+    const res = await window.evaluate(async (p) => {
+      const content = 'module a;\nmodule b;\nmodule c;\nmodule d;\nmodule e;\n';
+      window.TabManager.addTab(p, content, { preview: false, revealPosition: { line: 4, column: 1 } });
+      // Wait for the deferred editor creation + positioning to settle.
+      await new Promise((r) => setTimeout(r, 500));
+      // EditorManager isn't on window; find the editor via Monaco's registry,
+      // matching the model URI for our file.
+      const editors = window.monaco.editor.getEditors();
+      const editor = editors.find((e) => {
+        const u = e.getModel && e.getModel() && e.getModel().uri;
+        return u && String(u.path || u.fsPath || '').endsWith('jumptest.v');
+      });
+      return { exists: !!editor, line: editor && editor.getPosition() ? editor.getPosition().lineNumber : null };
+    }, jumpPath);
+    console.log('[split-pane] JUMP RESULT:', JSON.stringify(res));
+
+    expect(res.exists).toBe(true);  // editor created
+    expect(res.line).toBe(4);       // cursor landed on the requested line, not 1
+  });
 });

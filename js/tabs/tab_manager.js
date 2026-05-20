@@ -597,6 +597,17 @@ export class TabManager {
                     }
                     this.setupContentChangeListener(filePath, editor);
                     this.activateTab(filePath);
+                    // Optional jump-to-line (PRISM right-click → module
+                    // definition). Done here, right after the editor exists,
+                    // so it can't race the deferred creation — positioning
+                    // straight after addTab() would hit a null editor.
+                    if (options.revealPosition && typeof editor.revealLineInCenter === 'function') {
+                        const ln = options.revealPosition.line || 1;
+                        const col = options.revealPosition.column || 1;
+                        editor.revealLineInCenter(ln);
+                        editor.setPosition({ lineNumber: ln, column: col });
+                        editor.focus();
+                    }
                 } catch (error) {
                     console.error('Error creating editor:', error);
                     this.closeTab(filePath);

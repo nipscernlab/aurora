@@ -351,7 +351,7 @@ export const RenderMixin = {
                 return isTestbench ? 'fa-solid fa-vial' : 'fa-solid fa-flag';
             }
             return isTestbench ? 'fa-solid fa-flask' : 'fa-solid fa-microchip';
-        } else if (ext === '.cmm' || ext === '.asm') {
+        } else if (ext === '.cmm') {
             return 'fa-solid fa-file-code';
         } else if (ext === '.txt') {
             return 'fa-solid fa-file-lines';

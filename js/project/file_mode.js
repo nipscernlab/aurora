@@ -55,7 +55,10 @@ class ProjectTreeManager {
         // Hardware/. Aparecem na arvore agrupadas com o processador,
         // mas nao recebem toggle synth/tb, delete, nem entram no
         // synthesizableFiles do .spf.
-        this.SOFTWARE_EXTENSIONS = ['.cmm', '.asm'];
+        // .asm e GERADO (C± → ASM) e nao deve poluir a arvore — so o
+        // fonte .cmm aparece. (A compilacao le o .asm direto do disco,
+        // independente da arvore.)
+        this.SOFTWARE_EXTENSIONS = ['.cmm'];
 
         // State management. currentProjectPath is intentionally NOT
         // cached here — vive em ProjectStore (single source of truth).
@@ -323,8 +326,8 @@ class ProjectTreeManager {
     /**
      * Varre <projeto>/<proc>/{Hardware,Software,Simulation}/ pra cada
      * processador configurado e adiciona qualquer .v/.sv/.vh ainda
-     * nao listado em this.verilogFiles como synth, e qualquer .cmm/
-     * .asm como software (nao persistido). Devolve quantos de cada —
+     * nao listado em this.verilogFiles como synth, e qualquer .cmm
+     * como software (nao persistido). Devolve quantos de cada —
      * caller usa pra decidir se vale chamar saveConfiguration().
      *
      * Nao-destrutivo: nao remove arquivos que sumiram do disco aqui
@@ -346,8 +349,9 @@ class ProjectTreeManager {
         // pasta. A categoria (synth vs software) e decidida pela
         // EXTENSAO, nao pela pasta:
         //   .v / .sv / .vh   → synth, persistido no .spf
-        //   .cmm / .asm      → software, isSoftware=true, NAO persistido
-        //                       (re-descoberto a cada load pra evitar
+        //   .cmm             → software, isSoftware=true, NAO persistido
+        //                       (.asm e gerado e fica fora da arvore;
+        //                       re-descoberto a cada load pra evitar
         //                       loop com o file watcher)
         const subfolders = ['Hardware', 'Software', 'Simulation'];
         const allExts = [...this.ALLOWED_EXTENSIONS, ...this.SOFTWARE_EXTENSIONS];

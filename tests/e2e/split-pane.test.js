@@ -211,19 +211,26 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     expect(state.cardClearedByRenderTree).toBe(true); // and is stripped on file render
   });
 
-  it('addTab revealPosition jumps to the target line (PRISM open-at-line)', async () => {
+  it('addTab revealPosition jumps to AND scrolls to the target line (PRISM open-at-line)', async () => {
     // Repro of the PRISM right-click bug: addTab creates the Monaco editor on
     // a deferred (Monaco-ready-gated) path, so positioning right after addTab
     // hit a null editor and the file opened at line 1. revealPosition makes
     // addTab position the editor the moment it's created.
+    //
+    // A long file is essential here: with a 5-line file every line is on screen,
+    // so a broken reveal (cursor set but viewport not scrolled) still "passes".
+    // We target a line well below the fold and assert it's actually VISIBLE —
+    // catching the layout/scroll race, not just the cursor position.
+    const TARGET = 180;
+    const lines = Array.from({ length: 300 }, (_, i) => `module m${i + 1}; endmodule`);
+    const content = lines.join('\n') + '\n';
     const jumpPath = path.join(projectDir, 'jumptest.v');
-    fs.writeFileSync(jumpPath, 'module a;\nmodule b;\nmodule c;\nmodule d;\nmodule e;\n');
+    fs.writeFileSync(jumpPath, content);
 
-    const res = await window.evaluate(async (p) => {
-      const content = 'module a;\nmodule b;\nmodule c;\nmodule d;\nmodule e;\n';
-      window.TabManager.addTab(p, content, { preview: false, revealPosition: { line: 4, column: 1 } });
-      // Wait for the deferred editor creation + positioning to settle.
-      await new Promise((r) => setTimeout(r, 500));
+    const res = await window.evaluate(async ({ p, content, target }) => {
+      window.TabManager.addTab(p, content, { preview: false, revealPosition: { line: target, column: 1 } });
+      // Wait for the deferred editor creation + rAF reveal to settle.
+      await new Promise((r) => setTimeout(r, 600));
       // EditorManager isn't on window; find the editor via Monaco's registry,
       // matching the model URI for our file.
       const editors = window.monaco.editor.getEditors();
@@ -231,11 +238,22 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
         const u = e.getModel && e.getModel() && e.getModel().uri;
         return u && String(u.path || u.fsPath || '').endsWith('jumptest.v');
       });
-      return { exists: !!editor, line: editor && editor.getPosition() ? editor.getPosition().lineNumber : null };
-    }, jumpPath);
+      if (!editor) return { exists: false };
+      const pos = editor.getPosition();
+      const ranges = editor.getVisibleRanges();
+      const visible = ranges.some((r) => r.startLineNumber <= target && target <= r.endLineNumber);
+      return {
+        exists: true,
+        line: pos ? pos.lineNumber : null,
+        scrollTop: editor.getScrollTop(),
+        visible,
+      };
+    }, { p: jumpPath, content, target: TARGET });
     console.log('[split-pane] JUMP RESULT:', JSON.stringify(res));
 
-    expect(res.exists).toBe(true);  // editor created
-    expect(res.line).toBe(4);       // cursor landed on the requested line, not 1
+    expect(res.exists).toBe(true);   // editor created
+    expect(res.line).toBe(TARGET);   // cursor landed on the requested line, not 1
+    expect(res.scrollTop).toBeGreaterThan(0);  // viewport actually scrolled down
+    expect(res.visible).toBe(true);  // target line is on screen, not below the fold
   });
 });

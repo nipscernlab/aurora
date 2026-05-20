@@ -601,12 +601,19 @@ export class TabManager {
                     // definition). Done here, right after the editor exists,
                     // so it can't race the deferred creation — positioning
                     // straight after addTab() would hit a null editor.
+                    // Deferred to the next frame + an explicit layout() so the
+                    // just-shown editor has real dimensions: revealLineInCenter
+                    // on an un-laid-out editor sets the cursor but doesn't
+                    // scroll the viewport to the line.
                     if (options.revealPosition && typeof editor.revealLineInCenter === 'function') {
                         const ln = options.revealPosition.line || 1;
                         const col = options.revealPosition.column || 1;
-                        editor.revealLineInCenter(ln);
-                        editor.setPosition({ lineNumber: ln, column: col });
-                        editor.focus();
+                        requestAnimationFrame(() => {
+                            editor.layout();
+                            editor.setPosition({ lineNumber: ln, column: col });
+                            editor.revealLineInCenter(ln);
+                            editor.focus();
+                        });
                     }
                 } catch (error) {
                     console.error('Error creating editor:', error);

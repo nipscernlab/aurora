@@ -262,9 +262,16 @@ class ProjectManager {
                 const col = Number.isInteger(column) && column > 0 ? column : 1;
                 const reveal = (editor) => {
                     if (editor && typeof editor.revealLineInCenter === 'function') {
-                        editor.revealLineInCenter(ln);
-                        editor.setPosition({ lineNumber: ln, column: col });
-                        editor.focus();
+                        // Defer to the next frame and lay the editor out first:
+                        // when the pane/tab just became visible, revealLineInCenter
+                        // computes scroll against a stale (zero-height) layout and
+                        // the viewport never moves. layout() + rAF fixes the scroll.
+                        requestAnimationFrame(() => {
+                            editor.layout();
+                            editor.setPosition({ lineNumber: ln, column: col });
+                            editor.revealLineInCenter(ln);
+                            editor.focus();
+                        });
                     }
                 };
 

@@ -68,6 +68,13 @@
     cursor: pointer;
 }
 
+/* display:inline-flex acima sobrepoe o atributo [hidden]; reforca aqui
+   pra que esconder o filtro "processor only" (projeto sem processador)
+   realmente o remova do layout. */
+.wave-tree-filter[hidden] {
+    display: none;
+}
+
 .wave-tree {
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

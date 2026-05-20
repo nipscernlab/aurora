@@ -96,6 +96,7 @@ class WaveConfigManager {
             selectAllBtn:      document.getElementById('waveConfigSelectAll'),
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
+            processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
             useVerilatorCb:    document.getElementById('waveConfigUseVerilator'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
@@ -397,6 +398,11 @@ class WaveConfigManager {
             // fluxos (com e sem processador) — syntaxCheck usa
             // -y components/HDL que resolve a biblioteca SAPHO, entao
             // funciona em projeto com processador tambem.
+            // Limpa o tveri antes de re-rodar o syntax check. Cada open()
+            // reescreve os mesmos banners (simTop, passed/failed, etc); sem
+            // limpar, as mensagens das aberturas anteriores se acumulam e o
+            // usuario nao distingue o resultado atual do anterior.
+            compiler.terminalManager?.clearTerminalImmediate?.('tveri');
             if (typeof window.switchTerminal === 'function') {
                 window.switchTerminal('terminal-tveri');
             }
@@ -451,6 +457,11 @@ class WaveConfigManager {
     async refresh() {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
+        // Reset no inicio: cada early-return abaixo deixa o picker sem
+        // arvore, o que tambem significa "sem processador". Sem esse
+        // reset, o set ficaria stale do refresh anterior e o checkbox
+        // "processor only" continuaria visivel num projeto sem processador.
+        this._scopesWithAliasedSignal = new Set();
         if (!projectPath || !spfPath) {
             this.tree = null;
             this.renderTree();
@@ -731,6 +742,11 @@ class WaveConfigManager {
         if (!treeEl) return;
         treeEl.innerHTML = '';
 
+        // O checkbox "Show processor signals only" so faz sentido quando
+        // o .spf tem de fato um processador — i.e., existe pelo menos um
+        // signal aliased (plumbing SAPHO). Esconde caso contrario.
+        this._updateProcessorFilterVisibility();
+
         if (!this.tree) {
             const empty = document.createElement('div');
             empty.className = 'empty-state';
@@ -853,6 +869,24 @@ class WaveConfigManager {
         };
         walk(this.tree);
         return out;
+    }
+
+    /**
+     * Mostra/esconde o filtro "Show processor signals only" conforme o
+     * projeto tenha (ou nao) sinais de processador. _scopesWithAliasedSignal
+     * vazio == nenhum signal aliased == sem processador no .spf. Quando
+     * escondemos, tambem desligamos o filtro pra nao deixar a arvore
+     * presa num estado filtrado que o usuario nao consegue mais reverter.
+     */
+    _updateProcessorFilterVisibility() {
+        const wrap = this.elements.processorOnlyFilter;
+        if (!wrap) return;
+        const hasProcessor = this._scopesWithAliasedSignal.size > 0;
+        wrap.hidden = !hasProcessor;
+        if (!hasProcessor && this._processorOnly) {
+            this._processorOnly = false;
+            if (this.elements.processorOnlyCb) this.elements.processorOnlyCb.checked = false;
+        }
     }
 
     _renderModuleRow(node, depth, visible) {

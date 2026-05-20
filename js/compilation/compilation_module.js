@@ -2241,6 +2241,17 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
  * arquivo de memoria" — silencio.
  */
 async _stageProcessorMemoryFiles(tempBaseDir) {
+    // Projeto sem processador no .spf nunca gera pc_*_mem.txt — o
+    // $readmemb que consome esses arquivos so existe dentro do .v do
+    // processador SAPHO. Pular o staging inteiro (incluindo o warning
+    // "no pc_*_mem.txt found") nesse caso: procurar arquivos de memoria
+    // de processador num design que nao tem processador so confunde.
+    const procs = Array.isArray(this.projectConfig?.processors)
+        ? this.projectConfig.processors.filter(
+            (p) => p && (typeof p === 'string' ? p.trim() : p.name))
+        : [];
+    if (procs.length === 0) return;
+
     let entries;
     try {
         entries = await window.electronAPI.getFolderFiles(tempBaseDir);

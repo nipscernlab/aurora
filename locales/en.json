@@ -171,8 +171,7 @@
             "understood": "Understood",
             "close":      "Close",
             "cancel":     "Cancel",
-            "error":      "Error",
-            "warning":    "Warning"
+            "error":      "Error"
         },
         "newProject": {
             "missingInfoTitle":      "Missing Information",
@@ -186,11 +185,6 @@
             "errorTitle":   "Error",
             "errorMessage": "Failed to create processor: {{detail}}",
             "unknownError": "Unknown error"
-        },
-        "deleteProcessor": {
-            "title":   "Delete processor",
-            "message": "Are you sure you want to delete the processor \"{{name}}\"? This removes its folder and registrations from the project.",
-            "confirm": "Delete processor"
         },
         "closeProject": {
             "title":             "Close Project",
@@ -267,7 +261,6 @@
         "setTopLevel":     "Set as Top Level",
         "unmarkTestbench": "Unmark Testbench",
         "markTestbench":   "Mark as Testbench",
-        "removeFile":      "Delete Processor",
         "newVerilog":      "New Verilog File (.v)",
         "saveNewVerilog":  "Save New Verilog File"
     },
@@ -291,10 +284,8 @@
             "alreadyDeleted":     "File \"{{name}}\" was already deleted",
             "errorDeleting":      "Error deleting \"{{name}}\": {{error}}",
             "removed":            "Removed \"{{name}}\"",
-            "cannotSetTopOnTb":   "Cannot set Top Level on Testbench file",
             "setAsTop":           "\"{{name}}\" set as Top Level",
             "topRemoved":         "Top Level removed from \"{{name}}\"",
-            "notTestbench":       "File must have Testbench category",
             "markedTb":           "\"{{name}}\" marked as Testbench",
             "tbUnmarked":         "Testbench mark removed from \"{{name}}\""
         },
@@ -422,8 +413,7 @@
         },
         "toolchain": {
             "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe toolchain bundle (iverilog/gtkwave/yosys) is not installed. Download \"aurora-toolchain-v2.zip\" from the project's GitHub Releases and extract it into components/Packages/, then restart the app.",
-            "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nRun `npm run bootstrap` at the project root to download and install (aurora-verilator-v1.zip ~240 MB).",
-            "cxxNotFound":       "Verilator bundle corrupted — g++ not found:\n{{paths}}\n\nDelete components/Packages/verilator/ and run `npm run bootstrap` to reinstall."
+            "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nRun `npm run bootstrap` at the project root to download and install (aurora-verilator-v1.zip ~240 MB)."
         },
         "user": {
             "cancelled": "Compilation canceled by user"
@@ -434,7 +424,6 @@
             "sidebarMenu":                "Toggles file tree panel",
             "refresh-button":             "Refreshes the file tree and reloads project structure.",
             "newProjectBtn":              "Creates a new AURORA .spf project with the complete folder structure and initial configuration files.",
-            "backupFolderBtn":            "Creates a .zip backup of the entire project, making it easy to share or safeguard your work.",
             "openProjectBtn":             "Opens an existing .spf project and loads it into the workspace.",
             "projectInfo":                "Displays detailed information and properties about the currently loaded .spf project.",
             "cmmcomp":                    "Compiles the C± (.cmm) source all the way to Verilog: cmmcomp produces the .asm, then asmcomp produces the processor's .v and testbench.",
@@ -442,20 +431,13 @@
             "wavecomp":                   "Analyzes Verilog output simulation.",
             "prismcomp":                  "Launches the RTL interactive visualizer to explore processor architectures and signal relationships.",
             "allcomp":                    "Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.",
-            "fractalcomp":                "Performs a full compilation workflow and launches the Fractal Processor Simulator, allowing you to run and test your processor design interactively.",
-            "line-number":                "Shows current line and column position in the editor.",
-            "themeToggle":                "Switches between light and dark themes for optimal comfort based on your environment.",
-            "info-aurora":                "Shows detailed information about AURORA IDE version, system specs (Windows, Node.js, Electron, Chromium), and credits.",
             "processorHub":               "Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.",
             "aiButton":                   "Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.",
             "aurora-settings":            "Opens AURORA IDE settings to configure preferences and application behavior.",
             "current-spf-name":           "Displays the name of the currently loaded project.",
             "verilog-block":              "Browse and insert a prebuilt Verilog module into your project. Most modules are generic and FPGA-agnostic, but always review before integrating.",
-            "toggle-ui":                  "Switch the IDE's GUI between Processor Oriented and Project Oriented modes.",
             "change-icon-btn":            "Change the icon of the AURORA IDE. You can select any image file from your computer.",
-            "context-refactor-button":   "Opens refactoring options for the current code context.",
             "cancel-everything":          "Cancel all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.",
-            "translate":                  "Opens translation tools for internationalization support.",
             "clear-terminal":             "Clear all content from the current terminal tab.",
             "goup-terminal":              "Scroll up in the terminal output.",
             "godown-terminal":            "Scroll down in the terminal output.",
@@ -468,7 +450,6 @@
             "open-folder-button":         "Open the current project folder in the system file explorer.",
             "close-button":               "Close the current project and return to the welcome screen.",
             "toggle-file-tree":           "Collapse or expand all folders in the file tree.",
-            "clear-search":               "Clear the current file search query.",
             "browseBtn":                  "Browse and select the directory where the new project will be created.",
             "generateProjectBtn":         "Generate the new project with the specified name and location.",
             "cancelProjectBtn":           "Cancel the new project creation and close the dialog.",
@@ -484,9 +465,7 @@
             "outputPorts":                "Number of output ports for external data communication.",
             "gain":                       "Amplification factor for signal processing (must be a power of 2).",
             "cancelProcessorHub":         "Cancel processor creation and return to the main interface.",
-            "generateProcessor":          "Create the processor with the specified configuration.",
-            "file-search-input":          "Search for files in the current project by name or extension.",
-            "power-off":                  "Exit the AURORA IDE application safely."
+            "generateProcessor":          "Create the processor with the specified configuration."
         }
     },
     "welcome": {
@@ -502,15 +481,6 @@
         "tasm":  "Welcome to the terminal TASM!",
         "tveri": "Welcome to the terminal TVERI!",
         "twave": "Welcome to the terminal TWAVE!"
-    },
-    "splash": {
-        "tagline":          "Scalable Architecture for Hardware Optimization",
-        "phaseInit":        "Initializing platform",
-        "phaseModules":     "Loading AURORA modules",
-        "phaseYanc":        "Loading YANC compiler",
-        "phaseWorkspace":   "Preparing workspace",
-        "phaseAlmostReady": "Almost ready",
-        "org":              "NIPSCERN Lab"
     },
     "locale": {
         "compilerMessages": {

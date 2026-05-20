@@ -234,47 +234,6 @@ export class TabManager {
     }
 
 
-    static highlightFileInTree(filePath) {
-        // Remove highlight from all items
-        document.querySelectorAll('.file-tree-item')
-            .forEach(item => {
-                item.classList.remove('active');
-            });
-
-        if (!filePath) return;
-
-        // Find and highlight the corresponding file tree item
-        const fileItem = document.querySelector(`.file-tree-item[data-path="${CSS.escape(filePath)}"]`);
-        if (fileItem) {
-            fileItem.classList.add('active');
-
-            // Ensure the highlighted item is visible by expanding parent folders
-            let parent = fileItem.parentElement;
-            while (parent) {
-                if (parent.classList.contains('folder-content')) {
-                    parent.style.display = 'block';
-                    const folderItem = parent.previousElementSibling;
-                    if (folderItem) {
-                        folderItem.querySelector('.folder-icon')
-                            ?.classList.add('expanded');
-                        const folderPath = folderItem.getAttribute('data-path');
-                        if (folderPath) {
-                            FileTreeState.expandedFolders.add(folderPath);
-                        }
-                    }
-                }
-                parent = parent.parentElement;
-            }
-
-            // Scroll the file item into view
-            fileItem.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest'
-            });
-        }
-    }
-
-
     // Improved method to mark files as modified.
     //
     // Broadcasts the dirty marker to EVERY tab DOM element bound to this
@@ -656,7 +615,6 @@ export class TabManager {
 
             // Update context path
             this.updateContextPath(filePath);
-            this.highlightFileInTree(filePath);
 
             const editorContainer = document.getElementById('monaco-editor');
             this.hideOverlay();
@@ -973,7 +931,6 @@ export class TabManager {
 
             // Handle active tab switching
             if (this.activeTab === filePath) {
-                this.highlightFileInTree(null);
                 const remainingTabs = Array.from(this.tabs.keys());
 
                 if (remainingTabs.length > 0) {

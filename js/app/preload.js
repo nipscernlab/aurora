@@ -32,8 +32,6 @@ const fileOperations = {
 
   getFolderFiles:  (p) => ipcRenderer.invoke('getFolderFiles', p),
   listFilesInDirectory: (p) => ipcRenderer.invoke('list-files-directory', p),
-  refreshFolder:   (p) => ipcRenderer.invoke('refreshFolder', p),
-  refreshFileTree: () => ipcRenderer.invoke('refresh-file-tree'),
   triggerFileTreeRefresh: () => ipcRenderer.invoke('trigger-file-tree-refresh'),
 
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),

@@ -3,7 +3,6 @@
  */
 
 import { showCardNotification } from '../ui/notification.js';
-import { fileTreeManager, FileTreeState } from './file_tree_manager.js';
 
 class FileTreeController {
   constructor() {
@@ -13,7 +12,6 @@ class FileTreeController {
   init() {
     // Get the UI elements
     this.collapseButton = document.getElementById('toggle-file-tree');
-    this.refreshButton = document.getElementById('refresh-file-tree');
     this.backupButton = document.getElementById('backup-project');
     this.fileTreeContainer = document.getElementById('file-tree');
 
@@ -26,11 +24,6 @@ class FileTreeController {
     if (this.collapseButton) {
       this.collapseButton.addEventListener('click', () => this.collapseAll());
       this.updateCollapseButtonState();
-    }
-    
-    // Add click event listener for the refresh button
-    if (this.refreshButton) {
-      this.refreshButton.addEventListener('click', () => this.handleRefresh());
     }
 
     // Add click event listener for the backup button
@@ -87,77 +80,17 @@ class FileTreeController {
 }
 
   /**
-   * Handles the file tree refresh request.
-   */
-  handleRefresh() {
-    const icon = this.refreshButton.querySelector('i');
-    if (!icon) return;
-
-    icon.classList.add('spinning');
-    this.refreshButton.disabled = true;
-
-    try {
-      if (window.electronAPI && typeof window.electronAPI.refreshFileTree === 'function') {
-        window.electronAPI.refreshFileTree();
-      } else {
-        console.error('refreshFileTree API is not available.');
-        showCardNotification('Refresh function is not available.', 'error', 3000);
-      }
-    } catch (error) {
-      console.error('Error triggering file tree refresh:', error);
-      showCardNotification('Error triggering file tree refresh.', 'error', 3000);
-    } finally {
-      setTimeout(() => {
-        icon.classList.remove('spinning');
-        this.refreshButton.disabled = false;
-      }, 1000);
-    }
-  }
-
-  /**
-   * Collapses all currently expanded folders in the file tree.
+   * Collapses all expanded nodes in the hierarchy view (the only file
+   * view with collapsible nodes — the verilog picker is flat). Every
+   * `.hierarchy-children` collapses and every `.hierarchy-toggle` drops
+   * its `expanded` flag so the curved markers in h_tree.css redraw as
+   * hollow rings.
    *
-   * The previous version mutated DOM classes directly — it kept dead
-   * references to a `.folder-toggle.rotated` legacy class that the current
-   * renderer no longer produces, and it didn't always converge on the right
-   * chevron rotation when expanded folders had been re-rendered. The clean
-   * fix: drop FileTreeState first, then ask the manager to re-render. The
-   * renderer is the single source of truth for chevron orientation
-   * (`.collapsed` ⇒ rotated -90°), so all chevrons end up consistent with
-   * the post-collapse model state.
+   * (Pre-2026-05 this also swept the standard tree's `.folder-content`
+   * /`.file-item-icon` classes and reset a FileTreeState model — both
+   * gone with the standard view.)
    */
   collapseAll() {
-    // Clear the standard-tree model first. FileTreeState was previously not
-    // exported, so `typeof FileTreeState !== 'undefined'` resolved to false
-    // and the expanded-folder set survived the re-render — the tree just
-    // bounced back to its previous shape, which the user perceived as
-    // "Collapse All is just Refresh". Importing FileTreeState fixes that.
-    FileTreeState?.expandedFolders?.clear?.();
-
-    // Re-render so every chevron + folder icon picks up its collapsed
-    // state from a fresh pass through renderFileTree.
-    if (fileTreeManager && typeof fileTreeManager.refresh === 'function') {
-      fileTreeManager.refresh();
-    }
-
-    // Defensive DOM sweep. Runs on top of the model reset above so even if
-    // the renderer is mid-flight (200ms fade) the user sees instant feedback.
-    this.fileTreeContainer.querySelectorAll('.folder-content')
-      .forEach(content => content.classList.add('hidden'));
-    this.fileTreeContainer.querySelectorAll('.folder-toggle-icon')
-      .forEach(toggle => toggle.classList.add('collapsed'));
-    this.fileTreeContainer.querySelectorAll('.file-item-icon.ph-folder-open')
-      .forEach(icon => icon.classList.replace('ph-folder-open', 'ph-folder'));
-    this.fileTreeContainer.querySelectorAll('.file-item-icon.fa-folder-open')
-      .forEach(icon => icon.classList.replace('fa-folder-open', 'fa-folder'));
-
-    // Hierarchy view (post-synthesis module tree) lives inside the same
-    // #file-tree element but is its own DOM subtree (see tree_view.js).
-    // Mirror the same intent: every `.hierarchy-children` collapses and
-    // every `.hierarchy-toggle` drops its `expanded` flag so the curved
-    // tree-node markers in h_tree.css redraw as hollow rings. This makes
-    // Collapse All work regardless of which view the user has active —
-    // standard, verilog picker, or hierarchy.
     this.fileTreeContainer.querySelectorAll('.hierarchy-children')
       .forEach(children => {
         children.classList.remove('expanded');

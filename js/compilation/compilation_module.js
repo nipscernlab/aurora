@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-// statusUpdater, refreshFileTree, checkCancellation, startCompilation, endCompilation are global
+// statusUpdater, checkCancellation, startCompilation, endCompilation are global
 /**
  * compilation_module.js — toolchain orchestrator (renderer side).
  *

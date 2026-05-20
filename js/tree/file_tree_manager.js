@@ -83,27 +83,6 @@ const TreeViewState = {
     },
 };
 
-// --- File Tree expand/collapse state ---
-// Vestigial since the standard tree was removed (the verilog view does
-// not key off this set), but still written by tab_manager + the
-// collapse-all toggler, so it stays exported as a harmless shared store.
-const FileTreeState = {
-    expandedFolders: new Set(),
-    isRefreshing: false,
-
-    isExpanded(path) {
-        return this.expandedFolders.has(path);
-    },
-
-    toggleFolder(path, expanded) {
-        if (expanded) {
-            this.expandedFolders.add(path);
-        } else {
-            this.expandedFolders.delete(path);
-        }
-    }
-};
-
 // --- Empty-state placeholder ---------------------------------------
 //
 // "No project open" state → a click-to-create-project card. It renders
@@ -231,8 +210,6 @@ class FileTreeManager {
             // deletion que reescreve o arquivo.
             window.projectTreeManager?.refreshTree?.();
         });
-        
-        document.addEventListener('refresh-file-tree', () => this.refresh());
 
         // Initialize tree based on saved mode
         this.initializeTreeBasedOnMode();
@@ -254,12 +231,7 @@ class FileTreeManager {
         }
     }
 
-    refresh() {
-        // Single file view today: delegate to the verilog project tree.
-        window.projectTreeManager?.refreshTree?.();
-    }
 
-    
 toggleHierarchyView() {
     // Delegate to the file-tree view controller — it owns the
     // toggle button and the view-switch state. Kept this stub so
@@ -279,7 +251,7 @@ toggleHierarchyView() {
 }
 
 const fileTreeManager = new FileTreeManager();
-export { fileTreeManager, TreeViewState, FileTreeState };
+export { fileTreeManager, TreeViewState };
 
 
 // --- Empty-state wiring ---------------------------------------------

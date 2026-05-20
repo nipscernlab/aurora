@@ -233,17 +233,6 @@ function register() {
     }
   });
 
-  ipcMain.handle('refreshFolder', async (_event, projectPath) => {
-    projectPath = safePath(projectPath, 'projectPath');
-    try {
-      const files = await scanDirectory(projectPath);
-      return { files };
-    } catch (error) {
-      log.error('Error scanning directory:', error);
-      throw error;
-    }
-  });
-
   ipcMain.handle('restore-original-testbench', async (_event, originalPath, backupPath) => {
     try {
       originalPath = safePath(originalPath, 'originalPath');
@@ -255,10 +244,6 @@ function register() {
       log.error('restore-original-testbench failed:', err);
       return { success: false, message: err.message };
     }
-  });
-
-  ipcMain.on('refresh-file-tree', (event) => {
-    event.sender.send('trigger-refresh-file-tree');
   });
 
   // ---------- dialogs ----------

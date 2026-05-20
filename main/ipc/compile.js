@@ -1,14 +1,13 @@
-// TODO(types): opt this file into `// @ts-check` once exec-command and
-// exec-vvp-optimized are migrated to a typed [bin, args[]] IPC contract
-// (PR 2.5). Today the renderer composes raw shell strings, which tangles
-// up the ChildProcess typings (shell:true/encoding narrowing, child.pid
-// undefined vs state.vvpProcessPid null) into ~15 errors that aren't
-// worth solving with casts when the actual fix is the IPC redesign.
+// TODO(types): opt this file into `// @ts-check` once exec-command is
+// migrated to a typed [bin, args[]] IPC contract. Today the renderer
+// composes raw shell strings, which tangles up the ChildProcess typings
+// (shell:true/encoding narrowing) into errors that aren't worth solving
+// with casts when the actual fix is the IPC redesign.
 /**
- * Compilation + simulation execution: exec-command, exec-vvp-optimized,
- * exec-vvp-streamed, launch-gtkwave-only, cancel-vvp-process. All
- * process management ends up here so cancellation has a single source
- * of truth.
+ * Compilation + simulation execution: exec-command, launch-gtkwave-only,
+ * cancel-vvp-process. All process management ends up here so cancellation
+ * has a single source of truth. (The structured-spec executor in
+ * main/compile/executor.js is the modern path; vvp now runs through it.)
  */
 
 const { ipcMain } = require('electron');
@@ -77,124 +76,6 @@ function register() {
       child.stderr.on('data', (data) => (stderr += data.toString()));
       child.on('close', (code) => resolve({ code, stdout, stderr, pid: child.pid }));
       child.on('error', (err) => reject(err));
-    });
-  });
-
-  /**
-   * Stream the output of a vvp run live to the renderer. Used by pass 2
-   * of the wave pipeline so $display lines from the testbench show up
-   * in twave as the simulation progresses (instead of arriving in one
-   * lump when vvp finally exits). Uses spawn (no shell) so stdout/stderr
-   * pipes go straight from vvp to us — no shell buffering layer between.
-   *
-   * Each chunk fires `vvp-stream` events tagged with stdout/stderr.
-   * Resolves with { code } when the process exits.
-   */
-  ipcMain.handle('exec-vvp-streamed', (event, vvpBin, vvpFile, extraArgs, workingDir, options = {}) => {
-    return new Promise((resolve, reject) => {
-      // vvpFile may be '' when caller wants to spawn a self-contained binary
-      // (Verilator-generated .exe) with no script argument.
-      const args = [
-        ...(vvpFile ? [vvpFile] : []),
-        ...(Array.isArray(extraArgs) ? extraArgs : []),
-      ];
-      // options.prependPath: array of dirs to prepend to PATH. Verilator
-      // pass-2 uses this so the .exe finds libstdc++-6.dll etc. from the
-      // bundle's mingw64/bin; without it Windows kills the process with
-      // STATUS_DLL_NOT_FOUND (0xC0000135 = 3221225781) before main() runs.
-      // options.env: extra arbitrary env vars to inject.
-      const spawnOpts = { cwd: workingDir, windowsHide: true };
-      const prepend = Array.isArray(options?.prependPath) ? options.prependPath : null;
-      if (prepend || options?.env) {
-        const baseEnv = { ...process.env, ...(options?.env || {}) };
-        if (prepend && prepend.length) {
-          baseEnv.PATH = `${prepend.join(';')};${baseEnv.PATH || ''}`;
-        }
-        spawnOpts.env = baseEnv;
-      }
-      const child = spawn(vvpBin, args, spawnOpts);
-
-      state.currentVvpProcess = child;
-      state.vvpProcessPid = child.pid;
-
-      child.stdout?.on('data', (data) => {
-        event.sender.send('vvp-stream', { type: 'stdout', data: data.toString() });
-      });
-      child.stderr?.on('data', (data) => {
-        event.sender.send('vvp-stream', { type: 'stderr', data: data.toString() });
-      });
-      child.on('close', (code) => {
-        state.currentVvpProcess = null;
-        state.vvpProcessPid = null;
-        resolve({ code });
-      });
-      child.on('error', (err) => {
-        state.currentVvpProcess = null;
-        state.vvpProcessPid = null;
-        reject({ code: -1, error: err.message });
-      });
-    });
-  });
-
-  ipcMain.handle('exec-vvp-optimized', (event, command, workingDir, options = {}) => {
-    return new Promise((resolve, reject) => {
-      const cpuCount = getCPUCount();
-      const performanceEnv = {
-        ...process.env,
-        OMP_NUM_THREADS: cpuCount.toString(),
-        OMP_THREAD_LIMIT: cpuCount.toString(),
-        OMP_DYNAMIC: 'true',
-        OMP_NESTED: 'false',
-        OMP_STACKSIZE: '32M',
-        VVP_PARALLEL: '1',
-        VVP_THREADS: cpuCount.toString(),
-        MALLOC_ARENA_MAX: '2',
-        MALLOC_MMAP_THRESHOLD: '65536',
-        NUMBER_OF_PROCESSORS: cpuCount.toString(),
-        ...options.env,
-      };
-
-      const silentCommand = `start /b cmd /c "${command}"`;
-      const execOptions = {
-        cwd: workingDir,
-        env: performanceEnv,
-        maxBuffer: 1024 * 1024 * 50,
-        windowsHide: true,
-        encoding: 'utf8',
-        shell: true,
-      };
-
-      state.currentVvpProcess = exec(silentCommand, execOptions);
-
-      let stdout = '';
-      let stderr = '';
-
-      if (state.currentVvpProcess) {
-        state.vvpProcessPid = state.currentVvpProcess.pid;
-        event.sender.send('command-output-stream', { type: 'pid', pid: state.vvpProcessPid });
-      }
-
-      state.currentVvpProcess.stdout?.on('data', (data) => {
-        stdout += data;
-        event.sender.send('command-output-stream', { type: 'stdout', data });
-      });
-
-      state.currentVvpProcess.stderr?.on('data', (data) => {
-        stderr += data;
-        event.sender.send('command-output-stream', { type: 'stderr', data });
-      });
-
-      state.currentVvpProcess.on('close', (code) => {
-        state.currentVvpProcess = null;
-        state.vvpProcessPid = null;
-        resolve({ code, stdout, stderr, performance: { cpuCount } });
-      });
-
-      state.currentVvpProcess.on('error', (err) => {
-        state.currentVvpProcess = null;
-        state.vvpProcessPid = null;
-        reject({ code: -1, stdout: '', stderr: err.message || 'VVP process error', error: err.message });
-      });
     });
   });
 

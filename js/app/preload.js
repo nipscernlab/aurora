@@ -102,19 +102,6 @@ const projectOperations = {
  * ========================================================================= */
 const compilationOperations = {
   execCommand: (cmd, options = {}) => ipcRenderer.invoke('exec-command', cmd, options),
-  execVvpOptimized: (cmd, workingDir, options = {}) =>
-    ipcRenderer.invoke('exec-vvp-optimized', cmd, workingDir, options),
-  // Streamed vvp run: stdout/stderr chunks arrive live via `vvp-stream`
-  // events while the simulation runs (instead of one lump at the end).
-  // The caller registers a listener with onVvpStream and the cleanup
-  // function it returns must be invoked when the run finishes.
-  execVvpStreamed: (vvpBin, vvpFile, extraArgs, workingDir, options) =>
-    ipcRenderer.invoke('exec-vvp-streamed', vvpBin, vvpFile, extraArgs, workingDir, options),
-  onVvpStream: (callback) => {
-    const handler = (_event, payload) => callback(payload);
-    ipcRenderer.on('vvp-stream', handler);
-    return () => ipcRenderer.removeListener('vvp-stream', handler);
-  },
 
   // Structured-spec executor. The renderer builds a CommandSpec
   // (js/compilation/command_spec.js + builders/*), the main process
@@ -136,9 +123,6 @@ const compilationOperations = {
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
-
-  onCommandOutputStream: (cb) => ipcRenderer.on('command-output-stream', cb),
-  removeCommandOutputListener: (cb) => ipcRenderer.removeListener('command-output-stream', cb),
 
   onGtkwaveOutput: (cb) => ipcRenderer.on('gtkwave-output', cb),
   removeGtkwaveOutputListener: (cb) => ipcRenderer.removeListener('gtkwave-output', cb),

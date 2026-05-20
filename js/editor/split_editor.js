@@ -419,7 +419,12 @@ const SplitEditorManager = {
         // Expose globally so tab_manager (which already imports us indirectly
         // via monaco_editor) can call refreshLayout without a hard import cycle.
         if (typeof window !== 'undefined') window.SplitEditorManager = this;
-        this._patchTabManagerOverlay();
+
+        // Own the welcome-overlay decision: TabManager calls show/hideOverlay,
+        // we route both through refreshLayout so the overlay reflects ALL
+        // panes (main + splits). A registered delegate replaces the old
+        // monkey-patch that reassigned TabManager.show/hideOverlay.
+        TabManager.overlayDelegate = () => this.refreshLayout();
 
         // Keep the split button's enabled/tooltip state in sync with the
         // editing context. TabManager dispatches aurora:editing-file-changed
@@ -434,28 +439,6 @@ const SplitEditorManager = {
         // Sync the button to the real initial state (no file open → disabled
         // with the right tooltip) instead of relying on the static HTML attrs.
         this._updateButton();
-    },
-
-    /**
-     * Wrap TabManager.showOverlay / hideOverlay so that:
-     *  - Welcome only appears when ALL panes (main + splits) are empty.
-     *  - Empty panes are hidden and resizers are rebuilt cleanly.
-     */
-    _patchTabManagerOverlay() {
-        if (this._patched) return;
-        this._patched = true;
-
-        const origShow = TabManager.showOverlay.bind(TabManager);
-        const origHide = TabManager.hideOverlay.bind(TabManager);
-
-        TabManager.showOverlay = () => {
-            // Defer to refreshLayout which decides whether the welcome overlay
-            // should actually be shown based on the global pane state.
-            this.refreshLayout(origShow, origHide);
-        };
-        TabManager.hideOverlay = () => {
-            this.refreshLayout(origShow, origHide);
-        };
     },
 
     canSplit() {
@@ -600,7 +583,7 @@ const SplitEditorManager = {
      *  4. Show the welcome overlay only when EVERY pane is empty;
      *     otherwise keep it hidden so visible panes can be used.
      */
-    refreshLayout(origShowOverlay, origHideOverlay) {
+    refreshLayout() {
         if (!this.wrapper || !this.mainShell) return;
 
         const mainHasContent = this._mainHasContent();

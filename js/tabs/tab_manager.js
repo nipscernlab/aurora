@@ -22,11 +22,17 @@ export class TabManager {
     // closing a PDF tab can clear it; otherwise each opened PDF left a 2s
     // interval running forever against a detached iframe.
     static pdfStateIntervals = new Map();
+    // Optional delegate for the welcome-overlay decision. SplitEditorManager
+    // registers one so the overlay reflects ALL panes (main + splits), not
+    // just the main pane. When null, show/hideOverlay do the plain toggle.
+    // (Replaces an older monkey-patch that reassigned show/hideOverlay.)
+    static overlayDelegate = null;
 
     // Image and PDF extensions
     static imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
     static pdfExtensions = new Set(['pdf']);
     static hideOverlay() {
+        if (TabManager.overlayDelegate) { TabManager.overlayDelegate(); return; }
         const overlay = document.getElementById('editor-overlay');
         if (overlay) {
             overlay.classList.add('hidden');
@@ -47,6 +53,7 @@ export class TabManager {
 
     // Show overlay when no content
     static showOverlay() {
+        if (TabManager.overlayDelegate) { TabManager.overlayDelegate(); return; }
         const overlay = document.getElementById('editor-overlay');
         if (overlay) {
             overlay.classList.remove('hidden');

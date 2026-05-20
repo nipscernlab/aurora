@@ -50,7 +50,7 @@
  * @property {'ephemeral'|'persisted'} [scope]
  */
 
-const STEP_IDS = Object.freeze([
+export const STEP_IDS = Object.freeze([
   'cmm', 'asm-pre', 'asm',
   'iverilog-check', 'iverilog-build',
   'vvp-header', 'vvp-run',
@@ -59,7 +59,7 @@ const STEP_IDS = Object.freeze([
   'yosys-hierarchy', 'prism-yosys',
 ]);
 
-const STEP_DESCRIPTIONS = Object.freeze({
+export const STEP_DESCRIPTIONS = Object.freeze({
   'cmm':              'CMM compiler (cmmcomp.exe) — .cmm → .asm + cmm_log.txt',
   'asm-pre':          'Assembly preprocessor (appcomp.exe) — expand macros into Temp/',
   'asm':              'Assembly compiler (asmcomp.exe) — .asm → Hardware/<proc>.v + pc_*_mem.txt + Simulation/<proc>_tb.v',
@@ -86,7 +86,7 @@ const STEP_DESCRIPTIONS = Object.freeze({
  * @param {CommandOverride} ov
  * @returns {CommandSpec}
  */
-function applyOverride(spec, ov) {
+export function applyOverride(spec, ov) {
   if (!ov) return spec;
   let args = spec.args.slice();
   if (Array.isArray(ov.removeArgs) && ov.removeArgs.length) {
@@ -119,7 +119,7 @@ function applyOverride(spec, ov) {
  * @param {CommandSpec} spec
  * @returns {string}
  */
-function formatSpec(spec) {
+export function formatSpec(spec) {
   if (!spec) return '';
   const tokens = [spec.binary, ...(spec.args || [])];
   const out = tokens.map((t) => {
@@ -141,7 +141,7 @@ function formatSpec(spec) {
  * @param {CommandSpec} before
  * @param {CommandSpec} after
  */
-function diffSpecs(before, after) {
+export function diffSpecs(before, after) {
   const a = new Set(before?.args || []);
   const b = new Set(after?.args || []);
   const added = [...(after?.args || [])].filter((x) => !a.has(x));
@@ -168,7 +168,7 @@ function diffSpecs(before, after) {
  * @param {CommandSpec} spec
  * @returns {{ok:true} | {ok:false, error:string}}
  */
-function validateShape(spec) {
+export function validateShape(spec) {
   if (!spec || typeof spec !== 'object') return { ok: false, error: 'spec must be an object' };
   if (!STEP_IDS.includes(spec.step)) return { ok: false, error: `unknown step: ${spec.step}` };
   if (typeof spec.binary !== 'string' || !spec.binary) return { ok: false, error: 'binary must be a non-empty string' };
@@ -180,26 +180,17 @@ function validateShape(spec) {
   return { ok: true };
 }
 
-const CommandSpec = Object.freeze({
-  STEP_IDS,
-  STEP_DESCRIPTIONS,
-  applyOverride,
-  formatSpec,
-  diffSpecs,
-  validateShape,
-});
-
+// Convenience aggregate for non-module consumers (e.g. legacy globals
+// or quick console inspection). ESM importers use the named exports
+// above; `import * as CommandSpec from './command_spec.js'` resolves
+// against those, not this object.
 if (typeof window !== 'undefined') {
-  window.CommandSpec = CommandSpec;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
+  window.CommandSpec = Object.freeze({
     STEP_IDS,
     STEP_DESCRIPTIONS,
     applyOverride,
     formatSpec,
     diffSpecs,
     validateShape,
-  };
+  });
 }

@@ -9,6 +9,8 @@
         "verilogSynth":    { "tooltip": "Sintetizar Verilog" },
         "prism":           { "tooltip": "Abrir PRISM" },
         "waveAnalyse":     { "tooltip": "Analisar Verilog (forma de onda)" },
+        "verilatorTl":     { "tooltip": "Rodar Verilator no top-level (harness C++: loop de clock + I/O por arquivo)" },
+        "verilatorProc":   { "tooltip": "Rodar Verilator no processador gerado pelo C± (fiação automática input_N/output_N)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
             "tooltip":         "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
@@ -337,7 +339,18 @@
             "bannerFailed":         "--- Compilação Falhou ---",
             "switchedFileTree":     "Alternado para árvore de arquivos",
             "switchedHierarchical": "Alternado para visão hierárquica de módulos",
-            "noHierarchyData":      "Sem dados de hierarquia. Compile o Verilog primeiro."
+            "noHierarchyData":      "Sem dados de hierarquia. Compile o Verilog primeiro.",
+            "tlPorts":              "--- Verilator (top-level) — descobrindo pinos de \"{{name}}\" (--json-only) ---",
+            "tlGenerated":          "Harness gerado. Entradas: {{inputs}} | Saídas: {{outputs}} | Clock(s): {{clocks}}",
+            "tlNoClock":            "nenhum (avalia 1x por ciclo)",
+            "tlTemplates":          "Criados {{count}} arquivo(s) de entrada modelo em {{dir}} — preencha-os e rode novamente.",
+            "tlBuilding":           "Compilando o harness (--cc --exe --build)...",
+            "tlRunning":            "Rodando o harness (termina quando a 1ª entrada se esgota; limite {{cycles}})...",
+            "tlDone":               "--- Concluído. Saídas escritas em {{dir}}: {{outputs}} ---",
+            "tlGates":              "Handshake ativo (lê no ciclo em que request=1): {{pairs}}",
+            "tlOutGates":           "Saídas com enable (escritas só quando enable=1): {{pairs}}",
+            "tlGateUnknown":        "Handshake: @gate={{gate}} em {{file}} não corresponde a nenhum pino de \"{{name}}\" — ignorado (entrada lida todo ciclo).",
+            "tlGateWide":           "Handshake: pino de request {{gate}} tem {{width}} bits (>64) — gating ignorado para {{name}}."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
@@ -362,6 +375,15 @@
             "verilatorFstConvert":   "Convertendo cabeçalho FST → VCD (fst2vcd) para o picker.",
             "verilatorSimulator":    "Usando simulador: Verilator (experimental).",
             "iverilogSimulator":     "Usando simulador: Icarus Verilog (vvp).",
+            "procPicked":            "Vários processadores ({{count}}); usando \"{{name}}\". Defina o top-level pra escolher outro.",
+            "procPorts":             "--- Verilator (processador CMM) — descobrindo pinos de \"{{name}}\" (--json-only) ---",
+            "procNoPorts":           "Aviso: o testbench não declara portas de I/O — o processador só vai dar clock (sem leitura/escrita de arquivo).",
+            "procWiring":            "Fiação (do _tb.v) → entradas: {{inputs}} | saídas: {{outputs}} | {{itr}}",
+            "procBuilding":          "Compilando o harness do processador (--cc --exe --build)...",
+            "procRunning":           "Rodando \"{{name}}\" por {{clocks}} clocks...",
+            "procDone":              "--- Concluído. Saídas escritas em {{dir}}: {{outputs}} ---",
+            "procProgressTitle":     "Verilator — {{name}}",
+            "procReadsLabel":        "Leituras de entrada",
             "noMemFiles":            "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
             "couldNotList":          "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",
@@ -391,7 +413,8 @@
             "noTopLevel":    "Nenhum módulo top-level selecionado. Marque um arquivo como top-level.",
             "noTestbench":   "Nenhum testbench configurado. Adicione um testbench (.v) em Configurações do Projeto e marque como top-level para rodar simulação.",
             "noProject":     "Abra um projeto primeiro.",
-            "noProjectBase": "Não foi possível determinar o caminho base do projeto."
+            "noProjectBase": "Não foi possível determinar o caminho base do projeto.",
+            "notLoaded":     "Configuração do projeto não carregada."
         },
         "compilation": {
             "cmmFailed":           "Compilação CMM falhou com código {{code}}",
@@ -409,7 +432,16 @@
             "verilatorFailed":     "Verilator falhou com código {{code}} ao compilar o design.",
             "verilatorRunFailed":  "Execução do binário Verilator falhou com código {{code}}.",
             "verilatorExeMissing": "Binário do Verilator não foi produzido em {{path}}.",
-            "fst2vcdFailed":       "fst2vcd falhou com código {{code}} ao converter o cabeçalho FST."
+            "fst2vcdFailed":       "fst2vcd falhou com código {{code}} ao converter o cabeçalho FST.",
+            "noTopLevelTl":        "Nenhum top-level definido. Marque um arquivo como top-level em Configurações do Projeto antes de rodar o Verilator (top-level).",
+            "verilatorJsonFailed": "Verilator --json-only falhou com código {{code}} ao descobrir os pinos do top-level.",
+            "verilatorJsonMissing":"O AST JSON do Verilator não foi gerado: {{path}}",
+            "verilatorNoPorts":    "Nenhum pino de entrada/saída encontrado no top-level \"{{name}}\".",
+            "verilatorTbBuildFailed":"Build do harness Verilator falhou com código {{code}}.",
+            "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",
+            "noProcessor":         "Nenhum processador no projeto. O botão Verilator (processador) precisa de um processador com .cmm.",
+            "procVMissing":        "Top-level do processador não encontrado: {{path}}. Rode C± primeiro para gerar o .v.",
+            "procTbMissing":       "Testbench do processador não encontrado: {{path}}. Rode C± primeiro para gerar o _tb.v."
         },
         "toolchain": {
             "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO pacote da toolchain (iverilog/gtkwave/yosys) não está instalado. Baixe \"aurora-toolchain-v2.zip\" das Releases do projeto no GitHub e extraia em components/Packages/, depois reinicie o app.",

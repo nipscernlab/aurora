@@ -62,10 +62,21 @@ import {
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpHeaderSpec, buildVvpRunSpec,
   buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
+  buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
   buildYosysHierarchySpec,
 } from './builders/index.js';
+import {
+  parseVerilatorPorts, generateVerilatorTb, parseGateDirective,
+  parseSaphoTestbench, generateVerilatorProcTb,
+} from './verilator_tb.js';
 import * as CommandSpec from './command_spec.js';
+
+// Limite de seguranca de ciclos do harness top-level. A simulacao
+// normalmente termina antes, quando a 1a entrada se esgota (EOF); este
+// teto so evita loop infinito (design so com clock, ou entradas gated
+// cujo request nunca sobe). Sobrescritivel em runtime via +cycles=N.
+const TL_MAX_CYCLES = 1000000;
 
 // i18n shim — falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -2279,6 +2290,386 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
     }
+}
+
+// =====================================================================
+// Botao "Verilator (top-level)" — harness C++ manual
+// =====================================================================
+//
+// Pipeline self-contained (sem testbench, direto do top-level):
+//   1. --json-only  → V<top>.tree.json (portas do top-level)
+//   2. gera tb C++ (verilator_tb.js) + cria templates <pino>.in
+//   3. --cc --exe --build (tb + fontes) → V<top>.exe nativo
+//   4. roda o V<top>.exe no diretorio de I/O → escreve <pino>.out
+//
+// Diferente do fluxo Wave (--binary --main + FST): aqui o main e nosso,
+// o clock e dado por um for-loop, e os pinos sao lidos/escritos de
+// arquivos simples (um por pino). Loga tudo em 'tveri'.
+//
+// Termina quando a 1a entrada se esgota (EOF). TL_MAX_CYCLES
+// (modulo-level, no topo do arquivo) e so o teto de seguranca;
+// sobrescritivel em runtime via +cycles=N (ver buildVerilatorTbRunSpec).
+
+/**
+ * Roda o pipeline do harness top-level do Verilator. Self-contained:
+ * resolve fontes do .spf, gera o C++, builda e roda. Throws com
+ * mensagem clara em qualquer falha de etapa.
+ */
+async verilatorTopLevelRun() {
+    await this.initializeComponentsPath();
+    const config = this.projectConfig;
+    if (!config) throw new Error(tr('error.config.notLoaded'));
+
+    const topLevelFile = config.topLevelFile;
+    if (!topLevelFile) {
+        throw new Error(tr('error.compilation.noTopLevelTl'));
+    }
+    const topModule = topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+
+    const tools = await this._waveResolveVerilatorTools();
+    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_tl_${topModule}`);
+    await window.electronAPI.mkdir(objDir);
+
+    // Fontes: synthesizableFiles do .spf + o proprio top-level. -y HDL
+    // resolve a biblioteca SAPHO (mesma logica do iverilog/yosys).
+    const synth = (config.synthesizableFiles || [])
+        .map((f) => (f && f.path) || f)
+        .filter(Boolean);
+    const fileSet = new Set(synth);
+    fileSet.add(topLevelFile);
+    const sources = [...fileSet];
+
+    // ---- Passo 1: dump das portas (--json-only) ----
+    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.tlPorts', { name: topModule }), 'info');
+    const jsonSpec = buildVerilatorJsonSpec({
+        perlExe: tools.perlExe,
+        verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: sources,
+        cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(jsonSpec), 'info', { internal: true });
+    const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('tveri', jsonResult);
+    if (jsonResult.code !== 0) {
+        throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
+    }
+
+    const jsonPath = await window.electronAPI.joinPath(objDir, `V${topModule}.tree.json`);
+    if (!await window.electronAPI.fileExists(jsonPath)) {
+        throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
+    }
+    const tree = JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' }));
+    const ports = parseVerilatorPorts(tree);
+    if (ports.length === 0) {
+        throw new Error(tr('error.compilation.verilatorNoPorts', { name: topModule }));
+    }
+
+    // ---- Passo 2: gera o harness C++ + templates de entrada ----
+    // Diretorio de I/O: <pasta-do-.spf>/Simulation/<top>/. Uma subpasta
+    // por top-level pra nao misturar (e nao colidir: tops diferentes
+    // costumam ter pinos clk/rst/data com o mesmo nome). Fica junto do
+    // projeto, fora de components/Temp.
+    const spfDir = window.currentSpfPath
+        ? await window.electronAPI.dirname(window.currentSpfPath)
+        : this.projectPath;
+    const ioDir = await window.electronAPI.joinPath(spfDir, 'Simulation', topModule);
+    await window.electronAPI.mkdir(ioDir);
+
+    // Geracao preliminar (sem gating) so pra descobrir a lista de
+    // entradas — precisamos dela pra saber quais .in ler.
+    const tbDraft = generateVerilatorTb({ topModule, ports, maxCycles: TL_MAX_CYCLES });
+
+    // Le diretivas `# @gate=<pino>` no topo dos arquivos existentes e
+    // valida contra as portas do top (pino conhecido, <=64 bit). Mesma
+    // mecanica pra entrada (request, .in) e saida (enable, .out).
+    const portByName = new Map(ports.map((p) => [p.name, p]));
+    const readGatesFor = async (portList, ext) => {
+        const map = {};
+        for (const p of portList) {
+            const filePath = await window.electronAPI.joinPath(ioDir, `${p.name}.${ext}`);
+            if (!await window.electronAPI.fileExists(filePath)) continue;
+            const content = await window.electronAPI.readFile(filePath, { encoding: 'utf8' });
+            const gate = parseGateDirective(content);
+            if (!gate) continue;
+            const gp = portByName.get(gate);
+            if (!gp) {
+                this.terminalManager.appendToTerminal('tveri',
+                    tr('terminal.veri.tlGateUnknown', { gate, file: `${p.name}.${ext}`, name: topModule }), 'warning');
+            } else if (gp.width > 64) {
+                this.terminalManager.appendToTerminal('tveri',
+                    tr('terminal.veri.tlGateWide', { gate, width: gp.width, name: p.name }), 'warning');
+            } else {
+                map[p.name] = gate;
+            }
+        }
+        return map;
+    };
+    const gates = await readGatesFor(tbDraft.inputs, 'in');       // entrada: request
+    const outGates = await readGatesFor(tbDraft.outputs, 'out');  // saida: enable
+
+    // Geracao final: re-gera com gating se alguma diretiva valida foi achada.
+    const tb = (Object.keys(gates).length || Object.keys(outGates).length)
+        ? generateVerilatorTb({ topModule, ports, maxCycles: TL_MAX_CYCLES, gates, outGates })
+        : tbDraft;
+    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `tl_tb_${topModule}.cpp`);
+    await window.electronAPI.writeFile(cppPath, tb.source);
+
+    // Cria um template <pino>.in pra cada entrada (exceto clock) que ainda
+    // nao exista — o usuario preenche e re-roda. Clocks sao driven no loop.
+    let createdTemplates = 0;
+    for (const p of tb.inputs) {
+        const inPath = await window.electronAPI.joinPath(ioDir, `${p.name}.in`);
+        if (!await window.electronAPI.fileExists(inPath)) {
+            const tmpl =
+                `# ${p.name} (${p.width} bit) — um valor hex por linha, um por ciclo de clock.\n` +
+                `# Linhas em branco e iniciadas por '#' sao ignoradas.\n` +
+                `# Quando o arquivo acaba, o ultimo valor e mantido.\n` +
+                `# Handshake (opcional): pra ler so quando um pino de request\n` +
+                `# estiver em 1, adicione como PRIMEIRA linha: "# @gate=NOME".\n` +
+                `0\n`;
+            await window.electronAPI.writeFile(inPath, tmpl);
+            createdTemplates++;
+        }
+    }
+
+    const clkMsg = tb.clocks.length ? tb.clocks.join(', ') : tr('terminal.veri.tlNoClock');
+    this.terminalManager.appendToTerminal('tveri',
+        tr('terminal.veri.tlGenerated', {
+            inputs: tb.inputs.map((p) => p.name).join(', ') || '—',
+            outputs: tb.outputs.map((p) => p.name).join(', ') || '—',
+            clocks: clkMsg,
+        }), 'info');
+    if (tb.gated.length) {
+        this.terminalManager.appendToTerminal('tveri',
+            tr('terminal.veri.tlGates', {
+                pairs: tb.gated.map((g) => `${g.name} <- ${g.gate}`).join(', '),
+            }), 'info');
+    }
+    if (tb.outGated.length) {
+        this.terminalManager.appendToTerminal('tveri',
+            tr('terminal.veri.tlOutGates', {
+                pairs: tb.outGated.map((g) => `${g.name} <- ${g.gate}`).join(', '),
+            }), 'info');
+    }
+    if (createdTemplates > 0) {
+        this.terminalManager.appendToTerminal('tveri',
+            tr('terminal.veri.tlTemplates', { count: createdTemplates, dir: ioDir }), 'tips');
+    }
+
+    // ---- Passo 3: build do harness (--cc --exe --build) ----
+    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.tlBuilding'), 'info');
+    const buildSpec = buildVerilatorTbBuildSpec({
+        perlExe: tools.perlExe,
+        verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: [...sources, cppPath],
+        cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(buildSpec), 'info', { internal: true });
+    const buildResult = await runSpec(buildSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('tveri', buildResult);
+    if (buildResult.code !== 0) {
+        throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
+    }
+
+    let exePath = await window.electronAPI.joinPath(objDir, `V${topModule}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${topModule}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        exePath = fallback;
+    }
+
+    // ---- Passo 4: roda o harness no diretorio de I/O ----
+    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.tlRunning', { cycles: TL_MAX_CYCLES }), 'info');
+    const runTbSpec = buildVerilatorTbRunSpec({
+        exePath,
+        cwd: ioDir,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+        cycles: TL_MAX_CYCLES,
+    });
+    this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(runTbSpec), 'info', { internal: true });
+    const runResult = await runSpec(runTbSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('tveri', runResult);
+    if (runResult.code !== 0) {
+        throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runResult.code }));
+    }
+
+    this.terminalManager.appendToTerminal('tveri',
+        tr('terminal.veri.tlDone', {
+            dir: ioDir,
+            outputs: tb.outputs.map((p) => `${p.name}.out`).join(', ') || '—',
+        }), 'success');
+}
+
+// =====================================================================
+// Botao "Verilator (processador CMM)"
+// =====================================================================
+//
+// Roda o top-level gerado pelo compilador CMM (<proc>.v) com Verilator,
+// usando a fiacao previsivel do processador SAPHO. Self-contained: o
+// handler (compilation_flow) ja roda cmm+asm antes pra ter <proc>.v,
+// <proc>_tb.v e .mif frescos.
+//
+//   1. --json-only no <proc>.v        -> portas (clk/rst/in/out/req_in/out_en[/itr])
+//   2. parseia o <proc>_tb.v          -> fiacao input_<N>.txt <-> req_in one-hot,
+//                                        output_<N>.txt <-> out_en one-hot
+//   3. gera o harness C++ (decimal com sinal, rst pulso, itr=0 se existir)
+//   4. --cc --exe --build             -> V<proc>.exe
+//   5. roda numClocks fixos no <proc>/Simulation/ (mesmos arquivos do iverilog)
+//
+// Barra de progresso existente mostra % de clocks + nº de leituras de
+// entrada (o exe escreve "<pct> <reads>" no Temp/progress.txt; a barra faz
+// polling). Diferente do botao top-level generico, NAO ha templates nem
+// diretivas `# @gate` — a fiacao vem do tb.
+
+/**
+ * Resolve o processador-alvo do botao. Prefere o que casa com o
+ * topLevelFile; senao o unico; senao o primeiro (com aviso).
+ */
+_resolveProcessorTarget() {
+    const procs = (Array.isArray(this.projectConfig?.processors) ? this.projectConfig.processors : [])
+        .map((p) => (typeof p === 'string' ? { name: p } : p))
+        .filter((p) => p && p.name);
+    if (procs.length === 0) return null;
+    if (procs.length === 1) return procs[0];
+    const topBase = (this.projectConfig?.topLevelFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    const match = procs.find((p) => p.name === topBase);
+    if (match) return match;
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.procPicked', { name: procs[0].name, count: procs.length }), 'warning');
+    return procs[0];
+}
+
+/**
+ * Pipeline do harness Verilator do processador CMM. Throws com mensagem
+ * clara em qualquer falha de etapa.
+ */
+async verilatorProcessorRun() {
+    await this.initializeComponentsPath();
+    if (!this.projectConfig) throw new Error(tr('error.config.notLoaded'));
+
+    const proc = this._resolveProcessorTarget();
+    if (!proc) throw new Error(tr('error.compilation.noProcessor'));
+    const procName = proc.name;
+    const numClocks = Number.isFinite(proc.numClocks) ? proc.numClocks : 2000;
+
+    const procDir = await window.electronAPI.joinPath(this.projectPath, procName);
+    const procV = await window.electronAPI.joinPath(procDir, 'Hardware', `${procName}.v`);
+    const tbV = await window.electronAPI.joinPath(procDir, 'Simulation', `${procName}_tb.v`);
+    const simDir = await window.electronAPI.joinPath(procDir, 'Simulation');
+
+    if (!await window.electronAPI.fileExists(procV)) {
+        throw new Error(tr('error.compilation.procVMissing', { path: procV }));
+    }
+    if (!await window.electronAPI.fileExists(tbV)) {
+        throw new Error(tr('error.compilation.procTbMissing', { path: tbV }));
+    }
+
+    const tools = await this._waveResolveVerilatorTools();
+    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
+    await window.electronAPI.mkdir(objDir);
+
+    // ---- Passo 1: portas via --json-only ----
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.procPorts', { name: procName }), 'info');
+    const jsonSpec = buildVerilatorJsonSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule: procName, objDir,
+        sourceFiles: [procV], cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(jsonSpec), 'info', { internal: true });
+    const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('twave', jsonResult);
+    if (jsonResult.code !== 0) throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
+    const jsonPath = await window.electronAPI.joinPath(objDir, `V${procName}.tree.json`);
+    if (!await window.electronAPI.fileExists(jsonPath)) {
+        throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
+    }
+    const ports = parseVerilatorPorts(JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
+
+    // ---- Passo 2: fiacao do <proc>_tb.v ----
+    const wiring = parseSaphoTestbench(await window.electronAPI.readFile(tbV, { encoding: 'utf8' }));
+    if (wiring.inputs.length === 0 && wiring.outputs.length === 0) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.procNoPorts'), 'warning');
+    }
+
+    // ---- Passo 3: gera o harness ----
+    const progressPath = toForwardSlashes(await window.electronAPI.joinPath(tempBaseDir, 'progress.txt'));
+    const gen = generateVerilatorProcTb({
+        topModule: procName, ports,
+        inputs: wiring.inputs, outputs: wiring.outputs,
+        numClocks, progressPath,
+    });
+    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
+    await window.electronAPI.writeFile(cppPath, gen.source);
+
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.procWiring', {
+            inputs: wiring.inputs.map((p) => `${p.file}@req${p.reqValue}`).join(', ') || '—',
+            outputs: wiring.outputs.map((p) => `${p.file}@en${p.enValue}`).join(', ') || '—',
+            itr: gen.hasItr ? 'itr=0' : 'sem itr',
+        }), 'info');
+
+    // ---- Passo 4: build ----
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.procBuilding', { name: procName }), 'info');
+    const buildSpec = buildVerilatorTbBuildSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule: procName, objDir,
+        sourceFiles: [procV, cppPath], cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(buildSpec), 'info', { internal: true });
+    const buildResult = await runSpec(buildSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('twave', buildResult);
+    if (buildResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
+
+    let exePath = await window.electronAPI.joinPath(objDir, `V${procName}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${procName}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        exePath = fallback;
+    }
+
+    // ---- Passo 5: roda numClocks no Simulation/ (barra de progresso) ----
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.procRunning', { name: procName, clocks: numClocks }), 'info');
+    showVVPProgress(procName, {
+        title: tr('terminal.wave.procProgressTitle', { name: procName }),
+        readsLabel: tr('terminal.wave.procReadsLabel'),
+        hideFst: true,
+    });
+    try {
+        const runProcSpec = buildVerilatorTbRunSpec({
+            exePath, cwd: simDir,
+            mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+            cycles: numClocks,
+        });
+        this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
+        const runResult = await runSpec(runProcSpec, { consumeEphemeral: true });
+        this.terminalManager.processExecutableOutput('twave', runResult);
+        if (runResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runResult.code }));
+    } finally {
+        hideVVPProgress(0);
+    }
+
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.procDone', {
+            dir: simDir,
+            outputs: wiring.outputs.map((p) => p.file).join(', ') || '—',
+        }), 'success');
 }
 
 /**

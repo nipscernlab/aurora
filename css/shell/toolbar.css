@@ -176,9 +176,14 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
    center cluster (compile / synth / wave) stays addressable as long as
    possible. The center is also allowed to shrink (flex: 0 1 auto) so it
    can collapse its separators/labels before overflowing. */
-.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; }
+/* overflow:hidden nas tres zonas: em janela estreita o conteudo das
+   zonas laterais (flex-shrink:0) transbordaria da caixa (base 0) e
+   pintaria POR CIMA do centro (ex.: PRISM sobre Verilog). Clipando as
+   tres, nenhum item pinta fora da sua zona — pior caso vira corte, nunca
+   sobreposicao. */
+.toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; overflow: hidden; }
 .toolbar-zone-center { flex: 0 1 auto; justify-content: center; overflow: hidden; }
-.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; }
+.toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; overflow: hidden; }
 
 /* ---------------------------------------------------------------------------
  *  Brand mark — tiny SAPHO icon anchored at the far-left of the toolbar.
@@ -485,6 +490,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   transform: none;
 }
 
+/* Compile buttons disabled: o glyph/img tem cor propria (#vericomp .glyph
+   etc.), que sobrescreveria o cinza herdado — entao apagamos explicitamente
+   pra o botao desabilitado realmente parecer desabilitado. */
+.compile-btn:disabled .glyph { color: var(--text-disabled); opacity: 0.45; }
+.compile-btn:disabled:hover .glyph { filter: none; }
+.compile-btn:disabled img { opacity: 0.4; filter: grayscale(1); }
+
 .toolbar-button.active {
   background-color: var(--accent-soft);
   color: var(--accent-hover);
@@ -542,6 +554,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 #cmmcomp .glyph    { color: var(--color-cmm); }
 #vericomp .glyph   { color: #E25C5C; }
 #wavecomp .glyph   { color: var(--color-wave); }
+/* Verilator top-level harness — amber chip, distinct from veri/wave. */
+#verilatortl .glyph { color: #E0A458; }
+.glyph-verilator svg { stroke-width: 1.3; }
+/* Verilator processador CMM — chip teal com nucleo. */
+#verilatorproc .glyph { color: #59C2B0; }
+.glyph-verilatorproc svg { stroke-width: 1.3; }
+.glyph-verilatorproc svg rect:nth-of-type(2) { fill: currentColor; }
 
 /* Feather glyph uses slightly heavier strokes so the barbs stay legible
    at 16x16 / 14x14 (terminal-tab size). */

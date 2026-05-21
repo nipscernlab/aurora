@@ -1209,6 +1209,7 @@ class VVPProgressManager {
         this.readInterval = null;
         this.timeUpdateInterval = null;
         this.minimizeTimeout = null;
+        this.opts = {};
 
         this.interpolationSpeed = 0.08;
         this.readIntervalMs = 1000;
@@ -1258,8 +1259,12 @@ class VVPProgressManager {
         }
     }
 
-    async show(name) {
+    async show(name, opts = {}) {
         if (this.isVisible) return;
+
+        // opts (modo Verilator-processador): title, readsLabel (mostra o
+        // 2o token de progress.txt como stat "Leituras"), hideFst.
+        this.opts = opts || {};
 
         try {
             await this.deleteProgressFile(name);
@@ -1267,6 +1272,31 @@ class VVPProgressManager {
             this.fstDir = await this.resolveFstDir();
 
             if (!this.overlay) this.createOverlay();
+
+            // Aplica customizacao por modo (title / FST / stat extra).
+            if (this.titleTextElement) this.titleTextElement.textContent = this.opts.title || 'VVP Simulation';
+            if (this.fstStatElement) this.fstStatElement.style.display = this.opts.hideFst ? 'none' : '';
+            // FST minimizado (compacto): esconde no modo processador.
+            if (this.fstSizeMinimizedElement) this.fstSizeMinimizedElement.style.display = this.opts.hideFst ? 'none' : '';
+            if (this.extraStatElement) {
+                if (this.opts.readsLabel) {
+                    this.extraLabelElement.textContent = `${this.opts.readsLabel}:`;
+                    this.extraValueElement.textContent = '0';
+                    this.extraStatElement.style.display = '';
+                } else {
+                    this.extraStatElement.style.display = 'none';
+                }
+            }
+            // Indicador compacto de leituras (visivel quando minimizado).
+            if (this.readsMinimizedElement) {
+                if (this.opts.readsLabel) {
+                    this.readsMinimizedElement.textContent = '0';
+                    this.readsMinimizedElement.title = this.opts.readsLabel;
+                    this.readsMinimizedElement.style.display = '';
+                } else {
+                    this.readsMinimizedElement.style.display = 'none';
+                }
+            }
 
             this.currentProgress = 0;
             this.targetProgress = 0;
@@ -1353,7 +1383,7 @@ class VVPProgressManager {
           <div class="vvp-progress-header">
             <div class="vvp-progress-title">
               <div class="icon-spinner"></div>
-              <span>VVP Simulation</span>
+              <span id="vvp-progress-title-text">VVP Simulation</span>
             </div>
             <div class="vvp-progress-controls">
               <button class="vvp-progress-control-btn" id="vvp-minimize-btn" title="Minimize">
@@ -1372,12 +1402,17 @@ class VVPProgressManager {
             <div class="vvp-progress-percentage" id="vvp-progress-percentage">0%</div>
             <span class="vvp-progress-time-minimized" id="vvp-time-minimized">0s</span>
             <span class="vvp-progress-fst-minimized" id="vvp-fst-minimized">—</span>
+            <span class="vvp-progress-reads-minimized" id="vvp-reads-minimized" style="display:none">0</span>
           </div>
           
           <div class="vvp-progress-stats">
-            <div class="vvp-stat">
+            <div class="vvp-stat" id="vvp-fst-stat">
               <span class="vvp-stat-label">FST Size:</span>
               <span class="vvp-stat-value" id="vvp-fst-size">—</span>
+            </div>
+            <div class="vvp-stat" id="vvp-extra-stat" style="display:none">
+              <span class="vvp-stat-label" id="vvp-extra-label">—</span>
+              <span class="vvp-stat-value" id="vvp-extra-value">0</span>
             </div>
             <div class="vvp-stat">
               <span class="vvp-stat-label">Elapsed Time:</span>
@@ -1398,6 +1433,12 @@ class VVPProgressManager {
         this.elapsedTimeMinimizedElement = document.getElementById('vvp-time-minimized');
         this.fstSizeElement = document.getElementById('vvp-fst-size');
         this.fstSizeMinimizedElement = document.getElementById('vvp-fst-minimized');
+        this.titleTextElement = document.getElementById('vvp-progress-title-text');
+        this.fstStatElement = document.getElementById('vvp-fst-stat');
+        this.extraStatElement = document.getElementById('vvp-extra-stat');
+        this.extraLabelElement = document.getElementById('vvp-extra-label');
+        this.extraValueElement = document.getElementById('vvp-extra-value');
+        this.readsMinimizedElement = document.getElementById('vvp-reads-minimized');
 
         document.getElementById('vvp-minimize-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1411,6 +1452,7 @@ class VVPProgressManager {
 
     async startProgressReading() {
         const readFstSize = async () => {
+            if (this.opts && this.opts.hideFst) return; // modo processador: sem FST
             if (!this.fstSizeElement || !this.fstDir) return;
             try {
                 // vvp -fst grava o dump em components/Temp/, mas o nome
@@ -1464,7 +1506,17 @@ class VVPProgressManager {
                     const lines = content.split('\n').filter(line => line.trim());
 
                     if (lines.length > 0) {
-                        const progress = parseInt(lines[lines.length - 1].trim(), 10);
+                        const lastLine = lines[lines.length - 1].trim();
+                        const progress = parseInt(lastLine, 10);
+
+                        // 2o token (modo processador): nº de leituras de entrada.
+                        if (this.opts && this.opts.readsLabel) {
+                            const parts = lastLine.split(/\s+/);
+                            if (parts.length > 1 && parts[1] !== '') {
+                                if (this.extraValueElement) this.extraValueElement.textContent = parts[1];
+                                if (this.readsMinimizedElement) this.readsMinimizedElement.textContent = parts[1];
+                            }
+                        }
 
                         if (!isNaN(progress) && progress >= 0) {
                             this.targetProgress = Math.min(progress, 100);
@@ -1591,9 +1643,9 @@ class VVPProgressManager {
 
 const vvpProgressManager = new VVPProgressManager();
 
-function showVVPProgress(name) {
+function showVVPProgress(name, opts = {}) {
     vvpProgressManager.deleteProgressFile(name);
-    return vvpProgressManager.show(name);
+    return vvpProgressManager.show(name, opts);
 }
 
 function hideVVPProgress(delay = 4000) {

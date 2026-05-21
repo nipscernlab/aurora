@@ -118,7 +118,7 @@ class GtkwPickerManager {
             this._files = [];
             this._activePath = NONE_VALUE;
             this._setLabelKey('toolbar.gtkwPicker.noTestbench');
-            this.button.disabled = false;       // "+ Add" still works
+            this.button.disabled = true;        // sem testbench: lista desabilitada
             this._renderMenu();
             return;
         }

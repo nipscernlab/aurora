@@ -22,6 +22,7 @@
  *   'iverilog-check'|'iverilog-build'|
  *   'vvp-header'|'vvp-run'|
  *   'verilator-build'|'verilator-header'|'verilator-run'|
+ *   'verilator-json'|'verilator-tb-build'|'verilator-tb-run'|
  *   'fst2vcd'|'gtkwave'|
  *   'yosys-hierarchy'|'prism-yosys'
  * )} CompileStepId
@@ -55,6 +56,7 @@ export const STEP_IDS = Object.freeze([
   'iverilog-check', 'iverilog-build',
   'vvp-header', 'vvp-run',
   'verilator-build', 'verilator-header', 'verilator-run',
+  'verilator-json', 'verilator-tb-build', 'verilator-tb-run',
   'fst2vcd', 'gtkwave',
   'yosys-hierarchy', 'prism-yosys',
 ]);
@@ -70,6 +72,9 @@ export const STEP_DESCRIPTIONS = Object.freeze({
   'verilator-build':  'Verilator build — Verilog → C++ → native .exe',
   'verilator-header': 'Verilator pass-1 — runs .exe with +AURORA_HEADER_ONLY for header capture',
   'verilator-run':    'Verilator pass-2 — full simulation, native .exe',
+  'verilator-json':   'Verilator --json-only — dump top-level port AST (V<top>.tree.json)',
+  'verilator-tb-build':'Verilator --cc --exe --build with a manual C++ harness — top-level clock loop + file I/O',
+  'verilator-tb-run': 'Run V<top>.exe top-level harness — reads <pin>.in, writes <pin>.out',
   'fst2vcd':          'fst2vcd conversion (used after Verilator pass-1)',
   'gtkwave':          'GTKWave launch (--dark, --rcvar, -a, --script)',
   'yosys-hierarchy':  'Yosys design hierarchy emission (write_json)',

@@ -70,6 +70,17 @@ const RULES = {
   'verilator-run': {
     literalArgs: [],
   },
+  'verilator-json': {
+    literalArgs: ['--json-only'],
+    flagWithValue: ['--top-module', '-Mdir', '-y'],
+  },
+  'verilator-tb-build': {
+    literalArgs: ['--cc', '--exe', '--build'],
+    flagWithValue: ['--top-module', '-Mdir', '-y'],
+  },
+  'verilator-tb-run': {
+    literalArgs: [],
+  },
   'fst2vcd': {
     flagWithValue: ['-f', '-o'],
   },

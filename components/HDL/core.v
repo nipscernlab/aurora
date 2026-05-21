@@ -152,8 +152,8 @@ reg [NADDR-1:0] fl_max  = 0; // pointer overflowed
 integer         pointeri;
 
 always @ (*)      pointeri = pointer;
-always @ (*) if ((pointer >= DEPTH) || (pmaisum-pointer != 1)) fl_full <= 1'b1;
-always @ (*) if ( pointer >  fl_max                          ) fl_max  <= pointer;
+always @ (*) if ((pointer >= DEPTH) || (pmaisum-pointer != 1)) fl_full = 1'b1;
+always @ (*) if ( pointer >  fl_max                          ) fl_max  = pointer;
 
 `endif // ---------------------------------------------------------------------
 
@@ -305,7 +305,7 @@ generate
 		reg [FFTSIZ-1:0] aux;
 
 		integer i;
-		always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] <= offset[FFTSIZ-1-i];
+		always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] = offset[FFTSIZ-1-i];
 
 		wire [MDATAW-1:0] add = (fft) ? {offset[MDATAW-1:FFTSIZ], aux} : offset;
 

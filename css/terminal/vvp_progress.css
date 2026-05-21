@@ -198,7 +198,8 @@
  *  Minimized state
  * ------------------------------------------------------------------------- */
 .vvp-progress-time-minimized,
-.vvp-progress-fst-minimized { display: none; }
+.vvp-progress-fst-minimized,
+.vvp-progress-reads-minimized { display: none; }
 
 .vvp-progress-overlay.minimized .vvp-progress-header,
 .vvp-progress-overlay.minimized .vvp-progress-stats {
@@ -226,7 +227,8 @@
 }
 
 .vvp-progress-overlay.minimized .vvp-progress-time-minimized,
-.vvp-progress-overlay.minimized .vvp-progress-fst-minimized {
+.vvp-progress-overlay.minimized .vvp-progress-fst-minimized,
+.vvp-progress-overlay.minimized .vvp-progress-reads-minimized {
   display: inline-block;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -238,6 +240,16 @@
 
 .vvp-progress-overlay.minimized .vvp-progress-fst-minimized {
   min-width: 56px;
+}
+
+/* Leituras minimizadas: prefixo "↓" pra distinguir do tempo/FST. */
+.vvp-progress-overlay.minimized .vvp-progress-reads-minimized {
+  min-width: 48px;
+  color: var(--aurora-mint, var(--text-muted));
+}
+.vvp-progress-overlay.minimized .vvp-progress-reads-minimized::before {
+  content: "\2193 "; /* ↓ */
+  opacity: 0.7;
 }
 
 /* Toggle visibility of min/max buttons */

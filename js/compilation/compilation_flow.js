@@ -65,6 +65,10 @@ const STEP_TERMINALS = Object.freeze({
     // ele pode achar que o erro veio do Wave.
     wave:    ['twave', 'tveri'],
     prism:   ['tveri'],
+    // Verilator top-level: json + build + run, tudo loga em tveri.
+    verilator: ['tveri'],
+    // Verilator processador CMM: loga em twave (usa a barra de progresso).
+    'verilator-proc': ['twave'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -74,6 +78,8 @@ const ERROR_TERMINAL = Object.freeze({
     verilog: 'tveri',
     wave:    'twave',
     prism:   'tveri',
+    verilator: 'tveri',
+    'verilator-proc': 'twave',
 });
 
 function switchTerminal(targetId) {
@@ -401,6 +407,52 @@ async function handleWaveStep() {
 }
 
 /**
+ * Botao Verilator (top-level): chama o Verilator direto no top-level
+ * (sem testbench). Gera um harness C++ manual que instancia a classe,
+ * faz o loop de clock, le os pinos de entrada de <pino>.in e escreve os
+ * de saida em <pino>.out. Self-contained — pre-compila os processadores
+ * (no-op em projeto verilog puro) antes de dumpar/buildar/rodar.
+ */
+async function handleVerilatorStep() {
+    startCompilation(STEP_TERMINALS.verilator);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'tveri');
+        switchTerminal('terminal-tveri');
+        await compiler.verilatorTopLevelRun();
+    } catch (error) {
+        console.error('Erro na etapa verilator (top-level):', error);
+        logFatalError('tveri', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
+ * Botao Verilator (processador CMM): roda o top-level <proc>.v gerado
+ * pelo compilador CMM com Verilator, usando a fiacao previsivel do
+ * processador SAPHO (req_in/out_en one-hot, input_<N>.txt/output_<N>.txt
+ * decimais, na pasta Simulation/ do processador). Pre-compila cmm+asm
+ * pra ter <proc>.v/_tb.v/.mif frescos antes de dumpar/buildar/rodar.
+ */
+async function handleVerilatorProcStep() {
+    startCompilation(STEP_TERMINALS['verilator-proc']);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'tcmm');
+        switchTerminal('terminal-twave');
+        await compiler.verilatorProcessorRun();
+    } catch (error) {
+        console.error('Erro na etapa verilator (processador):', error);
+        logFatalError('twave', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
  * Botao PRISM: cmm + asm + iverilog -tnull (top-level) — i.e., faz
  * tudo que o botao Verilog faz — e depois invoca yosys via IPC pra
  * analise estrutural. PRISM e um superset do Verilog.
@@ -486,6 +538,58 @@ if (typeof window !== 'undefined') {
 }
 
 // =====================================================================
+// Gating por estado do design (.spf): top-level / testbench / processador
+// =====================================================================
+
+/**
+ * Habilita/desabilita os botoes da toolbar conforme o que o .spf tem:
+ *
+ *   - top-level definido  → Verilog (synth), PRISM, Verilator (top-level)
+ *   - processador no proj → Verilator (processador CMM)
+ *   - testbench definido  → Wave, Wave Config, e a lista .gtkw (via seu
+ *                            proprio manager)
+ *
+ * Le a mesma fonte de verdade que a status bar (SpfStore). Re-sincroniza
+ * em aurora:spf-changed, open/close de projeto e criar/deletar processador.
+ */
+async function syncToolbarEnabledState() {
+    const setEnabled = (id, on) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = !on;
+        btn.style.cursor = on ? 'pointer' : 'not-allowed';
+    };
+
+    let hasTop = false;
+    let hasTb = false;
+    let hasProc = false;
+    const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
+    if (spfPath && window.SpfStore) {
+        try {
+            const s = await window.SpfStore.read(spfPath);
+            hasTop = !!s.topLevelFile;
+            hasTb = !!s.testbenchFile;
+            hasProc = Array.isArray(s.processors)
+                && s.processors.some((p) => (typeof p === 'string' ? p.trim() : p?.name));
+        } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
+    }
+
+    setEnabled('vericomp', hasTop);
+    setEnabled('prismcomp', hasTop);
+    setEnabled('verilatortl', hasTop);
+    setEnabled('verilatorproc', hasProc);
+    setEnabled('wavecomp', hasTb);
+    setEnabled('waveConfigBtn', hasTb);
+    // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
+    // o testbench); so pedimos pra re-sincronizar.
+    window.gtkwPickerManager?.refresh?.();
+}
+
+if (typeof window !== 'undefined') {
+    window.syncToolbarEnabledState = syncToolbarEnabledState;
+}
+
+// =====================================================================
 // Manager class — dispatcher publico
 // =====================================================================
 
@@ -501,6 +605,8 @@ class CompilationFlowManager {
         document.getElementById('vericomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('verilog'));
         document.getElementById('wavecomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('wave'));
         document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
+        document.getElementById('verilatortl')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator'));
+        document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
@@ -509,19 +615,27 @@ class CompilationFlowManager {
         // / SplitEditorManager.setFocus disparam o evento).
         document.addEventListener('aurora:editing-file-changed', () => syncCmmcompEnabled());
 
+        // Gating por design: re-sincroniza quando o .spf muda (top-level/
+        // testbench marcados, etc.), quando abre/fecha projeto, e quando
+        // processadores sao criados/removidos.
+        window.addEventListener('aurora:spf-changed', () => syncToolbarEnabledState());
+        window.ProjectStore?.subscribe?.(() => syncToolbarEnabledState());
+        window.electronAPI?.onProcessorCreated?.(() => syncToolbarEnabledState());
+        window.electronAPI?.onProcessorsUpdated?.(() => syncToolbarEnabledState());
+
         this.updateButtonStates();
     }
 
     /**
-     * Re-habilita botoes de compilacao apos um run/cancel. cmmcomp
-     * segue regra propria (so habilitado com .cmm em foco), entao
-     * delega pra syncCmmcompEnabled em vez de forcar disabled=false.
+     * Re-sincroniza os botoes apos um run/cancel. cmmcomp segue regra
+     * propria (.cmm em foco); os demais seguem o estado do design
+     * (top-level/testbench/processador) via syncToolbarEnabledState.
+     * allcomp (Full Build) fica escondido no DOM — mantido habilitado.
      */
     updateButtonStates() {
-        for (const id of ['vericomp', 'wavecomp', 'prismcomp', 'allcomp']) {
-            const btn = document.getElementById(id);
-            if (btn) btn.disabled = false;
-        }
+        const allcomp = document.getElementById('allcomp');
+        if (allcomp) allcomp.disabled = false;
+        syncToolbarEnabledState();
         syncCmmcompEnabled();
     }
 
@@ -540,10 +654,12 @@ class CompilationFlowManager {
 
     async runSingleStep(step) {
         switch (step) {
-            case 'cmm':     return handleCmmStep();
-            case 'verilog': return handleVerilogStep();
-            case 'wave':    return handleWaveStep();
-            case 'prism':   return handlePrismStep();
+            case 'cmm':       return handleCmmStep();
+            case 'verilog':   return handleVerilogStep();
+            case 'wave':      return handleWaveStep();
+            case 'prism':     return handlePrismStep();
+            case 'verilator': return handleVerilatorStep();
+            case 'verilator-proc': return handleVerilatorProcStep();
             default:
                 console.warn(`Passo desconhecido: ${step}`);
                 logFatalError(

@@ -1139,7 +1139,7 @@ const compileNs = {
   async compileStep(step) {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    if (!['cmm', 'verilog', 'wave', 'prism'].includes(step)) {
+    if (!['cmm', 'verilog', 'wave', 'prism', 'verilator', 'verilator-proc'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });
@@ -1712,7 +1712,7 @@ const NAMESPACES = Object.freeze({
   },
   compile: {
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
-    compileStep: 'Run one pipeline step (cmm|verilog|wave|prism)',
+    compileStep: 'Run one pipeline step (cmm|verilog|wave|prism|verilator|verilator-proc)',
     cancel:      'Cancel a running compilation or simulation',
     listSteps:           'List every toolchain step the override system knows about',
     inspectCommand:      'Show the CommandSpec (base + override-applied) for a step',

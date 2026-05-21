@@ -30,6 +30,9 @@ jobs:
       - name: ESLint
         run: npx eslint . --max-warnings=0
 
+      - name: Dead code (unused files + dependencies)
+        run: npm run deadcode
+
       - name: Sanity check JS modules
         shell: pwsh
         run: |

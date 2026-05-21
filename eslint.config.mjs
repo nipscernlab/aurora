@@ -61,6 +61,7 @@ export default defineConfig([
       "main/**/*.js",
       "components/Scripts/**/*.js",
       "scripts/**/*.js",
+      "knip.config.js",
     ],
     languageOptions: {
       sourceType: "commonjs",

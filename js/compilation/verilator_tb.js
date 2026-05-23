@@ -451,17 +451,29 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   const reqBus = findPort(ports, 'req_in');
   const enBus = findPort(ports, 'out_en');
 
+  // Pinos obrigatorios: clk sempre.
+  // in/req_in: so se o tb declarar inputs (processador com entrada).
+  // out/out_en: so se o tb declarar outputs (processador com saida).
+  // Processadores tipo proc_fft que so computam e dumpam saidas nao
+  // tem in/req_in no .v — esses ficam opcionais aqui. (E simetrico:
+  // procs que so leem e nao escrevem ficariam sem out/out_en).
   const missing = [];
   if (!clk) missing.push('clk');
-  if (!inBus) missing.push('in');
-  if (!outBus) missing.push('out');
-  if (!reqBus) missing.push('req_in');
-  if (!enBus) missing.push('out_en');
+  if (inputs.length > 0) {
+    if (!inBus) missing.push('in (wiring declara inputs)');
+    if (!reqBus) missing.push('req_in (wiring declara inputs)');
+  }
+  if (outputs.length > 0) {
+    if (!outBus) missing.push('out (wiring declara outputs)');
+    if (!enBus) missing.push('out_en (wiring declara outputs)');
+  }
   if (missing.length) {
-    throw new Error(`não parece um top-level de processador SAPHO: faltam os pinos ${missing.join(', ')}`);
+    throw new Error(`pinos esperados nao encontrados: ${missing.join(', ')}`);
   }
 
-  const outW = outBus.width;
+  // outW so e usado dentro do for de outputs — se outputs.length === 0,
+  // outBus pode ser null e este valor nao e lido.
+  const outW = outBus ? outBus.width : 0;
   const L = [];
 
   L.push(`// Auto-gerado por Aurora — harness Verilator do processador "${topModule}".`);

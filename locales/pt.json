@@ -243,12 +243,15 @@
             "verilog": "Verilog",
             "wave":    "Forma de Onda",
             "prism":   "PRISM",
+            "verilator": "Verilator",
+            "verilator-proc": "Verilator (processador)",
             "all":     "Todos os componentes"
         },
         "inProgress":       "Compilação {{name}} em andamento...",
         "success":          "Compilação {{name}} bem-sucedida",
         "failed":           "Compilação {{name}} falhou",
-        "failedWithError":  "Compilação {{name}} falhou: {{error}}"
+        "failedWithError":  "Compilação {{name}} falhou: {{error}}",
+        "cancelled":        "Compilação cancelada"
     },
     "editor": {
         "lineCol": "Ln {{line}}, Col {{col}}"

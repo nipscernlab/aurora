@@ -24,6 +24,7 @@
  */
 
 import { CompilationModule } from './compilation_module.js';
+import { forceHideVVPProgress } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 
@@ -113,10 +114,18 @@ function endCompilation() {
        etc). Hoje no-op — toolbar buttons ficam sempre habilitados. */
 }
 
+// Step do run em andamento — usado por logFatalError pra reportar a
+// falha ao status bar com o tipo certo. Os passos cmm/asm/verilog/prism
+// ja chamam statusUpdater.compilationError por dentro; este fallback
+// cobre os que nao tocam o updater (verilator top-level/proc, wave).
+let activeRunStep = null;
+
 function logFatalError(terminalId, error) {
     window.terminalManager?.appendToTerminal?.(
         terminalId, `Erro Fatal: ${error.message}`, 'error',
     );
+    // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
+    window.statusUpdater?.compilationError?.(activeRunStep, error.message);
 }
 
 // =====================================================================
@@ -641,36 +650,56 @@ class CompilationFlowManager {
 
     async runAll() {
         startCompilation(ALL_TERMINALS);
+        activeRunStep = 'all';
+        window.statusUpdater?.beginRun?.('all');
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
             await runProjectPipeline(compiler);
         } catch (error) {
             console.error('Compilation error:', error);
+            logFatalError('tcmm', error);
         } finally {
+            window.statusUpdater?.endRun?.('all');
+            activeRunStep = null;
             endCompilation();
         }
     }
 
     async runSingleStep(step) {
-        switch (step) {
-            case 'cmm':       return handleCmmStep();
-            case 'verilog':   return handleVerilogStep();
-            case 'wave':      return handleWaveStep();
-            case 'prism':     return handlePrismStep();
-            case 'verilator': return handleVerilatorStep();
-            case 'verilator-proc': return handleVerilatorProcStep();
-            default:
-                console.warn(`Passo desconhecido: ${step}`);
-                logFatalError(
-                    ERROR_TERMINAL[step] || 'tcmm',
-                    new Error(`Unknown compilation step: ${step}`),
-                );
+        // beginRun mantem a barra em "executando" durante todo o pipeline
+        // do botao (varios passos), impedindo que um sucesso de passo
+        // intermediario a reset pra "Iniciar Compilacao". endRun fecha.
+        activeRunStep = step;
+        window.statusUpdater?.beginRun?.(step);
+        try {
+            switch (step) {
+                case 'cmm':       await handleCmmStep(); break;
+                case 'verilog':   await handleVerilogStep(); break;
+                case 'wave':      await handleWaveStep(); break;
+                case 'prism':     await handlePrismStep(); break;
+                case 'verilator': await handleVerilatorStep(); break;
+                case 'verilator-proc': await handleVerilatorProcStep(); break;
+                default:
+                    console.warn(`Passo desconhecido: ${step}`);
+                    logFatalError(
+                        ERROR_TERMINAL[step] || 'tcmm',
+                        new Error(`Unknown compilation step: ${step}`),
+                    );
+            }
+        } finally {
+            // endRun e no-op se um passo ja reportou erro (runActive=false).
+            window.statusUpdater?.endRun?.(step);
+            activeRunStep = null;
         }
     }
 
     cancelAll() {
         compilationCanceled = true;
+        // The killed process will never reach 100%, so tear the progress
+        // bar down immediately instead of leaving it pinned waiting.
+        forceHideVVPProgress();
+        window.statusUpdater?.cancelRun?.();
         window.electronAPI.cancelVvpProcess()
             .catch(err => console.warn('cancelVvpProcess failed:', err?.message ?? err));
     }

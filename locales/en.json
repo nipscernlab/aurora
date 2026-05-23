@@ -243,12 +243,15 @@
             "verilog": "Verilog",
             "wave":    "Waveform",
             "prism":   "PRISM",
+            "verilator": "Verilator",
+            "verilator-proc": "Verilator (processor)",
             "all":     "All components"
         },
         "inProgress":       "{{name}} compilation in progress...",
         "success":          "{{name}} compilation successful",
         "failed":           "{{name}} compilation failed",
-        "failedWithError":  "{{name}} compilation failed: {{error}}"
+        "failedWithError":  "{{name}} compilation failed: {{error}}",
+        "cancelled":        "Compilation cancelled"
     },
     "editor": {
         "lineCol": "Ln {{line}}, Col {{col}}"

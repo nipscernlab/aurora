@@ -75,6 +75,11 @@ class SplitPane {
         this.paneIndex  = paneIndex;
         this.tabs       = new Map(); // filePath → { editor, editorDiv }
         this.activeFile = null;
+        // Path of the current preview (italic) tab in THIS pane, or null.
+        // Each pane carries its own preview slot — opening a preview in
+        // the main pane doesn't displace the one in a split, and vice
+        // versa. Mirrors TabManager.previewTab semantics.
+        this.previewTab = null;
         this.element    = this._buildDOM();
     }
 
@@ -127,10 +132,26 @@ class SplitPane {
         return pane;
     }
 
-    async openFile(filePath, content) {
+    async openFile(filePath, content, options = {}) {
+        const isPreview = options.preview === true;
+
         if (this.tabs.has(filePath)) {
+            // Existing tab: promote it from preview if the new request is
+            // permanent. Same semantics as TabManager.addTab.
+            if (this.previewTab === filePath && !isPreview) {
+                this.promotePreviewToPermanent(filePath);
+            }
             this._activateFile(filePath);
             return;
+        }
+
+        // Opening a fresh preview into a pane that already has one: silently
+        // discard the old preview before we add the new tab. The old preview's
+        // editor is disposed via the same _closeFile path used by the close
+        // button — minus the unsaved-changes dialog, since a preview cannot
+        // be dirty (typing in it would have promoted it first).
+        if (isPreview && this.previewTab && this.previewTab !== filePath) {
+            await this._closePreviewSilently(this.previewTab);
         }
 
         const editorArea = this.element.querySelector('.split-pane-editor-area');
@@ -175,27 +196,68 @@ class SplitPane {
         // for this file, and through SharedModelRegistry.isDirty so the
         // result is the same regardless of which pane fired the event.
         // VS Code parity: undoing all the way back to the saved state
-        // clears the dot in every instance.
+        // clears the dot in every instance. Editing also auto-promotes a
+        // preview tab — typing means commitment, italics make no sense
+        // on something the user is actively changing.
         editor.onDidChangeModelContent(() => {
             if (SharedModelRegistry.isDirty(filePath)) {
                 TabManager.markFileAsModified(filePath);
+                if (this.previewTab === filePath) {
+                    this.promotePreviewToPermanent(filePath);
+                }
             } else {
                 TabManager.markFileAsSaved(filePath);
             }
         });
 
         this.tabs.set(filePath, { editor, editorDiv });
-        this._addTabElement(filePath);
+        this._addTabElement(filePath, { preview: isPreview });
+        if (isPreview) this.previewTab = filePath;
         this._activateFile(filePath);
     }
 
-    _addTabElement(filePath) {
+    /** Strip the italic from a preview tab in this pane (no-op otherwise). */
+    promotePreviewToPermanent(filePath) {
+        if (this.previewTab !== filePath) return;
+        this.previewTab = null;
+        const tabEl = this.element.querySelector(
+            `.split-tab[data-path="${CSS.escape(filePath)}"]`,
+        );
+        if (tabEl) tabEl.classList.remove('preview');
+    }
+
+    /**
+     * Drop a preview tab without prompting. Preview tabs cannot be dirty
+     * (the content listener promotes on first edit), so we skip the
+     * save/cancel dialog that _closeFile would otherwise show.
+     */
+    async _closePreviewSilently(filePath) {
+        const info = this.tabs.get(filePath);
+        if (!info) { this.previewTab = null; return; }
+        try { info.editor.dispose(); } catch (_) { /* model is shared */ }
+        info.editorDiv.remove();
+        this.tabs.delete(filePath);
+        const tabEl = this.element.querySelector(
+            `.split-tab[data-path="${CSS.escape(filePath)}"]`,
+        );
+        if (tabEl) tabEl.remove();
+        // Release this pane's reference on the shared model so the
+        // registry's instance count stays accurate.
+        if (typeof SharedModelRegistry?.release === 'function') {
+            SharedModelRegistry.release(filePath);
+        }
+        if (this.activeFile === filePath) this.activeFile = null;
+        this.previewTab = null;
+    }
+
+    _addTabElement(filePath, options = {}) {
         const tabsBar  = this.element.querySelector('.split-pane-tabs');
         const fileName = filePath.split(/[\\/]/).pop();
         const iconClass = TabManager.getFileIcon?.(fileName) ?? 'fas fa-file';
 
         const tab = document.createElement('div');
         tab.className = 'tab split-tab';
+        if (options.preview === true) tab.classList.add('preview');
         tab.dataset.path = filePath;
         tab.title = filePath;
         // Mesmo padrao do tab_manager: usa tr('tabs.close') com
@@ -210,11 +272,20 @@ class SplitPane {
             <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
         `;
 
+        // Single click activates without promoting — VS Code parity. The
+        // tab stays italic until the user double-clicks it or starts
+        // editing the buffer.
         tab.addEventListener('click', (e) => {
             if (!e.target.classList.contains('close-tab')) {
                 SplitEditorManager.setFocus(this.paneIndex);
                 this._activateFile(filePath);
             }
+        });
+        // Double click promotes the preview to permanent (pin).
+        tab.addEventListener('dblclick', (e) => {
+            if (e.target.classList.contains('close-tab')) return;
+            this.promotePreviewToPermanent(filePath);
+            this._activateFile(filePath);
         });
         tab.querySelector('.close-tab').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -305,6 +376,7 @@ class SplitPane {
         info.editorDiv.remove();
         SharedModelRegistry.release(filePath);
         this.tabs.delete(filePath);
+        if (this.previewTab === filePath) this.previewTab = null;
 
         const tabEl = this.element.querySelector(`.split-tab[data-path="${CSS.escape(filePath)}"]`);
         if (tabEl) tabEl.remove();
@@ -453,16 +525,21 @@ const SplitEditorManager = {
         return !!pane?.activeFile;
     },
 
-    /** Open filePath+content in the currently focused split pane */
-    async openInFocusedPane(filePath, content) {
+    /**
+     * Open filePath+content in the currently focused split pane.
+     * `options.preview` flows through so a single click in the file tree
+     * with a split focused opens an italic preview tab in that split,
+     * just like a click with the main pane focused does for TabManager.
+     */
+    async openInFocusedPane(filePath, content, options = {}) {
         if (this.focusedPane === 0) {
             // Main pane is managed by TabManager, not this.panes (which holds split panes only)
-            TabManager.addTab(filePath, content);
+            TabManager.addTab(filePath, content, options);
             return;
         }
         const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
         if (!pane) return;
-        await pane.openFile(filePath, content);
+        await pane.openFile(filePath, content, options);
     },
 
     /**

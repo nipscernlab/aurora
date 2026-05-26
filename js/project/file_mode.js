@@ -38,6 +38,30 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors, addAvailableProcessor } from './processor_list.js';
 import { SpfStore } from './spf_store.js';
+
+// Single click on a file in the tree opens it as a VS Code-style preview
+// (italic tab; clicking another file replaces it). Double click pins it
+// as a permanent tab. The same `options.preview` flag flows through to
+// SplitPane.openFile so a focused split treats clicks identically — each
+// pane carries its own preview slot, decoupled from the main pane.
+async function openTreeFile(filePath, fileName, options, ctx) {
+    try {
+        const content = await window.electronAPI.readFile(filePath);
+        const sem = window.SplitEditorManager;
+        if (sem && sem.focusedPane > 0) {
+            await sem.openInFocusedPane(filePath, content, options);
+        } else {
+            TabManager.addTab(filePath, content, options);
+        }
+    } catch (err) {
+        console.error('Error opening file:', err);
+        ctx?.showNotification?.(
+            window.t ? window.t('notification.fileMode.errorOpen', { name: fileName }) : `Error opening file: ${fileName}`,
+            'error',
+            3000,
+        );
+    }
+}
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
@@ -182,27 +206,28 @@ class ProjectTreeManager {
                     await this._removeFileByPath(path);
                     return;
                 }
-                // Plain row click → abre o arquivo. Roteia pro pane focado:
+                // Plain row click → abre o arquivo como PREVIEW (italico,
+                // VS Code-style). Clicar em outro arquivo substitui o preview;
+                // dblclick promove o tab a permanente. Roteia pro pane focado:
                 // se um split estiver focado (focusedPane > 0) abre nele,
-                // senao cai no pane principal via TabManager. Mesma logica do
-                // file_tree_manager — sem ela esta arvore (a que renderiza os
-                // .v do projeto) abria sempre no main, ignorando o split.
-                try {
-                    const content = await window.electronAPI.readFile(file.path);
-                    const sem = window.SplitEditorManager;
-                    if (sem && sem.focusedPane > 0) {
-                        await sem.openInFocusedPane(file.path, content);
-                    } else {
-                        TabManager.addTab(file.path, content);
-                    }
-                } catch (err) {
-                    console.error('Error opening file:', err);
-                    this.showNotification(
-                        window.t ? window.t('notification.fileMode.errorOpen', { name: file.name }) : `Error opening file: ${file.name}`,
-                        'error',
-                        3000,
-                    );
-                }
+                // senao cai no pane principal via TabManager.
+                await openTreeFile(file.path, file.name, { preview: true }, this);
+            });
+
+            // Double-click → promote/open as permanent tab. The single-click
+            // listener still fires first (it opens or activates the preview);
+            // this one upgrades the same path to a permanent tab. We don't
+            // re-read the file here — the preview already created the tab.
+            this.elements.fileTree.addEventListener('dblclick', async (e) => {
+                if (!this.isTreeActive) return;
+                const row = e.target.closest('.verilog-file-item');
+                if (!row) return;
+                const path = row.dataset.filePath;
+                if (!path) return;
+                const file = this.verilogFiles.find((f) => f.path === path);
+                if (!file) return;
+                if (e.target.closest('[data-action]')) return; // delete button
+                await openTreeFile(file.path, file.name, { preview: false }, this);
             });
         }
 

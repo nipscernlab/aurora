@@ -521,12 +521,10 @@ export class TabManager {
             this.previewTab = filePath;
         }
 
-        // Add event listeners
+        // Add event listeners. Single click activates without promoting —
+        // a preview tab stays italic until the user double-clicks it or
+        // starts editing the buffer. VS Code parity.
         tab.addEventListener('click', () => {
-            // Clicking a preview tab permanently promotes it
-            if (this.previewTab === filePath) {
-                this.promotePreviewToPermanent(filePath);
-            }
             // Main pane is paneIndex 0 — clicking its tab must flip the
             // SplitEditorManager focus back here, otherwise a split pane
             // remains "focused" (un-dimmed) even though the user just

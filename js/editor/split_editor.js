@@ -260,16 +260,10 @@ class SplitPane {
         if (options.preview === true) tab.classList.add('preview');
         tab.dataset.path = filePath;
         tab.title = filePath;
-        // Mesmo padrao do tab_manager: usa tr('tabs.close') com
-        // fallback EN se i18n nao bootou ainda. data-i18n-title faz
-        // o applyDOM re-traduzir o tooltip em locale changes (sem
-        // ele, um tab criado em EN ficaria preso em EN apos o
-        // toggle pra PT).
-        const closeTitle = window.t ? window.t('tabs.close') : 'Close';
         tab.innerHTML = `
             <i class="${iconClass}"></i>
             <span class="tab-name">${fileName}</span>
-            <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
+            <button class="close-tab">×</button>
         `;
 
         // Single click activates without promoting — VS Code parity. The

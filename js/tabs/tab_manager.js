@@ -505,14 +505,10 @@ export class TabManager {
             tab.classList.add('binary-file');
         }
 
-        // data-i18n-title pra que o applyDOM atualize o tooltip em
-        // locale changes — sem ele, um tab criado em EN ficaria
-        // preso em EN apos o toggle pra PT.
-        const closeTitle = window.t ? window.t('tabs.close') : 'Close';
         tab.innerHTML = `
       <i class="${this.getFileIcon(filePath.split(/[\\/]/).pop())}"></i>
       <span class="tab-name">${filePath.split(/[\\/]/).pop()}</span>
-      <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
+      <button class="close-tab">×</button>
     `;
 
         // Mark as preview if needed

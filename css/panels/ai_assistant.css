@@ -14,11 +14,11 @@
  * ------------------------------------------------------------------------- */
 .ai-assistant-container {
   position: fixed;
-  top: 0;
+  top: var(--h-toolbar);
   right: 0;
   transform: translateX(100%);
   width: 480px;
-  height: 100vh;
+  height: calc(100vh - var(--h-toolbar) - var(--h-statusbar));
   background-color: var(--bg-elev);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
@@ -1392,7 +1392,7 @@ body.ai-assistant-open {
   right: 0;
   z-index: var(--z-30);
   width: auto;
-  height: calc(100vh - 36px);
+  height: calc(100vh - var(--h-toolbar) - var(--h-statusbar) - 36px);
   display: flex;
   flex-direction: column;
   background: var(--bg-elev-2);

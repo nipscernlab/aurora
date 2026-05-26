@@ -21,7 +21,6 @@
   height: calc(100vh - var(--h-toolbar) - var(--h-statusbar));
   background-color: var(--bg-elev);
   border-left: 1px solid var(--border);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   z-index: var(--z-40);
   transition: transform 240ms var(--ease-out-quart);

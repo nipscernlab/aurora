@@ -176,6 +176,50 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'analyze_asm',
+    description:
+      'Parse a SAPHO assembly (.asm) file and return a structured summary: total instruction ' +
+      'count, count per opcode, count per family (memory/arith_float/arith_int/control/io/...), ' +
+      'labels with line numbers, and detected loops (back-jumps with body size). Use this to ' +
+      'find optimisation targets (the largest loops) and to verify an optimisation actually ' +
+      'reduced the instruction count. Provide either filePath OR processorName; if neither, ' +
+      'the active editor file is used (must be .asm).',
+    access: 'read',
+    api: ['project', 'analyzeAsm'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath:      { type: 'string', description: 'Absolute or project-relative path to a .asm file' },
+        processorName: { type: 'string', description: 'Resolves to <root>/<proc>/Software/<proc>.asm' },
+      },
+    },
+  },
+  {
+    name: 'list_opcodes',
+    description:
+      'List every SAPHO assembly opcode (mnemonic, numeric opcode, operand kind, family ' +
+      'classification, prefix variants, one-line description). Use this when reasoning about ' +
+      'which instruction family dominates a loop and which alternative encoding might shrink it.',
+    access: 'read',
+    api: ['rules', 'listOpcodes'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_opcode',
+    description: 'Look up one SAPHO assembly opcode by mnemonic (case-insensitive).',
+    access: 'read',
+    api: ['rules', 'getOpcode'],
+    argStyle: 'positional',
+    argNames: ['mnemonic'],
+    inputSchema: {
+      type: 'object',
+      properties: { mnemonic: { type: 'string', description: 'e.g. F_MLT, P_LOD, NRM_M' } },
+      required: ['mnemonic'],
+    },
+  },
+  {
     name: 'get_settings',
     description: 'Read the user-facing IDE settings: locale, tooltips, verbose mode.',
     access: 'read',
@@ -261,14 +305,19 @@ const TOOL_MANIFEST = [
   },
   {
     name: 'compile_step',
-    description: 'Run a single compilation step. "wave" opens GTKWave; "prism" opens the PRISM RTL viewer.',
+    description:
+      'Run a single compilation step. "cmm" regenerates the .asm from .cmm and assembles; ' +
+      '"asm" SKIPS cmmcomp and runs asmcomp + iverilog -tnull (use this to test an .asm you ' +
+      'hand-optimised — typically combined with a `set_command_override` on the asm step\'s ' +
+      '-i flag pointing at <proc>/Software/_aurora_opt/<proc>.asm); "verilog" elaborates the ' +
+      'project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer.',
     access: 'write',
     api: ['compile', 'compileStep'],
     argStyle: 'positional',
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string', enum: ['cmm', 'verilog', 'wave', 'prism'] } },
+      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism'] } },
       required: ['step'],
     },
   },

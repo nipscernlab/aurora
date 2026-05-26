@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-19T23:25:04.688Z",
+  "generatedAt": "2026-05-26T21:51:57.057Z",
   "source": {
     "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "76dc01609aa4"
+    "yancCommit": "644fef193f15"
   },
   "language": {
     "keywords": [
@@ -108,12 +108,7 @@
         "token": "VZERO"
       }
     ],
-    "macroDirectives": [
-      {
-        "symbol": "#INTERPOINT",
-        "token": "ITRADD"
-      }
-    ]
+    "macroDirectives": []
   },
   "directives": {
     "PRNAME": {
@@ -164,6 +159,14 @@
     "FFTSIZ": {
       "symbol": "#FFTSIZ",
       "token": "FFTSIZ"
+    },
+    "PRACA": {
+      "symbol": "#PRACA",
+      "token": "ITRADD"
+    },
+    "TOAQUI": {
+      "symbol": "#TOAQUI",
+      "token": "TOAQUI"
     }
   },
   "grammar": {
@@ -224,6 +227,7 @@
       "STRING",
       "SWITCH",
       "THEN",
+      "TOAQUI",
       "TYPE",
       "VZERO",
       "WHILE"
@@ -1163,8 +1167,1299 @@
       "code": "MSG_CLI_HELP",
       "severity": "cli",
       "category": "command-line interface",
-      "pt": "cmmcomp - compilador front-end C± do YANC (%s)\n\nUso:\n  cmmcomp [opções] -i <arq.cmm> -n <nome> -p <dir> -m <dir> -t <dir>\n\nOpções obrigatórias:\n  -i, --input <arq>       arquivo-fonte C± (dentro de <dir-proc>/Software)\n  -n, --name <nome>       nome do processador (base do .asm gerado)\n  -p, --proc-dir <dir>    diretório do processador\n  -m, --macros-dir <dir>  diretório de Macros\n  -t, --temp-dir <dir>    diretório Temp\n\nOutras opções:\n  -P, --project           modo projeto (array inicializado pela simulação)\n  -en, -pt                idioma das mensagens (padrão: -pt)\n  -h, --help              mostra esta ajuda e sai\n  -V, --version           mostra a versão e sai\n",
-      "en": "cmmcomp - YANC C± front-end compiler (%s)\n\nUsage:\n  cmmcomp [options] -i <file.cmm> -n <name> -p <dir> -m <dir> -t <dir>\n\nRequired options:\n  -i, --input <file>      C± source file (inside <proc-dir>/Software)\n  -n, --name <name>       processor name (base name of the .asm output)\n  -p, --proc-dir <dir>    processor directory\n  -m, --macros-dir <dir>  Macros directory\n  -t, --temp-dir <dir>    Temp directory\n\nOther options:\n  -P, --project           project mode (array initialised by simulation)\n  -en, -pt                diagnostic message language (default: -pt)\n  -h, --help              show this help and exit\n  -V, --version           show version and exit\n"
+      "pt": "cmmcomp - compilador front-end C± do YANC (%s)\n\nUso:\n  cmmcomp [opções] -i <arq.cmm> -n <nome> -p <dir> -m <dir> -t <dir>\n\nOpções obrigatórias:\n  -i, --input <arq>       arquivo-fonte C± (dentro de <dir-proc>/Software)\n  -n, --name <nome>       nome do processador (base do .asm gerado)\n  -p, --proc-dir <dir>    diretório do processador\n  -m, --macros-dir <dir>  diretório de Macros\n  -t, --temp-dir <dir>    diretório Temp\n\nOutras opções:\n  -A, --array             expande cada elemento do array como sinal individual no GTKWave\n  -en, -pt                idioma das mensagens (padrão: -pt)\n  -h, --help              mostra esta ajuda e sai\n  -V, --version           mostra a versão e sai\n",
+      "en": "cmmcomp - YANC C± front-end compiler (%s)\n\nUsage:\n  cmmcomp [options] -i <file.cmm> -n <name> -p <dir> -m <dir> -t <dir>\n\nRequired options:\n  -i, --input <file>      C± source file (inside <proc-dir>/Software)\n  -n, --name <name>       processor name (base name of the .asm output)\n  -p, --proc-dir <dir>    processor directory\n  -m, --macros-dir <dir>  Macros directory\n  -t, --temp-dir <dir>    Temp directory\n\nOther options:\n  -A, --array             emit each array element as a separate GTKWave signal       \n  -en, -pt                diagnostic message language (default: -pt)\n  -h, --help              show this help and exit\n  -V, --version           show version and exit\n"
     }
-  ]
+  ],
+  "asm": {
+    "opcodes": [
+      {
+        "mnemonic": "LEA",
+        "opcode": 0,
+        "operandKind": "address_const",
+        "operandCode": 24,
+        "hdlName": "LOD",
+        "family": "memory",
+        "variants": [],
+        "description": "load-effective-address: acc = &var (pseudo, expands to LOD <const>)"
+      },
+      {
+        "mnemonic": "LOD",
+        "opcode": 0,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LOD",
+        "family": "memory",
+        "variants": [],
+        "description": "loads data from memory"
+      },
+      {
+        "mnemonic": "LOD_V",
+        "opcode": 0,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "LOD",
+        "family": "memory",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "LOD with constant offset"
+      },
+      {
+        "mnemonic": "P_LOD",
+        "opcode": 1,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_LOD",
+        "family": "memory",
+        "variants": [
+          "push_prefix"
+        ],
+        "description": "PUSH + LOD"
+      },
+      {
+        "mnemonic": "P_LOD_V",
+        "opcode": 1,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "P_LOD",
+        "family": "memory",
+        "variants": [
+          "push_prefix",
+          "offset_variant"
+        ],
+        "description": "P_LOD with constant offset"
+      },
+      {
+        "mnemonic": "LDI",
+        "opcode": 2,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LDI",
+        "family": "memory",
+        "variants": [],
+        "description": "LOD with indirect addressing (index in acc)"
+      },
+      {
+        "mnemonic": "ILI",
+        "opcode": 3,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "ILI",
+        "family": "memory",
+        "variants": [],
+        "description": "LOD with reverse indirect addressing (FFT)"
+      },
+      {
+        "mnemonic": "SET",
+        "opcode": 4,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SET",
+        "family": "memory",
+        "variants": [],
+        "description": "stores data in memory"
+      },
+      {
+        "mnemonic": "SET_V",
+        "opcode": 4,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "SET",
+        "family": "memory",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "SET with constant offset"
+      },
+      {
+        "mnemonic": "SET_P",
+        "opcode": 5,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SET_P",
+        "family": "memory",
+        "variants": [],
+        "description": "SET + POP"
+      },
+      {
+        "mnemonic": "STI",
+        "opcode": 6,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "STI",
+        "family": "memory",
+        "variants": [],
+        "description": "SET with indirect addressing (index on stack)"
+      },
+      {
+        "mnemonic": "ISI",
+        "opcode": 7,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "ISI",
+        "family": "memory",
+        "variants": [],
+        "description": "SET with reverse indirect addressing (FFT)"
+      },
+      {
+        "mnemonic": "PSH",
+        "opcode": 8,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "PSH",
+        "family": "stack",
+        "variants": [],
+        "description": "pushes data onto the stack"
+      },
+      {
+        "mnemonic": "POP",
+        "opcode": 9,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "POP",
+        "family": "stack",
+        "variants": [],
+        "description": "pops data from the stack"
+      },
+      {
+        "mnemonic": "INN",
+        "opcode": 10,
+        "operandKind": "input_port",
+        "operandCode": 20,
+        "hdlName": "INN",
+        "family": "io",
+        "variants": [],
+        "description": "data input"
+      },
+      {
+        "mnemonic": "F_INN",
+        "opcode": 11,
+        "operandKind": "input_port",
+        "operandCode": 20,
+        "hdlName": "F_INN",
+        "family": "io",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point data input"
+      },
+      {
+        "mnemonic": "P_INN",
+        "opcode": 12,
+        "operandKind": "input_port",
+        "operandCode": 20,
+        "hdlName": "P_INN",
+        "family": "io",
+        "variants": [
+          "push_prefix"
+        ],
+        "description": "PUSH +   INN"
+      },
+      {
+        "mnemonic": "PF_INN",
+        "opcode": 13,
+        "operandKind": "input_port",
+        "operandCode": 20,
+        "hdlName": "PF_INN",
+        "family": "io",
+        "variants": [
+          "push_prefix",
+          "float"
+        ],
+        "description": "PUSH + F_INN"
+      },
+      {
+        "mnemonic": "OUT",
+        "opcode": 14,
+        "operandKind": "output_port",
+        "operandCode": 21,
+        "hdlName": "OUT",
+        "family": "io",
+        "variants": [],
+        "description": "data output"
+      },
+      {
+        "mnemonic": "JMP",
+        "opcode": 15,
+        "operandKind": "label",
+        "operandCode": 19,
+        "hdlName": "",
+        "family": "control",
+        "variants": [],
+        "description": "unconditional jump"
+      },
+      {
+        "mnemonic": "JIZ",
+        "opcode": 16,
+        "operandKind": "label",
+        "operandCode": 19,
+        "hdlName": "JIZ",
+        "family": "control",
+        "variants": [],
+        "description": "jump if acc is zero"
+      },
+      {
+        "mnemonic": "CAL",
+        "opcode": 17,
+        "operandKind": "label",
+        "operandCode": 19,
+        "hdlName": "CAL",
+        "family": "control",
+        "variants": [],
+        "description": "subroutine call"
+      },
+      {
+        "mnemonic": "RET",
+        "opcode": 18,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "",
+        "family": "control",
+        "variants": [],
+        "description": "subroutine return"
+      },
+      {
+        "mnemonic": "ADD",
+        "opcode": 19,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "ADD",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point addition with memory"
+      },
+      {
+        "mnemonic": "ADD_V",
+        "opcode": 19,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "ADD",
+        "family": "arith_int",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "ADD with constant offset"
+      },
+      {
+        "mnemonic": "S_ADD",
+        "opcode": 20,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_ADD",
+        "family": "arith_int",
+        "variants": [
+          "stack"
+        ],
+        "description": "fixed-point addition with stack"
+      },
+      {
+        "mnemonic": "F_ADD",
+        "opcode": 21,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_ADD",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point addition with memory"
+      },
+      {
+        "mnemonic": "F_ADD_V",
+        "opcode": 21,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "F_ADD",
+        "family": "arith_float",
+        "variants": [
+          "float",
+          "offset_variant"
+        ],
+        "description": "F_ADD with constant offset"
+      },
+      {
+        "mnemonic": "SF_ADD",
+        "opcode": 22,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_ADD",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point addition with stack"
+      },
+      {
+        "mnemonic": "MLT",
+        "opcode": 23,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "MLT",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point multiplication with memory"
+      },
+      {
+        "mnemonic": "MLT_V",
+        "opcode": 23,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "MLT",
+        "family": "arith_int",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "MLT with constant offset"
+      },
+      {
+        "mnemonic": "S_MLT",
+        "opcode": 24,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_MLT",
+        "family": "arith_int",
+        "variants": [
+          "stack"
+        ],
+        "description": "fixed-point multiplication with stack"
+      },
+      {
+        "mnemonic": "F_MLT",
+        "opcode": 25,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_MLT",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point multiplication with memory"
+      },
+      {
+        "mnemonic": "F_MLT_V",
+        "opcode": 25,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "F_MLT",
+        "family": "arith_float",
+        "variants": [
+          "float",
+          "offset_variant"
+        ],
+        "description": "F_MLT with constant offset"
+      },
+      {
+        "mnemonic": "SF_MLT",
+        "opcode": 26,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_MLT",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point multiplication with stack"
+      },
+      {
+        "mnemonic": "DIV",
+        "opcode": 27,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "DIV",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point division with memory"
+      },
+      {
+        "mnemonic": "S_DIV",
+        "opcode": 28,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_DIV",
+        "family": "arith_int",
+        "variants": [
+          "stack"
+        ],
+        "description": "fixed-point division with stack"
+      },
+      {
+        "mnemonic": "F_DIV",
+        "opcode": 29,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_DIV",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point division with memory"
+      },
+      {
+        "mnemonic": "SF_DIV",
+        "opcode": 30,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_DIV",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point division with stack"
+      },
+      {
+        "mnemonic": "MOD",
+        "opcode": 31,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "MOD",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point remainder with memory"
+      },
+      {
+        "mnemonic": "S_MOD",
+        "opcode": 32,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_MOD",
+        "family": "arith_int",
+        "variants": [
+          "stack"
+        ],
+        "description": "fixed-point remainder with stack"
+      },
+      {
+        "mnemonic": "SGN",
+        "opcode": 33,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SGN",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point sign with memory"
+      },
+      {
+        "mnemonic": "S_SGN",
+        "opcode": 34,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_SGN",
+        "family": "arith_int",
+        "variants": [
+          "stack"
+        ],
+        "description": "fixed-point sign with stack"
+      },
+      {
+        "mnemonic": "F_SGN",
+        "opcode": 35,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_SGN",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point sign with memory"
+      },
+      {
+        "mnemonic": "SF_SGN",
+        "opcode": 36,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_SGN",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point sign with stack"
+      },
+      {
+        "mnemonic": "NEG",
+        "opcode": 37,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "NEG",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point negation with acc"
+      },
+      {
+        "mnemonic": "NEG_M",
+        "opcode": 38,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "NEG_M",
+        "family": "arith_int",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "fixed-point negation with memory"
+      },
+      {
+        "mnemonic": "P_NEG_M",
+        "opcode": 39,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_NEG_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH +   NEG_M"
+      },
+      {
+        "mnemonic": "F_NEG",
+        "opcode": 40,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F_NEG",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point negation with acc"
+      },
+      {
+        "mnemonic": "F_NEG_M",
+        "opcode": 41,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_NEG_M",
+        "family": "arith_float",
+        "variants": [
+          "float",
+          "mem_variant"
+        ],
+        "description": "floating-point negation with memory"
+      },
+      {
+        "mnemonic": "PF_NEG_M",
+        "opcode": 42,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "PF_NEG_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "float",
+          "mem_variant"
+        ],
+        "description": "PUSH + F_NEG_M"
+      },
+      {
+        "mnemonic": "ABS",
+        "opcode": 43,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "ABS",
+        "family": "arith_int",
+        "variants": [],
+        "description": "fixed-point abs with acc"
+      },
+      {
+        "mnemonic": "ABS_M",
+        "opcode": 44,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "ABS_M",
+        "family": "arith_int",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "fixed-point abs with memory"
+      },
+      {
+        "mnemonic": "P_ABS_M",
+        "opcode": 45,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_ABS_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH +   ABS_M"
+      },
+      {
+        "mnemonic": "F_ABS",
+        "opcode": 46,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F_ABS",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point abs with acc"
+      },
+      {
+        "mnemonic": "F_ABS_M",
+        "opcode": 47,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_ABS_M",
+        "family": "arith_float",
+        "variants": [
+          "float",
+          "mem_variant"
+        ],
+        "description": "floating-point abs with memory"
+      },
+      {
+        "mnemonic": "PF_ABS_M",
+        "opcode": 48,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "PF_ABS_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "float",
+          "mem_variant"
+        ],
+        "description": "PUSH + F_ABS_M"
+      },
+      {
+        "mnemonic": "PST",
+        "opcode": 49,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "PST",
+        "family": "arith_int",
+        "variants": [],
+        "description": "clears if negative, fixed-point with acc"
+      },
+      {
+        "mnemonic": "PST_M",
+        "opcode": 50,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "PST_M",
+        "family": "arith_int",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "clears if negative, fixed-point with memory"
+      },
+      {
+        "mnemonic": "P_PST_M",
+        "opcode": 51,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_PST_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH +   PST_M"
+      },
+      {
+        "mnemonic": "F_PST",
+        "opcode": 52,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F_PST",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "clears if negative, floating-point with acc"
+      },
+      {
+        "mnemonic": "F_PST_M",
+        "opcode": 53,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_PST_M",
+        "family": "arith_float",
+        "variants": [
+          "float",
+          "mem_variant"
+        ],
+        "description": "clears if negative, floating-point with memory"
+      },
+      {
+        "mnemonic": "PF_PST_M",
+        "opcode": 54,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "PF_PST_M",
+        "family": "arith_int",
+        "variants": [
+          "push_prefix",
+          "float",
+          "mem_variant"
+        ],
+        "description": "PUSH + F_PST_M"
+      },
+      {
+        "mnemonic": "NRM",
+        "opcode": 55,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "NRM",
+        "family": "arith_norm",
+        "variants": [],
+        "description": "divides by constant, fixed-point with acc"
+      },
+      {
+        "mnemonic": "NRM_M",
+        "opcode": 56,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "NRM_M",
+        "family": "arith_norm",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "divides by constant, fixed-point with memory"
+      },
+      {
+        "mnemonic": "P_NRM_M",
+        "opcode": 57,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_NRM_M",
+        "family": "arith_norm",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH +   NRM_M"
+      },
+      {
+        "mnemonic": "I2F",
+        "opcode": 58,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "I2F",
+        "family": "conversion",
+        "variants": [],
+        "description": "int2float with acc"
+      },
+      {
+        "mnemonic": "I2F_M",
+        "opcode": 59,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "I2F_M",
+        "family": "conversion",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "int2float with mem"
+      },
+      {
+        "mnemonic": "P_I2F_M",
+        "opcode": 60,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_I2F_M",
+        "family": "conversion",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH + I2F_M"
+      },
+      {
+        "mnemonic": "F2I",
+        "opcode": 61,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F2I",
+        "family": "conversion",
+        "variants": [],
+        "description": "float2int with acc"
+      },
+      {
+        "mnemonic": "F2I_M",
+        "opcode": 62,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F2I_M",
+        "family": "conversion",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "float2int with mem"
+      },
+      {
+        "mnemonic": "P_F2I_M",
+        "opcode": 63,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_F2I_M",
+        "family": "conversion",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH + F2I_M"
+      },
+      {
+        "mnemonic": "AND",
+        "opcode": 64,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "AND",
+        "family": "bitwise",
+        "variants": [],
+        "description": "and with memory"
+      },
+      {
+        "mnemonic": "S_AND",
+        "opcode": 65,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_AND",
+        "family": "bitwise",
+        "variants": [
+          "stack"
+        ],
+        "description": "and with stack"
+      },
+      {
+        "mnemonic": "ORR",
+        "opcode": 66,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "ORR",
+        "family": "bitwise",
+        "variants": [],
+        "description": "or  with memory"
+      },
+      {
+        "mnemonic": "S_ORR",
+        "opcode": 67,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_ORR",
+        "family": "bitwise",
+        "variants": [
+          "stack"
+        ],
+        "description": "or  with stack"
+      },
+      {
+        "mnemonic": "XOR",
+        "opcode": 68,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "XOR",
+        "family": "bitwise",
+        "variants": [],
+        "description": "xor with memory"
+      },
+      {
+        "mnemonic": "S_XOR",
+        "opcode": 69,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_XOR",
+        "family": "bitwise",
+        "variants": [
+          "stack"
+        ],
+        "description": "xor with stack"
+      },
+      {
+        "mnemonic": "INV",
+        "opcode": 70,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "INV",
+        "family": "bitwise",
+        "variants": [],
+        "description": "not with acc"
+      },
+      {
+        "mnemonic": "INV_M",
+        "opcode": 71,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "INV_M",
+        "family": "bitwise",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "not with mem"
+      },
+      {
+        "mnemonic": "P_INV_M",
+        "opcode": 72,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_INV_M",
+        "family": "bitwise",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH + INV_M"
+      },
+      {
+        "mnemonic": "LAN",
+        "opcode": 73,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LAN",
+        "family": "logical",
+        "variants": [],
+        "description": "logical and with memory"
+      },
+      {
+        "mnemonic": "S_LAN",
+        "opcode": 74,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_LAN",
+        "family": "logical",
+        "variants": [
+          "stack"
+        ],
+        "description": "logical and with stack"
+      },
+      {
+        "mnemonic": "LOR",
+        "opcode": 75,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LOR",
+        "family": "logical",
+        "variants": [],
+        "description": "logical or  with memory"
+      },
+      {
+        "mnemonic": "S_LOR",
+        "opcode": 76,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_LOR",
+        "family": "logical",
+        "variants": [
+          "stack"
+        ],
+        "description": "logical or  with stack"
+      },
+      {
+        "mnemonic": "LIN",
+        "opcode": 77,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "LIN",
+        "family": "logical",
+        "variants": [],
+        "description": "logical inversion with acc"
+      },
+      {
+        "mnemonic": "LIN_M",
+        "opcode": 78,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LIN_M",
+        "family": "logical",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "logical inversion with mem"
+      },
+      {
+        "mnemonic": "P_LIN_M",
+        "opcode": 79,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "P_LIN_M",
+        "family": "logical",
+        "variants": [
+          "push_prefix",
+          "mem_variant"
+        ],
+        "description": "PUSH + LIN_M"
+      },
+      {
+        "mnemonic": "LES",
+        "opcode": 80,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "LES",
+        "family": "compare",
+        "variants": [],
+        "description": "less than, fixed-point with memory"
+      },
+      {
+        "mnemonic": "S_LES",
+        "opcode": 81,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_LES",
+        "family": "compare",
+        "variants": [
+          "stack"
+        ],
+        "description": "less than, fixed-point with stack"
+      },
+      {
+        "mnemonic": "F_LES",
+        "opcode": 82,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_LES",
+        "family": "compare",
+        "variants": [
+          "float"
+        ],
+        "description": "less than, floating-point with memory"
+      },
+      {
+        "mnemonic": "SF_LES",
+        "opcode": 83,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_LES",
+        "family": "compare",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "less than, floating-point with stack"
+      },
+      {
+        "mnemonic": "GRE",
+        "opcode": 84,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "GRE",
+        "family": "compare",
+        "variants": [],
+        "description": "greater than, fixed-point with memory"
+      },
+      {
+        "mnemonic": "S_GRE",
+        "opcode": 85,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_GRE",
+        "family": "compare",
+        "variants": [
+          "stack"
+        ],
+        "description": "greater than, fixed-point with stack"
+      },
+      {
+        "mnemonic": "F_GRE",
+        "opcode": 86,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_GRE",
+        "family": "compare",
+        "variants": [
+          "float"
+        ],
+        "description": "greater than, floating-point with memory"
+      },
+      {
+        "mnemonic": "SF_GRE",
+        "opcode": 87,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_GRE",
+        "family": "compare",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "greater than, floating-point with stack"
+      },
+      {
+        "mnemonic": "EQU",
+        "opcode": 88,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "EQU",
+        "family": "compare",
+        "variants": [],
+        "description": "equal to, with memory"
+      },
+      {
+        "mnemonic": "S_EQU",
+        "opcode": 89,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_EQU",
+        "family": "compare",
+        "variants": [
+          "stack"
+        ],
+        "description": "equal to, with stack"
+      },
+      {
+        "mnemonic": "SHL",
+        "opcode": 90,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SHL",
+        "family": "shift",
+        "variants": [],
+        "description": "shift left  with memory"
+      },
+      {
+        "mnemonic": "S_SHL",
+        "opcode": 91,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_SHL",
+        "family": "shift",
+        "variants": [
+          "stack"
+        ],
+        "description": "shift left  with stack"
+      },
+      {
+        "mnemonic": "SHR",
+        "opcode": 92,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SHR",
+        "family": "shift",
+        "variants": [],
+        "description": "shift right with memory"
+      },
+      {
+        "mnemonic": "S_SHR",
+        "opcode": 93,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_SHR",
+        "family": "shift",
+        "variants": [
+          "stack"
+        ],
+        "description": "shift right with stack"
+      },
+      {
+        "mnemonic": "SRS",
+        "opcode": 94,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "SRS",
+        "family": "shift",
+        "variants": [],
+        "description": "arithmetic shift right with memory"
+      },
+      {
+        "mnemonic": "S_SRS",
+        "opcode": 95,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "S_SRS",
+        "family": "shift",
+        "variants": [
+          "stack"
+        ],
+        "description": "arithmetic shift right with stack"
+      },
+      {
+        "mnemonic": "NOP",
+        "opcode": 96,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "",
+        "family": "special",
+        "variants": [],
+        "description": "no operation"
+      },
+      {
+        "mnemonic": "F_ROT",
+        "opcode": 97,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F_ROT",
+        "family": "special",
+        "variants": [
+          "float"
+        ],
+        "description": "nearest power-of-two square-root approximation (with ACC)"
+      },
+      {
+        "mnemonic": "F_SU1",
+        "opcode": 98,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_SU1",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point subtraction with memory at input 1"
+      },
+      {
+        "mnemonic": "F_SU2",
+        "opcode": 99,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_SU2",
+        "family": "arith_float",
+        "variants": [
+          "float"
+        ],
+        "description": "floating-point subtraction with memory at input 2"
+      },
+      {
+        "mnemonic": "SF_SU1",
+        "opcode": 100,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_SU1",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point subtraction with stack at input 1"
+      },
+      {
+        "mnemonic": "SF_SU2",
+        "opcode": 101,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_SU2",
+        "family": "arith_float",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "floating-point subtraction with stack at input 2"
+      },
+      {
+        "mnemonic": "LDA",
+        "opcode": 102,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "LDA",
+        "family": "indirect",
+        "variants": [],
+        "description": "acc = mem[acc]"
+      },
+      {
+        "mnemonic": "STA",
+        "opcode": 103,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "STA",
+        "family": "indirect",
+        "variants": [],
+        "description": "mem[stack_top] = acc, pop"
+      }
+    ]
+  }
 }

@@ -342,6 +342,149 @@ function parseGrammar(src) {
 }
 
 /* ============================================================
+ *  ASM lexer parser  (ASMComp.l → SAPHO opcode table)
+ *
+ *  ASMComp.l registers every mnemonic with `eval_opcode(opNum,
+ *  operandKind, yytext, hdlName)` and a trailing `// comment`.
+ *  We pull all four arguments and the comment so the AI can see:
+ *    - the opcode number (machine code position)
+ *    - the operand kind (decoded into a human label)
+ *    - the HDL name (empty for opcodes that share encoding with
+ *      another mnemonic — JMP/RET/NOP all reuse a sibling slot)
+ *    - the one-line description of what the instruction does
+ *
+ *  Naming conventions (extracted from prefixes/suffixes — used to
+ *  group the ISA in the system prompt):
+ *      F_*    floating-point variant
+ *      S_*    stack-based variant (operand on data stack instead of mem)
+ *      SF_*   stack + floating
+ *      P_*    pushes acc onto the stack before running the op
+ *      PF_*   push + floating
+ *      *_M    memory-operand variant of an acc-only op
+ *      *_V    constant-offset addressing
+ * ========================================================== */
+
+// Decode the operand-kind code that ASMComp.l passes as the second
+// argument to eval_opcode(). The numbers come from eval.h in yanc; we
+// re-derive their meaning from how they're used in ASMComp.l (and from
+// the inline comments in eval_opcode rules).
+const OPERAND_KIND = {
+  0:  'none',           // accumulator-only / stack-only / no operand
+  18: 'memory',         // variable or memory address
+  19: 'label',          // jump / call target (@label)
+  20: 'input_port',     // port number (INN family)
+  21: 'output_port',    // port number (OUT)
+  22: 'memory_offset',  // variable + constant offset (LOD_V, ADD_V, ...)
+  24: 'address_const',  // LEA — bare address constant
+};
+
+// Classify a mnemonic into a coarse family used to group the ISA in
+// the system prompt. Each entry is checked in order; the first match
+// wins. Order matters: more-specific suffixes go before broader rules.
+function classifyMnemonic(mne) {
+  // Special / pseudo
+  if (mne === 'NOP')   return 'special';
+  if (mne === 'F_ROT') return 'special';
+  if (mne === 'LDA' || mne === 'STA') return 'indirect';
+  if (mne === 'LEA')   return 'memory';
+
+  // Control flow
+  if (/^(JMP|JIZ|CAL|RET)$/.test(mne)) return 'control';
+
+  // I/O
+  if (/INN$|OUT$/.test(mne)) return 'io';
+
+  // Memory load/store family (LOD/SET/LDI/STI/ILI/ISI and their _V/_P)
+  if (/^(P_)?LOD/.test(mne) || /^(P_)?SET/.test(mne) ||
+      /^(P_)?LDI/.test(mne) || /^(P_)?STI/.test(mne) ||
+      /^(P_)?ILI/.test(mne) || /^(P_)?ISI/.test(mne)) return 'memory';
+
+  // Stack manipulation
+  if (mne === 'PSH' || mne === 'POP') return 'stack';
+
+  // Compare
+  if (/(LES|GRE|EQU)$/.test(mne.replace(/^S?F?_?/, ''))) return 'compare';
+
+  // Shift
+  if (/(SHL|SHR|SRS)$/.test(mne.replace(/^S_/, ''))) return 'shift';
+
+  // Bitwise (AND/ORR/XOR/INV)
+  if (/^(S_)?(AND|ORR|XOR)$/.test(mne) || /^(P_)?INV/.test(mne)) return 'bitwise';
+
+  // Logical (LAN/LOR/LIN)
+  if (/^(S_)?(LAN|LOR)$/.test(mne) || /^(P_)?LIN/.test(mne)) return 'logical';
+
+  // Conversion (I2F/F2I)
+  if (/(I2F|F2I)/.test(mne)) return 'conversion';
+
+  // Normalisation (NRM — divide-by-NUGAIN)
+  if (/^(P_)?NRM/.test(mne)) return 'arith_norm';
+
+  // Floating-point arithmetic
+  if (/^S?F_/.test(mne) && /(ADD|MLT|DIV|SU1|SU2|NEG|ABS|PST|SGN)/.test(mne)) {
+    return 'arith_float';
+  }
+
+  // Integer arithmetic
+  if (/(ADD|MLT|DIV|MOD|NEG|ABS|PST|SGN)/.test(mne)) return 'arith_int';
+
+  return 'other';
+}
+
+// Tag prefix/suffix variants so the AI knows when an opcode is a
+// PUSH-prefix / stack-variant / float-variant of another opcode.
+function variantTags(mne) {
+  const tags = [];
+  if (/^F_/.test(mne))      tags.push('float');
+  if (/^S_/.test(mne))      tags.push('stack');
+  if (/^SF_/.test(mne)) { tags.push('stack'); tags.push('float'); }
+  if (/^P_/.test(mne))      tags.push('push_prefix');
+  if (/^PF_/.test(mne)) { tags.push('push_prefix'); tags.push('float'); }
+  if (/_M$/.test(mne))      tags.push('mem_variant');
+  if (/_V$/.test(mne))      tags.push('offset_variant');
+  return Array.from(new Set(tags));
+}
+
+function parseAsmLexer(src) {
+  if (!src) return null;
+  const opcodes = [];
+
+  // Each rule looks like:
+  //   "LOD"   eval_opcode(  0,18, yytext,    "LOD"  ); // loads data from memory
+  // We capture: mnemonic, opcode number, operand kind, hdl name,
+  // and the trailing single-line comment (everything after //).
+  //
+  // The regex is anchored on the start of a line and accepts arbitrary
+  // whitespace between fields. The HDL name field is a quoted string
+  // (possibly empty: `""`).
+  const ruleRe = /^\s*"([A-Za-z_][A-Za-z0-9_]*)"\s+eval_opcode\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*yytext\s*,\s*"([^"]*)"\s*\)\s*;\s*(?:\/\/\s*(.*))?$/gm;
+  let m;
+  while ((m = ruleRe.exec(src))) {
+    const mnemonic   = m[1];
+    const opcode     = parseInt(m[2], 10);
+    const operandRaw = parseInt(m[3], 10);
+    const hdlName    = m[4];
+    const description= (m[5] || '').trim();
+    opcodes.push({
+      mnemonic,
+      opcode,
+      operandKind: OPERAND_KIND[operandRaw] || `code_${operandRaw}`,
+      operandCode: operandRaw,
+      hdlName,                    // empty when reused via another opcode slot
+      family:  classifyMnemonic(mnemonic),
+      variants: variantTags(mnemonic),
+      description,
+    });
+  }
+
+  // Stable order: by opcode number, then mnemonic. Several mnemonics
+  // share a number (pseudo-ops like LEA, LOD_V), so the secondary sort
+  // keeps the dump deterministic across runs.
+  opcodes.sort((a, b) => a.opcode - b.opcode || a.mnemonic.localeCompare(b.mnemonic));
+  return opcodes;
+}
+
+/* ============================================================
  *  Main
  * ========================================================== */
 
@@ -361,10 +504,15 @@ function main() {
     msg:     readSafe(path.join(yancPath, 'CMMComp', 'Headers', 'messages.h')),
   };
 
+  const asm = {
+    lex: readSafe(path.join(yancPath, 'ASMComp', 'Sources', 'ASMComp.l')),
+  };
+
   const lex        = parseLexer(cmm.lex);
   const directives = buildDirectives(lex, cmm.dirC, cmm.dirH);
   const messages   = parseMessages(cmm.msg);
   const grammar    = parseGrammar(cmm.grammar);
+  const opcodes    = parseAsmLexer(asm.lex);
 
   const out = {
     schemaVersion: 1,
@@ -385,6 +533,7 @@ function main() {
     directives,
     grammar,
     messages,
+    asm: opcodes ? { opcodes } : null,
   };
 
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
@@ -397,6 +546,7 @@ function main() {
   console.log(`  messages:   ${messages.length}`);
   console.log(`  tokens:     ${grammar.tokens.length}`);
   console.log(`  productions:${grammar.productions.length}`);
+  console.log(`  asm opcodes:${opcodes?.length ?? 0}`);
   if (out.source.yancCommit) console.log(`  yanc commit: ${out.source.yancCommit}`);
 }
 

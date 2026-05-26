@@ -57,6 +57,12 @@ const STEP_TERMINALS = Object.freeze({
     // C± roda cmm + asm em sequencia (gera .asm via cmmcomp, depois
     // <proc>.v via asmcomp). Limpa ambos os terminais.
     cmm:     ['tcmm', 'tasm'],
+    // ASM-only: pula cmmcomp e roda apenas asmcomp + iverilog -tnull.
+    // Esse passo existe para a Aurora Intelligence testar um .asm
+    // otimizado a mao (com override em -i apontando pra _aurora_opt/)
+    // sem regenerar o .asm a partir do .cmm. Limpa o terminal do asm
+    // e o do iverilog.
+    asm:     ['tasm', 'tveri'],
     verilog: ['tveri'],
     // Wave roda iverilog internamente, que loga em tveri (bannerSyntaxWc,
     // simTop, cmd echo, etc), entao tveri TAMBEM tem que ser limpo.
@@ -75,6 +81,7 @@ const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 // Map per-step → terminal pra mensagens de erro fatal.
 const ERROR_TERMINAL = Object.freeze({
     cmm:     'tcmm',
+    asm:     'tasm',
     verilog: 'tveri',
     wave:    'twave',
     prism:   'tveri',
@@ -359,6 +366,75 @@ async function handleCmmStep() {
     } catch (error) {
         console.error('Erro na etapa cmm:', error);
         logFatalError('tcmm', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
+ * Variante de precompileAllProcessors que NAO chama cmmCompilation.
+ * Usada pela Aurora Intelligence quando ela quer testar um .asm
+ * otimizado a mao: o .cmm fica intacto e o .asm sandbox (apontado
+ * via override de -i no step asm) e o input do asmcomp.
+ *
+ * Mantem o mesmo contrato de error/skip que precompileAllProcessors
+ * pra que o resto do pipeline (iverilog/wave) funcione identico.
+ */
+async function precompileAsmOnly(compiler, terminalId) {
+    const fromSpf = Array.isArray(compiler.projectConfig?.processors)
+        ? compiler.projectConfig.processors.filter((p) => p && (typeof p === 'string' ? p : p.name))
+        : null;
+    const procs = (fromSpf && fromSpf.length > 0 ? fromSpf : collectProcessors())
+        .map((p) => (typeof p === 'string' ? { name: p } : p));
+    if (procs.length === 0) return 0;
+
+    await compiler.initializeComponentsPath();
+
+    const tm = window.terminalManager;
+    tm?.appendToTerminal?.(
+        terminalId,
+        `Info: assembling ${procs.length} processor(s) without re-running cmmcomp.`,
+        'tips',
+    );
+
+    let compiled = 0;
+    for (const proc of procs) {
+        checkCancellation();
+        const cmmFileName = `${proc.name}.cmm`;
+        const overrideProcessor = {
+            ...proc,
+            ...readProcessorConfig(proc),
+            cmmFile: cmmFileName,
+        };
+        await compiler.ensureDirectories(proc.name);
+        // NOTE: cmmCompilation deliberately skipped — the .asm on disk
+        // (whether canonical or routed via an `asm.-i` override) is the
+        // input to asmcomp.
+        await compiler.asmCompilation(overrideProcessor, 1);
+        compiled++;
+    }
+    return compiled;
+}
+
+/**
+ * Botao ASM (Aurora Intelligence): asmcomp + iverilog -tnull.
+ * NAO roda cmmcomp — assim um .asm otimizado a mao sobrevive.
+ * Pareado com `compile_step('asm')` do AuroraAPI; nao tem botao na
+ * toolbar pra evitar pegadinha pro usuario final (e read-and-act-only
+ * desde a IA).
+ */
+async function handleAsmStep() {
+    startCompilation(STEP_TERMINALS.asm);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        switchTerminal('terminal-tasm');
+        await precompileAsmOnly(compiler, 'tasm');
+        switchTerminal('terminal-tveri');
+        await compiler.iverilogCompile();
+    } catch (error) {
+        console.error('Erro na etapa asm:', error);
+        logFatalError('tasm', error);
     } finally {
         endCompilation();
     }
@@ -655,6 +731,7 @@ class CompilationFlowManager {
     async runSingleStep(step) {
         switch (step) {
             case 'cmm':       return handleCmmStep();
+            case 'asm':       return handleAsmStep();
             case 'verilog':   return handleVerilogStep();
             case 'wave':      return handleWaveStep();
             case 'prism':     return handlePrismStep();

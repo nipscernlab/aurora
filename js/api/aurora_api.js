@@ -544,6 +544,163 @@ const projectNs = {
     }
   },
 
+  /**
+   * Parse a SAPHO assembly (.asm) file and return a structured summary
+   * the AI can reason about without re-reading the whole text.
+   *
+   * Resolution order (one of these must work):
+   *   1. explicit `filePath` (absolute, or relative to project root)
+   *   2. `processorName`  → <root>/<proc>/Software/<proc>.asm
+   *   3. neither          → active editor (must be .asm)
+   *
+   * The returned shape lets the AI ask "how many instructions are in
+   * the loop at @L3?" or "how many floating-point multiplications does
+   * this processor do?" in O(1) after one call.
+   */
+  async analyzeAsm({ filePath, processorName } = {}) {
+    const root = window.currentProjectPath || null;
+    let target = null;
+
+    if (filePath) {
+      target = String(filePath).trim();
+    } else if (processorName) {
+      if (!root) return err('No project open');
+      target = `${root}\\${processorName}\\Software\\${processorName}.asm`;
+    } else {
+      const active = window.tabManager?.getEditingFilePath?.()
+                  || window.TabManager?.getEditingFilePath?.();
+      if (!active || !active.toLowerCase().endsWith('.asm')) {
+        return err('no filePath/processorName and active file is not .asm');
+      }
+      target = active;
+    }
+
+    if (target.includes('..')) return err('path must not contain ".."');
+    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith('\\\\');
+    if (!isAbsolute && root) target = `${root}\\${target.replace(/^[\\/]+/, '')}`;
+
+    // Stay inside the project folder — same boundary as readFile.
+    if (root) {
+      const norm = (p) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+      const r = norm(root);
+      const t = norm(target);
+      if (t !== r && !t.startsWith(r + '\\')) {
+        return err('file is outside the open project folder');
+      }
+    }
+
+    // Read text (live model wins if the file is open in Monaco — so the
+    // analysis tracks unsaved edits, same contract as readFile).
+    let text;
+    const liveModel = SharedModelRegistry.getModel(target);
+    if (liveModel) {
+      text = liveModel.getValue();
+    } else {
+      try { text = String(await window.electronAPI.readFile(target) ?? ''); }
+      catch (e) { return err(`File not found: "${target}"`); }
+    }
+
+    // Load the opcode table so we recognise mnemonics. Without rules
+    // we fall back to a regex-only parser (every uppercase identifier
+    // is treated as a mnemonic).
+    const rules    = await loadRules();
+    const opcodes  = (rules?.asm?.opcodes) || [];
+    const mneSet   = new Set(opcodes.map((o) => o.mnemonic));
+    const families = new Map(opcodes.map((o) => [o.mnemonic, o.family]));
+
+    /** @type {Record<string, number>} */
+    const byOpcode = Object.create(null);
+    /** @type {Record<string, number>} */
+    const byFamily = Object.create(null);
+    /** @type {{name:string,line:number}[]} */
+    const labelDefs = [];
+    /** @type {{from:number, target:string, mnemonic:string}[]} */
+    const branches = [];
+    /** @type {string[]} */
+    const unknownMnemonics = [];
+
+    const lines = text.split(/\r?\n/);
+    let total = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      // Strip block-end comments (`//...`) but keep the body.
+      const noComment = raw.replace(/\/\/.*$/, '').trim();
+      if (!noComment) continue;
+      // Header directives (#PRNAME, #NUBITS, ...) are not instructions.
+      if (noComment.startsWith('#')) continue;
+
+      // Pull every leading `@label` (a single .asm line can carry
+      // several labels, e.g. `@main @L1 LOD 1`).
+      let rest = noComment;
+      while (rest.startsWith('@')) {
+        const m = /^@([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/.exec(rest);
+        if (!m) break;
+        labelDefs.push({ name: m[1], line: i + 1 });
+        rest = m[2];
+      }
+      if (!rest) continue;
+
+      // First whitespace-separated token after labels = mnemonic.
+      const tokens = rest.split(/\s+/);
+      const mne = tokens[0];
+      if (!mne) continue;
+      // Mnemonics are uppercase letters/digits/underscore.
+      if (!/^[A-Z][A-Z0-9_]*$/.test(mne)) continue;
+
+      total++;
+      byOpcode[mne] = (byOpcode[mne] || 0) + 1;
+      const fam = families.get(mne) || 'other';
+      byFamily[fam] = (byFamily[fam] || 0) + 1;
+
+      if (!mneSet.has(mne) && unknownMnemonics.indexOf(mne) < 0) {
+        unknownMnemonics.push(mne);
+      }
+
+      // Branches: JMP/JIZ/CAL take a single label-name operand. Record
+      // so we can identify loops below.
+      if (mne === 'JMP' || mne === 'JIZ' || mne === 'CAL') {
+        const tgt = tokens[1];
+        if (tgt && /^[A-Za-z_][A-Za-z0-9_]*$/.test(tgt)) {
+          branches.push({ from: i + 1, target: tgt, mnemonic: mne });
+        }
+      }
+    }
+
+    // Loop detection: a branch is a back-edge if its target label was
+    // defined on or before the branch's own line (classic JMP-loop).
+    // For each loop we estimate body size as branch_line − label_line.
+    const labelLine = new Map();
+    for (const l of labelDefs) {
+      if (!labelLine.has(l.name)) labelLine.set(l.name, l.line);
+    }
+    const loops = [];
+    for (const b of branches) {
+      const lineOfLabel = labelLine.get(b.target);
+      if (lineOfLabel == null) continue;
+      if (lineOfLabel <= b.from) {
+        loops.push({
+          label:   b.target,
+          labelLine: lineOfLabel,
+          branchLine: b.from,
+          branchMnemonic: b.mnemonic,
+          bodyInstructions: Math.max(0, b.from - lineOfLabel),
+        });
+      }
+    }
+    loops.sort((a, b) => b.bodyInstructions - a.bodyInstructions);
+
+    return ok({
+      filePath: target,
+      total,
+      byOpcode,
+      byFamily,
+      labels: labelDefs,
+      loops,
+      unknownMnemonics,        // warns if .asm has opcodes not in sapho_rules
+    });
+  },
+
   /** Create (or overwrite) a file with `content`, then refresh the tree.
    *  .v/.sv/.vh files are auto-registered in synthesizableFiles so they
    *  appear in the file tree immediately without a manual import step. */
@@ -1135,11 +1292,17 @@ const compileNs = {
     catch (e) { return err(e?.message || 'compileAll failed'); }
   },
 
-  /** Run a single pipeline step. `step` is one of 'cmm'|'verilog'|'wave'|'prism'. */
+  /**
+   * Run a single pipeline step.
+   *   - 'cmm'   : cmmcomp + asmcomp (regenerates .asm from .cmm)
+   *   - 'asm'   : asmcomp + iverilog + vvp (SKIPS cmmcomp — used by Aurora
+   *               Intelligence to test a hand-optimised .asm without losing it)
+   *   - 'verilog'/'wave'/'prism'/'verilator'/'verilator-proc': existing
+   */
   async compileStep(step) {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    if (!['cmm', 'verilog', 'wave', 'prism', 'verilator', 'verilator-proc'].includes(step)) {
+    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator', 'verilator-proc'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });
@@ -1545,6 +1708,27 @@ const rulesNs = {
     const msg = rules?.messages?.find((m) => m.code === code);
     return msg ? ok(msg) : err(`unknown message code: ${code}`);
   },
+
+  /**
+   * Enumerate every SAPHO assembly opcode known to yanc, grouped by
+   * family. Useful when the AI needs the full ISA at once (e.g. to
+   * reason about which opcode pair would shrink a loop). Each entry
+   * carries the numeric opcode, operand kind, family label, and the
+   * one-line description scraped from ASMComp.l.
+   */
+  async listOpcodes() {
+    const rules = await loadRules();
+    return ok(rules?.asm?.opcodes ?? []);
+  },
+
+  /** Look up one opcode by mnemonic (case-insensitive). */
+  async getOpcode(mnemonic) {
+    const rules = await loadRules();
+    if (!rules?.asm?.opcodes) return err('opcode table not available');
+    const key = String(mnemonic || '').toUpperCase();
+    const hit = rules.asm.opcodes.find((o) => o.mnemonic === key);
+    return hit ? ok(hit) : err(`unknown opcode: ${mnemonic}`);
+  },
 };
 
 /* ============================================================
@@ -1709,10 +1893,11 @@ const NAMESPACES = Object.freeze({
     refreshTree:        'Force a fresh repaint of the file tree',
     setView:            'Switch the left panel: "file" or "hierarchy"',
     getView:            'Which tree view is active right now',
+    analyzeAsm:         'Parse a SAPHO .asm and return instruction counts, families, labels and loops',
   },
   compile: {
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
-    compileStep: 'Run one pipeline step (cmm|verilog|wave|prism|verilator|verilator-proc)',
+    compileStep: 'Run one pipeline step (cmm|asm|verilog|wave|prism|verilator|verilator-proc)',
     cancel:      'Cancel a running compilation or simulation',
     listSteps:           'List every toolchain step the override system knows about',
     inspectCommand:      'Show the CommandSpec (base + override-applied) for a step',
@@ -1744,6 +1929,8 @@ const NAMESPACES = Object.freeze({
     listDirectives: 'Names of every hardware directive',
     getKeywords:    'CMM language keywords',
     lookupMessage:  'A yanc compiler message by its code',
+    listOpcodes:    'Every SAPHO assembly opcode (mnemonic, number, family, description)',
+    getOpcode:      'One opcode by mnemonic',
   },
   ui: {
     showNotification: 'Show a toast notification',

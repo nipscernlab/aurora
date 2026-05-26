@@ -439,6 +439,81 @@ const SYSTEM_PROMPT = [
   "x # fin(0)*0.001 -> |x⟩;  // shifts x and inserts new input scaled 0.001\n" +
   "```\n",
 
+  // ── SAPHO Assembly (ISA) ──────────────────────────────────────────────────
+  "\n\nSAPHO ASSEMBLY (.asm) — ISA + OPTIMISATION WORKFLOW\n" +
+  "═══════════════════════════════════════════════════════\n" +
+  "yanc emits a stack-machine assembly with one accumulator (acc), a data stack,\n" +
+  "a subroutine stack, named memory variables, and labels (prefixed `@`). The\n" +
+  "canonical .asm starts with NOP + the directive block from the .cmm, then a\n" +
+  "linear stream of instructions, one per line, optionally prefixed by `@label`\n" +
+  "tokens. Multiple labels can decorate the same line (e.g. `@main @L1 LOD 1`).\n" +
+  "\nThe ISA has 112 opcodes grouped into families. Use list_opcodes for the\n" +
+  "full table; the families below are the only ones you need to plan an\n" +
+  "optimisation:\n" +
+  "  • memory    — LOD/SET (acc↔mem), LDI/STI (indirect), ILI/ISI (bit-rev for FFT), LEA\n" +
+  "  • stack     — PSH (push acc), POP\n" +
+  "  • arith_int — ADD/MLT/DIV/MOD/NEG/ABS/PST/SGN (acc OP mem)\n" +
+  "  • arith_float — F_ADD/F_MLT/F_DIV/F_NEG/F_ABS/F_PST/F_SGN, plus F_SU1/F_SU2 (subtraction)\n" +
+  "  • arith_norm — NRM (acc /= NUGAIN, shift-based)\n" +
+  "  • conversion — I2F (int→float), F2I (float→int)\n" +
+  "  • bitwise   — AND/ORR/XOR/INV\n" +
+  "  • logical   — LAN/LOR/LIN (short-circuit boolean over acc)\n" +
+  "  • compare   — LES/GRE/EQU (and F_LES/F_GRE for float)\n" +
+  "  • shift     — SHL/SHR (logical), SRS (arithmetic right shift)\n" +
+  "  • control   — JMP, JIZ (jump-if-zero), CAL (subroutine), RET\n" +
+  "  • io        — INN/F_INN (input port), OUT (output port)\n" +
+  "  • indirect  — LDA (acc = mem[acc]), STA (mem[top of stack] = acc)\n" +
+  "  • special   — NOP, F_ROT (nearest power-of-2 sqrt)\n" +
+  "\nPREFIX/SUFFIX CONVENTIONS — every base opcode has up to 6 variants:\n" +
+  "  F_<X>    floating-point version of X         (e.g. F_ADD = float ADD)\n" +
+  "  S_<X>    operand from data stack, not memory (e.g. S_ADD = ADD with stack)\n" +
+  "  SF_<X>   stack + floating                    (e.g. SF_MLT)\n" +
+  "  P_<X>    PUSH acc, then run X                (saves an explicit PSH)\n" +
+  "  PF_<X>   PUSH + floating variant\n" +
+  "  <X>_M    memory-operand variant of an acc-only op (NEG_M, ABS_M, ...)\n" +
+  "  <X>_V    constant-offset addressing (LOD_V var,N → acc = mem[&var + N])\n" +
+  "Combining P_ with _M (e.g. P_NEG_M, P_ABS_M, P_INV_M, P_NRM_M) collapses a\n" +
+  "PSH + op-on-memory pair into a single instruction. **First optimisation move**:\n" +
+  "look for PSH + <op>_M patterns and replace with P_<op>_M.\n" +
+  "\nOTHER COMMON SHRINK PATTERNS:\n" +
+  "  PSH + LOD <v> + ADD <w> + SET <z>   →  LOD <v> + ADD <w> + SET <z>   (no PSH needed if acc not reused)\n" +
+  "  LOD <v> + F_ADD <w>                  →  F_ADD_V is NOT an alias — F_ADD <w> already takes mem\n" +
+  "  PSH + LOD <v>                        →  P_LOD <v>\n" +
+  "  PSH + SET <v>                        →  no equivalent — SET pops naturally; use SET_P (SET + POP)\n" +
+  "  back-jump loops with constant trip-count → unroll if NDSTAC allows (counter is just a SET/ADD pair)\n" +
+  "\nOPTIMISATION WORKFLOW (the only safe way to shrink an .asm):\n" +
+  "  1. analyze_asm({processorName: \"<p>\"})    — find total + the hottest loop\n" +
+  "  2. read_file(\"<p>/Software/<p>.asm\")        — read the current canonical .asm\n" +
+  "  3. (reason: identify P_<op>_M / SET_P opportunities, dead PSH/POP, unrolling)\n" +
+  "  4. create_file(\"<p>/Software/_aurora_opt/<p>.asm\", content: <rewritten asm>)\n" +
+  "     — SAME basename so the tooling matches it; sandbox folder so the canonical\n" +
+  "       .asm is untouched.\n" +
+  "  5. set_command_override({                 — redirect the next asm step's -i\n" +
+  "       step: \"asm\",\n" +
+  "       processorName: \"<p>\",\n" +
+  "       removeArgs:  [\"-i\", \"<root>/<p>/Software/<p>.asm\"],\n" +
+  "       appendArgs:  [\"-i\", \"<root>/<p>/Software/_aurora_opt/<p>.asm\"] })\n" +
+  "     Verify with preview_compile_command before setting if unsure.\n" +
+  "  6. compile_step(\"asm\")                    — asmcomp + iverilog -tnull. Does\n" +
+  "     NOT regenerate the .asm from .cmm, so the sandbox version is consumed.\n" +
+  "     Confirms the optimised .asm produces a valid Verilog module.\n" +
+  "  7. analyze_asm({filePath: \"<root>/<p>/Software/_aurora_opt/<p>.asm\"})\n" +
+  "     — measure delta vs. step 1. Report savings in the summary.\n" +
+  "  8. If valid AND smaller: ask the user whether to promote the .asm to\n" +
+  "     <p>/Software/<p>.asm (rename_file) or keep it sandboxed.\n" +
+  "     If broken or unchanged: clear_command_override({step:\"asm\", processorName:\"<p>\"}).\n" +
+  "\nNEVER call compile_step(\"cmm\"|\"verilog\"|\"wave\"|\"prism\") on a processor whose\n" +
+  ".asm has been hand-optimised before you've promoted it — cmmcomp regenerates\n" +
+  "the canonical .asm from the .cmm and your optimisation is lost. The `asm` step\n" +
+  "is the ONLY step that bypasses cmmcomp.\n" +
+  "\nCMM-LEVEL OPTIMISATIONS that reduce .asm size (do these first when possible):\n" +
+  "  • Hoist invariants out of `while` loops (CMM has no for-loop, so every loop\n" +
+  "    is a while — invariants are expensive to repeat).\n" +
+  "  • Replace `x = x + y` chains with shift-register Dirac notation when applicable.\n" +
+  "  • Use `norm()` instead of `/ N` when N is a power-of-2 (norm = single NRM).\n" +
+  "  • Cache repeated array accesses in scalars (`tmp = arr[i]` once, then reuse).\n" +
+  "  • Pre-compute lookup-table values (`float lut[N] \"file.txt\"`).\n",
+
   // ── SAPHO Simulation ──────────────────────────────────────────────────────
   "\n\nSIMULATION PARAMETERS — stored per-processor in the project's .spf file:\n" +
   "  clk (MHz)     clock frequency (default 100 MHz)\n" +

@@ -173,6 +173,82 @@ Reads the full text of ANY file inside the open project folder.
 
 ---
 
+### `analyze_asm`
+Parses a SAPHO `.asm` and returns counts + structure the AI can plan optimisations against.
+
+**Arguments** (provide one, otherwise the active editor's `.asm` is used):
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `filePath` | string | No | Absolute or project-relative path to a `.asm` file |
+| `processorName` | string | No | Resolves to `<root>/<proc>/Software/<proc>.asm` |
+
+```jsonc
+// input:
+{ "processorName": "sqrt_newton" }
+// output:
+{
+  "ok": true,
+  "filePath": "C:/.../sqrt_newton/Software/sqrt_newton.asm",
+  "total": 147,
+  "byOpcode": { "LOD": 24, "F_MLT": 12, "F_ADD": 8, "JIZ": 4, "JMP": 6, ... },
+  "byFamily": { "memory": 38, "arith_float": 24, "control": 9, "compare": 6 },
+  "labels":   [ { "name": "main", "line": 11 }, { "name": "L3", "line": 30 } ],
+  "loops":    [ { "label": "L3", "labelLine": 30, "branchLine": 41,
+                  "branchMnemonic": "JMP", "bodyInstructions": 11 } ],
+  "unknownMnemonics": []
+}
+```
+
+Pair with `list_opcodes` to plan a rewrite (which `_M`/`P_`/`SET_P` variant collapses a pair into one), then write the candidate to `<proc>/Software/_aurora_opt/<proc>.asm` and run `compile_step("asm")` — see the ASM optimisation workflow in the system prompt for the full loop.
+
+---
+
+### `list_opcodes`
+Lists every SAPHO assembly opcode (112 entries) with mnemonic, numeric opcode, operand kind, family classification, prefix variants, and a one-line description from yanc's `ASMComp.l`.
+
+```jsonc
+// input: (no arguments)
+// output: array of opcode entries
+{
+  "ok": true,
+  "value": [
+    { "mnemonic": "LOD", "opcode": 0, "operandKind": "memory",
+      "family": "memory", "variants": [], "description": "loads data from memory" },
+    { "mnemonic": "P_LOD", "opcode": 1, "operandKind": "memory",
+      "family": "memory", "variants": ["push_prefix"], "description": "PUSH + LOD" },
+    ...
+  ]
+}
+```
+
+---
+
+### `get_opcode`
+Look up one opcode by mnemonic (case-insensitive).
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `mnemonic` | string | Yes | e.g. `F_MLT`, `P_LOD`, `NRM_M` |
+
+```jsonc
+// input:  { "mnemonic": "P_NEG_M" }
+// output:
+{
+  "ok": true,
+  "mnemonic": "P_NEG_M",
+  "opcode": 39,
+  "operandKind": "memory",
+  "family": "arith_int",
+  "variants": ["push_prefix", "mem_variant"],
+  "description": "PUSH +   NEG_M"
+}
+```
+
+---
+
 ### `list_processors`
 Lists every processor in the project together with its simulation configuration and parsed CMM header.
 
@@ -468,9 +544,10 @@ Runs a single compilation step.
 
 | Step | What it does |
 |------|-------------|
-| `cmm` | CMM → Assembly (yanc cmmcomp) |
-| `verilog` | Assembly → Verilog + Icarus simulation (yanc asmcomp + iverilog) |
-| `wave` | Opens GTKWave with the `.vcd` dump |
+| `cmm` | CMM → Assembly (yanc cmmcomp + asmcomp) — overwrites `<proc>/Software/<proc>.asm` |
+| `asm` | Assembly → Verilog (asmcomp + iverilog `-tnull`) — **SKIPS cmmcomp**, leaves the `.cmm` untouched. Use after `set_command_override` redirects asm `-i` at a hand-optimised `_aurora_opt/<proc>.asm` |
+| `verilog` | Full elaboration (cmm + asm + iverilog `-tnull`) |
+| `wave` | Full simulation + opens GTKWave with the `.vcd` dump |
 | `prism` | Opens the PRISM RTL viewer |
 
 ```jsonc
@@ -645,6 +722,29 @@ compile_step("wave")
 ```
 list_processors()
   ↓ (check clk, numClocks, simTime_us, header.NUBITS, header.NBMANT, etc.)
+```
+
+### 5. Optimise an `.asm` without losing it on the next CMM compile
+
+```
+analyze_asm(processorName="proc")                      // baseline: total + hot loop
+  ↓
+read_file("proc/Software/proc.asm")                    // grab the canonical asm
+  ↓ (rewrite: collapse PSH+<op>_M into P_<op>_M, etc.)
+create_file("proc/Software/_aurora_opt/proc.asm", ...) // sandbox; same basename
+  ↓
+set_command_override({
+  step: "asm", processorName: "proc",
+  removeArgs:  ["-i", "<root>/proc/Software/proc.asm"],
+  appendArgs:  ["-i", "<root>/proc/Software/_aurora_opt/proc.asm"]
+})
+  ↓
+compile_step("asm")                                    // asmcomp + iverilog -tnull
+  ↓                                                    // (does NOT regenerate .asm from .cmm)
+analyze_asm(filePath="<sandbox>/proc.asm")             // verify delta
+  ↓ ok?   → rename_file(<sandbox>, <canonical>)        // promote
+  ↓ bad?  → clear_command_override(step="asm",         // revert
+                                   processorName="proc")
 ```
 
 ---

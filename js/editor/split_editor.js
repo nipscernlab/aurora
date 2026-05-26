@@ -125,7 +125,7 @@ class SplitPane {
             if (!SplitEditorManager._dragActive) return;
             e.preventDefault();
             e.stopPropagation();
-            const filePath = e.dataTransfer.getData('text/plain');
+            const filePath = e.dataTransfer.getData('application/x-aurora-tab-path');
             SplitEditorManager.moveFileToPane(filePath, this.paneIndex);
         });
 
@@ -294,7 +294,9 @@ class SplitPane {
         tab.draggable = true;
         tab.addEventListener('dragstart', (e) => {
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', filePath);
+            // Custom MIME — see tab_drag.js for rationale (avoids Monaco
+            // pasting the file path on drop into the editor area).
+            e.dataTransfer.setData('application/x-aurora-tab-path', filePath);
             SplitEditorManager._dragActive = true;
             SplitEditorManager._dragSourcePane = this.paneIndex;
         });
@@ -474,7 +476,7 @@ const SplitEditorManager = {
             if (!this._dragActive || this._dragSourcePane === 0) return;
             e.preventDefault();
             e.stopPropagation();
-            const filePath = e.dataTransfer.getData('text/plain');
+            const filePath = e.dataTransfer.getData('application/x-aurora-tab-path');
             this.moveFileToPane(filePath, 0);
         });
 

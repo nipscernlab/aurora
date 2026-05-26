@@ -116,7 +116,11 @@ export const tabDrag = {
             hasMovedEnough = false;
 
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', draggedTabPath);
+            // Custom MIME so Monaco doesn't treat the drop as text and
+            // paste the file path into the buffer when the user drops a
+            // tab onto the editor area. Drop targets (split panes + main
+            // shell) read this same key — see split_editor.js.
+            e.dataTransfer.setData('application/x-aurora-tab-path', draggedTabPath);
 
             // Flag the drag as an Aurora tab drag originating in the main pane
             // (index 0), so split-pane drop targets accept it and know its

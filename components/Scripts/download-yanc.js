@@ -12,9 +12,9 @@
  *              helpers de ponto flutuante, v2+)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
  *
- * Scripts/ NAO esta incluso porque o components/Scripts/ do Aurora
- * mistura scripts SAPHO com scripts proprios de build (este aqui,
- * copy-components.js, etc.) — overwrite wholesale quebraria o build.
+ * Scripts/ NAO esta no zip a partir do v4.1 — o yanc parou de empacotar
+ * essa pasta (proc2rtl.ys / TCLs antigos). Aurora gerencia seus proprios
+ * scripts em components/Scripts/ (copy-components, download-*.js).
  *
  * Roda no prestart, depois do download do toolchain principal e antes
  * do copy-components.
@@ -43,7 +43,7 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const YANC_TAG      = 'v4';
+const YANC_TAG      = 'v4.1';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

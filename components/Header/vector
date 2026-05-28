@@ -1,0 +1,37 @@
+#pragma once
+// CPPComp <vector>: a heap-backed std::vector<T> for the 4K word target.
+// The zero-initialised state (_data=0, _len=0, _cap=0) is a valid empty vector,
+// so GLOBAL vector objects work without running a constructor (globals are
+// zero-init on this target). Real type-parameter monomorphization gives each
+// vector<T> a concrete element type, so operator[] returns a true T&.
+namespace std {
+    template<class T>
+    class vector {
+        T*  _data;
+        int _len;
+        int _cap;
+    public:
+        vector() { _data = 0; _len = 0; _cap = 0; }
+        int size() { return _len; }
+        T*  data() { return _data; }
+        T&  operator[](int i) { return _data[i]; }
+        void reserve(int n) {
+            if (n <= _cap) return;
+            T* nd = new T[n];
+            for (int i = 0; i < _len; i = i + 1) nd[i] = _data[i];
+            if (_data) delete[] _data;
+            _data = nd;
+            _cap = n;
+        }
+        void resize(int n) {
+            reserve(n);
+            for (int i = _len; i < n; i = i + 1) _data[i] = 0;   // zero-fill the new tail
+            _len = n;
+        }
+        void push_back(T x) {
+            if (_len == _cap) { int nc = _cap ? _cap * 2 : 4; reserve(nc); }
+            _data[_len] = x;
+            _len = _len + 1;
+        }
+    };
+}

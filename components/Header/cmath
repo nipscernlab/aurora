@@ -1,0 +1,26 @@
+#pragma once
+// CPPComp <cmath>: a small subset implemented for the IEEE-754 single-float
+// target. No HW transcendental ops, so these are software routines.
+namespace std {
+    inline float fabs(float x) { return x < 0.0f ? -x : x; }
+    inline float fabsf(float x) { return x < 0.0f ? -x : x; }
+
+    // Newton-Raphson square root: g <- (g + x/g)/2. Converges quadratically.
+    inline float sqrt(float x) {
+        if (x <= 0.0f) return 0.0f;
+        float g = x < 1.0f ? 1.0f : x;          // seed >= 1 so it converges down
+        for (int i = 0; i < 24; i = i + 1) g = 0.5f * (g + x / g);
+        return g;
+    }
+    inline float sqrtf(float x) { return sqrt(x); }
+
+    // YANC float has no NaN or infinity bit patterns (see [[yanc-float-format]]),
+    // so anything we can store is finite by construction. We still expose
+    // isfinite() as a no-op `true` so user code that defensively guards
+    // against non-finite results compiles and behaves like a finite-only
+    // domain. (The <limits>::infinity() shim returns a large-but-finite
+    // value too, consistent with this.)
+    inline int isfinite(float x) { (void)x; return 1; }
+    inline int isnan   (float x) { (void)x; return 0; }
+    inline int isinf   (float x) { (void)x; return 0; }
+}

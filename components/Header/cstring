@@ -1,0 +1,18 @@
+#pragma once
+// CPPComp <cstring>: a small subset. The target is word-addressed (sizeof == 1
+// word) with 32-bit words, so a byte count n maps to n/4 words.
+namespace std {
+    inline void* memcpy(void* dst, const void* src, int n) {
+        int* d = (int*)dst;
+        const int* s = (const int*)src;
+        int w = n >> 2;                       // n bytes -> n/4 words
+        for (int i = 0; i < w; i = i + 1) d[i] = s[i];
+        return dst;
+    }
+    inline void* memset(void* dst, int v, int n) {
+        int* d = (int*)dst;
+        int w = n >> 2;
+        for (int i = 0; i < w; i = i + 1) d[i] = v;
+        return dst;
+    }
+}

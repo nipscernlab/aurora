@@ -689,18 +689,15 @@ async loadConfig() {
             await TabManager.saveAllFiles();
             statusUpdater.startCompilation('cmm');
 
-            // yanc usa named options (CMMComp/Sources/args.c):
-            //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-P]
+            // yanc v4 usa named options (CMMComp/Sources/args.c):
+            //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-A]
             // -pt / -en vem do toggle de locale (UI + compiler unified) e vai
             // PRIMEIRO: parse_lang_flag() consome essa flag e a remove de argv
             // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
             // ignorando qualquer env var preexistente do shell.
             //
-            // -P liga o showArrays do .spf (campo per-processador). Cuidado
-            // com o nome: o yanc chama esse flag de --project / cli_args.project,
-            // MAS o main() do cmmcomp passa esse valor pro slot `d_array` do
-            // parse_init, que faz `sim_arr = strcmp(d_array,"1")==0` — pro
-            // cmmcomp -P significa "simular/mostrar arrays", nao project mode.
+            // -A / --array liga o showArrays do .spf (campo per-processador) —
+            // dump de arrays no waveform. Era -P no yanc v3.
             const lang = window.getYancLang?.() ?? 'pt';
             const cmmSpec = buildCmmSpec({
                 cmmCompPath,
@@ -742,7 +739,7 @@ async loadConfig() {
         }
     }
 
-    async asmCompilation(processor, projectParam = null, preamble = null) {
+    async asmCompilation(processor, preamble = null) {
         const {
             name,
             clk,
@@ -802,15 +799,11 @@ async loadConfig() {
                 throw new Error(tr('error.compilation.asmPrepFailed', { code: appResult.code }));
             }
 
-            if (projectParam === null) {
-                // Project Mode (modo unico) -> 1 (sem auto $finish no
-                // testbench).
-                projectParam = 1;
-            }
-
-            // asmcomp: named options -i -p -d -m -t -f -c [-P] (ASM/Sources/args.c).
-            // -f/-c TEM que ser inteiros — o yanc novo rejeita valor nao-numerico
-            // e sai com usage. -P liga o project mode (era o 9o arg posicional).
+            // asmcomp v4: named options -i -p -d -m -t -f -c (ASM/Sources/args.c).
+            // -f/-c TEM que ser inteiros — o yanc rejeita valor nao-numerico
+            // e sai com usage. O -P (project mode = sem $finish no _tb.v) foi
+            // removido no v4: o $finish agora e sempre emitido; multi-proc
+            // workflows ignoram o _tb.v individual e usam um top-level proprio.
             const freq = Number.parseInt(clk, 10) || 0;
             const clocks = Number.parseInt(numClocks, 10) || 0;
             const asmSpec = buildAsmSpec({
@@ -822,7 +815,6 @@ async loadConfig() {
                 tempPath,
                 freq,
                 clocks,
-                projectMode: !!projectParam,
                 processorName: name,
                 lang,
             });

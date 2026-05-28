@@ -36,12 +36,13 @@ endmodule
 
 module prefetch
 #(
-	parameter              MINSTW = 8,
-	parameter              NBOPCO = 7,
-	parameter              NBOPER = 9,
-	parameter [MINSTW-1:0] ITRADD = 0,
-	parameter              CAL    = 0,
-	parameter              JIZ    = 0
+	parameter              MINSTW     = 8,
+	parameter              NBOPCO     = 7,
+	parameter              NBOPER     = 9,
+	parameter [MINSTW-1:0] ITRADD     = 0,
+	parameter [MINSTW-1:0] TOAQUIADDR = 0,
+	parameter              CAL        = 0,
+	parameter              JIZ        = 0
 )(
 	 input                        rst       ,
 	 input    [MINSTW       -1:0] pc_instr  ,
@@ -53,7 +54,8 @@ module prefetch
 	 input                        is_um     ,
 	output                        isp_push  ,
 	output                        isp_pop   ,
-	 input                        itr
+	 input                        itr       ,
+	output                        cheguei
 );
 
 wire wJMP;
@@ -101,6 +103,14 @@ assign pc_l       =         pc_load;
 assign instr_addr =                  (pc_load & ~rst) ? operand[MINSTW-1:0] : pc_instr;
 
 end endgenerate
+
+// #TOAQUI marker: asserts cheguei whenever the address being fetched equals
+// TOAQUIADDR - i.e. the instruction at the marker is about to be executed.
+// Using `instr_addr` (the address presented to instruction memory THIS cycle)
+// is the clean choice: pc_instr (the PC register) transiently passes over the
+// marker every loop back-edge because addr<=val+1 in the PC, which would cause
+// spurious cheguei pulses on plain JMPs.
+generate if (TOAQUIADDR>0) assign cheguei = (instr_addr == TOAQUIADDR); else assign cheguei = 1'b0; endgenerate
 
 endmodule
 
@@ -163,18 +173,20 @@ endmodule
 
 module instr_fetch
 #(
-	parameter NBINST = 8,
-	parameter MINSTW = 8,
-	parameter ITRADD = 0,
-	parameter NBOPCO = 7,
-	parameter NBOPER = 9,
-	parameter SDEPTH = 8,
+	parameter NBINST     = 8,
+	parameter MINSTW     = 8,
+	parameter ITRADD     = 0,
+	parameter TOAQUIADDR = 0,
+	parameter NBOPCO     = 7,
+	parameter NBOPER     = 9,
+	parameter SDEPTH     = 8,
 
 	parameter CAL    = 0,
 	parameter JIZ    = 0
 )(
 	input               clk, rst,
 	input               itr,
+	output              cheguei,
 
 	input  [NBINST-1:0] instr,
 	output [MINSTW-1:0] addr,
@@ -217,12 +229,13 @@ prefetch #(.MINSTW(MINSTW),
            .NBOPCO(NBOPCO),
            .NBOPER(NBOPER),
            .ITRADD(ITRADD),
+           .TOAQUIADDR(TOAQUIADDR),
 		   .CAL   (CAL   ),
 		   .JIZ   (JIZ   )) pf(rst, pc_addr, opcode, operand,
                                pf_instr, pf_addr,
                                pc_load , acc,
                                pf_isp_push, pf_isp_pop,
-                               itr);
+                               itr, cheguei);
 
 // Instruction stack
 
@@ -325,9 +338,13 @@ module mem_ctrl
 	parameter FFTSIZ = 3,
 
 	parameter ISI    = 0,
-	parameter ILI    = 0
+	parameter ILI    = 0,
+
+	parameter LDA    = 0,
+	parameter STA    = 0
 )(
 	input               sti, ldi, fft, wr,
+	input               lda, sta,                  // base-less indirect (acc/stack-only)
 	input  [NUBITS-1:0] ula,
 	input  [MDATAW-1:0] base_addr, stk_ofst,
 
@@ -339,8 +356,24 @@ module mem_ctrl
 assign mem_data_wr = ula;
 assign mem_wr      = wr;
 
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_rd(ldi, fft, ula[MDATAW-1:0], base_addr, mem_addr_rd);
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst       , base_addr, mem_addr_wr);
+wire [MDATAW-1:0] rel_rd, rel_wr;
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_rd(ldi, fft, ula[MDATAW-1:0], base_addr, rel_rd);
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst       , base_addr, rel_wr);
+
+// LDA/STA bypass the operand-base entirely: address comes straight from acc
+// (read) or from the data-stack top (write). Enables passing arrays as
+// function parameters — caller pushes &arr, callee derefs at runtime.
+// Each mux is only synthesised when its instruction is actually enabled,
+// matching the rest of the core's "pay only for what you use" approach.
+generate
+	if (LDA) assign mem_addr_rd = lda ? ula[MDATAW-1:0] : rel_rd;
+	else     assign mem_addr_rd = rel_rd;
+endgenerate
+
+generate
+	if (STA) assign mem_addr_wr = sta ? stk_ofst        : rel_wr;
+	else     assign mem_addr_wr = rel_wr;
+endgenerate
 
 endmodule
 
@@ -388,7 +421,8 @@ module core
 	// data flow
 	parameter  NBOPCO = 7,               // Number of opcode bits (do not change without updating the instr_decoder)
 	parameter  NBOPER = 9,               // Operand width (bits)
-	parameter  ITRADD = 0,               // Interrupt address
+	parameter  ITRADD     = 0,           // Interrupt address (PC jumps here while itr=1)
+	parameter  TOAQUIADDR = 0,           // #TOAQUI marker address (cheguei pulses when pc_instr == TOAQUIADDR)
 
 	// memories
 	parameter  MDATAW = 9,               // Number of address bits for data memory
@@ -558,8 +592,12 @@ module core
 	parameter  F_ROT   = 0,   // nearest power-of-two square-root approximation (with ACC)
 	parameter  F_SU1   = 0,   // floating-point subtraction at input 1
 	parameter  F_SU2   = 0,   // floating-point subtraction at input 2
-	parameter SF_SU1   = 0,	  // floating-point subtraction at input 1 with stack
-	parameter SF_SU2   = 0	  // floating-point subtraction at input 2 with stack
+	parameter SF_SU1   = 0,   // floating-point subtraction at input 1 with stack
+	parameter SF_SU2   = 0,   // floating-point subtraction at input 2 with stack
+
+	// base-less indirect addressing (for runtime-dynamic pointers / array params)
+	parameter    LDA   = 0,   // acc = mem[acc]
+	parameter    STA   = 0    // mem[stack_top] = acc, pop
 )(
 	input               clk, rst,
 
@@ -577,7 +615,8 @@ module core
 	output              req_in,
 	output              out_en,
 
-	input               itr
+	input               itr,
+	output              cheguei
 
 `ifdef __ICARUS__ // ----------------------------------------------------------
  , output [MINSTW-1:0] pc_sim_val
@@ -591,16 +630,18 @@ wire [NBOPCO-1:0] if_opcode;
 wire [NBOPER-1:0] if_operand;
 
 instr_fetch #(
-	.NBINST (NBINST ),
-	.MINSTW (MINSTW ),
-	.ITRADD (ITRADD ),
-	.NBOPCO (NBOPCO ),
-	.NBOPER (NBOPER ),
-	.SDEPTH (SDEPTH ),
-	.CAL    (CAL    ),
-	.JIZ    (JIZ    )) instr_fetch (.clk    (clk       ),
+	.NBINST     (NBINST     ),
+	.MINSTW     (MINSTW     ),
+	.ITRADD     (ITRADD     ),
+	.TOAQUIADDR (TOAQUIADDR ),
+	.NBOPCO     (NBOPCO     ),
+	.NBOPER     (NBOPER     ),
+	.SDEPTH     (SDEPTH     ),
+	.CAL        (CAL        ),
+	.JIZ        (JIZ        )) instr_fetch (.clk    (clk       ),
 	                                .rst    (rst       ),
 	                                .itr    (itr       ),
+	                                .cheguei(cheguei   ),
 	                                .instr  (instr     ),
 	                                .addr   (instr_addr),
 	                                .acc    (if_acc    ),
@@ -619,6 +660,7 @@ wire [NBOPCO-1:0] id_opcode  = if_opcode;
 wire [       5:0] id_ula_op;
 wire              id_dsp_push, id_dsp_pop;
 wire              id_sti, id_ldi, id_fft, id_wr;
+wire              id_lda, id_sta;
 wire              id_req_in, id_out_en;
 
 instr_dec #(.NBOPCO  ( NBOPCO ),
@@ -719,13 +761,16 @@ instr_dec #(.NBOPCO  ( NBOPCO ),
 			 .F_SU1  ( F_SU1  ),
 			 .F_SU2  ( F_SU2  ),
 			.SF_SU1  (SF_SU1  ),
-			.SF_SU2  (SF_SU2  )) id(clk, rst,
+			.SF_SU2  (SF_SU2  ),
+			   .LDA  (   LDA  ),
+			   .STA  (   STA  )) id(clk, rst,
                                     id_opcode,
                                     id_dsp_push, id_dsp_pop,
                                     id_ula_op,
                                     id_wr,
                                     id_req_in, id_out_en,
-                                    id_ldi, id_sti, id_fft);
+                                    id_ldi, id_sti, id_fft,
+                                    id_lda, id_sta);
 
 // Data stack -----------------------------------------------------------------
 
@@ -818,18 +863,24 @@ reg signed [NUBITS-1:0] racc;
 always @ (posedge clk or posedge rst) if (rst) racc <= 0; else racc <= ula_out;
 
 assign uic_acc = racc;
-assign  if_acc = ula_out[0];
+// JIZ branch decision: if_acc must reflect "accumulator is non-zero" across the
+// WHOLE word, not just bit 0. Using ula_out[0] alone made `while (x)` / `if (x)`
+// misbehave for any multi-bit value with a clear LSB (e.g. 2, 4, ...). The
+// OR-reduction gives true C truthiness; JIZ jumps iff the word is exactly zero.
+assign  if_acc = |ula_out;
 
 // Indirect Addressing --------------------------------------------------------
 
 wire [MDATAW-1:0] rf;
 
 generate
-	if (STI | LDI | ILI | ISI) begin
+	if (STI | LDI | ILI | ISI | LDA | STA) begin
 		mem_ctrl #(.NUBITS(NUBITS),
 		           .MDATAW(MDATAW),
 		           .FFTSIZ(FFTSIZ),
-		           .ILI(ILI),.ISI(ISI)) ac(id_sti, id_ldi, id_fft, id_wr,
+		           .ILI(ILI),.ISI(ISI),
+		           .LDA(LDA),.STA(STA)) ac(id_sti, id_ldi, id_fft, id_wr,
+		                                   id_lda, id_sta,
 		                                   ula_out,
 		                                   if_operand[MDATAW-1:0], sp_data[MDATAW-1:0],
 		                                   mem_wr, mem_addr_rd, mem_addr_wr, mem_data_wr);

@@ -668,7 +668,7 @@ class TerminalManager {
                                 for (const entry of Array.from(logEntries).reverse()) {
                                     const entryText = entry.textContent || '';
 
-                                    // cmmcomp.exe agora usa named flags do yanc v3:
+                                    // cmmcomp.exe agora usa named flags do yanc v4:
                                     //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
                                     // Precisamos do -i (nome do .cmm) e -p (proc-dir,
                                     // que e <projectPath>/<processorName>) pra montar

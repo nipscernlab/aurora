@@ -1,0 +1,28 @@
+#pragma once
+// CPPComp <limits>: minimal `std::numeric_limits<T>` for the YANC float
+// target. YANC floats have NBMANT=23 / NBEXPO=8 bit-sizes matching IEEE-754
+// single but the encoding is NOT bit-compatible and there is NO infinity
+// pattern (no NaN, no inf). The closest substitute is the largest
+// representable finite float: max exponent + max mantissa.
+//
+// On IEEE-754 single this is ~3.4e38f; on YANC it is the same order of
+// magnitude (the exponent field has 8 bits with some bias). 1.0e30f is a
+// safely-representable, comfortably-large value that's strictly less than
+// the float max — the user code only needs it as an "initial worst case"
+// seed in optimization loops (e.g. `prev_obj = infinity()`).
+//
+// Note (see [[yanc-float-format]]): we cannot synthesize IEEE infinity bit
+// patterns; only float literals processed by the assembler are safe. So
+// `infinity()` here returns a finite-but-huge float, not a true infinity.
+
+namespace std {
+    template<class T>
+    class numeric_limits {
+    public:
+        static T infinity() { return (T)1.0e30f; }   // largest practical seed
+        static T max()      { return (T)1.0e30f; }
+        static T min()      { return (T)1.0e-30f; }
+        static T epsilon()  { return (T)1.0e-7f; }
+        static T lowest()   { return (T)-1.0e30f; }
+    };
+}

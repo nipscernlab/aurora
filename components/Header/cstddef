@@ -1,0 +1,8 @@
+#pragma once
+// CPPComp <cstddef>: size_t / ptrdiff_t. The target folds every integer width
+// to one 32-bit word, so size_t and ptrdiff_t are both plain int. nullptr_t is
+// omitted (not used by the toolchain headers; pointers nullify via 0).
+namespace std {
+    typedef int          size_t;
+    typedef int          ptrdiff_t;
+}

@@ -141,7 +141,6 @@ export async function buildSpecForStep(step, processorName) {
       tempPath,
       freq: proc.clk,
       clocks: proc.numClocks,
-      projectMode: true,
       processorName: proc.name,
       lang,
     });

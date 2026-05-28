@@ -149,7 +149,11 @@ module instr_dec
     parameter  F_SU1   = 0,   // floating-point subtraction at input 1
 	parameter  F_SU2   = 0,   // floating-point subtraction at input 2
     parameter SF_SU1   = 0,   // floating-point subtraction at input 1 with stack
-    parameter SF_SU2   = 0    // floating-point subtraction at input 2 with stack
+    parameter SF_SU2   = 0,   // floating-point subtraction at input 2 with stack
+
+    // base-less indirect addressing (runtime pointers / array params)
+    parameter    LDA   = 0,   // acc = mem[acc]
+    parameter    STA   = 0    // mem[stack_top] = acc, pop
 )(
 	input                   clk, rst,
 	input      [NBOPCO-1:0] opcode,
@@ -160,7 +164,8 @@ module instr_dec
 
 	output                  mem_wr,
 	output                  req_in, out_en,
-	output                  ldi, sti, fft
+	output                  ldi, sti, fft,
+	output                  lda, sta
 );
 
 // ----------------------------------------------------------------------------
@@ -320,6 +325,11 @@ wire  wF_SU2  ; generate if ( F_SU2  ) assign  wF_SU2   = opcode == 7'd99;  else
 wire wSF_SU1  ; generate if (SF_SU1  ) assign wSF_SU1   = opcode == 7'd100; else assign  wSF_SU1  = 1'b0; endgenerate
 wire wSF_SU2  ; generate if (SF_SU2  ) assign wSF_SU2   = opcode == 7'd101; else assign  wSF_SU2  = 1'b0; endgenerate
 
+// base-less indirect addressing ----------------------------------------------
+
+wire    wLDA  ; generate if (   LDA  ) assign    wLDA   = opcode == 7'd102; else assign    wLDA   = 1'b0; endgenerate
+wire    wSTA  ; generate if (   STA  ) assign    wSTA   = opcode == 7'd103; else assign    wSTA   = 1'b0; endgenerate
+
 // ----------------------------------------------------------------------------
 // control circuits -----------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -338,9 +348,14 @@ generate if (LDI | ILI) assign ldi = wLDI |  wILI; else assign ldi = 1'b0; endge
 generate if (STI | ISI) assign sti = wSTI |  wISI; else assign sti = 1'b0; endgenerate
 generate if (ILI | ISI) assign fft = wILI |  wISI; else assign fft = 1'b0; endgenerate
 
+// base-less indirect addressing control --------------------------------------
+
+generate if (LDA) assign lda = wLDA; else assign lda = 1'b0; endgenerate
+generate if (STA) assign sta = wSTA; else assign sta = 1'b0; endgenerate
+
 // memory write control circuit -----------------------------------------------
 
-generate if (SET | SET_P | STI | ISI) assign mem_wr = wSET | wSET_P | wSTI | wISI; else assign mem_wr = 1'b0; endgenerate
+generate if (SET | SET_P | STI | ISI | STA) assign mem_wr = wSET | wSET_P | wSTI | wISI | wSTA; else assign mem_wr = 1'b0; endgenerate
 
 // data-stack write control circuit -------------------------------------------
 
@@ -358,11 +373,13 @@ generate
 if (               SET_P |    STI |     ISI |    POP |  S_ADD |  SF_ADD |   S_MLT |
                 SF_MLT   |  S_DIV |  SF_DIV |  S_MOD |  S_SGN |  SF_SGN |   S_AND |
 				 S_ORR   |  S_XOR |   S_LAN |  S_LOR |  S_LES |  SF_LES |   S_GRE |
-				SF_GRE   |  S_EQU |   S_SHL |  S_SHR |  S_SRS |  SF_SU1 |  SF_SU2 )
+				SF_GRE   |  S_EQU |   S_SHL |  S_SHR |  S_SRS |  SF_SU1 |  SF_SU2 |
+                  STA    )
      assign pop = wSET_P |   wSTI |    wISI |   wPOP | wS_ADD | wSF_ADD |  wS_MLT |
 	           wSF_MLT   | wS_DIV | wSF_DIV | wS_MOD | wS_SGN | wSF_SGN |  wS_AND |
 				wS_ORR   | wS_XOR |  wS_LAN | wS_LOR | wS_LES | wSF_LES |  wS_GRE |
-			   wSF_GRE   | wS_EQU |  wS_SHL | wS_SHR | wS_SRS | wSF_SU1 | wSF_SU2 ;
+			   wSF_GRE   | wS_EQU |  wS_SHL | wS_SHR | wS_SRS | wSF_SU1 | wSF_SU2 |
+			      wSTA   ;
 else assign pop = 1'b0   ;
 endgenerate
 
@@ -490,11 +507,13 @@ endgenerate
 generate
 if (              LOD |  P_LOD |  LDI   |    ILI   |    SET_P |     POP |  F_INN |  PF_INN |  F_ADD |  SF_ADD |  F_MLT |  SF_MLT |  F_DIV |  SF_DIV   |    SGN   |  S_SGN |
                   NEG |  F_NEG |  ABS   |  F_ABS   |    PST   |   F_PST |    NRM |     I2F |    F2I |     AND |  S_AND |     XOR |  S_XOR |     INV_M |  P_INV_M |
-                  LOR |  S_LOR |  LIN_M |  P_LIN_M |  F_LES   |  SF_LES |  F_GRE |  SF_GRE |    SHL |   S_SHL |    SRS |   S_SRS |  F_SU1 |  SF_SU1   )
+                  LOR |  S_LOR |  LIN_M |  P_LIN_M |  F_LES   |  SF_LES |  F_GRE |  SF_GRE |    SHL |   S_SHL |    SRS |   S_SRS |  F_SU1 |  SF_SU1   |
+                  LDA )
 
      assign b0 = wLOD | wP_LOD | wLDI   |   wILI   |   wSET_P |    wPOP | wF_INN | wPF_INN | wF_ADD | wSF_ADD | wF_MLT | wSF_MLT | wF_DIV | wSF_DIV   |   wSGN   | wS_SGN |
                  wNEG | wF_NEG | wABS   | wF_ABS   |   wPST   |  wF_PST |   wNRM |    wI2F |   wF2I |    wAND | wS_AND |    wXOR | wS_XOR |    wINV_M | wP_INV_M |
-                 wLOR | wS_LOR | wLIN_M | wP_LIN_M | wF_LES   | wSF_LES | wF_GRE | wSF_GRE |   wSHL |  wS_SHL |   wSRS |  wS_SRS | wF_SU1 | wSF_SU1   ;
+                 wLOR | wS_LOR | wLIN_M | wP_LIN_M | wF_LES   | wSF_LES | wF_GRE | wSF_GRE |   wSHL |  wS_SHL |   wSRS |  wS_SRS | wF_SU1 | wSF_SU1   |
+                 wLDA ;
 else assign b0 = 1'b0 ;
 endgenerate
 

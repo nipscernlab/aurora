@@ -43,7 +43,6 @@ export function buildAsmPreSpec(ctx) {
  * @property {string}  tempPath
  * @property {number}  freq               -f (positive int)
  * @property {number}  clocks             -c (positive int)
- * @property {boolean} projectMode        -P
  * @property {string}  processorName
  * @property {'pt'|'en'} lang
  */
@@ -60,7 +59,6 @@ export function buildAsmSpec(ctx) {
     '-f', String(ctx.freq),
     '-c', String(ctx.clocks),
   ];
-  if (ctx.projectMode) args.push('-P');
 
   return {
     step: 'asm',

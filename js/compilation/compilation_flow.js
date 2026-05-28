@@ -266,7 +266,7 @@ async function precompileAllProcessors(compiler, terminalId) {
 
         await compiler.ensureDirectories(proc.name);
         await compiler.cmmCompilation(overrideProcessor);
-        await compiler.asmCompilation(overrideProcessor, 1);
+        await compiler.asmCompilation(overrideProcessor);
         compiled++;
     }
     return compiled;
@@ -359,10 +359,9 @@ async function handleCmmStep() {
         await compiler.cmmCompilation(overrideProcessor);
 
         // Passo 2 — ASM (asmcomp). Foco vai pro tasm pra que o output
-        // do asmcomp apareca no terminal certo. projectParam=1 segue
-        // o mesmo default do botao ASM standalone (sem $finish auto).
+        // do asmcomp apareca no terminal certo.
         switchTerminal('terminal-tasm');
-        await compiler.asmCompilation(overrideProcessor, 1, null);
+        await compiler.asmCompilation(overrideProcessor, null);
     } catch (error) {
         console.error('Erro na etapa cmm:', error);
         logFatalError('tcmm', error);
@@ -410,7 +409,7 @@ async function precompileAsmOnly(compiler, terminalId) {
         // NOTE: cmmCompilation deliberately skipped — the .asm on disk
         // (whether canonical or routed via an `asm.-i` override) is the
         // input to asmcomp.
-        await compiler.asmCompilation(overrideProcessor, 1);
+        await compiler.asmCompilation(overrideProcessor);
         compiled++;
     }
     return compiled;

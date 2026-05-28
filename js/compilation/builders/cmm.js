@@ -3,11 +3,11 @@
  *
  * Mirrors the call site in compilation_module.js cmmCompilation():
  *   "<cmmCompPath>" -<lang> -i <input> -n <name> -p <projectPath>
- *                   -m <macrosPath> -t <tempPath> [-P]
+ *                   -m <macrosPath> -t <tempPath> [-A]
  *
  * yanc consumes -pt / -en first (parse_lang_flag strips it before
  * cli_parse). Everything else is named options (CMMComp/Sources/args.c).
- * -P toggles "show arrays" (cmmcomp slot d_array).
+ * -A / --array toggles "show arrays" (yanc v4; renamed from v3's -P).
  */
 
 /**
@@ -33,7 +33,7 @@ export function buildCmmSpec(ctx) {
     '-m', ctx.macrosPath,
     '-t', ctx.tempPath,
   ];
-  if (ctx.showArrays) args.push('-P');
+  if (ctx.showArrays) args.push('-A');
 
   return {
     step: 'cmm',

@@ -4,11 +4,13 @@
  *
  * Baixa yanc-bin-vX.zip do release pinado em
  * github.com/nipscernlab/yanc e extrai em components/. O zip contem:
- *   - bin/  (cmmcomp.exe, asmcomp.exe, appcomp.exe, comp2gtkw.exe)
+ *   - bin/  (cmmcomp.exe, cppcomp.exe, asmcomp.exe, cpppp.exe,
+ *            appcomp.exe, comp2gtkw.exe — 6 binarios desde v4)
  *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
  *            myFIFO.v — bibliotecas verilog do toolchain SAPHO, v2+)
  *   - Macros/ (Sin_LUT.txt, Arctan_LUT.txt, float_*.asm — LUTs e
  *              helpers de ponto flutuante, v2+)
+ *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
  *
  * Scripts/ NAO esta incluso porque o components/Scripts/ do Aurora
  * mistura scripts SAPHO com scripts proprios de build (este aqui,
@@ -26,8 +28,12 @@
  * versao nova, atualizar a tag aqui e tambem gerar/publicar o release
  * correspondente em nipscernlab/yanc (workflow `release.yml`).
  *
+ * Sentinel: usamos cppcomp.exe porque foi adicionado no v4 — devs com
+ * instalacao v3 antiga (so 4 binarios) tem o sentinel falhando e o
+ * script re-baixa v4 automaticamente, sem precisar de --force.
+ *
  * Usage:  node components/Scripts/download-yanc.js [--force]
- *   --force   re-download even if components/bin/cmmcomp.exe is present
+ *   --force   re-download even if components/bin/cppcomp.exe is present
  */
 
 const https = require('https');
@@ -37,7 +43,7 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const YANC_TAG      = 'v3';
+const YANC_TAG      = 'v4';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';
@@ -46,7 +52,7 @@ const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const BIN_DIR       = path.join(ROOT_DIR, 'components', 'bin');
-const SENTINEL_FILE = path.join(BIN_DIR, 'cmmcomp.exe');
+const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 
 // Aurora ja baixa um toolchain principal e se beneficia do 7-Zip que

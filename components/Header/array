@@ -1,0 +1,17 @@
+#pragma once
+// CPPComp <array>: fixed-size std::array<T, N>. Built on the same class-template
+// machinery as <vector>, plus the non-type template parameter support (see
+// NTP_BASE / ctinst.vals in CPPComp's grammar). Each <T, N> pair monomorphises
+// to a concrete class with an inline T[N] storage; operator[] returns a real T&.
+// Aggregate / brace-init is left to whatever the existing initializer-list
+// machinery supports; an empty body works because globals are zero-init.
+namespace std {
+    template<class T, int N>
+    class array {
+        T _e[N];
+    public:
+        T&  operator[](int i)       { return _e[i]; }
+        T*  data()                  { return _e; }
+        int size()                  { return N; }
+    };
+}

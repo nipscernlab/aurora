@@ -598,10 +598,12 @@ wire           s = in[MAN+EXP      ];
 wire [EXP-1:0] e = in[MAN+EXP-1:MAN];
 wire [MAN-1:0] m = in[MAN    -1:  0];
 
-wire signed [MAN  :0] sm    = (s       ) ? -m : m;
 wire        [EXP-1:0] shift = (e[EXP-1]) ? -e : e;
+// shift the magnitude (logical), then apply the sign — truncates toward zero,
+// as C/IEEE float->int conversion requires (a signed >>> would floor instead).
+wire        [MAN+EXP:0] mag = (e[EXP-1]) ? (m >> shift) : (m << shift);
 
-always @ (*) out  = (e[EXP-1]) ? sm >>> shift : sm << shift;
+always @ (*) out  = (s) ? -mag : mag;
 
 endmodule
 

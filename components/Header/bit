@@ -1,0 +1,10 @@
+#pragma once
+// CPPComp <bit>: bit_cast reinterprets an object's bits as another type of the
+// same size. On this word-addressed target every scalar is one 32-bit word, so
+// the reinterpret is just a typed re-read of the same word (no byte copy).
+namespace std {
+    template<class To, class From>
+    inline To bit_cast(From v) {
+        return *(To*)&v;
+    }
+}

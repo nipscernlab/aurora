@@ -1331,6 +1331,13 @@ class VVPProgressManager {
             this._hideRequested = true;
             // Force the bar to target 100% so it finishes visually
             this.targetProgress = 100;
+            // Para o polling do arquivo: se nao parar, o readInterval
+            // sobrescreveria targetProgress de volta pro valor real do
+            // progress.txt (< 100 quando o tb deu $finish precoce),
+            // a animacao nunca atingiria 100% e handleCompletion()
+            // nunca rodaria — barra ficava visivel pra sempre.
+            clearInterval(this.readInterval);
+            this.readInterval = null;
             return;
         }
 

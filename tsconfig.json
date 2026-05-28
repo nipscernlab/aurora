@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "removeComments": false,
+    "newLine": "lf",
+    "rootDir": ".",
+    "outDir": "."
+  },
+  "include": [
+    "js/utils/path_utils.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "release",
+    "components",
+    "tests"
+  ]
+}

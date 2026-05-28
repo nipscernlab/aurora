@@ -10,7 +10,8 @@
   "main": "main.js",
   "scripts": {
     "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/copy-components.js",
-    "prestart": "npm run bootstrap",
+    "build:ts": "tsc",
+    "prestart": "npm run bootstrap && npm run build:ts",
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,7 +19,7 @@
     "deadcode": "knip --include files,dependencies --no-config-hints",
     "deadcode:all": "knip --no-config-hints",
     "rules:sync": "node scripts/sync-sapho-rules.js",
-    "prebuild": "npm run bootstrap",
+    "prebuild": "npm run bootstrap && npm run build:ts",
     "build": "electron-builder",
     "prepare": "husky"
   },

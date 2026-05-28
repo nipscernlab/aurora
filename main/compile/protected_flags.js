@@ -7,9 +7,7 @@
  * remove/inject flags into the structured CommandSpec for any step.
  * Some flags, however, are pipeline invariants: removing `-o
  * <vvpFile>` from iverilog-build breaks the Wave pipeline because no
- * .vvp lands at the path the next step reads from; removing `--script
- * <fix.tcl>` from gtkwave breaks the second-tab "fix.vcd" handoff
- * (see buildGtkwaveSpec in builders/wave_tools.js).
+ * .vvp lands at the path the next step reads from.
  *
  * We don't disallow ADDING flags — that's the whole point of the AI
  * having override power. We just refuse to let the AI REMOVE or
@@ -85,7 +83,7 @@ const RULES = {
     flagWithValue: ['-f', '-o'],
   },
   'gtkwave': {
-    flagWithValue: ['--script'],
+    literalArgs: [],
   },
   'yosys-hierarchy': {
     flagWithValue: ['-s'],

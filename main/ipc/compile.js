@@ -72,11 +72,19 @@ function register() {
         // GTKWave is launched detached and outlives the run; nothing in the
         // renderer consumes its stdout/stderr, so ignore them outright — an
         // unread pipe buffer could otherwise eventually block the process.
+        //
+        // windowsHide: false — quirk do gtkwave-nipscern (v0.1.1, GUI-subsystem):
+        // se spawnado com CREATE_NO_WINDOW (== windowsHide:true) E recebe um VCD
+        // pra carregar, o processo sobe mas a janela top-level nao e criada
+        // (parser do VCD parece precisar de console handle). Sem VCD ou sem
+        // CREATE_NO_WINDOW, abre normal. Como o exe e GUI-subsystem, nao ha
+        // flash de console — windowsHide:false aqui e cosmeticamente equivalente
+        // a true, mas evita esse quirk.
         const gtkwaveProcess = spawn(gtkwaveBin, args, {
           cwd: workingDir,
           detached: true,
           stdio: 'ignore',
-          windowsHide: true,
+          windowsHide: false,
           shell: false,
         });
 

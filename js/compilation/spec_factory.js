@@ -149,10 +149,8 @@ export async function buildSpecForStep(step, processorName) {
 
   const iveriCompPath = await joinComponents('Packages', 'iverilog', 'bin', 'iverilog.exe');
   const vvpBin        = await joinComponents('Packages', 'iverilog', 'bin', 'vvp.exe');
-  const gtkwaveBin    = await joinComponents('Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe');
-  const fst2vcdBin    = await joinComponents('Packages', 'iverilog', 'gtkwave', 'bin', 'fst2vcd.exe');
-  const scriptsPath   = await joinComponents('Scripts');
-  const fixScript     = await window.electronAPI.joinPath(scriptsPath, 'gtk_almost_proj.tcl');
+  const gtkwaveBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'gtkwave.exe');
+  const fst2vcdBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
 
   const structure = await SpfStore.read(window.currentSpfPath);
   const synth = (structure.synthesizableFiles || []).map((f) => f?.path || f).filter(Boolean);
@@ -224,7 +222,7 @@ export async function buildSpecForStep(step, processorName) {
   if (step === 'gtkwave') {
     if (!simTopModule) throw new Error('gtkwave needs a testbench');
     const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
-    return buildGtkwaveSpec({ gtkwaveBin, vcdFile, fixScript, cwd: tempBaseDir });
+    return buildGtkwaveSpec({ gtkwaveBin, vcdFile, cwd: tempBaseDir });
   }
 
   if (step === 'yosys-hierarchy' || step === 'prism-yosys') {

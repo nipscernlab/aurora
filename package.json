@@ -9,7 +9,7 @@
   },
   "main": "main.js",
   "scripts": {
-    "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/copy-components.js",
+    "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/copy-components.js",
     "prestart": "npm run bootstrap",
     "start": "electron .",
     "test": "vitest run",
@@ -26,7 +26,7 @@
     "node": ">=18.0.0"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs}": "eslint --max-warnings=0"
+    "*.{js,mjs,cjs}": "eslint --max-warnings=0 --no-warn-ignored"
   },
   "build": {
     "appId": "com.nipscern.auroraide",

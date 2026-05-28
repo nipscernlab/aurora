@@ -34,26 +34,24 @@ export function buildFst2VcdSpec(ctx) {
  * @property {string} gtkwaveBin
  * @property {string} vcdFile
  * @property {string} [gtkwSaveFile]      .gtkw companion file (-a)
- * @property {string} fixScript           gtk_almost_proj.tcl
  * @property {string} cwd
  */
 
 /** @param {GtkwaveBuilderCtx} ctx */
 export function buildGtkwaveSpec(ctx) {
-  const args = ['--dark', ctx.vcdFile];
+  // gtkwave-nipscern fork: --zoom-fit substitui o TCL gtk_almost_proj.tcl
+  // que o gtkwave upstream precisava pra fazer zoom-fit + reload-em-segunda-aba;
+  // --left-justify alinha nomes a esquerda; SST ja vem removido da fork
+  // (sem necessidade de --rcvar hide_sst on).
+  const args = ['--dark', '--zoom-fit', '--left-justify', ctx.vcdFile];
   if (ctx.gtkwSaveFile) {
-    args.push('--rcvar', 'hide_sst on', '-a', ctx.gtkwSaveFile);
+    args.push('-a', ctx.gtkwSaveFile);
   }
-  // GTKWave accepts `--script=PATH` as a single token (no space). Keep it
-  // one token — the args array is passed straight to spawn(shell:false),
-  // so it must already be split exactly as GTKWave expects.
-  args.push(`--script=${ctx.fixScript}`);
-
   return {
     step: 'gtkwave',
     binary: ctx.gtkwaveBin,
     args,
     cwd: ctx.cwd,
-    label: 'gtkwave --dark',
+    label: 'gtkwave --dark --zoom-fit --left-justify',
   };
 }

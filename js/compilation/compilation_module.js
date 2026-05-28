@@ -1737,7 +1737,7 @@ async _waveResolveToolchain() {
     const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
     const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
     const gtkwaveBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'gtkwave.exe',
+        this.componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );
     const vvpBin = await window.electronAPI.joinPath(
         this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe',
@@ -3196,14 +3196,12 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
 /**
  * Build the GTKWave command line and launch the process.
  *
- * Three switches matter:
- *   - `--dark` — Aurora's dark theme parity.
- *   - `--rcvar "hide_sst on"` + `-a <gtkw>` — only when a save-file is
- *     in play. SST is GTKWave's Signal Search Tree; Wave Configuration
- *     replaces it as the canonical picker, so showing both duplicates
- *     work.
- *   - `--script=<tcl>` — `gtk_almost_proj.tcl` zooms-fit and opens
- *     `fix.vcd` in a second tab (the GTK3 redraw workaround).
+ * gtkwave-nipscern fork (components/Packages/gtkwave-nipscern/):
+ *   - `--dark` — Aurora's dark theme parity (signal panel + GTK chrome).
+ *   - `--zoom-fit` — initial zoom-fit (substitui gtk_almost_proj.tcl).
+ *   - `--left-justify` — alinha nomes de sinais a esquerda.
+ *   - `-a <gtkw>` — save-file (so quando aplicavel). SST ja vem removido
+ *     da fork, entao --rcvar 'hide_sst on' nao e mais necessario.
  *
  * Inputs:  vcdFile (absolute), gtkwSaveFile (absolute or null), tools
  * Returns: void
@@ -3213,7 +3211,6 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
  */
 async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
-    const fixScript = await window.electronAPI.joinPath(tools.scriptsPath, 'gtk_almost_proj.tcl');
 
     // gtkwave usa spawn detached (monitorado via launch-gtkwave-only)
     // em vez do executor padrao. Mesmo assim, passamos pelo runSpec-
@@ -3224,7 +3221,6 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
         gtkwaveBin: tools.gtkwaveBin,
         vcdFile,
         gtkwSaveFile: gtkwSaveFile || undefined,
-        fixScript,
         cwd: tools.tempBaseDir,
     });
     const { applyResolved } = await import('./command_overrides.js');

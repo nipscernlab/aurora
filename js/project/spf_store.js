@@ -23,6 +23,101 @@
  * `lastModified` carimbado a cada write.
  */
 
+// ----------------------------------------------------------------------------
+// Path normalization (relative-in-disk, absolute-in-memory)
+// ----------------------------------------------------------------------------
+// O .spf grava paths RELATIVOS ao basePath quando o arquivo esta dentro do
+// projeto, e ABSOLUTOS quando esta fora. Tudo que e exposto pra fora do
+// SpfStore (via read/update mutator) e SEMPRE absoluto — caller nao precisa
+// saber dessa normalizacao. Backward-compat: .spf antigos com paths absolutos
+// continuam lendo (isAbsolutePath bypassa o resolve); o primeiro save migra
+// pros relativos automaticamente.
+//
+// Por que nao usar electronAPI.dirname (IPC): sync helper local evita o
+// round-trip em cada read/update. Aurora ja faz dirname assim em outros
+// lugares (file_mode.js, status_bar.js).
+
+/** True pra paths Windows (C:\, \\server\) e POSIX (/). */
+function isAbsolutePath(p) {
+    if (typeof p !== 'string' || !p) return false;
+    return /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+}
+
+/** dirname local — split em \ ou /, sem IPC. */
+function localDirname(p) {
+    if (typeof p !== 'string') return '';
+    const i = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+    return i === -1 ? '' : p.slice(0, i);
+}
+
+/**
+ * Se `absPath` esta dentro de `baseDir`, retorna o relativo (sem `./`
+ * prefixo). Senao, retorna o absoluto intacto. Case-insensitive na
+ * comparacao (Windows). Preserva o casing original do path.
+ */
+function toRelativeIfInside(absPath, baseDir) {
+    if (!absPath || !baseDir || !isAbsolutePath(absPath)) return absPath;
+    // Normaliza separadores e compara case-insensitive (idioma Windows).
+    const normalizedAbs = absPath.replace(/\//g, '\\');
+    const normalizedBase = baseDir.replace(/\//g, '\\').replace(/\\+$/, '');
+    const baseWithSep = (normalizedBase + '\\').toLowerCase();
+    if (!normalizedAbs.toLowerCase().startsWith(baseWithSep)) return absPath;
+    return normalizedAbs.slice(normalizedBase.length + 1);
+}
+
+/**
+ * Se `maybeRel` ja e absoluto, retorna como esta. Se for relativo,
+ * junta com `baseDir`. Sem baseDir, retorna o input inalterado
+ * (so vai acontecer em .spf orfaos sem basePath e sem dir do .spf).
+ */
+function toAbsoluteFromBase(maybeRel, baseDir) {
+    if (!maybeRel || isAbsolutePath(maybeRel)) return maybeRel;
+    if (!baseDir) return maybeRel;
+    const cleanBase = baseDir.replace(/[\\/]+$/, '');
+    const sep = cleanBase.includes('\\') ? '\\' : '/';
+    return cleanBase + sep + maybeRel.replace(/^[\\/]+/, '');
+}
+
+const PATH_FIELDS_SCALAR = ['topLevelFile', 'testbenchFile'];
+const PATH_FIELDS_ARRAY  = ['synthesizableFiles', 'testbenchFiles'];
+
+/** In-place: converte paths relativos do structure pra absolutos. */
+function expandStructurePaths(structure, baseDir) {
+    if (!structure || !baseDir) return;
+    for (const k of PATH_FIELDS_SCALAR) {
+        if (structure[k]) structure[k] = toAbsoluteFromBase(structure[k], baseDir);
+    }
+    for (const k of PATH_FIELDS_ARRAY) {
+        const arr = structure[k];
+        if (!Array.isArray(arr)) continue;
+        for (const entry of arr) {
+            if (entry && entry.path) entry.path = toAbsoluteFromBase(entry.path, baseDir);
+        }
+    }
+}
+
+/** Retorna copia profunda do structure com paths absolutos dentro de baseDir convertidos pra relativos. */
+function contractStructurePaths(structure, baseDir) {
+    const cloned = JSON.parse(JSON.stringify(structure));
+    if (!baseDir) return cloned;
+    for (const k of PATH_FIELDS_SCALAR) {
+        if (cloned[k]) cloned[k] = toRelativeIfInside(cloned[k], baseDir);
+    }
+    for (const k of PATH_FIELDS_ARRAY) {
+        const arr = cloned[k];
+        if (!Array.isArray(arr)) continue;
+        for (const entry of arr) {
+            if (entry && entry.path) entry.path = toRelativeIfInside(entry.path, baseDir);
+        }
+    }
+    return cloned;
+}
+
+/** basePath do structure ou dir do .spf (fallback). */
+function resolveBaseDir(structure, spfPath) {
+    return structure?.basePath || localDirname(spfPath) || '';
+}
+
 const writeChainByPath = new Map();
 // Read coalescing: se varias chamadas read(spfPath) chegam no mesmo
 // tick, todas compartilham a mesma promise em vez de cada uma rodar
@@ -67,11 +162,16 @@ async function readRawUncached(spfPath) {
   try {
     const content = await window.electronAPI.readFile(spfPath);
     const parsed = JSON.parse(content);
+    // Defaults first, on-disk values second — unknown keys
+    // sobrevivem ao round trip.
+    const structure = { ...STRUCTURE_DEFAULTS, ...(parsed.structure ?? {}) };
+    // Paths no disco podem ser relativos (formato novo) ou absolutos
+    // (formato antigo / fora do basePath). Expande pra absoluto antes
+    // de devolver — caller sempre trabalha com absoluto.
+    expandStructurePaths(structure, resolveBaseDir(structure, spfPath));
     return {
       metadata: parsed.metadata ?? {},
-      // Defaults first, on-disk values second — unknown keys
-      // sobrevivem ao round trip.
-      structure: { ...STRUCTURE_DEFAULTS, ...(parsed.structure ?? {}) },
+      structure,
     };
   } catch (err) {
     console.warn('.spf could not be parsed; falling back to defaults.', err);
@@ -149,9 +249,13 @@ export const SpfStore = {
       const beforeStruct = JSON.stringify(doc.structure);
       await mutator(doc.structure);
       const afterStruct = JSON.stringify(doc.structure);
+      // Grava paths relativos quando estao dentro do basePath; absolutos
+      // ficam absolutos. Caller continua trabalhando com absoluto no
+      // doc.structure em memoria — so o que vai pro disco e normalizado.
+      const stored = contractStructurePaths(doc.structure, resolveBaseDir(doc.structure, spfPath));
       const updated = {
         metadata: { ...doc.metadata, lastModified: new Date().toISOString() },
-        structure: doc.structure,
+        structure: stored,
       };
       await writeRaw(spfPath, updated);
       // Notifica subscribers (status_bar, processor_config_panel,

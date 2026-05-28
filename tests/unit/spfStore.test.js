@@ -156,29 +156,35 @@ describe('SpfStore.update dispatches aurora:spf-changed', () => {
     it('updates serializados disparam o evento uma vez cada', async () => {
         window.electronAPI._files.set('/proj/a.spf', JSON.stringify({ structure: {} }));
 
+        // Mutators usam paths absolutos (igual ao caller real — file
+        // tree sempre tem caminho absoluto via electronAPI). SpfStore
+        // grava como relativo no disco se estiver dentro do basePath
+        // (= dirname do .spf), mas leitura retorna absoluto de novo.
         await Promise.all([
-            SpfStore.update('/proj/a.spf', (s) => { s.topLevelFile = 'a.v'; }),
-            SpfStore.update('/proj/a.spf', (s) => { s.testbenchFile = 'b.v'; }),
+            SpfStore.update('/proj/a.spf', (s) => { s.topLevelFile = '/proj/a.v'; }),
+            SpfStore.update('/proj/a.spf', (s) => { s.testbenchFile = '/proj/b.v'; }),
             SpfStore.update('/proj/a.spf', (s) => { s.synthesizableFiles.push({ name: 'c.v', path: '/c.v' }); }),
         ]);
 
         // Tres writes serializados = tres eventos disparados.
         expect(window._eventCount).toBe(3);
-        // Estado final reflete as 3 mutacoes.
+        // Estado final reflete as 3 mutacoes (todos absolutos no read).
         const final = await SpfStore.read('/proj/a.spf');
-        expect(final.topLevelFile).toBe('a.v');
-        expect(final.testbenchFile).toBe('b.v');
+        expect(final.topLevelFile).toBe('/proj/a.v');
+        expect(final.testbenchFile).toBe('/proj/b.v');
         expect(final.synthesizableFiles).toEqual([{ name: 'c.v', path: '/c.v' }]);
     });
 
     it('mutator no-op NAO dispara evento', async () => {
+        // Path absoluto pra match com o que read() vai retornar
+        // (normalizacao expande relativos pra absoluto).
         window.electronAPI._files.set('/proj/a.spf', JSON.stringify({
-            structure: { topLevelFile: 'a.v', synthesizableFiles: [] },
+            structure: { topLevelFile: '/proj/a.v', synthesizableFiles: [] },
         }));
 
         // Mutator que NAO muda structure (escreve o mesmo valor).
         await SpfStore.update('/proj/a.spf', (s) => {
-            s.topLevelFile = 'a.v';
+            s.topLevelFile = '/proj/a.v';
         });
 
         // Update vazio idem.
@@ -211,5 +217,111 @@ describe('SpfStore.update dispatches aurora:spf-changed', () => {
         // Agora um no-op explicito.
         await SpfStore.update('/proj/a.spf', () => {});
         expect(window._eventCount).toBe(2);
+    });
+});
+
+describe('SpfStore path normalization (relative-on-disk, absolute-in-memory)', () => {
+    it('read: .spf antigo com paths absolutos continua funcionando (backward compat)', async () => {
+        // .spf gravado antes do feature de relative paths.
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: {
+                basePath: '/proj/teste',
+                topLevelFile: '/proj/teste/top.v',
+                testbenchFile: '/proj/teste/sim/tb.v',
+                synthesizableFiles: [
+                    { name: 'top.v', path: '/proj/teste/top.v' },
+                    { name: 'helper.v', path: '/other/helper.v' },
+                ],
+            },
+        }));
+        const s = await SpfStore.read('/proj/teste.spf');
+        // Tudo retorna absoluto, sem mudanca.
+        expect(s.topLevelFile).toBe('/proj/teste/top.v');
+        expect(s.testbenchFile).toBe('/proj/teste/sim/tb.v');
+        expect(s.synthesizableFiles[0].path).toBe('/proj/teste/top.v');
+        expect(s.synthesizableFiles[1].path).toBe('/other/helper.v');
+    });
+
+    it('read: paths relativos sao expandidos pra absoluto baseado em basePath', async () => {
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: {
+                basePath: '/proj/teste',
+                topLevelFile: 'top.v',
+                synthesizableFiles: [{ name: 'top.v', path: 'top.v' }],
+            },
+        }));
+        const s = await SpfStore.read('/proj/teste.spf');
+        expect(s.topLevelFile).toBe('/proj/teste/top.v');
+        expect(s.synthesizableFiles[0].path).toBe('/proj/teste/top.v');
+    });
+
+    it('read: sem basePath, usa dirname do .spf como fallback', async () => {
+        window.electronAPI._files.set('/proj/teste/a.spf', JSON.stringify({
+            structure: {
+                topLevelFile: 'top.v',
+            },
+        }));
+        const s = await SpfStore.read('/proj/teste/a.spf');
+        expect(s.topLevelFile).toBe('/proj/teste/top.v');
+    });
+
+    it('update: paths dentro de basePath sao gravados como relativos', async () => {
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: { basePath: '/proj/teste' },
+        }));
+        await SpfStore.update('/proj/teste.spf', (s) => {
+            s.topLevelFile = '/proj/teste/top.v';
+            s.synthesizableFiles = [{ name: 'top.v', path: '/proj/teste/top.v' }];
+        });
+        // Inspeciona o que foi GRAVADO no disco.
+        const onDisk = JSON.parse(window.electronAPI._files.get('/proj/teste.spf'));
+        expect(onDisk.structure.topLevelFile).toBe('top.v');
+        expect(onDisk.structure.synthesizableFiles[0].path).toBe('top.v');
+    });
+
+    it('update: paths fora de basePath sao mantidos absolutos', async () => {
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: { basePath: '/proj/teste' },
+        }));
+        await SpfStore.update('/proj/teste.spf', (s) => {
+            s.synthesizableFiles = [{ name: 'lib.v', path: '/other/lib.v' }];
+        });
+        const onDisk = JSON.parse(window.electronAPI._files.get('/proj/teste.spf'));
+        expect(onDisk.structure.synthesizableFiles[0].path).toBe('/other/lib.v');
+    });
+
+    it('migracao organica: ler .spf antigo + salvar = paths inside-base viram relativos', async () => {
+        // Estado inicial: tudo absoluto (formato antigo).
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: {
+                basePath: '/proj/teste',
+                topLevelFile: '/proj/teste/top.v',
+                synthesizableFiles: [
+                    { name: 'a.v', path: '/proj/teste/a.v' },
+                    { name: 'lib.v', path: '/other/lib.v' },  // fora — fica absoluto
+                ],
+            },
+        }));
+
+        // Ler + re-salvar (qualquer mutator que MUDE structure pra
+        // disparar write — push em array conta como mudanca).
+        await SpfStore.update('/proj/teste.spf', (s) => {
+            s.synthesizableFiles.push({ name: 'b.v', path: '/proj/teste/b.v' });
+        });
+
+        const onDisk = JSON.parse(window.electronAPI._files.get('/proj/teste.spf'));
+        // Paths inside-basePath migraram pra relativo.
+        expect(onDisk.structure.topLevelFile).toBe('top.v');
+        expect(onDisk.structure.synthesizableFiles[0].path).toBe('a.v');
+        expect(onDisk.structure.synthesizableFiles[2].path).toBe('b.v');
+        // Path outside-basePath manteve absoluto.
+        expect(onDisk.structure.synthesizableFiles[1].path).toBe('/other/lib.v');
+
+        // E read subsequente expande de volta pra absoluto — caller ve absoluto.
+        const sAfter = await SpfStore.read('/proj/teste.spf');
+        expect(sAfter.topLevelFile).toBe('/proj/teste/top.v');
+        expect(sAfter.synthesizableFiles[0].path).toBe('/proj/teste/a.v');
+        expect(sAfter.synthesizableFiles[1].path).toBe('/other/lib.v');
+        expect(sAfter.synthesizableFiles[2].path).toBe('/proj/teste/b.v');
     });
 });

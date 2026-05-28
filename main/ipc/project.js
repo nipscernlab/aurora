@@ -173,12 +173,20 @@ function register() {
       const projectData = JSON.parse(spfContent);
       projectData.metadata.lastOpened = new Date().toISOString();
 
+      // basePath SEMPRE alinha com dirname(spfPath). Antes checavamos so
+      // existence (oldBasePath nao existe -> reconcilia); mas isso falhava
+      // quando o user copiava o projeto pra outra pasta no MESMO PC -
+      // oldBasePath ainda existia (apontando pro projeto original), nao
+      // reconciliava, e os paths relativos do .spf eram resolvidos contra
+      // o basePath errado. Comparar com dirname(spfPath) trata os 2 casos
+      // (outro PC E mesma maquina) de forma uniforme. Trade-off: se algum
+      // user mantiver basePath propositalmente diferente do dirname do
+      // .spf, ele e sobrescrito (cenario muito improvavel).
       const oldBasePath = projectData.structure.basePath;
-      const basePathExists = await fse.pathExists(oldBasePath);
-      if (!basePathExists) {
-        const newBasePath = path.dirname(spfPath);
-        projectData.metadata.projectPath = newBasePath;
-        projectData.structure.basePath = newBasePath;
+      const expectedBasePath = path.dirname(spfPath);
+      if (oldBasePath !== expectedBasePath) {
+        projectData.metadata.projectPath = expectedBasePath;
+        projectData.structure.basePath = expectedBasePath;
       }
 
       if (projectData.structure.processors) {

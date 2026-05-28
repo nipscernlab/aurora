@@ -56,10 +56,6 @@ function terminalForStep(step) {
   if (step === 'asm-pre' || step === 'asm')    return 'tasm';
   if (step.startsWith('iverilog'))             return 'tveri';
   if (step.startsWith('vvp'))                  return 'twave';
-  // Top-level harness (json/tb-build/tb-run) loga no terminal Verilog.
-  if (step === 'verilator-json' ||
-      step === 'verilator-tb-build' ||
-      step === 'verilator-tb-run')             return 'tveri';
   if (step.startsWith('verilator'))            return 'twave';
   if (step === 'fst2vcd' || step === 'gtkwave') return 'twave';
   if (step === 'yosys-hierarchy')              return 'twave';

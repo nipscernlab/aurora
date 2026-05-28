@@ -1297,12 +1297,12 @@ const compileNs = {
    *   - 'cmm'   : cmmcomp + asmcomp (regenerates .asm from .cmm)
    *   - 'asm'   : asmcomp + iverilog + vvp (SKIPS cmmcomp — used by Aurora
    *               Intelligence to test a hand-optimised .asm without losing it)
-   *   - 'verilog'/'wave'/'prism'/'verilator'/'verilator-proc': existing
+   *   - 'verilog'/'wave'/'prism'/'verilator-proc': existing
    */
   async compileStep(step) {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator', 'verilator-proc'].includes(step)) {
+    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });

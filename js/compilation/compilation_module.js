@@ -50,7 +50,10 @@ import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
-import { instrumentTestbenchSource, hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
+import {
+  instrumentTestbenchSource, hasUserDumpCalls,
+  stripVerilatorIncompatibleLines,
+} from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -1299,6 +1302,40 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
 }
 
 /**
+ * WORKAROUND Verilator: le o tb (ja instrumentado), strip blocos que
+ * Verilator nao consegue elaborar (ex: hierarchical ref a regs internos
+ * otimizados fora pelo DCE), e escreve uma copia <verilator_basename>
+ * em tempBaseDir. Retorna o path da copia (ou o path original se nada
+ * foi alterado).
+ *
+ * Iverilog NAO chama esta funcao — usa o tb original.
+ *
+ * Doc completa do workaround + lista de melhorias futuras em
+ * stripVerilatorIncompatibleLines (testbench_instrumenter.js).
+ */
+async _rewriteTbForVerilator(tbPath, tempBaseDir) {
+    const content = await window.electronAPI.readFile(tbPath, { encoding: 'utf8' });
+    const stripped = stripVerilatorIncompatibleLines(content);
+    if (stripped === content) return tbPath; // nada a strip — economiza I/O
+
+    const basename = tbPath.split(/[\\/]/).pop();
+    const verilatorPath = await window.electronAPI.joinPath(tempBaseDir, `verilator_${basename}`);
+
+    // Idempotencia de mtime (mesma logica do instrumentTestbench): so
+    // escreve se o conteudo realmente mudou, pra nao forcar rebuild do
+    // make do Verilator a cada clique no Wave.
+    if (await window.electronAPI.fileExists(verilatorPath)) {
+        try {
+            const existing = await window.electronAPI.readFile(verilatorPath, { encoding: 'utf8' });
+            if (existing === stripped) return verilatorPath;
+        } catch (_e) { /* race ou disco; segue e escreve */ }
+    }
+
+    await window.electronAPI.writeFile(verilatorPath, stripped);
+    return verilatorPath;
+}
+
+/**
  * Pre-flight do botao Wave compartilhado entre iverilog e verilator:
  * resolve a selecao de signals, instrumenta o testbench e monta o
  * conjunto de fontes (synth + tb instrumentado).
@@ -2074,7 +2111,20 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // internos do processador SAPHO, usa iverilog (Wave Configuration
     // → desmarca "Use Verilator"). Verilator fica como modo "rapido
     // pra signals top-level do testbench".
-    const buildSources = [...prep.fileSet];
+    //
+    // Workaround testbench: o asmcomp emite um handler de early-finish
+    // que usa hierarchical reference (proc.valr10). Verilator otimiza
+    // isso fora e nao consegue resolver -> "Can't find definition".
+    // stripVerilatorIncompatibleLines escreve uma copia do tb sem o
+    // bloco e usamos essa copia no build. Iverilog continua com o
+    // tb original (mantem o early-finish). Ver doc completa em
+    // testbench_instrumenter.js.
+    const tbForVerilator = await this._rewriteTbForVerilator(
+        prep.instrumentedTbPath, tempBaseDir,
+    );
+    const buildSources = [...prep.fileSet].map((p) =>
+        p === prep.instrumentedTbPath ? tbForVerilator : p,
+    );
     // Builder monta tokens individuais (sem aspas, sem shell). Executor
     // em main faz spawn(perlExe, args, { shell:false }) — cada token vai
     // direto pro child sem reparse. -CFLAGS aparece duas vezes (O3 +

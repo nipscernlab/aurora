@@ -100,6 +100,72 @@ export function hasUserDumpCalls(src) {
     return /\$dumpfile/.test(stripped) || /\$dumpvars/.test(stripped);
 }
 
+// =============================================================================
+// Verilator-specific testbench preprocessing — WORKAROUND
+// =============================================================================
+//
+// Problema: o asmcomp do yanc emite no _tb.v um handler de early-finish
+// que faz hierarchical reference pra um reg interno do processador
+// (proc.valr10). Iverilog aceita. Verilator otimiza esses regs internos
+// (DCE/inline) antes da elaboracao do testbench resolver a referencia ->
+//
+//   %Error: ..._tb.v:65:33: Can't find definition of 'valr10' in dotted
+//   variable/method: 'proc.valr10'
+//
+// Pattern alvo (lines ~697-701 de yanc/Compilers/ASMComp/Sources/hdl.c):
+//   always @ (posedge clk) if (proc.valr10 == <NUMBER>) begin
+//       $display("Info: end of program!");
+//       $fclose(progress);
+//       $finish;
+//   end
+//
+// Workaround: Aurora le o testbench instrumentado, regex-strip o bloco
+// problematico, escreve uma COPIA Verilator-only (verilator_<tb>.v) e
+// passa essa copia ao build do Verilator. Iverilog continua usando o
+// original (mantem o early-finish funcional).
+//
+// LIMITACOES:
+//   - Verilator perde o early-finish: pass-1 e pass-2 rodam o cycle
+//     budget completo do .spf (numClocks), mesmo que o programa do
+//     processador acabe antes. Em sims longas, tempo perdido.
+//   - Fragil: regex casa o padrao EXATO do asmcomp atual. Se yanc
+//     mudar o handler, o strip nao casa e Verilator volta a falhar
+//     (com erro claro, entao a gente descobre rapido).
+//
+// MELHORIAS FUTURAS (em ordem de preferencia):
+//   1. Pedir pro asmcomp/yanc envolver o handler em `ifdef __ICARUS__`
+//      (mesma convencao que ja usa pra $dumpvars). Aurora deleta esse
+//      workaround inteiro.
+//   2. Aurora detectar early-finish via plusarg em Verilator mode (algo
+//      tipo +AURORA_EARLY_FINISH=N que um initial block monitora).
+//   3. Parser Verilog proper (peggy/AST) pra strip baseado em estrutura
+//      em vez de regex.
+
+/**
+ * Pattern do handler de early-finish gerado pelo asmcomp do yanc.
+ * Match lazy ate o primeiro `end` (o bloco nao tem nested begin/end).
+ */
+const PROC_VALR10_FINISH_BLOCK =
+    /always\s*@\s*\(\s*posedge\s+clk\s*\)\s*if\s*\(\s*proc\.valr10\s*==[^)]*\)\s*begin[\s\S]*?\bend\b\s*\n?/g;
+
+/**
+ * Retorna o source do testbench com blocos incompativeis com Verilator
+ * comentados. Idempotente — chamar 2x e a mesma coisa. Workaround
+ * conhecido (ver bloco de comentario acima).
+ *
+ * @param {string} src  conteudo do _tb.v (idealmente ja instrumentado)
+ * @returns {string}    source sem o handler problematico
+ */
+export function stripVerilatorIncompatibleLines(src) {
+    return src.replace(
+        PROC_VALR10_FINISH_BLOCK,
+        '// Aurora workaround: removed for Verilator (proc.valr10 hierarchical\n' +
+        '// ref is optimized away). Iverilog still uses the original tb with\n' +
+        '// this block intact. See stripVerilatorIncompatibleLines in\n' +
+        '// testbench_instrumenter.js for the full rationale.\n',
+    );
+}
+
 /**
  * @param {object} input
  * @param {string} input.originalContent  Source .v as-is from disk.

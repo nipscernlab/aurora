@@ -143,10 +143,13 @@ export function hasUserDumpCalls(src) {
 
 /**
  * Pattern do handler de early-finish gerado pelo asmcomp do yanc.
- * Match lazy ate o primeiro `end` (o bloco nao tem nested begin/end).
+ * O `end` final TEM que estar no comeco de uma linha (possivelmente
+ * indentado): o bloco contem a string "Info: end of program!" e
+ * `\bend\b` casava com o "end" dentro da string, cortando o match
+ * no meio e quebrando o source.
  */
 const PROC_VALR10_FINISH_BLOCK =
-    /always\s*@\s*\(\s*posedge\s+clk\s*\)\s*if\s*\(\s*proc\.valr10\s*==[^)]*\)\s*begin[\s\S]*?\bend\b\s*\n?/g;
+    /always\s*@\s*\(\s*posedge\s+clk\s*\)\s*if\s*\(\s*proc\.valr10\s*==[^)]*\)\s*begin\b[\s\S]*?\n[ \t]*end\b\s*\n?/g;
 
 /**
  * Retorna o source do testbench com blocos incompativeis com Verilator

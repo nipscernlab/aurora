@@ -71,6 +71,8 @@ const STEP_TERMINALS = Object.freeze({
     // ele pode achar que o erro veio do Wave.
     wave:    ['twave', 'tveri'],
     prism:   ['tveri'],
+    // Verilator top-level: json + build + run, tudo loga em tveri.
+    verilator: ['tveri'],
     // Verilator processador CMM: loga em twave (usa a barra de progresso).
     'verilator-proc': ['twave'],
 });
@@ -83,6 +85,7 @@ const ERROR_TERMINAL = Object.freeze({
     verilog: 'tveri',
     wave:    'twave',
     prism:   'tveri',
+    verilator: 'tveri',
     'verilator-proc': 'twave',
 });
 
@@ -479,6 +482,29 @@ async function handleWaveStep() {
 }
 
 /**
+ * Botao Verilator (top-level): chama o Verilator direto no top-level
+ * (sem testbench). Gera um harness C++ manual que instancia a classe,
+ * faz o loop de clock, le os pinos de entrada de <pino>.in e escreve os
+ * de saida em <pino>.out. Self-contained — pre-compila os processadores
+ * (no-op em projeto verilog puro) antes de dumpar/buildar/rodar.
+ */
+async function handleVerilatorStep() {
+    startCompilation(STEP_TERMINALS.verilator);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'tveri');
+        switchTerminal('terminal-tveri');
+        await compiler.verilatorTopLevelRun();
+    } catch (error) {
+        console.error('Erro na etapa verilator (top-level):', error);
+        logFatalError('tveri', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
  * Botao Verilator (processador CMM): roda o top-level <proc>.v gerado
  * pelo compilador CMM com Verilator, usando a fiacao previsivel do
  * processador SAPHO (req_in/out_en one-hot, input_<N>.txt/output_<N>.txt
@@ -625,6 +651,7 @@ async function syncToolbarEnabledState() {
 
     setEnabled('vericomp', hasTop);
     setEnabled('prismcomp', hasTop);
+    setEnabled('verilatortl', hasTop);
     setEnabled('verilatorproc', hasProc);
     setEnabled('wavecomp', hasTb);
     setEnabled('waveConfigBtn', hasTb);
@@ -653,6 +680,7 @@ class CompilationFlowManager {
         document.getElementById('vericomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('verilog'));
         document.getElementById('wavecomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('wave'));
         document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
+        document.getElementById('verilatortl')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator'));
         document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
@@ -706,6 +734,7 @@ class CompilationFlowManager {
             case 'verilog':   return handleVerilogStep();
             case 'wave':      return handleWaveStep();
             case 'prism':     return handlePrismStep();
+            case 'verilator': return handleVerilatorStep();
             case 'verilator-proc': return handleVerilatorProcStep();
             default:
                 console.warn(`Passo desconhecido: ${step}`);

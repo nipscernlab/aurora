@@ -617,9 +617,6 @@ async loadConfig() {
             await window.electronAPI.mkdir(tempBaseDir);
             const tempProcessorDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
             await window.electronAPI.mkdir(tempProcessorDir);
-            const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts', 'fix.vcd');
-            const destPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name, 'fix.vcd');
-            await window.electronAPI.copyFile(scriptsPath, destPath);
             return tempProcessorDir;
         } catch (error) {
             console.error("Failed to ensure directories:", error);
@@ -662,38 +659,6 @@ async loadConfig() {
             tbModule,
             tbFile
         };
-    }
-
-    /**
-     * Cria o arquivo tcl_infos.txt necessário para o script TCL configurar o GTKWave.
-     * Estrutura baseada no padrão que o script TCL lê:
-     * Linha 1: Lista de processadores (ou módulo topo)
-     * Linha 2: Tipo (verilog)
-     * Linha 3: Pasta Temp
-     * Linha 4: Pasta Bin
-     * Linha 5: Pasta Scripts
-     */
-    async createTclInfos(tempDir, topModuleName) {
-        try {
-            const packagesPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages');
-            const binDir = await window.electronAPI.joinPath(packagesPath, 'iverilog', 'bin');
-            // Assume que seus scripts .tcl ficam numa pasta 'Scripts' dentro de components
-            const scriptsDir = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
-
-            // Formatando caminhos para o TCL (barras normais funcionam melhor em TCL que invertidas)
-            const infosContent = [
-                toForwardSlashes(tempDir),  // 3. tmp_dir
-                toForwardSlashes(binDir),   // 4. bin_dir
-            ].join('\n');
-
-            const infoFilePath = await window.electronAPI.joinPath(tempDir, 'tcl_infos.txt');
-            await window.electronAPI.writeFile(infoFilePath, infosContent);
-            
-            return scriptsDir; // Retorna o caminho dos scripts para uso posterior
-        } catch (error) {
-            console.error("Error creating tcl_infos.txt:", error);
-            throw error;
-        }
     }
 
     async cmmCompilation(processor) {
@@ -1652,12 +1617,11 @@ async iverilogCompile({ buildVvp = false } = {}) {
  *
  * Pipeline (read top-to-bottom):
  *
- *   _waveResolveToolchain()          → { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin }
+ *   _waveResolveToolchain()          → { tempBaseDir, gtkwaveBin, vvpBin }
  *   _waveDeriveSimTopModule(config)  → testbench module name
  *   _waveBuildAndVerifyVvp()         → tempBaseDir/${simTop}.vvp on disk
  *   _waveRunVvpSimulation()          → tempBaseDir/<some>.vcd on disk
  *   _waveResolveVcdFile()            → absolute path to that .vcd
- *   _waveStageFixVcd()               → tempBaseDir/fix.vcd (GTK3 quirk)
  *   _waveResolveGtkwSaveFile()       → .gtkw absolute path or null
  *   _waveLaunchGtkwave()             → GTKWave process, monitored
  *
@@ -1707,7 +1671,6 @@ async runGtkWave() {
             await this._waveRunVvpSimulation(simTopModule, tools);
         }
         const vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
-        await this._waveStageFixVcd(tools);
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
         await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
     } catch (error) {
@@ -1729,20 +1692,19 @@ async runGtkWave() {
  * Temp / Scripts directories.
  *
  * Inputs:  this.componentsPath
- * Returns: { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin } — all absolute
+ * Returns: { tempBaseDir, gtkwaveBin, vvpBin } — all absolute
  * Throws:  never (joinPath is total)
  * Side-effects: none
  */
 async _waveResolveToolchain() {
     const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-    const scriptsPath = await window.electronAPI.joinPath(this.componentsPath, 'Scripts');
     const gtkwaveBin = await window.electronAPI.joinPath(
         this.componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );
     const vvpBin = await window.electronAPI.joinPath(
         this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe',
     );
-    return { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin };
+    return { tempBaseDir, gtkwaveBin, vvpBin };
 }
 
 /**
@@ -2856,8 +2818,8 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
  * which is the happy path. The recovery branch handles the
  * "user wrote $dumpfile with a different name" case: vvp's CWD is
  * tempBaseDir, so the file is in there under whatever name the user
- * picked. We scan for unambiguous .vcd files (excluding fix.vcd which
- * we stage ourselves later) and adopt one if the choice is clear.
+ * picked. We scan for unambiguous .vcd files and adopt one if the
+ * choice is clear.
  *
  * Inputs:  simTopModule, tempBaseDir
  * Returns: absolute path to the .vcd to use downstream
@@ -2891,7 +2853,7 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
         const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
         candidates = (entries || []).filter((name) => {
             const n = name.toLowerCase();
-            return (n.endsWith('.fst') || n.endsWith('.vcd')) && name !== 'fix.vcd';
+            return n.endsWith('.fst') || n.endsWith('.vcd');
         });
     } catch (_listErr) {
         candidates = [];
@@ -2916,30 +2878,6 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
         `${detail}\n` +
         `Aurora looks for a .fst (or .vcd) named after the testbench module.`,
     );
-}
-
-/**
- * Copy the canned `fix.vcd` companion alongside the user's VCD.
- * GTKWave under GTK3 needs that file opened in a second tab to
- * refresh its view — the launch script (`gtk_almost_proj.tcl`)
- * triggers that. Don't remove this without first ripping out the
- * companion-tab line in the script.
- *
- * Inputs:  tools (uses scriptsPath + tempBaseDir)
- * Returns: void
- * Throws:  never (best-effort; logs a warning on failure)
- * Side-effects: writes ${tempBaseDir}/fix.vcd
- */
-async _waveStageFixVcd(tools) {
-    try {
-        await window.electronAPI.copyFile(
-            await window.electronAPI.joinPath(tools.scriptsPath, 'fix.vcd'),
-            await window.electronAPI.joinPath(tools.tempBaseDir, 'fix.vcd'),
-        );
-    } catch (copyErr) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.couldNotStageFix', { message: copyErr.message }), 'warning');
-    }
 }
 
 /**
@@ -3198,7 +3136,7 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
  *
  * gtkwave-nipscern fork (components/Packages/gtkwave-nipscern/):
  *   - `--dark` — Aurora's dark theme parity (signal panel + GTK chrome).
- *   - `--zoom-fit` — initial zoom-fit (substitui gtk_almost_proj.tcl).
+ *   - `--zoom-fit` — initial zoom-fit.
  *   - `--left-justify` — alinha nomes de sinais a esquerda.
  *   - `-a <gtkw>` — save-file (so quando aplicavel). SST ja vem removido
  *     da fork, entao --rcvar 'hide_sst on' nao e mais necessario.

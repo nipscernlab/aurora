@@ -213,16 +213,13 @@ Click "Wave" button (Verilog-Only)
 │    zero or multiple? throw with concrete fix instructions.     │
 │    → absolute vcdFile path                                     │
 ├───────────────────────────────────────────────────────────────┤
-│ 6. _waveStageFixVcd                                            │
-│    cp ${scripts}/fix.vcd ${tempBaseDir}/fix.vcd (GTK3 redraw)  │
-├───────────────────────────────────────────────────────────────┤
-│ 7. _waveResolveGtkwSaveFile                                    │
+│ 6. _waveResolveGtkwSaveFile                                    │
 │    user-curated .gtkw set? validate vs VCD, return its path.   │
 │    else: generateGtkwForVcd (uses _validatedWaveSelection      │
 │    cached by phase 3) → tempBaseDir/${simTop}.gtkw or null.    │
 │    → absolute .gtkw path or null                               │
 ├───────────────────────────────────────────────────────────────┤
-│ 8. _waveLaunchGtkwave                                          │
+│ 7. _waveLaunchGtkwave                                          │
 │    builds command line, execs gtkwave.exe, monitors PID        │
 └───────────────────────────────────────────────────────────────┘
 ```

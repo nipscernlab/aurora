@@ -389,7 +389,6 @@
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",
             "couldNotStageTbFile":   "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
             "dumpfileMismatch":      "Nota: $dumpfile do testbench aponta para \"{{name}}\" em vez de {{expected}}.vcd; usando esse arquivo para a visualização.",
-            "couldNotStageFix":      "Aviso: não foi possível preparar fix.vcd — {{message}}",
             "usingGtkwFile":         "Usando arquivo GTKWave save: {{name}}",
             "staleVcdSignalOne":     "Nota: {{preview}} estava marcado na Configuração de Ondas mas não está no VCD gerado; omitido do layout .gtkw.",
             "staleVcdSignalMany":    "Nota: {{count}} sinais marcados na Configuração de Ondas não estão no VCD gerado e foram omitidos do layout .gtkw: {{preview}}{{more}}.",

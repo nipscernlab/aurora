@@ -39,10 +39,8 @@ export function buildFst2VcdSpec(ctx) {
 
 /** @param {GtkwaveBuilderCtx} ctx */
 export function buildGtkwaveSpec(ctx) {
-  // gtkwave-nipscern fork: --zoom-fit substitui o TCL gtk_almost_proj.tcl
-  // que o gtkwave upstream precisava pra fazer zoom-fit + reload-em-segunda-aba;
-  // --left-justify alinha nomes a esquerda; SST ja vem removido da fork
-  // (sem necessidade de --rcvar hide_sst on).
+  // gtkwave-nipscern fork: --dark + --zoom-fit + --left-justify; SST ja
+  // vem removido da fork (sem necessidade de --rcvar hide_sst on).
   const args = ['--dark', '--zoom-fit', '--left-justify', ctx.vcdFile];
   if (ctx.gtkwSaveFile) {
     args.push('-a', ctx.gtkwSaveFile);

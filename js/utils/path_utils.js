@@ -10,7 +10,7 @@
  *      forward-slash paths even on Windows.
  *
  *   2. Convert to forward-slash form for tools that don't tolerate backslashes
- *      (Tcl scripts, cygwin-flavoured shells, makefile-style command lines).
+ *      (cygwin-flavoured shells, makefile-style command lines).
  *
  * Behaviour matches the existing inline calls exactly — this is a
  * readability/discoverability fix, not a portability change.

@@ -29,7 +29,7 @@ one consistent interface built on Electron and Monaco.
   per-processor colour coding, and a dedicated Verilog file mode.
 - **Three compilation targets** — single processor, full project, and
   Verilog-only synthesis — each routed through the same toolchain (CMM →
-  ASM → Icarus Verilog → GTKWave) with `fix.vcd` always loaded alongside.
+  ASM → Icarus Verilog → GTKWave).
 - **Split editor** with up to three panes that share a Monaco model: edits
   in any pane propagate live to every other pane showing the same file.
 - **PRISM RTL viewer** powered by Yosys + netlistsvg for live netlist
@@ -194,7 +194,7 @@ AURORA orchestrates these tools, all driven from the toolbar's compile group:
 |-------|------------|---------------------|-------|
 | C±    | `cmmcomp`  | cmmcomp + asmcomp   | Per-processor; runs CMM then ASM |
 | Veri  | `vericomp` | Icarus Verilog      | Synthesises top-level |
-| Wave  | `wavecomp` | GTKWave             | Always opens `fix.vcd` |
+| Wave  | `wavecomp` | GTKWave             | Opens generated .vcd/.fst |
 | PRISM | `prismcomp`| Yosys + netlistsvg  | RTL viewer |
 
 The mode toggle (`Processor` / `Project`) and the Compile-&-Simulate switch

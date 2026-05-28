@@ -9,9 +9,8 @@
  *      design — clk global, FIFOs no top, módulos auxiliares, etc.
  *
  *   2. **Per-processor sections**: pra cada instancia de processador
- *      SAPHO detectada, uma secao completa com cores/aliases/grupos
- *      (port das regras do antigo gtk_proc_init.tcl). Suporta multiplos
- *      processadores no mesmo design.
+ *      SAPHO detectada, uma secao completa com cores/aliases/grupos.
+ *      Suporta multiplos processadores no mesmo design.
  *
  * Deteccao de processador
  * -----------------------

@@ -1458,15 +1458,13 @@ class VVPProgressManager {
                 // vvp -fst grava o dump em components/Temp/, mas o nome
                 // e extensao dependem do $dumpfile() do testbench
                 // (.fst ou .vcd com bytes FST). Em vez de adivinhar,
-                // escaneia a cada tick por .fst/.vcd (exclui fix.vcd,
-                // que e o helper canned do GTK3) e pega o maior — eh
-                // o que esta sendo escrito ativamente.
+                // escaneia a cada tick por .fst/.vcd e pega o maior —
+                // eh o que esta sendo escrito ativamente.
                 const entries = await window.electronAPI.listFilesInDirectory(this.fstDir);
                 if (!Array.isArray(entries) || entries.length === 0) return;
                 const candidates = entries.filter((n) => {
                     if (typeof n !== 'string') return false;
                     const lower = n.toLowerCase();
-                    if (lower === 'fix.vcd') return false;
                     return lower.endsWith('.fst') || lower.endsWith('.vcd');
                 });
                 if (candidates.length === 0) return;

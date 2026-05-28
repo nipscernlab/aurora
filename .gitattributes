@@ -16,7 +16,6 @@
 *.sv     text eol=lf
 *.cmm    text eol=lf
 *.asm    text eol=lf
-*.tcl    text eol=lf
 *.gtkw   text eol=lf
 *.spf    text eol=lf
 

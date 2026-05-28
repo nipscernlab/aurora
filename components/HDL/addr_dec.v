@@ -7,6 +7,6 @@ module addr_dec
 	output reg [       NPORT -1:0] valid_out
 );
 
-integer i; always @* for (i = 0; i < NPORT; i = i+1) valid_out[i] = valid_in & (index == i);
+integer i; always @* for (i = 0; i < NPORT; i = i+1) valid_out[i] = valid_in & (index == i[$clog2(NPORT)-1:0]);
 
 endmodule

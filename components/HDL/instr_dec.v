@@ -174,161 +174,161 @@ module instr_dec
 
 // implements memory read/write ----------------------------------------------
 
-wire    wLOD  ; generate if (   LOD  ) assign    wLOD   = opcode == 7'd00; else assign    wLOD   = 1'b0; endgenerate
-wire  wP_LOD  ; generate if ( P_LOD  ) assign  wP_LOD   = opcode == 7'd01; else assign  wP_LOD   = 1'b0; endgenerate
+wire    wLOD  ; generate if ((LOD) != 0) assign    wLOD   = opcode == 7'd00; else assign    wLOD   = 1'b0; endgenerate
+wire  wP_LOD  ; generate if ((P_LOD) != 0) assign  wP_LOD   = opcode == 7'd01; else assign  wP_LOD   = 1'b0; endgenerate
 
-wire    wLDI  ; generate if (   LDI  ) assign    wLDI   = opcode == 7'd02; else assign    wLDI   = 1'b0; endgenerate
-wire    wILI  ; generate if (   ILI  ) assign    wILI   = opcode == 7'd03; else assign    wILI   = 1'b0; endgenerate
+wire    wLDI  ; generate if ((LDI) != 0) assign    wLDI   = opcode == 7'd02; else assign    wLDI   = 1'b0; endgenerate
+wire    wILI  ; generate if ((ILI) != 0) assign    wILI   = opcode == 7'd03; else assign    wILI   = 1'b0; endgenerate
 
-wire    wSET  ; generate if (   SET  ) assign    wSET   = opcode == 7'd04; else assign    wSET   = 1'b0; endgenerate
-wire    wSET_P; generate if (   SET_P) assign    wSET_P = opcode == 7'd05; else assign    wSET_P = 1'b0; endgenerate
+wire    wSET  ; generate if ((SET) != 0) assign    wSET   = opcode == 7'd04; else assign    wSET   = 1'b0; endgenerate
+wire    wSET_P; generate if ((SET_P) != 0) assign    wSET_P = opcode == 7'd05; else assign    wSET_P = 1'b0; endgenerate
 
-wire    wSTI  ; generate if (   STI  ) assign    wSTI   = opcode == 7'd06; else assign    wSTI   = 1'b0; endgenerate
-wire    wISI  ; generate if (   ISI  ) assign    wISI   = opcode == 7'd07; else assign    wISI   = 1'b0; endgenerate
+wire    wSTI  ; generate if ((STI) != 0) assign    wSTI   = opcode == 7'd06; else assign    wSTI   = 1'b0; endgenerate
+wire    wISI  ; generate if ((ISI) != 0) assign    wISI   = opcode == 7'd07; else assign    wISI   = 1'b0; endgenerate
 
 // implements the data-stack interface ----------------------------------------
 
-wire    wPSH  ; generate if (   PSH  ) assign    wPSH   = opcode == 7'd08; else assign    wPSH   = 1'b0; endgenerate
-wire    wPOP  ; generate if (   POP  ) assign    wPOP   = opcode == 7'd09; else assign    wPOP   = 1'b0; endgenerate
+wire    wPSH  ; generate if ((PSH) != 0) assign    wPSH   = opcode == 7'd08; else assign    wPSH   = 1'b0; endgenerate
+wire    wPOP  ; generate if ((POP) != 0) assign    wPOP   = opcode == 7'd09; else assign    wPOP   = 1'b0; endgenerate
 
 // implements I/O ports -------------------------------------------------------
 
-wire    wINN  ; generate if (   INN  ) assign    wINN   = opcode == 7'd10; else assign    wINN   = 1'b0; endgenerate
-wire  wF_INN  ; generate if ( F_INN  ) assign  wF_INN   = opcode == 7'd11; else assign  wF_INN   = 1'b0; endgenerate
-wire  wP_INN  ; generate if ( P_INN  ) assign  wP_INN   = opcode == 7'd12; else assign  wP_INN   = 1'b0; endgenerate
-wire wPF_INN  ; generate if (PF_INN  ) assign wPF_INN   = opcode == 7'd13; else assign wPF_INN   = 1'b0; endgenerate
+wire    wINN  ; generate if ((INN) != 0) assign    wINN   = opcode == 7'd10; else assign    wINN   = 1'b0; endgenerate
+wire  wF_INN  ; generate if ((F_INN) != 0) assign  wF_INN   = opcode == 7'd11; else assign  wF_INN   = 1'b0; endgenerate
+wire  wP_INN  ; generate if ((P_INN) != 0) assign  wP_INN   = opcode == 7'd12; else assign  wP_INN   = 1'b0; endgenerate
+wire wPF_INN  ; generate if ((PF_INN) != 0) assign wPF_INN   = opcode == 7'd13; else assign wPF_INN   = 1'b0; endgenerate
 
-wire    wOUT  ; generate if (   OUT  ) assign    wOUT   = opcode == 7'd14; else assign    wOUT   = 1'b0; endgenerate
+wire    wOUT  ; generate if ((OUT) != 0) assign    wOUT   = opcode == 7'd14; else assign    wOUT   = 1'b0; endgenerate
 
 // two-parameter arithmetic operations ----------------------------------------
 
-wire    wADD  ; generate if (   ADD  ) assign    wADD   = opcode == 7'd19; else assign    wADD   = 1'b0; endgenerate
-wire  wS_ADD  ; generate if ( S_ADD  ) assign  wS_ADD   = opcode == 7'd20; else assign  wS_ADD   = 1'b0; endgenerate
-wire  wF_ADD  ; generate if ( F_ADD  ) assign  wF_ADD   = opcode == 7'd21; else assign  wF_ADD   = 1'b0; endgenerate
-wire wSF_ADD  ; generate if (SF_ADD  ) assign wSF_ADD   = opcode == 7'd22; else assign wSF_ADD   = 1'b0; endgenerate
+wire    wADD  ; generate if ((ADD) != 0) assign    wADD   = opcode == 7'd19; else assign    wADD   = 1'b0; endgenerate
+wire  wS_ADD  ; generate if ((S_ADD) != 0) assign  wS_ADD   = opcode == 7'd20; else assign  wS_ADD   = 1'b0; endgenerate
+wire  wF_ADD  ; generate if ((F_ADD) != 0) assign  wF_ADD   = opcode == 7'd21; else assign  wF_ADD   = 1'b0; endgenerate
+wire wSF_ADD  ; generate if ((SF_ADD) != 0) assign wSF_ADD   = opcode == 7'd22; else assign wSF_ADD   = 1'b0; endgenerate
 
-wire    wMLT  ; generate if (   MLT  ) assign    wMLT   = opcode == 7'd23; else assign    wMLT   = 1'b0; endgenerate
-wire  wS_MLT  ; generate if ( S_MLT  ) assign  wS_MLT   = opcode == 7'd24; else assign  wS_MLT   = 1'b0; endgenerate
-wire  wF_MLT  ; generate if ( F_MLT  ) assign  wF_MLT   = opcode == 7'd25; else assign  wF_MLT   = 1'b0; endgenerate
-wire wSF_MLT  ; generate if (SF_MLT  ) assign wSF_MLT   = opcode == 7'd26; else assign wSF_MLT   = 1'b0; endgenerate
+wire    wMLT  ; generate if ((MLT) != 0) assign    wMLT   = opcode == 7'd23; else assign    wMLT   = 1'b0; endgenerate
+wire  wS_MLT  ; generate if ((S_MLT) != 0) assign  wS_MLT   = opcode == 7'd24; else assign  wS_MLT   = 1'b0; endgenerate
+wire  wF_MLT  ; generate if ((F_MLT) != 0) assign  wF_MLT   = opcode == 7'd25; else assign  wF_MLT   = 1'b0; endgenerate
+wire wSF_MLT  ; generate if ((SF_MLT) != 0) assign wSF_MLT   = opcode == 7'd26; else assign wSF_MLT   = 1'b0; endgenerate
 
-wire    wDIV  ; generate if (   DIV  ) assign    wDIV   = opcode == 7'd27; else assign    wDIV   = 1'b0; endgenerate
-wire  wS_DIV  ; generate if ( S_DIV  ) assign  wS_DIV   = opcode == 7'd28; else assign  wS_DIV   = 1'b0; endgenerate
-wire  wF_DIV  ; generate if ( F_DIV  ) assign  wF_DIV   = opcode == 7'd29; else assign  wF_DIV   = 1'b0; endgenerate
-wire wSF_DIV  ; generate if (SF_DIV  ) assign wSF_DIV   = opcode == 7'd30; else assign wSF_DIV   = 1'b0; endgenerate
+wire    wDIV  ; generate if ((DIV) != 0) assign    wDIV   = opcode == 7'd27; else assign    wDIV   = 1'b0; endgenerate
+wire  wS_DIV  ; generate if ((S_DIV) != 0) assign  wS_DIV   = opcode == 7'd28; else assign  wS_DIV   = 1'b0; endgenerate
+wire  wF_DIV  ; generate if ((F_DIV) != 0) assign  wF_DIV   = opcode == 7'd29; else assign  wF_DIV   = 1'b0; endgenerate
+wire wSF_DIV  ; generate if ((SF_DIV) != 0) assign wSF_DIV   = opcode == 7'd30; else assign wSF_DIV   = 1'b0; endgenerate
 
-wire    wMOD  ; generate if (   MOD  ) assign    wMOD   = opcode == 7'd31; else assign    wMOD   = 1'b0; endgenerate
-wire  wS_MOD  ; generate if ( S_MOD  ) assign  wS_MOD   = opcode == 7'd32; else assign  wS_MOD   = 1'b0; endgenerate
+wire    wMOD  ; generate if ((MOD) != 0) assign    wMOD   = opcode == 7'd31; else assign    wMOD   = 1'b0; endgenerate
+wire  wS_MOD  ; generate if ((S_MOD) != 0) assign  wS_MOD   = opcode == 7'd32; else assign  wS_MOD   = 1'b0; endgenerate
 
-wire    wSGN  ; generate if (   SGN  ) assign    wSGN   = opcode == 7'd33; else assign    wSGN   = 1'b0; endgenerate
-wire  wS_SGN  ; generate if ( S_SGN  ) assign  wS_SGN   = opcode == 7'd34; else assign  wS_SGN   = 1'b0; endgenerate
-wire  wF_SGN  ; generate if ( F_SGN  ) assign  wF_SGN   = opcode == 7'd35; else assign  wF_SGN   = 1'b0; endgenerate
-wire wSF_SGN  ; generate if (SF_SGN  ) assign wSF_SGN   = opcode == 7'd36; else assign wSF_SGN   = 1'b0; endgenerate
+wire    wSGN  ; generate if ((SGN) != 0) assign    wSGN   = opcode == 7'd33; else assign    wSGN   = 1'b0; endgenerate
+wire  wS_SGN  ; generate if ((S_SGN) != 0) assign  wS_SGN   = opcode == 7'd34; else assign  wS_SGN   = 1'b0; endgenerate
+wire  wF_SGN  ; generate if ((F_SGN) != 0) assign  wF_SGN   = opcode == 7'd35; else assign  wF_SGN   = 1'b0; endgenerate
+wire wSF_SGN  ; generate if ((SF_SGN) != 0) assign wSF_SGN   = opcode == 7'd36; else assign wSF_SGN   = 1'b0; endgenerate
 
 // one-parameter arithmetic operations ----------------------------------------
 
-wire    wNEG  ; generate if (   NEG  ) assign    wNEG   = opcode == 7'd37; else assign    wNEG   = 1'b0; endgenerate
-wire    wNEG_M; generate if (   NEG_M) assign    wNEG_M = opcode == 7'd38; else assign    wNEG_M = 1'b0; endgenerate
-wire  wP_NEG_M; generate if ( P_NEG_M) assign  wP_NEG_M = opcode == 7'd39; else assign  wP_NEG_M = 1'b0; endgenerate
-wire  wF_NEG  ; generate if ( F_NEG  ) assign  wF_NEG   = opcode == 7'd40; else assign  wF_NEG   = 1'b0; endgenerate
-wire  wF_NEG_M; generate if ( F_NEG_M) assign  wF_NEG_M = opcode == 7'd41; else assign  wF_NEG_M = 1'b0; endgenerate
-wire wPF_NEG_M; generate if (PF_NEG_M) assign wPF_NEG_M = opcode == 7'd42; else assign wPF_NEG_M = 1'b0; endgenerate
+wire    wNEG  ; generate if ((NEG) != 0) assign    wNEG   = opcode == 7'd37; else assign    wNEG   = 1'b0; endgenerate
+wire    wNEG_M; generate if ((NEG_M) != 0) assign    wNEG_M = opcode == 7'd38; else assign    wNEG_M = 1'b0; endgenerate
+wire  wP_NEG_M; generate if ((P_NEG_M) != 0) assign  wP_NEG_M = opcode == 7'd39; else assign  wP_NEG_M = 1'b0; endgenerate
+wire  wF_NEG  ; generate if ((F_NEG) != 0) assign  wF_NEG   = opcode == 7'd40; else assign  wF_NEG   = 1'b0; endgenerate
+wire  wF_NEG_M; generate if ((F_NEG_M) != 0) assign  wF_NEG_M = opcode == 7'd41; else assign  wF_NEG_M = 1'b0; endgenerate
+wire wPF_NEG_M; generate if ((PF_NEG_M) != 0) assign wPF_NEG_M = opcode == 7'd42; else assign wPF_NEG_M = 1'b0; endgenerate
 
-wire    wABS  ; generate if (   ABS  ) assign    wABS   = opcode == 7'd43; else assign    wABS   = 1'b0; endgenerate
-wire    wABS_M; generate if (   ABS_M) assign    wABS_M = opcode == 7'd44; else assign    wABS_M = 1'b0; endgenerate
-wire  wP_ABS_M; generate if ( P_ABS_M) assign  wP_ABS_M = opcode == 7'd45; else assign  wP_ABS_M = 1'b0; endgenerate
-wire  wF_ABS  ; generate if ( F_ABS  ) assign  wF_ABS   = opcode == 7'd46; else assign  wF_ABS   = 1'b0; endgenerate
-wire  wF_ABS_M; generate if ( F_ABS_M) assign  wF_ABS_M = opcode == 7'd47; else assign  wF_ABS_M = 1'b0; endgenerate
-wire wPF_ABS_M; generate if (PF_ABS_M) assign wPF_ABS_M = opcode == 7'd48; else assign wPF_ABS_M = 1'b0; endgenerate
+wire    wABS  ; generate if ((ABS) != 0) assign    wABS   = opcode == 7'd43; else assign    wABS   = 1'b0; endgenerate
+wire    wABS_M; generate if ((ABS_M) != 0) assign    wABS_M = opcode == 7'd44; else assign    wABS_M = 1'b0; endgenerate
+wire  wP_ABS_M; generate if ((P_ABS_M) != 0) assign  wP_ABS_M = opcode == 7'd45; else assign  wP_ABS_M = 1'b0; endgenerate
+wire  wF_ABS  ; generate if ((F_ABS) != 0) assign  wF_ABS   = opcode == 7'd46; else assign  wF_ABS   = 1'b0; endgenerate
+wire  wF_ABS_M; generate if ((F_ABS_M) != 0) assign  wF_ABS_M = opcode == 7'd47; else assign  wF_ABS_M = 1'b0; endgenerate
+wire wPF_ABS_M; generate if ((PF_ABS_M) != 0) assign wPF_ABS_M = opcode == 7'd48; else assign wPF_ABS_M = 1'b0; endgenerate
 
-wire    wPST  ; generate if (   PST  ) assign    wPST   = opcode == 7'd49; else assign    wPST   = 1'b0; endgenerate
-wire    wPST_M; generate if (   PST_M) assign    wPST_M = opcode == 7'd50; else assign    wPST_M = 1'b0; endgenerate
-wire  wP_PST_M; generate if ( P_PST_M) assign  wP_PST_M = opcode == 7'd51; else assign  wP_PST_M = 1'b0; endgenerate
-wire  wF_PST  ; generate if ( F_PST  ) assign  wF_PST   = opcode == 7'd52; else assign  wF_PST   = 1'b0; endgenerate
-wire  wF_PST_M; generate if ( F_PST_M) assign  wF_PST_M = opcode == 7'd53; else assign  wF_PST_M = 1'b0; endgenerate
-wire wPF_PST_M; generate if (PF_PST_M) assign wPF_PST_M = opcode == 7'd54; else assign wPF_PST_M = 1'b0; endgenerate
+wire    wPST  ; generate if ((PST) != 0) assign    wPST   = opcode == 7'd49; else assign    wPST   = 1'b0; endgenerate
+wire    wPST_M; generate if ((PST_M) != 0) assign    wPST_M = opcode == 7'd50; else assign    wPST_M = 1'b0; endgenerate
+wire  wP_PST_M; generate if ((P_PST_M) != 0) assign  wP_PST_M = opcode == 7'd51; else assign  wP_PST_M = 1'b0; endgenerate
+wire  wF_PST  ; generate if ((F_PST) != 0) assign  wF_PST   = opcode == 7'd52; else assign  wF_PST   = 1'b0; endgenerate
+wire  wF_PST_M; generate if ((F_PST_M) != 0) assign  wF_PST_M = opcode == 7'd53; else assign  wF_PST_M = 1'b0; endgenerate
+wire wPF_PST_M; generate if ((PF_PST_M) != 0) assign wPF_PST_M = opcode == 7'd54; else assign wPF_PST_M = 1'b0; endgenerate
 
-wire    wNRM  ; generate if (   NRM  ) assign    wNRM   = opcode == 7'd55; else assign    wNRM   = 1'b0; endgenerate
-wire    wNRM_M; generate if (   NRM_M) assign    wNRM_M = opcode == 7'd56; else assign    wNRM_M = 1'b0; endgenerate
-wire  wP_NRM_M; generate if ( P_NRM_M) assign  wP_NRM_M = opcode == 7'd57; else assign  wP_NRM_M = 1'b0; endgenerate
+wire    wNRM  ; generate if ((NRM) != 0) assign    wNRM   = opcode == 7'd55; else assign    wNRM   = 1'b0; endgenerate
+wire    wNRM_M; generate if ((NRM_M) != 0) assign    wNRM_M = opcode == 7'd56; else assign    wNRM_M = 1'b0; endgenerate
+wire  wP_NRM_M; generate if ((P_NRM_M) != 0) assign  wP_NRM_M = opcode == 7'd57; else assign  wP_NRM_M = 1'b0; endgenerate
 
-wire    wI2F  ; generate if (   I2F  ) assign    wI2F   = opcode == 7'd58; else assign    wI2F   = 1'b0; endgenerate
-wire    wI2F_M; generate if (   I2F_M) assign    wI2F_M = opcode == 7'd59; else assign    wI2F_M = 1'b0; endgenerate
-wire  wP_I2F_M; generate if ( P_I2F_M) assign  wP_I2F_M = opcode == 7'd60; else assign  wP_I2F_M = 1'b0; endgenerate
+wire    wI2F  ; generate if ((I2F) != 0) assign    wI2F   = opcode == 7'd58; else assign    wI2F   = 1'b0; endgenerate
+wire    wI2F_M; generate if ((I2F_M) != 0) assign    wI2F_M = opcode == 7'd59; else assign    wI2F_M = 1'b0; endgenerate
+wire  wP_I2F_M; generate if ((P_I2F_M) != 0) assign  wP_I2F_M = opcode == 7'd60; else assign  wP_I2F_M = 1'b0; endgenerate
 
-wire    wF2I  ; generate if (   F2I  ) assign    wF2I   = opcode == 7'd61; else assign    wF2I   = 1'b0; endgenerate
-wire    wF2I_M; generate if (   F2I_M) assign    wF2I_M = opcode == 7'd62; else assign    wF2I_M = 1'b0; endgenerate
-wire  wP_F2I_M; generate if ( P_F2I_M) assign  wP_F2I_M = opcode == 7'd63; else assign  wP_F2I_M = 1'b0; endgenerate
+wire    wF2I  ; generate if ((F2I) != 0) assign    wF2I   = opcode == 7'd61; else assign    wF2I   = 1'b0; endgenerate
+wire    wF2I_M; generate if ((F2I_M) != 0) assign    wF2I_M = opcode == 7'd62; else assign    wF2I_M = 1'b0; endgenerate
+wire  wP_F2I_M; generate if ((P_F2I_M) != 0) assign  wP_F2I_M = opcode == 7'd63; else assign  wP_F2I_M = 1'b0; endgenerate
 
 // two-parameter logical operations -------------------------------------------
 
-wire    wAND  ; generate if (   AND  ) assign    wAND   = opcode == 7'd64; else assign    wAND   = 1'b0; endgenerate
-wire  wS_AND  ; generate if ( S_AND  ) assign  wS_AND   = opcode == 7'd65; else assign  wS_AND   = 1'b0; endgenerate
+wire    wAND  ; generate if ((AND) != 0) assign    wAND   = opcode == 7'd64; else assign    wAND   = 1'b0; endgenerate
+wire  wS_AND  ; generate if ((S_AND) != 0) assign  wS_AND   = opcode == 7'd65; else assign  wS_AND   = 1'b0; endgenerate
 
-wire    wORR  ; generate if (   ORR  ) assign    wORR   = opcode == 7'd66; else assign    wORR   = 1'b0; endgenerate
-wire  wS_ORR  ; generate if ( S_ORR  ) assign  wS_ORR   = opcode == 7'd67; else assign  wS_ORR   = 1'b0; endgenerate
+wire    wORR  ; generate if ((ORR) != 0) assign    wORR   = opcode == 7'd66; else assign    wORR   = 1'b0; endgenerate
+wire  wS_ORR  ; generate if ((S_ORR) != 0) assign  wS_ORR   = opcode == 7'd67; else assign  wS_ORR   = 1'b0; endgenerate
 
-wire    wXOR  ; generate if (   XOR  ) assign    wXOR   = opcode == 7'd68; else assign    wXOR   = 1'b0; endgenerate
-wire  wS_XOR  ; generate if ( S_XOR  ) assign  wS_XOR   = opcode == 7'd69; else assign  wS_XOR   = 1'b0; endgenerate
+wire    wXOR  ; generate if ((XOR) != 0) assign    wXOR   = opcode == 7'd68; else assign    wXOR   = 1'b0; endgenerate
+wire  wS_XOR  ; generate if ((S_XOR) != 0) assign  wS_XOR   = opcode == 7'd69; else assign  wS_XOR   = 1'b0; endgenerate
 
 // one-parameter logical operations -------------------------------------------
 
-wire    wINV  ; generate if (   INV  ) assign    wINV   = opcode == 7'd70; else assign    wINV   = 1'b0; endgenerate
-wire    wINV_M; generate if (   INV_M) assign    wINV_M = opcode == 7'd71; else assign    wINV_M = 1'b0; endgenerate
-wire  wP_INV_M; generate if ( P_INV_M) assign  wP_INV_M = opcode == 7'd72; else assign  wP_INV_M = 1'b0; endgenerate
+wire    wINV  ; generate if ((INV) != 0) assign    wINV   = opcode == 7'd70; else assign    wINV   = 1'b0; endgenerate
+wire    wINV_M; generate if ((INV_M) != 0) assign    wINV_M = opcode == 7'd71; else assign    wINV_M = 1'b0; endgenerate
+wire  wP_INV_M; generate if ((P_INV_M) != 0) assign  wP_INV_M = opcode == 7'd72; else assign  wP_INV_M = 1'b0; endgenerate
 
 // two-parameter conditional operations ---------------------------------------
 
-wire    wLAN  ; generate if (   LAN  ) assign    wLAN   = opcode == 7'd73; else assign    wLAN   = 1'b0; endgenerate
-wire  wS_LAN  ; generate if ( S_LAN  ) assign  wS_LAN   = opcode == 7'd74; else assign  wS_LAN   = 1'b0; endgenerate
+wire    wLAN  ; generate if ((LAN) != 0) assign    wLAN   = opcode == 7'd73; else assign    wLAN   = 1'b0; endgenerate
+wire  wS_LAN  ; generate if ((S_LAN) != 0) assign  wS_LAN   = opcode == 7'd74; else assign  wS_LAN   = 1'b0; endgenerate
 
-wire    wLOR  ; generate if (   LOR  ) assign    wLOR   = opcode == 7'd75; else assign    wLOR   = 1'b0; endgenerate
-wire  wS_LOR  ; generate if ( S_LOR  ) assign  wS_LOR   = opcode == 7'd76; else assign  wS_LOR   = 1'b0; endgenerate
+wire    wLOR  ; generate if ((LOR) != 0) assign    wLOR   = opcode == 7'd75; else assign    wLOR   = 1'b0; endgenerate
+wire  wS_LOR  ; generate if ((S_LOR) != 0) assign  wS_LOR   = opcode == 7'd76; else assign  wS_LOR   = 1'b0; endgenerate
 
 // one-parameter conditional operations ---------------------------------------
 
-wire    wLIN  ; generate if (   LIN  ) assign    wLIN   = opcode == 7'd77; else assign    wLIN   = 1'b0; endgenerate
-wire    wLIN_M; generate if (   LIN_M) assign    wLIN_M = opcode == 7'd78; else assign    wLIN_M = 1'b0; endgenerate
-wire  wP_LIN_M; generate if ( P_LIN_M) assign  wP_LIN_M = opcode == 7'd79; else assign  wP_LIN_M = 1'b0; endgenerate
+wire    wLIN  ; generate if ((LIN) != 0) assign    wLIN   = opcode == 7'd77; else assign    wLIN   = 1'b0; endgenerate
+wire    wLIN_M; generate if ((LIN_M) != 0) assign    wLIN_M = opcode == 7'd78; else assign    wLIN_M = 1'b0; endgenerate
+wire  wP_LIN_M; generate if ((P_LIN_M) != 0) assign  wP_LIN_M = opcode == 7'd79; else assign  wP_LIN_M = 1'b0; endgenerate
 
 // comparison operations ------------------------------------------------------
 
-wire    wLES  ; generate if (   LES  ) assign    wLES   = opcode == 7'd80; else assign    wLES   = 1'b0; endgenerate
-wire  wS_LES  ; generate if ( S_LES  ) assign  wS_LES   = opcode == 7'd81; else assign  wS_LES   = 1'b0; endgenerate
-wire  wF_LES  ; generate if ( F_LES  ) assign  wF_LES   = opcode == 7'd82; else assign  wF_LES   = 1'b0; endgenerate
-wire wSF_LES  ; generate if (SF_LES  ) assign wSF_LES   = opcode == 7'd83; else assign wSF_LES   = 1'b0; endgenerate
+wire    wLES  ; generate if ((LES) != 0) assign    wLES   = opcode == 7'd80; else assign    wLES   = 1'b0; endgenerate
+wire  wS_LES  ; generate if ((S_LES) != 0) assign  wS_LES   = opcode == 7'd81; else assign  wS_LES   = 1'b0; endgenerate
+wire  wF_LES  ; generate if ((F_LES) != 0) assign  wF_LES   = opcode == 7'd82; else assign  wF_LES   = 1'b0; endgenerate
+wire wSF_LES  ; generate if ((SF_LES) != 0) assign wSF_LES   = opcode == 7'd83; else assign wSF_LES   = 1'b0; endgenerate
 
-wire    wGRE  ; generate if (   GRE  ) assign    wGRE   = opcode == 7'd84; else assign    wGRE   = 1'b0; endgenerate
-wire  wS_GRE  ; generate if ( S_GRE  ) assign  wS_GRE   = opcode == 7'd85; else assign  wS_GRE   = 1'b0; endgenerate
-wire  wF_GRE  ; generate if ( F_GRE  ) assign  wF_GRE   = opcode == 7'd86; else assign  wF_GRE   = 1'b0; endgenerate
-wire wSF_GRE  ; generate if (SF_GRE  ) assign wSF_GRE   = opcode == 7'd87; else assign wSF_GRE   = 1'b0; endgenerate
+wire    wGRE  ; generate if ((GRE) != 0) assign    wGRE   = opcode == 7'd84; else assign    wGRE   = 1'b0; endgenerate
+wire  wS_GRE  ; generate if ((S_GRE) != 0) assign  wS_GRE   = opcode == 7'd85; else assign  wS_GRE   = 1'b0; endgenerate
+wire  wF_GRE  ; generate if ((F_GRE) != 0) assign  wF_GRE   = opcode == 7'd86; else assign  wF_GRE   = 1'b0; endgenerate
+wire wSF_GRE  ; generate if ((SF_GRE) != 0) assign wSF_GRE   = opcode == 7'd87; else assign wSF_GRE   = 1'b0; endgenerate
 
-wire    wEQU  ; generate if (   EQU  ) assign    wEQU   = opcode == 7'd88; else assign    wEQU   = 1'b0; endgenerate
-wire  wS_EQU  ; generate if ( S_EQU  ) assign  wS_EQU   = opcode == 7'd89; else assign  wS_EQU   = 1'b0; endgenerate
+wire    wEQU  ; generate if ((EQU) != 0) assign    wEQU   = opcode == 7'd88; else assign    wEQU   = 1'b0; endgenerate
+wire  wS_EQU  ; generate if ((S_EQU) != 0) assign  wS_EQU   = opcode == 7'd89; else assign  wS_EQU   = 1'b0; endgenerate
 
 // bit-shift operations -------------------------------------------------------
 
-wire    wSHL  ; generate if (   SHL  ) assign    wSHL   = opcode == 7'd90; else assign    wSHL   = 1'b0; endgenerate
-wire  wS_SHL  ; generate if ( S_SHL  ) assign  wS_SHL   = opcode == 7'd91; else assign  wS_SHL   = 1'b0; endgenerate
+wire    wSHL  ; generate if ((SHL) != 0) assign    wSHL   = opcode == 7'd90; else assign    wSHL   = 1'b0; endgenerate
+wire  wS_SHL  ; generate if ((S_SHL) != 0) assign  wS_SHL   = opcode == 7'd91; else assign  wS_SHL   = 1'b0; endgenerate
 
-wire    wSHR  ; generate if (   SHR  ) assign    wSHR   = opcode == 7'd92; else assign    wSHR   = 1'b0; endgenerate
-wire  wS_SHR  ; generate if ( S_SHR  ) assign  wS_SHR   = opcode == 7'd93; else assign  wS_SHR   = 1'b0; endgenerate
+wire    wSHR  ; generate if ((SHR) != 0) assign    wSHR   = opcode == 7'd92; else assign    wSHR   = 1'b0; endgenerate
+wire  wS_SHR  ; generate if ((S_SHR) != 0) assign  wS_SHR   = opcode == 7'd93; else assign  wS_SHR   = 1'b0; endgenerate
 
-wire    wSRS  ; generate if (   SRS  ) assign    wSRS   = opcode == 7'd94; else assign    wSRS   = 1'b0; endgenerate
-wire  wS_SRS  ; generate if ( S_SRS  ) assign  wS_SRS   = opcode == 7'd95; else assign  wS_SRS   = 1'b0; endgenerate
+wire    wSRS  ; generate if ((SRS) != 0) assign    wSRS   = opcode == 7'd94; else assign    wSRS   = 1'b0; endgenerate
+wire  wS_SRS  ; generate if ((S_SRS) != 0) assign  wS_SRS   = opcode == 7'd95; else assign  wS_SRS   = 1'b0; endgenerate
 
 // special operations (skips NOP) ---------------------------------------------
 
-wire  wF_ROT  ; generate if ( F_ROT  ) assign  wF_ROT   = opcode == 7'd97;  else assign   wF_ROT  = 1'b0; endgenerate
-wire  wF_SU1  ; generate if ( F_SU1  ) assign  wF_SU1   = opcode == 7'd98;  else assign   wF_SU1  = 1'b0; endgenerate
-wire  wF_SU2  ; generate if ( F_SU2  ) assign  wF_SU2   = opcode == 7'd99;  else assign   wF_SU2  = 1'b0; endgenerate
-wire wSF_SU1  ; generate if (SF_SU1  ) assign wSF_SU1   = opcode == 7'd100; else assign  wSF_SU1  = 1'b0; endgenerate
-wire wSF_SU2  ; generate if (SF_SU2  ) assign wSF_SU2   = opcode == 7'd101; else assign  wSF_SU2  = 1'b0; endgenerate
+wire  wF_ROT  ; generate if ((F_ROT) != 0) assign  wF_ROT   = opcode == 7'd97;  else assign   wF_ROT  = 1'b0; endgenerate
+wire  wF_SU1  ; generate if ((F_SU1) != 0) assign  wF_SU1   = opcode == 7'd98;  else assign   wF_SU1  = 1'b0; endgenerate
+wire  wF_SU2  ; generate if ((F_SU2) != 0) assign  wF_SU2   = opcode == 7'd99;  else assign   wF_SU2  = 1'b0; endgenerate
+wire wSF_SU1  ; generate if ((SF_SU1) != 0) assign wSF_SU1   = opcode == 7'd100; else assign  wSF_SU1  = 1'b0; endgenerate
+wire wSF_SU2  ; generate if ((SF_SU2) != 0) assign wSF_SU2   = opcode == 7'd101; else assign  wSF_SU2  = 1'b0; endgenerate
 
 // base-less indirect addressing ----------------------------------------------
 
-wire    wLDA  ; generate if (   LDA  ) assign    wLDA   = opcode == 7'd102; else assign    wLDA   = 1'b0; endgenerate
-wire    wSTA  ; generate if (   STA  ) assign    wSTA   = opcode == 7'd103; else assign    wSTA   = 1'b0; endgenerate
+wire    wLDA  ; generate if ((LDA) != 0) assign    wLDA   = opcode == 7'd102; else assign    wLDA   = 1'b0; endgenerate
+wire    wSTA  ; generate if ((STA) != 0) assign    wSTA   = opcode == 7'd103; else assign    wSTA   = 1'b0; endgenerate
 
 // ----------------------------------------------------------------------------
 // control circuits -----------------------------------------------------------
@@ -336,26 +336,26 @@ wire    wSTA  ; generate if (   STA  ) assign    wSTA   = opcode == 7'd103; else
 
 // data input control circuit -------------------------------------------------
 
-generate if (INN | F_INN | P_INN | PF_INN) assign req_in = wINN | wF_INN | wP_INN | wPF_INN; else assign req_in = 1'b0; endgenerate
+generate if ((INN | F_INN | P_INN | PF_INN) != 0) assign req_in = wINN | wF_INN | wP_INN | wPF_INN; else assign req_in = 1'b0; endgenerate
 
 // data output control circuit ------------------------------------------------
 
-generate if (OUT) assign out_en = wOUT; else assign out_en = 1'b0; endgenerate
+generate if ((OUT) != 0) assign out_en = wOUT; else assign out_en = 1'b0; endgenerate
 
 // indirect addressing control circuits ---------------------------------------
 
-generate if (LDI | ILI) assign ldi = wLDI |  wILI; else assign ldi = 1'b0; endgenerate
-generate if (STI | ISI) assign sti = wSTI |  wISI; else assign sti = 1'b0; endgenerate
-generate if (ILI | ISI) assign fft = wILI |  wISI; else assign fft = 1'b0; endgenerate
+generate if ((LDI | ILI) != 0) assign ldi = wLDI |  wILI; else assign ldi = 1'b0; endgenerate
+generate if ((STI | ISI) != 0) assign sti = wSTI |  wISI; else assign sti = 1'b0; endgenerate
+generate if ((ILI | ISI) != 0) assign fft = wILI |  wISI; else assign fft = 1'b0; endgenerate
 
 // base-less indirect addressing control --------------------------------------
 
-generate if (LDA) assign lda = wLDA; else assign lda = 1'b0; endgenerate
-generate if (STA) assign sta = wSTA; else assign sta = 1'b0; endgenerate
+generate if ((LDA) != 0) assign lda = wLDA; else assign lda = 1'b0; endgenerate
+generate if ((STA) != 0) assign sta = wSTA; else assign sta = 1'b0; endgenerate
 
 // memory write control circuit -----------------------------------------------
 
-generate if (SET | SET_P | STI | ISI | STA) assign mem_wr = wSET | wSET_P | wSTI | wISI | wSTA; else assign mem_wr = 1'b0; endgenerate
+generate if ((SET | SET_P | STI | ISI | STA) != 0) assign mem_wr = wSET | wSET_P | wSTI | wISI | wSTA; else assign mem_wr = 1'b0; endgenerate
 
 // data-stack write control circuit -------------------------------------------
 

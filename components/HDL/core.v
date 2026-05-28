@@ -60,7 +60,7 @@ module prefetch
 
 wire wJMP;
 
-generate if (JIZ)
+generate if ((JIZ) != 0)
 //             JMP                                        JIZ
 assign wJMP = (opcode == {{NBOPCO-5{1'b0}}, {5'd15}}) | ((opcode == {{NBOPCO-5{1'b0}}, {5'd16}}) & ~is_um);
 
@@ -72,7 +72,7 @@ endgenerate
 
 wire pc_load;
 
-generate if (CAL) begin
+generate if ((CAL) != 0) begin
 
 wire wCAL = (opcode == {{NBOPCO-5{1'b0}}, {5'd17}});
 wire wRET = (opcode == {{NBOPCO-5{1'b0}}, {5'd18}});
@@ -400,8 +400,8 @@ module io_ctrl
 	output reg [NBIOOU-1:0] addr_out
 );
 
-generate if (INN | F_INN | P_INN | PF_INN) assign en_in   = req_in;           else assign en_in   =         1'b0  ; endgenerate
-generate if (INN | F_INN | P_INN | PF_INN) assign addr_in = addr[NBIOIN-1:0]; else assign addr_in = {NBIOIN{1'b0}}; endgenerate
+generate if ((INN | F_INN | P_INN | PF_INN) != 0) assign en_in   = req_in;           else assign en_in   =         1'b0  ; endgenerate
+generate if ((INN | F_INN | P_INN | PF_INN) != 0) assign addr_in = addr[NBIOIN-1:0]; else assign addr_in = {NBIOIN{1'b0}}; endgenerate
 
 always @ (posedge clk) en_out   <= out_en;
 always @ (posedge clk) addr_out <= addr[NBIOOU-1:0];
@@ -792,7 +792,7 @@ wire [NUBITS-1:0] uic_acc;
 ula_in1_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic1 (clk, id_dsp_pop, mem_data_rd, sp_data, ula_data_in1);
 
 // input in2
-generate if (INN | P_INN | F_INN | PF_INN)
+generate if ((INN | P_INN | F_INN | PF_INN) != 0)
 ula_in2_ctrl #(.NUBITS(NUBITS),.NBOPCO(NBOPCO)) uic2 (clk, id_req_in , uic_acc, io_in, ula_data_in2);
 else assign ula_data_in2 = racc;
 endgenerate
@@ -894,7 +894,7 @@ endgenerate
 
 // I/O Control ----------------------------------------------------------------
 
-generate if (INN | F_INN | P_INN | PF_INN | OUT)
+generate if ((INN | F_INN | P_INN | PF_INN | OUT) != 0)
 io_ctrl #(.MDATAW(MDATAW),
           .NBIOIN(NBIOIN),
           .NBIOOU(NBIOOU),

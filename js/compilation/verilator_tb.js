@@ -453,10 +453,18 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
 
   const missing = [];
   if (!clk) missing.push('clk');
-  if (!inBus) missing.push('in');
-  if (!outBus) missing.push('out');
-  if (!reqBus) missing.push('req_in');
-  if (!enBus) missing.push('out_en');
+  // in/req_in so sao exigidos se o tb tem entradas. Processadores sem
+  // inputs (#NUIOIN 0, ex: proc_fft) geram .v sem essas portas — o loop
+  // de leitura (~linha 526) nao e emitido, entao o C++ nao referencia
+  // inBus/reqBus. Mesma logica pra out/out_en quando nao ha outputs.
+  if (inputs.length > 0) {
+    if (!inBus) missing.push('in');
+    if (!reqBus) missing.push('req_in');
+  }
+  if (outputs.length > 0) {
+    if (!outBus) missing.push('out');
+    if (!enBus) missing.push('out_en');
+  }
   if (missing.length) {
     throw new Error(`não parece um top-level de processador SAPHO: faltam os pinos ${missing.join(', ')}`);
   }

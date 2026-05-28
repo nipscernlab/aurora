@@ -77,7 +77,7 @@ const STDLIB_FUNCTIONS      = new Set([
   'sqrt', 'atan', 'sin', 'cos',
   'real', 'imag', 'fase', 'complex', 'mod2',
 ]);
-const MACRO_DIRECTIVES      = new Set(['#USEMAC', '#ENDMAC', '#INTERPOINT']);
+const MACRO_DIRECTIVES      = new Set(['#PRACA']);
 // Single-character operators get caught by the {CARES} class in the
 // lexer, not by a named rule — they never reach this scraper.
 const OPERATOR_SHAPE_RE = /^[<>=!&|+\-*/%~^?:]+$/;
@@ -86,7 +86,7 @@ function parseLexer(src) {
   if (!src) return null;
   const result = {
     hwDirectives:     [], // #NBMANT, #NUBITS, #NUIOIN, ...
-    macroDirectives:  [], // #USEMAC, #ENDMAC, #INTERPOINT
+    macroDirectives:  [], // #PRACA
     keywords:         [],
     types:            [],
     ioKeywords:       [],
@@ -496,16 +496,17 @@ function main() {
     process.exit(1);
   }
 
+  // yanc v4+ aninha os compilers em Compilers/<name>/
   const cmm = {
-    lex:     readSafe(path.join(yancPath, 'CMMComp', 'Sources', 'CMMComp.l')),
-    grammar: readSafe(path.join(yancPath, 'CMMComp', 'Sources', 'CMMComp.y')),
-    dirC:    readSafe(path.join(yancPath, 'CMMComp', 'Sources', 'diretivas.c')),
-    dirH:    readSafe(path.join(yancPath, 'CMMComp', 'Headers', 'diretivas.h')),
-    msg:     readSafe(path.join(yancPath, 'CMMComp', 'Headers', 'messages.h')),
+    lex:     readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'CMMComp.l')),
+    grammar: readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'CMMComp.y')),
+    dirC:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'diretivas.c')),
+    dirH:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'diretivas.h')),
+    msg:     readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'messages.h')),
   };
 
   const asm = {
-    lex: readSafe(path.join(yancPath, 'ASMComp', 'Sources', 'ASMComp.l')),
+    lex: readSafe(path.join(yancPath, 'Compilers', 'ASMComp', 'Sources', 'ASMComp.l')),
   };
 
   const lex        = parseLexer(cmm.lex);

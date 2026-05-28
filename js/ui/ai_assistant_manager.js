@@ -235,7 +235,8 @@ const SYSTEM_PROMPT = [
   "  if (cond) { ... } else { ... }\n" +
   "  switch (exp) { case N: ... break; default: ... }\n" +
   "  return exp;  /  return;       — function return\n" +
-  "  #INTERPOINT                   — marks the interrupt resume point (reset on itr pin)\n" +
+  "  #PRACA                        — marks the interrupt resume point (reset on itr pin)\n" +
+  "  #TOAQUI                       — marks an address the hardware compares against (cheguei pin pulses when PC reaches it)\n" +
 
   "\nFUNCTIONS:\n" +
   "  Declaration: type name(type param1, type param2) { ... }\n" +
@@ -294,10 +295,6 @@ const SYSTEM_PROMPT = [
   "  a # c|in(p)⟩;       fills a from input port p scaled by c\n" +
   "  a # c → |a⟩;        shift register: shifts a and inserts c×(new input)\n" +
   "  Use ⟨ ⟩ Unicode characters — NOT < > ASCII angle brackets.\n" +
-
-  "\nMACRO DIRECTIVES:\n" +
-  "  #USEMAC \"file.asm\" N   — inline an optimised .asm macro at position N\n" +
-  "  #ENDMAC               — end of the macro region\n" +
 
   "\nKNOWN LANGUAGE RESTRICTIONS (document in comments when relevant):\n" +
   "  • No for loop — only while\n" +

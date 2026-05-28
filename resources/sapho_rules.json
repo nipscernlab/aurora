@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-26T21:51:57.057Z",
+  "generatedAt": "2026-05-28T11:57:46.283Z",
   "source": {
-    "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "644fef193f15"
+    "yancPath": "C:/nipscern/yanc",
+    "yancCommit": "6578716a82d9"
   },
   "language": {
     "keywords": [
@@ -108,7 +108,12 @@
         "token": "VZERO"
       }
     ],
-    "macroDirectives": []
+    "macroDirectives": [
+      {
+        "symbol": "#PRACA",
+        "token": "ITRADD"
+      }
+    ]
   },
   "directives": {
     "PRNAME": {
@@ -159,10 +164,6 @@
     "FFTSIZ": {
       "symbol": "#FFTSIZ",
       "token": "FFTSIZ"
-    },
-    "PRACA": {
-      "symbol": "#PRACA",
-      "token": "ITRADD"
     },
     "TOAQUI": {
       "symbol": "#TOAQUI",

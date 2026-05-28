@@ -97,7 +97,14 @@ export function stripVerilogComments(src) {
  */
 export function hasUserDumpCalls(src) {
     const stripped = stripVerilogComments(src);
-    return /\$dumpfile/.test(stripped) || /\$dumpvars/.test(stripped);
+    // Dumps dentro de `ifdef __ICARUS__` ... `endif sao invisiveis ao
+    // Verilator — nao contam como "user tem dumpvars" pra decisao de
+    // auto-instrumentar (que precisa funcionar pros dois simuladores).
+    // Sem isso, testbenches gerados pelo asmcomp (que poem $dumpvars
+    // sob `ifdef __ICARUS__`) deixavam Verilator sem dumps + sem hook
+    // do AURORA_HEADER_ONLY -> pass-1 virava sim infinita.
+    const visible = stripped.replace(/`ifdef\s+__ICARUS__\b[\s\S]*?`endif/g, '');
+    return /\$dumpfile/.test(visible) || /\$dumpvars/.test(visible);
 }
 
 /**

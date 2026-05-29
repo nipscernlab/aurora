@@ -73,6 +73,35 @@ describe('parseVerilogModules', () => {
         expect(names).toEqual(['real_signal', 'x']);
     });
 
+    it('extracts ANSI ports with shared kind keyword (input a, b)', () => {
+        // Em `module my_add(input a, b, output c)`, a vírgula entre `a`
+        // e `b` separa NOMES, não declarações — ambos são input. Bug
+        // anterior: split simples por `,` deixava `b` órfão (sem kind)
+        // e extractSignals ignorava. Range também deve propagar:
+        // `input [3:0] a, b` → ambos 4 bits.
+        const files = [{
+            path: 'ansi.v',
+            content: `
+                module my_add (
+                    input  a, b,
+                    input  [3:0] x, y,
+                    output c
+                );
+                endmodule
+            `,
+        }];
+
+        const { modules } = parseVerilogModules(files);
+        const sigs = modules.get('my_add').signals;
+        const byName = Object.fromEntries(sigs.map((s) => [s.name, s]));
+        expect(Object.keys(byName).sort()).toEqual(['a', 'b', 'c', 'x', 'y']);
+        expect(byName.a.kind).toBe('input');
+        expect(byName.b.kind).toBe('input');
+        expect(byName.x.range).toBe('3:0');
+        expect(byName.y.range).toBe('3:0');
+        expect(byName.c.kind).toBe('output');
+    });
+
     it('extracts comma-separated multi-name declarations', () => {
         const files = [{
             path: 'multi.v',

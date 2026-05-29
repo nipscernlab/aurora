@@ -89,12 +89,32 @@ function extractModules(stripped) {
         // Treat the header port list as part of the body for signal
         // extraction — ANSI-style declarations live there. Wrap each
         // port entry as semi-terminated so the same kind regex works.
-        const headerLines = portHeader
-            ? portHeader.split(',').map((s) => s.trim()).filter(Boolean).map((s) => s + ';').join('\n')
-            : '';
+        const headerLines = expandPortHeader(portHeader);
         out.push({ name, body: headerLines + '\n' + bodyRaw });
     }
     return out;
+}
+
+/**
+ * Em Verilog ANSI, `input a, b, c` declara TRÊS ports do mesmo kind —
+ * a vírgula separa nomes, não declarações. Split simples por `,` deixa
+ * `b` e `c` sem kind keyword e `extractSignals` ignora. Aqui propagamos
+ * o último prefixo (kind + range) visto pras entradas seguintes que
+ * não trazem o seu próprio.
+ */
+function expandPortHeader(portHeader) {
+    if (!portHeader) return '';
+    const parts = portHeader.split(',').map((s) => s.trim()).filter(Boolean);
+    const leadRe = new RegExp(`^((?:\\b${KIND_RE_SOURCE}\\b\\s+)+(?:\\[[^\\]]+\\]\\s*)?)`);
+    let currentPrefix = '';
+    return parts.map((p) => {
+        const m = p.match(leadRe);
+        if (m) {
+            currentPrefix = m[1];
+            return p + ';';
+        }
+        return currentPrefix + p + ';';
+    }).join('\n');
 }
 
 /**

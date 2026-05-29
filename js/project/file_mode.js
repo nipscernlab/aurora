@@ -178,6 +178,19 @@ class ProjectTreeManager {
             }
         });
 
+        // Editor save dispatched aurora:file-saved (tab_manager.js#saveFile).
+        // Reclassifica + re-persiste so se o path salvo estiver tracked
+        // em verilogFiles — evita refresh storm em saves de arquivos fora
+        // do projeto Verilog (e.g. .json, .md). Path comparado via
+        // _normalizePath pra cobrir Windows case/sep.
+        window.addEventListener('aurora:file-saved', (event) => {
+            const savedPath = event?.detail?.path;
+            if (!savedPath || !this.isTreeActive) return;
+            const key = this._normalizePath(savedPath);
+            const tracked = this.verilogFiles.some((f) => this._normalizePath(f.path) === key);
+            if (tracked) this.refreshTree();
+        });
+
         if (this.elements.fileTree) {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
 
@@ -444,11 +457,6 @@ class ProjectTreeManager {
         let changed = false;
         for (const file of this.verilogFiles) {
             if (file.isSoftware) continue;
-            // isTopLevel is an explicit user choice (set via context menu or AI tool).
-            // Auto-classification must not override it — that would silently undo the
-            // user's intent every time the tree refreshes. Category is locked to
-            // whatever the user chose when they marked the file.
-            if (file.isTopLevel) continue;
             let content;
             try {
                 content = await window.electronAPI.readFile(file.path);
@@ -458,6 +466,15 @@ class ProjectTreeManager {
                 continue;
             }
             const category = classifyVerilogContent(content, file.name);
+            // Regra atual: reclassifica TODOS (inclusive isTopLevel). Se
+            // a categoria mudou — usuario editou o arquivo e a heuristica
+            // virou de synth pra testbench ou vice-versa — a marca de
+            // top do escopo anterior nao se aplica mais (synth-top e
+            // tb-top sao escopos distintos), entao limpa isTopLevel.
+            // Se a categoria continua igual, mantem isTopLevel intacto.
+            // (Regra antiga skipava isTopLevel inteiro, o que travava a
+            // categoria quando o conteudo mudava — Ctrl+S nao atualizava
+            // o estado.)
             if (file.category !== category) {
                 file.category = category;
                 file.isTopLevel = false;

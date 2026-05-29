@@ -1073,6 +1073,18 @@ export class TabManager {
                 // If we can't get stats, that's okay - the content comparison will handle it
             }
 
+            // Sinaliza pra UI que o conteudo deste arquivo mudou em disco
+            // por uma acao do usuario no editor. Subscribers (file_mode.js)
+            // reclassificam o arquivo (synth vs testbench) e re-persistem
+            // no .spf — sem isso, editar um .v adicionando $finish/$dumpvars
+            // (= virou testbench) so seria refletido apos refresh manual
+            // ou reabrir o projeto.
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('aurora:file-saved', {
+                    detail: { path: currentPath, source: 'editor' },
+                }));
+            }
+
         } catch (error) {
             console.error('Error saving file:', error);
             throw error;

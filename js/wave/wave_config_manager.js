@@ -97,7 +97,7 @@ class WaveConfigManager {
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
-            useVerilatorCb:    document.getElementById('waveConfigUseVerilator'),
+            simulatorRadios:   Array.from(document.querySelectorAll('input[name="waveConfigSimulator"]')),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
             filterInput:       document.getElementById('waveConfigFilterInput'),
@@ -134,9 +134,12 @@ class WaveConfigManager {
 
         // Simulator switch: persistido em localStorage (global). Sem
         // re-render — o toggle so afeta o proximo clique no Wave.
-        this.elements.useVerilatorCb?.addEventListener('change', (e) => {
-            setSimulator(e.target.checked ? 'verilator' : 'iverilog');
-        });
+        // Radio group: 'iverilog' (default) ou 'verilator'.
+        for (const radio of (this.elements.simulatorRadios || [])) {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) setSimulator(e.target.value);
+            });
+        }
 
         // Toolbar button — primary entry point for the modal. Also
         // wired up here (rather than in renderer.js / compilation_flow)
@@ -417,9 +420,10 @@ class WaveConfigManager {
             this.elements.processorOnlyCb.checked = false;
         }
         // Simulator preference: persiste entre sessoes (localStorage),
-        // entao o checkbox reflete o estado salvo, nao reseta a cada open.
-        if (this.elements.useVerilatorCb) {
-            this.elements.useVerilatorCb.checked = (getSimulator() === 'verilator');
+        // entao o radio reflete o estado salvo, nao reseta a cada open.
+        const currentSim = getSimulator();
+        for (const radio of (this.elements.simulatorRadios || [])) {
+            radio.checked = (radio.value === currentSim);
         }
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too — fresh slate every time the user

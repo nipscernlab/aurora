@@ -1523,12 +1523,14 @@ const waveNs = {
     }
     const applied = setWaveSimulator(simulator);
     emit('wave:simulator-changed', { simulator: applied });
-    // Keep the Wave Config modal's "Use Verilator" checkbox in sync if
+    // Keep the Wave Config modal's simulator radio group in sync if
     // it happens to be open — saves the user from a stale UI tick.
     try {
       const wc = window.waveConfigManager;
-      const cb = wc && wc.elements && wc.elements.useVerilatorCb;
-      if (cb) cb.checked = (applied === 'verilator');
+      const radios = wc && wc.elements && wc.elements.simulatorRadios;
+      if (Array.isArray(radios)) {
+        for (const r of radios) r.checked = (r.value === applied);
+      }
     } catch (_) { /* best-effort UI nudge */ }
     return ok({ simulator: applied });
   },

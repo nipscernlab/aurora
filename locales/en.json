@@ -46,6 +46,11 @@
         "empty": {
             "noProjectTitle":     "No project open",
             "noProjectCta":       "Click here to create a new project"
+        },
+        "missingFiles": {
+            "headlineOne":   "1 file listed in the project is missing on disk",
+            "headlineOther": "{{count}} files listed in the project are missing on disk",
+            "notification":  "{{count}} project file(s) are missing on disk. See the file tree for the list."
         }
     },
     "modal": {

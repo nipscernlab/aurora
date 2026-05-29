@@ -54,6 +54,15 @@ export const RenderMixin = {
         // a tree pra ele nao sobrar grudado acima dos arquivos.
         container.querySelector('.tree-empty-state')?.remove();
 
+        // Card de arquivos faltantes — o .spf lista paths que nao
+        // existem mais no disco (movidos / renomeados fora do Aurora /
+        // deletados). loadConfiguration ja loga no console + filtra
+        // pra nao quebrar a tree; este card surface o aviso pro usuario
+        // no proprio file tree (sem precisar abrir devtools). Pintado
+        // antes da reconciliacao das rows pra que sempre apareca no
+        // topo, acima dos separadores.
+        this._renderMissingFilesNotice?.(container);
+
         // Empty state — dropa data rows + separadores e mostra o
         // placeholder. Os separadores de processador PRECISAM sair aqui
         // tambem: este early-return pula a fase de reconciliacao la
@@ -65,6 +74,12 @@ export const RenderMixin = {
                 .querySelectorAll('.verilog-file-item, .verilog-processor-separator')
                 .forEach((el) => el.remove());
             container.classList.add('verilog-empty');
+            // Missing-files notice TAMBEM precisa rolar aqui: o caso
+            // patologico e um projeto cujos arquivos sumiram TODOS do
+            // disco (a tree fica vazia mas o usuario precisa ver o que
+            // sumiu). Sem isso, o early-return abaixo pula a chamada
+            // ja agendada no fluxo normal.
+            this._renderMissingFilesNotice?.(container);
             if (!container.querySelector('.verilog-empty-state')) {
                 const emptyState = document.createElement('div');
                 emptyState.className = 'verilog-empty-state';
@@ -181,6 +196,59 @@ export const RenderMixin = {
         // pode ter recriado a row do arquivo focado, entao a classe
         // sobrevive ao reconciler so se for re-aplicada depois.
         this.refreshEditorFocusHighlight?.();
+    },
+
+    /**
+     * Pinta (ou limpa) o card de "missing files" no topo do container
+     * verilog. Usa `this.missingFiles` populado por loadConfiguration:
+     *
+     *   - lista vazia / undefined → card removido (idempotente)
+     *   - lista nao-vazia         → card recriado com a lista de paths
+     *
+     * Posicao: primeiro filho do container (insertBefore com firstChild
+     * como reference), entao a reconciliacao das rows abaixo nao
+     * desloca o card. CSS controla o visual (warning subtil, sem
+     * dominar a tree).
+     */
+    _renderMissingFilesNotice(container) {
+        const missing = Array.isArray(this.missingFiles) ? this.missingFiles : [];
+        const existing = container.querySelector('.verilog-missing-notice');
+        if (missing.length === 0) {
+            existing?.remove();
+            return;
+        }
+        // Reuso de DOM: se ja existe, atualiza o conteudo em vez de
+        // recriar. Sem isso, render-em-loop faria o card piscar.
+        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        const headline = missing.length === 1
+            ? tr('fileTree.missingFiles.headlineOne')
+            : tr('fileTree.missingFiles.headlineOther', { count: missing.length });
+        const listItems = missing
+            .map((f) => `<li><code>${this._escapeHtml(f.name)}</code><span class="verilog-missing-path" title="${this._escapeHtml(f.path)}">${this._escapeHtml(f.path)}</span></li>`)
+            .join('');
+        const html = `
+            <div class="verilog-missing-head">
+                <i class="ph ph-warning-circle"></i>
+                <span>${headline}</span>
+            </div>
+            <ul class="verilog-missing-list">${listItems}</ul>
+        `;
+        if (existing) {
+            existing.innerHTML = html;
+            return;
+        }
+        const card = document.createElement('div');
+        card.className = 'verilog-missing-notice';
+        card.innerHTML = html;
+        container.insertBefore(card, container.firstChild);
+    },
+
+    /** Mesma escape policy usada por recent_projects.js — defensiva
+     * pra paths/nomes com caracteres especiais. */
+    _escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s == null ? '' : String(s);
+        return div.innerHTML;
     },
 
     /**

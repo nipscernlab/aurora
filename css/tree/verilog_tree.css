@@ -77,6 +77,71 @@
 }
 
 /* ---------------------------------------------------------------------------
+ *  Missing files notice
+ *
+ *  Cartao que aparece no TOPO do verilog tree quando o .spf referencia
+ *  paths que nao existem mais no disco. Renderizado por
+ *  project_tree_render.js#_renderMissingFilesNotice apos loadConfiguration
+ *  acumular a lista em this.missingFiles. Visualmente subtil pra nao
+ *  ofuscar a tree, mas suficiente pra o usuario notar (warning amarelo).
+ * ------------------------------------------------------------------------- */
+.verilog-missing-notice {
+  margin: var(--space-2) var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--status-warning, #c9a227);
+  border-left-width: 3px;
+  background: rgba(201, 162, 39, 0.08);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--text);
+}
+
+.verilog-missing-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-semibold);
+  color: var(--status-warning, #c9a227);
+}
+
+.verilog-missing-head i {
+  font-size: var(--icon-sm, 14px);
+}
+
+.verilog-missing-list {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.verilog-missing-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 2px 0;
+}
+
+.verilog-missing-list code {
+  font-family: var(--font-mono);
+  color: var(--text);
+  font-size: var(--text-xs);
+}
+
+.verilog-missing-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
  *  Processor group separator
  *
  *  Marca o inicio de cada grupo de arquivos pertencentes a um processador

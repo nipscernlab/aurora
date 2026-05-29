@@ -203,6 +203,36 @@ async function loadProject(spfPath) {
         // yet (e.g. PRISM window without that toolbar element).
         window.gtkwPickerManager?.refresh?.();
 
+        // Force-refresh internal state subscribers (status bar, processor
+        // config panel, etc) ate o final do load. ProjectStore.subscribe ja
+        // dispara em setProject, mas componentes que so escutam
+        // aurora:spf-changed (mudanca de structure, nao de spfPath) ficam
+        // stale ate alguma escrita acontecer. Sintetizar o evento aqui
+        // garante que variaveis derivadas do .spf (testbenchFile,
+        // topLevelFile, processors, etc) sejam reaplicadas a cada abertura
+        // — fix pro caso "abri o projeto e a status bar / picker / panel
+        // mostraram o estado do projeto anterior".
+        window.dispatchEvent(new CustomEvent('aurora:spf-changed', {
+            detail: { spfPath, source: 'project-loaded' },
+        }));
+
+        // Re-aplica o highlight do arquivo focado AGORA: closeAllTabs acima
+        // limpou todas as tabs, entao TabManager.getEditingFilePath retorna
+        // null e a row destacada do projeto anterior precisa limpar.
+        window.projectTreeManager?.refreshEditorFocusHighlight?.();
+
+        // Surface arquivos faltantes via notification — o card no topo da
+        // tree e o canal principal, mas notification confirma pro usuario
+        // que algo aconteceu sem precisar olhar pra arvore.
+        const missing = window.projectTreeManager?.missingFiles;
+        if (Array.isArray(missing) && missing.length > 0 && typeof window.showNotification === 'function') {
+            window.showNotification(
+                tr('fileTree.missingFiles.notification', { count: missing.length }),
+                'warning',
+                5000,
+            );
+        }
+
     } catch (error) {
         console.error('Error loading project:', error);
         try {

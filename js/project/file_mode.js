@@ -708,6 +708,13 @@ class ProjectTreeManager {
             }
 
             const nextFiles = [];
+            // Junta TODOS os paths que o .spf referencia mas o disco nao
+            // tem mais, pra que renderTree mostre o card "missing files"
+            // no topo e o usuario veja o que sumiu sem precisar abrir o
+            // devtools. Limpa a cada loadConfiguration pra refletir o
+            // estado atual (arquivo restaurado some da lista no proximo
+            // refresh, sem precisar recarregar o projeto).
+            this.missingFiles = [];
 
             const configData = await SpfStore.read(spfPath);
             console.log('Loading configuration from:', spfPath);
@@ -726,6 +733,11 @@ class ProjectTreeManager {
                             });
                         } else {
                             console.warn(`File no longer exists: ${fileData.path}`);
+                            this.missingFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                category: 'synthesizable',
+                            });
                         }
                     } catch (error) {
                         console.error(`Error validating file ${fileData.path}:`, error);
@@ -754,6 +766,11 @@ class ProjectTreeManager {
                             });
                         } else {
                             console.warn(`File no longer exists: ${fileData.path}`);
+                            this.missingFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                category: 'testbench',
+                            });
                         }
                     } catch (error) {
                         console.error(`Error validating file ${fileData.path}:`, error);

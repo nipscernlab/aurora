@@ -39,6 +39,94 @@ function updateProjectNameUI(projectData, spfPath) {
     spfNameElement.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
 }
 
+/**
+ * Cria (sobrescrevendo) um arquivo `.aurora-missing-files.log` na raiz do
+ * projeto com cabecalho explicativo + lista paginada dos arquivos que o
+ * .spf referencia mas nao existem no disco. Depois abre no Monaco como
+ * preview tab (TabManager.addTab) pra que o usuario veja imediatamente
+ * o que sumiu.
+ *
+ * No-op silencioso se `missing` for vazio/invalido — o caller ja gate-ia
+ * a chamada, mas e idempotente por seguranca. Se a escrita ou a abertura
+ * falham, propaga pra que o caller registre no console; nao quebra o
+ * resto do loadProject.
+ */
+async function openMissingFilesLogInEditor(missing, spfPath, basePath) {
+    if (!Array.isArray(missing) || missing.length === 0) return;
+    if (!basePath) return;
+
+    const ts = new Date().toLocaleString();
+    const projectName = (spfPath || '').split(/[\\/]/).pop() || '(unknown)';
+
+    const lines = [
+        '# Aurora — relatorio de arquivos faltantes',
+        '',
+        `Gerado em: ${ts}`,
+        `Projeto:   ${projectName}`,
+        `Base path: ${basePath}`,
+        '',
+        '--------------------------------------------------------------------------------',
+        'Estes paths estao listados no .spf do projeto, mas NAO existem no disco',
+        '(foram movidos, renomeados fora do Aurora, ou deletados manualmente).',
+        '',
+        'O que fazer:',
+        '  1. Restaure / recoloque o arquivo no caminho original abaixo, OU',
+        '  2. Remova-o do projeto clicando direito na file tree -> Remove from tree.',
+        '',
+        'Este arquivo e regenerado a cada abertura do projeto — se nao houver',
+        'arquivos faltantes na proxima vez, ele nao sera criado nem aberto.',
+        '--------------------------------------------------------------------------------',
+        '',
+    ];
+
+    const grouped = new Map();
+    for (const f of missing) {
+        const cat = f.category || 'unknown';
+        if (!grouped.has(cat)) grouped.set(cat, []);
+        grouped.get(cat).push(f);
+    }
+    for (const [cat, list] of grouped.entries()) {
+        lines.push(`[${cat}] (${list.length})`);
+        for (const f of list) {
+            lines.push(`  - ${f.name}`);
+            lines.push(`      ${f.path}`);
+        }
+        lines.push('');
+    }
+
+    const logFileName = '.aurora-missing-files.log';
+    const logPath = await window.electronAPI.joinPath(basePath, logFileName);
+    const content = lines.join('\n');
+    await window.electronAPI.writeFile(logPath, content);
+
+    // Open as a preview tab (italic). Without preview:false the file
+    // gets pinned; we want it dismissable with one click on another file.
+    TabManager.addTab(logPath, content, { preview: true });
+}
+
+/**
+ * Remove o .aurora-missing-files.log da raiz do projeto se existir.
+ * Chamado em loadProject quando nao ha mais arquivos faltantes pra
+ * que o log de uma corrida anterior nao fique stale no projeto.
+ * Silencioso em ausencia (fileExists check) e em erros de IO
+ * (caller registra).
+ */
+async function removeMissingFilesLog(basePath) {
+    if (!basePath) return;
+    const logFileName = '.aurora-missing-files.log';
+    const logPath = await window.electronAPI.joinPath(basePath, logFileName);
+    const exists = await window.electronAPI.fileExists?.(logPath);
+    if (!exists) return;
+    // Fecha a tab no Monaco se o usuario tinha o log aberto, antes
+    // de apagar do disco — assim o save no exit nao recria o arquivo.
+    if (window.TabManager?.tabs?.has?.(logPath)) {
+        try { await window.TabManager.closeTab?.(logPath); } catch (_) { /* best effort */ }
+    }
+    if (typeof window.electronAPI.deleteFile === 'function') {
+        await window.electronAPI.deleteFile(logPath);
+    }
+}
+
 function showProjectInfoDialog(projectData) {
     const modalBackdrop = document.createElement('div');
     modalBackdrop.className = 'aurora-modal-backdrop';
@@ -221,16 +309,33 @@ async function loadProject(spfPath) {
         // null e a row destacada do projeto anterior precisa limpar.
         window.projectTreeManager?.refreshEditorFocusHighlight?.();
 
-        // Surface arquivos faltantes via notification — o card no topo da
-        // tree e o canal principal, mas notification confirma pro usuario
-        // que algo aconteceu sem precisar olhar pra arvore.
+        // Surface arquivos faltantes via notification + log file no Monaco.
+        // O card no topo da tree e o canal principal, a notification
+        // confirma pro usuario que algo aconteceu, e o log file aberto no
+        // Monaco da pro usuario a lista completa pronta pra copiar/buscar.
         const missing = window.projectTreeManager?.missingFiles;
-        if (Array.isArray(missing) && missing.length > 0 && typeof window.showNotification === 'function') {
-            window.showNotification(
-                tr('fileTree.missingFiles.notification', { count: missing.length }),
-                'warning',
-                5000,
-            );
+        if (Array.isArray(missing) && missing.length > 0) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(
+                    tr('fileTree.missingFiles.notification', { count: missing.length }),
+                    'warning',
+                    5000,
+                );
+            }
+            try {
+                await openMissingFilesLogInEditor(missing, spfPath, basePath);
+            } catch (logErr) {
+                console.warn('Failed to open missing-files log:', logErr);
+            }
+        } else {
+            // Cleanup: remove o .aurora-missing-files.log de runs
+            // anteriores se nao tem mais nada faltando. Sem isso, o
+            // usuario corrige tudo e o log fica grudado no projeto.
+            try {
+                await removeMissingFilesLog(basePath);
+            } catch (cleanupErr) {
+                console.warn('Failed to remove stale missing-files log:', cleanupErr);
+            }
         }
 
     } catch (error) {

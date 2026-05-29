@@ -1,48 +1,55 @@
 /*
  * =====================================================================================
- *  ai_assistant.css — AURORA AI Assistant side panel v2
+ *  ai_assistant.css — AURORA AI Assistant side panel v3
  *
  *  Design intent:
- *    • No backdrop, no blur — user keeps coding while panel is open.
- *    • Sliding panel anchored to the right, resizable from the left edge.
+ *    • Lives as a flex sibling inside .main-container (rightmost child).
+ *      Animated `width` transitions push/pull the editor area instead of
+ *      overlaying it — same gesture as the file tree on the left.
+ *    • No backdrop, no blur. User keeps coding while panel is open.
  *    • Header is compact, blends with the toolbar palette.
+ *
+ *  v2 history: panel was `position: fixed` with `transform: translateX`
+ *  slide-in (overlay style). User feedback: should occupy real layout
+ *  space and shrink the editor area. v3 swaps the anchoring out for
+ *  flex-item behaviour with a width transition.
  * =====================================================================================
  */
 
 /* ---------------------------------------------------------------------------
- *  Container
+ *  Container — flex item on the right of .main-container
  * ------------------------------------------------------------------------- */
 .ai-assistant-container {
-  position: fixed;
-  top: var(--h-toolbar);
-  right: 0;
-  transform: translateX(100%);
-  width: 480px;
-  height: calc(100vh - var(--h-toolbar) - var(--h-statusbar));
+  /* Width is the SOLE driver of the open/close animation. JS sets the
+     inline width to 0 (closed) or the saved/default value (open) and
+     the transition below smooths it. */
+  width: 0;
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 80vw;
   background-color: var(--bg-elev);
   border-left: 1px solid var(--border);
   overflow: hidden;
-  z-index: var(--z-40);
-  transition: transform 240ms var(--ease-out-quart);
   display: flex;
   flex-direction: column;
-  min-width: 320px;
-  max-width: 80vw;
-  will-change: transform;
+  position: relative;
+  transition: width 240ms var(--ease-out-quart);
   /* Prevent accidental text selection (purple highlight) on click */
   user-select: none;
-  /* The panel overlaps the custom titlebar (.toolbar) which marks itself
-     as `-webkit-app-region: drag`. Electron hit-tests drag regions by
-     screen position regardless of stacking order, so without this the
-     entire AI panel header (history / new-chat / close buttons) gets
-     swallowed by the window-drag layer and clicks never fire. Marking
-     the whole panel as no-drag restores click behaviour for every
-     descendant. */
+  /* Mark as no-drag so child controls don't get swallowed by Electron's
+     window-drag region hit-test (titlebar above this is drag). */
   -webkit-app-region: no-drag;
 }
 
-.ai-assistant-container.open {
-  transform: translateX(0);
+/* `.open` is informational here — actual width is set inline by JS.
+   Kept so other CSS / scripts can query state without touching JS. */
+.ai-assistant-container.open {}
+
+/* Suspend the width transition while the user drags the resize handle.
+   Without this, every frame of the drag would animate over 240ms and
+   visibly stutter behind the cursor. */
+body.resizing-vertical .ai-assistant-container {
+  transition: none;
 }
 
 /* While open: nudge nothing — the user keeps editing freely */

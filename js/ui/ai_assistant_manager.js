@@ -1070,10 +1070,35 @@ class AIAssistantManager {
     this.container.classList.toggle('open', opening);
     document.body.classList.toggle('ai-assistant-open', opening);
     try { localStorage.setItem('aurora-ai-panel-open', opening ? '1' : '0'); } catch (_) { /* ignore */ }
+    // v3 layout: panel is a flex sibling that pushes the editor area.
+    // The CSS `width` transition (240ms) drives the open/close anim;
+    // we just set the target width here. Read the persisted user
+    // width (default 480px) so re-opening lands on the same size.
+    this._applyOpenWidth(opening);
     if (opening) {
       this.refreshProviders().then(() => this.inputEl?.focus());
       this.refreshChatList();
     }
+  }
+
+  /**
+   * Set the inline `width` driving the open/close animation. CSS leaves
+   * the closed state at 0; opening sets it to the user's saved width
+   * (or 480 default). Single helper so toggle() and the boot-time
+   * "panel was open" restore both stay in sync.
+   */
+  _applyOpenWidth(opening) {
+    if (!this.container) return;
+    if (!opening) {
+      this.container.style.width = '0px';
+      return;
+    }
+    let target = 480;
+    try {
+      const saved = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
+      if (saved >= 320) target = saved;
+    } catch (_) { /* ignore */ }
+    this.container.style.width = target + 'px';
   }
 
   initialize() {
@@ -1204,7 +1229,13 @@ class AIAssistantManager {
 
         <div class="ai-resize-handle" aria-label="Resize AI panel"></div>
       </div>`;
-    document.body.appendChild(this.container);
+    // v3: AI panel is a flex sibling of .file-tree-container and
+    // .editor-terminal-container inside .main-container, so opening it
+    // pushes (not overlays) the editor area. Fallback to body for the
+    // edge case where main-container hasn't rendered yet (unlikely —
+    // initialize() runs on first toggle, well after DOMContentLoaded).
+    const mountTarget = document.querySelector('.main-container') || document.body;
+    mountTarget.appendChild(this.container);
 
     this.providerIcon  = this.container.querySelector('#ai-provider-icon');
     this.messagesEl    = this.container.querySelector('#ai-messages');
@@ -1244,11 +1275,9 @@ class AIAssistantManager {
     this.attachListeners();
     this.setupResize(this.container.querySelector('.ai-resize-handle'), this.container);
 
-    // Restore persisted panel width.
-    try {
-      const w = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
-      if (w >= 320) this.container.style.width = w + 'px';
-    } catch (_) { /* ignore */ }
+    // v3 layout: width = 0 means closed, width > 0 means open. CSS
+    // initial value is 0; nothing to set here for the closed case.
+    // (Persisted width is applied by _applyOpenWidth when opening.)
 
     // Restore open state — if the panel was open when the user last closed
     // the app, re-open it now so they land right back where they left off.
@@ -1256,6 +1285,7 @@ class AIAssistantManager {
       if (localStorage.getItem('aurora-ai-panel-open') === '1') {
         this.container.classList.add('open');
         document.body.classList.add('ai-assistant-open');
+        this._applyOpenWidth(true);
         this.refreshProviders().then(() => this.inputEl?.focus());
         this.refreshChatList();
       }

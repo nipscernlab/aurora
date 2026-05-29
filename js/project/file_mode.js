@@ -191,6 +191,16 @@ class ProjectTreeManager {
             if (tracked) this.refreshTree();
         });
 
+        // Highlight da row do arquivo em foco no Monaco. TabManager e
+        // SplitEditorManager despacham este evento toda vez que o file
+        // ativo muda (tab clicked, split pane focused, tab closed, etc).
+        // refreshEditorFocusHighlight le TabManager.getEditingFilePath
+        // que ja resolve "qual file e considerado em foco" entre main e
+        // split — single source of truth.
+        document.addEventListener('aurora:editing-file-changed', () => {
+            this.refreshEditorFocusHighlight?.();
+        });
+
         if (this.elements.fileTree) {
             this.elements.fileTree.addEventListener('contextmenu', this.handleTreeContextMenu);
 

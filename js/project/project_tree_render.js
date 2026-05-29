@@ -176,6 +176,29 @@ export const RenderMixin = {
         // processadores que sumiram).
         for (const row of existingFileRows.values()) row.remove();
         for (const sep of existingSeparators.values()) sep.remove();
+
+        // Repaint do highlight do arquivo em foco no Monaco. Render
+        // pode ter recriado a row do arquivo focado, entao a classe
+        // sobrevive ao reconciler so se for re-aplicada depois.
+        this.refreshEditorFocusHighlight?.();
+    },
+
+    /**
+     * Marca a row do arquivo atualmente em foco no Monaco (considerando
+     * split focado via TabManager.getEditingFilePath). Idempotente —
+     * limpa highlight anterior e aplica no novo, no-op se path nao tem
+     * row na tree (arquivo fora do projeto).
+     */
+    refreshEditorFocusHighlight() {
+        const container = window.treeView?.getContainer('verilog');
+        if (!container) return;
+        const focusedPath = window.TabManager?.getEditingFilePath?.() || '';
+        const norm = (p) => (p || '').replace(/\\/g, '/').toLowerCase();
+        const target = norm(focusedPath);
+        for (const row of container.querySelectorAll('.verilog-file-item')) {
+            const rowPath = norm(row.dataset.filePath || '');
+            row.classList.toggle('editor-focused', !!target && rowPath === target);
+        }
     },
 
     /**

@@ -160,6 +160,25 @@
   background-color: var(--accent-strong);
 }
 
+/* Arquivo atualmente em foco no Monaco (tab ativa do main pane OU split
+   focado). Visual style mimics VS Code's "active editor" tree highlight:
+   bold-ish background contrast no border esquerda nao toca os 2px de cor
+   da categoria (synth/testbench/top-level) que ja existem ali. Pintada
+   por project_tree_render.js#refreshEditorFocusHighlight a cada
+   aurora:editing-file-changed e no fim do render. */
+.verilog-file-item.editor-focused {
+  background-color: var(--overlay-active, var(--overlay-hover));
+  font-weight: 600;
+}
+
+.verilog-file-item.editor-focused:hover {
+  background-color: var(--overlay-active, var(--overlay-hover));
+}
+
+.verilog-file-item.top-level-file.editor-focused {
+  background-color: var(--accent-strong);
+}
+
 .verilog-file-item.verilog-file-animate-out {
   opacity: 0;
   transform: translateX(-12px);

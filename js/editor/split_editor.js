@@ -288,6 +288,22 @@ class SplitPane {
             this._closeFile(filePath);
         });
 
+        // Middle-click (mouse wheel button) closes split tabs too, parity
+        // with the main pane (tab_manager.js#auxclick). Without this, the
+        // user gets used to scroll-button-to-close in the main pane and
+        // hits dead air when trying the same gesture on a split.
+        tab.addEventListener('auxclick', (e) => {
+            if (e.button !== 1) return;
+            e.preventDefault();
+            e.stopPropagation();
+            this._closeFile(filePath);
+        });
+        // Suppress the default middle-button autoscroll cursor that
+        // would otherwise flash on mousedown before auxclick fires.
+        tab.addEventListener('mousedown', (e) => {
+            if (e.button === 1) e.preventDefault();
+        });
+
         // Make split tabs draggable too, so a file can be moved to the main
         // pane or another split. Flags the drag on SplitEditorManager so drop
         // targets know it's one of ours and where it came from.
